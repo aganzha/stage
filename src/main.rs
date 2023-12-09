@@ -50,15 +50,6 @@ fn build_ui(app: &adw::Application) {
     stage.append(&hb);
 
 
-    let lbl = Label::builder()
-        .label("ou")
-        .selectable(true)
-        .single_line_mode(true)
-        .width_chars(5)
-        .build();
-    stage.append(&lbl);
-
-    
     let txt = TextView::builder()
         .build();
 
@@ -83,6 +74,53 @@ fn build_ui(app: &adw::Application) {
     });
     txt.add_controller(event_controller);
     txt.add_controller(gesture);
+
+    let tag = TextTag::new(Some("highlight"));
+    let tc = tag.clone();
+    tag.set_background(Some("#f6fecd"));
+
+    txt.connect_move_cursor(move |view, step, count, _selection| {
+        let buffer = view.buffer();
+        let pos = buffer.cursor_position();
+        let mut iter = buffer.iter_at_offset(pos);
+        let mut clear_highlight = false;
+        match step {
+            gtk::MovementStep::LogicalPositions |
+            gtk::MovementStep::VisualPositions => {
+                iter.forward_chars(count);
+                clear_highlight = !iter.has_tag(&tc);
+            },
+            gtk::MovementStep::Words => {
+                iter.forward_word_end();
+                clear_highlight = !iter.has_tag(&tc);
+            },
+            gtk::MovementStep::DisplayLines |
+            gtk::MovementStep::DisplayLineEnds |
+            gtk::MovementStep::Paragraphs |
+            gtk::MovementStep::ParagraphEnds => {
+                iter.forward_lines(count);
+                clear_highlight = !iter.has_tag(&tc);
+            },
+            gtk::MovementStep::Pages |
+            gtk::MovementStep::BufferEnds |
+            gtk::MovementStep::HorizontalPages => {
+                clear_highlight = true;
+            },
+            _ => todo!()
+        }
+        let start_mark = buffer.mark("start_highlight").unwrap();
+        let end_mark = buffer.mark("end_highlight").unwrap();
+        println!("Soooooooooooooooooooo ? {:?}", clear_highlight);
+        if clear_highlight {
+            buffer.remove_tag(
+                &tc,
+                &buffer.iter_at_mark(&start_mark),
+                &buffer.iter_at_mark(&end_mark)
+            );
+            //let end_iter = buffer.iter_at_offset(iter)
+            println!("REEEEMOOOOVE TAG");
+        }
+    });
     let lorem: &str = "Untracked files (1)
 src/style.css
 
@@ -93,34 +131,26 @@ c622f7f init";
 
     let buffer = txt.buffer();
     buffer.set_text(&lorem);
-    let tag = TextTag::new(Some("highlight"));
-    tag.set_background(Some("#f6fecd"));
 
     buffer.tag_table().add(&tag);
     txt.set_monospace(true);
     txt.set_editable(false);
 
     buffer.place_cursor(&buffer.iter_at_offset(0));
-    let pos = buffer.cursor_position();
-    println!("position {:?}", pos);
+
 
     let start_iter = buffer.iter_at_offset(0);
-    // start_iter.backward_line();
+    buffer.create_mark(Some("start_highlight"), &start_iter, false);
+        
     let mut end_iter = buffer.iter_at_offset(0);
     end_iter.forward_to_line_end();
+    buffer.create_mark(Some("end_highlight"), &end_iter, false);    
+    
     buffer.apply_tag(&tag, &start_iter, &end_iter);
-    //txt.move_cursor(0);
+    println!("ADDED TAG {:?} : {:?} end offset", start_iter.offset(), end_iter.offset());
     stage.append(&txt);
 
-    let lbl = Label::builder()
-        .label("bou")
-        .selectable(true)
-        .single_line_mode(true)
-        .width_chars(5)
-        .build();
-    stage.append(&lbl);
-
-    window.set_content(Some(&stage));  
+    window.set_content(Some(&stage));
 
     window.present();
 }
