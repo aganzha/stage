@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use adw::prelude::*;
 use adw::{Application, HeaderBar, ApplicationWindow};
-use gtk::{glib, Box, Label, Orientation};
+use gtk::{glib, Box, Label, Orientation, TextView};
 
 const APP_ID: &str = "io.github.aganzha.Stage";
 
@@ -28,8 +28,31 @@ fn build_ui(app: &adw::Application) {
         .single_line_mode(true)
         .width_chars(5)
         .build();
-    stage.append(&hb);
     hb.set_title_widget(Some(&lbl));
+    stage.append(&hb);
+
+
+    let lbl = Label::builder()
+        .label("ou")
+        .selectable(true)
+        .single_line_mode(true)
+        .width_chars(5)
+        .build();
+    stage.append(&lbl);
+
+    let txt = TextView::builder()
+        .build();
+    let s = String::from("Hello. How is it going? \n");
+    txt.buffer().set_text(&s);
+    stage.append(&txt);
+
+    let lbl = Label::builder()
+        .label("bou")
+        .selectable(true)
+        .single_line_mode(true)
+        .width_chars(5)
+        .build();
+    stage.append(&lbl);
 
     window.set_content(Some(&stage));  
 
