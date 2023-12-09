@@ -1,26 +1,37 @@
 use gtk::prelude::*;
-use gtk::{glib, Application, ApplicationWindow};
+use adw::prelude::*;
+use adw::{Application, HeaderBar, ApplicationWindow};
+use gtk::{glib, Box, Label, Orientation};
 
 const APP_ID: &str = "io.github.aganzha.Stage";
 
 fn main() -> glib::ExitCode {
-    // Create a new application
+
     let app = Application::builder().application_id(APP_ID).build();
 
-    // Connect to "activate" signal of `app`
     app.connect_activate(build_ui);
 
-    // Run the application
     app.run()
 }
 
-fn build_ui(app: &Application) {
-    // Create a window and set the title
-    let window = ApplicationWindow::builder()
-        .application(app)
-        .title("Stage")
-        .build();
+fn build_ui(app: &adw::Application) {
 
-    // Present window
+    let window = ApplicationWindow::new(app);
+    window.set_default_size(640, 480);
+
+    let stage = Box::builder()
+        .build();
+    stage.set_orientation(Orientation::Vertical);
+    let hb = HeaderBar::new();
+    let lbl = Label::builder()
+        .label("stage")
+        .single_line_mode(true)
+        .width_chars(5)
+        .build();
+    stage.append(&hb);
+    hb.set_title_widget(Some(&lbl));
+
+    window.set_content(Some(&stage));  
+
     window.present();
 }
