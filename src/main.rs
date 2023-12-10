@@ -3,7 +3,7 @@ use text_view::{text_view_factory, render};
 mod git;
 use git::{get_current_repo_status, stage_changes};
 
-use std::env;
+use std::{env, Path};
 
 use gtk::prelude::*;
 use adw::prelude::*;
@@ -40,7 +40,7 @@ fn load_css() {
 }
 
 pub enum Event {
-    CurrentRepo(Repository),
+    CurrentRepo(Path),
     Stage
         
 }
@@ -71,7 +71,7 @@ fn build_ui(app: &adw::Application) {
 
     window.present();
 
-    let mut repo: Option<Repository> = None;
+    let mut repo: Option<String> = None;
     let (sender, receiver) = MainContext::channel(Priority::default());
 
     gio::spawn_blocking({
@@ -85,15 +85,13 @@ fn build_ui(app: &adw::Application) {
         None,
         move |event: Event| {
             match event {
-                Event::CurrentRepo(r) => {
+                Event::CurrentRepo(path) => {
                     if repo.is_none() {
                         // need cleanup everything
                     }
-                    repo.replace(r);
+                    repo.replace(path);
                 },
-                Event::Stage => {
-                    let r = repo.unwrap();
-                    stage_changes(r, sender.clone());
+                Event::Stage => {                    
                 }
             };
             glib::ControlFlow::Continue

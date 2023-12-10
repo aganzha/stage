@@ -22,8 +22,8 @@ fn get_current_repo() -> Result<Repository, String> {
 
 pub fn get_current_repo_status(sender: Sender<crate::Event>) {
     if let Ok(repo) = get_current_repo() {
-        sender.send(crate::Event::CurrentRepo(repo)).expect("Could not send through channel");
-        // repo.statuses(None);
+        sender.send(crate::Event::CurrentRepo(repo.path())).expect("Could not send through channel");
+        let statuses = repo.statuses(None);
     }
 }
 
