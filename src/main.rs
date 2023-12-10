@@ -1,9 +1,9 @@
 mod text_view;
-use text_view::{text_view_factory};
+use text_view::{text_view_factory, render};
 use gtk::prelude::*;
 use adw::prelude::*;
 use adw::{Application, HeaderBar, ApplicationWindow};
-use gtk::{glib, gdk, Box, Label, Orientation, TextView, TextBuffer, CssProvider, TextTag};// TextIter
+use gtk::{glib, gdk, Box, Label, Orientation, CssProvider};// TextIter
 use gdk::Display;
 
 
@@ -58,4 +58,16 @@ fn build_ui(app: &adw::Application) {
     window.set_content(Some(&stage));
 
     window.present();
+
+    let lorem: &str = "
+Untracked files (1)
+src/style.css
+
+Recent commits
+a2959bf master origin/master begin textview
+7601dc7 added adwaita
+c622f7f init";
+
+    render(txt, lorem)
+
 }

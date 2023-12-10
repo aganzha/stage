@@ -1,3 +1,9 @@
 - put label with current repo name (relative to path the app is started)
 - adwaita ToolbarView
+- mark evey line with tag to now whats inside tag
+- mark sections with tags
+  perhaps create text builder which will return all required sections with lines allradey filled with tags...
+- popup widnwow from current line (commit)
+- tab to view modified file
+- when 1 click on line, the cursor must became pointer. second click opens either commit or do action (stage) or opens file in EDITOR
 

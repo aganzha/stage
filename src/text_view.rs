@@ -76,18 +76,6 @@ pub fn text_view_factory() ->  TextView {
         }
     });
     
-    let lorem: &str = "
-Untracked files (1)
-src/style.css
-
-Recent commits
-a2959bf master origin/master begin textview
-7601dc7 added adwaita
-c622f7f init";
-
-    
-    buffer.set_text(&lorem);
-
     buffer.tag_table().add(&tag);
     txt.set_monospace(true);
     txt.set_editable(false);
@@ -142,4 +130,9 @@ pub fn highlight_if_need(view: &TextView,
     buffer.move_mark(&end_mark, &end_iter);
     buffer.apply_tag_by_name(HIGHLIGHT, &start_iter, &end_iter);
 
+}
+
+
+pub fn render(view: TextView, text: &str) {
+    view.buffer().set_text(text);
 }
