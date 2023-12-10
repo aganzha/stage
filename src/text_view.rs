@@ -8,74 +8,115 @@ const HIGHLIGHT_END: &str = "HightlightEnd";
 pub fn text_view_factory() ->  TextView {
     let txt = TextView::builder()
         .build();
+    let buffer = txt.buffer();
+    let tag = TextTag::new(Some(HIGHLIGHT));
     
     let event_controller = gtk::EventControllerKey::new();
-    event_controller.connect_key_pressed(|_, key, _, _| {
-        println!("==========================> {:?}", key);
-        match key {
-            gdk::Key::Tab => {
-                println!("taaaaaaaaaaaaaaaaaaaaaaaaaaaaaab!")
-            },
-            gdk::Key::s => {
-                println!("ssssssssssssssssssssssssssssssssssss!")
-            },
-            _ => (),
+    event_controller.connect_key_pressed({
+        let txt = txt.clone();
+        |_, key, _, _| {
+            println!("==========================> {:?}", key);
+            match key {
+                gdk::Key::Tab => {
+                    println!("taaaaaaaaaaaaaaaaaaaaaaaaaaaaaab!")
+                },
+                gdk::Key::s => {
+                    println!("ssssssssssssssssssssssssssssssssssss!")
+                },
+                _ => (),
+            }
+            glib::Propagation::Proceed
         }
-        glib::Propagation::Proceed
-    });
-    let gesture = gtk::GestureClick::new();
-    gesture.connect_released(|gesture, _, _, _| {
-        gesture.set_state(gtk::EventSequenceState::Claimed);
-        println!("Box pressed!");
     });
     txt.add_controller(event_controller);
-    txt.add_controller(gesture);
+    
+    let gesture = gtk::GestureClick::new();
+    gesture.connect_released({
+        let txt = txt.clone();
+        let tag = tag.clone();
+        move |gesture, _some, wx, wy| {
+            gesture.set_state(gtk::EventSequenceState::Claimed);
+            // let txt = gesture.widget();
+            // let buffer = txt.buffer(); // NO. its just a widget
+            let (x, y) = txt.window_to_buffer_coords(gtk::TextWindowType::Text, wx as i32, wy as i32);
+            let buffer = txt.buffer();
+            let maybe_iter = txt.iter_at_location(x, y);
+            if maybe_iter.is_none() {
+                return;
+            }
+            let mut start_iter = maybe_iter.unwrap();
+            
+            let start_mark = buffer.mark(HIGHLIGHT_START).unwrap();
+            if start_iter.line() !=  buffer.iter_at_mark(&start_mark).line() {            
+                let end_mark = buffer.mark(HIGHLIGHT_END).unwrap();
+                buffer.remove_tag(
+                    &tag,
+                    &buffer.iter_at_mark(&start_mark),
+                    &buffer.iter_at_mark(&end_mark)
+                );            
+                start_iter.set_line_offset(0);
+                let mut end_iter = buffer.iter_at_offset(start_iter.offset());
+                end_iter.forward_to_line_end();
 
-    let tag = TextTag::new(Some(HIGHLIGHT));
-    let tc = tag.clone();
-    tag.set_background(Some("#f6fecd"));
-
-    txt.connect_move_cursor(move |view, step, count, _selection| {
-        let buffer = view.buffer();
-        let pos = buffer.cursor_position();
-        let mut start_iter = buffer.iter_at_offset(pos);
-        match step {
-            gtk::MovementStep::LogicalPositions |
-            gtk::MovementStep::VisualPositions => {
-                start_iter.forward_chars(count);
-            },
-            gtk::MovementStep::Words => {
-                start_iter.forward_word_end();
-            },
-            gtk::MovementStep::DisplayLines |
-            gtk::MovementStep::DisplayLineEnds |
-            gtk::MovementStep::Paragraphs |
-            gtk::MovementStep::ParagraphEnds => {
-                start_iter.forward_lines(count);
-            },
-            gtk::MovementStep::Pages |
-            gtk::MovementStep::BufferEnds |
-            gtk::MovementStep::HorizontalPages => {
-            },
-            _ => todo!()
-        }
-        let start_mark = buffer.mark(HIGHLIGHT_START).unwrap();
-        let end_mark = buffer.mark(HIGHLIGHT_END).unwrap();
-        if start_iter.line() !=  buffer.iter_at_offset(pos).line() {
-            buffer.remove_tag(
-                &tc,
-                &buffer.iter_at_mark(&start_mark),
-                &buffer.iter_at_mark(&end_mark)
-            );            
-            start_iter.set_line_offset(0);
-            let mut end_iter = buffer.iter_at_offset(start_iter.offset());
-            end_iter.forward_to_line_end();
-
-            buffer.move_mark(&start_mark, &start_iter);
-            buffer.move_mark(&end_mark, &end_iter);
-            buffer.apply_tag(&tc, &start_iter, &end_iter);
+                buffer.move_mark(&start_mark, &start_iter);
+                buffer.move_mark(&end_mark, &end_iter);
+                buffer.apply_tag(&tag, &start_iter, &end_iter);
+            }
+            println!("Box pressed! {:?} {:?} {:?} {:?}", wx, wy, x, y);
         }
     });
+    
+    txt.add_controller(gesture);
+
+
+
+    tag.set_background(Some("#f6fecd"));
+
+    txt.connect_move_cursor({
+        let tag = tag.clone();
+        move |view, step, count, _selection| {
+            let buffer = view.buffer();
+            let pos = buffer.cursor_position();
+            let mut start_iter = buffer.iter_at_offset(pos);
+            match step {
+                gtk::MovementStep::LogicalPositions |
+                gtk::MovementStep::VisualPositions => {
+                    start_iter.forward_chars(count);
+                },
+                gtk::MovementStep::Words => {
+                    start_iter.forward_word_end();
+                },
+                gtk::MovementStep::DisplayLines |
+                gtk::MovementStep::DisplayLineEnds |
+                gtk::MovementStep::Paragraphs |
+                gtk::MovementStep::ParagraphEnds => {
+                    start_iter.forward_lines(count);
+                },
+                gtk::MovementStep::Pages |
+                gtk::MovementStep::BufferEnds |
+                gtk::MovementStep::HorizontalPages => {
+                },
+                _ => todo!()
+            }
+            if start_iter.line() !=  buffer.iter_at_offset(pos).line() {
+                let start_mark = buffer.mark(HIGHLIGHT_START).unwrap();
+                let end_mark = buffer.mark(HIGHLIGHT_END).unwrap();
+                buffer.remove_tag(
+                    &tag,
+                    &buffer.iter_at_mark(&start_mark),
+                    &buffer.iter_at_mark(&end_mark)
+                );            
+                start_iter.set_line_offset(0);
+                let mut end_iter = buffer.iter_at_offset(start_iter.offset());
+                end_iter.forward_to_line_end();
+
+                buffer.move_mark(&start_mark, &start_iter);
+                buffer.move_mark(&end_mark, &end_iter);
+                buffer.apply_tag(&tag, &start_iter, &end_iter);
+            }
+        }
+    });
+    
     let lorem: &str = "Untracked files (1)
 src/style.css
 
@@ -84,7 +125,7 @@ a2959bf master origin/master begin textview
 7601dc7 added adwaita
 c622f7f init";
 
-    let buffer = txt.buffer();
+    
     buffer.set_text(&lorem);
 
     buffer.tag_table().add(&tag);
