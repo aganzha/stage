@@ -13,9 +13,7 @@ pub fn text_view_factory() ->  TextView {
     
     let event_controller = gtk::EventControllerKey::new();
     event_controller.connect_key_pressed({
-        let txt = txt.clone();
         |_, key, _, _| {
-            println!("==========================> {:?}", key);
             match key {
                 gdk::Key::Tab => {
                     println!("taaaaaaaaaaaaaaaaaaaaaaaaaaaaaab!")
@@ -33,35 +31,15 @@ pub fn text_view_factory() ->  TextView {
     let gesture = gtk::GestureClick::new();
     gesture.connect_released({
         let txt = txt.clone();
-        let tag = tag.clone();
         move |gesture, _some, wx, wy| {
             gesture.set_state(gtk::EventSequenceState::Claimed);
-            // let txt = gesture.widget();
-            // let buffer = txt.buffer(); // NO. its just a widget
             let (x, y) = txt.window_to_buffer_coords(gtk::TextWindowType::Text, wx as i32, wy as i32);
             let buffer = txt.buffer();
             let maybe_iter = txt.iter_at_location(x, y);
             if maybe_iter.is_none() {
                 return;
             }
-            let mut start_iter = maybe_iter.unwrap();
-            
-            let start_mark = buffer.mark(HIGHLIGHT_START).unwrap();
-            if start_iter.line() !=  buffer.iter_at_mark(&start_mark).line() {            
-                let end_mark = buffer.mark(HIGHLIGHT_END).unwrap();
-                buffer.remove_tag(
-                    &tag,
-                    &buffer.iter_at_mark(&start_mark),
-                    &buffer.iter_at_mark(&end_mark)
-                );            
-                start_iter.set_line_offset(0);
-                let mut end_iter = buffer.iter_at_offset(start_iter.offset());
-                end_iter.forward_to_line_end();
-
-                buffer.move_mark(&start_mark, &start_iter);
-                buffer.move_mark(&end_mark, &end_iter);
-                buffer.apply_tag(&tag, &start_iter, &end_iter);
-            }
+            highlight_if_need(buffer, maybe_iter.unwrap());
             println!("Box pressed! {:?} {:?} {:?} {:?}", wx, wy, x, y);
         }
     });
@@ -73,7 +51,6 @@ pub fn text_view_factory() ->  TextView {
     tag.set_background(Some("#f6fecd"));
 
     txt.connect_move_cursor({
-        let tag = tag.clone();
         move |view, step, count, _selection| {
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
@@ -98,22 +75,7 @@ pub fn text_view_factory() ->  TextView {
                 },
                 _ => todo!()
             }
-            if start_iter.line() !=  buffer.iter_at_offset(pos).line() {
-                let start_mark = buffer.mark(HIGHLIGHT_START).unwrap();
-                let end_mark = buffer.mark(HIGHLIGHT_END).unwrap();
-                buffer.remove_tag(
-                    &tag,
-                    &buffer.iter_at_mark(&start_mark),
-                    &buffer.iter_at_mark(&end_mark)
-                );            
-                start_iter.set_line_offset(0);
-                let mut end_iter = buffer.iter_at_offset(start_iter.offset());
-                end_iter.forward_to_line_end();
-
-                buffer.move_mark(&start_mark, &start_iter);
-                buffer.move_mark(&end_mark, &end_iter);
-                buffer.apply_tag(&tag, &start_iter, &end_iter);
-            }
+            highlight_if_need(buffer, start_iter);
         }
     });
     
@@ -145,4 +107,25 @@ c622f7f init";
     buffer.apply_tag(&tag, &start_iter, &end_iter);
     println!("ADDED TAG {:?}", buffer.slice(&start_iter, &end_iter, true), );
     txt
+}
+
+pub fn highlight_if_need(buffer: gtk::TextBuffer,
+                         mut start_iter: gtk::TextIter) {
+    let start_mark = buffer.mark(HIGHLIGHT_START).unwrap();
+    if start_iter.line() ==  buffer.iter_at_mark(&start_mark).line() {
+        return;
+    }
+    let end_mark = buffer.mark(HIGHLIGHT_END).unwrap();
+    buffer.remove_tag_by_name(
+        HIGHLIGHT,
+        &buffer.iter_at_mark(&start_mark),
+        &buffer.iter_at_mark(&end_mark)
+    );            
+    start_iter.set_line_offset(0);
+    let mut end_iter = buffer.iter_at_offset(start_iter.offset());
+    end_iter.forward_to_line_end();
+
+    buffer.move_mark(&start_mark, &start_iter);
+    buffer.move_mark(&end_mark, &end_iter);
+    buffer.apply_tag_by_name(HIGHLIGHT, &start_iter, &end_iter);    
 }
