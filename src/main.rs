@@ -1,10 +1,17 @@
 mod text_view;
 use text_view::{text_view_factory, render};
+mod git;
+use git::{get_current_repo_status};
+
+use std::env;
+
 use gtk::prelude::*;
 use adw::prelude::*;
+use glib::{MainContext, Priority};
 use adw::{Application, HeaderBar, ApplicationWindow};
-use gtk::{glib, gdk, Box, Label, Orientation, CssProvider};// TextIter
+use gtk::{glib, gdk, gio, Box, Label, Orientation, CssProvider};// TextIter
 use gdk::Display;
+use git2::Repository;
 
 
 const APP_ID: &str = "io.github.aganzha.Stage";
@@ -32,6 +39,9 @@ fn load_css() {
     );
 }
 
+pub enum Event {
+    CurrentRepo(Repository)
+}
 
 fn build_ui(app: &adw::Application) {
 
@@ -59,15 +69,45 @@ fn build_ui(app: &adw::Application) {
 
     window.present();
 
-    let lorem: &str = "
-Untracked files (1)
-src/style.css
+    let mut repos: Vec<Repository> = Vec::new();
+    let (sender, receiver) = MainContext::channel(Priority::default());
 
-Recent commits
-a2959bf master origin/master begin textview
-7601dc7 added adwaita
-c622f7f init";
+    gio::spawn_blocking(|| {
+        get_current_repo_status(sender);
+    });
+    
+    receiver.attach(
+        None,
+        move |event: Event| {
+            match event {
+                Event::CurrentRepo(repo) => {
+                    if repos.len() > 0 {
+                        // need rerender everythings
+                        repos[0] = repo;
+                    } else {
+                        repos.push(repo)
+                    }
+                }
+            };
+            glib::ControlFlow::Continue
+        }
+    );
+//     let lorem: &str = "
+// Untracked files (1)
+// src/style.css
 
-    render(txt, lorem)
+// Recent commits
+// a2959bf master origin/master begin textview
+// 7601dc7 added adwaita
+// c622f7f init";
 
+//     render(txt, lorem);
+//     let mut path_buff = env::current_exe().unwrap();
+    
+    
+//     println!("--------------------> {:?}", path_buff);
+//     let path = path_buff.as_path();
+//     let repo = Repository::open(path).unwrap();
+//     println!("UUUUUUUUUUUUUUUUUU-> {:?} {:?}", repo.is_empty(), path);
+    
 }

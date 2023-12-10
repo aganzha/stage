@@ -6,4 +6,4 @@
 - popup widnwow from current line (commit)
 - tab to view modified file
 - when 1 click on line, the cursor must became pointer. second click opens either commit or do action (stage) or opens file in EDITOR
-
+- open another repo
