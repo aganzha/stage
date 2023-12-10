@@ -1,10 +1,11 @@
 use std::env;
-use git2::Repository;
+use git2::{Repository, StatusOptions};
 use crate::glib::{Sender};
+use crate::gio;
 
 fn get_current_repo() -> Result<Repository, String> {
     let mut path_buff = env::current_exe()
-        .map_err(|e| format!("can't get repo from executable"))?;
+        .map_err(|e| format!("can't get repo from executable {:?}", e))?;
     loop {        
         let path = path_buff.as_path();
         let repo_r = Repository::open(path);
@@ -22,5 +23,12 @@ fn get_current_repo() -> Result<Repository, String> {
 pub fn get_current_repo_status(sender: Sender<crate::Event>) {
     if let Ok(repo) = get_current_repo() {
         sender.send(crate::Event::CurrentRepo(repo)).expect("Could not send through channel");
+        // repo.statuses(None);
     }
+}
+
+pub fn stage_changes(repo: Repository, _sender: Sender<crate::Event>) {
+    // gio::spawn_blocking(|| {
+        println!("oooooooooooooooooo {:?}", repo.is_empty());
+    // });
 }

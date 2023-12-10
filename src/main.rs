@@ -1,7 +1,7 @@
 mod text_view;
 use text_view::{text_view_factory, render};
 mod git;
-use git::{get_current_repo_status};
+use git::{get_current_repo_status, stage_changes};
 
 use std::env;
 
@@ -40,7 +40,9 @@ fn load_css() {
 }
 
 pub enum Event {
-    CurrentRepo(Repository)
+    CurrentRepo(Repository),
+    Stage
+        
 }
 
 fn build_ui(app: &adw::Application) {
@@ -62,31 +64,36 @@ fn build_ui(app: &adw::Application) {
     stage.append(&hb);
 
     let txt = text_view_factory();
-    
+
     stage.append(&txt);
 
     window.set_content(Some(&stage));
 
     window.present();
 
-    let mut repos: Vec<Repository> = Vec::new();
+    let mut repo: Option<Repository> = None;
     let (sender, receiver) = MainContext::channel(Priority::default());
 
-    gio::spawn_blocking(|| {
-        get_current_repo_status(sender);
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        move || {
+            get_current_repo_status(sender);
+        }
     });
-    
+
     receiver.attach(
         None,
         move |event: Event| {
             match event {
-                Event::CurrentRepo(repo) => {
-                    if repos.len() > 0 {
-                        // need rerender everythings
-                        repos[0] = repo;
-                    } else {
-                        repos.push(repo)
+                Event::CurrentRepo(r) => {
+                    if repo.is_none() {
+                        // need cleanup everything
                     }
+                    repo.replace(r);
+                },
+                Event::Stage => {
+                    let r = repo.unwrap();
+                    stage_changes(r, sender.clone());
                 }
             };
             glib::ControlFlow::Continue
@@ -103,11 +110,11 @@ fn build_ui(app: &adw::Application) {
 
 //     render(txt, lorem);
 //     let mut path_buff = env::current_exe().unwrap();
-    
-    
+
+
 //     println!("--------------------> {:?}", path_buff);
 //     let path = path_buff.as_path();
 //     let repo = Repository::open(path).unwrap();
 //     println!("UUUUUUUUUUUUUUUUUU-> {:?} {:?}", repo.is_empty(), path);
-    
+
 }
