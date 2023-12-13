@@ -73,12 +73,14 @@ fn build_ui(app: &adw::Application) {
     let mut repo: Option<std::ffi::OsString> = None;
     let (sender, receiver) = MainContext::channel(Priority::default());
 
-    gio::spawn_blocking({
-        let sender = sender.clone();
-        move || {
-            get_current_repo_status(sender);
-        }
-    });
+
+    get_current_repo_status(sender.clone());
+    // gio::spawn_blocking({
+    //     let sender = sender.clone();
+    //     move || {
+    //         get_current_repo_status(sender);
+    //     }
+    // });
 
     receiver.attach(
         None,
