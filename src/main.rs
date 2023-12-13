@@ -3,7 +3,6 @@ use text_view::{text_view_factory, render};
 mod git;
 use git::{get_current_repo_status, stage_changes};
 
-use std::{env, Path};
 
 use gtk::prelude::*;
 use adw::prelude::*;
@@ -40,7 +39,7 @@ fn load_css() {
 }
 
 pub enum Event {
-    CurrentRepo(Path),
+    CurrentRepo(std::ffi::OsString),
     Stage
         
 }
@@ -71,7 +70,7 @@ fn build_ui(app: &adw::Application) {
 
     window.present();
 
-    let mut repo: Option<String> = None;
+    let mut repo: Option<std::ffi::OsString> = None;
     let (sender, receiver) = MainContext::channel(Priority::default());
 
     gio::spawn_blocking({
