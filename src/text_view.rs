@@ -1,11 +1,12 @@
 use gtk::prelude::*;
 use gtk::{glib, gdk, TextView, TextBuffer, TextTag};// TextIter
+use glib::{Sender};
 
 const HIGHLIGHT: &str = "highlight";
 const HIGHLIGHT_START: &str  = "HightlightStart";
 const HIGHLIGHT_END: &str = "HightlightEnd";
 
-pub fn text_view_factory() ->  TextView {
+pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
     let txt = TextView::builder()
         .build();
     let buffer = txt.buffer();
@@ -133,6 +134,7 @@ pub fn highlight_if_need(view: &TextView,
 }
 
 
-pub fn render(view: TextView, text: &str) {
-    view.buffer().set_text(text);
+pub fn render(view: &TextView, diff: crate::Diff, sndr: Sender<crate::Event>) {
+    println!("EEEEEEEE {:?} {:?}", diff, sndr);
+    view.buffer().set_text("text");
 }

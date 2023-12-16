@@ -1,7 +1,7 @@
 mod text_view;
 use text_view::{text_view_factory, render};
 mod git;
-use git::{get_current_repo_status, stage_changes};
+use git::{get_current_repo_status, stage_changes, Diff};
 
 
 use gtk::prelude::*;
@@ -40,6 +40,7 @@ fn load_css() {
 
 pub enum Event {
     CurrentRepo(std::ffi::OsString),
+    Status(Diff),
     Stage
         
 }
@@ -62,25 +63,27 @@ fn build_ui(app: &adw::Application) {
     hb.set_title_widget(Some(&lbl));
     stage.append(&hb);
 
-    let txt = text_view_factory();
+    let (sender, receiver) = MainContext::channel(Priority::default());
+    
+    let txt = text_view_factory(sender.clone());
 
     stage.append(&txt);
 
     window.set_content(Some(&stage));
 
-    window.present();
+    
 
     let mut repo: Option<std::ffi::OsString> = None;
-    let (sender, receiver) = MainContext::channel(Priority::default());
 
 
-    get_current_repo_status(sender.clone());
-    // gio::spawn_blocking({
-    //     let sender = sender.clone();
-    //     move || {
-    //         get_current_repo_status(sender);
-    //     }
-    // });
+
+    // get_current_repo_status(sender.clone());
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        move || {
+            get_current_repo_status(sender);
+        }
+    });
 
     receiver.attach(
         None,
@@ -92,12 +95,18 @@ fn build_ui(app: &adw::Application) {
                     }
                     repo.replace(path);
                 },
+                Event::Status(diff) => {
+                    println!("eeeeeeeeeeeeeee {:?}", diff);
+                    render(&txt, diff, sender.clone());
+                },
                 Event::Stage => {                    
                 }
             };
             glib::ControlFlow::Continue
         }
     );
+    window.present();
+    
 //     let lorem: &str = "
 // Untracked files (1)
 // src/style.css

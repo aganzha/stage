@@ -156,16 +156,18 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
             });
             current_file.hunks.push(current_hunk);
             diff.files.push(current_file);
-            println!("finallllllllllllllllllllllll");
-            for f in diff.files {
-                println!("file {:?}", f.path);
-                for h in f.hunks {
-                    println!("hunk {:?}", h.header);
-                    for l in h.lines {
-                        print!("line {:} <-- {:?}", l.content, l.origin);
-                    }
-                }
-            }
+            sender.send(crate::Event::Status(diff))
+                .expect("Could not send through channel");
+            // println!("finallllllllllllllllllllllll");
+            // for f in diff.files {
+            //     println!("file {:?}", f.path);
+            //     for h in f.hunks {
+            //         println!("hunk {:?}", h.header);
+            //         for l in h.lines {
+            //             print!("line {:} <-- {:?}", l.content, l.origin);
+            //         }
+            //     }
+            // }
         }
     }
 }
