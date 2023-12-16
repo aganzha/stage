@@ -1,3 +1,4 @@
+-- init
 - put label with current repo name (relative to path the app is started)
 - adwaita ToolbarView
 - mark evey line with tag to now whats inside tag
@@ -9,3 +10,5 @@
 - open another repo
 - open repo under other user causeing error! handle it!
 - .gitignore does not counted in gitlib2 !!!! flags : Status(IGNORED)
+
+- FINAL HUNK
