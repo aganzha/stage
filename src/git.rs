@@ -1,5 +1,5 @@
 use std::{env, str, path, ffi};
-use git2::{Repository, StatusOptions, ObjectType, Oid, DiffFormat, DiffLine, DiffLineType, DiffFile};
+use git2::{Repository, StatusOptions, ObjectType, Oid, DiffFormat, DiffLine, DiffLineType, DiffFile, DiffHunk};
 use crate::glib::{Sender};
 use crate::gio;
 
@@ -54,6 +54,10 @@ impl Hunk {
             header: String::new(),
             lines: Vec::new()
         }
+    }
+
+    pub fn get_header_from(dh: &DiffHunk) -> String {
+        String::from(str::from_utf8(dh.header()).unwrap())
     }
 }
 
@@ -112,7 +116,7 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
                 if oid.is_zero() {
                     todo!();
                 }
-                if let Some(path) = old_file.path() {
+                if old_file.path().is_some() {
                     if current_file.id.is_zero() {
                         // init new file
                         current_file = File::from_diff_file(&old_file);
@@ -128,7 +132,7 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
 
                     }
                     if let Some(diff_hunk) = o_diff_hunk {
-                        let hh = String::from(str::from_utf8(diff_hunk.header()).unwrap());
+                        let hh = Hunk::get_header_from(&diff_hunk);
                         if current_hunk.header == "" {
                             // init hunk
                             current_hunk.header = hh.clone();
