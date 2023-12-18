@@ -19,3 +19,6 @@ it need to connect keypress/click with diff.
   store map of lines in hunks and map of hunks in file!
 - so, when user clicks line , it need to detect everything: line, hunk and file by the number
 of clicked line in text buffer
+0 in parallel thred, go to the source file, while read hunks and put whole file in tree sitter,
+make a syntax, highlight it and put into the diff. while insert line into the buffer, paint it with tags
+by the tree sitter structure
