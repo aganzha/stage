@@ -2,11 +2,11 @@ mod text_view;
 use text_view::{text_view_factory, render};
 mod git;
 use git::{get_current_repo_status, stage_changes, Diff};
-
+use core::num::NonZeroU32;
 
 use gtk::prelude::*;
 use adw::prelude::*;
-use glib::{MainContext, Priority};
+use glib::{MainContext, Priority, subclass::Signal, subclass::signal::SignalId};
 use adw::{Application, HeaderBar, ApplicationWindow};
 use gtk::{glib, gdk, gio, Box, Label, Orientation, CssProvider};// TextIter
 use gdk::Display;
@@ -41,8 +41,7 @@ fn load_css() {
 pub enum Event {
     CurrentRepo(std::ffi::OsString),
     Status(Diff),
-    Stage
-        
+    Stage(String)        
 }
 
 fn build_ui(app: &adw::Application) {
@@ -66,7 +65,7 @@ fn build_ui(app: &adw::Application) {
     let (sender, receiver) = MainContext::channel(Priority::default());
     
     let txt = text_view_factory(sender.clone());
-
+    
     stage.append(&txt);
 
     window.set_content(Some(&stage));
@@ -74,7 +73,7 @@ fn build_ui(app: &adw::Application) {
     
 
     let mut repo: Option<std::ffi::OsString> = None;
-
+    let mut diff: Option<Diff> = None;
 
 
     // get_current_repo_status(sender.clone());
@@ -95,11 +94,12 @@ fn build_ui(app: &adw::Application) {
                     }
                     repo.replace(path);
                 },
-                Event::Status(diff) => {
-                    println!("eeeeeeeeeeeeeee {:?}", diff);
-                    render(&txt, diff, sender.clone());
+                Event::Status(d) => {
+                    diff.replace(d.clone());
+                    render(&txt, d.clone(), sender.clone());// , txt_signal
                 },
-                Event::Stage => {                    
+                Event::Stage(text) => {                    
+                    println!("STAGE THIS TEXT {:?} in {:?}", text, diff);
                 }
             };
             glib::ControlFlow::Continue

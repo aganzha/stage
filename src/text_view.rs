@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use gtk::{glib, gdk, TextView, TextBuffer, TextTag};// TextIter
-use glib::{Sender};
+use glib::{Sender, subclass::Signal, subclass::signal::SignalId, value::Value};
 
 const HIGHLIGHT: &str = "highlight";
 const HIGHLIGHT_START: &str  = "HightlightStart";
@@ -10,26 +10,34 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
     let txt = TextView::builder()
         .build();
     let buffer = txt.buffer();
+    // let signal_id = signal.signal_id();
     let tag = TextTag::new(Some(HIGHLIGHT));
     tag.set_background(Some("#f6fecd"));
     
     let event_controller = gtk::EventControllerKey::new();
     event_controller.connect_key_pressed({
-        |_, key, _, _| {
+        let buffer = buffer.clone();
+        move |_, key, _, _| {
             match key {
                 gdk::Key::Tab => {
-                    println!("taaaaaaaaaaaaaaaaaaaaaaaaaaaaaab!")
+                    println!("taaaaaaaaaaaaaaaaaaaaaaaaaaaaaab!");
                 },
                 gdk::Key::s => {
-                    println!("ssssssssssssssssssssssssssssssssssss!")
+                    let start_mark = buffer.mark(HIGHLIGHT_START).unwrap();
+                    let end_mark = buffer.mark(HIGHLIGHT_END).unwrap();
+                    let start_iter = buffer.iter_at_mark(&start_mark);
+                    let end_iter = buffer.iter_at_mark(&end_mark);
+                    let text = String::from(buffer.text(&start_iter, &end_iter, true).as_str());
+                    sndr.send(crate::Event::Stage(text))
+                        .expect("Could not send through channel");
                 },
                 _ => (),
             }
             glib::Propagation::Proceed
         }
-    });
+        });
     txt.add_controller(event_controller);
-    
+
     let gesture = gtk::GestureClick::new();
     gesture.connect_released({
         let txt = txt.clone();
@@ -45,8 +53,8 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
             println!("Box pressed! {:?} {:?} {:?} {:?} == {:?}", wx, wy, x, y, alloc);
         }
     });
-    
-    txt.add_controller(gesture);    
+
+    txt.add_controller(gesture);
 
     txt.connect_move_cursor({
         move |view, step, count, _selection| {
@@ -76,7 +84,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
             highlight_if_need(view, start_iter);
         }
     });
-    
+
     buffer.tag_table().add(&tag);
     txt.set_monospace(true);
     txt.set_editable(false);
@@ -86,13 +94,13 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
 
     let start_iter = buffer.iter_at_offset(0);
     buffer.create_mark(Some(HIGHLIGHT_START), &start_iter, false);
-        
+
     let mut end_iter = buffer.iter_at_offset(0);
     end_iter.forward_to_line_end();
-    buffer.create_mark(Some(HIGHLIGHT_END), &end_iter, false);    
-    
+    buffer.create_mark(Some(HIGHLIGHT_END), &end_iter, false);
+
     highlight_if_need(&txt, start_iter);
-    
+
     txt
 }
 
@@ -108,7 +116,7 @@ pub fn highlight_if_need(view: &TextView,
         HIGHLIGHT,
         &buffer.iter_at_mark(&start_mark),
         &buffer.iter_at_mark(&end_mark)
-    );            
+    );
     start_iter.set_line_offset(0);
     let start_pos = start_iter.offset();
     let mut end_iter = buffer.iter_at_offset(start_iter.offset());
@@ -129,12 +137,20 @@ pub fn highlight_if_need(view: &TextView,
     let start_iter = buffer.iter_at_offset(start_pos);
     buffer.move_mark(&start_mark, &start_iter);
     buffer.move_mark(&end_mark, &end_iter);
+    println!("APPLY!");
     buffer.apply_tag_by_name(HIGHLIGHT, &start_iter, &end_iter);
 
 }
 
 
-pub fn render(view: &TextView, diff: crate::Diff, sndr: Sender<crate::Event>) {
+pub fn render(view: &TextView, diff: crate::Diff, sndr: Sender<crate::Event>) { // , signal: SignalId
     println!("EEEEEEEE {:?} {:?}", diff, sndr);
-    view.buffer().set_text("text");
+    let signal_id = view.buffer().connect_apply_tag(move |_buff, tag, _start_iter, _end_iter| {
+        println!("moooooooooooooooooooores {:?} {:?}", tag, diff.files.len());
+    });
+    println!("???????????????????????????? connected! {:?}", signal_id);
+    view.buffer().set_text("
+text
+bext
+");
 }

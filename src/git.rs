@@ -22,8 +22,8 @@ fn get_current_repo() -> Result<Repository, String> {
 
 #[derive(Debug, Clone)]
 pub struct Line {
-    origin: DiffLineType,
-    content: String
+    pub origin: DiffLineType,
+    pub content: String
 }
 
 
@@ -44,8 +44,8 @@ impl Line {
 
 #[derive(Debug, Clone)]
 pub struct Hunk {
-    header: String,
-    lines: Vec<Line>
+    pub header: String,
+    pub lines: Vec<Line>
 }
 
 impl Hunk {
@@ -63,9 +63,9 @@ impl Hunk {
 
 #[derive(Debug, Clone)]
 pub struct File {
-    path: ffi::OsString,
-    id: Oid,
-    hunks: Vec<Hunk>
+    pub path: ffi::OsString,
+    pub id: Oid,
+    pub hunks: Vec<Hunk>
 }
 
 
@@ -88,7 +88,7 @@ impl File {
 
 #[derive(Debug, Clone)]
 pub struct Diff {
-    files: Vec<File>
+    pub files: Vec<File>
 }
 
 impl Diff {
