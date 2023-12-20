@@ -1,3 +1,4 @@
+om
 -- init
 - put label with current repo name (relative to path the app is started)
 - adwaita ToolbarView

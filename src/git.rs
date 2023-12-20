@@ -1,5 +1,7 @@
 use std::{env, str, path, ffi};
-use git2::{Repository, StatusOptions, ObjectType, Oid, DiffFormat, DiffLine, DiffLineType, DiffFile, DiffHunk};
+use git2::{Repository, StatusOptions, ObjectType,
+           Oid, DiffFormat, DiffLine, DiffLineType,
+           DiffFile, DiffHunk, DiffOptions, Index};
 use crate::glib::{Sender};
 use crate::gio;
 
@@ -111,17 +113,26 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
         let path = repo.path();
         sender.send(crate::Event::CurrentRepo(ffi::OsString::from(path)))
             .expect("Could not send through channel");
-        if let Ok(git_diff) = repo.diff_index_to_workdir(None, None) {
+
+        let head = repo.head().unwrap();
+        let commit = head. peel_to_commit().unwrap();
+        let tree = commit.tree().unwrap();
+        // THIS IS STAGED CHANGES
+        if let Ok(git_diff) = repo.diff_tree_to_index(Some(&tree), Some(&repo.index().unwrap()), None) {
+        // this is UNSTAGED CHANGES    
+        // if let Ok(git_diff) = repo.diff_index_to_workdir(None, None) {
             let mut diff = Diff::new();
             let mut current_file = File::new();
             let mut current_hunk = Hunk::new();
             let _res = git_diff.print(DiffFormat::Patch, |diff_delta, o_diff_hunk, diff_line| {
-
                 let old_file = diff_delta.old_file();
+                let new_file = diff_delta.new_file();
+                println!("OOOOOOOOOOOOOOOOOOO {:?} vs {:?}", old_file.path(), new_file.path());
+                println!("------------> {:?}", diff_line);
                 let oid = old_file.id();
-                if oid.is_zero() {
-                    todo!();
-                }
+                // if oid.is_zero() {
+                //     todo!();
+                // }
                 if old_file.path().is_some() {
                     if current_file.id.is_zero() {
                         // init new file
@@ -162,7 +173,8 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
 
                 true
             });
-            current_file.hunks.push(current_hunk);
+            // current_file.hunks.push(current_hunk);
+            current_file.push_hunk(current_hunk);
             diff.files.push(current_file);
             sender.send(crate::Event::Status(diff))
                 .expect("Could not send through channel");
