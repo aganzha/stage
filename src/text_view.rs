@@ -159,11 +159,13 @@ pub fn render(view: &TextView, diff: crate::Diff, _sndr: Sender<crate::Event>) {
             buffer.insert(&mut iter, &hunk.header);
             buffer.insert(&mut iter, "\n");
             for line in hunk.lines {
+                match line.kind {
+                    crate::LineKind::File => continue,
+                    crate::LineKind::Hunk => continue,
+                    _ => ()
+                }
                 buffer.insert(&mut iter, &line.content);
-                // buffer.insert(&mut iter, "\n");
             }
-            //buffer.insert(&mut iter, "\n");
         }
-        //buffer.insert(&mut iter, "\n");
     }
 }

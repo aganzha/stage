@@ -18,9 +18,17 @@ fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> 
 }
 
 #[derive(Debug, Clone)]
+pub enum LineKind {
+    File,
+    Hunk,
+    Regular
+}
+
+#[derive(Debug, Clone)]
 pub struct Line {
     pub origin: DiffLineType,
-    pub content: String
+    pub content: String,
+    pub kind: LineKind
 }
 
 
@@ -28,13 +36,15 @@ impl Line {
     pub fn new() -> Self {
         Self {
             origin: DiffLineType::HunkHeader,
-            content: String::new()
+            content: String::new(),
+            kind: LineKind::File
         }
     }
-    pub fn from_diff_line(l: &DiffLine) -> Self {
+    pub fn from_diff_line(l: &DiffLine, k: LineKind) -> Self {
         return Self {
             origin: l.origin_value(),
-            content: String::from(str::from_utf8(l.content()).unwrap())
+            content: String::from(str::from_utf8(l.content()).unwrap()),
+            kind: k
         }
     }
 }
@@ -57,7 +67,13 @@ impl Hunk {
         String::from(str::from_utf8(dh.header()).unwrap())
     }
 
-    pub fn push_line(&mut self, l: Line) {
+    pub fn push_line(&mut self, mut l: Line) {
+        if self.lines.len() == 0 {
+            l.kind = LineKind::File;
+        }
+        if self.lines.len() == 1 {
+            l.kind = LineKind::Hunk;
+        }
         self.lines.push(l);
     }
 }
@@ -163,10 +179,10 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
                         current_hunk = Hunk::new();
                         current_hunk.header = hh.clone();
                     }
-                    current_hunk.push_line(Line::from_diff_line(&diff_line));
+                    current_hunk.push_line(Line::from_diff_line(&diff_line, LineKind::Regular));
                 } else {
                     // this is file header line.
-                    current_hunk.push_line(Line::from_diff_line(&diff_line))
+                    current_hunk.push_line(Line::from_diff_line(&diff_line, LineKind::File))
                 }
 
                 true
