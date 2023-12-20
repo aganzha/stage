@@ -143,12 +143,12 @@ pub fn highlight_if_need(view: &TextView,
 }
 
 
-pub fn render(view: &TextView, diff: crate::Diff, sndr: Sender<crate::Event>) { // , signal: SignalId
-    println!("EEEEEEEE {:?} {:?}", diff, sndr);
-    let signal_id = view.buffer().connect_apply_tag(move |_buff, tag, _start_iter, _end_iter| {
-        println!("moooooooooooooooooooores {:?} {:?}", tag, diff.files.len());
-    });
-    println!("???????????????????????????? connected! {:?}", signal_id);
+pub fn render(view: &TextView, _diff: crate::Diff, _sndr: Sender<crate::Event>) { // , signal: SignalId
+    // println!("EEEEEEEE {:?} {:?}", diff, sndr);
+    // let signal_id = view.buffer().connect_apply_tag(move |_buff, tag, _start_iter, _end_iter| {
+    //     println!("moooooooooooooooooooores {:?} {:?}", tag, diff.files.len());
+    // });
+    // println!("???????????????????????????? connected! {:?}", signal_id);
     view.buffer().set_text("
 text
 bext

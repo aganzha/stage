@@ -3,21 +3,16 @@ use git2::{Repository, StatusOptions, ObjectType, Oid, DiffFormat, DiffLine, Dif
 use crate::glib::{Sender};
 use crate::gio;
 
-fn get_current_repo() -> Result<Repository, String> {
-    let mut path_buff = env::current_exe()
-        .map_err(|e| format!("can't get repo from executable {:?}", e))?;
-    loop {
-        let path = path_buff.as_path();
-        let repo_r = Repository::open(path);
-        if let Ok(repo) =repo_r {
-            return Ok(repo)
-        } else {
-            if !path_buff.pop() {
-                break
-            }
+
+fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> {
+    let path = path_buff.as_path();
+    Repository::open(path).or_else(|error| {
+        println!("err while open repo {:?}", error);
+        if !path_buff.pop() {
+            return Err("no repoitory found".to_string());
         }
-    }
-    Err("no repoitory found".to_string())
+        return get_current_repo(path_buff);
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -84,6 +79,11 @@ impl File {
             hunks: Vec::new()
         }
     }
+
+    pub fn push_hunk(&mut self, h: Hunk) {
+        println!("Hunk {:?} for path {:?}", h.header, self.path);
+        self.hunks.push(h);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -100,8 +100,14 @@ impl Diff {
 }
 
 pub fn get_current_repo_status(sender: Sender<crate::Event>) {
-
-    if let Ok(repo) = get_current_repo() {
+    let path_buff_r = env::current_exe()
+        .map_err(|e| format!("can't get repo from executable {:?}", e));
+    if path_buff_r.is_err() {
+        return
+    }
+    let some = get_current_repo(path_buff_r.unwrap());
+    // TODO - remove if
+    if let Ok(repo) =  some {
         let path = repo.path();
         sender.send(crate::Event::CurrentRepo(ffi::OsString::from(path)))
             .expect("Could not send through channel");
@@ -124,7 +130,8 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
                     if current_file.id != oid {
                         // go to next file
                         // push current_hunk to file and init new empty hunk
-                        current_file.hunks.push(current_hunk.clone());
+                        // current_file.hunks.push(current_hunk.clone());
+                        current_file.push_hunk(current_hunk.clone());
                         current_hunk = Hunk::new();
                         // push current_file to diff and change to new file
                         diff.files.push(current_file.clone());
@@ -139,7 +146,8 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
                         }
                         if current_hunk.header != hh {
                             // go to next hunk
-                            current_file.hunks.push(current_hunk.clone());
+                            // current_file.hunks.push(current_hunk.clone());
+                            current_file.push_hunk(current_hunk.clone());
                             current_hunk = Hunk::new();
                             current_hunk.header = hh.clone();
                         }
