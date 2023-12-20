@@ -8,7 +8,7 @@ use gtk::prelude::*;
 use adw::prelude::*;
 use glib::{MainContext, Priority, subclass::Signal, subclass::signal::SignalId};
 use adw::{Application, HeaderBar, ApplicationWindow};
-use gtk::{glib, gdk, gio, Box, Label, Orientation, CssProvider};// TextIter
+use gtk::{glib, gdk, gio, Box, Label, Orientation, CssProvider, ScrolledWindow};// TextIter
 use gdk::Display;
 use git2::Repository;
 
@@ -47,8 +47,10 @@ pub enum Event {
 fn build_ui(app: &adw::Application) {
 
     let window = ApplicationWindow::new(app);
-    window.set_default_size(640, 480);
+    window.set_default_size(1280, 960);
 
+    let scroll = ScrolledWindow::new();
+    
     let stage = Box::builder()
         .build();
     stage.set_orientation(Orientation::Vertical);
@@ -67,9 +69,10 @@ fn build_ui(app: &adw::Application) {
     let txt = text_view_factory(sender.clone());
     
     stage.append(&txt);
-
-    window.set_content(Some(&stage));
-
+    
+    scroll.set_child(Some(&stage));
+    // window.set_content(Some(&stage));
+    window.set_content(Some(&scroll));
     
 
     let mut repo: Option<std::ffi::OsString> = None;

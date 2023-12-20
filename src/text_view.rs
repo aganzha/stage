@@ -143,14 +143,27 @@ pub fn highlight_if_need(view: &TextView,
 }
 
 
-pub fn render(view: &TextView, _diff: crate::Diff, _sndr: Sender<crate::Event>) { // , signal: SignalId
+pub fn render(view: &TextView, diff: crate::Diff, _sndr: Sender<crate::Event>) { // , signal: SignalId
     // println!("EEEEEEEE {:?} {:?}", diff, sndr);
     // let signal_id = view.buffer().connect_apply_tag(move |_buff, tag, _start_iter, _end_iter| {
     //     println!("moooooooooooooooooooores {:?} {:?}", tag, diff.files.len());
     // });
     // println!("???????????????????????????? connected! {:?}", signal_id);
-    view.buffer().set_text("
-text
-bext
-");
+    // view.buffer().set_text(diff.render());
+    let buffer = view.buffer();
+    let mut iter = buffer.iter_at_offset(0);
+    for file in diff.files  {
+        buffer.insert(&mut iter, file.path.to_str().unwrap());
+        buffer.insert(&mut iter, "\n");
+        for hunk in file.hunks {
+            buffer.insert(&mut iter, &hunk.header);
+            buffer.insert(&mut iter, "\n");
+            for line in hunk.lines {
+                buffer.insert(&mut iter, &line.content);
+                // buffer.insert(&mut iter, "\n");
+            }
+            //buffer.insert(&mut iter, "\n");
+        }
+        //buffer.insert(&mut iter, "\n");
+    }
 }

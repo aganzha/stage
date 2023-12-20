@@ -56,6 +56,10 @@ impl Hunk {
     pub fn get_header_from(dh: &DiffHunk) -> String {
         String::from(str::from_utf8(dh.header()).unwrap())
     }
+
+    pub fn push_line(&mut self, l: Line) {
+        self.lines.push(l);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -114,80 +118,64 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
         sender.send(crate::Event::CurrentRepo(ffi::OsString::from(path)))
             .expect("Could not send through channel");
 
-        let head = repo.head().unwrap();
-        let commit = head. peel_to_commit().unwrap();
-        let tree = commit.tree().unwrap();
+        // let head = repo.head().unwrap();
+        // let commit = head. peel_to_commit().unwrap();
+        // let tree = commit.tree().unwrap();
         // THIS IS STAGED CHANGES
-        if let Ok(git_diff) = repo.diff_tree_to_index(Some(&tree), Some(&repo.index().unwrap()), None) {
+        // if let Ok(git_diff) = repo.diff_tree_to_index(Some(&tree), Some(&repo.index().unwrap()), None) {
         // this is UNSTAGED CHANGES    
-        // if let Ok(git_diff) = repo.diff_index_to_workdir(None, None) {
+        if let Ok(git_diff) = repo.diff_index_to_workdir(None, None) {
             let mut diff = Diff::new();
             let mut current_file = File::new();
             let mut current_hunk = Hunk::new();
             let _res = git_diff.print(DiffFormat::Patch, |diff_delta, o_diff_hunk, diff_line| {
-                let old_file = diff_delta.old_file();
                 let new_file = diff_delta.new_file();
-                println!("OOOOOOOOOOOOOOOOOOO {:?} vs {:?}", old_file.path(), new_file.path());
-                println!("------------> {:?}", diff_line);
-                let oid = old_file.id();
-                // if oid.is_zero() {
-                //     todo!();
-                // }
-                if old_file.path().is_some() {
-                    if current_file.id.is_zero() {
-                        // init new file
-                        current_file = File::from_diff_file(&old_file);
+                let oid = new_file.id();
+                if oid.is_zero() {
+                    todo!();
+                }
+                if !new_file.path().is_some() {
+                    todo!();
+                }
+                if current_file.id.is_zero() {
+                    // init new file
+                    current_file = File::from_diff_file(&new_file);
+                }
+                if current_file.id != oid {
+                    // go to next file
+                    // push current_hunk to file and init new empty hunk
+                    current_file.push_hunk(current_hunk.clone());
+                    current_hunk = Hunk::new();
+                    // push current_file to diff and change to new file
+                    diff.files.push(current_file.clone());
+                    current_file = File::from_diff_file(&new_file);
+
+                }
+                if let Some(diff_hunk) = o_diff_hunk {
+                    let hh = Hunk::get_header_from(&diff_hunk);
+                    if current_hunk.header == "" {
+                        // init hunk
+                        current_hunk.header = hh.clone();
                     }
-                    if current_file.id != oid {
-                        // go to next file
-                        // push current_hunk to file and init new empty hunk
-                        // current_file.hunks.push(current_hunk.clone());
+                    if current_hunk.header != hh {
+                        // go to next hunk
                         current_file.push_hunk(current_hunk.clone());
                         current_hunk = Hunk::new();
-                        // push current_file to diff and change to new file
-                        diff.files.push(current_file.clone());
-                        current_file = File::from_diff_file(&old_file);
-
+                        current_hunk.header = hh.clone();
                     }
-                    if let Some(diff_hunk) = o_diff_hunk {
-                        let hh = Hunk::get_header_from(&diff_hunk);
-                        if current_hunk.header == "" {
-                            // init hunk
-                            current_hunk.header = hh.clone();
-                        }
-                        if current_hunk.header != hh {
-                            // go to next hunk
-                            // current_file.hunks.push(current_hunk.clone());
-                            current_file.push_hunk(current_hunk.clone());
-                            current_hunk = Hunk::new();
-                            current_hunk.header = hh.clone();
-                        }
-                        current_hunk.lines.push(Line::from_diff_line(&diff_line));
-                    } else {
-                        // this is file header line.
-                        current_hunk.lines.push(Line::from_diff_line(&diff_line));
-                    }
+                    current_hunk.push_line(Line::from_diff_line(&diff_line));
                 } else {
-                    todo!();
+                    // this is file header line.
+                    current_hunk.push_line(Line::from_diff_line(&diff_line))
                 }
 
                 true
             });
-            // current_file.hunks.push(current_hunk);
+
             current_file.push_hunk(current_hunk);
             diff.files.push(current_file);
             sender.send(crate::Event::Status(diff))
                 .expect("Could not send through channel");
-            // println!("finallllllllllllllllllllllll");
-            // for f in diff.files {
-            //     println!("file {:?}", f.path);
-            //     for h in f.hunks {
-            //         println!("hunk {:?}", h.header);
-            //         for l in h.lines {
-            //             print!("line {:} <-- {:?}", l.content, l.origin);
-            //         }
-            //     }
-            // }
         }
     }
 }
