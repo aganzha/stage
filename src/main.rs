@@ -48,7 +48,7 @@ fn build_ui(app: &adw::Application) {
 
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
-
+    
     let scroll = ScrolledWindow::new();
     
     let stage = Box::builder()
@@ -67,19 +67,20 @@ fn build_ui(app: &adw::Application) {
     let (sender, receiver) = MainContext::channel(Priority::default());
     
     let txt = text_view_factory(sender.clone());
+
+    scroll.set_min_content_height(960);
+    scroll.set_max_content_height(960);
+    scroll.set_child(Some(&txt));
+
+    stage.append(&scroll);
     
-    stage.append(&txt);
-    
-    scroll.set_child(Some(&stage));
-    // window.set_content(Some(&stage));
-    window.set_content(Some(&scroll));
-    
+    window.set_content(Some(&stage));
 
     let mut repo: Option<std::ffi::OsString> = None;
     let mut diff: Option<Diff> = None;
 
 
-    // get_current_repo_status(sender.clone());
+
     gio::spawn_blocking({
         let sender = sender.clone();
         move || {
@@ -109,23 +110,5 @@ fn build_ui(app: &adw::Application) {
         }
     );
     window.present();
-    
-//     let lorem: &str = "
-// Untracked files (1)
-// src/style.css
-
-// Recent commits
-// a2959bf master origin/master begin textview
-// 7601dc7 added adwaita
-// c622f7f init";
-
-//     render(txt, lorem);
-//     let mut path_buff = env::current_exe().unwrap();
-
-
-//     println!("--------------------> {:?}", path_buff);
-//     let path = path_buff.as_path();
-//     let repo = Repository::open(path).unwrap();
-//     println!("UUUUUUUUUUUUUUUUUU-> {:?} {:?}", repo.is_empty(), path);
 
 }

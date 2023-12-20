@@ -24,3 +24,13 @@ of clicked line in text buffer
 make a syntax, highlight it and put into the diff. while insert line into the buffer, paint it with tags
 by the tree sitter structure
 - after push add text link to mr in gitlab and github!
+
+
+
+asfas
+asdas
+asdasd
+a
+sdada
+asdasd
+adasd
