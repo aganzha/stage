@@ -1,6 +1,7 @@
 use gtk::prelude::*;
 use gtk::{glib, gdk, TextView, TextBuffer, TextTag};// TextIter
 use glib::{Sender, subclass::Signal, subclass::signal::SignalId, value::Value};
+use crate::View;
 
 const HIGHLIGHT: &str = "highlight";
 const HIGHLIGHT_START: &str  = "HightlightStart";
@@ -13,7 +14,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
     // let signal_id = signal.signal_id();
     let tag = TextTag::new(Some(HIGHLIGHT));
     tag.set_background(Some("#f6fecd"));
-    
+
     let event_controller = gtk::EventControllerKey::new();
     event_controller.connect_key_pressed({
         let buffer = buffer.clone();
@@ -142,6 +143,13 @@ pub fn highlight_if_need(view: &TextView,
 
 }
 
+impl View {
+    fn new(line_no: i32) -> Self {
+        return View {
+            line_no: line_no
+        }
+    }
+}
 
 pub fn render(view: &TextView, diff: crate::Diff, _sndr: Sender<crate::Event>) { // , signal: SignalId
     // println!("EEEEEEEE {:?} {:?}", diff, sndr);
@@ -152,19 +160,22 @@ pub fn render(view: &TextView, diff: crate::Diff, _sndr: Sender<crate::Event>) {
     // view.buffer().set_text(diff.render());
     let buffer = view.buffer();
     let mut iter = buffer.iter_at_offset(0);
-    for file in diff.files  {
+    for mut file in diff.files  {
+        file.view.replace(View::new(iter.line()));
         buffer.insert(&mut iter, file.path.to_str().unwrap());
         buffer.insert(&mut iter, "\n");
-        for hunk in file.hunks {
+        for mut hunk in file.hunks {
+            hunk.view.replace(View::new(iter.line()));
             buffer.insert(&mut iter, &hunk.header);
-            buffer.insert(&mut iter, "\n");
-            for line in hunk.lines {
+            for mut line in hunk.lines {
                 match line.kind {
                     crate::LineKind::File => continue,
                     crate::LineKind::Hunk => continue,
                     _ => ()
                 }
+                line.view.replace(View::new(iter.line()));
                 buffer.insert(&mut iter, &line.content);
+                println!("liiiiiiiine {:?}", line.view);
             }
         }
     }

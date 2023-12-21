@@ -1,7 +1,7 @@
 mod text_view;
 use text_view::{text_view_factory, render};
 mod git;
-use git::{get_current_repo_status, stage_changes, Diff, LineKind};
+use git::{get_current_repo_status, stage_changes, Diff, LineKind, View};
 use core::num::NonZeroU32;
 
 use gtk::prelude::*;

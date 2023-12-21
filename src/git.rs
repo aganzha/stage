@@ -17,6 +17,13 @@ fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> 
     })
 }
 
+
+
+#[derive(Debug, Clone)]
+pub struct View {
+    pub line_no: i32
+}
+
 #[derive(Debug, Clone)]
 pub enum LineKind {
     File,
@@ -26,6 +33,7 @@ pub enum LineKind {
 
 #[derive(Debug, Clone)]
 pub struct Line {
+    pub view: Option<View>,
     pub origin: DiffLineType,
     pub content: String,
     pub kind: LineKind
@@ -35,6 +43,7 @@ pub struct Line {
 impl Line {
     pub fn new() -> Self {
         Self {
+            view: None,
             origin: DiffLineType::HunkHeader,
             content: String::new(),
             kind: LineKind::File
@@ -42,6 +51,7 @@ impl Line {
     }
     pub fn from_diff_line(l: &DiffLine, k: LineKind) -> Self {
         return Self {
+            view: None,
             origin: l.origin_value(),
             content: String::from(str::from_utf8(l.content()).unwrap()),
             kind: k
@@ -51,6 +61,7 @@ impl Line {
 
 #[derive(Debug, Clone)]
 pub struct Hunk {
+    pub view: Option<View>,
     pub header: String,
     pub lines: Vec<Line>
 }
@@ -58,6 +69,7 @@ pub struct Hunk {
 impl Hunk {
     pub fn new() -> Self {
         Self {
+            view: None,
             header: String::new(),
             lines: Vec::new()
         }
@@ -70,16 +82,23 @@ impl Hunk {
     pub fn push_line(&mut self, mut l: Line) {
         if self.lines.len() == 0 {
             l.kind = LineKind::File;
+            println!("skiiiiiiiiiiiiip FILE {:?}", l.content);
         }
         if self.lines.len() == 1 {
             l.kind = LineKind::Hunk;
+            println!("skiiiiiiiiiiiiip HUNK {:?}", l.content);
         }
         self.lines.push(l);
+    }
+
+    pub fn get_unique_name(&self) -> String {
+        format!("{}", self.header)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct File {
+    pub view: Option<View>,
     pub path: ffi::OsString,
     pub id: Oid,
     pub hunks: Vec<Hunk>
@@ -89,6 +108,7 @@ pub struct File {
 impl File {
     pub fn new() -> Self {
         Self {
+            view: None,
             path: ffi::OsString::new(),
             id: Oid::zero(),
             hunks: Vec::new()
@@ -96,6 +116,7 @@ impl File {
     }
     pub fn from_diff_file(f: &DiffFile) -> Self {
         return File {
+            view: None,
             path: f.path().unwrap().into(),
             id: f.id(),
             hunks: Vec::new()
@@ -105,6 +126,10 @@ impl File {
     pub fn push_hunk(&mut self, h: Hunk) {
         println!("Hunk {:?} for path {:?}", h.header, self.path);
         self.hunks.push(h);
+    }
+
+    pub fn get_unique_name(&self) -> String {
+        format!("{}", self.path.to_str().unwrap())
     }
 }
 

@@ -1,5 +1,4 @@
-om
--- init
+-- HUGHLIGHT for pgup/pgdown doesn not work
 - put label with current repo name (relative to path the app is started)
 - adwaita ToolbarView
 - mark evey line with tag to now whats inside tag
