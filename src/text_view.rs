@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use gtk::{glib, gdk, TextView, TextBuffer, TextTag};// TextIter
 use glib::{Sender, subclass::Signal, subclass::signal::SignalId, value::Value};
-use crate::View;
+use crate::{View, Diff};
 
 const HIGHLIGHT: &str = "highlight";
 const HIGHLIGHT_START: &str  = "HightlightStart";
@@ -22,6 +22,8 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
             match key {
                 gdk::Key::Tab => {
                     println!("taaaaaaaaaaaaaaaaaaaaaaaaaaaaaab!");
+                    sndr.send(crate::Event::Expand(buffer.iter_at_offset(buffer.cursor_position()).line()))
+                        .expect("Could not send through channel");
                 },
                 gdk::Key::s => {
                     let start_mark = buffer.mark(HIGHLIGHT_START).unwrap();
@@ -146,28 +148,40 @@ pub fn highlight_if_need(view: &TextView,
 impl View {
     fn new(line_no: i32) -> Self {
         return View {
-            line_no: line_no
+            line_no: line_no,
+            expanded: false
         }
     }
 }
 
-pub fn render(view: &TextView, diff: crate::Diff, _sndr: Sender<crate::Event>) { // , signal: SignalId
-    // println!("EEEEEEEE {:?} {:?}", diff, sndr);
-    // let signal_id = view.buffer().connect_apply_tag(move |_buff, tag, _start_iter, _end_iter| {
-    //     println!("moooooooooooooooooooores {:?} {:?}", tag, diff.files.len());
-    // });
-    // println!("???????????????????????????? connected! {:?}", signal_id);
-    // view.buffer().set_text(diff.render());
+impl Diff {
+    pub fn set_expand(&mut self, line_no: i32) {
+        println!("expand {:?}", line_no);
+        self.tmp = line_no;
+    }
+}
+
+pub fn render(view: &TextView, diff: &mut Diff, _sndr: Sender<crate::Event>) { // , signal: SignalId
     let buffer = view.buffer();
     let mut iter = buffer.iter_at_offset(0);
-    for mut file in diff.files  {
-        file.view.replace(View::new(iter.line()));
+    for file in &mut diff.files  {
+        if file.view.is_none() {
+            file.view.replace(View::new(iter.line()));
+        }
         buffer.insert(&mut iter, file.path.to_str().unwrap());
         buffer.insert(&mut iter, "\n");
-        for mut hunk in file.hunks {
-            hunk.view.replace(View::new(iter.line()));
+        // if !file.view.unwrap().expanded {
+        //     continue
+        // }
+        for hunk in &mut file.hunks {
+            if hunk.view.is_none() {
+                hunk.view.replace(View::new(iter.line()));
+            }
+            // if !hunk.view.unwrap().expanded {
+            //     continue
+            // }
             buffer.insert(&mut iter, &hunk.header);
-            for mut line in hunk.lines {
+            for line in &mut hunk.lines {
                 match line.kind {
                     crate::LineKind::File => continue,
                     crate::LineKind::Hunk => continue,
@@ -175,8 +189,10 @@ pub fn render(view: &TextView, diff: crate::Diff, _sndr: Sender<crate::Event>) {
                 }
                 line.view.replace(View::new(iter.line()));
                 buffer.insert(&mut iter, &line.content);
-                println!("liiiiiiiine {:?}", line.view);
             }
         }
     }
+    iter.set_line(0);
+    iter.set_line_offset(0);
+    buffer.place_cursor(&iter);
 }

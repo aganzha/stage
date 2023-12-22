@@ -21,7 +21,8 @@ fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> 
 
 #[derive(Debug, Clone)]
 pub struct View {
-    pub line_no: i32
+    pub line_no: i32,
+    pub expanded: bool
 }
 
 #[derive(Debug, Clone)]
@@ -135,12 +136,14 @@ impl File {
 
 #[derive(Debug, Clone)]
 pub struct Diff {
+    pub tmp: i32,
     pub files: Vec<File>
 }
 
 impl Diff {
     pub fn new() -> Self {
         Self {
+            tmp: 0,
             files: Vec::new()
         }
     }
