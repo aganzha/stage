@@ -168,7 +168,29 @@ impl Diff {
             if view.line_no == line_no {
                 println!("yes, set, please");
                 view.expanded = !view.expanded;
+                // when some item is expanded/collapsed
+                // all other views after it will become invalid
+                // by is_renderred_in_its_place
+                // and will be rerendered. no further calculations
+                // are reuired for them
                 view.rendered = false;
+                // but if view is collapsed it need to mark all inside it as not renderred
+                if !view.expanded {
+                    for hunk in &mut file.hunks {
+                        if hunk.view.is_none() {
+                            continue
+                        }
+                        let view = hunk.view.as_mut().unwrap();
+                        view.rendered = false;
+                        for line in &mut hunk.lines {
+                            if line.view.is_none() {
+                                continue
+                            }
+                            let view = line.view.as_mut().unwrap();
+                            view.rendered = false;
+                        }
+                    }
+                }
             }
         }
     }
@@ -186,7 +208,7 @@ pub fn render(view: &TextView, diff: &mut Diff) {
         let view = file.view.as_mut().unwrap();
         // so :) if view is rendered and we are here
         if view.is_renderred_in_its_place(iter.line()) {
-            println!("skip rendering file {:?} view at line {:?}", file.path.to_str().unwrap(), iter.line());
+            println!("skip rendering file {:?} at line {:?}", file.path.to_str().unwrap(), iter.line());
             iter.forward_lines(1);
         } else {
             println!("rendering file {:?} which was on line {:?} in line {:?}. Expanded? {:?}",
@@ -213,23 +235,59 @@ pub fn render(view: &TextView, diff: &mut Diff) {
                 hunk.view.replace(view);
             }
             let view = hunk.view.as_mut().unwrap();
+            if view.is_renderred_in_its_place(iter.line()) {
+                println!("skip rendering hunk {:?} at line {:?} with {:?} lines",
+                         hunk.header,
+                         iter.line(),
+                         hunk.lines.len()
+                );
+                iter.forward_lines(1); //  + hunk.lines.len() as i32
+            } else {
+                println!("rendering hunk {:?} at line {:?}. Expanded? {:?}",
+                         hunk.header,
+                         iter.line(),
+                         view.expanded
+                );
+                println!("Iter hunk header before {:?}", iter.line());
+                buffer.insert(&mut iter, &hunk.header);
+                println!("Iter hunk header after {:?}", iter.line());
+                view.line_no = iter.line();
+                buffer.insert(&mut iter, "\n");
+            }
             view.rendered = true;
             if !view.expanded {
                 continue
             }
-            buffer.insert(&mut iter, &hunk.header);
+
+            
             for line in &mut hunk.lines {
                 match line.kind {
                     crate::LineKind::File => continue,
                     crate::LineKind::Hunk => continue,
                     _ => ()
                 }
-                line.view.replace(View::new(iter.line()));
-                buffer.insert(&mut iter, &line.content);
+                if line.view.is_none() {
+                    let mut view = View::new(iter.line());
+                    // lines are allways expanded
+                    view.expanded = true;
+                    line.view.replace(view);
+                }
+                let view = line.view.as_mut().unwrap();
+                if view.is_renderred_in_its_place(iter.line()) {
+                    // println!("skip rendering line at line {:?}",
+                    //          iter.line(),
+                    // );
+                    println!("skip line {:?}", iter.line());
+                    iter.forward_lines(1);
+                } else {
+                    println!("render line at {:?}", iter.line());
+                    buffer.insert(&mut iter, &line.content);
+                    view.line_no = iter.line();
+                }
             }
         }
     }
-    
+
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
     // TODO! place cursor properly

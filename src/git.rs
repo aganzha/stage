@@ -78,7 +78,7 @@ impl Hunk {
     }
 
     pub fn get_header_from(dh: &DiffHunk) -> String {
-        String::from(str::from_utf8(dh.header()).unwrap())
+        String::from(str::from_utf8(dh.header()).unwrap()).replace("\n", "")
     }
 
     pub fn push_line(&mut self, mut l: Line) {

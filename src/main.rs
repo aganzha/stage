@@ -103,15 +103,13 @@ fn build_ui(app: &adw::Application) {
                 Event::Status(d) => {
                     println!("git diff in status {:p}", &d);
                     diff.replace(d);
-                    let mut d = diff.as_mut().unwrap();
+                    let d = diff.as_mut().unwrap();
                     render(&txt, d);
                 },
                 Event::Expand(offset, line_no) => {
                     println!("Expand {:?}", line_no);
-                    let mut d = diff.as_mut().unwrap();
-                    // let mut d = diff.clone().unwrap();
+                    let d = diff.as_mut().unwrap();
                     println!("thats d in expand {:p}, offset was before expand {:?}", &d, d.offset);
-                    println!("line number in first file {:?}", d.files[1].view.as_ref().unwrap().line_no);
                     d.set_expand(offset, line_no);
                     render(&txt, d);
                 }
