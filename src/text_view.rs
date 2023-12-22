@@ -147,17 +147,32 @@ pub fn highlight_if_need(view: &TextView,
 }
 
 impl View {
-    fn new(line_no: i32) -> Self {
+    fn new(line_no: i32, expanded: bool, content: String) -> Self {
         return View {
             line_no: line_no,
-            expanded: false,
-            rendered: false
+            expanded: expanded,
+            rendered: false,
+            content: content
         }
     }
+
     fn is_renderred_in_its_place(&self, line_no: i32) -> bool {
         self.rendered && self.line_no == line_no
     }
+    
+    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) -> &mut Self {
+        if self.is_renderred_in_its_place(iter.line()) {
+            iter.forward_lines(1);
+        } else {            
+            buffer.insert(iter, &self.content);
+            self.line_no = iter.line();
+            buffer.insert(iter, "\n");
+        }
+        self.rendered = true;
+        self
+    }
 }
+
 
 impl Diff {
     pub fn set_expand(&mut self, offset: i32, line_no: i32) {
@@ -196,16 +211,41 @@ impl Diff {
     }
 }
 
-pub fn render_view(buffer: &TextBuffer, iter: &mut TextIter, view: &mut View, content: &str) {
-    if view.is_renderred_in_its_place(iter.line()) {
-        iter.forward_lines(1);
-    } else {            
-        buffer.insert(iter, content);
-        view.line_no = iter.line();
-        buffer.insert(iter, "\n");
-    }
-    view.rendered = true;
+
+pub trait ViewHolder {
+    
+    fn get_view(&mut self, iter: &TextIter) -> &mut View;
+    // TODO get_children!! for set_expand!!!!
+    // fn get_content(&self) -> String;
+    // fn render_or_skip(&self, iter: &mut TextIter);
 }
+
+impl ViewHolder for Line {
+    fn get_view(&mut self, iter: &TextIter) -> &mut View {
+        let content = &self.content;
+        self.view.get_or_insert_with(|| {
+            View::new(iter.line(), false, content.to_string())
+        })
+    }
+}
+
+impl ViewHolder for Hunk {
+    fn get_view(&mut self, iter: &TextIter) -> &mut View {
+        let header = &self.header;
+        self.view.get_or_insert_with(|| {
+            View::new(iter.line(), true, header.to_string())
+        })
+    }
+}
+
+impl ViewHolder for File {
+    fn get_view(&mut self, iter: &TextIter) -> &mut View {
+        self.view.get_or_insert_with(|| {
+            View::new(iter.line(), false, self.path.to_str().unwrap().to_string())
+        })
+    }
+}
+
 
 pub fn render(view: &TextView, diff: &mut Diff) {
     let buffer = view.buffer();
@@ -213,64 +253,14 @@ pub fn render(view: &TextView, diff: &mut Diff) {
 
     for file in &mut diff.files  {
 
-        if file.view.is_none() {
-            file.view.replace(View::new(iter.line()));
-        }
-
-        let view = file.view.as_mut().unwrap();
-
-        render_view(&buffer, &mut iter, view, file.path.to_str().unwrap());
-        // if view.is_renderred_in_its_place(iter.line()) {
-        //     println!("skip rendering file {:?} at line {:?}", file.path.to_str().unwrap(), iter.line());
-        //     iter.forward_lines(1);
-        // } else {
-        //     println!("rendering file {:?} which was on line {:?} in line {:?}. Expanded? {:?}",
-        //              file.path.to_str().unwrap(),
-        //              view.line_no,
-        //              iter.line(),
-        //              view.expanded
-        //     );
-        //     buffer.insert(&mut iter, file.path.to_str().unwrap());
-        //     view.line_no = iter.line();
-        //     buffer.insert(&mut iter, "\n");
-        // }
-        // view.rendered = true;
-        
+        let view = file.get_view(&mut iter).render(&buffer, &mut iter);
         if !view.expanded {
             continue
         }
 
 
         for hunk in &mut file.hunks {
-            if hunk.view.is_none() {
-                let mut view = View::new(iter.line());
-                // hunks are expanded by default
-                view.expanded = true;
-                hunk.view.replace(view);
-            }
-            let view = hunk.view.as_mut().unwrap();
-
-            render_view(&buffer, &mut iter, view, &hunk.header);
-            
-            // if view.is_renderred_in_its_place(iter.line()) {
-            //     println!("skip rendering hunk {:?} at line {:?} with {:?} lines",
-            //              hunk.header,
-            //              iter.line(),
-            //              hunk.lines.len()
-            //     );
-            //     iter.forward_lines(1);
-            // } else {
-            //     println!("rendering hunk {:?} at line {:?}. Expanded? {:?}",
-            //              hunk.header,
-            //              iter.line(),
-            //              view.expanded
-            //     );
-            //     buffer.insert(&mut iter, &hunk.header);
-            //     view.line_no = iter.line();
-            //     buffer.insert(&mut iter, "\n");
-            // }
-            // view.rendered = true;
-            
+            let view = hunk.get_view(&mut iter).render(&buffer, &mut iter);
             if !view.expanded {
                 continue
             }
@@ -282,23 +272,7 @@ pub fn render(view: &TextView, diff: &mut Diff) {
                     crate::LineKind::Hunk => continue,
                     _ => ()
                 }
-                if line.view.is_none() {
-                    let mut view = View::new(iter.line());
-                    // lines are allways expanded
-                    view.expanded = true;
-                    line.view.replace(view);
-                }
-                let view = line.view.as_mut().unwrap();
-                render_view(&buffer, &mut iter, view, &line.content);
-                
-                // if view.is_renderred_in_its_place(iter.line()) {
-                //     iter.forward_lines(1);
-                // } else {
-                //     buffer.insert(&mut iter, &line.content);
-                //     view.line_no = iter.line();
-                //     buffer.insert(&mut iter, "\n");
-                // }
-                // view.rendered = true;
+                line.get_view(&mut iter).render(&buffer, &mut iter);
                 
             }
         }

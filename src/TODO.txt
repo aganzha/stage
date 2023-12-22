@@ -15,8 +15,6 @@ BUG: expand TODO, then expand text_view.rs and main.rs is DISAPEARED! must be re
 - when put mouse in the end of line it does not highlighted
 
 
-
-
 - in parallel thread, go to the source file, while read hunks and put whole file in tree sitter,
 make a syntax, highlight it and put into the diff. while insert line into the buffer, paint it with tags
 by the tree sitter structure
