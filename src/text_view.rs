@@ -22,7 +22,8 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
             match key {
                 gdk::Key::Tab => {
                     println!("taaaaaaaaaaaaaaaaaaaaaaaaaaaaaab!");
-                    sndr.send(crate::Event::Expand(buffer.iter_at_offset(buffer.cursor_position()).line()))
+                    let iter = buffer.iter_at_offset(buffer.cursor_position());
+                    sndr.send(crate::Event::Expand(iter.offset(), iter.line()))
                         .expect("Could not send through channel");
                 },
                 gdk::Key::s => {
@@ -159,7 +160,8 @@ impl View {
 }
 
 impl Diff {
-    pub fn set_expand(&mut self, line_no: i32) {
+    pub fn set_expand(&mut self, offset: i32, line_no: i32) {
+        self.offset = offset;
         for file in &mut self.files {
             let view = file.view.as_mut().unwrap();
             println!("do it need to set expand? on line {:?} for view {:?}", line_no, view.line_no);
@@ -231,7 +233,7 @@ pub fn render(view: &TextView, diff: &mut Diff) {
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
     // TODO! place cursor properly
-    iter.set_line(0);
-    iter.set_line_offset(0);
+    iter.set_offset(diff.offset);
     buffer.place_cursor(&iter);
+    highlight_if_need(&view, iter);
 }

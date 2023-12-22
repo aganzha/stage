@@ -137,14 +137,14 @@ impl File {
 
 #[derive(Debug, Clone)]
 pub struct Diff {
-    pub tmp: i32,
+    pub offset: i32,
     pub files: Vec<File>
 }
 
 impl Diff {
     pub fn new() -> Self {
         Self {
-            tmp: 0,
+            offset: 0,
             files: Vec::new()
         }
     }
@@ -216,35 +216,10 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
 
                 true
             });
-
             current_file.push_hunk(current_hunk);
             diff.files.push(current_file);
             sender.send(crate::Event::Status(diff))
                 .expect("Could not send through channel");
         }
     }
-}
-
-pub fn blob_text_from_id(repo: &Repository, id: Oid) -> Option<String> {
-    if !id.is_zero() {
-        let ob = repo.find_object(id, Some(ObjectType::Blob));
-        println!("Ooooooooooooooob {:?}", ob);
-        if let Ok(blob) = ob {
-            let bl = blob.as_blob();
-            if let Some(the_blob) = bl {
-                let bytes = the_blob.content();
-                let s = str::from_utf8(bytes).unwrap();
-                return Some(String::from(s))
-            }
-        }
-    }
-    None
-}
-
-
-
-pub fn stage_changes(repo: Repository, _sender: Sender<crate::Event>) {
-    // gio::spawn_blocking(|| {
-        println!("oooooooooooooooooo {:?}", repo.is_empty());
-    // });
 }

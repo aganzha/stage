@@ -1,7 +1,7 @@
 mod text_view;
 use text_view::{text_view_factory, render};
 mod git;
-use git::{get_current_repo_status, stage_changes,
+use git::{get_current_repo_status,
           Diff, LineKind, View, File, Hunk, Line};
 use core::num::NonZeroU32;
 
@@ -42,7 +42,7 @@ fn load_css() {
 pub enum Event {
     CurrentRepo(std::ffi::OsString),
     Status(Diff),
-    Expand(i32),
+    Expand(i32, i32),
     Stage(String)
 }
 
@@ -106,13 +106,13 @@ fn build_ui(app: &adw::Application) {
                     let mut d = diff.as_mut().unwrap();
                     render(&txt, d);
                 },
-                Event::Expand(line_no) => {
+                Event::Expand(offset, line_no) => {
                     println!("Expand {:?}", line_no);
                     let mut d = diff.as_mut().unwrap();
                     // let mut d = diff.clone().unwrap();
-                    println!("thats d in expand {:p}, was before expand {:?}", &d, d.tmp);
+                    println!("thats d in expand {:p}, offset was before expand {:?}", &d, d.offset);
                     println!("line number in first file {:?}", d.files[1].view.as_ref().unwrap().line_no);
-                    d.set_expand(line_no);
+                    d.set_expand(offset, line_no);
                     render(&txt, d);
                 }
                 Event::Stage(text) => {
