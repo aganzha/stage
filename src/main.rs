@@ -13,7 +13,6 @@ use gtk::{glib, gdk, gio, Box, Label, Orientation, CssProvider, ScrolledWindow};
 use gdk::Display;
 use git2::Repository;
 
-
 const APP_ID: &str = "io.github.aganzha.Stage";
 
 fn main() -> glib::ExitCode {

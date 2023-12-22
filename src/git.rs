@@ -6,6 +6,7 @@ use crate::glib::{Sender};
 use crate::gio;
 
 
+
 fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> {
     let path = path_buff.as_path();
     Repository::open(path).or_else(|error| {
@@ -55,7 +56,9 @@ impl Line {
         return Self {
             view: None,
             origin: l.origin_value(),
-            content: String::from(str::from_utf8(l.content()).unwrap()),
+            content: String::from(str::from_utf8(l.content()).unwrap())
+                .replace("\r\n", "")
+                .replace("\n", ""),
             kind: k
         }
     }
@@ -78,7 +81,9 @@ impl Hunk {
     }
 
     pub fn get_header_from(dh: &DiffHunk) -> String {
-        String::from(str::from_utf8(dh.header()).unwrap()).replace("\n", "")
+        String::from(str::from_utf8(dh.header()).unwrap())
+            .replace("\r\n", "")
+            .replace("\n", "")
     }
 
     pub fn push_line(&mut self, mut l: Line) {

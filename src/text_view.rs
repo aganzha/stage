@@ -199,6 +199,7 @@ impl Diff {
 pub fn render(view: &TextView, diff: &mut Diff) {
     let buffer = view.buffer();
     let mut iter = buffer.iter_at_offset(0);
+
     for file in &mut diff.files  {
 
         if file.view.is_none() {
@@ -209,6 +210,10 @@ pub fn render(view: &TextView, diff: &mut Diff) {
         // so :) if view is rendered and we are here
         if view.is_renderred_in_its_place(iter.line()) {
             println!("skip rendering file {:?} at line {:?}", file.path.to_str().unwrap(), iter.line());
+            let mut eol_iter = buffer.iter_at_offset(iter.offset());
+            eol_iter.forward_to_line_end();
+            let slice = buffer.slice(&iter, &eol_iter, true);// buffer.select_range(iter, eol_iter);
+            println!("SLICEEEEE {:?}", slice);
             iter.forward_lines(1);
         } else {
             println!("rendering file {:?} which was on line {:?} in line {:?}. Expanded? {:?}",
@@ -248,9 +253,7 @@ pub fn render(view: &TextView, diff: &mut Diff) {
                          iter.line(),
                          view.expanded
                 );
-                println!("Iter hunk header before {:?}", iter.line());
                 buffer.insert(&mut iter, &hunk.header);
-                println!("Iter hunk header after {:?}", iter.line());
                 view.line_no = iter.line();
                 buffer.insert(&mut iter, "\n");
             }
@@ -274,16 +277,13 @@ pub fn render(view: &TextView, diff: &mut Diff) {
                 }
                 let view = line.view.as_mut().unwrap();
                 if view.is_renderred_in_its_place(iter.line()) {
-                    // println!("skip rendering line at line {:?}",
-                    //          iter.line(),
-                    // );
-                    println!("skip line {:?}", iter.line());
                     iter.forward_lines(1);
                 } else {
-                    println!("render line at {:?}", iter.line());
                     buffer.insert(&mut iter, &line.content);
                     view.line_no = iter.line();
+                    buffer.insert(&mut iter, "\n");
                 }
+                view.rendered = true;
             }
         }
     }
