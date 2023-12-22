@@ -22,7 +22,8 @@ fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> 
 #[derive(Debug, Clone)]
 pub struct View {
     pub line_no: i32,
-    pub expanded: bool
+    pub expanded: bool,
+    pub rendered: bool
 }
 
 #[derive(Debug, Clone)]

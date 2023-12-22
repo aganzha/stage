@@ -1,7 +1,8 @@
 mod text_view;
 use text_view::{text_view_factory, render};
 mod git;
-use git::{get_current_repo_status, stage_changes, Diff, LineKind, View};
+use git::{get_current_repo_status, stage_changes,
+          Diff, LineKind, View, File, Hunk, Line};
 use core::num::NonZeroU32;
 
 use gtk::prelude::*;
@@ -103,12 +104,7 @@ fn build_ui(app: &adw::Application) {
                     println!("git diff in status {:p}", &d);
                     diff.replace(d);
                     let mut d = diff.as_mut().unwrap();
-                    // let cl = d.clone();
-                    // println!("replaced it with clone! {:p}", &cl);
-                    // diff.replace(cl);
-                    // let cl = d.clone();
-                    // println!("one more clone to render! {:p}", &cl);
-                    render(&txt, d, sender.clone());// , txt_signal
+                    render(&txt, d);
                 },
                 Event::Expand(line_no) => {
                     println!("Expand {:?}", line_no);
@@ -116,11 +112,8 @@ fn build_ui(app: &adw::Application) {
                     // let mut d = diff.clone().unwrap();
                     println!("thats d in expand {:p}, was before expand {:?}", &d, d.tmp);
                     println!("line number in first file {:?}", d.files[1].view.as_ref().unwrap().line_no);
-                    d.set_expand(line_no);                    
-                    // 
-                    // let cl = d.clone();
-                    // println!("re render it again with clone {:p}", &cl); 
-                    // render(&txt, cl, sender.clone());
+                    d.set_expand(line_no);
+                    render(&txt, d);
                 }
                 Event::Stage(text) => {
                     println!("STAGE THIS TEXT {:?} in {:?}", text, diff);

@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use gtk::{glib, gdk, TextView, TextBuffer, TextTag};// TextIter
 use glib::{Sender, subclass::Signal, subclass::signal::SignalId, value::Value};
-use crate::{View, Diff};
+use crate::{View, Diff, File, Hunk, Line};
 
 const HIGHLIGHT: &str = "highlight";
 const HIGHLIGHT_START: &str  = "HightlightStart";
@@ -149,37 +149,63 @@ impl View {
     fn new(line_no: i32) -> Self {
         return View {
             line_no: line_no,
-            expanded: false
+            expanded: false,
+            rendered: false
         }
+    }
+    fn is_renderred_in_its_place(&self, line_no: i32) -> bool {
+        self.rendered && self.line_no == line_no
     }
 }
 
 impl Diff {
     pub fn set_expand(&mut self, line_no: i32) {
-        println!("expand {:?}", line_no);
-        self.tmp = line_no;
+        for file in &mut self.files {
+            let view = file.view.as_mut().unwrap();
+            if view.line_no == line_no {
+                view.expanded = !view.expanded;
+                view.rendered = false;
+            }
+        }
     }
 }
 
-pub fn render(view: &TextView, diff: &mut Diff, _sndr: Sender<crate::Event>) { // , signal: SignalId
+pub fn render(view: &TextView, diff: &mut Diff) {
     let buffer = view.buffer();
     let mut iter = buffer.iter_at_offset(0);
     for file in &mut diff.files  {
+
         if file.view.is_none() {
             file.view.replace(View::new(iter.line()));
         }
-        buffer.insert(&mut iter, file.path.to_str().unwrap());
-        buffer.insert(&mut iter, "\n");
-        // if !file.view.unwrap().expanded {
-        //     continue
-        // }
+
+        let view = file.view.as_mut().unwrap();
+        // so :) if view is rendered and we are here
+        if view.is_renderred_in_its_place(iter.line()) {
+            println!("skip rendering file {:?} view at line {:?} for view at line {:?}", file.path.to_str().unwrap(), iter.line(), view.line_no);
+            iter.forward_lines(1);
+        } else {
+            buffer.insert(&mut iter, file.path.to_str().unwrap());
+            buffer.insert(&mut iter, "\n");
+        }
+        view.rendered = true;
+        if !view.expanded {
+            continue
+        }
+
+
         for hunk in &mut file.hunks {
             if hunk.view.is_none() {
-                hunk.view.replace(View::new(iter.line()));
+                let mut view = View::new(iter.line());
+                // hunks are expanded by default
+                view.expanded = true;
+                hunk.view.replace(view);
             }
-            // if !hunk.view.unwrap().expanded {
-            //     continue
-            // }
+            let view = hunk.view.as_mut().unwrap();
+            view.rendered = true;
+            if !view.expanded {
+                continue
+            }
             buffer.insert(&mut iter, &hunk.header);
             for line in &mut hunk.lines {
                 match line.kind {
