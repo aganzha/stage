@@ -1,5 +1,5 @@
 use gtk::prelude::*;
-use gtk::{glib, gdk, TextView, TextBuffer, TextTag};// TextIter
+use gtk::{glib, gdk, TextView, TextBuffer, TextTag, TextIter};
 use glib::{Sender, subclass::Signal, subclass::signal::SignalId, value::Value};
 use crate::{View, Diff, File, Hunk, Line};
 
@@ -196,6 +196,17 @@ impl Diff {
     }
 }
 
+pub fn render_view(buffer: &TextBuffer, iter: &mut TextIter, view: &mut View, content: &str) {
+    if view.is_renderred_in_its_place(iter.line()) {
+        iter.forward_lines(1);
+    } else {            
+        buffer.insert(iter, content);
+        view.line_no = iter.line();
+        buffer.insert(iter, "\n");
+    }
+    view.rendered = true;
+}
+
 pub fn render(view: &TextView, diff: &mut Diff) {
     let buffer = view.buffer();
     let mut iter = buffer.iter_at_offset(0);
@@ -207,26 +218,24 @@ pub fn render(view: &TextView, diff: &mut Diff) {
         }
 
         let view = file.view.as_mut().unwrap();
-        // so :) if view is rendered and we are here
-        if view.is_renderred_in_its_place(iter.line()) {
-            println!("skip rendering file {:?} at line {:?}", file.path.to_str().unwrap(), iter.line());
-            let mut eol_iter = buffer.iter_at_offset(iter.offset());
-            eol_iter.forward_to_line_end();
-            let slice = buffer.slice(&iter, &eol_iter, true);// buffer.select_range(iter, eol_iter);
-            println!("SLICEEEEE {:?}", slice);
-            iter.forward_lines(1);
-        } else {
-            println!("rendering file {:?} which was on line {:?} in line {:?}. Expanded? {:?}",
-                     file.path.to_str().unwrap(),
-                     view.line_no,
-                     iter.line(),
-                     view.expanded
-            );
-            buffer.insert(&mut iter, file.path.to_str().unwrap());
-            view.line_no = iter.line();
-            buffer.insert(&mut iter, "\n");
-        }
-        view.rendered = true;
+
+        render_view(&buffer, &mut iter, view, file.path.to_str().unwrap());
+        // if view.is_renderred_in_its_place(iter.line()) {
+        //     println!("skip rendering file {:?} at line {:?}", file.path.to_str().unwrap(), iter.line());
+        //     iter.forward_lines(1);
+        // } else {
+        //     println!("rendering file {:?} which was on line {:?} in line {:?}. Expanded? {:?}",
+        //              file.path.to_str().unwrap(),
+        //              view.line_no,
+        //              iter.line(),
+        //              view.expanded
+        //     );
+        //     buffer.insert(&mut iter, file.path.to_str().unwrap());
+        //     view.line_no = iter.line();
+        //     buffer.insert(&mut iter, "\n");
+        // }
+        // view.rendered = true;
+        
         if !view.expanded {
             continue
         }
@@ -240,24 +249,28 @@ pub fn render(view: &TextView, diff: &mut Diff) {
                 hunk.view.replace(view);
             }
             let view = hunk.view.as_mut().unwrap();
-            if view.is_renderred_in_its_place(iter.line()) {
-                println!("skip rendering hunk {:?} at line {:?} with {:?} lines",
-                         hunk.header,
-                         iter.line(),
-                         hunk.lines.len()
-                );
-                iter.forward_lines(1); //  + hunk.lines.len() as i32
-            } else {
-                println!("rendering hunk {:?} at line {:?}. Expanded? {:?}",
-                         hunk.header,
-                         iter.line(),
-                         view.expanded
-                );
-                buffer.insert(&mut iter, &hunk.header);
-                view.line_no = iter.line();
-                buffer.insert(&mut iter, "\n");
-            }
-            view.rendered = true;
+
+            render_view(&buffer, &mut iter, view, &hunk.header);
+            
+            // if view.is_renderred_in_its_place(iter.line()) {
+            //     println!("skip rendering hunk {:?} at line {:?} with {:?} lines",
+            //              hunk.header,
+            //              iter.line(),
+            //              hunk.lines.len()
+            //     );
+            //     iter.forward_lines(1);
+            // } else {
+            //     println!("rendering hunk {:?} at line {:?}. Expanded? {:?}",
+            //              hunk.header,
+            //              iter.line(),
+            //              view.expanded
+            //     );
+            //     buffer.insert(&mut iter, &hunk.header);
+            //     view.line_no = iter.line();
+            //     buffer.insert(&mut iter, "\n");
+            // }
+            // view.rendered = true;
+            
             if !view.expanded {
                 continue
             }
@@ -276,14 +289,17 @@ pub fn render(view: &TextView, diff: &mut Diff) {
                     line.view.replace(view);
                 }
                 let view = line.view.as_mut().unwrap();
-                if view.is_renderred_in_its_place(iter.line()) {
-                    iter.forward_lines(1);
-                } else {
-                    buffer.insert(&mut iter, &line.content);
-                    view.line_no = iter.line();
-                    buffer.insert(&mut iter, "\n");
-                }
-                view.rendered = true;
+                render_view(&buffer, &mut iter, view, &line.content);
+                
+                // if view.is_renderred_in_its_place(iter.line()) {
+                //     iter.forward_lines(1);
+                // } else {
+                //     buffer.insert(&mut iter, &line.content);
+                //     view.line_no = iter.line();
+                //     buffer.insert(&mut iter, "\n");
+                // }
+                // view.rendered = true;
+                
             }
         }
     }

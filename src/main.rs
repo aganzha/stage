@@ -80,8 +80,6 @@ fn build_ui(app: &adw::Application) {
     let mut repo: Option<std::ffi::OsString> = None;
     let mut diff: Option<Diff> = None;
 
-
-
     gio::spawn_blocking({
         let sender = sender.clone();
         move || {
