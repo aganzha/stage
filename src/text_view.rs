@@ -162,7 +162,9 @@ impl Diff {
     pub fn set_expand(&mut self, line_no: i32) {
         for file in &mut self.files {
             let view = file.view.as_mut().unwrap();
+            println!("do it need to set expand? on line {:?} for view {:?}", line_no, view.line_no);
             if view.line_no == line_no {
+                println!("yes, set, please");
                 view.expanded = !view.expanded;
                 view.rendered = false;
             }
@@ -182,10 +184,17 @@ pub fn render(view: &TextView, diff: &mut Diff) {
         let view = file.view.as_mut().unwrap();
         // so :) if view is rendered and we are here
         if view.is_renderred_in_its_place(iter.line()) {
-            println!("skip rendering file {:?} view at line {:?} for view at line {:?}", file.path.to_str().unwrap(), iter.line(), view.line_no);
+            println!("skip rendering file {:?} view at line {:?}", file.path.to_str().unwrap(), iter.line());
             iter.forward_lines(1);
         } else {
+            println!("rendering file {:?} which was on line {:?} in line {:?}. Expanded? {:?}",
+                     file.path.to_str().unwrap(),
+                     view.line_no,
+                     iter.line(),
+                     view.expanded
+            );
             buffer.insert(&mut iter, file.path.to_str().unwrap());
+            view.line_no = iter.line();
             buffer.insert(&mut iter, "\n");
         }
         view.rendered = true;
@@ -218,6 +227,10 @@ pub fn render(view: &TextView, diff: &mut Diff) {
             }
         }
     }
+    
+    buffer.delete(&mut iter, &mut buffer.end_iter());
+
+    // TODO! place cursor properly
     iter.set_line(0);
     iter.set_line_offset(0);
     buffer.place_cursor(&iter);

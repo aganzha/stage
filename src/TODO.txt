@@ -9,8 +9,6 @@
 - when 1 click on line, the cursor must became pointer. second click opens either commit or do action (stage) or opens file in EDITOR
 - open another repo
 - open repo under other user causeing error! handle it!
-
-
 - .gitignore does not counted in gitlib2 !!!! flags : Status(IGNORED)
 - when put mouse in the end of line it does not highlighted
 
