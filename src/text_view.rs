@@ -146,33 +146,6 @@ pub fn highlight_if_need(view: &TextView,
 
 }
 
-impl View {
-    fn new(line_no: i32, expanded: bool, content: String) -> Self {
-        return View {
-            line_no: line_no,
-            expanded: expanded,
-            rendered: false,
-            content: content
-        }
-    }
-
-    fn is_renderred_in_its_place(&self, line_no: i32) -> bool {
-        self.rendered && self.line_no == line_no
-    }
-    
-    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) -> &mut Self {
-        if self.is_renderred_in_its_place(iter.line()) {
-            iter.forward_lines(1);
-        } else {            
-            buffer.insert(iter, &self.content);
-            self.line_no = iter.line();
-            buffer.insert(iter, "\n");
-        }
-        self.rendered = true;
-        self
-    }
-}
-
 
 impl Diff {
     pub fn set_expand(&mut self, offset: i32, line_no: i32) {
@@ -212,8 +185,36 @@ impl Diff {
 }
 
 
+impl View {
+    fn new(line_no: i32, expanded: bool, content: String) -> Self {
+        return View {
+            line_no: line_no,
+            expanded: expanded,
+            rendered: false,
+            content: content
+        }
+    }
+
+    fn is_renderred_in_its_place(&self, line_no: i32) -> bool {
+        self.rendered && self.line_no == line_no
+    }
+
+    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) -> &mut Self {
+        if self.is_renderred_in_its_place(iter.line()) {
+            iter.forward_lines(1);
+        } else {
+            buffer.insert(iter, &self.content);
+            self.line_no = iter.line();
+            buffer.insert(iter, "\n");
+        }
+        self.rendered = true;
+        self
+    }
+}
+
+
 pub trait ViewHolder {
-    
+
     fn get_view(&mut self, iter: &TextIter) -> &mut View;
     // TODO get_children!! for set_expand!!!!
     // fn get_content(&self) -> String;
@@ -265,7 +266,7 @@ pub fn render(view: &TextView, diff: &mut Diff) {
                 continue
             }
 
-            
+
             for line in &mut hunk.lines {
                 match line.kind {
                     crate::LineKind::File => continue,
@@ -273,7 +274,7 @@ pub fn render(view: &TextView, diff: &mut Diff) {
                     _ => ()
                 }
                 line.get_view(&mut iter).render(&buffer, &mut iter);
-                
+
             }
         }
     }
