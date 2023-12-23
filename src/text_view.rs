@@ -153,7 +153,7 @@ impl Diff {
         self.offset = offset;
         for file in &mut self.files {
             // getting view here with line does not make sense. it must be already ecists
-            let view = file.get_view(line_no);
+            let view = file.get_own_view(line_no);
             println!("do it need to set expand? on line {:?} for view {:?}", line_no, view.line_no);
             if view.line_no == line_no {
                 println!("yes, set, please");
@@ -168,9 +168,9 @@ impl Diff {
                 if !view.expanded {
                     for hunk in &mut file.hunks {
                         // getting view here with line does not make sense. it must be already ecists
-                        hunk.get_view(line_no).rendered = false;
+                        hunk.get_own_view(line_no).rendered = false;
                         for line in &mut hunk.lines {
-                            line.get_view(line_no).rendered = false;
+                            line.get_own_view(line_no).rendered = false;
                         }
                     }
                 }
@@ -208,24 +208,10 @@ impl View {
     }
 }
 
-pub trait ViewHolder {
-    fn get_view(&mut self, line_no: i32) -> &mut View;
-}
-
-pub trait ViewsContainer {
-    fn get_views(&mut self) -> Vec<&mut dyn ViewHolder>;
-}
-
 
 pub trait RecursiveViewContainer {
     fn get_own_view(&mut self, line_no: i32) -> &mut View;
     fn get_children_views(&mut self) -> Vec<&mut dyn RecursiveViewContainer>;
-}
-
-impl ViewsContainer for Diff {
-    fn get_views(&mut self) -> Vec<&mut dyn ViewHolder> {
-        self.files.iter_mut().map(|f| f as &mut dyn ViewHolder).collect()
-    }
 }
 
 impl RecursiveViewContainer for Diff {
@@ -237,12 +223,6 @@ impl RecursiveViewContainer for Diff {
     
     fn get_children_views(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
         self.files.iter_mut().map(|f| f as &mut dyn RecursiveViewContainer).collect()
-    }
-}
-
-impl ViewsContainer for File {
-    fn get_views(&mut self) -> Vec<&mut dyn ViewHolder> {
-        self.hunks.iter_mut().map(|vh|vh as &mut dyn ViewHolder).collect()
     }
 }
 
@@ -258,12 +238,6 @@ impl RecursiveViewContainer for File {
 }
 
 
-impl ViewsContainer for Hunk {
-    fn get_views(&mut self) -> Vec<&mut dyn ViewHolder> {
-        self.lines.iter_mut().map(|vh|vh as &mut dyn ViewHolder).collect()
-    }
-}
-
 impl RecursiveViewContainer for Hunk {
     fn get_own_view(&mut self, line_no: i32) -> &mut View {
         let header = &self.header;
@@ -273,16 +247,6 @@ impl RecursiveViewContainer for Hunk {
     }
     fn get_children_views(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
         self.lines.iter_mut().map(|vh|vh as &mut dyn RecursiveViewContainer).collect()
-    }
-}
-
-
-impl ViewHolder for Line {
-    fn get_view(&mut self, line_no: i32) -> &mut View {
-        let content = &self.content;
-        self.view.get_or_insert_with(|| {
-            View::new(line_no, false, content.to_string())
-        })
     }
 }
 
@@ -298,22 +262,6 @@ impl RecursiveViewContainer for Line {
     }
 }
 
-impl ViewHolder for Hunk {
-    fn get_view(&mut self, line_no: i32) -> &mut View {
-        let header = &self.header;
-        self.view.get_or_insert_with(|| {
-            View::new(line_no, true, header.to_string())
-        })
-    }
-}
-
-impl ViewHolder for File {
-    fn get_view(&mut self, line_no: i32) -> &mut View {
-        self.view.get_or_insert_with(|| {
-            View::new(line_no, false, self.path.to_str().unwrap().to_string())
-        })
-    }
-}
 
 
 pub fn render(view: &TextView, diff: &mut Diff) {
