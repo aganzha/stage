@@ -146,12 +146,13 @@ pub fn highlight_if_need(view: &TextView,
 
 }
 
-
 impl Diff {
+
     pub fn set_expand(&mut self, offset: i32, line_no: i32) {
         self.offset = offset;
         for file in &mut self.files {
-            let view = file.view.as_mut().unwrap();
+            // getting view here with line does not make sense. it must be already ecists
+            let view = file.get_view(line_no);
             println!("do it need to set expand? on line {:?} for view {:?}", line_no, view.line_no);
             if view.line_no == line_no {
                 println!("yes, set, please");
@@ -165,17 +166,10 @@ impl Diff {
                 // but if view is collapsed it need to mark all inside it as not renderred
                 if !view.expanded {
                     for hunk in &mut file.hunks {
-                        if hunk.view.is_none() {
-                            continue
-                        }
-                        let view = hunk.view.as_mut().unwrap();
-                        view.rendered = false;
+                        // getting view here with line does not make sense. it must be already ecists
+                        hunk.get_view(line_no).rendered = false;
                         for line in &mut hunk.lines {
-                            if line.view.is_none() {
-                                continue
-                            }
-                            let view = line.view.as_mut().unwrap();
-                            view.rendered = false;
+                            line.get_view(line_no).rendered = false;
                         }
                     }
                 }
