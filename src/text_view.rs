@@ -207,77 +207,29 @@ impl View {
     }
 }
 
-pub struct Image {
-    title: String
-}
-
-pub struct Folder {
-    title: String,
-    images: Vec<Image>
-}
-
-
-pub struct Catalog {
-    title: String,
-    folders: Vec<Folder>
-}
-
-pub trait TitleHolder {
-    fn get_title(&self) -> &String;
-}
-
-impl TitleHolder for Image {
-    fn get_title(&self) -> &String {
-        &self.title
-    }
-}
-
-impl TitleHolder for Folder {
-    fn get_title(&self) -> &String {
-        &self.title
-    }
-}
-
-impl TitleHolder for Catalog {
-    fn get_title(&self) -> &String {
-        &self.title
-    }
-}
-
-pub trait TitleContainer {
-    fn get_titles(&self) -> Vec<&dyn TitleHolder>;
-}
-
-impl TitleContainer for Catalog {
-    fn get_titles(&self) -> Vec<&dyn TitleHolder> {
-        self.folders.iter().map(|f|f as &dyn TitleHolder).collect()
-        // It works also for return type Vec<&dyn TitleHolder>
-        // here and in trait!
-        // let boxes: Vec<&dyn TitleHolder> = self.folders.iter().map(|f|f as &dyn TitleHolder).collect();
-        // boxes
-        // It works!
-        // let mut boxes: Vec<&dyn TitleHolder> = Vec::new();
-        // for folder in &self.folders {
-        //     boxes.push(folder);
-        // }        
-        // boxes        
-    }
-}
-
-
 pub trait ViewHolder {
     fn get_view(&mut self, line_no: i32) -> &mut View;
 }
 
 pub trait ViewsContainer {
-    fn get_views<T>(&self) -> &Vec<T> where T: ViewHolder;
+    fn get_views(&self) -> Vec<&dyn ViewHolder>;
 }
 
-// impl ViewsContainer for Diff {
-//     fn get_views<File>(&self) -> &Vec<File> {
-//         &self.files
-//     }
-// }
+impl ViewsContainer for Diff {
+    fn get_views(&self) -> Vec<&dyn ViewHolder> {
+        self.files.iter().map(|vh|vh as &dyn ViewHolder).collect()
+    }
+}
+impl ViewsContainer for File {
+    fn get_views(&self) -> Vec<&dyn ViewHolder> {
+        self.hunks.iter().map(|vh|vh as &dyn ViewHolder).collect()
+    }
+}
+impl ViewsContainer for Hunk {
+    fn get_views(&self) -> Vec<&dyn ViewHolder> {
+        self.lines.iter().map(|vh|vh as &dyn ViewHolder).collect()
+    }
+}
 
 impl ViewHolder for Line {
     fn get_view(&mut self, line_no: i32) -> &mut View {
@@ -310,31 +262,39 @@ pub fn render(view: &TextView, diff: &mut Diff) {
     let buffer = view.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
-    for file in &mut diff.files  {
+    for vh in diff.get_views() {
 
-        let view = file.get_view(iter.line()).render(&buffer, &mut iter);
+        let view = vh.get_view(iter.line()).render(&buffer, &mut iter);
         if !view.expanded {
             continue
         }
-
-
-        for hunk in &mut file.hunks {
-            let view = hunk.get_view(iter.line()).render(&buffer, &mut iter);
-            if !view.expanded {
-                continue
-            }
-
-
-            for line in &mut hunk.lines {
-                match line.kind {
-                    crate::LineKind::File => continue,
-                    crate::LineKind::Hunk => continue,
-                    _ => ()
-                }
-                line.get_view(iter.line()).render(&buffer, &mut iter);
-            }
-        }
+        
     }
+    // for file in &mut diff.files  {
+
+    //     let view = file.get_view(iter.line()).render(&buffer, &mut iter);
+    //     if !view.expanded {
+    //         continue
+    //     }
+
+
+    //     for hunk in &mut file.hunks {
+    //         let view = hunk.get_view(iter.line()).render(&buffer, &mut iter);
+    //         if !view.expanded {
+    //             continue
+    //         }
+
+
+    //         for line in &mut hunk.lines {
+    //             match line.kind {
+    //                 crate::LineKind::File => continue,
+    //                 crate::LineKind::Hunk => continue,
+    //                 _ => ()
+    //             }
+    //             line.get_view(iter.line()).render(&buffer, &mut iter);
+    //         }
+    //     }
+    // }
 
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
