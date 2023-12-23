@@ -1,3 +1,4 @@
+use std::ffi;
 use gtk::prelude::*;
 use gtk::{glib, gdk, TextView, TextBuffer, TextTag, TextIter};
 use glib::{Sender, subclass::Signal, subclass::signal::SignalId, value::Value};
@@ -212,22 +213,22 @@ pub trait ViewHolder {
 }
 
 pub trait ViewsContainer {
-    fn get_views(&self) -> Vec<&dyn ViewHolder>;
+    fn get_views(&mut self) -> Vec<&mut dyn ViewHolder>;
 }
 
 impl ViewsContainer for Diff {
-    fn get_views(&self) -> Vec<&dyn ViewHolder> {
-        self.files.iter().map(|vh|vh as &dyn ViewHolder).collect()
+    fn get_views(&mut self) -> Vec<&mut dyn ViewHolder> {
+        self.files.iter_mut().map(|f| f as &mut dyn ViewHolder).collect()
     }
 }
 impl ViewsContainer for File {
-    fn get_views(&self) -> Vec<&dyn ViewHolder> {
-        self.hunks.iter().map(|vh|vh as &dyn ViewHolder).collect()
+    fn get_views(&mut self) -> Vec<&mut dyn ViewHolder> {
+        self.hunks.iter_mut().map(|vh|vh as &mut dyn ViewHolder).collect()
     }
 }
 impl ViewsContainer for Hunk {
-    fn get_views(&self) -> Vec<&dyn ViewHolder> {
-        self.lines.iter().map(|vh|vh as &dyn ViewHolder).collect()
+    fn get_views(&mut self) -> Vec<&mut dyn ViewHolder> {
+        self.lines.iter_mut().map(|vh|vh as &mut dyn ViewHolder).collect()
     }
 }
 
@@ -267,8 +268,7 @@ pub fn render(view: &TextView, diff: &mut Diff) {
         let view = vh.get_view(iter.line()).render(&buffer, &mut iter);
         if !view.expanded {
             continue
-        }
-        
+        }        
     }
     // for file in &mut diff.files  {
 
