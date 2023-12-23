@@ -320,11 +320,21 @@ pub fn render(view: &TextView, diff: &mut Diff) {
     let buffer = view.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
-    for vh in diff.get_views() {
+    for file in diff.get_children_views() {
 
-        let view = vh.get_view(iter.line()).render(&buffer, &mut iter);
+        let view = file.get_own_view(iter.line()).render(&buffer, &mut iter);
         if !view.expanded {
             continue
+        }
+        for hunk in file.get_children_views() {
+            let view = hunk.get_own_view(iter.line()).render(&buffer, &mut iter);
+            if !view.expanded {
+                continue
+            }
+            for line in hunk.get_children_views() {
+                line.get_own_view(iter.line()).render(&buffer, &mut iter);                
+            }
+            
         }
     }
     // for file in &mut diff.files  {
