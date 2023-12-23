@@ -246,7 +246,13 @@ impl RecursiveViewContainer for Hunk {
         })
     }
     fn get_children_views(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
-        self.lines.iter_mut().map(|vh|vh as &mut dyn RecursiveViewContainer).collect()
+        self.lines.iter_mut().filter(|l| {
+            match l.kind {
+                crate::LineKind::File => false,
+                crate::LineKind::Hunk => false,
+                _ => true
+            }
+        }).map(|vh|vh as &mut dyn RecursiveViewContainer).collect()
     }
 }
 
@@ -285,31 +291,6 @@ pub fn render(view: &TextView, diff: &mut Diff) {
             
         }
     }
-    // for file in &mut diff.files  {
-
-    //     let view = file.get_view(iter.line()).render(&buffer, &mut iter);
-    //     if !view.expanded {
-    //         continue
-    //     }
-
-
-    //     for hunk in &mut file.hunks {
-    //         let view = hunk.get_view(iter.line()).render(&buffer, &mut iter);
-    //         if !view.expanded {
-    //             continue
-    //         }
-
-
-    //         for line in &mut hunk.lines {
-    //             match line.kind {
-    //                 crate::LineKind::File => continue,
-    //                 crate::LineKind::Hunk => continue,
-    //                 _ => ()
-    //             }
-    //             line.get_view(iter.line()).render(&buffer, &mut iter);
-    //         }
-    //     }
-    // }
 
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
