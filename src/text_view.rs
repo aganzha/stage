@@ -210,20 +210,37 @@ impl View {
 
 
 pub trait RecursiveViewContainer {
+
     fn get_own_view(&mut self, line_no: i32) -> &mut View;
+
     fn get_children_views(&mut self) -> Vec<&mut dyn RecursiveViewContainer>;
+
+    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
+        let view = self.get_own_view(iter.line()).render(&buffer, iter);
+        if view.expanded {
+            for child in self.get_children_views() {
+                child.render(buffer, iter)
+            }
+        }
+    }
 }
 
 impl RecursiveViewContainer for Diff {
 
     fn get_own_view(&mut self, _line_no: i32) -> &mut View {
-        // never used
+        panic!("why are you here? this must be never called");
         self.files[0].view.as_mut().unwrap()
     }
     
     fn get_children_views(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
         self.files.iter_mut().map(|f| f as &mut dyn RecursiveViewContainer).collect()
     }
+
+    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
+        for child in self.get_children_views() {
+            child.render(buffer, iter)
+        }
+    }    
 }
 
 impl RecursiveViewContainer for File {
@@ -269,29 +286,12 @@ impl RecursiveViewContainer for Line {
 }
 
 
-
 pub fn render(view: &TextView, diff: &mut Diff) {
     let buffer = view.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
-    for file in diff.get_children_views() {
-
-        let view = file.get_own_view(iter.line()).render(&buffer, &mut iter);
-        if !view.expanded {
-            continue
-        }
-        for hunk in file.get_children_views() {
-            let view = hunk.get_own_view(iter.line()).render(&buffer, &mut iter);
-            if !view.expanded {
-                continue
-            }
-            for line in hunk.get_children_views() {
-                line.get_own_view(iter.line()).render(&buffer, &mut iter);                
-            }
-            
-        }
-    }
-
+    diff.render(&buffer, &mut iter);
+    
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
     // TODO! place cursor properly
