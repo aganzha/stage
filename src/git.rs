@@ -156,6 +156,7 @@ impl Diff {
     }
 }
 
+
 pub fn get_current_repo_status(sender: Sender<crate::Event>) {
     let path_buff_r = env::current_exe()
         .map_err(|e| format!("can't get repo from executable {:?}", e));

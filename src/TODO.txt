@@ -11,6 +11,7 @@ BUG: expand TODO, then expand text_view.rs and main.rs is DISAPEARED! must be re
 - put symbolic expand tag/href to expand regions with mouse
 - open another repo in file choose dialog
 - open repo under other user causeing error! handle it!
+
 - .gitignore does not counted in gitlib2 !!!! flags : Status(IGNORED)
 - when put mouse in the end of line it does not highlighted
 

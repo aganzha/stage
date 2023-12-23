@@ -179,6 +179,7 @@ impl Diff {
 }
 
 
+
 impl View {
     fn new(line_no: i32, expanded: bool, content: String) -> Self {
         return View {
@@ -206,37 +207,100 @@ impl View {
     }
 }
 
-
-pub trait ViewHolder {
-
-    fn get_view(&mut self, iter: &TextIter) -> &mut View;
-    // TODO get_children!! for set_expand!!!!
-    // fn get_content(&self) -> String;
-    // fn render_or_skip(&self, iter: &mut TextIter);
+pub struct Image {
+    title: String
 }
 
+pub struct Folder {
+    title: String,
+    images: Vec<Image>
+}
+
+
+pub struct Catalog {
+    title: String,
+    folders: Vec<Folder>
+}
+
+pub trait TitleHolder {
+    fn get_title(&self) -> &String;
+}
+
+impl TitleHolder for Image {
+    fn get_title(&self) -> &String {
+        &self.title
+    }
+}
+
+impl TitleHolder for Folder {
+    fn get_title(&self) -> &String {
+        &self.title
+    }
+}
+
+impl TitleHolder for Catalog {
+    fn get_title(&self) -> &String {
+        &self.title
+    }
+}
+
+pub trait TitleContainer {
+    fn get_titles(&self) -> Vec<&dyn TitleHolder>;
+}
+
+impl TitleContainer for Catalog {
+    fn get_titles(&self) -> Vec<&dyn TitleHolder> {
+        self.folders.iter().map(|f|f as &dyn TitleHolder).collect()
+        // It works also for return type Vec<&dyn TitleHolder>
+        // here and in trait!
+        // let boxes: Vec<&dyn TitleHolder> = self.folders.iter().map(|f|f as &dyn TitleHolder).collect();
+        // boxes
+        // It works!
+        // let mut boxes: Vec<&dyn TitleHolder> = Vec::new();
+        // for folder in &self.folders {
+        //     boxes.push(folder);
+        // }        
+        // boxes        
+    }
+}
+
+
+pub trait ViewHolder {
+    fn get_view(&mut self, line_no: i32) -> &mut View;
+}
+
+pub trait ViewsContainer {
+    fn get_views<T>(&self) -> &Vec<T> where T: ViewHolder;
+}
+
+// impl ViewsContainer for Diff {
+//     fn get_views<File>(&self) -> &Vec<File> {
+//         &self.files
+//     }
+// }
+
 impl ViewHolder for Line {
-    fn get_view(&mut self, iter: &TextIter) -> &mut View {
+    fn get_view(&mut self, line_no: i32) -> &mut View {
         let content = &self.content;
         self.view.get_or_insert_with(|| {
-            View::new(iter.line(), false, content.to_string())
+            View::new(line_no, false, content.to_string())
         })
     }
 }
 
 impl ViewHolder for Hunk {
-    fn get_view(&mut self, iter: &TextIter) -> &mut View {
+    fn get_view(&mut self, line_no: i32) -> &mut View {
         let header = &self.header;
         self.view.get_or_insert_with(|| {
-            View::new(iter.line(), true, header.to_string())
+            View::new(line_no, true, header.to_string())
         })
     }
 }
 
 impl ViewHolder for File {
-    fn get_view(&mut self, iter: &TextIter) -> &mut View {
+    fn get_view(&mut self, line_no: i32) -> &mut View {
         self.view.get_or_insert_with(|| {
-            View::new(iter.line(), false, self.path.to_str().unwrap().to_string())
+            View::new(line_no, false, self.path.to_str().unwrap().to_string())
         })
     }
 }
@@ -248,14 +312,14 @@ pub fn render(view: &TextView, diff: &mut Diff) {
 
     for file in &mut diff.files  {
 
-        let view = file.get_view(&mut iter).render(&buffer, &mut iter);
+        let view = file.get_view(iter.line()).render(&buffer, &mut iter);
         if !view.expanded {
             continue
         }
 
 
         for hunk in &mut file.hunks {
-            let view = hunk.get_view(&mut iter).render(&buffer, &mut iter);
+            let view = hunk.get_view(iter.line()).render(&buffer, &mut iter);
             if !view.expanded {
                 continue
             }
@@ -267,8 +331,7 @@ pub fn render(view: &TextView, diff: &mut Diff) {
                     crate::LineKind::Hunk => continue,
                     _ => ()
                 }
-                line.get_view(&mut iter).render(&buffer, &mut iter);
-
+                line.get_view(iter.line()).render(&buffer, &mut iter);
             }
         }
     }
