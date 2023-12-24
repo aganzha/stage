@@ -268,45 +268,37 @@ pub trait RecursiveViewContainer {
     }
 
     fn cursor(&mut self, line_no: i32, parent_active: bool) -> Option<bool> {        
-        let kind = self.get_kind();
-        println!("cursor in interface {:?}", kind);
+
+        // let kind = self.get_kind();
+        // println!("cursor in interface {:?}", kind);                
         let view = self.get_view();
         if !view.rendered {
             return None;
         }
 
-        let mut active: bool = false;
-        let mut current = false;
-        let expanded = view.expanded;
+        let current_before = view.current;
+        let active_before = view.active;
         
         if view.line_no == line_no {
-            current = true;
-            active = true;
+            view.current = true;
+            view.active = true;
+        } else {
+            view.current = false;
         }
-        active = active || self.is_active_by_parent(parent_active);
-        println!("cursor in {:?} view {:?} current line {:?} active {:?} parent_active {:?} expanded {:?}",
-                 kind,
-                 self.get_view().line_no,
-                 line_no,
-                 active,
-                 parent_active,
-                 expanded);
-        let mut child_active: bool = false;
-        if expanded {
-            for child in self.get_children() {
-                let ca = child.cursor(line_no, active);
-                if ca.is_some() {
-                    child_active = child_active || ca.unwrap();
-                }
-            }
+        let mut self_active = view.active || self.is_active_by_parent(parent_active);
+        let mut children_active = false;
+        for child in self.get_children() {
+            let active = child.cursor(line_no, self_active);
+            if active.is_some() {
+                children_active = children_active || active.unwrap();
+            }        
         }
-        active = active || self.is_active_by_child(child_active);
+        self_active = self_active || self.is_active_by_child(children_active);
         let view = self.get_view();
-        let changed = view.current != current || view.active != active;
-        view.current = current;
-        view.active = active;
-        view.rendered = view.rendered && !changed;
-        Some(active)
+        view.active = self_active;
+        view.rendered = view.active != active_before || view.current != current_before;
+        Some(view.active)
+
     }
 
     fn is_active_by_child(&self, _child_active: bool) -> bool {
