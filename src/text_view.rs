@@ -274,28 +274,38 @@ impl View {
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
+        println!("render {:?} at {:?} active {:?} current {:?} rendered {:?}", content, iter.line(), self.active, self.current, self.rendered);
         if self.is_rendered_in_its_place(iter.line()) {
             iter.forward_lines(1);
+            println!("just skipped above view {:?} {:?}", iter.offset(), iter.line());
         } else {
-            buffer.insert(iter, &format!("{} {}", iter.line(), content));
+            // if not - insert
             self.line_no = iter.line();
-            self.apply_tags(buffer, iter);
-            // let offset = iter.offset();
-            // let mut start_iter = buffer.iter_at_offset(offset);
-            // let mut end_iter = buffer.iter_at_offset(offset);
-            // start_iter.set_line_offset(0);
-            // end_iter.forward_to_line_end();
-            // buffer.apply_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
-            buffer.insert(iter, "\n");
+            // println!("BEFORE PASTE {:?}", iter.line());
+            let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
+            eol_iter.forward_to_line_end();
+            let new_line = iter.offset() == eol_iter.offset();
+            println!("line width in render {:?} {:?} {:?}", iter.offset(), eol_iter.offset(), new_line);
+            if new_line {
+                println!("new line in render");
+                buffer.insert(iter, &format!("{} {}\n", iter.line(), content));
+            } else {
+                buffer.delete(iter, &mut eol_iter);
+                println!("delete before insert! remains {:?}", buffer.slice(iter, &eol_iter, true));
+                buffer.insert(iter, &format!("{} {}", iter.line(), content));
+                iter.forward_lines(1);
+            }
+            // println!("AFTER PASTE {:?} and sep {:?}", iter.line(), sep);
+            self.apply_tags(buffer);
+            println!("just rendered above view {:?} {:?}", iter.offset(), iter.line());
         }
         self.rendered = true;
         self
     }
 
-    fn apply_tags(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
-        let offset = iter.offset();
-        let mut start_iter = buffer.iter_at_offset(offset);
-        let mut end_iter = buffer.iter_at_offset(offset);
+    fn apply_tags(&mut self, buffer: &TextBuffer) {
+        let mut start_iter = buffer.iter_at_line(self.line_no).unwrap();
+        let mut end_iter = buffer.iter_at_line(self.line_no).unwrap();
         start_iter.set_line_offset(0);
         end_iter.forward_to_line_end();
         if self.current {
@@ -325,9 +335,9 @@ impl View {
                     self.tags.remove(index.unwrap());
                 }
             }
-        }        
+        }
     }
-    
+
 }
 
 
@@ -365,7 +375,7 @@ pub trait RecursiveViewContainer {
         if !view.rendered {
             return None;
         }
-        
+
         let mut active: bool = false;
         let mut current = false;
         if view.line_no == line_no {
@@ -373,7 +383,7 @@ pub trait RecursiveViewContainer {
             active = true;
         }
         active = active || self.is_active_by_parent(parent_active);
-
+        println!("cursor in file {:?} current line {:?} active {:?} current {:?}", self.get_view().line_no, line_no, active, current);
         let mut child_active: bool = false;
         self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
             let ca = rvc.cursor(line_no, active);
@@ -384,15 +394,17 @@ pub trait RecursiveViewContainer {
 
         active = active || self.is_active_by_child(child_active);
         let view = self.get_view();
+        let changed = view.current != current || view.active != active;
         view.current = current;
-        view.active = active;        
+        view.active = active;
+        view.rendered = view.rendered && !changed;
         Some(active)
     }
 
     fn is_active_by_child(&self, _child_active: bool) -> bool {
         false
     }
-    
+
     fn is_active_by_parent(&self, _parent_active: bool) -> bool {
         false
     }
@@ -447,13 +459,13 @@ impl RecursiveViewContainer for Diff {
         }
     }
 
-    fn cursor(&mut self, line_no: i32, _parent_active: bool) -> Option<bool> {    
+    fn cursor(&mut self, line_no: i32, _parent_active: bool) -> Option<bool> {
         self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
-            rvc.cursor(line_no, false);            
+            rvc.cursor(line_no, false);
         });
         None
     }
-    
+
     fn expand(&mut self, line_no: i32) {
         self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
             rvc.expand(line_no)
@@ -514,7 +526,7 @@ impl RecursiveViewContainer for Hunk {
         // whole hunk is active
         active
     }
-    
+
 }
 
 impl RecursiveViewContainer for Line {
@@ -628,27 +640,30 @@ pub fn highlight_region(view: &TextView, r: Region) {
 }
 
 pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
-    diff.offset = offset;
+    // ???
+    // diff.offset = offset;
     diff.expand(line_no);
     render(view, diff, sndr);
 }
 
-pub fn cursor(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
+pub fn cursor(txt: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
+    // ???
     diff.offset = offset;
     diff.cursor(line_no, false);
-    render(view, diff, sndr);
+    render(txt, diff, sndr);
 }
 
-pub fn render(view: &TextView, diff: &mut Diff, sndr:Sender<crate::Event>) {
-    let buffer = view.buffer();
+pub fn render(txt: &TextView, diff: &mut Diff, sndr:Sender<crate::Event>) {
+    let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
     diff.render(&buffer, &mut iter);
 
-    buffer.delete(&mut iter, &mut buffer.end_iter());
+    // buffer.delete(&mut iter, &mut buffer.end_iter());
 
     iter.set_offset(diff.offset);
     buffer.place_cursor(&iter);
+
     // highlight_cursor(&view, iter);
     // sndr.send(crate::Event::HighlightRegion(iter.line()))
     //     .expect("Could not send through channel");
