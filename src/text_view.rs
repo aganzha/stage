@@ -146,13 +146,10 @@ impl Region {
 
 impl Diff {
     pub fn get_active_region(&mut self, line: i32) -> Region {
-        println!("get active region for {:?}", line);
+        // println!("get active region for {:?}", line);
         let mut start_line = 0;
         let mut end_line = 0;
-        // walk down. if view.line_no == line - we get view
-        // if view is file (cursor is on file) and file is expanded - highlight whole file
-        // if view is hunk - highlight whole hunk
-        // if view is line - highlight whole HUNK (for now)
+
         let mut current_file_line: i32 = 0;
         let mut current_hunk_line: i32 = 0;
         let mut current_line_line: i32 = 0;
@@ -231,16 +228,9 @@ impl Diff {
             }
         });
         // println!("JUST WALKED {:?}. Result start {:?} end {:?}, last line {:?} {:?}", next_stop, start_line, end_line, current_hunk_line, current_line_line);
-        if end_line == 0 {
-            if current_line_line > end_line {
-                end_line = current_line_line;
-            }
-            if current_hunk_line > end_line {
-                end_line = current_hunk_line;
-            }
-            if current_file_line > end_line {
-                end_line = current_file_line;
-            }
+        if end_line == 0 && next_stop.is_some() {
+            // eof while last something is expanded            
+            end_line = current_line_line;
         }
         Region::new(start_line, end_line)
     }
@@ -493,7 +483,7 @@ pub fn highlight_cursor(view: &TextView,
 }
 
 pub fn highlight_region(view: &TextView, r: Region) {
-    println!("highlight_region {:?}", r);
+    // println!("highlight_region {:?}", r);
     
     let buffer = view.buffer();
     let start_mark = buffer.mark(REGION_HIGHLIGHT_START).unwrap();
@@ -513,6 +503,9 @@ pub fn highlight_region(view: &TextView, r: Region) {
     }
     start_iter.set_line(r.line_from);
     end_iter.set_line(r.line_to);
+    // end_iter.backward_line();
+    // end_iter.backward_line();
+    // end_iter.backward_char();
     buffer.move_mark(&start_mark, &start_iter);
     buffer.move_mark(&end_mark, &end_iter);
     println!("APPLY TAG AT {:?} {:?}. offsets {:?} {:?}", start_iter.line(), end_iter.line(), start_iter.line_offset(), end_iter.line_offset());

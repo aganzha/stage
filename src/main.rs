@@ -44,6 +44,7 @@ pub enum Event {
     Stage(String)
 }
 
+
 fn build_ui(app: &adw::Application) {
 
     let window = ApplicationWindow::new(app);
