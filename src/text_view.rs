@@ -324,7 +324,6 @@ pub trait RecursiveViewContainer {
             return
         }
         if view.line_no == line_no {
-
             view.expanded = !view.expanded;
             view.rendered = false;
             println!("expand collapse view at {:?} {:?} {:?}", line_no, view.expanded, view.rendered);
@@ -334,9 +333,9 @@ pub trait RecursiveViewContainer {
                 })
             }
         } else {
-            self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
-                rvc.expand(line_no)
-            })
+            for child in self.get_children() {
+                child.expand(line_no);
+            }
         }
     }
 
