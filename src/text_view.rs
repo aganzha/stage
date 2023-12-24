@@ -128,15 +128,17 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
 
 #[derive(Debug, Clone)]
 pub struct Region {
+    pub kind: ViewKind,
     pub line_from: i32,
-    pub line_to: i32
+    pub line_to: i32,
 }
 
 impl Region {
-    pub fn new(line_from: i32, line_to: i32) -> Self {
+    pub fn new(kind: ViewKind, line_from: i32, line_to: i32) -> Self {
         return Self {
+            kind,
             line_from,
-            line_to
+            line_to,
         }
     }
     pub fn is_empty(&self) -> bool {
@@ -156,11 +158,13 @@ impl Diff {
         let mut current_hunk_line: i32 = 0;
         let mut current_line_line: i32 = 0;
 
+        let mut current_kind = ViewKind::None;
         let mut stop: bool = false;
         let mut next_stop: Option<ViewKind> = None;
         
         self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
             // println!("walk {:?} {:?} {:?} {:?}", current_file_line, current_hunk_line, current_line_line, stop);
+            // TODO change walk signature to remove false!
             if stop {
                 return;
             }
@@ -170,7 +174,7 @@ impl Diff {
             }
             let current_line = view.line_no;
             let expanded = view.expanded;
-            // println!("view line and expanded {:?} {:?} {:?}", rvc.get_content(), current_line, expanded);
+
             let kind = rvc.get_kind();            
             match kind {
                 ViewKind::None => (),
@@ -206,6 +210,7 @@ impl Diff {
             }
             
             if current_line == line {
+                current_kind = kind.clone();
                 match kind {
                     ViewKind::None => (),
                     ViewKind::File => {
@@ -234,11 +239,11 @@ impl Diff {
             // eof while last something is expanded            
             end_line = current_line_line;
         }
-        Region::new(start_line, end_line)
+        Region::new(current_kind, start_line, end_line)
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
     File,
     Hunk,
@@ -487,7 +492,7 @@ pub fn highlight_cursor(view: &TextView,
 
 pub fn highlight_region(view: &TextView, r: Region) {
     // println!("highlight_region {:?}", r);
-    
+
     let buffer = view.buffer();
     let start_mark = buffer.mark(REGION_HIGHLIGHT_START).unwrap();
     let end_mark = buffer.mark(REGION_HIGHLIGHT_END).unwrap();
@@ -496,11 +501,7 @@ pub fn highlight_region(view: &TextView, r: Region) {
     if start_iter.line() == r.line_from && end_iter.line() == r.line_to {
         return
     }
-    // let tag = buffer.tag_table().lookup(REGION_HIGHLIGHT);
-    // if tag.is_some() {
-    //     println!("remove tag!");
-    //     buffer.remove_tag(&tag.unwrap(), &start_iter, &end_iter);
-    // }
+
     buffer.remove_tag_by_name(
         REGION_HIGHLIGHT,
         &start_iter,
@@ -508,12 +509,20 @@ pub fn highlight_region(view: &TextView, r: Region) {
     );
     if r.is_empty() {
         return
-    }
-
+    }    
     start_iter.set_line(r.line_from);
-    start_iter.forward_lines(1);
+    match r.kind {
+        ViewKind::File => {
+            start_iter.forward_lines(1);
+        },
+        ViewKind::Hunk => {
+            start_iter.forward_lines(1);
+        }        
+        _ => ()
+    };
+    
     end_iter.set_line(r.line_to);
-    end_iter.backward_char();
+    // end_iter.backward_char();
     
     // end_iter.backward_line();
     // end_iter.backward_line();
