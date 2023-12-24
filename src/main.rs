@@ -1,5 +1,5 @@
 mod text_view;
-use text_view::{text_view_factory, render};
+use text_view::{text_view_factory, render, expand};
 mod git;
 use git::{get_current_repo_status,
           Diff, LineKind, View, File, Hunk, Line};
@@ -104,11 +104,10 @@ fn build_ui(app: &adw::Application) {
                     render(&txt, d);
                 },
                 Event::Expand(offset, line_no) => {
-                    println!("Expand {:?}", line_no);
                     let d = diff.as_mut().unwrap();
-                    println!("thats d in expand {:p}, offset was before expand {:?}", &d, d.offset);
-                    d.set_expand(offset, line_no);
-                    render(&txt, d);
+                    expand(&txt, d, offset, line_no);
+                    // d.set_expand(offset, line_no);
+                    // render(&txt, d);
                 }
                 Event::Stage(text) => {
                     println!("STAGE THIS TEXT {:?} in {:?}", text, diff);
