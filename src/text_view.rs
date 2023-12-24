@@ -154,101 +154,6 @@ impl Region {
 
 
 
-impl Diff {
-    pub fn get_active_region(&mut self, line: i32) -> Region {
-        // println!("get active region for {:?}", line);
-        let mut start_line = 0;
-        let mut end_line = 0;
-
-        let mut current_file_line: i32 = 0;
-        let mut current_hunk_line: i32 = 0;
-        let mut current_line_line: i32 = 0;
-
-        let mut current_kind = ViewKind::None;
-        let mut stop: bool = false;
-        let mut next_stop: Option<ViewKind> = None;
-
-        self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
-            // println!("walk {:?} {:?} {:?} {:?}", current_file_line, current_hunk_line, current_line_line, stop);
-            // TODO change walk signature to remove false!
-            if stop {
-                return;
-            }
-            let view = rvc.get_view();
-            if !view.rendered {
-                return
-            }
-            let current_line = view.line_no;
-            let expanded = view.expanded;
-
-            let kind = rvc.get_kind();
-            match kind {
-                ViewKind::None => (),
-                ViewKind::File => {
-                    match next_stop {
-                        Some(ViewKind::File) => {
-                            println!("next stop is file. current_line {:?} current_file_line {:?} content {:?}", current_line, current_file_line, rvc.get_content());
-                            start_line = current_file_line;
-                            end_line = current_line;
-                            stop = true;
-                            return;
-                        },
-                        _ => ()
-                    }
-                    current_file_line = current_line;
-                },
-                ViewKind::Hunk => {
-                    match next_stop {
-                        Some(ViewKind::Hunk) => {
-                            println!("next stop is HUNK. current_line {:?} current_hunk_line {:?} content {:?}", current_line, current_hunk_line, rvc.get_content());
-                            start_line = current_hunk_line;
-                            end_line = current_line;
-                            stop = true;
-                            return;
-                        },
-                        _ => ()
-                    }
-                    current_hunk_line = current_line;
-                }
-                ViewKind::Line => {
-                    current_line_line = current_line;
-                }
-            }
-
-            if current_line == line {
-                current_kind = kind.clone();
-                match kind {
-                    ViewKind::None => (),
-                    ViewKind::File => {
-                        if expanded {
-                            start_line = current_file_line;
-                            next_stop.replace(ViewKind::File);
-                        }
-                    },
-                    ViewKind::Hunk => {
-                        if expanded {
-                            start_line = current_hunk_line;
-                            next_stop.replace(ViewKind::Hunk);
-                        } else {
-                            start_line = current_file_line;
-                        }
-                    }
-                    ViewKind::Line => {
-                        start_line = current_hunk_line;
-                        next_stop.replace(ViewKind::Hunk);
-                    }
-                }
-            }
-        });
-        // println!("JUST WALKED {:?}. Result start {:?} end {:?}, last line {:?} {:?}", next_stop, start_line, end_line, current_hunk_line, current_line_line);
-        if end_line == 0 && next_stop.is_some() {
-            // eof while last something is expanded
-            end_line = current_line_line;
-        }
-        Region::new(current_kind, start_line, end_line)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
     File,
@@ -274,30 +179,22 @@ impl View {
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
-        println!("render {:?} at {:?} active {:?} current {:?} rendered {:?}", content, iter.line(), self.active, self.current, self.rendered);
         if self.is_rendered_in_its_place(iter.line()) {
-            iter.forward_lines(1);
-            println!("just skipped above view {:?} {:?}", iter.offset(), iter.line());
+            iter.forward_lines(1);  
         } else {
-            // if not - insert
             self.line_no = iter.line();
-            // println!("BEFORE PASTE {:?}", iter.line());
             let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
             eol_iter.forward_to_line_end();
             let new_line = iter.offset() == eol_iter.offset();
-            println!("line width in render {:?} {:?} {:?}", iter.offset(), eol_iter.offset(), new_line);
+
             if new_line {
-                println!("new line in render");
                 buffer.insert(iter, &format!("{} {}\n", iter.line(), content));
             } else {
                 buffer.delete(iter, &mut eol_iter);
-                println!("delete before insert! remains {:?}", buffer.slice(iter, &eol_iter, true));
                 buffer.insert(iter, &format!("{} {}", iter.line(), content));
                 iter.forward_lines(1);
             }
-            // println!("AFTER PASTE {:?} and sep {:?}", iter.line(), sep);
             self.apply_tags(buffer);
-            println!("just rendered above view {:?} {:?}", iter.offset(), iter.line());
         }
         self.rendered = true;
         self
@@ -321,7 +218,7 @@ impl View {
                 );
                 self.tags.remove(index.unwrap());
             }
-            if self.current {
+            if self.active {
                 buffer.apply_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
                 self.tags.push(String::from(REGION_HIGHLIGHT));
             } else {
@@ -370,7 +267,9 @@ pub trait RecursiveViewContainer {
         }
     }
 
-    fn cursor(&mut self, line_no: i32, parent_active: bool) -> Option<bool> {
+    fn cursor(&mut self, line_no: i32, parent_active: bool) -> Option<bool> {        
+        let kind = self.get_kind();
+        println!("cursor in interface {:?}", kind);
         let view = self.get_view();
         if !view.rendered {
             return None;
@@ -378,20 +277,30 @@ pub trait RecursiveViewContainer {
 
         let mut active: bool = false;
         let mut current = false;
+        let expanded = view.expanded;
+        
         if view.line_no == line_no {
             current = true;
             active = true;
         }
         active = active || self.is_active_by_parent(parent_active);
-        println!("cursor in file {:?} current line {:?} active {:?} current {:?}", self.get_view().line_no, line_no, active, current);
+        println!("cursor in {:?} view {:?} current line {:?} active {:?} parent_active {:?} expanded {:?}",
+                 kind,
+                 self.get_view().line_no,
+                 line_no,
+                 active,
+                 parent_active,
+                 expanded);
         let mut child_active: bool = false;
-        self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
-            let ca = rvc.cursor(line_no, active);
-            if ca.is_some() {
-                child_active = child_active || ca.unwrap();
-            }
-        });
-
+        if expanded {
+            self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
+                println!("will call cursor in interface recursive. i am expanded {:?}", expanded);
+                let ca = rvc.cursor(line_no, active);
+                if ca.is_some() {
+                    child_active = child_active || ca.unwrap();
+                }
+            });
+        }
         active = active || self.is_active_by_child(child_active);
         let view = self.get_view();
         let changed = view.current != current || view.active != active;
@@ -431,46 +340,6 @@ pub trait RecursiveViewContainer {
         }
     }
 
-}
-
-impl RecursiveViewContainer for Diff {
-
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::None
-    }
-
-    fn get_view(&mut self) -> &mut View {
-        panic!("why are you here? this must be never called");
-        &mut View::new()
-    }
-
-    fn get_content(&self) -> String {
-        panic!("why are you here? this must be never called");
-        String::from("")
-    }
-
-    fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
-        self.files.iter_mut().map(|f| f as &mut dyn RecursiveViewContainer).collect()
-    }
-
-    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
-        for child in self.get_children() {
-            child.render(buffer, iter)
-        }
-    }
-
-    fn cursor(&mut self, line_no: i32, _parent_active: bool) -> Option<bool> {
-        self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
-            rvc.cursor(line_no, false);
-        });
-        None
-    }
-
-    fn expand(&mut self, line_no: i32) {
-        self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
-            rvc.expand(line_no)
-        })
-    }
 }
 
 impl RecursiveViewContainer for File {
@@ -521,6 +390,12 @@ impl RecursiveViewContainer for Hunk {
         }).map(|vh|vh as &mut dyn RecursiveViewContainer).collect()
     }
 
+    fn is_active_by_parent(&self, active: bool) -> bool {
+        // if file is active (cursor on it)
+        // whole hunk is active
+        active
+    }
+    
     fn is_active_by_child(&self, active: bool) -> bool {
         // if line is active (cursor on it)
         // whole hunk is active
@@ -551,105 +426,31 @@ impl RecursiveViewContainer for Line {
     }
 
     fn is_active_by_parent(&self, active: bool) -> bool {
-        // if hink is active (cursor on some line in it)
-        // whole line is active
+        // if HUNK is active (cursor on some line in it or on it)
+        // this line is active
+        println!("line {:?} is active? {:?}", self.content, active);
         active
     }
-}
-
-
-pub fn highlight_cursor(view: &TextView,
-                        mut start_iter: gtk::TextIter) {
-    let buffer = view.buffer();
-    let start_mark = buffer.mark(CURSOR_HIGHLIGHT_START).unwrap();
-    if start_iter.line() ==  buffer.iter_at_mark(&start_mark).line() {
-        return;
-    }
-    let end_mark = buffer.mark(CURSOR_HIGHLIGHT_END).unwrap();
-    buffer.remove_tag_by_name(
-        CURSOR_HIGHLIGHT,
-        &buffer.iter_at_mark(&start_mark),
-        &buffer.iter_at_mark(&end_mark)
-    );
-    start_iter.set_line_offset(0);
-    let start_pos = start_iter.offset();
-    let mut end_iter = buffer.iter_at_offset(start_iter.offset());
-    end_iter.forward_to_line_end();
-
-    // let mut cnt = 0;
-    // let  max_width = view.visible_rect().width();
-    // while max_width >  view.iter_location(&end_iter).x() {
-    //     buffer.insert(&mut end_iter, " ");
-    //     cnt += 1;
-    //     if cnt > 100 {
-    //         break;
-    //     }
-    // }
-    // if cnt > 0 {
-    //     buffer.backspace(&mut end_iter, false, true);
-    // }
-    let start_iter = buffer.iter_at_offset(start_pos);
-    buffer.move_mark(&start_mark, &start_iter);
-    buffer.move_mark(&end_mark, &end_iter);
-    buffer.apply_tag_by_name(CURSOR_HIGHLIGHT, &start_iter, &end_iter);
-    // buffer.apply_tag_by_name(CURSOR_HIGHLIGHT, &start_iter, &end_iter);
-}
-
-pub fn highlight_region(view: &TextView, r: Region) {
-    // println!("highlight_region {:?}", r);
-
-    let buffer = view.buffer();
-    let start_mark = buffer.mark(REGION_HIGHLIGHT_START).unwrap();
-    let end_mark = buffer.mark(REGION_HIGHLIGHT_END).unwrap();
-    let mut start_iter = buffer.iter_at_mark(&start_mark);
-    let mut end_iter = buffer.iter_at_mark(&end_mark);
-    if start_iter.line() == r.line_from && end_iter.line() == r.line_to {
-        return
-    }
-
-    buffer.remove_tag_by_name(
-        REGION_HIGHLIGHT,
-        &start_iter,
-        &end_iter
-    );
-    if r.is_empty() {
-        return
-    }
-    start_iter.set_line(r.line_from);
-    match r.kind {
-        ViewKind::File => {
-            start_iter.forward_lines(1);
-        },
-        ViewKind::Hunk => {
-            start_iter.forward_lines(1);
-        }
-        _ => ()
-    };
-
-    end_iter.set_line(r.line_to);
-    // end_iter.backward_char();
-    // end_iter.backward_line();
-    // end_iter.backward_line();
-    // end_iter.backward_char();
-    buffer.move_mark(&start_mark, &start_iter);
-    buffer.move_mark(&end_mark, &end_iter);
-    println!("APPLY TAG AT {:?} {:?}. offsets {:?} {:?}", start_iter.line(), end_iter.line(), start_iter.line_offset(), end_iter.line_offset());
-    // println!("{:?}", buffer.slice(&start_iter, &end_iter, true));
-    buffer.apply_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
-    highlight_cursor(&view, buffer.iter_at_offset(buffer.cursor_position()));
 }
 
 pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
     // dangerous but required
     diff.offset = offset;
-    diff.expand(line_no);
+    // diff.expand(line_no);
+    for file in &mut diff.files {
+        file.expand(line_no)
+    }
     render(view, diff, sndr);
 }
 
 pub fn cursor(txt: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
     // dangerous but required
     diff.offset = offset;
-    diff.cursor(line_no, false);
+    println!("CURSOR ON TOP (call on diff)");
+
+    for file in &mut diff.files {
+        file.cursor(line_no, false);
+    }
     render(txt, diff, sndr);
 }
 
@@ -657,14 +458,13 @@ pub fn render(txt: &TextView, diff: &mut Diff, sndr:Sender<crate::Event>) {
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
-    diff.render(&buffer, &mut iter);
+    for file in &mut diff.files {
+        file.render(&buffer, &mut iter)
+    }
 
     buffer.delete(&mut iter, &mut buffer.end_iter());
     
     iter.set_offset(diff.offset);
     buffer.place_cursor(&iter);
 
-    // highlight_cursor(&view, iter);
-    // sndr.send(crate::Event::HighlightRegion(iter.line()))
-    //     .expect("Could not send through channel");
 }

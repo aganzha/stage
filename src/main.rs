@@ -1,6 +1,5 @@
 mod text_view;
-use text_view::{text_view_factory, render, expand, cursor,
-                highlight_region, Region};
+use text_view::{text_view_factory, render, expand, cursor, Region};
 mod git;
 use git::{get_current_repo_status,
           Diff, LineKind, View, File, Hunk, Line};
@@ -42,8 +41,6 @@ pub enum Event {
     Expand(i32, i32),
     Cursor(i32, i32),
     // does not used for now
-    HighlightRegion(i32),
-    HighlightRegionResult(Region),
     Stage(String)
 }
 
@@ -112,19 +109,6 @@ fn build_ui(app: &adw::Application) {
                 Event::Cursor(offset, line_no) => {
                     let d = diff.as_mut().unwrap();
                     cursor(&txt, d, offset, line_no, sender.clone());
-                },
-                Event::HighlightRegion(line_no) => {
-                    let d = diff.clone();
-                    gio::spawn_blocking({
-                        let sender = sender.clone();
-                        move || {
-                            let region = d.unwrap().get_active_region(line_no);
-                            sender.send(crate::Event::HighlightRegionResult(region))
-                        }
-                    });
-                },
-                Event::HighlightRegionResult(region) => {
-                    highlight_region(&txt, region);
                 },
                 Event::Stage(text) => {
                     println!("STAGE THIS TEXT {:?} in {:?}", text, diff);
