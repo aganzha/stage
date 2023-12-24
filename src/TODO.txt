@@ -1,8 +1,8 @@
 BUG: expand TODO, then expand text_view.rs and main.rs is DISAPEARED! must be related to hunk lines!
-- store number in each line. store hunk line in each hunk
-- when insert line in text buffer store line number of inserted line in line itself!
-  store map of lines in hunks and map of hunks in file!
+
+- try to replace &mut dyn RecursiveViewContainer with type alias
 - so, when user clicks line , it need to detect everything: line, hunk and file by the number when clicked line in text buffer
+
 
 -- HUGHLIGHT for pgup/pgdown doesn not work
 - put label with current repo name (relative to path the app is started)
