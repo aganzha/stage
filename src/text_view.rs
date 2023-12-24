@@ -147,40 +147,6 @@ pub fn highlight_if_need(view: &TextView,
 
 }
 
-impl Diff {
-
-    pub fn set_expand(&mut self, offset: i32, line_no: i32) {
-        self.offset = offset;
-
-        for file in &mut self.files {
-            // getting view here with line does not make sense. it must be already ecists
-            let view = file.get_view();
-            println!("do it need to set expand? on line {:?} for view {:?}", line_no, view.line_no);
-            if view.line_no == line_no {
-                println!("yes, set, please");
-                view.expanded = !view.expanded;
-                // when some item is expanded/collapsed
-                // all other views after it will become invalid
-                // by is_rendered_in_its_place
-                // and will be rerendered. no further calculations
-                // are reuired for them
-                view.rendered = false;
-                // but if view is collapsed it need to mark all inside it as not rendered
-                if !view.expanded {
-                    for hunk in &mut file.hunks {
-                        // getting view here with line does not make sense. it must be already ecists
-                        hunk.get_view().rendered = false;
-                        for line in &mut hunk.lines {
-                            line.get_view().rendered = false;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-
 
 impl View {
     pub fn new() -> Self {
@@ -216,10 +182,6 @@ pub trait RecursiveViewContainer {
 
     fn get_view(&mut self) -> &mut View;
 
-    // it need to kill line in get_own_view definition for what????
-    // why do i need to kill it? because a want to work freely without line
-    // but just with iter!
-
     fn walk_down(&mut self, visitor: &mut dyn FnMut(&mut dyn RecursiveViewContainer) -> ()) {
         for child in self.get_children() {
             visitor(child);
@@ -242,10 +204,14 @@ pub trait RecursiveViewContainer {
 
     fn expand(&mut self, line_no: i32) {
         let view = self.get_view();
+        if !view.rendered {
+            return
+        }
         if view.line_no == line_no {
+
             view.expanded = !view.expanded;
             view.rendered = false;
-            // TODO! self.walk
+            println!("expand collapse view at {:?} {:?} {:?}", line_no, view.expanded, view.rendered);
             if !view.expanded {
                 self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
                     rvc.get_view().rendered = false;
@@ -344,10 +310,12 @@ impl RecursiveViewContainer for Line {
     fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
         return Vec::new()
     }
+
+    fn expand(&mut self, _line_no: i32) {        
+    }
 }
 
 pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32) {
-    println!("expand at line {:?}", line_no);
     diff.offset = offset;
     diff.expand(line_no);
     render(view, diff);
@@ -361,8 +329,6 @@ pub fn render(view: &TextView, diff: &mut Diff) {
 
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
-    // TODO! place cursor properly
-    println!("jump to after expand {:?}", diff.offset);
     iter.set_offset(diff.offset);
     buffer.place_cursor(&iter);
     highlight_if_need(&view, iter);
