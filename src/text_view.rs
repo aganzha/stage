@@ -293,13 +293,12 @@ pub trait RecursiveViewContainer {
                  expanded);
         let mut child_active: bool = false;
         if expanded {
-            self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
-                println!("will call cursor in interface recursive. i am expanded {:?}", expanded);
-                let ca = rvc.cursor(line_no, active);
+            for child in self.get_children() {
+                let ca = child.cursor(line_no, active);
                 if ca.is_some() {
                     child_active = child_active || ca.unwrap();
                 }
-            });
+            }
         }
         active = active || self.is_active_by_child(child_active);
         let view = self.get_view();
