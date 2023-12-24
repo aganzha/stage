@@ -180,7 +180,7 @@ impl View {
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
         if self.is_rendered_in_its_place(iter.line()) {
-            iter.forward_lines(1);  
+            iter.forward_lines(1);
         } else {
             self.line_no = iter.line();
             let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
@@ -267,10 +267,10 @@ pub trait RecursiveViewContainer {
         }
     }
 
-    fn cursor(&mut self, line_no: i32, parent_active: bool) -> Option<bool> {        
+    fn cursor(&mut self, line_no: i32, parent_active: bool) -> Option<bool> {
 
-        // let kind = self.get_kind();
-        // println!("cursor in interface {:?}", kind);                
+        let kind = self.get_kind();
+
         let view = self.get_view();
         if !view.rendered {
             return None;
@@ -278,12 +278,13 @@ pub trait RecursiveViewContainer {
 
         let current_before = view.current;
         let active_before = view.active;
-        
+
         if view.line_no == line_no {
             view.current = true;
             view.active = true;
         } else {
             view.current = false;
+            view.active = false;
         }
         let mut self_active = view.active || self.is_active_by_parent(parent_active);
         let mut children_active = false;
@@ -291,12 +292,15 @@ pub trait RecursiveViewContainer {
             let active = child.cursor(line_no, self_active);
             if active.is_some() {
                 children_active = children_active || active.unwrap();
-            }        
+            }
         }
+
         self_active = self_active || self.is_active_by_child(children_active);
+
         let view = self.get_view();
+        println!("cursor in interface {:?}, self_active {:?} current {:?} parent_active {:?} children_active {:?}", kind, self_active, view.current, parent_active, children_active);
         view.active = self_active;
-        view.rendered = view.active != active_before || view.current != current_before;
+        view.rendered = view.active == active_before && view.current == current_before;
         Some(view.active)
 
     }
@@ -385,7 +389,7 @@ impl RecursiveViewContainer for Hunk {
         // whole hunk is active
         active
     }
-    
+
     fn is_active_by_child(&self, active: bool) -> bool {
         // if line is active (cursor on it)
         // whole hunk is active
@@ -453,7 +457,7 @@ pub fn render(txt: &TextView, diff: &mut Diff, sndr:Sender<crate::Event>) {
     }
 
     buffer.delete(&mut iter, &mut buffer.end_iter());
-    
+
     iter.set_offset(diff.offset);
     buffer.place_cursor(&iter);
 
