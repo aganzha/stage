@@ -1,7 +1,8 @@
 use std::ffi;
 use gtk::prelude::*;
-use gtk::{glib, gdk, TextView, TextBuffer, TextTag, TextIter, TextMark};
+use gtk::{glib, gdk, pango, TextView, TextBuffer, TextTag, TextIter, TextMark};
 use glib::{Sender, subclass::Signal, subclass::signal::SignalId, value::Value};
+
 use crate::{View, Diff, File, Hunk, Line};
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
@@ -25,6 +26,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
 
     let tag = TextTag::new(Some(REGION_HIGHLIGHT));
     tag.set_background(Some(REGION_COLOR));
+    // tag.set_underline(pango::Underline::Single);
     buffer.tag_table().add(&tag);
 
     let event_controller = gtk::EventControllerKey::new();
@@ -261,7 +263,7 @@ impl View {
         if self.is_rendered_in_its_place(iter.line()) {
             iter.forward_lines(1);
         } else {
-            buffer.insert(iter, &content);
+            buffer.insert(iter, &format!("{} {}", iter.line(), content));
             self.line_no = iter.line();
             buffer.insert(iter, "\n");
         }
@@ -480,6 +482,7 @@ pub fn highlight_cursor(view: &TextView,
     buffer.move_mark(&start_mark, &start_iter);
     buffer.move_mark(&end_mark, &end_iter);
     buffer.apply_tag_by_name(CURSOR_HIGHLIGHT, &start_iter, &end_iter);
+    // buffer.apply_tag_by_name(CURSOR_HIGHLIGHT, &start_iter, &end_iter);
 }
 
 pub fn highlight_region(view: &TextView, r: Region) {
@@ -493,6 +496,11 @@ pub fn highlight_region(view: &TextView, r: Region) {
     if start_iter.line() == r.line_from && end_iter.line() == r.line_to {
         return
     }
+    // let tag = buffer.tag_table().lookup(REGION_HIGHLIGHT);
+    // if tag.is_some() {
+    //     println!("remove tag!");
+    //     buffer.remove_tag(&tag.unwrap(), &start_iter, &end_iter);
+    // }
     buffer.remove_tag_by_name(
         REGION_HIGHLIGHT,
         &start_iter,
@@ -501,15 +509,26 @@ pub fn highlight_region(view: &TextView, r: Region) {
     if r.is_empty() {
         return
     }
+
     start_iter.set_line(r.line_from);
+    start_iter.forward_lines(1);
     end_iter.set_line(r.line_to);
+    end_iter.backward_char();
+    
     // end_iter.backward_line();
     // end_iter.backward_line();
     // end_iter.backward_char();
     buffer.move_mark(&start_mark, &start_iter);
     buffer.move_mark(&end_mark, &end_iter);
     println!("APPLY TAG AT {:?} {:?}. offsets {:?} {:?}", start_iter.line(), end_iter.line(), start_iter.line_offset(), end_iter.line_offset());
+    // println!("{:?}", buffer.slice(&start_iter, &end_iter, true));
     buffer.apply_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
+    // let tag = buffer.tag_table().lookup(REGION_HIGHLIGHT);
+    // println!("tag after apply! {:?}", tag);
+    // if tag.is_some() {
+    //     println!("tag changed");
+    //     tag.unwrap().changed(true);
+    // }
     // does not work
     // apply_tag_on_marks(buffer, CURSOR_HIGHLIGHT, CURSOR_HIGHLIGHT_START, CURSOR_HIGHLIGHT_END);
 }
