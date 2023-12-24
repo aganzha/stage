@@ -151,26 +151,38 @@ impl Diff {
 
     pub fn set_expand(&mut self, offset: i32, line_no: i32) {
         self.offset = offset;
+        // new implementation ------------------------
+        // for child in self.get_children() {
+        //     let view = child.get_own_view(line_no);
+        //     if view.line_no == line_no {
+        //         view.expanded = !view.expanded;
+        //         view.rendered = false;
+        //         if !view.expanded {
+        //         }
+        //     }
+        // }
+        // new implementation ------------------------
+        
         for file in &mut self.files {
             // getting view here with line does not make sense. it must be already ecists
-            let view = file.get_own_view(line_no);
+            let view = file.get_view();
             println!("do it need to set expand? on line {:?} for view {:?}", line_no, view.line_no);
             if view.line_no == line_no {
                 println!("yes, set, please");
                 view.expanded = !view.expanded;
                 // when some item is expanded/collapsed
                 // all other views after it will become invalid
-                // by is_renderred_in_its_place
+                // by is_rendered_in_its_place
                 // and will be rerendered. no further calculations
                 // are reuired for them
                 view.rendered = false;
-                // but if view is collapsed it need to mark all inside it as not renderred
+                // but if view is collapsed it need to mark all inside it as not rendered
                 if !view.expanded {
                     for hunk in &mut file.hunks {
                         // getting view here with line does not make sense. it must be already ecists
-                        hunk.get_own_view(line_no).rendered = false;
+                        hunk.get_view().rendered = false;
                         for line in &mut hunk.lines {
-                            line.get_own_view(line_no).rendered = false;
+                            line.get_view().rendered = false;
                         }
                     }
                 }
@@ -182,24 +194,23 @@ impl Diff {
 
 
 impl View {
-    fn new(line_no: i32, expanded: bool, content: String) -> Self {
+    pub fn new() -> Self {
         return View {
-            line_no: line_no,
-            expanded: expanded,
-            rendered: false,
-            content: content
+            line_no: 0,
+            expanded: false,
+            rendered: false
         }
     }
 
-    fn is_renderred_in_its_place(&self, line_no: i32) -> bool {
+    fn is_rendered_in_its_place(&self, line_no: i32) -> bool {
         self.rendered && self.line_no == line_no
     }
 
-    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) -> &mut Self {
-        if self.is_renderred_in_its_place(iter.line()) {
+    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
+        if self.is_rendered_in_its_place(iter.line()) {
             iter.forward_lines(1);
         } else {
-            buffer.insert(iter, &self.content);
+            buffer.insert(iter, &content);
             self.line_no = iter.line();
             buffer.insert(iter, "\n");
         }
@@ -211,14 +222,30 @@ impl View {
 
 pub trait RecursiveViewContainer {
 
-    fn get_own_view(&mut self, line_no: i32) -> &mut View;
+    // fn get_own_view(&mut self, line_no: i32) -> &mut View;
 
-    fn get_children_views(&mut self) -> Vec<&mut dyn RecursiveViewContainer>;
+    fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer>;
 
+    fn get_view(&mut self) -> &mut View;
+    
+    // it need to kill line in get_own_view definition for what????
+    // why do i need to kill it? because a want to work freely without line
+    // but just with iter!
+    
+    // fn walk(&mut self, visitor: &dyn FnMut(&mut View) -> ()) {
+    //     visitor(self.get_own_view());
+    //     // for child in self.get_children() {
+    //     //     visitor(child);
+    //     // }
+    // }
+
+    fn get_content(&self) -> String;
+    
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
-        let view = self.get_own_view(iter.line()).render(&buffer, iter);
+        let content = self.get_content();
+        let view = self.get_view().render(&buffer, iter, content);
         if view.expanded {
-            for child in self.get_children_views() {
+            for child in self.get_children() {
                 child.render(buffer, iter)
             }
         }
@@ -226,43 +253,73 @@ pub trait RecursiveViewContainer {
 }
 
 impl RecursiveViewContainer for Diff {
-
-    fn get_own_view(&mut self, _line_no: i32) -> &mut View {
+    
+    // fn get_own_view(&mut self, _line_no: i32) -> &mut View {
+    //     panic!("why are you here? this must be never called");
+    //     self.files[0].view.as_mut().unwrap()
+    // }
+    fn get_view(&mut self) -> &mut View {
         panic!("why are you here? this must be never called");
-        self.files[0].view.as_mut().unwrap()
+        &mut View::new()
+    }
+
+    fn get_content(&self) -> String {
+        panic!("why are you here? this must be never called");
+        String::from("")
     }
     
-    fn get_children_views(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
+    fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
         self.files.iter_mut().map(|f| f as &mut dyn RecursiveViewContainer).collect()
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
-        for child in self.get_children_views() {
+        for child in self.get_children() {
             child.render(buffer, iter)
         }
     }    
 }
 
 impl RecursiveViewContainer for File {
-    fn get_own_view(&mut self, line_no: i32) -> &mut View {
-        self.view.get_or_insert_with(|| {
-            View::new(line_no, false, self.path.to_str().unwrap().to_string())
-        })
+    // fn get_own_view(&mut self, line_no: i32) -> &mut View {
+    //     self.view.get_or_insert_with(|| {
+    //         View::new(line_no, false, self.path.to_str().unwrap().to_string())
+    //     })
+    // }
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
     }
-    fn get_children_views(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
+
+    fn get_content(&self) -> String {
+        self.path.to_str().unwrap().to_string()
+    }
+    
+    fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
         self.hunks.iter_mut().map(|vh|vh as &mut dyn RecursiveViewContainer).collect()
     }
 }
 
 
 impl RecursiveViewContainer for Hunk {
-    fn get_own_view(&mut self, line_no: i32) -> &mut View {
-        let header = &self.header;
-        self.view.get_or_insert_with(|| {
-            View::new(line_no, true, header.to_string())
-        })
+    // fn get_own_view(&mut self, line_no: i32) -> &mut View {
+    //     let header = &self.header;
+    //     self.view.get_or_insert_with(|| {
+    //         View::new(line_no, true, header.to_string())
+    //     })
+    // }
+
+    fn get_content(&self) -> String {
+        self.header.to_string()
     }
-    fn get_children_views(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
+    
+    fn get_view(&mut self) -> &mut View {
+        if self.view.line_no == 0 && !self.view.expanded {
+            // hunks are expanded by default
+            self.view.expanded = true
+        }
+        &mut self.view
+    }
+    
+    fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
         self.lines.iter_mut().filter(|l| {
             match l.kind {
                 crate::LineKind::File => false,
@@ -274,13 +331,21 @@ impl RecursiveViewContainer for Hunk {
 }
 
 impl RecursiveViewContainer for Line {
-    fn get_own_view(&mut self, line_no: i32) -> &mut View {
-        let content = &self.content;
-        self.view.get_or_insert_with(|| {
-            View::new(line_no, false, content.to_string())
-        })
+    // fn get_own_view(&mut self, line_no: i32) -> &mut View {
+    //     let content = &self.content;
+    //     self.view.get_or_insert_with(|| {
+    //         View::new(line_no, false, content.to_string())
+    //     })
+    // }
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
     }
-    fn get_children_views(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
+    
+    fn get_content(&self) -> String {
+        self.content.to_string()
+    }
+    
+    fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
         return Vec::new()
     }
 }
