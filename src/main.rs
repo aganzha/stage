@@ -1,5 +1,6 @@
 mod text_view;
-use text_view::{text_view_factory, render, expand, highlight_region, Region};
+use text_view::{text_view_factory, render, expand, cursor,
+                highlight_region, Region};
 mod git;
 use git::{get_current_repo_status,
           Diff, LineKind, View, File, Hunk, Line};
@@ -39,6 +40,8 @@ pub enum Event {
     CurrentRepo(std::ffi::OsString),
     Status(Diff),
     Expand(i32, i32),
+    Cursor(i32, i32),
+    // does not used for now
     HighlightRegion(i32),
     HighlightRegionResult(Region),
     Stage(String)
@@ -105,6 +108,10 @@ fn build_ui(app: &adw::Application) {
                 Event::Expand(offset, line_no) => {
                     let d = diff.as_mut().unwrap();
                     expand(&txt, d, offset, line_no, sender.clone());
+                },
+                Event::Cursor(offset, line_no) => {
+                    let d = diff.as_mut().unwrap();
+                    cursor(&txt, d, offset, line_no, sender.clone());
                 },
                 Event::HighlightRegion(line_no) => {
                     let d = diff.clone();

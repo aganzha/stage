@@ -59,21 +59,21 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
 
     let gesture = gtk::GestureClick::new();
     gesture.connect_released({
-        let txt = txt.clone();
-        let sndr = sndr.clone();
-        move |gesture, _some, wx, wy| {
+        // let txt = txt.clone();
+        // let sndr = sndr.clone();
+        move |gesture, _some, _wx, _wy| {
             gesture.set_state(gtk::EventSequenceState::Claimed);
-            let (x, y) = txt.window_to_buffer_coords(gtk::TextWindowType::Text, wx as i32, wy as i32);
-            let maybe_iter = txt.iter_at_location(x, y);
-            if maybe_iter.is_none() {
-                return;
-            }
-            let mut iter = maybe_iter.unwrap();
-            highlight_cursor(&txt, iter);
-            sndr.send(crate::Event::HighlightRegion(iter.line()))
-                        .expect("Could not send through channel");
-            let alloc = txt.allocation();
-            println!("Box pressed! {:?} {:?} {:?} {:?} == {:?}", wx, wy, x, y, alloc);
+            // let (x, y) = txt.window_to_buffer_coords(gtk::TextWindowType::Text, wx as i32, wy as i32);
+            // let maybe_iter = txt.iter_at_location(x, y);
+            // if maybe_iter.is_none() {
+            //     return;
+            // }
+            // let mut iter = maybe_iter.unwrap();
+            // highlight_cursor(&txt, iter);
+            // sndr.send(crate::Event::HighlightRegion(iter.line()))
+            //             .expect("Could not send through channel");
+            // let alloc = txt.allocation();
+            // println!("Box pressed! {:?} {:?} {:?} {:?} == {:?}", wx, wy, x, y, alloc);
         }
     });
 
@@ -105,8 +105,8 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
                 },
                 _ => todo!()
             }
-            highlight_cursor(view, start_iter);
-            sndr.send(crate::Event::HighlightRegion(start_iter.line()))
+            // highlight_cursor(view, start_iter);
+            sndr.send(crate::Event::Cursor(start_iter.offset(), start_iter.line()))
                         .expect("Could not send through channel");
         }
     });
@@ -120,15 +120,15 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
     let start_iter = buffer.iter_at_offset(0);
     buffer.create_mark(Some(CURSOR_HIGHLIGHT_START), &start_iter, false);
     buffer.create_mark(Some(REGION_HIGHLIGHT_START), &start_iter, false);
-    
+
     let mut end_iter = buffer.iter_at_offset(0);
     end_iter.forward_to_line_end();
     buffer.create_mark(Some(CURSOR_HIGHLIGHT_END), &end_iter, false);
     buffer.create_mark(Some(REGION_HIGHLIGHT_END), &end_iter, false);
-    
-    highlight_cursor(&txt, start_iter);
-    sndr.send(crate::Event::HighlightRegion(start_iter.line()))
-        .expect("Could not send through channel");
+
+    // highlight_cursor(&txt, start_iter);
+    // sndr.send(crate::Event::HighlightRegion(start_iter.line()))
+    //     .expect("Could not send through channel");
     txt
 }
 
@@ -167,7 +167,7 @@ impl Diff {
         let mut current_kind = ViewKind::None;
         let mut stop: bool = false;
         let mut next_stop: Option<ViewKind> = None;
-        
+
         self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
             // println!("walk {:?} {:?} {:?} {:?}", current_file_line, current_hunk_line, current_line_line, stop);
             // TODO change walk signature to remove false!
@@ -181,7 +181,7 @@ impl Diff {
             let current_line = view.line_no;
             let expanded = view.expanded;
 
-            let kind = rvc.get_kind();            
+            let kind = rvc.get_kind();
             match kind {
                 ViewKind::None => (),
                 ViewKind::File => {
@@ -194,7 +194,7 @@ impl Diff {
                             return;
                         },
                         _ => ()
-                    }                    
+                    }
                     current_file_line = current_line;
                 },
                 ViewKind::Hunk => {
@@ -207,14 +207,14 @@ impl Diff {
                             return;
                         },
                         _ => ()
-                    }     
+                    }
                     current_hunk_line = current_line;
                 }
                 ViewKind::Line => {
                     current_line_line = current_line;
                 }
             }
-            
+
             if current_line == line {
                 current_kind = kind.clone();
                 match kind {
@@ -242,7 +242,7 @@ impl Diff {
         });
         // println!("JUST WALKED {:?}. Result start {:?} end {:?}, last line {:?} {:?}", next_stop, start_line, end_line, current_hunk_line, current_line_line);
         if end_line == 0 && next_stop.is_some() {
-            // eof while last something is expanded            
+            // eof while last something is expanded
             end_line = current_line_line;
         }
         Region::new(current_kind, start_line, end_line)
@@ -262,7 +262,10 @@ impl View {
         return View {
             line_no: 0,
             expanded: false,
-            rendered: false
+            rendered: false,
+            active: false,
+            current: false,
+            tags: Vec::new()
         }
     }
 
@@ -276,11 +279,55 @@ impl View {
         } else {
             buffer.insert(iter, &format!("{} {}", iter.line(), content));
             self.line_no = iter.line();
+            self.apply_tags(buffer, iter);
+            // let offset = iter.offset();
+            // let mut start_iter = buffer.iter_at_offset(offset);
+            // let mut end_iter = buffer.iter_at_offset(offset);
+            // start_iter.set_line_offset(0);
+            // end_iter.forward_to_line_end();
+            // buffer.apply_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
             buffer.insert(iter, "\n");
         }
         self.rendered = true;
         self
     }
+
+    fn apply_tags(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
+        let offset = iter.offset();
+        let mut start_iter = buffer.iter_at_offset(offset);
+        let mut end_iter = buffer.iter_at_offset(offset);
+        start_iter.set_line_offset(0);
+        end_iter.forward_to_line_end();
+        if self.current {
+            buffer.apply_tag_by_name(CURSOR_HIGHLIGHT, &start_iter, &end_iter);
+            self.tags.push(String::from(CURSOR_HIGHLIGHT));
+        } else {
+            let index = self.tags.iter().position(|t| t == CURSOR_HIGHLIGHT);
+            if index.is_some() {
+                buffer.remove_tag_by_name(
+                    CURSOR_HIGHLIGHT,
+                    &start_iter,
+                    &end_iter
+                );
+                self.tags.remove(index.unwrap());
+            }
+            if self.current {
+                buffer.apply_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
+                self.tags.push(String::from(REGION_HIGHLIGHT));
+            } else {
+                let index = self.tags.iter().position(|t| t == REGION_HIGHLIGHT);
+                if index.is_some() {
+                    buffer.remove_tag_by_name(
+                        REGION_HIGHLIGHT,
+                        &start_iter,
+                        &end_iter
+                    );
+                    self.tags.remove(index.unwrap());
+                }
+            }
+        }        
+    }
+    
 }
 
 
@@ -292,6 +339,7 @@ pub trait RecursiveViewContainer {
 
     fn get_view(&mut self) -> &mut View;
 
+    // TODO - return bool and stop iteration when false
     fn walk_down(&mut self, visitor: &mut dyn FnMut(&mut dyn RecursiveViewContainer) -> ()) {
         for child in self.get_children() {
             visitor(child);
@@ -310,6 +358,43 @@ pub trait RecursiveViewContainer {
                 child.render(buffer, iter)
             }
         }
+    }
+
+    fn cursor(&mut self, line_no: i32, parent_active: bool) -> Option<bool> {
+        let view = self.get_view();
+        if !view.rendered {
+            return None;
+        }
+        
+        let mut active: bool = false;
+        let mut current = false;
+        if view.line_no == line_no {
+            current = true;
+            active = true;
+        }
+        active = active || self.is_active_by_parent(parent_active);
+
+        let mut child_active: bool = false;
+        self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
+            let ca = rvc.cursor(line_no, active);
+            if ca.is_some() {
+                child_active = child_active || ca.unwrap();
+            }
+        });
+
+        active = active || self.is_active_by_child(child_active);
+        let view = self.get_view();
+        view.current = current;
+        view.active = active;        
+        Some(active)
+    }
+
+    fn is_active_by_child(&self, _child_active: bool) -> bool {
+        false
+    }
+    
+    fn is_active_by_parent(&self, _parent_active: bool) -> bool {
+        false
     }
 
     fn expand(&mut self, line_no: i32) {
@@ -362,6 +447,13 @@ impl RecursiveViewContainer for Diff {
         }
     }
 
+    fn cursor(&mut self, line_no: i32, _parent_active: bool) -> Option<bool> {    
+        self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
+            rvc.cursor(line_no, false);            
+        });
+        None
+    }
+    
     fn expand(&mut self, line_no: i32) {
         self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
             rvc.expand(line_no)
@@ -416,6 +508,13 @@ impl RecursiveViewContainer for Hunk {
             }
         }).map(|vh|vh as &mut dyn RecursiveViewContainer).collect()
     }
+
+    fn is_active_by_child(&self, active: bool) -> bool {
+        // if line is active (cursor on it)
+        // whole hunk is active
+        active
+    }
+    
 }
 
 impl RecursiveViewContainer for Line {
@@ -438,23 +537,14 @@ impl RecursiveViewContainer for Line {
 
     fn expand(&mut self, _line_no: i32) {
     }
+
+    fn is_active_by_parent(&self, active: bool) -> bool {
+        // if hink is active (cursor on some line in it)
+        // whole line is active
+        active
+    }
 }
 
-pub fn apply_tag_on_marks(buffer: TextBuffer,
-                          start_mark: &str,
-                          end_mark: &str,
-                          tag_name: &str) {
-    let start_mark = buffer.mark(start_mark);
-    let end_mark = buffer.mark(end_mark);
-    if start_mark.is_none() || end_mark.is_none() {
-        return
-    }
-    buffer.apply_tag_by_name(
-        tag_name,
-        &buffer.iter_at_mark(&start_mark.unwrap()),
-        &buffer.iter_at_mark(&end_mark.unwrap())
-    );
-}
 
 pub fn highlight_cursor(view: &TextView,
                         mut start_iter: gtk::TextIter) {
@@ -512,7 +602,7 @@ pub fn highlight_region(view: &TextView, r: Region) {
     );
     if r.is_empty() {
         return
-    }    
+    }
     start_iter.set_line(r.line_from);
     match r.kind {
         ViewKind::File => {
@@ -520,12 +610,12 @@ pub fn highlight_region(view: &TextView, r: Region) {
         },
         ViewKind::Hunk => {
             start_iter.forward_lines(1);
-        }        
+        }
         _ => ()
     };
-    
+
     end_iter.set_line(r.line_to);
-    // end_iter.backward_char();    
+    // end_iter.backward_char();
     // end_iter.backward_line();
     // end_iter.backward_line();
     // end_iter.backward_char();
@@ -541,7 +631,12 @@ pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:
     diff.offset = offset;
     diff.expand(line_no);
     render(view, diff, sndr);
-    println!("FINISHED RENDER IN EXPAND");
+}
+
+pub fn cursor(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
+    diff.offset = offset;
+    diff.cursor(line_no, false);
+    render(view, diff, sndr);
 }
 
 pub fn render(view: &TextView, diff: &mut Diff, sndr:Sender<crate::Event>) {
@@ -554,7 +649,7 @@ pub fn render(view: &TextView, diff: &mut Diff, sndr:Sender<crate::Event>) {
 
     iter.set_offset(diff.offset);
     buffer.place_cursor(&iter);
-    highlight_cursor(&view, iter);
-    sndr.send(crate::Event::HighlightRegion(iter.line()))
-        .expect("Could not send through channel");
+    // highlight_cursor(&view, iter);
+    // sndr.send(crate::Event::HighlightRegion(iter.line()))
+    //     .expect("Could not send through channel");
 }

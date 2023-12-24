@@ -25,6 +25,9 @@ pub struct View {
     pub line_no: i32,
     pub expanded: bool,
     pub rendered: bool,
+    pub active: bool,
+    pub current: bool,
+    pub tags: Vec<String>
 }
 
 #[derive(Debug, Clone)]
