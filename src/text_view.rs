@@ -640,14 +640,14 @@ pub fn highlight_region(view: &TextView, r: Region) {
 }
 
 pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
-    // ???
-    // diff.offset = offset;
+    // dangerous but required
+    diff.offset = offset;
     diff.expand(line_no);
     render(view, diff, sndr);
 }
 
 pub fn cursor(txt: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
-    // ???
+    // dangerous but required
     diff.offset = offset;
     diff.cursor(line_no, false);
     render(txt, diff, sndr);
@@ -659,8 +659,8 @@ pub fn render(txt: &TextView, diff: &mut Diff, sndr:Sender<crate::Event>) {
 
     diff.render(&buffer, &mut iter);
 
-    // buffer.delete(&mut iter, &mut buffer.end_iter());
-
+    buffer.delete(&mut iter, &mut buffer.end_iter());
+    
     iter.set_offset(diff.offset);
     buffer.place_cursor(&iter);
 
