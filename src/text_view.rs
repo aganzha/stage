@@ -68,7 +68,10 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
             if maybe_iter.is_none() {
                 return;
             }
-            highlight_cursor(&txt, maybe_iter.unwrap(), sndr.clone());
+            let mut iter = maybe_iter.unwrap();
+            highlight_cursor(&txt, iter);
+            sndr.send(crate::Event::HighlightRegion(iter.line()))
+                        .expect("Could not send through channel");
             let alloc = txt.allocation();
             println!("Box pressed! {:?} {:?} {:?} {:?} == {:?}", wx, wy, x, y, alloc);
         }
@@ -102,7 +105,9 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
                 },
                 _ => todo!()
             }
-            highlight_cursor(view, start_iter, sndr.clone());
+            highlight_cursor(view, start_iter);
+            sndr.send(crate::Event::HighlightRegion(start_iter.line()))
+                        .expect("Could not send through channel");
         }
     });
 
@@ -121,8 +126,9 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
     buffer.create_mark(Some(CURSOR_HIGHLIGHT_END), &end_iter, false);
     buffer.create_mark(Some(REGION_HIGHLIGHT_END), &end_iter, false);
     
-    highlight_cursor(&txt, start_iter, sndr);
-
+    highlight_cursor(&txt, start_iter);
+    sndr.send(crate::Event::HighlightRegion(start_iter.line()))
+        .expect("Could not send through channel");
     txt
 }
 
@@ -451,10 +457,7 @@ pub fn apply_tag_on_marks(buffer: TextBuffer,
 }
 
 pub fn highlight_cursor(view: &TextView,
-                        mut start_iter: gtk::TextIter,
-                        sndr: Sender<crate::Event>) {
-    sndr.send(crate::Event::HighlightRegion(start_iter.line()))
-                        .expect("Could not send through channel");
+                        mut start_iter: gtk::TextIter) {
     let buffer = view.buffer();
     let start_mark = buffer.mark(CURSOR_HIGHLIGHT_START).unwrap();
     if start_iter.line() ==  buffer.iter_at_mark(&start_mark).line() {
@@ -522,8 +525,7 @@ pub fn highlight_region(view: &TextView, r: Region) {
     };
     
     end_iter.set_line(r.line_to);
-    // end_iter.backward_char();
-    
+    // end_iter.backward_char();    
     // end_iter.backward_line();
     // end_iter.backward_line();
     // end_iter.backward_char();
@@ -532,14 +534,7 @@ pub fn highlight_region(view: &TextView, r: Region) {
     println!("APPLY TAG AT {:?} {:?}. offsets {:?} {:?}", start_iter.line(), end_iter.line(), start_iter.line_offset(), end_iter.line_offset());
     // println!("{:?}", buffer.slice(&start_iter, &end_iter, true));
     buffer.apply_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
-    // let tag = buffer.tag_table().lookup(REGION_HIGHLIGHT);
-    // println!("tag after apply! {:?}", tag);
-    // if tag.is_some() {
-    //     println!("tag changed");
-    //     tag.unwrap().changed(true);
-    // }
-    // does not work
-    // apply_tag_on_marks(buffer, CURSOR_HIGHLIGHT, CURSOR_HIGHLIGHT_START, CURSOR_HIGHLIGHT_END);
+    highlight_cursor(&view, buffer.iter_at_offset(buffer.cursor_position()));
 }
 
 pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
@@ -559,5 +554,7 @@ pub fn render(view: &TextView, diff: &mut Diff, sndr:Sender<crate::Event>) {
 
     iter.set_offset(diff.offset);
     buffer.place_cursor(&iter);
-    highlight_cursor(&view, iter, sndr);
+    highlight_cursor(&view, iter);
+    sndr.send(crate::Event::HighlightRegion(iter.line()))
+        .expect("Could not send through channel");
 }
