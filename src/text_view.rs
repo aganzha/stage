@@ -161,6 +161,7 @@ impl Diff {
         let mut next_stop: Option<ViewKind> = None;
         
         self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
+            // println!("walk {:?} {:?} {:?} {:?}", current_file_line, current_hunk_line, current_line_line, stop);
             if stop {
                 return;
             }
@@ -170,7 +171,7 @@ impl Diff {
             }
             let current_line = view.line_no;
             let expanded = view.expanded;
-            
+            // println!("view line and expanded {:?} {:?} {:?}", rvc.get_content(), current_line, expanded);
             let kind = rvc.get_kind();            
             match kind {
                 ViewKind::None => (),
@@ -210,24 +211,42 @@ impl Diff {
                     ViewKind::None => (),
                     ViewKind::File => {
                         if expanded {
+                            start_line = current_file_line;
                             next_stop.replace(ViewKind::File);
                         }
                     },
                     ViewKind::Hunk => {
                         if expanded {
+                            start_line = current_hunk_line;
                             next_stop.replace(ViewKind::Hunk);
+                        } else {
+                            start_line = current_file_line;
                         }
                     }
                     ViewKind::Line => {
+                        start_line = current_hunk_line;
                         next_stop.replace(ViewKind::Hunk);
                     }
                 }
             }
         });
+        // println!("JUST WALKED {:?}. Result start {:?} end {:?}, last line {:?} {:?}", next_stop, start_line, end_line, current_hunk_line, current_line_line);
+        if end_line == 0 {
+            if current_line_line > end_line {
+                end_line = current_line_line;
+            }
+            if current_hunk_line > end_line {
+                end_line = current_hunk_line;
+            }
+            if current_file_line > end_line {
+                end_line = current_file_line;
+            }
+        }
         Region::new(start_line, end_line)
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum ViewKind {
     File,
     Hunk,
@@ -496,7 +515,7 @@ pub fn highlight_region(view: &TextView, r: Region) {
     end_iter.set_line(r.line_to);
     buffer.move_mark(&start_mark, &start_iter);
     buffer.move_mark(&end_mark, &end_iter);
-    println!("APPLY TAG AT {:?} {:?}", start_iter.line(), end_iter.line());
+    println!("APPLY TAG AT {:?} {:?}. offsets {:?} {:?}", start_iter.line(), end_iter.line(), start_iter.line_offset(), end_iter.line_offset());
     buffer.apply_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
     // does not work
     // apply_tag_on_marks(buffer, CURSOR_HIGHLIGHT, CURSOR_HIGHLIGHT_START, CURSOR_HIGHLIGHT_END);
