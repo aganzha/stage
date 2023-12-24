@@ -1,17 +1,14 @@
 mod text_view;
-use text_view::{text_view_factory, render, expand};
+use text_view::{text_view_factory, render, expand, highlight_region, Region};
 mod git;
 use git::{get_current_repo_status,
           Diff, LineKind, View, File, Hunk, Line};
-use core::num::NonZeroU32;
-
 use gtk::prelude::*;
 use adw::prelude::*;
-use glib::{MainContext, Priority, subclass::Signal, subclass::signal::SignalId};
+use glib::{MainContext, Priority};
 use adw::{Application, HeaderBar, ApplicationWindow};
 use gtk::{glib, gdk, gio, Box, Label, Orientation, CssProvider, ScrolledWindow};// TextIter
 use gdk::Display;
-use git2::Repository;
 
 const APP_ID: &str = "io.github.aganzha.Stage";
 
@@ -42,6 +39,8 @@ pub enum Event {
     CurrentRepo(std::ffi::OsString),
     Status(Diff),
     Expand(i32, i32),
+    HighlightRegion(i32),
+    HighlightRegionResult(Region),
     Stage(String)
 }
 
@@ -101,14 +100,25 @@ fn build_ui(app: &adw::Application) {
                     println!("git diff in status {:p}", &d);
                     diff.replace(d);
                     let d = diff.as_mut().unwrap();
-                    render(&txt, d);
+                    render(&txt, d, sender.clone());
                 },
                 Event::Expand(offset, line_no) => {
                     let d = diff.as_mut().unwrap();
-                    expand(&txt, d, offset, line_no);
-                    // d.set_expand(offset, line_no);
-                    // render(&txt, d);
-                }
+                    expand(&txt, d, offset, line_no, sender.clone());
+                },
+                Event::HighlightRegion(line_no) => {
+                    let d = diff.clone();
+                    gio::spawn_blocking({
+                        let sender = sender.clone();
+                        move || {
+                            let region = d.unwrap().get_active_region(line_no);
+                            sender.send(crate::Event::HighlightRegionResult(region))
+                        }
+                    });
+                },
+                Event::HighlightRegionResult(region) => {
+                    highlight_region(&txt, region);
+                },
                 Event::Stage(text) => {
                     println!("STAGE THIS TEXT {:?} in {:?}", text, diff);
                 }

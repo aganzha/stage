@@ -4,21 +4,33 @@ use gtk::{glib, gdk, TextView, TextBuffer, TextTag, TextIter};
 use glib::{Sender, subclass::Signal, subclass::signal::SignalId, value::Value};
 use crate::{View, Diff, File, Hunk, Line};
 
-const HIGHLIGHT: &str = "highlight";
-const HIGHLIGHT_START: &str  = "HightlightStart";
-const HIGHLIGHT_END: &str = "HightlightEnd";
+const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
+const CURSOR_HIGHLIGHT_START: &str  = "CursorHightlightStart";
+const CURSOR_HIGHLIGHT_END: &str = "CursorHightlightEnd";
+const CURSOR_COLOR: &str = "#f6fecd";
+
+const REGION_HIGHLIGHT: &str = "RegionHighlight";
+const REGION_HIGHLIGHT_START: &str  = "RegionHightlightStart";
+const REGION_HIGHLIGHT_END: &str = "RegionHightlightEnd";
+const REGION_COLOR: &str = "#f2f2f2";
 
 pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
     let txt = TextView::builder()
         .build();
     let buffer = txt.buffer();
     // let signal_id = signal.signal_id();
-    let tag = TextTag::new(Some(HIGHLIGHT));
-    tag.set_background(Some("#f6fecd"));
+    let tag = TextTag::new(Some(CURSOR_HIGHLIGHT));
+    tag.set_background(Some(CURSOR_COLOR));
+    buffer.tag_table().add(&tag);
+
+    let tag = TextTag::new(Some(REGION_HIGHLIGHT));
+    tag.set_background(Some(REGION_COLOR));
+    buffer.tag_table().add(&tag);
 
     let event_controller = gtk::EventControllerKey::new();
     event_controller.connect_key_pressed({
         let buffer = buffer.clone();
+        let sndr = sndr.clone();
         move |_, key, _, _| {
             match key {
                 gdk::Key::Tab => {
@@ -28,8 +40,8 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
                         .expect("Could not send through channel");
                 },
                 gdk::Key::s => {
-                    let start_mark = buffer.mark(HIGHLIGHT_START).unwrap();
-                    let end_mark = buffer.mark(HIGHLIGHT_END).unwrap();
+                    let start_mark = buffer.mark(CURSOR_HIGHLIGHT_START).unwrap();
+                    let end_mark = buffer.mark(CURSOR_HIGHLIGHT_END).unwrap();
                     let start_iter = buffer.iter_at_mark(&start_mark);
                     let end_iter = buffer.iter_at_mark(&end_mark);
                     let text = String::from(buffer.text(&start_iter, &end_iter, true).as_str());
@@ -46,6 +58,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
     let gesture = gtk::GestureClick::new();
     gesture.connect_released({
         let txt = txt.clone();
+        let sndr = sndr.clone();
         move |gesture, _some, wx, wy| {
             gesture.set_state(gtk::EventSequenceState::Claimed);
             let (x, y) = txt.window_to_buffer_coords(gtk::TextWindowType::Text, wx as i32, wy as i32);
@@ -53,7 +66,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
             if maybe_iter.is_none() {
                 return;
             }
-            highlight_if_need(&txt, maybe_iter.unwrap());
+            highlight_cursor(&txt, maybe_iter.unwrap(), sndr.clone());
             let alloc = txt.allocation();
             println!("Box pressed! {:?} {:?} {:?} {:?} == {:?}", wx, wy, x, y, alloc);
         }
@@ -62,6 +75,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
     txt.add_controller(gesture);
 
     txt.connect_move_cursor({
+        let sndr = sndr.clone();
         move |view, step, count, _selection| {
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
@@ -86,11 +100,10 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
                 },
                 _ => todo!()
             }
-            highlight_if_need(view, start_iter);
+            highlight_cursor(view, start_iter, sndr.clone());
         }
     });
 
-    buffer.tag_table().add(&tag);
     txt.set_monospace(true);
     txt.set_editable(false);
 
@@ -98,27 +111,30 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
 
 
     let start_iter = buffer.iter_at_offset(0);
-    buffer.create_mark(Some(HIGHLIGHT_START), &start_iter, false);
+    buffer.create_mark(Some(CURSOR_HIGHLIGHT_START), &start_iter, false);
 
     let mut end_iter = buffer.iter_at_offset(0);
     end_iter.forward_to_line_end();
-    buffer.create_mark(Some(HIGHLIGHT_END), &end_iter, false);
+    buffer.create_mark(Some(CURSOR_HIGHLIGHT_END), &end_iter, false);
 
-    highlight_if_need(&txt, start_iter);
+    highlight_cursor(&txt, start_iter, sndr);
 
     txt
 }
 
-pub fn highlight_if_need(view: &TextView,
-                         mut start_iter: gtk::TextIter) {
+pub fn highlight_cursor(view: &TextView,
+                        mut start_iter: gtk::TextIter,
+                        sndr: Sender<crate::Event>) {
+    sndr.send(crate::Event::HighlightRegion(start_iter.line()))
+                        .expect("Could not send through channel");
     let buffer = view.buffer();
-    let start_mark = buffer.mark(HIGHLIGHT_START).unwrap();
+    let start_mark = buffer.mark(CURSOR_HIGHLIGHT_START).unwrap();
     if start_iter.line() ==  buffer.iter_at_mark(&start_mark).line() {
         return;
     }
-    let end_mark = buffer.mark(HIGHLIGHT_END).unwrap();
+    let end_mark = buffer.mark(CURSOR_HIGHLIGHT_END).unwrap();
     buffer.remove_tag_by_name(
-        HIGHLIGHT,
+        CURSOR_HIGHLIGHT,
         &buffer.iter_at_mark(&start_mark),
         &buffer.iter_at_mark(&end_mark)
     );
@@ -127,26 +143,125 @@ pub fn highlight_if_need(view: &TextView,
     let mut end_iter = buffer.iter_at_offset(start_iter.offset());
     end_iter.forward_to_line_end();
 
-    let mut cnt = 0;
-    let  max_width = view.visible_rect().width();
-    while max_width >  view.iter_location(&end_iter).x() {
-        buffer.insert(&mut end_iter, " ");
-        cnt += 1;
-        if cnt > 100 {
-            break;
-        }
-    }
-    if cnt > 0 {
-        buffer.backspace(&mut end_iter, false, true);
-    }
+    // let mut cnt = 0;
+    // let  max_width = view.visible_rect().width();
+    // while max_width >  view.iter_location(&end_iter).x() {
+    //     buffer.insert(&mut end_iter, " ");
+    //     cnt += 1;
+    //     if cnt > 100 {
+    //         break;
+    //     }
+    // }
+    // if cnt > 0 {
+    //     buffer.backspace(&mut end_iter, false, true);
+    // }
     let start_iter = buffer.iter_at_offset(start_pos);
     buffer.move_mark(&start_mark, &start_iter);
     buffer.move_mark(&end_mark, &end_iter);
-    println!("APPLY!");
-    buffer.apply_tag_by_name(HIGHLIGHT, &start_iter, &end_iter);
-
+    buffer.apply_tag_by_name(CURSOR_HIGHLIGHT, &start_iter, &end_iter);
 }
 
+#[derive(Debug, Clone)]
+pub struct Region {
+    pub line_from: i32,
+    pub line_to: i32
+}
+
+impl Region {
+    pub fn new(line_from: i32, line_to: i32) -> Self {
+        return Self {
+            line_from,
+            line_to
+        }
+    }
+}
+
+
+
+impl Diff {
+    pub fn get_active_region(&mut self, line: i32) -> Region {
+        let mut start_line = 0;
+        let mut end_line = 0;
+        // walk down. if view.line_no == line - we get view
+        // if view is file (cursor is on file) and file is expanded - highlight whole file
+        // if view is hunk - highlight whole hunk
+        // if view is line - highlight whole HUNK (for now)
+        let mut current_file_line: i32 = 0;
+        let mut current_hunk_line: i32 = 0;
+        let mut current_line_line: i32 = 0;
+
+        let mut stop: bool = false;
+        let mut next_stop: Option<ViewKind> = None;
+        
+        self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
+            if stop {
+                return;
+            }
+            let view = rvc.get_view();
+            let current_line = view.line_no;
+            let expanded = view.expanded;
+            
+            let kind = rvc.get_kind();            
+            match kind {
+                ViewKind::None => (),
+                ViewKind::File => {
+                    match next_stop {
+                        Some(ViewKind::File) => {
+                            start_line = current_file_line;
+                            end_line = current_line;
+                            stop = true;
+                            return;
+                        },
+                        _ => ()
+                    }                    
+                    current_file_line = current_line;
+                },
+                ViewKind::Hunk => {
+                    match next_stop {
+                        Some(ViewKind::Hunk) => {
+                            start_line = current_hunk_line;
+                            end_line = current_line;
+                            stop = true;
+                            return;
+                        },
+                        _ => ()
+                    }     
+                    current_hunk_line = current_line;
+                }
+                ViewKind::Line => {
+                    current_line_line = current_line;
+                }
+            }
+            
+            if current_line == line {
+                match kind {
+                    ViewKind::None => (),
+                    ViewKind::File => {
+                        if expanded {
+                            next_stop.replace(ViewKind::File);
+                        }
+                    },
+                    ViewKind::Hunk => {
+                        if expanded {
+                            next_stop.replace(ViewKind::Hunk);
+                        }
+                    }
+                    ViewKind::Line => {
+                        next_stop.replace(ViewKind::Hunk);
+                    }
+                }
+            }
+        });
+        Region::new(start_line, end_line)
+    }
+}
+
+pub enum ViewKind {
+    File,
+    Hunk,
+    Line,
+    None
+}
 
 impl View {
     pub fn new() -> Self {
@@ -177,6 +292,7 @@ impl View {
 
 pub trait RecursiveViewContainer {
 
+    fn get_kind(&self) -> ViewKind;
 
     fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer>;
 
@@ -228,6 +344,9 @@ pub trait RecursiveViewContainer {
 
 impl RecursiveViewContainer for Diff {
 
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::None
+    }
 
     fn get_view(&mut self) -> &mut View {
         panic!("why are you here? this must be never called");
@@ -258,6 +377,10 @@ impl RecursiveViewContainer for Diff {
 
 impl RecursiveViewContainer for File {
 
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::File
+    }
+
     fn get_view(&mut self) -> &mut View {
         &mut self.view
     }
@@ -273,6 +396,10 @@ impl RecursiveViewContainer for File {
 
 
 impl RecursiveViewContainer for Hunk {
+
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Hunk
+    }
 
     fn get_content(&self) -> String {
         self.header.to_string()
@@ -299,6 +426,10 @@ impl RecursiveViewContainer for Hunk {
 
 impl RecursiveViewContainer for Line {
 
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Line
+    }
+
     fn get_view(&mut self) -> &mut View {
         &mut self.view
     }
@@ -311,17 +442,21 @@ impl RecursiveViewContainer for Line {
         return Vec::new()
     }
 
-    fn expand(&mut self, _line_no: i32) {        
+    fn expand(&mut self, _line_no: i32) {
     }
 }
 
-pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32) {
-    diff.offset = offset;
-    diff.expand(line_no);
-    render(view, diff);
+pub fn highlight_region(view: &TextView, r: Region) {
+    println!("highlight_region {:?}", r);
 }
 
-pub fn render(view: &TextView, diff: &mut Diff) {
+pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
+    diff.offset = offset;
+    diff.expand(line_no);
+    render(view, diff, sndr);
+}
+
+pub fn render(view: &TextView, diff: &mut Diff, sndr:Sender<crate::Event>) {
     let buffer = view.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
@@ -331,5 +466,5 @@ pub fn render(view: &TextView, diff: &mut Diff) {
 
     iter.set_offset(diff.offset);
     buffer.place_cursor(&iter);
-    highlight_if_need(&view, iter);
+    highlight_cursor(&view, iter, sndr);
 }
