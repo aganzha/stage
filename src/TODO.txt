@@ -3,7 +3,6 @@ BUG: expand TODO, then expand text_view.rs and main.rs is DISAPEARED! must be re
 - try to replace &mut dyn RecursiveViewContainer with type alias
 - so, when user clicks line , it need to detect everything: line, hunk and file by the number when clicked line in text buffer
 
-
 -- HUGHLIGHT for pgup/pgdown doesn not work
 - put label with current repo name (relative to path the app is started)
 - adwaita ToolbarView
@@ -11,6 +10,7 @@ BUG: expand TODO, then expand text_view.rs and main.rs is DISAPEARED! must be re
 - put symbolic expand tag/href to expand regions with mouse
 - open another repo in file choose dialog
 - open repo under other user causeing error! handle it!
+
 
 - .gitignore does not counted in gitlib2 !!!! flags : Status(IGNORED)
 - when put mouse in the end of line it does not highlighted

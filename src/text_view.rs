@@ -1,6 +1,6 @@
 use std::ffi;
 use gtk::prelude::*;
-use gtk::{glib, gdk, TextView, TextBuffer, TextTag, TextIter};
+use gtk::{glib, gdk, TextView, TextBuffer, TextTag, TextIter, TextMark};
 use glib::{Sender, subclass::Signal, subclass::signal::SignalId, value::Value};
 use crate::{View, Diff, File, Hunk, Line};
 
@@ -112,53 +112,16 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
 
     let start_iter = buffer.iter_at_offset(0);
     buffer.create_mark(Some(CURSOR_HIGHLIGHT_START), &start_iter, false);
-
+    buffer.create_mark(Some(REGION_HIGHLIGHT_START), &start_iter, false);
+    
     let mut end_iter = buffer.iter_at_offset(0);
     end_iter.forward_to_line_end();
     buffer.create_mark(Some(CURSOR_HIGHLIGHT_END), &end_iter, false);
-
+    buffer.create_mark(Some(REGION_HIGHLIGHT_END), &end_iter, false);
+    
     highlight_cursor(&txt, start_iter, sndr);
 
     txt
-}
-
-pub fn highlight_cursor(view: &TextView,
-                        mut start_iter: gtk::TextIter,
-                        sndr: Sender<crate::Event>) {
-    sndr.send(crate::Event::HighlightRegion(start_iter.line()))
-                        .expect("Could not send through channel");
-    let buffer = view.buffer();
-    let start_mark = buffer.mark(CURSOR_HIGHLIGHT_START).unwrap();
-    if start_iter.line() ==  buffer.iter_at_mark(&start_mark).line() {
-        return;
-    }
-    let end_mark = buffer.mark(CURSOR_HIGHLIGHT_END).unwrap();
-    buffer.remove_tag_by_name(
-        CURSOR_HIGHLIGHT,
-        &buffer.iter_at_mark(&start_mark),
-        &buffer.iter_at_mark(&end_mark)
-    );
-    start_iter.set_line_offset(0);
-    let start_pos = start_iter.offset();
-    let mut end_iter = buffer.iter_at_offset(start_iter.offset());
-    end_iter.forward_to_line_end();
-
-    // let mut cnt = 0;
-    // let  max_width = view.visible_rect().width();
-    // while max_width >  view.iter_location(&end_iter).x() {
-    //     buffer.insert(&mut end_iter, " ");
-    //     cnt += 1;
-    //     if cnt > 100 {
-    //         break;
-    //     }
-    // }
-    // if cnt > 0 {
-    //     buffer.backspace(&mut end_iter, false, true);
-    // }
-    let start_iter = buffer.iter_at_offset(start_pos);
-    buffer.move_mark(&start_mark, &start_iter);
-    buffer.move_mark(&end_mark, &end_iter);
-    buffer.apply_tag_by_name(CURSOR_HIGHLIGHT, &start_iter, &end_iter);
 }
 
 #[derive(Debug, Clone)]
@@ -174,12 +137,16 @@ impl Region {
             line_to
         }
     }
+    pub fn is_empty(&self) -> bool {
+        self.line_to == self.line_from
+    }
 }
 
 
 
 impl Diff {
     pub fn get_active_region(&mut self, line: i32) -> Region {
+        println!("get active region for {:?}", line);
         let mut start_line = 0;
         let mut end_line = 0;
         // walk down. if view.line_no == line - we get view
@@ -198,6 +165,9 @@ impl Diff {
                 return;
             }
             let view = rvc.get_view();
+            if !view.rendered {
+                return
+            }
             let current_line = view.line_no;
             let expanded = view.expanded;
             
@@ -207,6 +177,7 @@ impl Diff {
                 ViewKind::File => {
                     match next_stop {
                         Some(ViewKind::File) => {
+                            println!("next stop is file. current_line {:?} current_file_line {:?} content {:?}", current_line, current_file_line, rvc.get_content());
                             start_line = current_file_line;
                             end_line = current_line;
                             stop = true;
@@ -219,6 +190,7 @@ impl Diff {
                 ViewKind::Hunk => {
                     match next_stop {
                         Some(ViewKind::Hunk) => {
+                            println!("next stop is HUNK. current_line {:?} current_hunk_line {:?} content {:?}", current_line, current_hunk_line, rvc.get_content());
                             start_line = current_hunk_line;
                             end_line = current_line;
                             stop = true;
@@ -446,14 +418,95 @@ impl RecursiveViewContainer for Line {
     }
 }
 
+pub fn apply_tag_on_marks(buffer: TextBuffer,
+                          start_mark: &str,
+                          end_mark: &str,
+                          tag_name: &str) {
+    let start_mark = buffer.mark(start_mark);
+    let end_mark = buffer.mark(end_mark);
+    if start_mark.is_none() || end_mark.is_none() {
+        return
+    }
+    buffer.apply_tag_by_name(
+        tag_name,
+        &buffer.iter_at_mark(&start_mark.unwrap()),
+        &buffer.iter_at_mark(&end_mark.unwrap())
+    );
+}
+
+pub fn highlight_cursor(view: &TextView,
+                        mut start_iter: gtk::TextIter,
+                        sndr: Sender<crate::Event>) {
+    sndr.send(crate::Event::HighlightRegion(start_iter.line()))
+                        .expect("Could not send through channel");
+    let buffer = view.buffer();
+    let start_mark = buffer.mark(CURSOR_HIGHLIGHT_START).unwrap();
+    if start_iter.line() ==  buffer.iter_at_mark(&start_mark).line() {
+        return;
+    }
+    let end_mark = buffer.mark(CURSOR_HIGHLIGHT_END).unwrap();
+    buffer.remove_tag_by_name(
+        CURSOR_HIGHLIGHT,
+        &buffer.iter_at_mark(&start_mark),
+        &buffer.iter_at_mark(&end_mark)
+    );
+    start_iter.set_line_offset(0);
+    let start_pos = start_iter.offset();
+    let mut end_iter = buffer.iter_at_offset(start_iter.offset());
+    end_iter.forward_to_line_end();
+
+    // let mut cnt = 0;
+    // let  max_width = view.visible_rect().width();
+    // while max_width >  view.iter_location(&end_iter).x() {
+    //     buffer.insert(&mut end_iter, " ");
+    //     cnt += 1;
+    //     if cnt > 100 {
+    //         break;
+    //     }
+    // }
+    // if cnt > 0 {
+    //     buffer.backspace(&mut end_iter, false, true);
+    // }
+    let start_iter = buffer.iter_at_offset(start_pos);
+    buffer.move_mark(&start_mark, &start_iter);
+    buffer.move_mark(&end_mark, &end_iter);
+    buffer.apply_tag_by_name(CURSOR_HIGHLIGHT, &start_iter, &end_iter);
+}
+
 pub fn highlight_region(view: &TextView, r: Region) {
     println!("highlight_region {:?}", r);
+    
+    let buffer = view.buffer();
+    let start_mark = buffer.mark(REGION_HIGHLIGHT_START).unwrap();
+    let end_mark = buffer.mark(REGION_HIGHLIGHT_END).unwrap();
+    let mut start_iter = buffer.iter_at_mark(&start_mark);
+    let mut end_iter = buffer.iter_at_mark(&end_mark);
+    if start_iter.line() == r.line_from && end_iter.line() == r.line_to {
+        return
+    }
+    buffer.remove_tag_by_name(
+        REGION_HIGHLIGHT,
+        &start_iter,
+        &end_iter
+    );
+    if r.is_empty() {
+        return
+    }
+    start_iter.set_line(r.line_from);
+    end_iter.set_line(r.line_to);
+    buffer.move_mark(&start_mark, &start_iter);
+    buffer.move_mark(&end_mark, &end_iter);
+    println!("APPLY TAG AT {:?} {:?}", start_iter.line(), end_iter.line());
+    buffer.apply_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
+    // does not work
+    // apply_tag_on_marks(buffer, CURSOR_HIGHLIGHT, CURSOR_HIGHLIGHT_START, CURSOR_HIGHLIGHT_END);
 }
 
 pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
     diff.offset = offset;
     diff.expand(line_no);
     render(view, diff, sndr);
+    println!("FINISHED RENDER IN EXPAND");
 }
 
 pub fn render(view: &TextView, diff: &mut Diff, sndr:Sender<crate::Event>) {
