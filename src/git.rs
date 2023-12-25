@@ -142,14 +142,12 @@ impl File {
 
 #[derive(Debug, Clone)]
 pub struct Diff {
-    pub offset: i32,
     pub files: Vec<File>
 }
 
 impl Diff {
     pub fn new() -> Self {
         Self {
-            offset: 0,
             files: Vec::new()
         }
     }

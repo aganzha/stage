@@ -1,5 +1,5 @@
 mod text_view;
-use text_view::{text_view_factory, render, expand, cursor, Region};
+use text_view::{text_view_factory, render, expand, cursor};
 mod git;
 use git::{get_current_repo_status,
           Diff, LineKind, View, File, Hunk, Line};
@@ -100,7 +100,7 @@ fn build_ui(app: &adw::Application) {
                     println!("git diff in status {:p}", &d);
                     diff.replace(d);
                     let d = diff.as_mut().unwrap();
-                    render(&txt, d, sender.clone());
+                    render(&txt, d, 0, sender.clone());
                 },
                 Event::Expand(offset, line_no) => {
                     let d = diff.as_mut().unwrap();

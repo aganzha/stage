@@ -1,19 +1,35 @@
-BUG: expand TODO, then expand text_view.rs and main.rs is DISAPEARED! must be related to hunk lines!
+- DONE - the problem with hunk is - it remains active by self.hidden lines!
+      hunk         Hunk A         Hunk
+           line       line A         line A
+           line       lime A         line A
+      Active by child
+      2 cases.
+        - we either make then inactive if they are collapsed OR
+        - check dymamically if they are collapsed?
+    
+- DONE - why it is called 12 times????? looks like those are another hunks! they are just collapsed. view.line_no is 0
+- BUG - hit right. expand + collapse. hit right - expand. IT IS JUST STARTED WITH LINE 4
+- BUG - why so many times collapsed are called for 0 0
 
-- try to replace &mut dyn RecursiveViewContainer with type alias
-- so, when user clicks line , it need to detect everything: line, hunk and file by the number when clicked line in text buffer
+- DONE - first whole file is yellow
+
+- BUG - other COLLAPSED hunks got highlighted while traverse lines in other hunk. must be related to hidden lines
+
+- BUG when put mouse in the end of line it does not highlighted
+- put symbolic expand tag/href to expand regions with mouse
 
 -- HUGHLIGHT for pgup/pgdown doesn not work
 - put label with current repo name (relative to path the app is started)
+- try to replace &mut dyn RecursiveViewContainer with type alias
+
 - adwaita ToolbarView
 - popup widnwow from current line (commit)
-- put symbolic expand tag/href to expand regions with mouse
+
 - open another repo in file choose dialog
 - open repo under other user causeing error! handle it!
 
-
 - .gitignore does not counted in gitlib2 !!!! flags : Status(IGNORED)
-- when put mouse in the end of line it does not highlighted
+
 
 - in parallel thread, go to the source file, while read hunks and put whole file in tree sitter,
 make a syntax, highlight it and put into the diff. while insert line into the buffer, paint it with tags

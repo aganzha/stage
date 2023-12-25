@@ -1,7 +1,6 @@
-use std::ffi;
 use gtk::prelude::*;
-use gtk::{glib, gdk, pango, TextView, TextBuffer, TextTag, TextIter, TextMark};
-use glib::{Sender, subclass::Signal, subclass::signal::SignalId, value::Value};
+use gtk::{glib, gdk, TextView, TextBuffer, TextTag, TextIter};
+use glib::{Sender};
 
 use crate::{View, Diff, File, Hunk, Line};
 
@@ -26,7 +25,6 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
 
     let tag = TextTag::new(Some(REGION_HIGHLIGHT));
     tag.set_background(Some(REGION_COLOR));
-    // tag.set_underline(pango::Underline::Single);
     buffer.tag_table().add(&tag);
 
     let event_controller = gtk::EventControllerKey::new();
@@ -36,7 +34,6 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
         move |_, key, _, _| {
             match key {
                 gdk::Key::Tab => {
-                    println!("taaaaaaaaaaaaaaaaaaaaaaaaaaaaaab!");
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send(crate::Event::Expand(iter.offset(), iter.line()))
                         .expect("Could not send through channel");
@@ -93,19 +90,20 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
                 gtk::MovementStep::Words => {
                     start_iter.forward_word_end();
                 },
-                gtk::MovementStep::DisplayLines |
+                gtk::MovementStep::DisplayLines => {
+                    let loffset = start_iter.line_offset();
+                    start_iter.forward_lines(count);
+                    start_iter.forward_chars(loffset);
+                },
                 gtk::MovementStep::DisplayLineEnds |
                 gtk::MovementStep::Paragraphs |
-                gtk::MovementStep::ParagraphEnds => {
-                    start_iter.forward_lines(count);
-                },
+                gtk::MovementStep::ParagraphEnds |
                 gtk::MovementStep::Pages |
                 gtk::MovementStep::BufferEnds |
                 gtk::MovementStep::HorizontalPages => {
                 },
                 _ => todo!()
             }
-            // highlight_cursor(view, start_iter);
             sndr.send(crate::Event::Cursor(start_iter.offset(), start_iter.line()))
                         .expect("Could not send through channel");
         }
@@ -126,40 +124,15 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
     buffer.create_mark(Some(CURSOR_HIGHLIGHT_END), &end_iter, false);
     buffer.create_mark(Some(REGION_HIGHLIGHT_END), &end_iter, false);
 
-    // highlight_cursor(&txt, start_iter);
-    // sndr.send(crate::Event::HighlightRegion(start_iter.line()))
-    //     .expect("Could not send through channel");
     txt
 }
-
-#[derive(Debug, Clone)]
-pub struct Region {
-    pub kind: ViewKind,
-    pub line_from: i32,
-    pub line_to: i32,
-}
-
-impl Region {
-    pub fn new(kind: ViewKind, line_from: i32, line_to: i32) -> Self {
-        return Self {
-            kind,
-            line_from,
-            line_to,
-        }
-    }
-    pub fn is_empty(&self) -> bool {
-        self.line_to == self.line_from
-    }
-}
-
 
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
     File,
     Hunk,
-    Line,
-    None
+    Line
 }
 
 impl View {
@@ -180,6 +153,7 @@ impl View {
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
         if self.is_rendered_in_its_place(iter.line()) {
+            println!("skiiiiiiiiiiiiip {:?} {:?} {:?} {:?}", iter.line(), format!("{} {}\n", iter.line(), content), self.rendered, self.line_no);
             iter.forward_lines(1);
         } else {
             self.line_no = iter.line();
@@ -188,6 +162,7 @@ impl View {
             let new_line = iter.offset() == eol_iter.offset();
 
             if new_line {
+                println!("Insert new content {:?} at line {:?}", iter.line(), format!("{} {}\n", iter.line(), content));
                 buffer.insert(iter, &format!("{} {}\n", iter.line(), content));
             } else {
                 buffer.delete(iter, &mut eol_iter);
@@ -269,39 +244,44 @@ pub trait RecursiveViewContainer {
 
     fn cursor(&mut self, line_no: i32, parent_active: bool) -> Option<bool> {
 
-        let kind = self.get_kind();
+        // todo remove
+        // let kind = self.get_kind();
 
         let view = self.get_view();
-
-        // why do i need it at all?????
-        if !view.rendered {
-            println!("no way :(");
-            return None;
-        }
 
         let current_before = view.current;
         let active_before = view.active;
 
-        let current = line_no == view.line_no;
+        // todo remove
+        // let view_line = view.line_no;
+        // let view_rendered = view.rendered;
+        
+        let view_expanded = view.expanded;
+        
+        let current = line_no == view.line_no && view.rendered;
         let active_by_parent = self.is_active_by_parent(parent_active);
 
         let mut active_by_child = false;
 
-        for child in self.get_children() {
-            let child_view = child.get_view();
-            if child_view.rendered && child_view.line_no == line_no {
-                active_by_child = true;
+        if view_expanded {
+            for child in self.get_children() {
+                let child_view = child.get_view();
+                if child_view.rendered && child_view.line_no == line_no {                
+                    active_by_child = true;
+                }
             }
         }
         active_by_child = self.is_active_by_child(active_by_child);
+        // if self.get_kind() == ViewKind::Hunk {
+        //     println!("why am rendered? {:?} active? line_no {:?} view.line {:?} by parent {:?} current {:?} by child {:?}", view_rendered, line_no, view_line, active_by_parent, current, active_by_child); 
+        // }
         let self_active = active_by_parent || current || active_by_child;
 
         let view = self.get_view();
         view.active = self_active;
         view.current = current;
         view.rendered = view.active == active_before && view.current == current_before;
-        println!("cursor in interface {:?} at {:?}, self_active {:?} current {:?} parent_active {:?} children_active {:?}", kind, view.line_no, self_active, view.current, active_by_parent, active_by_child);
-
+        
         for child in self.get_children() {
             child.cursor(line_no, self_active);
 
@@ -324,16 +304,25 @@ pub trait RecursiveViewContainer {
         if !view.rendered {
             return
         }
-        if view.line_no == line_no {
+        if view.line_no == line_no { // HERE IS STEP2
             view.expanded = !view.expanded;
             view.rendered = false;
-            println!("expand collapse view at {:?} {:?} {:?}", line_no, view.expanded, view.rendered);
-            if !view.expanded {
+            // println!("expand collapse view at {:?} {:?} {:?}", line_no, view.expanded, view.rendered);
+            let expanded = view.expanded;
+            if !expanded {
                 self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
-                    rvc.get_view().rendered = false;
+                    let kind = rvc.get_kind();
+                    let view = rvc.get_view();                    
+                    println!("set rendered = False in {:?} {:?} for line {:?}. why? {:?}", view.line_no, kind, line_no, expanded);
+                    view.rendered = false;
                 })
             }
         } else {
+            // HERE IS STEP2 - it try expand next lines (e.g. files)
+            // so, for example the methis is called for file at line 2 with line_no=0
+            // it then calls each of its children under line 2 with line 0, and they are somehow passed the
+            // first condition, fuck!
+            // so, finnaly: -> expand + collapse and then -> and expand and you will see all the shit!
             for child in self.get_children() {
                 child.expand(line_no);
             }
@@ -374,6 +363,7 @@ impl RecursiveViewContainer for Hunk {
 
     fn get_view(&mut self) -> &mut View {
         if self.view.line_no == 0 && !self.view.expanded {
+            // wtf??????????????????? is it only for init???
             // hunks are expanded by default
             self.view.expanded = true
         }
@@ -433,37 +423,33 @@ impl RecursiveViewContainer for Line {
 }
 
 pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
-    // dangerous but required
-    diff.offset = offset;
-    // diff.expand(line_no);
+
     for file in &mut diff.files {
         file.expand(line_no)
     }
-    render(view, diff, sndr);
+    render(view, diff, offset, sndr);
 }
 
 pub fn cursor(txt: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
-    // dangerous but required
-    diff.offset = offset;
-    println!("CURSOR ON TOP (call on diff)");
 
     for file in &mut diff.files {
         file.cursor(line_no, false);
     }
-    render(txt, diff, sndr);
+    render(txt, diff, offset, sndr);
 }
 
-pub fn render(txt: &TextView, diff: &mut Diff, sndr:Sender<crate::Event>) {
+pub fn render(txt: &TextView, diff: &mut Diff, offset: i32, _sndr:Sender<crate::Event>) {
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
-
+    // Try insert this! everything is broken!
+    // buffer.insert(&mut iter, "Unstaged changes\n");
     for file in &mut diff.files {
         file.render(&buffer, &mut iter)
     }
 
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
-    iter.set_offset(diff.offset);
+    iter.set_offset(offset);
     buffer.place_cursor(&iter);
 
 }
