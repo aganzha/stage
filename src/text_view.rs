@@ -153,7 +153,7 @@ impl View {
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
         if self.is_rendered_in_its_place(iter.line()) {
-            println!("skiiiiiiiiiiiiip {:?} {:?} {:?} {:?}", iter.line(), format!("{} {}\n", iter.line(), content), self.rendered, self.line_no);
+            println!("1skiiiiiiiiiiiiip {:?} {:?} {:?} {:?}", iter.line(), format!("{} {}\n", iter.line(), content), self.rendered, self.line_no);
             iter.forward_lines(1);
         } else {
             self.line_no = iter.line();
@@ -255,9 +255,9 @@ pub trait RecursiveViewContainer {
         // todo remove
         // let view_line = view.line_no;
         // let view_rendered = view.rendered;
-        
+
         let view_expanded = view.expanded;
-        
+
         let current = line_no == view.line_no && view.rendered;
         let active_by_parent = self.is_active_by_parent(parent_active);
 
@@ -266,14 +266,14 @@ pub trait RecursiveViewContainer {
         if view_expanded {
             for child in self.get_children() {
                 let child_view = child.get_view();
-                if child_view.rendered && child_view.line_no == line_no {                
+                if child_view.rendered && child_view.line_no == line_no {
                     active_by_child = true;
                 }
             }
         }
         active_by_child = self.is_active_by_child(active_by_child);
         // if self.get_kind() == ViewKind::Hunk {
-        //     println!("why am rendered? {:?} active? line_no {:?} view.line {:?} by parent {:?} current {:?} by child {:?}", view_rendered, line_no, view_line, active_by_parent, current, active_by_child); 
+        //     println!("why am rendered? {:?} active? line_no {:?} view.line {:?} by parent {:?} current {:?} by child {:?}", view_rendered, line_no, view_line, active_by_parent, current, active_by_child);
         // }
         let self_active = active_by_parent || current || active_by_child;
 
@@ -281,7 +281,7 @@ pub trait RecursiveViewContainer {
         view.active = self_active;
         view.current = current;
         view.rendered = view.active == active_before && view.current == current_before;
-        
+
         for child in self.get_children() {
             child.cursor(line_no, self_active);
 
@@ -299,36 +299,39 @@ pub trait RecursiveViewContainer {
         false
     }
 
-    fn expand(&mut self, line_no: i32) {
+    fn expand(&mut self, line_no: i32) -> bool {
         let view = self.get_view();
+        let mut result = false;
         if !view.rendered {
-            return
+            return result;
         }
         if view.line_no == line_no { // HERE IS STEP2
             view.expanded = !view.expanded;
             view.rendered = false;
-            // println!("expand collapse view at {:?} {:?} {:?}", line_no, view.expanded, view.rendered);
-            let expanded = view.expanded;
-            if !expanded {
+            result = view.expanded;
+            if !result {
+                // recursivelly hide all children
                 self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
                     let kind = rvc.get_kind();
-                    let view = rvc.get_view();                    
-                    println!("set rendered = False in {:?} {:?} for line {:?}. why? {:?}", view.line_no, kind, line_no, expanded);
+                    let view = rvc.get_view();
+                    println!("set rendered = False in {:?} {:?} for line {:?}. why? {:?}", view.line_no, kind, line_no, result);
                     view.rendered = false;
-                })
-            }
+                });
+            }            
         } else {
-            // HERE IS STEP2 - it try expand next lines (e.g. files)
-            // so, for example the methis is called for file at line 2 with line_no=0
-            // it then calls each of its children under line 2 with line 0, and they are somehow passed the
-            // first condition, fuck!
-            // so, finnaly: -> expand + collapse and then -> and expand and you will see all the shit!
-            for child in self.get_children() {
-                child.expand(line_no);
+            println!("recursive expand on self children for line {:0}", line_no);
+            if view.expanded {
+                // go deeper for self.children
+                for child in self.get_children() {
+                    result = child.expand(line_no);
+                    if result {
+                        break;
+                    }
+                }
             }
         }
-    }
-
+        result
+    }    
 }
 
 impl RecursiveViewContainer for File {
@@ -412,7 +415,8 @@ impl RecursiveViewContainer for Line {
         return Vec::new()
     }
 
-    fn expand(&mut self, _line_no: i32) {
+    fn expand(&mut self, _line_no: i32) -> bool {
+        false
     }
 
     fn is_active_by_parent(&self, active: bool) -> bool {
@@ -425,7 +429,10 @@ impl RecursiveViewContainer for Line {
 pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
 
     for file in &mut diff.files {
-        file.expand(line_no)
+        println!("cycle expand {:?}", line_no);
+        if file.expand(line_no) {
+            break
+        }
     }
     render(view, diff, offset, sndr);
 }
