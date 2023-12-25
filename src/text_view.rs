@@ -152,9 +152,8 @@ impl View {
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
-        println!("RENDERRRRRRRRRRRRRRRRRRRRRRR single view");
+
         if self.is_rendered_in(iter.line()) {
-            println!("1skiiiiiiiiiiiiip {:?} {:?} {:?} {:?}", iter.line(), format!("{} {}\n", iter.line(), content), self.rendered, self.line_no);
             iter.forward_lines(1);
         } else {
             self.line_no = iter.line();
@@ -163,7 +162,6 @@ impl View {
             let new_line = iter.offset() == eol_iter.offset();
 
             if new_line {
-                println!("Insert new content {:?} at line {:?}", iter.line(), format!("{} {}\n", iter.line(), content));
                 buffer.insert(iter, &format!("{} {}\n", iter.line(), content));
             } else {
                 buffer.delete(iter, &mut eol_iter);
@@ -235,12 +233,6 @@ pub trait RecursiveViewContainer {
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
 
         let content = self.get_content();
-        println!("RENDER IN VIEW CONTAINER FOR {:?} {:?}", content, iter.line());
-        self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
-            let kind = rvc.get_kind();
-            let view = rvc.get_view();
-            println!("INSPECT VIEWS BEFORE RENDER kind {:?} line {:?} rendered {:?} expanded {:?}", kind, view.line_no, view.rendered, view.expanded);
-        });
         let view = self.get_view().render(&buffer, iter, content);
         if view.expanded {
             for child in self.get_children() {
@@ -304,21 +296,18 @@ pub trait RecursiveViewContainer {
         if !view.rendered {
             return result;
         }
-        if view.line_no == line_no { // HERE IS STEP2
+        if view.line_no == line_no {
             view.expanded = !view.expanded;
             view.rendered = false;
             result = view.expanded;
             if !result {
                 // recursivelly hide all children
                 self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
-                    let kind = rvc.get_kind();
                     let view = rvc.get_view();
-                    println!("set rendered = False in {:?} {:?} for line {:?}. why? {:?}", view.line_no, kind, line_no, result);
                     view.rendered = false;
                 });
             }            
         } else {
-            println!("recursive expand on self children for line {:0}", line_no);
             if view.expanded {
                 // go deeper for self.children
                 for child in self.get_children() {
@@ -365,7 +354,6 @@ impl RecursiveViewContainer for Hunk {
 
     fn get_view(&mut self) -> &mut View {
         if self.view.line_no == 0 && !self.view.expanded {
-            // wtf??????????????????? is it only for init???
             // hunks are expanded by default
             self.view.expanded = true
         }
@@ -428,7 +416,6 @@ impl RecursiveViewContainer for Line {
 pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
 
     for file in &mut diff.files {
-        println!("cycle expand {:?}", line_no);
         if file.expand(line_no) {
             break
         }
@@ -447,8 +434,10 @@ pub fn cursor(txt: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:S
 pub fn render(txt: &TextView, diff: &mut Diff, offset: i32, _sndr:Sender<crate::Event>) {
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
+
     // Try insert this! everything is broken!
     // buffer.insert(&mut iter, "Unstaged changes\n");
+
     for file in &mut diff.files {
         file.render(&buffer, &mut iter)
     }
