@@ -147,12 +147,13 @@ impl View {
         }
     }
 
-    fn is_rendered_in_its_place(&self, line_no: i32) -> bool {
+    fn is_rendered_in(&self, line_no: i32) -> bool {
         self.rendered && self.line_no == line_no
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
-        if self.is_rendered_in_its_place(iter.line()) {
+        println!("RENDERRRRRRRRRRRRRRRRRRRRRRR single view");
+        if self.is_rendered_in(iter.line()) {
             println!("1skiiiiiiiiiiiiip {:?} {:?} {:?} {:?}", iter.line(), format!("{} {}\n", iter.line(), content), self.rendered, self.line_no);
             iter.forward_lines(1);
         } else {
@@ -234,6 +235,12 @@ pub trait RecursiveViewContainer {
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
 
         let content = self.get_content();
+        println!("RENDER IN VIEW CONTAINER FOR {:?} {:?}", content, iter.line());
+        self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
+            let kind = rvc.get_kind();
+            let view = rvc.get_view();
+            println!("INSPECT VIEWS BEFORE RENDER kind {:?} line {:?} rendered {:?} expanded {:?}", kind, view.line_no, view.rendered, view.expanded);
+        });
         let view = self.get_view().render(&buffer, iter, content);
         if view.expanded {
             for child in self.get_children() {
@@ -242,53 +249,45 @@ pub trait RecursiveViewContainer {
         }
     }
 
-    fn cursor(&mut self, line_no: i32, parent_active: bool) -> Option<bool> {
-
-        // todo remove
-        // let kind = self.get_kind();
+    fn cursor(&mut self, line_no: i32, parent_active: bool) {
 
         let view = self.get_view();
 
         let current_before = view.current;
         let active_before = view.active;
 
-        // todo remove
-        // let view_line = view.line_no;
-        // let view_rendered = view.rendered;
-
         let view_expanded = view.expanded;
 
-        let current = line_no == view.line_no && view.rendered;
+        let current = view.is_rendered_in(line_no);
+        
         let active_by_parent = self.is_active_by_parent(parent_active);
 
         let mut active_by_child = false;
 
+        // todo: make 1 line iter
         if view_expanded {
             for child in self.get_children() {
-                let child_view = child.get_view();
-                if child_view.rendered && child_view.line_no == line_no {
-                    active_by_child = true;
+                active_by_child = child.get_view().is_rendered_in(line_no);
+                if active_by_child {
+                    break;
                 }
             }
         }
         active_by_child = self.is_active_by_child(active_by_child);
-        // if self.get_kind() == ViewKind::Hunk {
-        //     println!("why am rendered? {:?} active? line_no {:?} view.line {:?} by parent {:?} current {:?} by child {:?}", view_rendered, line_no, view_line, active_by_parent, current, active_by_child);
-        // }
+
         let self_active = active_by_parent || current || active_by_child;
 
         let view = self.get_view();
         view.active = self_active;
         view.current = current;
-        view.rendered = view.active == active_before && view.current == current_before;
-
+        
+        if view.rendered {
+            // repaint if highlight is changed
+            view.rendered = view.active == active_before && view.current == current_before;
+        }
         for child in self.get_children() {
             child.cursor(line_no, self_active);
-
         }
-
-        Some(self_active)
-
     }
 
     fn is_active_by_child(&self, _child_active: bool) -> bool {

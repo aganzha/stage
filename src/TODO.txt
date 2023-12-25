@@ -1,3 +1,5 @@
+- DONE - hit right. expand + collapse. hit right - expand. IT IS JUST STARTED WITH LINE 4
+- DONE looks like it does not required to return option from cursor
 - DONE - the problem with hunk is - it remains active by self.hidden lines!
       hunk         Hunk A         Hunk
            line       line A         line A
@@ -8,12 +10,9 @@
         - check dymamically if they are collapsed?
     
 - DONE - why it is called 12 times????? looks like those are another hunks! they are just collapsed. view.line_no is 0
-- BUG - hit right. expand + collapse. hit right - expand. IT IS JUST STARTED WITH LINE 4
-- BUG - why so many times collapsed are called for 0 0
+- DONE - why so many times collapsed are called for 0 0
 
-- DONE - first whole file is yellow
-
-- BUG - other COLLAPSED hunks got highlighted while traverse lines in other hunk. must be related to hidden lines
+- open with no diff in files. works weird
 
 - BUG when put mouse in the end of line it does not highlighted
 - put symbolic expand tag/href to expand regions with mouse
