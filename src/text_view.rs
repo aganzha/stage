@@ -272,36 +272,42 @@ pub trait RecursiveViewContainer {
         let kind = self.get_kind();
 
         let view = self.get_view();
+
+        // why do i need it at all?????
         if !view.rendered {
+            println!("no way :(");
             return None;
         }
 
         let current_before = view.current;
         let active_before = view.active;
 
-        if view.line_no == line_no {
-            view.current = true;
-            view.active = true;
-        } else {
-            view.current = false;
-            view.active = false;
-        }
-        let mut self_active = view.active || self.is_active_by_parent(parent_active);
-        let mut children_active = false;
+        let current = line_no == view.line_no;
+        let active_by_parent = self.is_active_by_parent(parent_active);
+
+        let mut active_by_child = false;
+
         for child in self.get_children() {
-            let active = child.cursor(line_no, self_active);
-            if active.is_some() {
-                children_active = children_active || active.unwrap();
+            let child_view = child.get_view();
+            if child_view.rendered && child_view.line_no == line_no {
+                active_by_child = true;
             }
         }
-
-        self_active = self_active || self.is_active_by_child(children_active);
+        active_by_child = self.is_active_by_child(active_by_child);
+        let self_active = active_by_parent || current || active_by_child;
 
         let view = self.get_view();
-        println!("cursor in interface {:?}, self_active {:?} current {:?} parent_active {:?} children_active {:?}", kind, self_active, view.current, parent_active, children_active);
         view.active = self_active;
+        view.current = current;
         view.rendered = view.active == active_before && view.current == current_before;
-        Some(view.active)
+        println!("cursor in interface {:?} at {:?}, self_active {:?} current {:?} parent_active {:?} children_active {:?}", kind, view.line_no, self_active, view.current, active_by_parent, active_by_child);
+
+        for child in self.get_children() {
+            child.cursor(line_no, self_active);
+
+        }
+
+        Some(self_active)
 
     }
 
@@ -422,7 +428,6 @@ impl RecursiveViewContainer for Line {
     fn is_active_by_parent(&self, active: bool) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
-        println!("line {:?} is active? {:?}", self.content, active);
         active
     }
 }
