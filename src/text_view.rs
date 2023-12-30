@@ -137,7 +137,7 @@ pub enum ViewKind {
 
 impl View {
     pub fn new() -> Self {
-        return View {
+        View {
             line_no: 0,
             expanded: false,
             rendered: false,
@@ -184,31 +184,37 @@ impl View {
             self.tags.push(String::from(CURSOR_HIGHLIGHT));
         } else {
             let index = self.tags.iter().position(|t| t == CURSOR_HIGHLIGHT);
-            if index.is_some() {
+            if let Some(ind) = index {
                 buffer.remove_tag_by_name(
                     CURSOR_HIGHLIGHT,
                     &start_iter,
                     &end_iter
                 );
-                self.tags.remove(index.unwrap());
+                self.tags.remove(ind);
             }
             if self.active {
                 buffer.apply_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
                 self.tags.push(String::from(REGION_HIGHLIGHT));
             } else {
                 let index = self.tags.iter().position(|t| t == REGION_HIGHLIGHT);
-                if index.is_some() {
+                if let Some(ind) = index {
                     buffer.remove_tag_by_name(
                         REGION_HIGHLIGHT,
                         &start_iter,
                         &end_iter
                     );
-                    self.tags.remove(index.unwrap());
+                    self.tags.remove(ind);
                 }
             }
         }
     }
 
+}
+
+impl Default for View {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 
@@ -221,7 +227,7 @@ pub trait RecursiveViewContainer {
     fn get_view(&mut self) -> &mut View;
 
     // TODO - return bool and stop iteration when false
-    fn walk_down(&mut self, visitor: &mut dyn FnMut(&mut dyn RecursiveViewContainer) -> ()) {
+    fn walk_down(&mut self, visitor: &mut dyn FnMut(&mut dyn RecursiveViewContainer)) {
         for child in self.get_children() {
             visitor(child);
             child.walk_down(visitor);
@@ -233,7 +239,7 @@ pub trait RecursiveViewContainer {
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
 
         let content = self.get_content();
-        let view = self.get_view().render(&buffer, iter, content);
+        let view = self.get_view().render(buffer, iter, content);
         if view.expanded {
             for child in self.get_children() {
                 child.render(buffer, iter)
@@ -307,14 +313,12 @@ pub trait RecursiveViewContainer {
                     view.rendered = false;
                 });
             }            
-        } else {
-            if view.expanded {
-                // go deeper for self.children
-                for child in self.get_children() {
-                    result = child.expand(line_no);
-                    if result {
-                        break;
-                    }
+        } else if view.expanded{
+            // go deeper for self.children
+            for child in self.get_children() {
+                result = child.expand(line_no);
+                if result {
+                    break;
                 }
             }
         }
@@ -362,11 +366,7 @@ impl RecursiveViewContainer for Hunk {
 
     fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
         self.lines.iter_mut().filter(|l| {
-            match l.kind {
-                crate::LineKind::File => false,
-                crate::LineKind::Hunk => false,
-                _ => true
-            }
+            !matches!(l.kind, crate::LineKind::File | crate::LineKind::Hunk)
         }).map(|vh|vh as &mut dyn RecursiveViewContainer).collect()
     }
 
@@ -399,7 +399,7 @@ impl RecursiveViewContainer for Line {
     }
 
     fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
-        return Vec::new()
+        Vec::new()
     }
 
     fn expand(&mut self, _line_no: i32) -> bool {

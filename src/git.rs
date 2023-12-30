@@ -1,10 +1,8 @@
 use std::{env, str, path, ffi};
-use git2::{Repository, StatusOptions, ObjectType,
+use git2::{Repository,
            Oid, DiffFormat, DiffLine, DiffLineType,
-           DiffFile, DiffHunk, DiffOptions, Index};
+           DiffFile, DiffHunk};
 use crate::glib::{Sender};
-use crate::gio;
-
 
 
 fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> {
@@ -14,7 +12,7 @@ fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> 
         if !path_buff.pop() {
             return Err("no repoitory found".to_string());
         }
-        return get_current_repo(path_buff);
+        get_current_repo(path_buff)
     })
 }
 
@@ -61,11 +59,18 @@ impl Line {
             origin: l.origin_value(),
             content: String::from(str::from_utf8(l.content()).unwrap())
                 .replace("\r\n", "")
-                .replace("\n", ""),
+                .replace('\n', ""),
             kind: k
         }
     }
 }
+
+impl Default for Line {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub struct Hunk {
@@ -86,11 +91,11 @@ impl Hunk {
     pub fn get_header_from(dh: &DiffHunk) -> String {
         String::from(str::from_utf8(dh.header()).unwrap())
             .replace("\r\n", "")
-            .replace("\n", "")
+            .replace('\n', "")
     }
 
     pub fn push_line(&mut self, mut l: Line) {
-        if self.lines.len() == 0 {
+        if self.lines.is_empty() {
             l.kind = LineKind::File;
         }
         if self.lines.len() == 1 {
@@ -100,7 +105,13 @@ impl Hunk {
     }
 
     pub fn get_unique_name(&self) -> String {
-        format!("{}", self.header)
+        self.header.to_string()
+    }
+}
+
+impl Default for Hunk {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -136,9 +147,16 @@ impl File {
     }
 
     pub fn get_unique_name(&self) -> String {
-        format!("{}", self.path.to_str().unwrap())
+        self.path.to_str().unwrap().to_string()
     }
 }
+
+impl Default for File {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub struct Diff {
@@ -153,6 +171,11 @@ impl Diff {
     }
 }
 
+impl Default for Diff {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 pub fn get_current_repo_status(sender: Sender<crate::Event>) {
     let path_buff_r = env::current_exe()
@@ -183,7 +206,7 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
                 if oid.is_zero() {
                     todo!();
                 }
-                if !new_file.path().is_some() {
+                if new_file.path().is_none() {
                     todo!();
                 }
                 if current_file.id.is_zero() {
@@ -202,7 +225,7 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
                 }
                 if let Some(diff_hunk) = o_diff_hunk {
                     let hh = Hunk::get_header_from(&diff_hunk);
-                    if current_hunk.header == "" {
+                    if current_hunk.header.is_empty() {
                         // init hunk
                         current_hunk.header = hh.clone();
                     }
