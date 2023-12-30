@@ -1,0 +1,7 @@
+# cargo test
+# target/debug/deps/stage-7f2a5ac6c9752efe --test text_view::tests::test
+# source ./debug.py
+set print pretty on
+b src/text_view.rs:508
+b src/text_view.rs:542
+run --test text_view::tests::test
