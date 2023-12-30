@@ -1,0 +1,3 @@
+set print pretty on
+b src/text_view.rs:404
+run
