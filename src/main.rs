@@ -1,10 +1,10 @@
 mod text_view;
-use text_view::{cursor, expand, render, text_view_factory};
+use text_view::{cursor, expand, render_head, render, text_view_factory};
 mod git;
 use adw::prelude::*;
 use adw::{Application, ApplicationWindow, HeaderBar};
 use gdk::Display;
-use git::{get_current_repo_status, Diff, File, Hunk, Line, LineKind, View};
+use git::{get_current_repo_status, Diff, File, Hunk, Line, LineKind, View, DiffView};
 use glib::{MainContext, Priority};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, Box, CssProvider, Label, Orientation, ScrolledWindow}; // TextIter
@@ -39,7 +39,7 @@ pub enum Event {
     Expand(i32, i32),
     Cursor(i32, i32),
     // does not used for now
-    Stage(String),
+    Stage(i32, i32),
 }
 
 fn build_ui(app: &adw::Application) {
@@ -94,7 +94,8 @@ fn build_ui(app: &adw::Application) {
                 println!("git diff in status {:p}", &d);
                 diff.replace(d);
                 let d = diff.as_mut().unwrap();
-                render(&txt, d, 0, sender.clone());
+                render_head(&txt, d, sender.clone());
+                render(&txt, d, sender.clone());
             }
             Event::Expand(offset, line_no) => {
                 let d = diff.as_mut().unwrap();
@@ -104,8 +105,8 @@ fn build_ui(app: &adw::Application) {
                 let d = diff.as_mut().unwrap();
                 cursor(&txt, d, offset, line_no, sender.clone());
             }
-            Event::Stage(text) => {
-                println!("STAGE THIS TEXT {:?} in {:?}", text, diff);
+            Event::Stage(offset, line_no) => {
+                println!("STAGE THIS TEXT {:?} in {:?}", offset, line_no);
             }
         };
         glib::ControlFlow::Continue

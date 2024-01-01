@@ -2,7 +2,7 @@ use glib::Sender;
 use gtk::prelude::*;
 use gtk::{gdk, glib, TextBuffer, TextIter, TextTag, TextView};
 
-use crate::{Diff, File, Hunk, Line, View};
+use crate::{Diff, File, Hunk, Line, View, DiffView};
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
@@ -38,13 +38,16 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                         .expect("Could not send through channel");
                 }
                 gdk::Key::s => {
-                    let start_mark = buffer.mark(CURSOR_HIGHLIGHT_START).unwrap();
-                    let end_mark = buffer.mark(CURSOR_HIGHLIGHT_END).unwrap();
-                    let start_iter = buffer.iter_at_mark(&start_mark);
-                    let end_iter = buffer.iter_at_mark(&end_mark);
-                    let text = String::from(buffer.text(&start_iter, &end_iter, true).as_str());
-                    sndr.send(crate::Event::Stage(text))
+                    let iter = buffer.iter_at_offset(buffer.cursor_position());
+                    sndr.send(crate::Event::Stage(iter.offset(), iter.line()))
                         .expect("Could not send through channel");
+                    // let start_mark = buffer.mark(CURSOR_HIGHLIGHT_START).unwrap();
+                    // let end_mark = buffer.mark(CURSOR_HIGHLIGHT_END).unwrap();
+                    // let start_iter = buffer.iter_at_mark(&start_mark);
+                    // let end_iter = buffer.iter_at_mark(&end_mark);
+                    // let text = String::from(buffer.text(&start_iter, &end_iter, true).as_str());
+                    // sndr.send(crate::Event::Stage(text))
+                    //     .expect("Could not send through channel");
                 }
                 _ => (),
             }
@@ -193,7 +196,6 @@ impl View {
         format!("line_no {:?}, expanded {:?}, rendered: {:?}, active {:?}, current {:?}",
              self.line_no, self.expanded, self.rendered, self.active, self.current)
     }
-
 }
 
 impl Default for View {
@@ -202,15 +204,42 @@ impl Default for View {
     }
 }
 
-pub trait RecursiveViewContainer {
+impl DiffView {
+    pub fn new() -> Self {
+        Self {
+            user_cursor: 0,
+            current_line: 0,
+            current_offset: 0,
+            line_from: 0,
+            line_to: 0
+        }
+    }
+
+    pub fn position(&self) -> (i32, i32) {
+        (self.current_offset, self.current_line)
+    }
+
+    pub fn save_position(&mut self, iter: &TextIter) {
+        self.current_line = iter.line();
+        self.current_offset = iter.offset();
+    }
+}
+
+impl Default for DiffView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub trait ViewContainer {
     fn get_kind(&self) -> ViewKind;
 
-    fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer>;
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer>;
 
     fn get_view(&mut self) -> &mut View;
 
     // TODO - return bool and stop iteration when false
-    fn walk_down(&mut self, visitor: &mut dyn FnMut(&mut dyn RecursiveViewContainer)) {
+    fn walk_down(&mut self, visitor: &mut dyn FnMut(&mut dyn ViewContainer)) {
         for child in self.get_children() {
             visitor(child);
             child.walk_down(visitor);
@@ -289,7 +318,7 @@ pub trait RecursiveViewContainer {
             result = view.expanded;
             if !result {
                 // recursivelly hide all children
-                self.walk_down(&mut |rvc: &mut dyn RecursiveViewContainer| {
+                self.walk_down(&mut |rvc: &mut dyn ViewContainer| {
                     let view = rvc.get_view();
                     view.rendered = false;
                 });
@@ -307,7 +336,7 @@ pub trait RecursiveViewContainer {
     }
 }
 
-impl RecursiveViewContainer for File {
+impl ViewContainer for File {
     fn get_kind(&self) -> ViewKind {
         ViewKind::File
     }
@@ -320,15 +349,15 @@ impl RecursiveViewContainer for File {
         self.path.to_str().unwrap().to_string()
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
         self.hunks
             .iter_mut()
-            .map(|vh| vh as &mut dyn RecursiveViewContainer)
+            .map(|vh| vh as &mut dyn ViewContainer)
             .collect()
     }
 }
 
-impl RecursiveViewContainer for Hunk {
+impl ViewContainer for Hunk {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Hunk
     }
@@ -345,11 +374,11 @@ impl RecursiveViewContainer for Hunk {
         &mut self.view
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
         self.lines
             .iter_mut()
             .filter(|l| !matches!(l.kind, crate::LineKind::File | crate::LineKind::Hunk))
-            .map(|vh| vh as &mut dyn RecursiveViewContainer)
+            .map(|vh| vh as &mut dyn ViewContainer)
             .collect()
     }
 
@@ -366,7 +395,7 @@ impl RecursiveViewContainer for Hunk {
     }
 }
 
-impl RecursiveViewContainer for Line {
+impl ViewContainer for Line {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Line
     }
@@ -379,7 +408,7 @@ impl RecursiveViewContainer for Line {
         self.content.to_string()
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
         Vec::new()
     }
 
@@ -406,7 +435,7 @@ pub fn expand(
             break;
         }
     }
-    render(view, diff, offset, sndr);
+    render(view, diff, sndr);
 }
 
 pub fn cursor(
@@ -416,27 +445,45 @@ pub fn cursor(
     line_no: i32,
     sndr: Sender<crate::Event>,
 ) {
+    diff.view.user_cursor = offset;
     for file in &mut diff.files {
         file.cursor(line_no, false);
     }
-    render(txt, diff, offset, sndr);
+    let mut iter = render(txt, diff, sndr);
+    iter.set_offset(offset);
+    iter.buffer().place_cursor(&iter);
 }
 
-pub fn render(txt: &TextView, diff: &mut Diff, offset: i32, _sndr: Sender<crate::Event>) {
+pub fn render_head(txt: &TextView, diff: &mut Diff, _sndr: Sender<crate::Event>) {
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
-
     // Try insert this! everything is broken!
-    // buffer.insert(&mut iter, "Unstaged changes\n");
+    buffer.insert(&mut iter, "Unstaged changes:\n");
+    diff.view.save_position(&iter);
+}
 
+pub fn render(txt: &TextView, diff: &mut Diff, _sndr: Sender<crate::Event>) -> TextIter {
+    let buffer = txt.buffer();
+    // first render    
+    if diff.view.line_from == 0 {
+        let (_, current_line) = diff.view.position();
+        let mut iter = buffer.iter_at_line(current_line).unwrap();
+        iter.forward_lines(1);
+        iter.set_line_offset(0);
+        diff.view.line_from = iter.line();
+    }
+    let mut iter = buffer.iter_at_line(diff.view.line_from).unwrap();
+    
     for file in &mut diff.files {
         file.render(&buffer, &mut iter)
     }
-
+    diff.view.line_to = iter.line();
+    diff.view.save_position(&iter);
     buffer.delete(&mut iter, &mut buffer.end_iter());
-
-    iter.set_offset(offset);
-    buffer.place_cursor(&iter);
+    iter
+    // what about cursor???
+    // iter.set_offset(offset);
+    // buffer.place_cursor(&iter);
 }
 
 #[cfg(test)]
@@ -477,7 +524,7 @@ mod tests {
         diff
     }
 
-    pub fn render_view(vc: &mut dyn RecursiveViewContainer, mut line_no: i32) -> i32 {
+    pub fn render_view(vc: &mut dyn ViewContainer, mut line_no: i32) -> i32 {
         let view = vc.get_view();
         view.line_no = line_no;
         view.rendered = true;
@@ -546,7 +593,7 @@ mod tests {
                 assert!(view.current);
                 assert!(view.active);
                 assert!(view.expanded);
-                file.walk_down(&mut |vc: &mut dyn RecursiveViewContainer| {
+                file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                     let view = vc.get_view();
                     assert!(view.rendered);
                     assert!(view.active);
@@ -556,7 +603,7 @@ mod tests {
                 assert!(!view.current);
                 assert!(!view.active);
                 assert!(!view.expanded);
-                file.walk_down(&mut |vc: &mut dyn RecursiveViewContainer| {
+                file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                     let view = vc.get_view();
                     assert!(!view.rendered);
                 });
@@ -583,7 +630,7 @@ mod tests {
                 assert!(!view.current);
                 assert!(!view.active);
                 assert!(!view.expanded);
-                file.walk_down(&mut |vc: &mut dyn RecursiveViewContainer| {
+                file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                     let view = vc.get_view();
                     assert!(!view.rendered);
                 });
@@ -593,7 +640,7 @@ mod tests {
                 assert!(view.current);
                 assert!(view.active);
                 assert!(view.expanded);
-                file.walk_down(&mut |vc: &mut dyn RecursiveViewContainer| {
+                file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                     let view = vc.get_view();
                     assert!(view.rendered);
                     assert!(view.active);
@@ -605,7 +652,7 @@ mod tests {
                 assert!(!view.current);
                 assert!(!view.active);
                 assert!(view.expanded);
-                file.walk_down(&mut |vc: &mut dyn RecursiveViewContainer| {
+                file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                     let view = vc.get_view();
                     assert!(view.rendered);
                     assert!(!view.active);
