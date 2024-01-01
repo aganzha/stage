@@ -1,3 +1,4 @@
+-TODO: missing test for collapse
 BUG: it need to cleanup to end of bugger after rendering diff (no it is cleaned only on status render);
 
 - ideas: expand as pure insert of text. nothing else will need rerendering

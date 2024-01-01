@@ -149,10 +149,13 @@ impl Default for File {
     }
 }
 
+
 #[derive(Debug, Clone)]
 pub struct DiffView {    
     pub line_from: i32,
-    pub line_to: i32
+    pub line_to: i32,
+    pub text: String,
+        
 }
 
 pub struct StatusView {

@@ -34,6 +34,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
             match key {
                 gdk::Key::Tab => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
+                    println!("TAAAAAAAAAAAAAAAAAAB {:?}", iter.line());
                     sndr.send(crate::Event::Expand(iter.offset(), iter.line()))
                         .expect("Could not send through channel");
                 }
@@ -208,7 +209,8 @@ impl DiffView {
     pub fn new() -> Self {
         Self {
             line_from: 0,
-            line_to: 0
+            line_to: 0,
+            text: String::new()
         }
     }
     pub fn region(&self) -> (i32, i32) {
@@ -219,23 +221,6 @@ impl DiffView {
 impl Default for DiffView {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl Status {
-    fn choose_diff(&mut self, line_no: i32) -> Option<&mut Diff> {
-        println!("choooooooooooose line_no {:?} staged {:?} unstaged {:?}", line_no, self.staged.view.region(), self.unstaged.view.region());
-        if line_no >= self.staged.view.line_from
-            &&
-            line_no <= self.staged.view.line_to {
-                return Some(&mut self.staged)
-            }
-        if line_no >= self.unstaged.view.line_from
-            &&
-            line_no <= self.unstaged.view.line_to {
-                return Some(&mut self.unstaged)
-            }
-        None
     }
 }
 
@@ -346,10 +331,10 @@ pub trait ViewContainer {
             return result;
         }
         if view.line_no == line_no {
+            result = true;
             view.expanded = !view.expanded;
             view.rendered = false;
-            result = view.expanded;
-            if !result {
+            if !view.expanded {
                 // recursivelly hide all children
                 self.walk_down(&mut |rvc: &mut dyn ViewContainer| {
                     let view = rvc.get_view();
@@ -457,26 +442,36 @@ impl ViewContainer for Line {
 }
 
 pub fn expand(
-    view: &TextView,
+    txt: &TextView,
     status: &mut Status,
     offset: i32,
     line_no: i32,
     _sndr: Sender<crate::Event>,
 ) {
-    let found = status.choose_diff(line_no);
-    if found.is_none() {
-        return
-    }
-    let diff = found.unwrap();
-    for file in &mut diff.files {
-        if file.expand(line_no) {
-            break;
+    let buffer = txt.buffer();
+    let mut expanded = false;
+    let mut iter = buffer.iter_at_offset(offset);
+    for diff in [&mut status.unstaged, &mut status.staged] {
+        for file in &mut diff.files {
+            println!("try expand/collapse at {:?}", line_no);
+            dbg!(&file.view);
+            if file.expand(line_no) {
+                println!("triggered at {:?}", line_no);
+                expanded = true;
+                break;
+            }
+        }
+        if expanded {
+            iter = render_diff(txt, diff, diff.view.line_from);
+            println!("expande or after {:?}", iter.line());
         }
     }
-    // rerendering single diff
-    let mut iter = render_diff(view, diff, diff.view.line_from);
-    iter.set_offset(offset);
-    iter.buffer().place_cursor(&iter);
+    if expanded {
+        println!("kill finally {:?}", iter.line());
+        buffer.delete(&mut iter, &mut buffer.end_iter());
+        iter.set_offset(offset);
+        iter.buffer().place_cursor(&iter);
+    }
 }
 
 pub fn cursor(
@@ -488,8 +483,7 @@ pub fn cursor(
 ) {
     status.view.user_cursor = offset;
     
-
-    for diff in [&mut status.staged, &mut status.unstaged] {
+    for diff in [&mut status.unstaged, &mut status.staged] {
         for file in &mut diff.files {
             file.cursor(line_no, false);
         }
