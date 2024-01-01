@@ -537,7 +537,7 @@ mod tests {
             }
         }
         // last line from prev loop
-        let cursor_line = 2;
+        let mut cursor_line = 2;
         for file in &mut diff.files {
             if file.expand(cursor_line) {
                 break;
@@ -553,24 +553,36 @@ mod tests {
                 assert!(view.current);
                 assert!(view.active);
                 assert!(view.expanded);
-                for hunk in &mut file.hunks {
-                    let view = hunk.get_view();                    
+                file.walk_down(&mut |vc: &mut dyn RecursiveViewContainer| {
+                    let view = vc.get_view();
                     assert!(view.rendered);
-                    assert!(!view.current);
                     assert!(view.active);
-                    // hunks are expanded by default
-                    assert!(view.expanded);
-                    for line in &mut hunk.lines {
-                        let view = line.get_view();
-                        assert!(!view.current);
-                        assert!(view.active);
-                        assert!(view.rendered);
-                    }
-                }
+                    assert!(!view.current);
+                });
             } else {
                 assert!(!view.current);
                 assert!(!view.active);
                 assert!(!view.expanded);
+                file.walk_down(&mut |vc: &mut dyn RecursiveViewContainer| {
+                    let view = vc.get_view();
+                    assert!(!view.rendered);
+                });
+            }
+        }
+
+        // go 1 line backward
+        // end expand it
+        cursor_line = 1;
+        for file in &mut diff.files {
+            if file.expand(cursor_line) {
+                break;
+            }
+        }
+        
+        render(&mut diff);
+        for (i, file) in diff.files.iter_mut().enumerate() {
+            let view = file.get_view();
+            if i as i32 == cursor_line {
             }
         }
     }
