@@ -2,7 +2,7 @@ use glib::Sender;
 use gtk::prelude::*;
 use gtk::{gdk, glib, TextBuffer, TextIter, TextTag, TextView};
 
-use crate::{Diff, File, Hunk, Line, View, DiffView};
+use crate::{Diff, File, Hunk, Line, View, DiffView, Status, StatusView};
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
@@ -207,11 +207,44 @@ impl Default for View {
 impl DiffView {
     pub fn new() -> Self {
         Self {
-            user_cursor: 0,
-            current_line: 0,
-            current_offset: 0,
             line_from: 0,
             line_to: 0
+        }
+    }
+    pub fn region(&self) -> (i32, i32) {
+        (self.line_from, self.line_to)
+    }
+}
+
+impl Default for DiffView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Status {
+    fn choose_diff(&mut self, line_no: i32) -> Option<&mut Diff> {
+        println!("choooooooooooose line_no {:?} staged {:?} unstaged {:?}", line_no, self.staged.view.region(), self.unstaged.view.region());
+        if line_no >= self.staged.view.line_from
+            &&
+            line_no <= self.staged.view.line_to {
+                return Some(&mut self.staged)
+            }
+        if line_no >= self.unstaged.view.line_from
+            &&
+            line_no <= self.unstaged.view.line_to {
+                return Some(&mut self.unstaged)
+            }
+        None
+    }
+}
+
+impl StatusView {
+    pub fn new() -> Self {
+        Self {
+            user_cursor: 0,
+            current_line: 0,
+            current_offset: 0
         }
     }
 
@@ -225,7 +258,7 @@ impl DiffView {
     }
 }
 
-impl Default for DiffView {
+impl Default for StatusView {
     fn default() -> Self {
         Self::new()
     }
@@ -425,66 +458,90 @@ impl ViewContainer for Line {
 
 pub fn expand(
     view: &TextView,
-    diff: &mut Diff,
+    status: &mut Status,
     offset: i32,
     line_no: i32,
-    sndr: Sender<crate::Event>,
+    _sndr: Sender<crate::Event>,
 ) {
+    let found = status.choose_diff(line_no);
+    if found.is_none() {
+        return
+    }
+    let diff = found.unwrap();
     for file in &mut diff.files {
         if file.expand(line_no) {
             break;
         }
     }
-    let mut iter = render(view, diff, sndr);
+    // rerendering single diff
+    let mut iter = render_diff(view, diff, diff.view.line_from);
     iter.set_offset(offset);
     iter.buffer().place_cursor(&iter);
 }
 
 pub fn cursor(
     txt: &TextView,
-    diff: &mut Diff,
+    status: &mut Status,
     offset: i32,
     line_no: i32,
-    sndr: Sender<crate::Event>,
+    _sndr: Sender<crate::Event>,
 ) {
-    diff.view.user_cursor = offset;
+    status.view.user_cursor = offset;
+    
+    let found = status.choose_diff(line_no);
+    if found.is_none() {
+        return
+    }
+    let diff = found.unwrap();
+
     for file in &mut diff.files {
         file.cursor(line_no, false);
     }
-    let mut iter = render(txt, diff, sndr);
+    // just rerendering in place
+    let mut iter = render_diff(txt, diff, diff.view.line_from);
     iter.set_offset(offset);
     iter.buffer().place_cursor(&iter);
 }
 
-pub fn render_head(txt: &TextView, diff: &mut Diff, _sndr: Sender<crate::Event>) {
-    let buffer = txt.buffer();
-    let mut iter = buffer.iter_at_offset(0);
-    // Try insert this! everything is broken!
-    buffer.insert(&mut iter, "Unstaged changes:\n");
-    diff.view.save_position(&iter);
-}
 
-pub fn render(txt: &TextView, diff: &mut Diff, _sndr: Sender<crate::Event>) -> TextIter {
+pub fn render_diff(txt: &TextView, diff: &mut Diff, line_no: i32) -> TextIter {
     let buffer = txt.buffer();
-    // first render    
-    if diff.view.line_from == 0 {
-        let (_, current_line) = diff.view.position();
-        let mut iter = buffer.iter_at_line(current_line).unwrap();
-        iter.forward_lines(1);
-        iter.set_line_offset(0);
-        diff.view.line_from = iter.line();
-    }
-    let mut iter = buffer.iter_at_line(diff.view.line_from).unwrap();
+    diff.view.line_from = line_no;
+    let mut iter = buffer.iter_at_line(line_no).unwrap();
     
     for file in &mut diff.files {
         file.render(&buffer, &mut iter)
     }
     diff.view.line_to = iter.line();
-    diff.view.save_position(&iter);
-    buffer.delete(&mut iter, &mut buffer.end_iter());
     iter
 
 }
+
+pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::Event>) {
+    let buffer = txt.buffer();
+    let mut iter = buffer.iter_at_offset(0);
+    buffer.insert(&mut iter, "Unstaged changes:\n");
+    // TODO? why the fuck i need save_position at all???
+    
+    // render first diff
+    status.view.save_position(&iter);
+    iter.forward_lines(1);
+    
+    iter = render_diff(txt, &mut status.unstaged, iter.line());
+    status.view.save_position(&iter);
+    
+    // render second diff
+    iter.forward_lines(1);
+    iter.set_line_offset(0);
+    buffer.insert(&mut iter, "Staged changes:\n");
+
+    status.view.save_position(&iter);
+    iter.forward_lines(1);
+    iter = render_diff(txt, &mut status.staged, iter.line());
+    status.view.save_position(&iter);
+    buffer.delete(&mut iter, &mut buffer.end_iter());
+}
+
 
 #[cfg(test)]
 mod tests {

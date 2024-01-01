@@ -150,14 +150,15 @@ impl Default for File {
 }
 
 #[derive(Debug, Clone)]
-pub struct DiffView {
-    // those 3 must belog to repo view
+pub struct DiffView {    
+    pub line_from: i32,
+    pub line_to: i32
+}
+
+pub struct StatusView {
     pub user_cursor: i32,
     pub current_offset: i32,
     pub current_line: i32,
-    // theese 2 must belog to current section view
-    pub line_from: i32,
-    pub line_to: i32
 }
 
 #[derive(Debug, Clone)]
@@ -166,6 +167,7 @@ pub struct Diff {
     pub view : DiffView,
 }
 
+
 impl Diff {
     pub fn new() -> Self {
         Self { files: Vec::new(),  view: DiffView::new()}
@@ -173,6 +175,25 @@ impl Diff {
 }
 
 impl Default for Diff {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+
+pub struct Status {
+    pub staged: Diff,
+    pub unstaged: Diff,
+    pub view: StatusView
+}
+
+impl Status {
+    pub fn new() -> Self {
+        Self { staged: Diff::new(),  unstaged: Diff::new(), view: StatusView::new()}
+    }
+}
+
+impl Default for Status {
     fn default() -> Self {
         Self::new()
     }

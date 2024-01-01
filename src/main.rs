@@ -1,10 +1,10 @@
 mod text_view;
-use text_view::{cursor, expand, render_head, render, text_view_factory};
+use text_view::{cursor, expand, text_view_factory, render_status};
 mod git;
 use adw::prelude::*;
 use adw::{Application, ApplicationWindow, HeaderBar};
 use gdk::Display;
-use git::{get_current_repo_status, Diff, File, Hunk, Line, LineKind, View, DiffView};
+use git::{get_current_repo_status, Diff, File, Hunk, Line, LineKind, View, DiffView, Status, StatusView};
 use glib::{MainContext, Priority};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, Box, CssProvider, Label, Orientation, ScrolledWindow}; // TextIter
@@ -74,7 +74,8 @@ fn build_ui(app: &adw::Application) {
 
     let mut repo: Option<std::ffi::OsString> = None;
     let mut diff: Option<Diff> = None;
-
+    let mut status: Option<Status> = None;
+    
     gio::spawn_blocking({
         let sender = sender.clone();
         move || {
@@ -92,18 +93,26 @@ fn build_ui(app: &adw::Application) {
             }
             Event::Status(d) => {
                 println!("git diff in status {:p}", &d);
-                diff.replace(d);
-                let d = diff.as_mut().unwrap();
-                render_head(&txt, d, sender.clone());
-                render(&txt, d, sender.clone());
+                diff.replace(d.clone());
+                let mut s = Status::new();
+                s.staged = d.clone();
+                s.unstaged = d.clone();
+                status.replace(s);
+                render_status(&txt, status.as_mut().unwrap(), sender.clone());
+                // It works!
+                // let d = diff.as_mut().unwrap();
+                // render_head(&txt, d, sender.clone());
+                // render(&txt, d, sender.clone());
             }
             Event::Expand(offset, line_no) => {
-                let d = diff.as_mut().unwrap();
-                expand(&txt, d, offset, line_no, sender.clone());
+                // let d = diff.as_mut().unwrap();
+                let s = status.as_mut().unwrap();
+                expand(&txt, s, offset, line_no, sender.clone());
             }
             Event::Cursor(offset, line_no) => {
-                let d = diff.as_mut().unwrap();
-                cursor(&txt, d, offset, line_no, sender.clone());
+                // let d = diff.as_mut().unwrap();
+                let s = status.as_mut().unwrap();
+                cursor(&txt, s, offset, line_no, sender.clone());
             }
             Event::Stage(offset, line_no) => {
                 println!("STAGE THIS TEXT {:?} in {:?}", offset, line_no);
