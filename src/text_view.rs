@@ -488,21 +488,16 @@ pub fn cursor(
 ) {
     status.view.user_cursor = offset;
     
-    let found = status.choose_diff(line_no);
-    if found.is_none() {
-        return
-    }
-    let diff = found.unwrap();
 
-    for file in &mut diff.files {
-        file.cursor(line_no, false);
+    for diff in [&mut status.staged, &mut status.unstaged] {
+        for file in &mut diff.files {
+            file.cursor(line_no, false);
+        }
+        let mut iter = render_diff(txt, diff, diff.view.line_from);
+        iter.set_offset(offset);
+        iter.buffer().place_cursor(&iter);
     }
-    // just rerendering in place
-    let mut iter = render_diff(txt, diff, diff.view.line_from);
-    iter.set_offset(offset);
-    iter.buffer().place_cursor(&iter);
 }
-
 
 pub fn render_diff(txt: &TextView, diff: &mut Diff, line_no: i32) -> TextIter {
     let buffer = txt.buffer();
