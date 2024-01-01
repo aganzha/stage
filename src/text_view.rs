@@ -53,27 +53,21 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
     });
     txt.add_controller(event_controller);
 
-    let gesture = gtk::GestureClick::new();
-    gesture.connect_released({
-        // let txt = txt.clone();
-        // let sndr = sndr.clone();
-        move |gesture, _some, _wx, _wy| {
+    let gesture_controller = gtk::GestureClick::new();
+    gesture_controller.connect_released({
+        let sndr = sndr.clone();
+        let txt = txt.clone();
+        move |gesture, _some, wx, wy| {
             gesture.set_state(gtk::EventSequenceState::Claimed);
-            // let (x, y) = txt.window_to_buffer_coords(gtk::TextWindowType::Text, wx as i32, wy as i32);
-            // let maybe_iter = txt.iter_at_location(x, y);
-            // if maybe_iter.is_none() {
-            //     return;
-            // }
-            // let mut iter = maybe_iter.unwrap();
-            // highlight_cursor(&txt, iter);
-            // sndr.send(crate::Event::HighlightRegion(iter.line()))
-            //             .expect("Could not send through channel");
-            // let alloc = txt.allocation();
-            // println!("Box pressed! {:?} {:?} {:?} {:?} == {:?}", wx, wy, x, y, alloc);
+            let (x, y) = txt.window_to_buffer_coords(gtk::TextWindowType::Text, wx as i32, wy as i32);
+            if let Some(iter) = txt.iter_at_location(x, y) {
+                sndr.send(crate::Event::Cursor(iter.offset(), iter.line()))
+                .expect("Could not send through channel");
+            }
         }
     });
 
-    txt.add_controller(gesture);
+    txt.add_controller(gesture_controller);
 
     txt.connect_move_cursor({
         let sndr = sndr.clone();
