@@ -483,8 +483,6 @@ mod tests {
         diff
     }
 
-    // what we are testing here???
-    // it need somehow to mock buffer, iter and render on view
     pub fn render_view(vc: &mut dyn RecursiveViewContainer, mut line_no: i32) -> i32 {
         let view = vc.get_view();
         view.line_no = line_no;
@@ -537,6 +535,7 @@ mod tests {
             }
         }
         // last line from prev loop
+        // the cursor is on it
         let mut cursor_line = 2;
         for file in &mut diff.files {
             if file.expand(cursor_line) {
@@ -573,6 +572,8 @@ mod tests {
         // go 1 line backward
         // end expand it
         cursor_line = 1;
+        cursor(&mut diff, cursor_line);
+        
         for file in &mut diff.files {
             if file.expand(cursor_line) {
                 break;
@@ -582,7 +583,40 @@ mod tests {
         render(&mut diff);
         for (i, file) in diff.files.iter_mut().enumerate() {
             let view = file.get_view();
-            if i as i32 == cursor_line {
+            let j = i as i32;
+            if j < cursor_line {
+                // all are inactive
+                assert!(!view.current);
+                assert!(!view.active);
+                assert!(!view.expanded);
+                file.walk_down(&mut |vc: &mut dyn RecursiveViewContainer| {
+                    let view = vc.get_view();
+                    assert!(!view.rendered);
+                });
+            } else if j == cursor_line {
+                // all are active
+                assert!(view.rendered);
+                assert!(view.current);
+                assert!(view.active);
+                assert!(view.expanded);
+                file.walk_down(&mut |vc: &mut dyn RecursiveViewContainer| {
+                    let view = vc.get_view();
+                    assert!(view.rendered);
+                    assert!(view.active);
+                    assert!(!view.current);
+                });
+            } else if j > cursor_line {
+                // all are expanded but inactive
+                assert!(view.rendered);
+                assert!(!view.current);
+                assert!(!view.active);
+                assert!(view.expanded);
+                file.walk_down(&mut |vc: &mut dyn RecursiveViewContainer| {
+                    let view = vc.get_view();
+                    assert!(view.rendered);
+                    assert!(!view.active);
+                    assert!(!view.current);
+                });
             }
         }
     }
