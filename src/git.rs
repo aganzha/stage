@@ -1,9 +1,6 @@
-use std::{env, str, path, ffi};
-use git2::{Repository,
-           Oid, DiffFormat, DiffLine, DiffLineType,
-           DiffFile, DiffHunk};
-use crate::glib::{Sender};
-
+use crate::glib::Sender;
+use git2::{DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType, Oid, Repository};
+use std::{env, ffi, path, str};
 
 fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> {
     let path = path_buff.as_path();
@@ -16,8 +13,6 @@ fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> 
     })
 }
 
-
-
 #[derive(Debug, Clone)]
 pub struct View {
     pub line_no: i32,
@@ -25,14 +20,14 @@ pub struct View {
     pub rendered: bool,
     pub active: bool,
     pub current: bool,
-    pub tags: Vec<String>
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
 pub enum LineKind {
     File,
     Hunk,
-    Regular
+    Regular,
 }
 
 #[derive(Debug, Clone)]
@@ -40,9 +35,8 @@ pub struct Line {
     pub view: View,
     pub origin: DiffLineType,
     pub content: String,
-    pub kind: LineKind
+    pub kind: LineKind,
 }
-
 
 impl Line {
     pub fn new() -> Self {
@@ -50,7 +44,7 @@ impl Line {
             view: View::new(),
             origin: DiffLineType::HunkHeader,
             content: String::new(),
-            kind: LineKind::File
+            kind: LineKind::File,
         }
     }
     pub fn from_diff_line(l: &DiffLine, k: LineKind) -> Self {
@@ -60,8 +54,8 @@ impl Line {
             content: String::from(str::from_utf8(l.content()).unwrap())
                 .replace("\r\n", "")
                 .replace('\n', ""),
-            kind: k
-        }
+            kind: k,
+        };
     }
 }
 
@@ -71,12 +65,11 @@ impl Default for Line {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Hunk {
     pub view: View,
     pub header: String,
-    pub lines: Vec<Line>
+    pub lines: Vec<Line>,
 }
 
 impl Hunk {
@@ -84,7 +77,7 @@ impl Hunk {
         Self {
             view: View::new(),
             header: String::new(),
-            lines: Vec::new()
+            lines: Vec::new(),
         }
     }
 
@@ -120,9 +113,8 @@ pub struct File {
     pub view: View,
     pub path: ffi::OsString,
     pub id: Oid,
-    pub hunks: Vec<Hunk>
+    pub hunks: Vec<Hunk>,
 }
-
 
 impl File {
     pub fn new() -> Self {
@@ -130,7 +122,7 @@ impl File {
             view: View::new(),
             path: ffi::OsString::new(),
             id: Oid::zero(),
-            hunks: Vec::new()
+            hunks: Vec::new(),
         }
     }
     pub fn from_diff_file(f: &DiffFile) -> Self {
@@ -138,8 +130,8 @@ impl File {
             view: View::new(),
             path: f.path().unwrap().into(),
             id: f.id(),
-            hunks: Vec::new()
-        }
+            hunks: Vec::new(),
+        };
     }
 
     pub fn push_hunk(&mut self, h: Hunk) {
@@ -157,17 +149,14 @@ impl Default for File {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Diff {
-    pub files: Vec<File>
+    pub files: Vec<File>,
 }
 
 impl Diff {
     pub fn new() -> Self {
-        Self {
-            files: Vec::new()
-        }
+        Self { files: Vec::new() }
     }
 }
 
@@ -178,16 +167,17 @@ impl Default for Diff {
 }
 
 pub fn get_current_repo_status(sender: Sender<crate::Event>) {
-    let path_buff_r = env::current_exe()
-        .map_err(|e| format!("can't get repo from executable {:?}", e));
+    let path_buff_r =
+        env::current_exe().map_err(|e| format!("can't get repo from executable {:?}", e));
     if path_buff_r.is_err() {
-        return
+        return;
     }
     let some = get_current_repo(path_buff_r.unwrap());
     // TODO - remove if
-    if let Ok(repo) =  some {
+    if let Ok(repo) = some {
         let path = repo.path();
-        sender.send(crate::Event::CurrentRepo(ffi::OsString::from(path)))
+        sender
+            .send(crate::Event::CurrentRepo(ffi::OsString::from(path)))
             .expect("Could not send through channel");
 
         // let head = repo.head().unwrap();
@@ -195,7 +185,7 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
         // let tree = commit.tree().unwrap();
         // THIS IS STAGED CHANGES
         // if let Ok(git_diff) = repo.diff_tree_to_index(Some(&tree), Some(&repo.index().unwrap()), None) {
-        // this is UNSTAGED CHANGES    
+        // this is UNSTAGED CHANGES
         if let Ok(git_diff) = repo.diff_index_to_workdir(None, None) {
             let mut diff = Diff::new();
             let mut current_file = File::new();
@@ -221,7 +211,6 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
                     // push current_file to diff and change to new file
                     diff.files.push(current_file.clone());
                     current_file = File::from_diff_file(&new_file);
-
                 }
                 if let Some(diff_hunk) = o_diff_hunk {
                     let hh = Hunk::get_header_from(&diff_hunk);
@@ -245,7 +234,8 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
             });
             current_file.push_hunk(current_hunk);
             diff.files.push(current_file);
-            sender.send(crate::Event::Status(diff))
+            sender
+                .send(crate::Event::Status(diff))
                 .expect("Could not send through channel");
         }
     }

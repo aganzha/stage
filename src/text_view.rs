@@ -1,22 +1,21 @@
+use glib::Sender;
 use gtk::prelude::*;
-use gtk::{glib, gdk, TextView, TextBuffer, TextTag, TextIter};
-use glib::{Sender};
+use gtk::{gdk, glib, TextBuffer, TextIter, TextTag, TextView};
 
-use crate::{View, Diff, File, Hunk, Line};
+use crate::{Diff, File, Hunk, Line, View};
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
-const CURSOR_HIGHLIGHT_START: &str  = "CursorHightlightStart";
+const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
 const CURSOR_HIGHLIGHT_END: &str = "CursorHightlightEnd";
 const CURSOR_COLOR: &str = "#f6fecd";
 
 const REGION_HIGHLIGHT: &str = "RegionHighlight";
-const REGION_HIGHLIGHT_START: &str  = "RegionHightlightStart";
+const REGION_HIGHLIGHT_START: &str = "RegionHightlightStart";
 const REGION_HIGHLIGHT_END: &str = "RegionHightlightEnd";
 const REGION_COLOR: &str = "#f2f2f2";
 
-pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
-    let txt = TextView::builder()
-        .build();
+pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
+    let txt = TextView::builder().build();
     let buffer = txt.buffer();
     // let signal_id = signal.signal_id();
     let tag = TextTag::new(Some(CURSOR_HIGHLIGHT));
@@ -37,7 +36,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send(crate::Event::Expand(iter.offset(), iter.line()))
                         .expect("Could not send through channel");
-                },
+                }
                 gdk::Key::s => {
                     let start_mark = buffer.mark(CURSOR_HIGHLIGHT_START).unwrap();
                     let end_mark = buffer.mark(CURSOR_HIGHLIGHT_END).unwrap();
@@ -46,12 +45,12 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
                     let text = String::from(buffer.text(&start_iter, &end_iter, true).as_str());
                     sndr.send(crate::Event::Stage(text))
                         .expect("Could not send through channel");
-                },
+                }
                 _ => (),
             }
             glib::Propagation::Proceed
         }
-        });
+    });
     txt.add_controller(event_controller);
 
     let gesture = gtk::GestureClick::new();
@@ -83,29 +82,27 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);
             match step {
-                gtk::MovementStep::LogicalPositions |
-                gtk::MovementStep::VisualPositions => {
+                gtk::MovementStep::LogicalPositions | gtk::MovementStep::VisualPositions => {
                     start_iter.forward_chars(count);
-                },
+                }
                 gtk::MovementStep::Words => {
                     start_iter.forward_word_end();
-                },
+                }
                 gtk::MovementStep::DisplayLines => {
                     let loffset = start_iter.line_offset();
                     start_iter.forward_lines(count);
                     start_iter.forward_chars(loffset);
-                },
-                gtk::MovementStep::DisplayLineEnds |
-                gtk::MovementStep::Paragraphs |
-                gtk::MovementStep::ParagraphEnds |
-                gtk::MovementStep::Pages |
-                gtk::MovementStep::BufferEnds |
-                gtk::MovementStep::HorizontalPages => {
-                },
-                _ => todo!()
+                }
+                gtk::MovementStep::DisplayLineEnds
+                | gtk::MovementStep::Paragraphs
+                | gtk::MovementStep::ParagraphEnds
+                | gtk::MovementStep::Pages
+                | gtk::MovementStep::BufferEnds
+                | gtk::MovementStep::HorizontalPages => {}
+                _ => todo!(),
             }
             sndr.send(crate::Event::Cursor(start_iter.offset(), start_iter.line()))
-                        .expect("Could not send through channel");
+                .expect("Could not send through channel");
         }
     });
 
@@ -113,7 +110,6 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
     txt.set_editable(false);
 
     buffer.place_cursor(&buffer.iter_at_offset(0));
-
 
     let start_iter = buffer.iter_at_offset(0);
     buffer.create_mark(Some(CURSOR_HIGHLIGHT_START), &start_iter, false);
@@ -127,12 +123,11 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) ->  TextView {
     txt
 }
 
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
     File,
     Hunk,
-    Line
+    Line,
 }
 
 impl View {
@@ -143,7 +138,7 @@ impl View {
             rendered: false,
             active: false,
             current: false,
-            tags: Vec::new()
+            tags: Vec::new(),
         }
     }
 
@@ -152,11 +147,10 @@ impl View {
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
-
         if self.is_rendered_in(iter.line()) {
             iter.forward_lines(1);
         } else {
-            self.line_no = iter.line();
+            self.line_no = iter.line();    
             let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
             eol_iter.forward_to_line_end();
             let new_line = iter.offset() == eol_iter.offset();
@@ -185,11 +179,7 @@ impl View {
         } else {
             let index = self.tags.iter().position(|t| t == CURSOR_HIGHLIGHT);
             if let Some(ind) = index {
-                buffer.remove_tag_by_name(
-                    CURSOR_HIGHLIGHT,
-                    &start_iter,
-                    &end_iter
-                );
+                buffer.remove_tag_by_name(CURSOR_HIGHLIGHT, &start_iter, &end_iter);
                 self.tags.remove(ind);
             }
             if self.active {
@@ -198,15 +188,16 @@ impl View {
             } else {
                 let index = self.tags.iter().position(|t| t == REGION_HIGHLIGHT);
                 if let Some(ind) = index {
-                    buffer.remove_tag_by_name(
-                        REGION_HIGHLIGHT,
-                        &start_iter,
-                        &end_iter
-                    );
+                    buffer.remove_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
                     self.tags.remove(ind);
                 }
             }
         }
+    }
+
+    pub fn repr(&self) -> String {
+        format!("line_no {:?}, expanded {:?}, rendered: {:?}, active {:?}, current {:?}",
+             self.line_no, self.expanded, self.rendered, self.active, self.current)
     }
 
 }
@@ -217,9 +208,7 @@ impl Default for View {
     }
 }
 
-
 pub trait RecursiveViewContainer {
-
     fn get_kind(&self) -> ViewKind;
 
     fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer>;
@@ -237,7 +226,6 @@ pub trait RecursiveViewContainer {
     fn get_content(&self) -> String;
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
-
         let content = self.get_content();
         let view = self.get_view().render(buffer, iter, content);
         if view.expanded {
@@ -248,7 +236,6 @@ pub trait RecursiveViewContainer {
     }
 
     fn cursor(&mut self, line_no: i32, parent_active: bool) {
-
         let view = self.get_view();
 
         let current_before = view.current;
@@ -257,7 +244,7 @@ pub trait RecursiveViewContainer {
         let view_expanded = view.expanded;
 
         let current = view.is_rendered_in(line_no);
-        
+
         let active_by_parent = self.is_active_by_parent(parent_active);
 
         let mut active_by_child = false;
@@ -278,7 +265,7 @@ pub trait RecursiveViewContainer {
         let view = self.get_view();
         view.active = self_active;
         view.current = current;
-        
+
         if view.rendered {
             // repaint if highlight is changed
             view.rendered = view.active == active_before && view.current == current_before;
@@ -312,8 +299,8 @@ pub trait RecursiveViewContainer {
                     let view = rvc.get_view();
                     view.rendered = false;
                 });
-            }            
-        } else if view.expanded{
+            }
+        } else if view.expanded {
             // go deeper for self.children
             for child in self.get_children() {
                 result = child.expand(line_no);
@@ -323,11 +310,10 @@ pub trait RecursiveViewContainer {
             }
         }
         result
-    }    
+    }
 }
 
 impl RecursiveViewContainer for File {
-
     fn get_kind(&self) -> ViewKind {
         ViewKind::File
     }
@@ -341,13 +327,14 @@ impl RecursiveViewContainer for File {
     }
 
     fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
-        self.hunks.iter_mut().map(|vh|vh as &mut dyn RecursiveViewContainer).collect()
+        self.hunks
+            .iter_mut()
+            .map(|vh| vh as &mut dyn RecursiveViewContainer)
+            .collect()
     }
 }
 
-
 impl RecursiveViewContainer for Hunk {
-
     fn get_kind(&self) -> ViewKind {
         ViewKind::Hunk
     }
@@ -365,9 +352,11 @@ impl RecursiveViewContainer for Hunk {
     }
 
     fn get_children(&mut self) -> Vec<&mut dyn RecursiveViewContainer> {
-        self.lines.iter_mut().filter(|l| {
-            !matches!(l.kind, crate::LineKind::File | crate::LineKind::Hunk)
-        }).map(|vh|vh as &mut dyn RecursiveViewContainer).collect()
+        self.lines
+            .iter_mut()
+            .filter(|l| !matches!(l.kind, crate::LineKind::File | crate::LineKind::Hunk))
+            .map(|vh| vh as &mut dyn RecursiveViewContainer)
+            .collect()
     }
 
     fn is_active_by_parent(&self, active: bool) -> bool {
@@ -381,11 +370,9 @@ impl RecursiveViewContainer for Hunk {
         // whole hunk is active
         active
     }
-
 }
 
 impl RecursiveViewContainer for Line {
-
     fn get_kind(&self) -> ViewKind {
         ViewKind::Line
     }
@@ -413,25 +400,35 @@ impl RecursiveViewContainer for Line {
     }
 }
 
-pub fn expand(view: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
-
+pub fn expand(
+    view: &TextView,
+    diff: &mut Diff,
+    offset: i32,
+    line_no: i32,
+    sndr: Sender<crate::Event>,
+) {
     for file in &mut diff.files {
         if file.expand(line_no) {
-            break
+            break;
         }
     }
     render(view, diff, offset, sndr);
 }
 
-pub fn cursor(txt: &TextView, diff: &mut Diff, offset: i32, line_no: i32, sndr:Sender<crate::Event>) {
-
+pub fn cursor(
+    txt: &TextView,
+    diff: &mut Diff,
+    offset: i32,
+    line_no: i32,
+    sndr: Sender<crate::Event>,
+) {
     for file in &mut diff.files {
         file.cursor(line_no, false);
     }
     render(txt, diff, offset, sndr);
 }
 
-pub fn render(txt: &TextView, diff: &mut Diff, offset: i32, _sndr:Sender<crate::Event>) {
+pub fn render(txt: &TextView, diff: &mut Diff, offset: i32, _sndr: Sender<crate::Event>) {
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
@@ -446,5 +443,135 @@ pub fn render(txt: &TextView, diff: &mut Diff, offset: i32, _sndr:Sender<crate::
 
     iter.set_offset(offset);
     buffer.place_cursor(&iter);
+}
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_line(prefix: i32) -> Line {
+        let mut line = Line::new();
+        line.content = format!("line {}", prefix);
+        line.kind = crate::LineKind::Regular;
+        line
+    }
+
+    fn create_hunk(prefix: i32) -> Hunk {
+        let mut hunk = Hunk::new();
+        hunk.header = format!("hunk {}", prefix);
+        for i in 0..3 {
+            hunk.lines.push(create_line(i))
+        }
+        hunk
+    }
+
+    fn create_file(prefix: i32) -> File {
+        let mut file = File::new();
+        file.path = format!("file{}.rs", prefix).into();
+        for i in 0..3 {
+            file.hunks.push(create_hunk(i))
+        }
+        file
+    }
+
+    fn create_diff() -> Diff {
+
+        let mut diff = Diff::new();
+        for i in 0..3 {
+            diff.files.push(create_file(i));
+        }
+        diff
+    }
+
+    // what we are testing here???
+    // it need somehow to mock buffer, iter and render on view
+    pub fn render_view(vc: &mut dyn RecursiveViewContainer, mut line_no: i32) -> i32 {
+        let view = vc.get_view();
+        view.line_no = line_no;
+        view.rendered = true;
+        line_no += 1;
+        if view.expanded {
+            for child in vc.get_children() {
+                line_no = render_view(child, line_no)
+            }
+        }
+        line_no
+    }
+    
+    pub fn render(diff: &mut Diff) -> i32 {
+        let mut line_no: i32 = 0;
+        for file in &mut diff.files {
+            line_no = render_view(file, line_no);
+        }
+        line_no
+    }
+
+    pub fn cursor(diff: &mut Diff, line_no: i32) {
+        for (_, file) in diff.files.iter_mut().enumerate() {
+            file.cursor(line_no, false);
+        }
+        // some views will be rerenderred cause highlight changes
+        render(diff);
+    }
+
+    #[test]
+    pub fn test() {
+
+        let mut diff = create_diff();
+
+        render(&mut diff);
+
+        for cursor_line in 0..3 {
+            cursor(&mut diff, cursor_line);
+
+            for (i, file) in diff.files.iter_mut().enumerate() {
+                let view = file.get_view();
+                if i as i32 == cursor_line {
+                    assert!(view.active);
+                    assert!(view.current);
+                } else {
+                    assert!(!view.active);
+                    assert!(!view.current);
+                }
+                assert!(!view.expanded);
+            }
+        }
+        // last line from prev loop
+        let cursor_line = 2;
+        for file in &mut diff.files {
+            if file.expand(cursor_line) {
+                break;
+            }
+        }
+
+        render(&mut diff);
+
+        for (i, file) in diff.files.iter_mut().enumerate() {
+            let view = file.get_view();
+            if i as i32 == cursor_line {
+                assert!(view.rendered);
+                assert!(view.current);
+                assert!(view.active);
+                assert!(view.expanded);
+                for hunk in &mut file.hunks {
+                    let view = hunk.get_view();                    
+                    assert!(view.rendered);
+                    assert!(!view.current);
+                    assert!(view.active);
+                    // hunks are expanded by default
+                    assert!(view.expanded);
+                    for line in &mut hunk.lines {
+                        let view = line.get_view();
+                        assert!(!view.current);
+                        assert!(view.active);
+                        assert!(view.rendered);
+                    }
+                }
+            } else {
+                assert!(!view.current);
+                assert!(!view.active);
+                assert!(!view.expanded);
+            }
+        }
+    }
 }

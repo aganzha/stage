@@ -1,19 +1,17 @@
 mod text_view;
-use text_view::{text_view_factory, render, expand, cursor};
+use text_view::{cursor, expand, render, text_view_factory};
 mod git;
-use git::{get_current_repo_status,
-          Diff, LineKind, View, File, Hunk, Line};
-use gtk::prelude::*;
 use adw::prelude::*;
-use glib::{MainContext, Priority};
-use adw::{Application, HeaderBar, ApplicationWindow};
-use gtk::{glib, gdk, gio, Box, Label, Orientation, CssProvider, ScrolledWindow};// TextIter
+use adw::{Application, ApplicationWindow, HeaderBar};
 use gdk::Display;
+use git::{get_current_repo_status, Diff, File, Hunk, Line, LineKind, View};
+use glib::{MainContext, Priority};
+use gtk::prelude::*;
+use gtk::{gdk, gio, glib, Box, CssProvider, Label, Orientation, ScrolledWindow}; // TextIter
 
 const APP_ID: &str = "io.github.aganzha.Stage";
 
 fn main() -> glib::ExitCode {
-
     let app = Application::builder().application_id(APP_ID).build();
 
     app.connect_startup(|_| load_css());
@@ -41,19 +39,16 @@ pub enum Event {
     Expand(i32, i32),
     Cursor(i32, i32),
     // does not used for now
-    Stage(String)
+    Stage(String),
 }
 
-
 fn build_ui(app: &adw::Application) {
-
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
     //window.set_default_size(640, 480);
     let scroll = ScrolledWindow::new();
 
-    let stage = Box::builder()
-        .build();
+    let stage = Box::builder().build();
     stage.set_orientation(Orientation::Vertical);
     stage.add_css_class("stage");
     let hb = HeaderBar::new();
@@ -87,37 +82,33 @@ fn build_ui(app: &adw::Application) {
         }
     });
 
-    receiver.attach(
-        None,
-        move |event: Event| {
-            match event {
-                Event::CurrentRepo(path) => {
-                    if repo.is_none() {
-                        // need cleanup everything
-                    }
-                    repo.replace(path);
-                },
-                Event::Status(d) => {
-                    println!("git diff in status {:p}", &d);
-                    diff.replace(d);
-                    let d = diff.as_mut().unwrap();
-                    render(&txt, d, 0, sender.clone());
-                },
-                Event::Expand(offset, line_no) => {
-                    let d = diff.as_mut().unwrap();
-                    expand(&txt, d, offset, line_no, sender.clone());
-                },
-                Event::Cursor(offset, line_no) => {
-                    let d = diff.as_mut().unwrap();
-                    cursor(&txt, d, offset, line_no, sender.clone());
-                },
-                Event::Stage(text) => {
-                    println!("STAGE THIS TEXT {:?} in {:?}", text, diff);
+    receiver.attach(None, move |event: Event| {
+        match event {
+            Event::CurrentRepo(path) => {
+                if repo.is_none() {
+                    // need cleanup everything
                 }
-            };
-            glib::ControlFlow::Continue
-        }
-    );
+                repo.replace(path);
+            }
+            Event::Status(d) => {
+                println!("git diff in status {:p}", &d);
+                diff.replace(d);
+                let d = diff.as_mut().unwrap();
+                render(&txt, d, 0, sender.clone());
+            }
+            Event::Expand(offset, line_no) => {
+                let d = diff.as_mut().unwrap();
+                expand(&txt, d, offset, line_no, sender.clone());
+            }
+            Event::Cursor(offset, line_no) => {
+                let d = diff.as_mut().unwrap();
+                cursor(&txt, d, offset, line_no, sender.clone());
+            }
+            Event::Stage(text) => {
+                println!("STAGE THIS TEXT {:?} in {:?}", text, diff);
+            }
+        };
+        glib::ControlFlow::Continue
+    });
     window.present();
-
 }
