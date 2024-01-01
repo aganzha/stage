@@ -435,7 +435,9 @@ pub fn expand(
             break;
         }
     }
-    render(view, diff, sndr);
+    let mut iter = render(view, diff, sndr);
+    iter.set_offset(offset);
+    iter.buffer().place_cursor(&iter);
 }
 
 pub fn cursor(
@@ -481,9 +483,7 @@ pub fn render(txt: &TextView, diff: &mut Diff, _sndr: Sender<crate::Event>) -> T
     diff.view.save_position(&iter);
     buffer.delete(&mut iter, &mut buffer.end_iter());
     iter
-    // what about cursor???
-    // iter.set_offset(offset);
-    // buffer.place_cursor(&iter);
+
 }
 
 #[cfg(test)]
