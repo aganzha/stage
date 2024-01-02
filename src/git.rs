@@ -152,29 +152,16 @@ impl Default for File {
 }
 
 #[derive(Debug, Clone)]
-pub struct DiffView {
-    pub line_from: i32,
-    pub line_to: i32,
-    pub text: String,
-}
-
-pub struct StatusView {
-    pub user_cursor: i32,
-    pub current_offset: i32,
-    pub current_line: i32,
-}
-
-#[derive(Debug, Clone)]
 pub struct Diff {
     pub files: Vec<File>,
-    pub view: DiffView,
+    pub view: View,
 }
 
 impl Diff {
     pub fn new() -> Self {
         Self {
             files: Vec::new(),
-            view: DiffView::new(),
+            view: View::new(),
         }
     }
 }
@@ -188,15 +175,13 @@ impl Default for Diff {
 pub struct Status {
     pub staged: Diff,
     pub unstaged: Diff,
-    pub view: StatusView,
 }
 
 impl Status {
     pub fn new() -> Self {
         Self {
             staged: Diff::new(),
-            unstaged: Diff::new(),
-            view: StatusView::new(),
+            unstaged: Diff::new()
         }
     }
 }

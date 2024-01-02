@@ -5,7 +5,7 @@ use adw::prelude::*;
 use adw::{Application, ApplicationWindow, HeaderBar};
 use gdk::Display;
 use git::{
-    get_current_repo_status, Diff, DiffView, File, Hunk, Line, LineKind, Status, StatusView, View,
+    get_current_repo_status, Diff, File, Hunk, Line, LineKind, Status, View,
 };
 use glib::{MainContext, Priority};
 use gtk::prelude::*;

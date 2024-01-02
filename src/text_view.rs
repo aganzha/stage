@@ -2,7 +2,7 @@ use glib::Sender;
 use gtk::prelude::*;
 use gtk::{gdk, glib, TextBuffer, TextIter, TextTag, TextView};
 
-use crate::{Diff, DiffView, File, Hunk, Line, Status, StatusView, View};
+use crate::{Diff, File, Hunk, Line, Status, View};
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
@@ -116,9 +116,11 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
+    Diff,
     File,
     Hunk,
     Line,
+    Static
 }
 
 impl View {
@@ -220,47 +222,19 @@ impl Default for View {
     }
 }
 
-impl DiffView {
-    pub fn new() -> Self {
-        Self {
-            line_from: 0,
-            line_to: 0,
-            text: String::new(),
-        }
-    }
-    pub fn region(&self) -> (i32, i32) {
-        (self.line_from, self.line_to)
-    }
-}
-
-impl Default for DiffView {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl StatusView {
-    pub fn new() -> Self {
-        Self {
-            user_cursor: 0,
-            current_line: 0,
-            current_offset: 0,
-        }
-    }
-}
-
-impl Default for StatusView {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 pub trait ViewContainer {
+
     fn get_kind(&self) -> ViewKind;
+
 
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer>;
 
     fn get_view(&mut self) -> &mut View;
+
+    fn line_from(&self) -> i32;
+
+    fn line_to(&self) -> i32;
 
     // TODO - return bool and stop iteration when false
     fn walk_down(&mut self, visitor: &mut dyn FnMut(&mut dyn ViewContainer)) {
@@ -371,9 +345,54 @@ pub trait ViewContainer {
     }
 }
 
+impl ViewContainer for Diff {
+
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Diff
+    }
+
+    fn line_from(&self) -> i32 {
+        if self.files.is_empty() {
+            return 0;
+        }
+        self.files[0].view.line_no
+    }
+
+    fn line_to(&self) -> i32 {
+        // on diff line_no
+        // stores LAST rendered line
+        self.view.line_no
+    }
+
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
+    }
+
+    fn get_content(&self) -> String {
+        String::from("")
+    }
+
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        self.files
+            .iter_mut()
+            .map(|vh| vh as &mut dyn ViewContainer)
+            .collect()
+    }
+
+}
+
 impl ViewContainer for File {
     fn get_kind(&self) -> ViewKind {
         ViewKind::File
+    }
+
+    fn line_from(&self) -> i32 {
+        self.view.line_no
+    }
+
+    fn line_to(&self) -> i32 {
+        todo!();
+        self.view.line_no
     }
 
     fn get_view(&mut self) -> &mut View {
@@ -395,6 +414,15 @@ impl ViewContainer for File {
 impl ViewContainer for Hunk {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Hunk
+    }
+
+    fn line_from(&self) -> i32 {
+        self.view.line_no
+    }
+
+    fn line_to(&self) -> i32 {
+        todo!();
+        self.view.line_no
     }
 
     fn get_content(&self) -> String {
@@ -431,8 +459,17 @@ impl ViewContainer for Hunk {
 }
 
 impl ViewContainer for Line {
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::Line
+    }
+
+    fn line_from(&self) -> i32 {
+        self.view.line_no
+    }
+
+    fn line_to(&self) -> i32 {
+        self.view.line_no
     }
 
     fn get_view(&mut self) -> &mut View {
@@ -467,8 +504,12 @@ pub fn expand(
 ) {
     let mut expanded = false;
     let mut squashed = false;
+    // lines changed during expansio/collaprion
+    // e.g. +10 or -10
+    // will be applied to the view next to expanded/collapsed
     let mut delta: i32 = 0;
     let mut last_line: i32 = 0;
+
     // 1 view will be marked expanded/collapsed
     // next view will be marked squashed, to delete preceeding lines
     // on render. squashed view could be on another diff!
@@ -492,10 +533,11 @@ pub fn expand(
         }
         if expanded {
             // render expanded and every other diff
-            let from = diff.view.line_from;
-            let to = diff.view.line_to;
+            let from = diff.line_from();
+            let to = diff.line_to();
+            // aganzha here i need diff line + delta
             render_diff(txt, diff, from + delta);
-            last_line = diff.view.line_to;
+            last_line = diff.line_to();
             delta = last_line - to;
         }
     }
@@ -516,14 +558,13 @@ pub fn cursor(
     line_no: i32,
     _sndr: Sender<crate::Event>,
 ) {
-    status.view.user_cursor = offset;
 
     for diff in [&mut status.unstaged, &mut status.staged] {
         for file in &mut diff.files {
             file.cursor(line_no, false);
         }
         // are you sure it must be diff.view.line_from ??????
-        let mut iter = render_diff(txt, diff, diff.view.line_from);
+        let mut iter = render_diff(txt, diff, diff.line_from());
         // TODO: this cursor is set in loop! fix it!
         iter.set_offset(offset);
         iter.buffer().place_cursor(&iter);
@@ -532,13 +573,13 @@ pub fn cursor(
 
 pub fn render_diff(txt: &TextView, diff: &mut Diff, line_no: i32) -> TextIter {
     let buffer = txt.buffer();
-    diff.view.line_from = line_no;
+
     let mut iter = buffer.iter_at_line(line_no).unwrap();
 
     for file in &mut diff.files {
         file.render(&buffer, &mut iter)
     }
-    diff.view.line_to = iter.line();
+    diff.view.line_no = iter.line();
     iter
 }
 
