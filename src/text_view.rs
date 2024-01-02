@@ -148,16 +148,37 @@ impl View {
         if self.is_rendered_in(iter.line()) {
             iter.forward_lines(1);
         } else {
-            self.line_no = iter.line();    
+            self.line_no = iter.line();
+            // why do i need overwrite existiing rows at all?
+            // because when executing fn cursor it need to rerender view
+            // to apply tags. also content could be changed later,
+            // eg some buttons, counters etc
+            // so. when applying cursor - it need to overwrite lines!
+            // when expanding - new lines must be natural. but they are not!
+            // so, even inside single diff overwrites become true. do i need it at all?
+            // perhaps it need to insert new lines on expand even within single diff?
+            // so.
+            // first pass - is expand. it just mark view as expanded.
+            // second pass is render. it does know nothing about being JUST expanded.
+            // it need to flag somehow each view inside just expanded view
+            // as required to render on new line!
+            // also it seemes to be good idea to rename rendered field.
+            // there must be separated field: DIRTY and VISIBLE.
+            // so. 3 fields are required:
+            // - dirty (nee to re render)
+            // - visible (was it rendered or not)
+            // - could this 3rd field be calculated?????
+            // eg - if it is not visible - put it on new line!
+            // if it is just dirty - put it on same line!
             let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
             eol_iter.forward_to_line_end();
             let new_line = iter.offset() == eol_iter.offset();
-
+            println!("is this same or new line???? {:?} new line - {:?}, rendered - {:?}", self.line_no, new_line, self.rendered);
             if new_line {
-                buffer.insert(iter, &format!("{} {}\n", iter.line(), content));
+                buffer.insert(iter, &format!("{} {}\n", self.line_no, content));
             } else {
                 buffer.delete(iter, &mut eol_iter);
-                buffer.insert(iter, &format!("{} {}", iter.line(), content));
+                buffer.insert(iter, &format!("{} {}", self.line_no, content));
                 iter.forward_lines(1);
             }
             self.apply_tags(buffer);
@@ -446,32 +467,56 @@ pub fn expand(
     status: &mut Status,
     offset: i32,
     line_no: i32,
-    _sndr: Sender<crate::Event>,
+    sndr: Sender<crate::Event>,
 ) {
-    let buffer = txt.buffer();
     let mut expanded = false;
-    let mut iter = buffer.iter_at_offset(offset);
     for diff in [&mut status.unstaged, &mut status.staged] {
         for file in &mut diff.files {
             println!("try expand/collapse at {:?}", line_no);
-            dbg!(&file.view);
             if file.expand(line_no) {
                 println!("triggered at {:?}", line_no);
                 expanded = true;
+                let from = diff.view.line_from;
+                let to = diff.view.line_to;
+                let mut iter = render_diff(txt, diff, from);
+
+                let buffer = iter.buffer();
+
+                println!("rendrered. was from {:?} to {:?}, become {:?}", from, to, iter.line());
+                println!("diff become from {:?} to {:?}", diff.view.line_from, diff.view.line_to);
+                // this is actual only for second diff!
+                buffer.delete(&mut iter, &mut buffer.end_iter());
+                // this is actual only for second diff!
+                
+                iter.set_offset(offset);
+                buffer.place_cursor(&iter);
                 break;
             }
         }
         if expanded {
-            iter = render_diff(txt, diff, diff.view.line_from);
-            println!("expande or after {:?}", iter.line());
+            break
         }
     }
-    if expanded {
-        println!("kill finally {:?}", iter.line());
-        buffer.delete(&mut iter, &mut buffer.end_iter());
-        iter.set_offset(offset);
-        iter.buffer().place_cursor(&iter);
-    }
+    // what is happening:
+    // when expand first line and call render_status
+    // it goes to line 0. insert STATIC text and whole
+    // view moves down to 1 line.
+    // then everything become broken :(
+    // 1. All inserted lines in TextView must be views!
+    // event STATIC one liners!
+    // 2. line_from, line_to, positions - doesn't really matter!
+    // they are NOT USED AT ALL FOR NOW!!!
+    // Cause Expand/collapse kill everyhning!
+
+    // lets think about it once more.
+    // for now only the expand are changing view.
+    // changes in dynamic regions could be tracked via
+    // region position (line_from, line_to)
+    // it need to render diffs 1 by 1, and adjust next views accordingly:
+    // change view lines
+
+    // wel. it does not work, because new views are overwrite pld views.
+    // why?
 }
 
 pub fn cursor(
@@ -482,7 +527,7 @@ pub fn cursor(
     _sndr: Sender<crate::Event>,
 ) {
     status.view.user_cursor = offset;
-    
+
     for diff in [&mut status.unstaged, &mut status.staged] {
         for file in &mut diff.files {
             file.cursor(line_no, false);
@@ -497,7 +542,7 @@ pub fn render_diff(txt: &TextView, diff: &mut Diff, line_no: i32) -> TextIter {
     let buffer = txt.buffer();
     diff.view.line_from = line_no;
     let mut iter = buffer.iter_at_line(line_no).unwrap();
-    
+
     for file in &mut diff.files {
         file.render(&buffer, &mut iter)
     }
@@ -511,14 +556,14 @@ pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::E
     let mut iter = buffer.iter_at_offset(0);
     buffer.insert(&mut iter, "Unstaged changes:\n");
     // TODO? why the fuck i need save_position at all???
-    
+
     // render first diff
     status.view.save_position(&iter);
     iter.forward_lines(1);
-    
+
     iter = render_diff(txt, &mut status.unstaged, iter.line());
     status.view.save_position(&iter);
-    
+
     // render second diff
     iter.forward_lines(1);
     iter.set_line_offset(0);
@@ -582,7 +627,7 @@ mod tests {
         }
         line_no
     }
-    
+
     pub fn render(diff: &mut Diff) -> i32 {
         let mut line_no: i32 = 0;
         for file in &mut diff.files {
@@ -660,13 +705,13 @@ mod tests {
         // end expand it
         cursor_line = 1;
         cursor(&mut diff, cursor_line);
-        
+
         for file in &mut diff.files {
             if file.expand(cursor_line) {
                 break;
             }
         }
-        
+
         render(&mut diff);
         for (i, file) in diff.files.iter_mut().enumerate() {
             let view = file.get_view();
