@@ -1,4 +1,5 @@
--TODO: missing test for collapse
+- collapse when press tab on line? YES, please
+
 BUG: it need to cleanup to end of bugger after rendering diff (no it is cleaned only on status render);
 
 

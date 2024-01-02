@@ -181,7 +181,7 @@ impl Status {
     pub fn new() -> Self {
         Self {
             staged: Diff::new(),
-            unstaged: Diff::new()
+            unstaged: Diff::new(),
         }
     }
 }

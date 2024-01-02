@@ -120,7 +120,7 @@ pub enum ViewKind {
     File,
     Hunk,
     Line,
-    Static
+    Static,
 }
 
 impl View {
@@ -158,7 +158,7 @@ impl View {
             buffer.insert(iter, &format!("{} {}", line_no, content));
             iter.forward_lines(1);
         } else if self.squashed {
-            if  self.line_no > line_no {
+            if self.line_no > line_no {
                 // kill lines before this view, moving already rendered lines
                 // upward to cursor
                 let mut my_iter = buffer.iter_at_line(self.line_no).unwrap();
@@ -222,11 +222,8 @@ impl Default for View {
     }
 }
 
-
 pub trait ViewContainer {
-
     fn get_kind(&self) -> ViewKind;
-
 
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer>;
 
@@ -346,7 +343,6 @@ pub trait ViewContainer {
 }
 
 impl ViewContainer for Diff {
-
     fn get_kind(&self) -> ViewKind {
         ViewKind::Diff
     }
@@ -379,6 +375,12 @@ impl ViewContainer for Diff {
             .collect()
     }
 
+    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
+        for file in &mut self.files {
+            file.render(buffer, iter);
+        }
+        self.view.line_no = iter.line();
+    }
 }
 
 impl ViewContainer for File {
@@ -459,7 +461,6 @@ impl ViewContainer for Hunk {
 }
 
 impl ViewContainer for Line {
-
     fn get_kind(&self) -> ViewKind {
         ViewKind::Line
     }
@@ -535,8 +536,11 @@ pub fn expand(
             // render expanded and every other diff
             let from = diff.line_from();
             let to = diff.line_to();
-            // aganzha here i need diff line + delta
-            render_diff(txt, diff, from + delta);
+
+            let buffer = txt.buffer();
+            let mut iter = buffer.iter_at_line(from + delta).unwrap();
+            diff.render(&buffer, &mut iter);
+
             last_line = diff.line_to();
             delta = last_line - to;
         }
@@ -558,48 +562,34 @@ pub fn cursor(
     line_no: i32,
     _sndr: Sender<crate::Event>,
 ) {
-
     for diff in [&mut status.unstaged, &mut status.staged] {
         for file in &mut diff.files {
             file.cursor(line_no, false);
         }
-        // are you sure it must be diff.view.line_from ??????
-        let mut iter = render_diff(txt, diff, diff.line_from());
+        let buffer = txt.buffer();
+        let mut iter = buffer.iter_at_line(diff.line_from()).unwrap();
+        diff.render(&buffer, &mut iter);
+
         // TODO: this cursor is set in loop! fix it!
         iter.set_offset(offset);
         iter.buffer().place_cursor(&iter);
     }
 }
 
-pub fn render_diff(txt: &TextView, diff: &mut Diff, line_no: i32) -> TextIter {
-    let buffer = txt.buffer();
-
-    let mut iter = buffer.iter_at_line(line_no).unwrap();
-
-    for file in &mut diff.files {
-        file.render(&buffer, &mut iter)
-    }
-    diff.view.line_no = iter.line();
-    iter
-}
-
 pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::Event>) {
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
+
     buffer.insert(&mut iter, "Unstaged changes:\n");
-
-    // render first diff
     iter.forward_lines(1);
+    status.unstaged.render(&buffer, &mut iter);
 
-    iter = render_diff(txt, &mut status.unstaged, iter.line());
-
-    // render second diff
     iter.forward_lines(1);
     iter.set_line_offset(0);
-    buffer.insert(&mut iter, "Staged changes:\n");
 
+    buffer.insert(&mut iter, "Staged changes:\n");
     iter.forward_lines(1);
-    iter = render_diff(txt, &mut status.staged, iter.line());
+    status.staged.render(&buffer, &mut iter);
 
     buffer.delete(&mut iter, &mut buffer.end_iter());
 }
@@ -808,7 +798,6 @@ mod tests {
                     break;
                 }
             }
-
         }
     }
 }
