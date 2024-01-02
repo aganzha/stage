@@ -34,7 +34,6 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
             match key {
                 gdk::Key::Tab => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    println!("TAAAAAAAAAAAAAAAAAAB {:?}", iter.line());
                     sndr.send(crate::Event::Expand(iter.offset(), iter.line()))
                         .expect("Could not send through channel");
                 }
@@ -42,13 +41,6 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send(crate::Event::Stage(iter.offset(), iter.line()))
                         .expect("Could not send through channel");
-                    // let start_mark = buffer.mark(CURSOR_HIGHLIGHT_START).unwrap();
-                    // let end_mark = buffer.mark(CURSOR_HIGHLIGHT_END).unwrap();
-                    // let start_iter = buffer.iter_at_mark(&start_mark);
-                    // let end_iter = buffer.iter_at_mark(&end_mark);
-                    // let text = String::from(buffer.text(&start_iter, &end_iter, true).as_str());
-                    // sndr.send(crate::Event::Stage(text))
-                    //     .expect("Could not send through channel");
                 }
                 _ => (),
             }
@@ -148,61 +140,39 @@ impl View {
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
-        if self.is_rendered_in(iter.line()) {
+        let line_no = iter.line();
+        if self.is_rendered_in(line_no) {
+            // skip untouched view
+            iter.forward_lines(1);
+        } else if !self.rendered {
+            // render brand new view
+            buffer.insert(iter, &format!("{} {}\n", line_no, content));
+        } else if self.dirty {
+            // replace view with new content
+            assert!(self.line_no == line_no);
+            let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
+            eol_iter.forward_to_line_end();
+            buffer.delete(iter, &mut eol_iter);
+            buffer.insert(iter, &format!("{} {}", line_no, content));
+            iter.forward_lines(1);
+        } else if self.squashed {
+            if  self.line_no > line_no {
+                // kill lines before this view, moving already rendered lines
+                // upward to cursor
+                let mut my_iter = buffer.iter_at_line(self.line_no).unwrap();
+                buffer.delete(iter, &mut my_iter);
+            } else {
+                // nothing todo. lines were moved downward by previous inserts
+                // just need to update line_no for current
+            }
             iter.forward_lines(1);
         } else {
-            let line_no = iter.line();
-            println!(
-                "is this same or new line???? {:?} rendered - {:?}, dirty - {:?}",
-                line_no, self.rendered, self.dirty
-            );
-            if !self.rendered {
-                println!("just insert new line {:?}", line_no);
-                buffer.insert(iter, &format!("{} {}\n", line_no, content));
-            } else {
-                println!(
-                    "the view is already rendered, but it need to rerender it at {:?}",
-                    line_no
-                );
-                dbg!(self.clone());
-                // if view is dirty - render it on this line
-                // but it need to assert if it is on same line
-                if self.dirty {
-                    println!("dirty view");
-                    assert!(self.line_no == line_no);
-                    let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
-                    eol_iter.forward_to_line_end();
-                    buffer.delete(iter, &mut eol_iter);
-                    buffer.insert(iter, &format!("{} {}", line_no, content));
-                } else if self.squashed && self.line_no > line_no {
-                    // squashing view must be moved.
-                    // either upward or downward.
-                    // render comes from top to bottom.
-                    // so, there will be only ONE move during render:
-                    // either upward (delete lines) or downward
-
-                    // HOW TO DETECT THAT IT NEED TO KILL LINES????
-                    // ???????????????????
-                    // it need to do it only once!
-                    // only when this is next view to collapsed one!
-                    // how do i know that it is next?
-                    // collapsed view is that one, on which the cursor is placed
-                    // but because of static views, it could be several lines apart
-                    // ...
-                    println!(
-                        "SQUASHING VIEW. this line {:?}, view line {:?}",
-                        line_no, self.line_no
-                    );
-                    let mut my_iter = buffer.iter_at_line(self.line_no).unwrap();
-                    buffer.delete(iter, &mut my_iter);
-                } else {
-                    println!("just skip this view. new line will be instaled on it");
-                }
-                iter.forward_lines(1);
-            }
-            self.line_no = line_no;
-            self.apply_tags(buffer);
+            // view is rendered and not dirty and not squashed
+            // just exixtent view moved up and down somewhere at bottom
+            iter.forward_lines(1);
         }
+        self.line_no = line_no;
+        self.apply_tags(buffer);
         self.rendered = true;
         self.dirty = false;
         self.squashed = false;
@@ -501,12 +471,8 @@ pub fn expand(
     let mut last_line: i32 = 0;
     // 1 view will be marked expanded/collapsed
     // next view will be marked squashed, to delete preceeding lines
-    // on render
+    // on render. squashed view could be on another diff!
     for diff in [&mut status.unstaged, &mut status.staged] {
-        println!(
-            "LOOOOOOOOOOOP FOR DIFF expand squahswed {:?} {:?}",
-            expanded, squashed
-        );
         for file in &mut diff.files {
             if expanded && !squashed {
                 // mark next file for squashing
@@ -567,7 +533,6 @@ pub fn cursor(
 pub fn render_diff(txt: &TextView, diff: &mut Diff, line_no: i32) -> TextIter {
     let buffer = txt.buffer();
     diff.view.line_from = line_no;
-    println!("rendering diff for line {:?}", line_no);
     let mut iter = buffer.iter_at_line(line_no).unwrap();
 
     for file in &mut diff.files {
