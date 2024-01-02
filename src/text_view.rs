@@ -120,7 +120,29 @@ pub enum ViewKind {
     File,
     Hunk,
     Line,
-    Static,
+    Label,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Label {
+    content: String,
+    view: View,
+}
+
+impl Label {
+    pub fn new() -> Self {
+        Label {
+            content: String::new(),
+            view: View::new(),
+        }
+    }
+    
+    pub fn from_string(content: &str) -> Self {
+        Label {
+            content: String::from(content),
+            view: View::new()
+        }
+    }
 }
 
 impl View {
@@ -380,7 +402,7 @@ impl ViewContainer for Diff {
             file.cursor(line_no, parent_active);
         }
     }
-    
+
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
         for file in &mut self.files {
             file.render(buffer, iter);
@@ -502,6 +524,33 @@ impl ViewContainer for Line {
     }
 }
 
+impl ViewContainer for Label {
+
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Label
+    }
+
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
+    }
+
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        Vec::new()
+    }
+
+    fn get_content(&self) -> String {
+        self.content.to_string()
+    }
+
+    fn line_to(&self) -> i32 {
+        self.view.line_no
+    }
+
+    fn line_from(&self) -> i32 {
+        self.view.line_no
+    }
+}
+
 pub fn expand(
     txt: &TextView,
     status: &mut Status,
@@ -511,7 +560,7 @@ pub fn expand(
 ) {
     let mut expanded = false;
     let mut squashed = false;
-    // lines changed during expansio/collaprion
+    // lines changed during expand/collapse
     // e.g. +10 or -10
     // will be applied to the view next to expanded/collapsed
     let mut delta: i32 = 0;
@@ -584,15 +633,20 @@ pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::E
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
-    buffer.insert(&mut iter, "Unstaged changes:\n");
-    iter.forward_lines(1);
+    let mut head = Label::from_string("Head:     common_view refactor cursor");
+    head.render(&buffer, &mut iter);
+
+    let mut origin = Label::from_string("Origin: common_view refactor cursor");
+    origin.render(&buffer, &mut iter);
+
+    let mut unstaged_label = Label::from_string("Unstaged changes");
+    unstaged_label.render(&buffer, &mut iter);
+        
     status.unstaged.render(&buffer, &mut iter);
 
-    iter.forward_lines(1);
-    iter.set_line_offset(0);
+    let mut staged_label = Label::from_string("Staged changes");
+    staged_label.render(&buffer, &mut iter);
 
-    buffer.insert(&mut iter, "Staged changes:\n");
-    iter.forward_lines(1);
     status.staged.render(&buffer, &mut iter);
 
     buffer.delete(&mut iter, &mut buffer.end_iter());

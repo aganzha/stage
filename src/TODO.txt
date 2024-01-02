@@ -1,3 +1,4 @@
+- instead of squashing, perhaps its better to delete collapsed views line by line?
 - collapse when press tab on line? YES, please
 
 BUG: it need to cleanup to end of bugger after rendering diff (no it is cleaned only on status render);

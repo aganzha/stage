@@ -175,6 +175,7 @@ impl Default for Diff {
 pub struct Status {
     pub staged: Diff,
     pub unstaged: Diff,
+    pub views: Vec<View>
 }
 
 impl Status {
@@ -182,6 +183,7 @@ impl Status {
         Self {
             staged: Diff::new(),
             unstaged: Diff::new(),
+            views: Vec::new()
         }
     }
 }
