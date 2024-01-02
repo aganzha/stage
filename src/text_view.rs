@@ -670,7 +670,7 @@ mod tests {
         }
 
         #[test]
-        pub fn test() {
+        pub fn test_single_diff() {
 
             let mut diff = create_diff();
 
@@ -695,8 +695,11 @@ mod tests {
             // the cursor is on it
             let mut cursor_line = 2;
             for file in &mut diff.files {
-                if file.expand(cursor_line) {
-                    break;
+                let (expanded, squashed) = file.expand(cursor_line);
+                    if  expanded {
+                        // there is nothing to squash in single diff
+                        assert!(!squashed);
+                        break;
                 }
             }
 
@@ -732,7 +735,9 @@ mod tests {
             cursor(&mut diff, cursor_line);
 
             for file in &mut diff.files {
-                if file.expand(cursor_line) {
+                let (expanded, squashed) = file.expand(cursor_line);
+                if expanded {
+                    assert!(!squashed);
                     break;
                 }
             }
