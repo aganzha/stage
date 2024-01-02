@@ -743,6 +743,31 @@ mod tests {
                     });
                 }
             }
+
+            // go to first hunk of second file
+            cursor_line = 2;
+            cursor(&mut diff, cursor_line);
+            for file in &mut diff.files {
+                let (expanded, squashed) = file.expand(cursor_line);
+                if expanded {
+                    // second hunk must be marked squashed!
+                    assert!(squashed);
+                    for child in file.get_children() {
+                        let view = child.get_view();
+                        if view.line_no == cursor_line {
+                            // hunks were expanded by default.
+                            // not it is collapsed!
+                            assert!(!view.expanded);
+                        }
+                        if view.line_no + 1 == cursor_line {
+                            // next hunk is squashed!
+                            assert!(!view.squashed);
+                        }
+                    }
+                    break;
+                }
+            }
+
         }
     }
 }
