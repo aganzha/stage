@@ -1,6 +1,7 @@
 -TODO: missing test for collapse
 BUG: it need to cleanup to end of bugger after rendering diff (no it is cleaned only on status render);
 
+
 - ideas: expand as pure insert of text. nothing else will need rerendering
 this leads to some sort of reconcilation algorythm. eg recalculate on line views:
   though its easy! just to +- some offset to each view!
@@ -38,6 +39,7 @@ And each struct tracks its border/limits (eg start/end)
 -- HUGHLIGHT for pgup/pgdown doesn not work
 - put label with current repo name (relative to path the app is started)
 - try to replace &mut dyn RecursiveViewContainer with type alias
+
 
 - adwaita ToolbarView
 - popup widnwow from current line (commit)

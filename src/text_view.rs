@@ -2,7 +2,7 @@ use glib::Sender;
 use gtk::prelude::*;
 use gtk::{gdk, glib, TextBuffer, TextIter, TextTag, TextView};
 
-use crate::{Diff, File, Hunk, Line, View, DiffView, Status, StatusView};
+use crate::{Diff, DiffView, File, Hunk, Line, Status, StatusView, View};
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
@@ -63,10 +63,11 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
         let txt = txt.clone();
         move |gesture, _some, wx, wy| {
             gesture.set_state(gtk::EventSequenceState::Claimed);
-            let (x, y) = txt.window_to_buffer_coords(gtk::TextWindowType::Text, wx as i32, wy as i32);
+            let (x, y) =
+                txt.window_to_buffer_coords(gtk::TextWindowType::Text, wx as i32, wy as i32);
             if let Some(iter) = txt.iter_at_location(x, y) {
                 sndr.send(crate::Event::Cursor(iter.offset(), iter.line()))
-                .expect("Could not send through channel");
+                    .expect("Could not send through channel");
             }
         }
     });
@@ -151,12 +152,18 @@ impl View {
             iter.forward_lines(1);
         } else {
             let line_no = iter.line();
-            println!("is this same or new line???? {:?} rendered - {:?}, dirty - {:?}", line_no, self.rendered, self.dirty);
+            println!(
+                "is this same or new line???? {:?} rendered - {:?}, dirty - {:?}",
+                line_no, self.rendered, self.dirty
+            );
             if !self.rendered {
                 println!("just insert new line {:?}", line_no);
                 buffer.insert(iter, &format!("{} {}\n", line_no, content));
             } else {
-                println!("the view is already rendered, but it need to rerender it at {:?}", line_no);
+                println!(
+                    "the view is already rendered, but it need to rerender it at {:?}",
+                    line_no
+                );
                 dbg!(self.clone());
                 // if view is dirty - render it on this line
                 // but it need to assert if it is on same line
@@ -182,13 +189,12 @@ impl View {
                     // collapsed view is that one, on which the cursor is placed
                     // but because of static views, it could be several lines apart
                     // ...
-                    println!("SQUASHING VIEW. this line {:?}, view line {:?}",
-                             line_no,
-                             self.line_no
+                    println!(
+                        "SQUASHING VIEW. this line {:?}, view line {:?}",
+                        line_no, self.line_no
                     );
                     let mut my_iter = buffer.iter_at_line(self.line_no).unwrap();
                     buffer.delete(iter, &mut my_iter);
-
                 } else {
                     println!("just skip this view. new line will be instaled on it");
                 }
@@ -231,8 +237,10 @@ impl View {
     }
 
     pub fn repr(&self) -> String {
-        format!("line_no {:?}, expanded {:?}, rendered: {:?}, active {:?}, current {:?}",
-             self.line_no, self.expanded, self.rendered, self.active, self.current)
+        format!(
+            "line_no {:?}, expanded {:?}, rendered: {:?}, active {:?}, current {:?}",
+            self.line_no, self.expanded, self.rendered, self.active, self.current
+        )
     }
 }
 
@@ -247,7 +255,7 @@ impl DiffView {
         Self {
             line_from: 0,
             line_to: 0,
-            text: String::new()
+            text: String::new(),
         }
     }
     pub fn region(&self) -> (i32, i32) {
@@ -266,17 +274,8 @@ impl StatusView {
         Self {
             user_cursor: 0,
             current_line: 0,
-            current_offset: 0
+            current_offset: 0,
         }
-    }
-
-    pub fn position(&self) -> (i32, i32) {
-        (self.current_offset, self.current_line)
-    }
-
-    pub fn save_position(&mut self, iter: &TextIter) {
-        self.current_line = iter.line();
-        self.current_offset = iter.offset();
     }
 }
 
@@ -394,7 +393,7 @@ pub trait ViewContainer {
                 (found, squash_found) = child.expand(line_no);
                 // mark expanded and squashed deeper
                 if found && squash_found {
-                    break
+                    break;
                 }
             }
         }
@@ -504,7 +503,10 @@ pub fn expand(
     // next view will be marked squashed, to delete preceeding lines
     // on render
     for diff in [&mut status.unstaged, &mut status.staged] {
-        println!("LOOOOOOOOOOOP FOR DIFF expand squahswed {:?} {:?}", expanded, squashed);
+        println!(
+            "LOOOOOOOOOOOP FOR DIFF expand squahswed {:?} {:?}",
+            expanded, squashed
+        );
         for file in &mut diff.files {
             if expanded && !squashed {
                 // mark next file for squashing
@@ -528,10 +530,10 @@ pub fn expand(
             let to = diff.view.line_to;
             render_diff(txt, diff, from + delta);
             last_line = diff.view.line_to;
-            delta =  last_line - to;
+            delta = last_line - to;
         }
     }
-    
+
     if expanded {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_line(last_line).unwrap();
@@ -573,71 +575,64 @@ pub fn render_diff(txt: &TextView, diff: &mut Diff, line_no: i32) -> TextIter {
     }
     diff.view.line_to = iter.line();
     iter
-
 }
 
 pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::Event>) {
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
     buffer.insert(&mut iter, "Unstaged changes:\n");
-    // TODO? why the fuck i need save_position at all???
 
     // render first diff
-    status.view.save_position(&iter);
     iter.forward_lines(1);
 
     iter = render_diff(txt, &mut status.unstaged, iter.line());
-    status.view.save_position(&iter);
 
     // render second diff
     iter.forward_lines(1);
     iter.set_line_offset(0);
     buffer.insert(&mut iter, "Staged changes:\n");
 
-    status.view.save_position(&iter);
     iter.forward_lines(1);
     iter = render_diff(txt, &mut status.staged, iter.line());
-    status.view.save_position(&iter);
+
     buffer.delete(&mut iter, &mut buffer.end_iter());
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
-            fn create_line(prefix: i32) -> Line {
-            let mut line = Line::new();
-            line.content = format!("line {}", prefix);
-            line.kind = crate::LineKind::Regular;
-            line
-        }
+    fn create_line(prefix: i32) -> Line {
+        let mut line = Line::new();
+        line.content = format!("line {}", prefix);
+        line.kind = crate::LineKind::Regular;
+        line
+    }
 
-        fn create_hunk(prefix: i32) -> Hunk {
-            let mut hunk = Hunk::new();
-            hunk.header = format!("hunk {}", prefix);
-            for i in 0..3 {
-                hunk.lines.push(create_line(i))
-            }
-            hunk
+    fn create_hunk(prefix: i32) -> Hunk {
+        let mut hunk = Hunk::new();
+        hunk.header = format!("hunk {}", prefix);
+        for i in 0..3 {
+            hunk.lines.push(create_line(i))
         }
+        hunk
+    }
 
-        fn create_file(prefix: i32) -> File {
-            let mut file = File::new();
-            file.path = format!("file{}.rs", prefix).into();
-            for i in 0..3 {
-                file.hunks.push(create_hunk(i))
-            }
-            file
+    fn create_file(prefix: i32) -> File {
+        let mut file = File::new();
+        file.path = format!("file{}.rs", prefix).into();
+        for i in 0..3 {
+            file.hunks.push(create_hunk(i))
         }
+        file
+    }
 
-        fn create_diff() -> Diff {
-
-            let mut diff = Diff::new();
-            for i in 0..3 {
-                diff.files.push(create_file(i));
-            }
-            diff
+    fn create_diff() -> Diff {
+        let mut diff = Diff::new();
+        for i in 0..3 {
+            diff.files.push(create_file(i));
         }
+        diff
+    }
 
     mod single_diff {
         use super::*;
@@ -674,7 +669,6 @@ mod tests {
 
         #[test]
         pub fn test_single_diff() {
-
             let mut diff = create_diff();
 
             render(&mut diff);
@@ -699,10 +693,10 @@ mod tests {
             let mut cursor_line = 2;
             for file in &mut diff.files {
                 let (expanded, squashed) = file.expand(cursor_line);
-                    if  expanded {
-                        // there is nothing to squash in single diff
-                        assert!(!squashed);
-                        break;
+                if expanded {
+                    // there is nothing to squash in single diff
+                    assert!(!squashed);
+                    break;
                 }
             }
 

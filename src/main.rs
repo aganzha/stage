@@ -1,10 +1,12 @@
 mod text_view;
-use text_view::{cursor, expand, text_view_factory, render_status};
+use text_view::{cursor, expand, render_status, text_view_factory};
 mod git;
 use adw::prelude::*;
 use adw::{Application, ApplicationWindow, HeaderBar};
 use gdk::Display;
-use git::{get_current_repo_status, Diff, File, Hunk, Line, LineKind, View, DiffView, Status, StatusView};
+use git::{
+    get_current_repo_status, Diff, DiffView, File, Hunk, Line, LineKind, Status, StatusView, View,
+};
 use glib::{MainContext, Priority};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, Box, CssProvider, Label, Orientation, ScrolledWindow}; // TextIter
@@ -75,7 +77,7 @@ fn build_ui(app: &adw::Application) {
     let mut repo: Option<std::ffi::OsString> = None;
     let mut diff: Option<Diff> = None;
     let mut status: Option<Status> = None;
-    
+
     gio::spawn_blocking({
         let sender = sender.clone();
         move || {
