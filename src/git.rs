@@ -17,6 +17,7 @@ fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> 
 pub struct View {
     pub line_no: i32,
     pub expanded: bool,
+    pub squashed: bool,
     pub rendered: bool,
     pub dirty: bool,
     pub active: bool,

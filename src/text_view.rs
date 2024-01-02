@@ -133,6 +133,7 @@ impl View {
         View {
             line_no: 0,
             expanded: false,
+            squashed: false,
             rendered: false,
             dirty: false,
             active: false,
@@ -150,67 +151,46 @@ impl View {
             iter.forward_lines(1);
         } else {
             let line_no = iter.line();
-            // why do i need overwrite existiing rows at all?
-            // because when executing fn cursor it need to rerender view
-            // to apply tags. also content could be changed later,
-            // eg some buttons, counters etc
-            // so. when applying cursor - it need to overwrite lines!
-            // when expanding - new lines must be natural. but they are not!
-            // so, even inside single diff overwrites become true. do i need it at all?
-            // perhaps it need to insert new lines on expand even within single diff?
-            // so.
-            // first pass - is expand. it just mark view as expanded.
-            // second pass is render. it does know nothing about being JUST expanded.
-            // it need to flag somehow each view inside just expanded view
-            // as required to render on new line!
-            // also it seemes to be good idea to rename rendered field.
-            // there must be separated field: DIRTY and RENDERED.
-            // - dirty (need to re render)
-            // - rendered (was it rendered or not)
-            // ======================================
-            // SO. view could be rendered and dirty.
-            // if we are here, means view either does not exists,
-            // or it is not in same place, or it is dirty (become highlighted)
-            // if it is not rendered - insert new line
-            // if it is already rendered - replace existing line                        
-            // let new_line = iter.offset() == eol_iter.offset();
             println!("is this same or new line???? {:?} rendered - {:?}, dirty - {:?}", line_no, self.rendered, self.dirty);
             if !self.rendered {
+                println!("just insert new line {:?}", line_no);
                 buffer.insert(iter, &format!("{} {}\n", line_no, content));
             } else {
                 println!("the view is already rendered, but it need to rerender it at {:?}", line_no);
                 dbg!(self.clone());
-                // so. here is the huck. if view is dirty - render it on this line
-                // but it need to assert if it is on same line?
+                // if view is dirty - render it on this line
+                // but it need to assert if it is on same line
                 if self.dirty {
+                    println!("dirty view");
                     assert!(self.line_no == line_no);
                     let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
                     eol_iter.forward_to_line_end();
                     buffer.delete(iter, &mut eol_iter);
                     buffer.insert(iter, &format!("{} {}", line_no, content));
-                    // iter.forward_lines(1);
-                } else {
-                    // the view is not dirty.
-                    // it must be moved! either upward or downward.
+                } else if self.squashed && self.line_no > line_no {
+                    // squashing view must be moved.
+                    // either upward or downward.
                     // render comes from top to bottom.
                     // so, there will be only ONE move during render:
-                    // either upward (delete lines!) or downward!
-                    if self.line_no < line_no {
-                        println!("SKIP ALREADY EXISING VIEW. this line {:?}, view line {:?}", line_no, self.line_no);
-                        // something above was expanded!
-                        // nothing todo. just bind new line to this view
-                        // later in this method
-                    } else {
-                        println!("DELETE LINES BEFORE ALREADY EXISING VIEW. this line {:?}, view line {:?}", line_no, self.line_no);
-                        let mut my_iter = buffer.iter_at_line(self.line_no);
-                        // move up (deleting lines) occurs only ONCE per whole render!
-                        if my_iter.is_some() {
-                            // lines were not deleted
-                            // BUT IT IS NOT FOR SURE.
-                            // MUST BE ANOTHER WAY TO DETECT DELETION!
-                            buffer.delete(iter, &mut my_iter.unwrap());
-                        }
-                    }
+                    // either upward (delete lines) or downward
+
+                    // HOW TO DETECT THAT IT NEED TO KILL LINES????
+                    // ???????????????????
+                    // it need to do it only once!
+                    // only when this is next view to collapsed one!
+                    // how do i know that it is next?
+                    // collapsed view is that one, on which the cursor is placed
+                    // but because of static views, it could be several lines apart
+                    // ...
+                    println!("SQUASHING VIEW. this line {:?}, view line {:?}",
+                             line_no,
+                             self.line_no
+                    );
+                    let mut my_iter = buffer.iter_at_line(self.line_no).unwrap();
+                    buffer.delete(iter, &mut my_iter);
+
+                } else {
+                    println!("just skip this view. new line will be instaled on it");
                 }
                 iter.forward_lines(1);
             }
@@ -219,6 +199,7 @@ impl View {
         }
         self.rendered = true;
         self.dirty = false;
+        self.squashed = false;
         self
     }
 
@@ -380,14 +361,18 @@ pub trait ViewContainer {
         false
     }
 
-    fn expand(&mut self, line_no: i32) -> bool {
+    fn expand(&mut self, line_no: i32) -> (bool, bool) {
         let view = self.get_view();
-        let mut result = false;
+        let mut found = false;
+        let mut squash_found = false;
         if !view.rendered {
-            return result;
+            return (false, false);
         }
         if view.line_no == line_no {
-            result = true;
+            // mark this view expanded/collapsed
+            // squashed view wiould be marked in the loop
+            // above this
+            found = true;
             view.expanded = !view.expanded;
             // need to rerender
             view.dirty = true;
@@ -397,28 +382,23 @@ pub trait ViewContainer {
                 view.rendered = false;
             });
         } else if view.expanded {
-            // go deeper for self.children            
+            // go deeper for self.children
             for child in self.get_children() {
-                if result {
-                    println!("this is child after expanded line {:?}", child.get_kind());
-                    // HERE MUST GO RECALCULATION FOR SAME DIFF!
-                    // ok, so. i am in 
-                    dbg!(child.get_view());
-                } else {
-                    result = child.expand(line_no);
-                    if result {
-                        println!("just expanded this!");
-                        dbg!(child.get_view());
-                    }
+                if found {
+                    // found is previous child
+                    // this child in loop is squashed
+                    child.get_view().squashed = true;
+                    squash_found = true;
+                    break;
                 }
-                // if result {
-                //     // all other children become dirty!
-                //     // but it is already works some how...
-                //     break;
-                // }
+                (found, squash_found) = child.expand(line_no);
+                // mark expanded and squashed deeper
+                if found && squash_found {
+                    break
+                }
             }
         }
-        result
+        (found, squash_found)
     }
 }
 
@@ -498,8 +478,8 @@ impl ViewContainer for Line {
         Vec::new()
     }
 
-    fn expand(&mut self, _line_no: i32) -> bool {
-        false
+    fn expand(&mut self, _line_no: i32) -> (bool, bool) {
+        (false, false)
     }
 
     fn is_active_by_parent(&self, active: bool) -> bool {
@@ -517,30 +497,28 @@ pub fn expand(
     sndr: Sender<crate::Event>,
 ) {
     let mut expanded = false;
+    let mut squashed = false;
     let mut delta: i32 = 0;
     let mut last_line: i32 = 0;
+    // 1 view will be marked expanded/collapsed
+    // next view will be marked squashed, to delete preceeding lines
+    // on render
     for diff in [&mut status.unstaged, &mut status.staged] {
+        println!("LOOOOOOOOOOOP FOR DIFF expand squahswed {:?} {:?}", expanded, squashed);
         for file in &mut diff.files {
-            if file.expand(line_no) {
-                expanded = true;
-                // // HERE MUST GO RECALCULATION FOR ANOTHER DIFFS
-                // let from = diff.view.line_from;
-                // let to = diff.view.line_to;
-                // let mut iter = render_diff(txt, diff, from + delta);
-                // // then... then above diff become collapsed/expanded
-                // // next diff become invalid.
-                // delta = diff.view.line_to - to;
-                // println!("DELTA AFTER RENDER! {:?}", delta);
-                // let buffer = iter.buffer();
-
-                // println!("rendrered. was from {:?} to {:?}, become {:?}", from, to, iter.line());
-                // println!("diff become from {:?} to {:?}", diff.view.line_from, diff.view.line_to);
-                // // this is actual only for second diff!
-                // buffer.delete(&mut iter, &mut buffer.end_iter());
-                // // this is actual only for second diff!
-                
-                // iter.set_offset(offset);
-                // buffer.place_cursor(&iter);
+            if expanded && !squashed {
+                // mark next file for squashing
+                // it could be in another diff!
+                file.get_view().squashed = true;
+                squashed = true;
+                break;
+            }
+            if !expanded {
+                // try to expand only once
+                (expanded, squashed) = file.expand(line_no);
+            }
+            if expanded && squashed {
+                // all set
                 break;
             }
         }
@@ -548,7 +526,7 @@ pub fn expand(
             // render expanded and every other diff
             let from = diff.view.line_from;
             let to = diff.view.line_to;
-            render_diff(txt, diff, from + delta);            
+            render_diff(txt, diff, from + delta);
             last_line = diff.view.line_to;
             delta =  last_line - to;
         }
@@ -558,27 +536,6 @@ pub fn expand(
     buffer.delete(&mut iter, &mut buffer.end_iter());
     iter.set_offset(offset);
     buffer.place_cursor(&iter);
-    
-    // what is happening:
-    // when expand first line and call render_status
-    // it goes to line 0. insert STATIC text and whole
-    // view moves down to 1 line.
-    // then everything become broken :(
-    // 1. All inserted lines in TextView must be views!
-    // event STATIC one liners!
-    // 2. line_from, line_to, positions - doesn't really matter!
-    // they are NOT USED AT ALL FOR NOW!!!
-    // Cause Expand/collapse kill everyhning!
-
-    // lets think about it once more.
-    // for now only the expand are changing view.
-    // changes in dynamic regions could be tracked via
-    // region position (line_from, line_to)
-    // it need to render diffs 1 by 1, and adjust next views accordingly:
-    // change view lines
-
-    // wel. it does not work, because new views are overwrite pld views.
-    // why?
 }
 
 pub fn cursor(
@@ -603,17 +560,9 @@ pub fn cursor(
 }
 
 pub fn render_diff(txt: &TextView, diff: &mut Diff, line_no: i32) -> TextIter {
-    // there is a misconception in line_no for this function
-    // initialy it renders blank new diff.
-    // but what about already existent diffs after expand collapse?
-    // all views inside already must be on its place by previous renders.
-    // (csuse expand and cursor does not change structure of view.
-    // those are just changes variablies for rendering.
-    // then... then above diff become collapsed/expanded
-    // current diff become invalid.
     let buffer = txt.buffer();
     diff.view.line_from = line_no;
-    println!("rendrening diff for line {:?}", line_no);
+    println!("rendering diff for line {:?}", line_no);
     let mut iter = buffer.iter_at_line(line_no).unwrap();
 
     for file in &mut diff.files {
