@@ -531,11 +531,14 @@ pub fn expand(
             delta =  last_line - to;
         }
     }
-    let buffer = txt.buffer();
-    let mut iter = buffer.iter_at_line(last_line).unwrap();
-    buffer.delete(&mut iter, &mut buffer.end_iter());
-    iter.set_offset(offset);
-    buffer.place_cursor(&iter);
+    
+    if expanded {
+        let buffer = txt.buffer();
+        let mut iter = buffer.iter_at_line(last_line).unwrap();
+        buffer.delete(&mut iter, &mut buffer.end_iter());
+        iter.set_offset(offset);
+        buffer.place_cursor(&iter);
+    }
 }
 
 pub fn cursor(
