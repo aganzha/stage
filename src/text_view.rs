@@ -375,6 +375,12 @@ impl ViewContainer for Diff {
             .collect()
     }
 
+    fn cursor(&mut self, line_no: i32, parent_active: bool) {
+        for file in &mut self.files {
+            file.cursor(line_no, parent_active);
+        }
+    }
+    
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
         for file in &mut self.files {
             file.render(buffer, iter);
@@ -563,9 +569,7 @@ pub fn cursor(
     _sndr: Sender<crate::Event>,
 ) {
     for diff in [&mut status.unstaged, &mut status.staged] {
-        for file in &mut diff.files {
-            file.cursor(line_no, false);
-        }
+        diff.cursor(line_no, false);
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_line(diff.line_from()).unwrap();
         diff.render(&buffer, &mut iter);
