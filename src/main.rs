@@ -36,7 +36,8 @@ fn load_css() {
 
 pub enum Event {
     CurrentRepo(std::ffi::OsString),
-    Status(Diff),
+    Unstaged(Diff),
+    Staged(Diff),
     Expand(i32, i32),
     Cursor(i32, i32),
     // does not used for now
@@ -73,9 +74,8 @@ fn build_ui(app: &adw::Application) {
 
     window.set_content(Some(&container));
 
-    let mut repo: Option<std::ffi::OsString> = None;
-    let mut diff: Option<Diff> = None;
-    let mut status: Option<Status> = None;
+    let mut current_repo_path: Option<std::ffi::OsString> = None;
+    let mut status = Status::new();
 
     gio::spawn_blocking({
         let sender = sender.clone();
@@ -87,28 +87,30 @@ fn build_ui(app: &adw::Application) {
     receiver.attach(None, move |event: Event| {
         match event {
             Event::CurrentRepo(path) => {
-                repo.replace(path);
+                current_repo_path.replace(path);
             }
-            Event::Status(d) => {
-                println!("main. git diff in status {:p}", &d);
-                diff.replace(d.clone());
-                let mut s = Status::new();
-                s.staged = d.clone();
-                s.unstaged = d.clone();
-                status.replace(s);
-                render_status(&txt, status.as_mut().unwrap(), sender.clone());
+            Event::Staged(d) => {
+                println!("main. staged {:p}", &d);
+                status.staged.replace(d);
+                if status.staged.is_some() && status.unstaged.is_some() {
+                    render_status(&txt, &mut status, sender.clone());
+                }
+            }
+            Event::Unstaged(d) => {
+                println!("main. unstaged {:p}", &d);
+                status.unstaged.replace(d);
+                if status.staged.is_some() && status.unstaged.is_some() {
+                    render_status(&txt, &mut status, sender.clone());
+                }
             }
             Event::Expand(offset, line_no) => {
-                let s = status.as_mut().unwrap();
-                expand(&txt, s, offset, line_no, sender.clone());
+                expand(&txt, &mut status, offset, line_no, sender.clone());
             }
             Event::Cursor(offset, line_no) => {
-                let s = status.as_mut().unwrap();
-                cursor(&txt, s, offset, line_no, sender.clone());
+                cursor(&txt, &mut status, offset, line_no, sender.clone());
             }
             Event::Stage(offset, line_no) => {
-                let s = status.as_mut().unwrap();
-                stage(&txt, s, offset, line_no, sender.clone());
+                stage(&txt, &mut status, offset, line_no, sender.clone());
                 println!("STAGE THIS TEXT {:?} in {:?}", offset, line_no);
             }
         };

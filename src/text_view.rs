@@ -550,9 +550,9 @@ pub struct Status {
     pub head: Label,
     pub origin: Label,
     pub staged_label: Label,
-    pub staged: Diff,
+    pub staged: Option<Diff>,
     pub unstaged_label: Label,
-    pub unstaged: Diff,
+    pub unstaged: Option<Diff>,
 }
 
 impl Status {
@@ -561,9 +561,9 @@ impl Status {
             head: Label::new(),
             origin: Label::new(),
             staged_label: Label::new(),
-            staged: Diff::new(),
+            staged: None,
             unstaged_label: Label::new(),
-            unstaged: Diff::new(),
+            unstaged: None,
         }
     }
 }
@@ -586,7 +586,14 @@ pub fn expand(
     // 1 view will be marked expanded/collapsed
     // next view will be marked squashed, to delete preceeding lines
     // on render. squashed view could be on another diff!
-    for diff in [&mut status.unstaged, &mut status.staged] {
+    let mut diffs: Vec<&mut Diff> = Vec::new();
+    if status.unstaged.is_some() {
+        diffs.push(status.unstaged.as_mut().unwrap());
+    }
+    if status.staged.is_some() {
+        diffs.push(status.staged.as_mut().unwrap());
+    }
+    for diff in diffs {
         for file in &mut diff.files {
             if !expanded {
                 expanded = file.expand(line_no);
@@ -629,13 +636,14 @@ pub fn stage(
     line_no: i32,
     _sndr: Sender<crate::Event>,
 ) {
-    if let Some(diff) = try_stage(&mut status.unstaged, line_no) {
-        let buffer = txt.buffer();
-        let mut iter = buffer.iter_at_line(line_no).unwrap();
-        status.staged.add(diff);
-        status.unstaged.render(&buffer, &mut iter);
-        status.staged.render(&buffer, &mut iter);
-    }
+    println!("staaaaaaaaaaaaaaaaaaage");
+    // if let Some(diff) = try_stage(&mut status.unstaged, line_no) {
+    //     let buffer = txt.buffer();
+    //     let mut iter = buffer.iter_at_line(line_no).unwrap();
+    //     status.staged.add(diff);
+    //     status.unstaged.render(&buffer, &mut iter);
+    //     status.staged.render(&buffer, &mut iter);
+    // }
 }
 
 pub fn cursor(
@@ -645,7 +653,14 @@ pub fn cursor(
     line_no: i32,
     _sndr: Sender<crate::Event>,
 ) {
-    for diff in [&mut status.unstaged, &mut status.staged] {
+    let mut diffs: Vec<&mut Diff> = Vec::new();
+    if status.unstaged.is_some() {
+        diffs.push(status.unstaged.as_mut().unwrap());
+    }
+    if status.staged.is_some() {
+        diffs.push(status.staged.as_mut().unwrap());
+    }
+    for diff in diffs {
         diff.cursor(line_no, false);
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_line(diff.line_from()).unwrap();
@@ -667,16 +682,20 @@ pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::E
     status.origin = Label::from_string("Origin: common_view refactor cursor");
     status.origin.render(&buffer, &mut iter);
 
-    status.unstaged_label = Label::from_string("Unstaged changes");
-    status.unstaged_label.render(&buffer, &mut iter);
+    if status.unstaged.is_some() {
+        status.unstaged_label = Label::from_string("Unstaged changes");
+        status.unstaged_label.render(&buffer, &mut iter);
 
-    status.unstaged.render(&buffer, &mut iter);
+        status.unstaged.as_mut().unwrap().render(&buffer, &mut iter);
+    }
 
-    status.staged_label = Label::from_string("Staged changes");
-    status.staged_label.render(&buffer, &mut iter);
+    if status.staged.is_some() {
+        status.staged_label = Label::from_string("Staged changes");
+        status.staged_label.render(&buffer, &mut iter);
 
-    status.staged.render(&buffer, &mut iter);
-
+        status.staged.as_mut().unwrap().render(&buffer, &mut iter);
+    }
+    
     buffer.delete(&mut iter, &mut buffer.end_iter());
 }
 
