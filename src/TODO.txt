@@ -1,36 +1,12 @@
-- instead of squashing, perhaps its better to delete collapsed views line by line?
+- adding a hunk to index is git … apply --cached -p0 --ignore-space-change -
+weird.
+- whats get applied???
+- where is this diff stored???
+
+- refactor cursor to every view, by selecting actual view.
+do not call render on everything
+
 - collapse when press tab on line? YES, please
-
-BUG: it need to cleanup to end of bugger after rendering diff (no it is cleaned only on status render);
-
-
-- ideas: expand as pure insert of text. nothing else will need rerendering
-this leads to some sort of reconcilation algorythm. eg recalculate on line views:
-  though its easy! just to +- some offset to each view!
-or, forget about reconsilation alltogether and render everything again and again....
-(means no need is_rendered_on_its_place at all).
-insert for expand/delete for collapse looks smarter
-SOOOOOOOOOOOOOOOOOOOOOOO, later.
-
-Lets focus on second view then.
-
-render head
-render diff
-render staged
-each step will set cursor somehow
-there will be more section.
-someone have to decide what it will be.
-Diff in the root must be Repo instead. and store itself diffs of unstaged and staged changes.
-also new files.
-
-Lets imagine for now, that Diff in root is Repo and DiffView is repo view.
-It must store line where to start next section.
-Perhaps just CURRENT_CURSOR and thats it!
-This position will be moved always.
-Each rendered section (diff, new files etc) must have start line and end line to detect
-when something pressed, the proper section which apply action to.
-so: current_cursor - floating position.
-And each struct tracks its border/limits (eg start/end)
 
 
 - open with no diff in files. works weird

@@ -1,4 +1,6 @@
+use crate::gio;
 use crate::glib::Sender;
+
 use git2::{DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType, Oid, Repository};
 use std::{env, ffi, path, str};
 
@@ -152,7 +154,7 @@ impl Default for File {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Diff {
     pub files: Vec<File>,
     pub view: View,
@@ -165,34 +167,27 @@ impl Diff {
             view: View::new(),
         }
     }
-}
 
-impl Default for Diff {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-pub struct Status {
-    pub staged: Diff,
-    pub unstaged: Diff,
-    pub views: Vec<View>
-}
-
-impl Status {
-    pub fn new() -> Self {
-        Self {
-            staged: Diff::new(),
-            unstaged: Diff::new(),
-            views: Vec::new()
+    pub fn add(&mut self, other: Diff) {
+        for file in other.files {
+            self.files.push(file);
         }
     }
 }
 
-impl Default for Status {
-    fn default() -> Self {
-        Self::new()
-    }
+pub fn get_index(path: ffi::OsString, sender: Sender<crate::Event>) {
+    let repo = Repository::open(path).expect("can't open repo");
+    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    if let Ok(git_diff) = repo.diff_tree_to_index(Some(&current_tree), None, None) {
+        let _res = git_diff.print(DiffFormat::Patch, |diff_delta, o_diff_hunk, diff_line| {
+            println!(
+                "line in stage diff {:?}",
+                str::from_utf8(diff_line.content()).unwrap()
+            );
+            true
+        });
+    };
 }
 
 pub fn get_current_repo_status(sender: Sender<crate::Event>) {
@@ -204,11 +199,18 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
     let some = get_current_repo(path_buff_r.unwrap());
     // TODO - remove if
     if let Ok(repo) = some {
-        let path = repo.path();
+        let path = ffi::OsString::from(repo.path());
+
         sender
-            .send(crate::Event::CurrentRepo(ffi::OsString::from(path)))
+            .send(crate::Event::CurrentRepo(path.clone()))
             .expect("Could not send through channel");
 
+        gio::spawn_blocking({
+            let sender = sender.clone();
+            move || {
+                get_index(path, sender);
+            }
+        });
         // let head = repo.head().unwrap();
         // let commit = head. peel_to_commit().unwrap();
         // let tree = commit.tree().unwrap();

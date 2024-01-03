@@ -1,10 +1,11 @@
 mod text_view;
-use text_view::{cursor, expand, render_status, text_view_factory};
+use text_view::{cursor, expand, render_status, stage, text_view_factory, Status};
+mod common_tests;
 mod git;
 use adw::prelude::*;
 use adw::{Application, ApplicationWindow, HeaderBar};
 use gdk::Display;
-use git::{get_current_repo_status, Diff, File, Hunk, Line, LineKind, Status, View};
+use git::{get_current_repo_status, Diff, File, Hunk, Line, LineKind, View};
 use glib::{MainContext, Priority};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, Box, CssProvider, Label, Orientation, ScrolledWindow}; // TextIter
@@ -48,9 +49,9 @@ fn build_ui(app: &adw::Application) {
     //window.set_default_size(640, 480);
     let scroll = ScrolledWindow::new();
 
-    let stage = Box::builder().build();
-    stage.set_orientation(Orientation::Vertical);
-    stage.add_css_class("stage");
+    let container = Box::builder().build();
+    container.set_orientation(Orientation::Vertical);
+    container.add_css_class("stage");
     let hb = HeaderBar::new();
     let lbl = Label::builder()
         .label("stage")
@@ -58,7 +59,7 @@ fn build_ui(app: &adw::Application) {
         .width_chars(5)
         .build();
     hb.set_title_widget(Some(&lbl));
-    stage.append(&hb);
+    container.append(&hb);
 
     let (sender, receiver) = MainContext::channel(Priority::default());
 
@@ -68,9 +69,9 @@ fn build_ui(app: &adw::Application) {
     scroll.set_max_content_height(960);
     scroll.set_child(Some(&txt));
 
-    stage.append(&scroll);
+    container.append(&scroll);
 
-    window.set_content(Some(&stage));
+    window.set_content(Some(&container));
 
     let mut repo: Option<std::ffi::OsString> = None;
     let mut diff: Option<Diff> = None;
@@ -86,35 +87,28 @@ fn build_ui(app: &adw::Application) {
     receiver.attach(None, move |event: Event| {
         match event {
             Event::CurrentRepo(path) => {
-                if repo.is_none() {
-                    // need cleanup everything
-                }
                 repo.replace(path);
             }
             Event::Status(d) => {
-                println!("git diff in status {:p}", &d);
+                println!("main. git diff in status {:p}", &d);
                 diff.replace(d.clone());
                 let mut s = Status::new();
                 s.staged = d.clone();
                 s.unstaged = d.clone();
                 status.replace(s);
                 render_status(&txt, status.as_mut().unwrap(), sender.clone());
-                // It works!
-                // let d = diff.as_mut().unwrap();
-                // render_head(&txt, d, sender.clone());
-                // render(&txt, d, sender.clone());
             }
             Event::Expand(offset, line_no) => {
-                // let d = diff.as_mut().unwrap();
                 let s = status.as_mut().unwrap();
                 expand(&txt, s, offset, line_no, sender.clone());
             }
             Event::Cursor(offset, line_no) => {
-                // let d = diff.as_mut().unwrap();
                 let s = status.as_mut().unwrap();
                 cursor(&txt, s, offset, line_no, sender.clone());
             }
             Event::Stage(offset, line_no) => {
+                let s = status.as_mut().unwrap();
+                stage(&txt, s, offset, line_no, sender.clone());
                 println!("STAGE THIS TEXT {:?} in {:?}", offset, line_no);
             }
         };

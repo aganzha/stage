@@ -1,8 +1,8 @@
+use crate::common_tests::*;
+use crate::{Diff, File, Hunk, Line, View};
 use glib::Sender;
 use gtk::prelude::*;
 use gtk::{gdk, glib, TextBuffer, TextIter, TextTag, TextView};
-
-use crate::{Diff, File, Hunk, Line, Status, View};
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
@@ -140,7 +140,7 @@ impl Label {
     pub fn from_string(content: &str) -> Self {
         Label {
             content: String::from(content),
-            view: View::new()
+            view: View::new(),
         }
     }
 }
@@ -166,23 +166,17 @@ impl View {
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
         let line_no = iter.line();
-        println!("render viiiiiiiiiiew {:?}", line_no);
-        dbg!(&self);
-        if self.is_rendered_in(line_no) {
 
+        if self.is_rendered_in(line_no) {
             // skip untouched view
             iter.forward_lines(1);
-
         } else if !self.rendered {
-
             // render brand new view
             buffer.insert(iter, &format!("{} {}\n", line_no, content));
             self.line_no = line_no;
             self.rendered = true;
             self.apply_tags(buffer);
-
         } else if self.dirty {
-
             // replace view with new content
             assert!(self.line_no == line_no);
             let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
@@ -192,16 +186,12 @@ impl View {
             iter.forward_lines(1);
             self.apply_tags(buffer);
             self.rendered = true;
-
         } else if self.squashed {
             // just delete it
-            println!("delete view at line {:?}", line_no);
-            dbg!(&self);
             let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
             nel_iter.forward_lines(1);
             buffer.delete(iter, &mut nel_iter);
             self.rendered = false;
-            println!("iter after {:?}", iter.line());
         } else {
             // view was just moved to another line
             // due ti expansion/collapsing
@@ -360,8 +350,8 @@ pub trait ViewContainer {
             // go deeper for self.children
             for child in self.get_children() {
                 found = child.expand(line_no);
-                if  found {
-                    break
+                if found {
+                    break;
                 }
             }
         }
@@ -530,7 +520,6 @@ impl ViewContainer for Line {
 }
 
 impl ViewContainer for Label {
-
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
@@ -556,6 +545,29 @@ impl ViewContainer for Label {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Status {
+    pub head: Label,
+    pub origin: Label,
+    pub staged_label: Label,
+    pub staged: Diff,
+    pub unstaged_label: Label,
+    pub unstaged: Diff,
+}
+
+impl Status {
+    pub fn new() -> Self {
+        Self {
+            head: Label::new(),
+            origin: Label::new(),
+            staged_label: Label::new(),
+            staged: Diff::new(),
+            unstaged_label: Label::new(),
+            unstaged: Diff::new(),
+        }
+    }
+}
+
 pub fn expand(
     txt: &TextView,
     status: &mut Status,
@@ -564,7 +576,7 @@ pub fn expand(
     sndr: Sender<crate::Event>,
 ) {
     let mut expanded = false;
-    let mut squashed = false;
+
     // lines changed during expand/collapse
     // e.g. +10 or -10
     // will be applied to the view next to expanded/collapsed
@@ -589,7 +601,6 @@ pub fn expand(
             let to = diff.line_to();
 
             let buffer = txt.buffer();
-            println!("render diff in line {:?} at line {:?}", from, from + delta);
             let mut iter = buffer.iter_at_line(from + delta).unwrap();
             diff.render(&buffer, &mut iter);
 
@@ -604,6 +615,26 @@ pub fn expand(
         buffer.delete(&mut iter, &mut buffer.end_iter());
         iter.set_offset(offset);
         buffer.place_cursor(&iter);
+    }
+}
+
+fn try_stage(diff: &mut Diff, line_no: i32) -> Option<Diff> {
+    None
+}
+
+pub fn stage(
+    txt: &TextView,
+    status: &mut Status,
+    offset: i32,
+    line_no: i32,
+    _sndr: Sender<crate::Event>,
+) {
+    if let Some(diff) = try_stage(&mut status.unstaged, line_no) {
+        let buffer = txt.buffer();
+        let mut iter = buffer.iter_at_line(line_no).unwrap();
+        status.staged.add(diff);
+        status.unstaged.render(&buffer, &mut iter);
+        status.staged.render(&buffer, &mut iter);
     }
 }
 
@@ -630,19 +661,19 @@ pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::E
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
-    let mut head = Label::from_string("Head:     common_view refactor cursor");
-    head.render(&buffer, &mut iter);
+    status.head = Label::from_string("Head:     common_view refactor cursor");
+    status.head.render(&buffer, &mut iter);
 
-    let mut origin = Label::from_string("Origin: common_view refactor cursor");
-    origin.render(&buffer, &mut iter);
+    status.origin = Label::from_string("Origin: common_view refactor cursor");
+    status.origin.render(&buffer, &mut iter);
 
-    let mut unstaged_label = Label::from_string("Unstaged changes");
-    unstaged_label.render(&buffer, &mut iter);
+    status.unstaged_label = Label::from_string("Unstaged changes");
+    status.unstaged_label.render(&buffer, &mut iter);
 
     status.unstaged.render(&buffer, &mut iter);
 
-    let mut staged_label = Label::from_string("Staged changes");
-    staged_label.render(&buffer, &mut iter);
+    status.staged_label = Label::from_string("Staged changes");
+    status.staged_label.render(&buffer, &mut iter);
 
     status.staged.render(&buffer, &mut iter);
 
@@ -652,200 +683,164 @@ pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::E
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn create_line(prefix: i32) -> Line {
-        let mut line = Line::new();
-        line.content = format!("line {}", prefix);
-        line.kind = crate::LineKind::Regular;
-        line
+
+    pub fn render_view(vc: &mut dyn ViewContainer, mut line_no: i32) -> i32 {
+        let view = vc.get_view();
+        view.line_no = line_no;
+        view.rendered = true;
+        view.dirty = false;
+        line_no += 1;
+        if view.expanded || view.child_dirty {
+            for child in vc.get_children() {
+                line_no = render_view(child, line_no)
+            }
+            vc.get_view().child_dirty = false;
+        }
+        line_no
     }
 
-    fn create_hunk(prefix: i32) -> Hunk {
-        let mut hunk = Hunk::new();
-        hunk.header = format!("hunk {}", prefix);
-        for i in 0..3 {
-            hunk.lines.push(create_line(i))
+    pub fn render(diff: &mut Diff) -> i32 {
+        let mut line_no: i32 = 0;
+        for file in &mut diff.files {
+            line_no = render_view(file, line_no);
         }
-        hunk
+        line_no
     }
 
-    fn create_file(prefix: i32) -> File {
-        let mut file = File::new();
-        file.path = format!("file{}.rs", prefix).into();
-        for i in 0..3 {
-            file.hunks.push(create_hunk(i))
+    pub fn cursor(diff: &mut Diff, line_no: i32) {
+        for (_, file) in diff.files.iter_mut().enumerate() {
+            file.cursor(line_no, false);
         }
-        file
+        // some views will be rerenderred cause highlight changes
+        render(diff);
     }
 
-    fn create_diff() -> Diff {
-        let mut diff = Diff::new();
-        for i in 0..3 {
-            diff.files.push(create_file(i));
-        }
-        diff
-    }
+    #[test]
+    pub fn test_single_diff() {
+        let mut diff = create_diff();
 
-    mod single_diff {
-        use super::*;
+        render(&mut diff);
 
-        pub fn render_view(vc: &mut dyn ViewContainer, mut line_no: i32) -> i32 {
-            let view = vc.get_view();
-            view.line_no = line_no;
-            view.rendered = true;
-            view.dirty = false;
-            line_no += 1;
-            if view.expanded || view.child_dirty {
-                for child in vc.get_children() {
-                    line_no = render_view(child, line_no)
-                }
-                vc.get_view().child_dirty = false;
-            }
-            line_no
-        }
-
-        pub fn render(diff: &mut Diff) -> i32 {
-            let mut line_no: i32 = 0;
-            for file in &mut diff.files {
-                line_no = render_view(file, line_no);
-            }
-            line_no
-        }
-
-        pub fn cursor(diff: &mut Diff, line_no: i32) {
-            for (_, file) in diff.files.iter_mut().enumerate() {
-                file.cursor(line_no, false);
-            }
-            // some views will be rerenderred cause highlight changes
-            render(diff);
-        }
-
-        #[test]
-        pub fn test_single_diff() {
-            let mut diff = create_diff();
-
-            render(&mut diff);
-
-            for cursor_line in 0..3 {
-                cursor(&mut diff, cursor_line);
-
-                for (i, file) in diff.files.iter_mut().enumerate() {
-                    let view = file.get_view();
-                    if i as i32 == cursor_line {
-                        assert!(view.active);
-                        assert!(view.current);
-                    } else {
-                        assert!(!view.active);
-                        assert!(!view.current);
-                    }
-                    assert!(!view.expanded);
-                }
-            }
-            // last line from prev loop
-            // the cursor is on it
-            let mut cursor_line = 2;
-            for file in &mut diff.files {
-                if file.expand(cursor_line) {
-                    assert!(file.get_view().child_dirty);
-                    break;
-                }
-            }
-
-            render(&mut diff);
+        for cursor_line in 0..3 {
+            cursor(&mut diff, cursor_line);
 
             for (i, file) in diff.files.iter_mut().enumerate() {
                 let view = file.get_view();
                 if i as i32 == cursor_line {
-                    assert!(view.rendered);
-                    assert!(view.current);
                     assert!(view.active);
-                    assert!(view.expanded);
-                    file.walk_down(&mut |vc: &mut dyn ViewContainer| {
-                        let view = vc.get_view();
-                        assert!(view.rendered);
-                        assert!(view.active);
-                        assert!(!view.current);
-                    });
+                    assert!(view.current);
                 } else {
-                    assert!(!view.current);
                     assert!(!view.active);
-                    assert!(!view.expanded);
-                    file.walk_down(&mut |vc: &mut dyn ViewContainer| {
-                        let view = vc.get_view();
-                        assert!(!view.rendered);
-                    });
-                }
-            }
-
-            // go 1 line backward
-            // end expand it
-            cursor_line = 1;
-            cursor(&mut diff, cursor_line);
-
-            for file in &mut diff.files {
-                if file.expand(cursor_line) {
-                    break;
-                }
-            }
-
-            render(&mut diff);
-            for (i, file) in diff.files.iter_mut().enumerate() {
-                let view = file.get_view();
-                let j = i as i32;
-                if j < cursor_line {
-                    // all are inactive
                     assert!(!view.current);
-                    assert!(!view.active);
-                    assert!(!view.expanded);
-                    file.walk_down(&mut |vc: &mut dyn ViewContainer| {
-                        let view = vc.get_view();
-                        assert!(!view.rendered);
-                    });
-                } else if j == cursor_line {
-                    // all are active
+                }
+                assert!(!view.expanded);
+            }
+        }
+        // last line from prev loop
+        // the cursor is on it
+        let mut cursor_line = 2;
+        for file in &mut diff.files {
+            if file.expand(cursor_line) {
+                assert!(file.get_view().child_dirty);
+                break;
+            }
+        }
+
+        render(&mut diff);
+
+        for (i, file) in diff.files.iter_mut().enumerate() {
+            let view = file.get_view();
+            if i as i32 == cursor_line {
+                assert!(view.rendered);
+                assert!(view.current);
+                assert!(view.active);
+                assert!(view.expanded);
+                file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+                    let view = vc.get_view();
                     assert!(view.rendered);
-                    assert!(view.current);
                     assert!(view.active);
-                    assert!(view.expanded);
-                    file.walk_down(&mut |vc: &mut dyn ViewContainer| {
-                        let view = vc.get_view();
-                        assert!(view.rendered);
-                        assert!(view.active);
-                        assert!(!view.current);
-                    });
-                } else if j > cursor_line {
-                    // all are expanded but inactive
-                    assert!(view.rendered);
                     assert!(!view.current);
-                    assert!(!view.active);
-                    assert!(view.expanded);
-                    file.walk_down(&mut |vc: &mut dyn ViewContainer| {
-                        let view = vc.get_view();
-                        assert!(view.rendered);
-                        assert!(!view.active);
-                        assert!(!view.current);
-                    });
-                }
+                });
+            } else {
+                assert!(!view.current);
+                assert!(!view.active);
+                assert!(!view.expanded);
+                file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+                    let view = vc.get_view();
+                    assert!(!view.rendered);
+                });
             }
+        }
 
-            // go to first hunk of second file
-            cursor_line = 2;
-            cursor(&mut diff, cursor_line);
-            for file in &mut diff.files {
-                if file.expand(cursor_line) {                    
-                    for child in file.get_children() {
-                        let view = child.get_view();
-                        if view.line_no == cursor_line {
-                            // hunks were expanded by default.
-                            // now they are collapsed!
-                            assert!(!view.expanded);
-                            assert!(view.child_dirty);
-                            for line in child.get_children() {
-                                assert!(line.get_view().squashed);
-                            }
+        // go 1 line backward
+        // end expand it
+        cursor_line = 1;
+        cursor(&mut diff, cursor_line);
+
+        for file in &mut diff.files {
+            if file.expand(cursor_line) {
+                break;
+            }
+        }
+
+        render(&mut diff);
+        for (i, file) in diff.files.iter_mut().enumerate() {
+            let view = file.get_view();
+            let j = i as i32;
+            if j < cursor_line {
+                // all are inactive
+                assert!(!view.current);
+                assert!(!view.active);
+                assert!(!view.expanded);
+                file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+                    let view = vc.get_view();
+                    assert!(!view.rendered);
+                });
+            } else if j == cursor_line {
+                // all are active
+                assert!(view.rendered);
+                assert!(view.current);
+                assert!(view.active);
+                assert!(view.expanded);
+                file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+                    let view = vc.get_view();
+                    assert!(view.rendered);
+                    assert!(view.active);
+                    assert!(!view.current);
+                });
+            } else if j > cursor_line {
+                // all are expanded but inactive
+                assert!(view.rendered);
+                assert!(!view.current);
+                assert!(!view.active);
+                assert!(view.expanded);
+                file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+                    let view = vc.get_view();
+                    assert!(view.rendered);
+                    assert!(!view.active);
+                    assert!(!view.current);
+                });
+            }
+        }
+
+        // go to first hunk of second file
+        cursor_line = 2;
+        cursor(&mut diff, cursor_line);
+        for file in &mut diff.files {
+            if file.expand(cursor_line) {
+                for child in file.get_children() {
+                    let view = child.get_view();
+                    if view.line_no == cursor_line {
+                        // hunks were expanded by default.
+                        // now they are collapsed!
+                        assert!(!view.expanded);
+                        assert!(view.child_dirty);
+                        for line in child.get_children() {
+                            assert!(line.get_view().squashed);
                         }
                     }
-                    break;
                 }
+                break;
             }
         }
     }
