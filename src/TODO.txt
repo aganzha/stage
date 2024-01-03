@@ -1,5 +1,6 @@
 - adding a hunk to index is git … apply --cached -p0 --ignore-space-change -
 weird.
+lol
 - whats get applied???
 - where is this diff stored???
 
@@ -27,6 +28,7 @@ do not call render on everything
 
 - .gitignore does not counted in gitlib2 !!!! flags : Status(IGNORED)
 
+op
 
 - in parallel thread, go to the source file, while read hunks and put whole file in tree sitter,
 make a syntax, highlight it and put into the diff. while insert line into the buffer, paint it with tags

@@ -1,8 +1,9 @@
 use crate::common_tests::*;
-use crate::{Diff, File, Hunk, Line, View};
+use crate::{stage_via_apply, ApplyFilter, Diff, File, Hunk, Line, View};
 use glib::Sender;
 use gtk::prelude::*;
-use gtk::{gdk, glib, TextBuffer, TextIter, TextTag, TextView};
+use gtk::{gdk, gio, glib, TextBuffer, TextIter, TextTag, TextView};
+use std::ffi::OsString;
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
@@ -256,7 +257,10 @@ pub trait ViewContainer {
 
     fn line_to(&self) -> i32;
 
+    fn get_self(&self) -> &dyn ViewContainer;
+
     // TODO - return bool and stop iteration when false
+    // visitor takes child as first arg and parent as second arg
     fn walk_down(&mut self, visitor: &mut dyn FnMut(&mut dyn ViewContainer)) {
         for child in self.get_children() {
             visitor(child);
@@ -338,8 +342,8 @@ pub trait ViewContainer {
             view.dirty = true;
             view.child_dirty = true;
             let expanded = view.expanded;
-            self.walk_down(&mut |rvc: &mut dyn ViewContainer| {
-                let view = rvc.get_view();
+            self.walk_down(&mut |vc: &mut dyn ViewContainer| {
+                let view = vc.get_view();
                 if expanded {
                     view.rendered = false;
                 } else {
@@ -385,6 +389,10 @@ impl ViewContainer for Diff {
         String::from("")
     }
 
+    fn get_self(&self) -> &dyn ViewContainer {
+        self
+    }
+
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
         self.files
             .iter_mut()
@@ -409,6 +417,10 @@ impl ViewContainer for Diff {
 impl ViewContainer for File {
     fn get_kind(&self) -> ViewKind {
         ViewKind::File
+    }
+
+    fn get_self(&self) -> &dyn ViewContainer {
+        self
     }
 
     fn line_from(&self) -> i32 {
@@ -441,6 +453,9 @@ impl ViewContainer for Hunk {
         ViewKind::Hunk
     }
 
+    fn get_self(&self) -> &dyn ViewContainer {
+        self
+    }
     fn line_from(&self) -> i32 {
         self.view.line_no
     }
@@ -487,7 +502,9 @@ impl ViewContainer for Line {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Line
     }
-
+    fn get_self(&self) -> &dyn ViewContainer {
+        self
+    }
     fn line_from(&self) -> i32 {
         self.view.line_no
     }
@@ -523,7 +540,9 @@ impl ViewContainer for Label {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
-
+    fn get_self(&self) -> &dyn ViewContainer {
+        self
+    }
     fn get_view(&mut self) -> &mut View {
         &mut self.view
     }
@@ -568,6 +587,42 @@ impl Status {
     }
 }
 
+impl Diff {
+    fn try_stage(&mut self, line_no: i32, path: &OsString, sender: Sender<crate::Event>) {
+        let mut filter: Option<ApplyFilter> = None;
+        let mut parent_hunk = String::from("");
+        self.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            if vc.get_kind() == ViewKind::Hunk {
+                parent_hunk = vc.get_content();
+            }
+
+            let v = vc.get_view();
+            if v.line_no == line_no {
+                match vc.get_kind() {
+                    ViewKind::File => {
+                        filter.replace(ApplyFilter::Delta(vc.get_content()));
+                    }
+                    ViewKind::Hunk => {
+                        filter.replace(ApplyFilter::Hunk(vc.get_content()));
+                    }
+                    ViewKind::Line => {
+                        filter.replace(ApplyFilter::Hunk(parent_hunk.clone()));
+                    }
+                    _ => {}
+                };
+            }
+        });
+        if filter.is_some() {
+            gio::spawn_blocking({
+                let path = path.clone();
+                move || {
+                    stage_via_apply(path, filter.unwrap(), sender);
+                }
+            });
+        }
+    }
+}
+
 pub fn expand(
     txt: &TextView,
     status: &mut Status,
@@ -602,6 +657,7 @@ pub fn expand(
                 break;
             }
         }
+
         if expanded {
             // render expanded and every other diff
             let from = diff.line_from();
@@ -625,25 +681,21 @@ pub fn expand(
     }
 }
 
-fn try_stage(diff: &mut Diff, line_no: i32) -> Option<Diff> {
-    None
-}
-
 pub fn stage(
     txt: &TextView,
     status: &mut Status,
     offset: i32,
     line_no: i32,
-    _sndr: Sender<crate::Event>,
+    repo_path: &OsString,
+    sndr: Sender<crate::Event>,
 ) {
-    println!("staaaaaaaaaaaaaaaaaaage");
-    // if let Some(diff) = try_stage(&mut status.unstaged, line_no) {
-    //     let buffer = txt.buffer();
-    //     let mut iter = buffer.iter_at_line(line_no).unwrap();
-    //     status.staged.add(diff);
-    //     status.unstaged.render(&buffer, &mut iter);
-    //     status.staged.render(&buffer, &mut iter);
-    // }
+    if status.unstaged.is_some() {
+        status
+            .unstaged
+            .as_mut()
+            .unwrap()
+            .try_stage(line_no, repo_path, sndr);
+    }
 }
 
 pub fn cursor(
@@ -695,7 +747,7 @@ pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::E
 
         status.staged.as_mut().unwrap().render(&buffer, &mut iter);
     }
-    
+
     buffer.delete(&mut iter, &mut buffer.end_iter());
 }
 

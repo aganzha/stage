@@ -5,7 +5,9 @@ mod git;
 use adw::prelude::*;
 use adw::{Application, ApplicationWindow, HeaderBar};
 use gdk::Display;
-use git::{get_current_repo_status, Diff, File, Hunk, Line, LineKind, View};
+use git::{
+    get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Hunk, Line, LineKind, View,
+};
 use glib::{MainContext, Priority};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, Box, CssProvider, Label, Orientation, ScrolledWindow}; // TextIter
@@ -110,7 +112,14 @@ fn build_ui(app: &adw::Application) {
                 cursor(&txt, &mut status, offset, line_no, sender.clone());
             }
             Event::Stage(offset, line_no) => {
-                stage(&txt, &mut status, offset, line_no, sender.clone());
+                stage(
+                    &txt,
+                    &mut status,
+                    offset,
+                    line_no,
+                    current_repo_path.as_ref().unwrap(),
+                    sender.clone(),
+                );
                 println!("STAGE THIS TEXT {:?} in {:?}", offset, line_no);
             }
         };

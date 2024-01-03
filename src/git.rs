@@ -1,8 +1,10 @@
 use crate::gio;
 use crate::glib::Sender;
 
+use ffi::OsString;
 use git2::{
-    Diff as GitDiff, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType, Oid, Repository,
+    ApplyLocation, ApplyOptions, Diff as GitDiff, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType, Oid,
+    Repository,
 };
 use std::{env, ffi, path, str};
 
@@ -118,7 +120,7 @@ impl Default for Hunk {
 #[derive(Debug, Clone)]
 pub struct File {
     pub view: View,
-    pub path: ffi::OsString,
+    pub path: OsString,
     pub id: Oid,
     pub hunks: Vec<Hunk>,
 }
@@ -127,7 +129,7 @@ impl File {
     pub fn new() -> Self {
         Self {
             view: View::new(),
-            path: ffi::OsString::new(),
+            path: OsString::new(),
             id: Oid::zero(),
             hunks: Vec::new(),
         }
@@ -177,7 +179,7 @@ impl Diff {
     }
 }
 
-pub fn get_staged(path: ffi::OsString, sender: Sender<crate::Event>) {
+pub fn get_staged(path: OsString, sender: Sender<crate::Event>) {
     let repo = Repository::open(path).expect("can't open repo");
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
@@ -198,7 +200,7 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
     let some = get_current_repo(path_buff_r.unwrap());
     // TODO - remove if
     if let Ok(repo) = some {
-        let path = ffi::OsString::from(repo.path());
+        let path = OsString::from(repo.path());
 
         sender
             .send(crate::Event::CurrentRepo(path.clone()))
@@ -218,6 +220,11 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
                 .expect("Could not send through channel");
         }
     }
+}
+
+pub enum ApplyFilter {
+    Delta(String),
+    Hunk(String),
 }
 
 pub fn make_diff(git_diff: GitDiff) -> Diff {
@@ -269,4 +276,64 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
     current_file.push_hunk(current_hunk);
     diff.files.push(current_file);
     diff
+}
+
+pub fn stage_via_apply(path: OsString, filter: ApplyFilter, sender: Sender<crate::Event>) {
+    let repo = Repository::open(path).expect("can't open repo");
+    let diff = repo
+        .diff_index_to_workdir(None, None)
+        .expect("can't get diff");
+    let mut options = ApplyOptions::new();
+
+    options.hunk_callback(|odh| -> bool {
+        println!("in the hunk callback");
+        if let Some(dh) = odh {
+            println!("got DiffHunk!");
+            let header = Hunk::get_header_from(&dh);
+            println!("conteeeeeeeeeeent of DiffHunk {:?}", header);
+            let result: bool = match &filter {
+                ApplyFilter::Delta(_content) => {
+                    true
+                },
+                ApplyFilter::Hunk(content) => {
+                    content == &header
+                }
+            };
+            println!("result in hunk callback {:?}", result);
+            return result
+        }
+        false
+    });
+    options.delta_callback(|odd| -> bool {
+        println!("in the hunk callback");
+        if let Some(dd) = odd {
+            println!("got DiffHunk!");
+            let new_file = dd.new_file();
+            let file = File::from_diff_file(&new_file);
+            println!("conteeeeeeeeeeent of DiffDelta {:?}", file);
+            let result: bool = match &filter {
+                ApplyFilter::Delta(_content) => {
+                    true
+                },
+                ApplyFilter::Hunk(content) => {
+                    content == &file.path.to_str().unwrap().to_string()
+                }
+            };
+            println!("result in delta callback {:?}", result);
+            return result
+        }
+        false
+    });
+    options.delta_callback(|_df| -> bool {
+        match &filter {
+            ApplyFilter::Delta(_content) => {
+                true
+            },
+            ApplyFilter::Hunk(content) => {
+                false
+            }
+        }
+    });
+    let result = repo.apply(&diff, ApplyLocation::Index, Some(&mut options));
+    println!("yyyyyyyyyyyyyyyyyyyeah! {:?}", result);
 }
