@@ -20,6 +20,7 @@ pub struct View {
     pub squashed: bool,
     pub rendered: bool,
     pub dirty: bool,
+    pub child_dirty: bool,
     pub active: bool,
     pub current: bool,
     pub tags: Vec<String>,

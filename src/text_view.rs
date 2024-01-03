@@ -136,7 +136,7 @@ impl Label {
             view: View::new(),
         }
     }
-    
+
     pub fn from_string(content: &str) -> Self {
         Label {
             content: String::from(content),
@@ -153,6 +153,7 @@ impl View {
             squashed: false,
             rendered: false,
             dirty: false,
+            child_dirty: false,
             active: false,
             current: false,
             tags: Vec::new(),
@@ -160,18 +161,28 @@ impl View {
     }
 
     fn is_rendered_in(&self, line_no: i32) -> bool {
-        self.rendered && self.line_no == line_no && !self.dirty
+        self.rendered && self.line_no == line_no && !self.dirty && !self.squashed
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
         let line_no = iter.line();
+        println!("render viiiiiiiiiiew {:?}", line_no);
+        dbg!(&self);
         if self.is_rendered_in(line_no) {
+
             // skip untouched view
             iter.forward_lines(1);
+
         } else if !self.rendered {
+
             // render brand new view
             buffer.insert(iter, &format!("{} {}\n", line_no, content));
+            self.line_no = line_no;
+            self.rendered = true;
+            self.apply_tags(buffer);
+
         } else if self.dirty {
+
             // replace view with new content
             assert!(self.line_no == line_no);
             let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
@@ -179,25 +190,25 @@ impl View {
             buffer.delete(iter, &mut eol_iter);
             buffer.insert(iter, &format!("{} {}", line_no, content));
             iter.forward_lines(1);
+            self.apply_tags(buffer);
+            self.rendered = true;
+
         } else if self.squashed {
-            if self.line_no > line_no {
-                // kill lines before this view, moving already rendered lines
-                // upward to cursor
-                let mut my_iter = buffer.iter_at_line(self.line_no).unwrap();
-                buffer.delete(iter, &mut my_iter);
-            } else {
-                // nothing todo. lines were moved downward by previous inserts
-                // just need to update line_no for current
-            }
-            iter.forward_lines(1);
+            // just delete it
+            println!("delete view at line {:?}", line_no);
+            dbg!(&self);
+            let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+            nel_iter.forward_lines(1);
+            buffer.delete(iter, &mut nel_iter);
+            self.rendered = false;
+            println!("iter after {:?}", iter.line());
         } else {
-            // view is rendered and not dirty and not squashed
-            // just exixtent view moved up and down somewhere at bottom
+            // view was just moved to another line
+            // due ti expansion/collapsing
+            self.line_no = line_no;
             iter.forward_lines(1);
         }
-        self.line_no = line_no;
-        self.apply_tags(buffer);
-        self.rendered = true;
+
         self.dirty = false;
         self.squashed = false;
         self
@@ -268,11 +279,12 @@ pub trait ViewContainer {
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
         let content = self.get_content();
         let view = self.get_view().render(buffer, iter, content);
-        if view.expanded {
+        if view.expanded || view.child_dirty {
             for child in self.get_children() {
                 child.render(buffer, iter)
             }
         }
+        self.get_view().child_dirty = false;
     }
 
     fn cursor(&mut self, line_no: i32, parent_active: bool) {
@@ -323,44 +335,37 @@ pub trait ViewContainer {
         false
     }
 
-    fn expand(&mut self, line_no: i32) -> (bool, bool) {
+    fn expand(&mut self, line_no: i32) -> bool {
         let view = self.get_view();
         let mut found = false;
-        let mut squash_found = false;
+
         if !view.rendered {
-            return (false, false);
+            return false;
         }
         if view.line_no == line_no {
-            // mark this view expanded/collapsed
-            // squashed view wiould be marked in the loop
-            // above this
             found = true;
             view.expanded = !view.expanded;
-            // need to rerender
             view.dirty = true;
-            // kill all children
+            view.child_dirty = true;
+            let expanded = view.expanded;
             self.walk_down(&mut |rvc: &mut dyn ViewContainer| {
                 let view = rvc.get_view();
-                view.rendered = false;
+                if expanded {
+                    view.rendered = false;
+                } else {
+                    view.squashed = true;
+                }
             });
         } else if view.expanded {
             // go deeper for self.children
             for child in self.get_children() {
-                if found {
-                    // found is previous child
-                    // this child in loop is squashed
-                    child.get_view().squashed = true;
-                    squash_found = true;
-                    break;
-                }
-                (found, squash_found) = child.expand(line_no);
-                // mark expanded and squashed deeper
-                if found && squash_found {
-                    break;
+                found = child.expand(line_no);
+                if  found {
+                    break
                 }
             }
         }
-        (found, squash_found)
+        found
     }
 }
 
@@ -513,8 +518,8 @@ impl ViewContainer for Line {
         Vec::new()
     }
 
-    fn expand(&mut self, _line_no: i32) -> (bool, bool) {
-        (false, false)
+    fn expand(&mut self, _line_no: i32) -> bool {
+        false
     }
 
     fn is_active_by_parent(&self, active: bool) -> bool {
@@ -571,19 +576,10 @@ pub fn expand(
     // on render. squashed view could be on another diff!
     for diff in [&mut status.unstaged, &mut status.staged] {
         for file in &mut diff.files {
-            if expanded && !squashed {
-                // mark next file for squashing
-                // it could be in another diff!
-                file.get_view().squashed = true;
-                squashed = true;
-                break;
-            }
             if !expanded {
-                // try to expand only once
-                (expanded, squashed) = file.expand(line_no);
+                expanded = file.expand(line_no);
             }
-            if expanded && squashed {
-                // all set
+            if expanded {
                 break;
             }
         }
@@ -593,6 +589,7 @@ pub fn expand(
             let to = diff.line_to();
 
             let buffer = txt.buffer();
+            println!("render diff in line {:?} at line {:?}", from, from + delta);
             let mut iter = buffer.iter_at_line(from + delta).unwrap();
             diff.render(&buffer, &mut iter);
 
@@ -641,7 +638,7 @@ pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::E
 
     let mut unstaged_label = Label::from_string("Unstaged changes");
     unstaged_label.render(&buffer, &mut iter);
-        
+
     status.unstaged.render(&buffer, &mut iter);
 
     let mut staged_label = Label::from_string("Staged changes");
@@ -697,10 +694,11 @@ mod tests {
             view.rendered = true;
             view.dirty = false;
             line_no += 1;
-            if view.expanded {
+            if view.expanded || view.child_dirty {
                 for child in vc.get_children() {
                     line_no = render_view(child, line_no)
                 }
+                vc.get_view().child_dirty = false;
             }
             line_no
         }
@@ -746,10 +744,8 @@ mod tests {
             // the cursor is on it
             let mut cursor_line = 2;
             for file in &mut diff.files {
-                let (expanded, squashed) = file.expand(cursor_line);
-                if expanded {
-                    // there is nothing to squash in single diff
-                    assert!(!squashed);
+                if file.expand(cursor_line) {
+                    assert!(file.get_view().child_dirty);
                     break;
                 }
             }
@@ -786,9 +782,7 @@ mod tests {
             cursor(&mut diff, cursor_line);
 
             for file in &mut diff.files {
-                let (expanded, squashed) = file.expand(cursor_line);
-                if expanded {
-                    assert!(!squashed);
+                if file.expand(cursor_line) {
                     break;
                 }
             }
@@ -837,20 +831,17 @@ mod tests {
             cursor_line = 2;
             cursor(&mut diff, cursor_line);
             for file in &mut diff.files {
-                let (expanded, squashed) = file.expand(cursor_line);
-                if expanded {
-                    // second hunk must be marked squashed!
-                    assert!(squashed);
+                if file.expand(cursor_line) {                    
                     for child in file.get_children() {
                         let view = child.get_view();
                         if view.line_no == cursor_line {
                             // hunks were expanded by default.
-                            // not it is collapsed!
+                            // now they are collapsed!
                             assert!(!view.expanded);
-                        }
-                        if view.line_no + 1 == cursor_line {
-                            // next hunk is squashed!
-                            assert!(!view.squashed);
+                            assert!(view.child_dirty);
+                            for line in child.get_children() {
+                                assert!(line.get_view().squashed);
+                            }
                         }
                     }
                     break;
