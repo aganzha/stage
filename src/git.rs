@@ -114,7 +114,7 @@ impl Hunk {
         for line in &mut self.lines {
             for ol in &other.lines {
                 if line.content == ol.content {
-                    line.view = ol.view.clone();
+                    line.view = ol.view.transfer();
                 }
             }
         }
@@ -165,8 +165,7 @@ impl File {
         for hunk in &mut self.hunks {
             for oh in &other.hunks {
                 if hunk.header == oh.header {
-                    dbg!(oh.view.clone());
-                    hunk.view = oh.view.clone();
+                    hunk.view = oh.view.transfer();
                     hunk.enrich_views(oh.clone());
                 }
             }
@@ -205,8 +204,8 @@ impl Diff {
     pub fn enrich_views(&mut self, other: Diff) {
         for file in &mut self.files {
             for of in &other.files {
-                if file.path == of.path {
-                    file.view = of.view.clone();
+                if file.path == of.path {                    
+                    file.view = of.view.transfer();
                     file.enrich_views(of.clone());
                 }
             }

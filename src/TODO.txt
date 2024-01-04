@@ -1,5 +1,11 @@
+BUG: Tags are accumulating!
+drug racing exists )) views of deleted hunks are still there.
+perhaps just skip rendering diff via dirty flag? it still be there collapsed.
+or empty while other diff become rendered. hm.
+
 every view should render every time! on every call!
 it is OK to call render, cause nothing will blink, cause everything is on its place!
+
 
 so, here is the problem - one thread pushes th changed and another diff is rerendered.
 it need to separate it to different renders of individual diff!
@@ -49,7 +55,6 @@ do not call render on everything
 - open repo under other user causeing error! handle it!
 
 - .gitignore does not counted in gitlib2 !!!! flags : Status(IGNORED)
-
 
 op
 

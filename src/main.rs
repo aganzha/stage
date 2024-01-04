@@ -1,5 +1,5 @@
 mod text_view;
-use text_view::{cursor, expand, render_status, stage, text_view_factory, Status};
+use text_view::{cursor, expand, render_status, stage, text_view_factory, debug, Status};
 mod common_tests;
 mod git;
 use adw::prelude::*;
@@ -37,7 +37,7 @@ fn load_css() {
 }
 
 pub enum Event {
-    Fake,
+    Debug,
     CurrentRepo(std::ffi::OsString),
     Unstaged(Diff),
     Staged(Diff),
@@ -92,19 +92,23 @@ fn build_ui(app: &adw::Application) {
             Event::CurrentRepo(path) => {
                 current_repo_path.replace(path);
             }
-            Event::Fake => {
+            Event::Debug => {
                 println!("main. FAKE");
-                render_status(&txt, &mut status, sender.clone());
-            }
+                debug(&txt, &mut status);
+            }            
             Event::Staged(d) => {
                 println!("main. staged {:p}", &d);
                 status.staged.replace(d);
-                render_status(&txt, &mut status, sender.clone());
+                if status.staged.is_some() && status.unstaged.is_some() {
+                    render_status(&txt, &mut status, sender.clone());
+                }
             }
             Event::Unstaged(d) => {
-                println!("main. unstaged {:p}", &d);
+                println!("main. unstaged {:p}", &d);                
                 status.unstaged.replace(d);
-                render_status(&txt, &mut status, sender.clone());
+                if status.staged.is_some() && status.unstaged.is_some() {
+                    render_status(&txt, &mut status, sender.clone());
+                }
             }
             Event::Expand(offset, line_no) => {
                 expand(&txt, &mut status, offset, line_no, sender.clone());

@@ -4,6 +4,7 @@ use glib::Sender;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, TextBuffer, TextIter, TextTag, TextView};
 use std::ffi::OsString;
+use std::{thread, time};
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
@@ -43,9 +44,9 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                     sndr.send(crate::Event::Stage(iter.offset(), iter.line()))
                         .expect("Could not send through channel");
                 }
-                gdk::Key::f => {
+                gdk::Key::d => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send(crate::Event::Fake)
+                    sndr.send(crate::Event::Debug)
                         .expect("Could not send through channel");
                 }
                 _ => (),
@@ -166,25 +167,37 @@ impl View {
         }
     }
 
+    pub fn transfer(&self) -> View {
+        let mut clone = self.clone();
+        if clone.squashed {
+            clone.squashed = false;
+            clone.rendered = false;
+            clone.tags = Vec::new();
+        }
+        clone
+    }
+    
     fn is_rendered_in(&self, line_no: i32) -> bool {
         self.rendered && self.line_no == line_no && !self.dirty && !self.squashed
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
         let line_no = iter.line();
-        if content == "@@ -1,4 +1,5 @@" {
-            println!("wtf??????????????????????????????????? {:?}", line_no);
-            dbg!(self.clone());
-        }
+        println!("line {:?} render view {:?} which is at line {:?}", line_no, content, self.line_no);
+        // thread::sleep(time::Duration::from_millis(200));
+        dbg!(self.clone());
         if self.is_rendered_in(line_no) {
-            // skip untouched view
+            // skip untouched view            
+            println!("---------------------------------------------> {:?}", iter.line());
             iter.forward_lines(1);
+            println!("in place {:?}", iter.line());
         } else if !self.rendered {
             // render brand new view
             buffer.insert(iter, &format!("{} {}\n", line_no, content));
             self.line_no = line_no;
             self.rendered = true;
             self.apply_tags(buffer);
+            println!("insert!");
         } else if self.dirty {
             // replace view with new content
             if self.line_no != line_no {
@@ -199,17 +212,28 @@ impl View {
             iter.forward_lines(1);
             self.apply_tags(buffer);
             self.rendered = true;
+            println!("dirty");
         } else if self.squashed {
             // just delete it
             let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
             nel_iter.forward_lines(1);
             buffer.delete(iter, &mut nel_iter);
             self.rendered = false;
+            println!("delete!");
         } else {
             // view was just moved to another line
             // due ti expansion/collapsing
             self.line_no = line_no;
-            iter.forward_lines(1);
+            println!("wtfffffffffffffffffffffffffffff? before {:?}", line_no);
+            let moved = iter.forward_lines(1);
+            if !moved {
+                // happens sometimes when buffer is over
+                buffer.insert(iter, &format!("{} {}\n", line_no, content));
+                self.apply_tags(buffer);
+                println!("insert on pass as buffer is over");
+            } else {            
+                println!("just pass");
+            }
         }
 
         self.dirty = false;
@@ -614,12 +638,7 @@ impl Status {
         let mut parent_file = String::from("");
         let mut found = false;
         let unstaged = self.unstaged.as_mut().unwrap();
-        // avoid races during separate render of staged/unstaged
-        // (when staged is arrived - it does not need rerender dirty unstaged)
-        unstaged.dirty = true;
-        if let Some(staged) = &mut self.staged {
-            staged.dirty = true;
-        }
+
         unstaged.walk_down(&mut |vc: &mut dyn ViewContainer| {
             if vc.get_kind() == ViewKind::File {
                 parent_file = vc.get_content();
@@ -661,27 +680,22 @@ impl Status {
                     }
                     file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                         let view = vc.get_view();
+                        // when response from git comes, it could be another
+                        // diff causing render. so, kill all hunks
+                        // in this file
                         view.squashed = true;
                     });
-                    // if !filter.hunk_header.is_empty() {
-                    //     // staging hunk. all hunk headers
-                    //     // will be changed. it need to kill everything
-                    //     // inside file (probably only AFTER this hunk
-                    //     // including it, cause prev hunks are not changed!!)
-                    //     // lets just try kill everything
-                    //     file.walk_down(&mut |vc: &mut dyn ViewContainer| {
-                    //         let view = vc.get_view();
-                    //         view.squashed = true;
-                    //     });
-                    //     file.get_view().child_dirty = true;
-                    // } else {
-                    //     file.get_view().squashed = true;
-                    // }
-
-                    let buffer = txt.buffer();
-                    let mut iter = buffer.iter_at_line(file.view.line_no).unwrap();
-                    file.render(&buffer, &mut iter);
-                    break;
+                    // HERE IS PROBLEMS
+                    // 1. squashed gets cloned into the new view!
+                    // 2. just passed do nothing with line!!!!
+                    // THATS NOT ALWAYS. WHAT IT DEPENDS OF?????
+                    // 
+                    // it is on line 4 and not moving !!!
+                    // NO NEED TO RENDER HERE
+                    // let buffer = txt.buffer();
+                    // let mut iter = buffer.iter_at_line(file.view.line_no).unwrap();
+                    // file.render(&buffer, &mut iter);
+                    // break;
                 }
             }
 
@@ -749,6 +763,7 @@ pub fn expand(
     if expanded {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_line(last_line).unwrap();
+        // why do i need that?????????????
         buffer.delete(&mut iter, &mut buffer.end_iter());
         iter.set_offset(offset);
         buffer.place_cursor(&iter);
@@ -794,31 +809,32 @@ pub fn cursor(
     }
 }
 
+pub fn debug(txt: &TextView, status: &mut Status) {
+    status.unstaged.as_mut().unwrap().walk_down(&mut |vc| {
+        println!(">>");
+        println!("{:?}", vc.get_content());
+        dbg!(vc.get_view());
+    });
+}
+
 pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::Event>) {
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
     status.head.render(&buffer, &mut iter);
     status.origin.render(&buffer, &mut iter);
-    status.staged_label.render(&buffer, &mut iter);
-    if let Some(unstaged) = &mut status.unstaged {
-        if !unstaged.dirty {
-            unstaged.render(&buffer, &mut iter);
-        }
-    }
-    // if status.unstaged.is_some() {
-    //     status.unstaged.as_mut().unwrap().render(&buffer, &mut iter);
-    // }
+
     status.unstaged_label.render(&buffer, &mut iter);
-    if let Some(staged) = &mut status.staged {
-        if !staged.dirty {
-            staged.render(&buffer, &mut iter);
-        }
+    if let Some(unstaged) = &mut status.unstaged {
+        unstaged.render(&buffer, &mut iter);
+        println!("UNstaged from to {:?} {:?}", unstaged.line_from(), unstaged.line_to());        
     }
-    // if status.staged.is_some() {
-    //     status.staged.as_mut().unwrap().render(&buffer, &mut iter);
-    // }
-    buffer.delete(&mut iter, &mut buffer.end_iter());
+
+    status.staged_label.render(&buffer, &mut iter);
+    if let Some(staged) = &mut status.staged {
+        staged.render(&buffer, &mut iter);
+    }
+    // buffer.delete(&mut iter, &mut buffer.end_iter());
 }
 
 #[cfg(test)]
