@@ -44,6 +44,11 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                     sndr.send(crate::Event::Stage(iter.offset(), iter.line()))
                         .expect("Could not send through channel");
                 }
+                gdk::Key::f => {
+                    let iter = buffer.iter_at_offset(buffer.cursor_position());
+                    sndr.send(crate::Event::Fake)
+                        .expect("Could not send through channel");
+                }
                 _ => (),
             }
             glib::Propagation::Proceed
@@ -168,7 +173,10 @@ impl View {
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
         let line_no = iter.line();
-
+        if content == "@@ -1,4 +1,5 @@" {
+            println!("wtf??????????????????????????????????? {:?}", line_no);
+            dbg!(self.clone());
+        }
         if self.is_rendered_in(line_no) {
             // skip untouched view
             iter.forward_lines(1);
@@ -180,6 +188,10 @@ impl View {
             self.apply_tags(buffer);
         } else if self.dirty {
             // replace view with new content
+            if self.line_no != line_no {
+                println!("dirty at wrong line {:?}", line_no);
+                dbg!(self.clone());
+            }
             assert!(self.line_no == line_no);
             let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
             eol_iter.forward_to_line_end();
@@ -579,11 +591,11 @@ pub struct Status {
 impl Status {
     pub fn new() -> Self {
         Self {
-            head: Label::new(),
-            origin: Label::new(),
-            staged_label: Label::new(),
+            head: Label::from_string("Head:     common_view refactor cursor"),
+            origin: Label::from_string("Origin: common_view refactor cursor"),
+            staged_label: Label::from_string("Staged changes"),
             staged: None,
-            unstaged_label: Label::new(),
+            unstaged_label: Label::from_string("Unstaged changes"),
             unstaged: None,
             rendered: false,
         }
@@ -633,20 +645,33 @@ impl Status {
         if !filter.file_path.is_empty() {
             for file in &mut unstaged.files {
                 if file.title() == filter.file_path {
-                    if !filter.hunk_header.is_empty() {
-                        // staging hunk. all hunk headers
-                        // will be changed. it need to kill everything
-                        // inside file (probably only AFTER this hunk
-                        // including it, cause prev hunks are not changed!!)
-                        // lets just try kill everything
-                        file.walk_down(&mut |vc: &mut dyn ViewContainer| {
-                            let view = vc.get_view();
-                            view.squashed = true;
-                        });
-                        file.get_view().child_dirty = true;
-                    } else {
-                        file.get_view().squashed = true;
+                    // even if only 1 hunk is staged all hunk headers
+                    // will be changed. it need to kill everything
+                    let single_hunk = file.hunks.len() == 1;
+                    let view = file.get_view();
+                    view.child_dirty = true;
+                    if single_hunk || filter.hunk_header.is_empty() {
+                        // stage whole file
+                        view.squashed = true;
                     }
+                    file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+                        let view = vc.get_view();
+                        view.squashed = true;
+                    });
+                    // if !filter.hunk_header.is_empty() {
+                    //     // staging hunk. all hunk headers
+                    //     // will be changed. it need to kill everything
+                    //     // inside file (probably only AFTER this hunk
+                    //     // including it, cause prev hunks are not changed!!)
+                    //     // lets just try kill everything
+                    //     file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+                    //         let view = vc.get_view();
+                    //         view.squashed = true;
+                    //     });
+                    //     file.get_view().child_dirty = true;
+                    // } else {
+                    //     file.get_view().squashed = true;
+                    // }
 
                     let buffer = txt.buffer();
                     let mut iter = buffer.iter_at_line(file.view.line_no).unwrap();
@@ -765,50 +790,21 @@ pub fn cursor(
 }
 
 pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::Event>) {
+
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
-    if status.rendered {
-        iter.forward_lines(1);
-    } else {
-        status.head = Label::from_string("Head:     common_view refactor cursor");
-        status.head.render(&buffer, &mut iter);
-    }
-
-    if status.rendered {
-        iter.forward_lines(1);
-    } else {
-        status.origin = Label::from_string("Origin: common_view refactor cursor");
-        status.origin.render(&buffer, &mut iter);
-    }
-
+    status.head.render(&buffer, &mut iter);
+    status.origin.render(&buffer, &mut iter);
+    status.staged_label.render(&buffer, &mut iter);
     if status.unstaged.is_some() {
-        if status.rendered {
-            iter.forward_lines(1);
-        } else {
-            status.unstaged_label = Label::from_string("Unstaged changes");
-            status.unstaged_label.render(&buffer, &mut iter);
-        }
-        println!(
-            "rendering unstaged at line ------------------- {:?}",
-            iter.line()
-        );
-        dbg!(&status.unstaged.as_ref().unwrap().files[0].view);
         status.unstaged.as_mut().unwrap().render(&buffer, &mut iter);
     }
-
+    status.unstaged_label.render(&buffer, &mut iter);
     if status.staged.is_some() {
-        if status.rendered {
-            iter.forward_lines(1);
-        } else {
-            status.staged_label = Label::from_string("Staged changes");
-            status.staged_label.render(&buffer, &mut iter);
-        }
         status.staged.as_mut().unwrap().render(&buffer, &mut iter);
     }
-
-    // buffer.delete(&mut iter, &mut buffer.end_iter());
-    status.rendered = true;
+    buffer.delete(&mut iter, &mut buffer.end_iter());
 }
 
 #[cfg(test)]

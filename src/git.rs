@@ -165,6 +165,8 @@ impl File {
         for hunk in &mut self.hunks {
             for oh in &other.hunks {
                 if hunk.header == oh.header {
+                    println!("copy hunk view for {:?}", hunk.header);
+                    dbg!(oh.view.clone());
                     hunk.view = oh.view.clone();
                     hunk.enrich_views(oh.clone());
                 }
@@ -328,25 +330,19 @@ pub fn stage_via_apply(
     let mut options = ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
-        println!("in the hunk callback");
         if filter.hunk_header.is_empty() {
             return true;
         }
         if let Some(dh) = odh {
-            println!("got DiffHunk!");
             let header = Hunk::get_header_from(&dh);
-            println!("conteeeeeeeeeeent of DiffHunk {:?}", header);
             return filter.hunk_header == header;
         }
         false
     });
     options.delta_callback(|odd| -> bool {
-        println!("in the delta callback");
         if let Some(dd) = odd {
-            println!("got DELTA!");
             let new_file = dd.new_file();
             let file = File::from_diff_file(&new_file);
-            println!("conteeeeeeeeeeent of DiffDelta {:?}", file);
             return filter.file_path == file.path.into_string().unwrap();
         }
         true
@@ -379,8 +375,8 @@ pub fn stage_via_apply(
         .expect("cant get diff_index_to_workdir");
     let mut diff = make_diff(git_diff);
     diff.enrich_views(unstaged);
-
     sender
         .send(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
+
 }

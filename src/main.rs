@@ -37,6 +37,7 @@ fn load_css() {
 }
 
 pub enum Event {
+    Fake,
     CurrentRepo(std::ffi::OsString),
     Unstaged(Diff),
     Staged(Diff),
@@ -91,19 +92,19 @@ fn build_ui(app: &adw::Application) {
             Event::CurrentRepo(path) => {
                 current_repo_path.replace(path);
             }
+            Event::Fake => {
+                println!("main. FAKE");
+                render_status(&txt, &mut status, sender.clone());
+            }
             Event::Staged(d) => {
                 println!("main. staged {:p}", &d);
-                status.staged.replace(d);
-                if status.staged.is_some() && status.unstaged.is_some() {
-                    render_status(&txt, &mut status, sender.clone());
-                }
+                status.staged.replace(d);             
+                render_status(&txt, &mut status, sender.clone());
             }
             Event::Unstaged(d) => {
                 println!("main. unstaged {:p}", &d);
                 status.unstaged.replace(d);
-                if status.staged.is_some() && status.unstaged.is_some() {
-                    render_status(&txt, &mut status, sender.clone());
-                }
+                render_status(&txt, &mut status, sender.clone());                
             }
             Event::Expand(offset, line_no) => {
                 expand(&txt, &mut status, offset, line_no, sender.clone());
