@@ -1,38 +1,24 @@
-so. it must be react like update -
-stage changes. get another diffs and signall up brand new diffs.
-when diffs are new - everything need to be rerendered.
-i do not whant that. so, instead, it need to walk through new
-diff and copy all existent views, to new ones right?
+STAGING LINE INSIDE HUNK (STAGING HUNK MUST BE THE SAME)
+1. after staging 1 hunk, other hunk headers changed!
+   so all hunks must be rerenderred!. but how to i know them?
+   headers are changed??? so what? it need just to render file stupid!
+   The file will remain expanded and on the same line.
+   All other hunkns then what???
+   old_hunks: line_no: 5, a c, line_no: 10, na nc.
+   is it need to kill everything inside file (as it being collapsed)????
+   probably yes. because there are no way to match old views - hunk headers,
+   are changed. even hunk is the same.
 
-1. it need to separate render_status to initial and existent to avoid inserting labels!
-2. pass whole status to git and merge views! git must.
+   lets try to kill everuthing inside file.
 
-view copiing is also expensive... but changes are only +- some elements
-+ elements
-  + hunk in expanded file
-    just insert
-  + hunk in collapsed file
-    nothing
-  + file
-    just insert
-- elements
-  - hunk in expanded file
-    no hunk - no view. other will adapted  
-  - file
-    no file, no view.
-    so! whole diffs must be passed!
-    whole status! staged + unstaged.
-    copy views in separate threads + signal from other threads
+   !!!!!!!!!!!!for future and clarity - next hunk become active and current in magit, when prev hunk staged
+   !!!!!!!!!!!!for future and clarity - in magit when staging hunk staged FILES are not expanded.
+   (hunks are expanded by default)
+   
 
-
-
-
-- adding a hunk to index is git … apply --cached -p0 --ignore-space-change -
-weird.
-
-1lol
 - whats get applied???
 - where is this diff stored???
+
 
 - refactor cursor to every view, by selecting actual view.
 do not call render on everything
@@ -56,6 +42,7 @@ do not call render on everything
 - open repo under other user causeing error! handle it!
 
 - .gitignore does not counted in gitlib2 !!!! flags : Status(IGNORED)
+
 
 op
 

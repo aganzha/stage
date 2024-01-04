@@ -368,9 +368,9 @@ pub fn stage_via_apply(
             if staged.is_some() {
                 diff.enrich_views(staged.unwrap());
             }
-            // sender
-            //     .send(crate::Event::Staged(diff))
-            //     .expect("Could not send through channel");
+            sender
+                .send(crate::Event::Staged(diff))
+                .expect("Could not send through channel");
         }
     });
     // unstaged changes

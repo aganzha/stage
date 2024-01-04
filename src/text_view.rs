@@ -5,6 +5,7 @@ use gtk::prelude::*;
 use gtk::{gdk, gio, glib, TextBuffer, TextIter, TextTag, TextView};
 use std::ffi::OsString;
 
+
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
 const CURSOR_HIGHLIGHT_END: &str = "CursorHightlightEnd";
@@ -630,23 +631,27 @@ impl Status {
             }
         });
         if !filter.file_path.is_empty() {
-            if !filter.hunk_header.is_empty() {
-                // staging hunk. all hunk headers
-                // will be changed. it need to kill everything
-                // inside file (probably only AFTER this hunk
-                // including it, cause prev hunks are not changed!!)
-                // lets just try kill everything
-                for file in &mut unstaged.files {
-                    if file.title() == filter.file_path {
+            for file in &mut unstaged.files {
+                if file.title() == filter.file_path {
+                    if !filter.hunk_header.is_empty() {
+                        // staging hunk. all hunk headers
+                        // will be changed. it need to kill everything
+                        // inside file (probably only AFTER this hunk
+                        // including it, cause prev hunks are not changed!!)
+                        // lets just try kill everything
                         file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                             let view = vc.get_view();
                             view.squashed = true;
                         });
-                        let buffer = txt.buffer();
-                        let mut iter = buffer.iter_at_line(file.view.line_no).unwrap();
                         file.get_view().child_dirty = true;
-                        file.render(&buffer, &mut iter);
+                    } else {
+                        file.get_view().squashed = true;
                     }
+
+                    let buffer = txt.buffer();
+                    let mut iter = buffer.iter_at_line(file.view.line_no).unwrap();
+                    file.render(&buffer, &mut iter);
+                    break;
                 }
             }
 
