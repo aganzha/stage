@@ -176,19 +176,25 @@ impl View {
         }
         clone
     }
-    
+
     fn is_rendered_in(&self, line_no: i32) -> bool {
         self.rendered && self.line_no == line_no && !self.dirty && !self.squashed
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
         let line_no = iter.line();
-        println!("line {:?} render view {:?} which is at line {:?}", line_no, content, self.line_no);
+        println!(
+            "line {:?} render view {:?} which is at line {:?}",
+            line_no, content, self.line_no
+        );
         // thread::sleep(time::Duration::from_millis(200));
         dbg!(self.clone());
         if self.is_rendered_in(line_no) {
-            // skip untouched view            
-            println!("---------------------------------------------> {:?}", iter.line());
+            // skip untouched view
+            println!(
+                "---------------------------------------------> {:?}",
+                iter.line()
+            );
             iter.forward_lines(1);
             println!("in place {:?}", iter.line());
         } else if !self.rendered {
@@ -231,7 +237,7 @@ impl View {
                 buffer.insert(iter, &format!("{} {}\n", line_no, content));
                 self.apply_tags(buffer);
                 println!("insert on pass as buffer is over");
-            } else {            
+            } else {
                 println!("just pass");
             }
         }
@@ -646,7 +652,9 @@ impl Status {
             if vc.get_kind() == ViewKind::Hunk {
                 parent_hunk = vc.get_content();
             }
-
+            // TODO!
+            // why there are no check for file.expanded?
+            // something is missing...
             let v = vc.get_view();
             if v.line_no == line_no {
                 found = true;
@@ -673,11 +681,14 @@ impl Status {
                     // will be changed. it need to kill everything
                     let single_hunk = file.hunks.len() == 1;
                     let view = file.get_view();
-                    view.child_dirty = true;
                     if single_hunk || filter.hunk_header.is_empty() {
                         // stage whole file
                         view.squashed = true;
+                        // and here if file is expanded
+                        // all its children will remain rendered!
                     }
+                    // go kill all children
+                    view.child_dirty = true;
                     file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                         let view = vc.get_view();
                         // when response from git comes, it could be another
@@ -685,17 +696,6 @@ impl Status {
                         // in this file
                         view.squashed = true;
                     });
-                    // HERE IS PROBLEMS
-                    // 1. squashed gets cloned into the new view!
-                    // 2. just passed do nothing with line!!!!
-                    // THATS NOT ALWAYS. WHAT IT DEPENDS OF?????
-                    // 
-                    // it is on line 4 and not moving !!!
-                    // NO NEED TO RENDER HERE
-                    // let buffer = txt.buffer();
-                    // let mut iter = buffer.iter_at_line(file.view.line_no).unwrap();
-                    // file.render(&buffer, &mut iter);
-                    // break;
                 }
             }
 
@@ -810,10 +810,27 @@ pub fn cursor(
 }
 
 pub fn debug(txt: &TextView, status: &mut Status) {
+    println!("uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu");
+    dbg!(status.unstaged_label.view.clone());
     status.unstaged.as_mut().unwrap().walk_down(&mut |vc| {
-        println!(">>");
-        println!("{:?}", vc.get_content());
-        dbg!(vc.get_view());
+        let content = vc.get_content();
+        let view = vc.get_view();
+        if view.line_no > 0 {
+            println!(">>");
+            println!("{:?}", content);
+            dbg!(view.clone());
+        }
+    });
+    println!("staaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaged");
+    dbg!(status.staged_label.view.clone());
+    status.staged.as_mut().unwrap().walk_down(&mut |vc| {
+        let content = vc.get_content();
+        let view = vc.get_view();
+        if view.line_no > 0 {
+            println!(">>");
+            println!("{:?}", content);
+            dbg!(view.clone());
+        }
     });
 }
 
@@ -827,13 +844,20 @@ pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::E
     status.unstaged_label.render(&buffer, &mut iter);
     if let Some(unstaged) = &mut status.unstaged {
         unstaged.render(&buffer, &mut iter);
-        println!("UNstaged from to {:?} {:?}", unstaged.line_from(), unstaged.line_to());        
+        println!(
+            "UNstaged from to {:?} {:?}",
+            unstaged.line_from(),
+            unstaged.line_to()
+        );
     }
 
     status.staged_label.render(&buffer, &mut iter);
     if let Some(staged) = &mut status.staged {
         staged.render(&buffer, &mut iter);
     }
+    // iter.backward_lines(2);
+    // println!("iter stand at line {:0} with content {:0}", iter.line(), buffer.slice(&iter,  &buffer.end_iter(), true));
+    // iter.forward_lines(2);
     // buffer.delete(&mut iter, &mut buffer.end_iter());
 }
 

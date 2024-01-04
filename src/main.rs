@@ -1,5 +1,5 @@
 mod text_view;
-use text_view::{cursor, expand, render_status, stage, text_view_factory, debug, Status};
+use text_view::{cursor, debug, expand, render_status, stage, text_view_factory, Status};
 mod common_tests;
 mod git;
 use adw::prelude::*;
@@ -95,7 +95,7 @@ fn build_ui(app: &adw::Application) {
             Event::Debug => {
                 println!("main. FAKE");
                 debug(&txt, &mut status);
-            }            
+            }
             Event::Staged(d) => {
                 println!("main. staged {:p}", &d);
                 status.staged.replace(d);
@@ -104,7 +104,7 @@ fn build_ui(app: &adw::Application) {
                 }
             }
             Event::Unstaged(d) => {
-                println!("main. unstaged {:p}", &d);                
+                println!("main. unstaged {:p}", &d);
                 status.unstaged.replace(d);
                 if status.staged.is_some() && status.unstaged.is_some() {
                     render_status(&txt, &mut status, sender.clone());

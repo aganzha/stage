@@ -6,7 +6,6 @@ or empty while other diff become rendered. hm.
 every view should render every time! on every call!
 it is OK to call render, cause nothing will blink, cause everything is on its place!
 
-
 so, here is the problem - one thread pushes th changed and another diff is rerendered.
 it need to separate it to different renders of individual diff!
 
@@ -27,9 +26,7 @@ STAGING LINE INSIDE HUNK (STAGING HUNK MUST BE THE SAME)
    !!!!!!!!!!!!for future and clarity - next hunk become active and current in magit, when prev hunk staged
    !!!!!!!!!!!!for future and clarity - in magit when staging hunk staged FILES are not expanded.
    (hunks are expanded by default)
-   
-
-- whats get applied???
+   - whats get applied???
 - where is this diff stored???
 
 
