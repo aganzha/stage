@@ -106,8 +106,18 @@ impl Hunk {
         self.lines.push(l);
     }
 
-    pub fn get_unique_name(&self) -> String {
+    pub fn title(&self) -> String {
         self.header.to_string()
+    }
+
+    pub fn enrich_views(&mut self, other: Hunk) {
+        for line in &mut self.lines {
+            for ol in &other.lines {
+                if line.content == ol.content {
+                    line.view = ol.view.clone();
+                }
+            }
+        }
     }
 }
 
@@ -147,8 +157,19 @@ impl File {
         self.hunks.push(h);
     }
 
-    pub fn get_unique_name(&self) -> String {
+    pub fn title(&self) -> String {
         self.path.to_str().unwrap().to_string()
+    }
+
+    pub fn enrich_views(&mut self, other: File) {
+        for hunk in &mut self.hunks {
+            for oh in &other.hunks {
+                if hunk.header == oh.header {
+                    hunk.view = oh.view.clone();
+                    hunk.enrich_views(oh.clone());
+                }
+            }
+        }
     }
 }
 
@@ -177,18 +198,17 @@ impl Diff {
             self.files.push(file);
         }
     }
-}
 
-pub fn get_staged(path: OsString, sender: Sender<crate::Event>) {
-    let repo = Repository::open(path).expect("can't open repo");
-    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
-    if let Ok(git_diff) = repo.diff_tree_to_index(Some(&current_tree), None, None) {
-        let diff = make_diff(git_diff);
-        sender
-            .send(crate::Event::Staged(diff))
-            .expect("Could not send through channel");
-    };
+    pub fn enrich_views(&mut self, other: Diff) {
+        for file in &mut self.files {
+            for of in &other.files {
+                if file.path == of.path {
+                    file.view = of.view.clone();
+                    file.enrich_views(of.clone());
+                }
+            }
+        }
+    }
 }
 
 pub fn get_current_repo_status(sender: Sender<crate::Event>) {
@@ -294,7 +314,13 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
     diff
 }
 
-pub fn stage_via_apply(path: OsString, filter: ApplyFilter, sender: Sender<crate::Event>) {
+pub fn stage_via_apply(
+    unstaged: Diff,
+    staged: Option<Diff>,
+    path: OsString,
+    filter: ApplyFilter,
+    sender: Sender<crate::Event>,
+) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let diff = repo
         .diff_index_to_workdir(None, None)
@@ -327,18 +353,34 @@ pub fn stage_via_apply(path: OsString, filter: ApplyFilter, sender: Sender<crate
     });
     repo.apply(&diff, ApplyLocation::Index, Some(&mut options))
         .expect("can't apply patch");
-    // signal both diffs above
+
+    // staged changes
     gio::spawn_blocking({
         let sender = sender.clone();
         move || {
-            get_staged(path, sender);
+            let repo = Repository::open(path).expect("can't open repo");
+            let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+            let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+            let git_diff = repo
+                .diff_tree_to_index(Some(&current_tree), None, None)
+                .expect("can't get diff tree to index");
+            let mut diff = make_diff(git_diff);
+            if staged.is_some() {
+                diff.enrich_views(staged.unwrap());
+            }
+            // sender
+            //     .send(crate::Event::Staged(diff))
+            //     .expect("Could not send through channel");
         }
     });
+    // unstaged changes
+    let git_diff = repo
+        .diff_index_to_workdir(None, None)
+        .expect("cant get diff_index_to_workdir");
+    let mut diff = make_diff(git_diff);
+    diff.enrich_views(unstaged);
 
-    if let Ok(git_diff) = repo.diff_index_to_workdir(None, None) {
-        let diff = make_diff(git_diff);
-        sender
-            .send(crate::Event::Unstaged(diff))
-            .expect("Could not send through channel");
-    };
+    sender
+        .send(crate::Event::Unstaged(diff))
+        .expect("Could not send through channel");
 }

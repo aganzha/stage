@@ -437,7 +437,7 @@ impl ViewContainer for File {
     }
 
     fn get_content(&self) -> String {
-        self.path.to_str().unwrap().to_string()
+        self.title()
     }
 
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
@@ -466,7 +466,7 @@ impl ViewContainer for Hunk {
     }
 
     fn get_content(&self) -> String {
-        self.header.to_string()
+        self.title()
     }
 
     fn get_view(&mut self) -> &mut View {
@@ -572,6 +572,7 @@ pub struct Status {
     pub staged: Option<Diff>,
     pub unstaged_label: Label,
     pub unstaged: Option<Diff>,
+    pub rendered: bool,
 }
 
 impl Status {
@@ -583,17 +584,25 @@ impl Status {
             staged: None,
             unstaged_label: Label::new(),
             unstaged: None,
+            rendered: false,
         }
     }
 }
 
-impl Diff {
-    fn try_stage(&mut self, line_no: i32, path: &OsString, sender: Sender<crate::Event>) {
+impl Status {
+    fn try_stage(
+        &mut self,
+        txt: &TextView,
+        line_no: i32,
+        path: &OsString,
+        sender: Sender<crate::Event>,
+    ) {
         let mut filter = ApplyFilter::default();
         let mut parent_hunk = String::from("");
         let mut parent_file = String::from("");
         let mut found = false;
-        self.walk_down(&mut |vc: &mut dyn ViewContainer| {
+        let unstaged = self.unstaged.as_mut().unwrap();
+        unstaged.walk_down(&mut |vc: &mut dyn ViewContainer| {
             if vc.get_kind() == ViewKind::File {
                 parent_file = vc.get_content();
             }
@@ -621,10 +630,32 @@ impl Diff {
             }
         });
         if !filter.file_path.is_empty() {
+            if !filter.hunk_header.is_empty() {
+                // staging hunk. all hunk headers
+                // will be changed. it need to kill everything
+                // inside file (probably only AFTER this hunk
+                // including it, cause prev hunks are not changed!!)
+                // lets just try kill everything
+                for file in &mut unstaged.files {
+                    if file.title() == filter.file_path {
+                        file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+                            let view = vc.get_view();
+                            view.squashed = true;
+                        });
+                        let buffer = txt.buffer();
+                        let mut iter = buffer.iter_at_line(file.view.line_no).unwrap();
+                        file.get_view().child_dirty = true;
+                        file.render(&buffer, &mut iter);
+                    }
+                }
+            }
+
+            let u = self.unstaged.clone();
+            let s = self.staged.clone();
             gio::spawn_blocking({
                 let path = path.clone();
                 move || {
-                    stage_via_apply(path, filter, sender);
+                    stage_via_apply(u.unwrap(), s, path, filter, sender);
                 }
             });
         }
@@ -698,11 +729,7 @@ pub fn stage(
     sndr: Sender<crate::Event>,
 ) {
     if status.unstaged.is_some() {
-        status
-            .unstaged
-            .as_mut()
-            .unwrap()
-            .try_stage(line_no, repo_path, sndr);
+        status.try_stage(txt, line_no, repo_path, sndr);
     }
 }
 
@@ -736,27 +763,47 @@ pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::E
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
-    status.head = Label::from_string("Head:     common_view refactor cursor");
-    status.head.render(&buffer, &mut iter);
+    if status.rendered {
+        iter.forward_lines(1);
+    } else {
+        status.head = Label::from_string("Head:     common_view refactor cursor");
+        status.head.render(&buffer, &mut iter);
+    }
 
-    status.origin = Label::from_string("Origin: common_view refactor cursor");
-    status.origin.render(&buffer, &mut iter);
+    if status.rendered {
+        iter.forward_lines(1);
+    } else {
+        status.origin = Label::from_string("Origin: common_view refactor cursor");
+        status.origin.render(&buffer, &mut iter);
+    }
 
     if status.unstaged.is_some() {
-        status.unstaged_label = Label::from_string("Unstaged changes");
-        status.unstaged_label.render(&buffer, &mut iter);
-
+        if status.rendered {
+            iter.forward_lines(1);
+        } else {
+            status.unstaged_label = Label::from_string("Unstaged changes");
+            status.unstaged_label.render(&buffer, &mut iter);
+        }
+        println!(
+            "rendering unstaged at line ------------------- {:?}",
+            iter.line()
+        );
+        dbg!(&status.unstaged.as_ref().unwrap().files[0].view);
         status.unstaged.as_mut().unwrap().render(&buffer, &mut iter);
     }
 
     if status.staged.is_some() {
-        status.staged_label = Label::from_string("Staged changes");
-        status.staged_label.render(&buffer, &mut iter);
-
+        if status.rendered {
+            iter.forward_lines(1);
+        } else {
+            status.staged_label = Label::from_string("Staged changes");
+            status.staged_label.render(&buffer, &mut iter);
+        }
         status.staged.as_mut().unwrap().render(&buffer, &mut iter);
     }
 
-    buffer.delete(&mut iter, &mut buffer.end_iter());
+    // buffer.delete(&mut iter, &mut buffer.end_iter());
+    status.rendered = true;
 }
 
 #[cfg(test)]
