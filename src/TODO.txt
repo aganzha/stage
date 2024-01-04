@@ -1,13 +1,13 @@
-filter: so. we can stage either hunk or file (stage all is just a git add . -u).
-when hunk, filter must contain file path and hunk header.
-when file - just hunk header
-
 so. it must be react like update -
 stage changes. get another diffs and signall up brand new diffs.
 when diffs are new - everything need to be rerendered.
 i do not whant that. so, instead, it need to walk through new
 diff and copy all existent views, to new ones right?
-ucopiing is also expensive... but changes are only +- some elements
+
+1. it need to separate render_status to initial and existent to avoid inserting labels!
+2. pass whole status to git and merge views! git must.
+
+view copiing is also expensive... but changes are only +- some elements
 + elements
   + hunk in expanded file
     just insert
@@ -48,7 +48,6 @@ do not call render on everything
 -- HUGHLIGHT for pgup/pgdown doesn not work
 - put label with current repo name (relative to path the app is started)
 - try to replace &mut dyn RecursiveViewContainer with type alias
-
 
 - adwaita ToolbarView
 - popup widnwow from current line (commit)

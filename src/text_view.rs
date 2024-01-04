@@ -594,7 +594,6 @@ impl Diff {
         let mut parent_file = String::from("");
         let mut found = false;
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
-            
             if vc.get_kind() == ViewKind::File {
                 parent_file = vc.get_content();
             }
@@ -608,10 +607,10 @@ impl Diff {
                 match vc.get_kind() {
                     ViewKind::File => {
                         filter.file_path = vc.get_content();
-                    }                    
+                    }
                     ViewKind::Hunk => {
                         filter.file_path = parent_file.clone();
-                        filter.hunk_header = vc.get_content();                        
+                        filter.hunk_header = vc.get_content();
                     }
                     ViewKind::Line => {
                         filter.file_path = parent_file.clone();
