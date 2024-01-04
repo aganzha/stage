@@ -222,9 +222,10 @@ pub fn get_current_repo_status(sender: Sender<crate::Event>) {
     }
 }
 
-pub enum ApplyFilter {
-    Delta(String),
-    Hunk(String),
+#[derive(Debug, Clone, Default)]
+pub struct ApplyFilter {
+    pub file_path: String,
+    pub hunk_header: String,
 }
 
 pub fn make_diff(git_diff: GitDiff) -> Diff {
@@ -287,53 +288,32 @@ pub fn stage_via_apply(path: OsString, filter: ApplyFilter, sender: Sender<crate
 
     options.hunk_callback(|odh| -> bool {
         println!("in the hunk callback");
+        if filter.hunk_header.is_empty() {
+            return true;
+        }
         if let Some(dh) = odh {
             println!("got DiffHunk!");
             let header = Hunk::get_header_from(&dh);
             println!("conteeeeeeeeeeent of DiffHunk {:?}", header);
-            let result: bool = match &filter {
-                ApplyFilter::Delta(_content) => {
-                    true
-                },
-                ApplyFilter::Hunk(content) => {
-                    content == &header
-                }
-            };
-            println!("result in hunk callback {:?}", result);
-            return result
+            return filter.hunk_header == header;
         }
         false
     });
     options.delta_callback(|odd| -> bool {
-        println!("in the hunk callback");
+        println!("in the delta callback");
         if let Some(dd) = odd {
-            println!("got DiffHunk!");
+            println!("got DELTA!");
             let new_file = dd.new_file();
             let file = File::from_diff_file(&new_file);
             println!("conteeeeeeeeeeent of DiffDelta {:?}", file);
-            let result: bool = match &filter {
-                ApplyFilter::Delta(_content) => {
-                    true
-                },
-                ApplyFilter::Hunk(content) => {
-                    content == &file.path.to_str().unwrap().to_string()
-                }
-            };
-            println!("result in delta callback {:?}", result);
-            return result
+            return filter.file_path == file.path.into_string().unwrap();
         }
-        false
+        true
     });
-    options.delta_callback(|_df| -> bool {
-        match &filter {
-            ApplyFilter::Delta(_content) => {
-                true
-            },
-            ApplyFilter::Hunk(content) => {
-                false
-            }
-        }
-    });
+
+    println!("APPPPLYYYYYY {:?}", filter);
     let result = repo.apply(&diff, ApplyLocation::Index, Some(&mut options));
+    // let my_diff = make_diff(diff);
+    // println!("oooooooooooooooooooooooo {:?}", my_diff);
     println!("yyyyyyyyyyyyyyyyyyyeah! {:?}", result);
 }

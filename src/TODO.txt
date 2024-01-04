@@ -1,6 +1,36 @@
+filter: so. we can stage either hunk or file (stage all is just a git add . -u).
+when hunk, filter must contain file path and hunk header.
+when file - just hunk header
+
+so. it must be react like update -
+stage changes. get another diffs and signall up brand new diffs.
+when diffs are new - everything need to be rerendered.
+i do not whant that. so, instead, it need to walk through new
+diff and copy all existent views, to new ones right?
+ucopiing is also expensive... but changes are only +- some elements
++ elements
+  + hunk in expanded file
+    just insert
+  + hunk in collapsed file
+    nothing
+  + file
+    just insert
+- elements
+  - hunk in expanded file
+    no hunk - no view. other will adapted  
+  - file
+    no file, no view.
+    so! whole diffs must be passed!
+    whole status! staged + unstaged.
+    copy views in separate threads + signal from other threads
+
+
+
+
 - adding a hunk to index is git … apply --cached -p0 --ignore-space-change -
 weird.
-lol
+
+1lol
 - whats get applied???
 - where is this diff stored???
 
@@ -29,6 +59,7 @@ do not call render on everything
 - .gitignore does not counted in gitlib2 !!!! flags : Status(IGNORED)
 
 op
+
 
 - in parallel thread, go to the source file, while read hunks and put whole file in tree sitter,
 make a syntax, highlight it and put into the diff. while insert line into the buffer, paint it with tags

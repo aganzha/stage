@@ -589,34 +589,43 @@ impl Status {
 
 impl Diff {
     fn try_stage(&mut self, line_no: i32, path: &OsString, sender: Sender<crate::Event>) {
-        let mut filter: Option<ApplyFilter> = None;
+        let mut filter = ApplyFilter::default();
         let mut parent_hunk = String::from("");
+        let mut parent_file = String::from("");
+        let mut found = false;
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            
+            if vc.get_kind() == ViewKind::File {
+                parent_file = vc.get_content();
+            }
             if vc.get_kind() == ViewKind::Hunk {
                 parent_hunk = vc.get_content();
             }
 
             let v = vc.get_view();
             if v.line_no == line_no {
+                found = true;
                 match vc.get_kind() {
                     ViewKind::File => {
-                        filter.replace(ApplyFilter::Delta(vc.get_content()));
-                    }
+                        filter.file_path = vc.get_content();
+                    }                    
                     ViewKind::Hunk => {
-                        filter.replace(ApplyFilter::Hunk(vc.get_content()));
+                        filter.file_path = parent_file.clone();
+                        filter.hunk_header = vc.get_content();                        
                     }
                     ViewKind::Line => {
-                        filter.replace(ApplyFilter::Hunk(parent_hunk.clone()));
+                        filter.file_path = parent_file.clone();
+                        filter.hunk_header = parent_hunk.clone();
                     }
                     _ => {}
                 };
             }
         });
-        if filter.is_some() {
+        if !filter.file_path.is_empty() {
             gio::spawn_blocking({
                 let path = path.clone();
                 move || {
-                    stage_via_apply(path, filter.unwrap(), sender);
+                    stage_via_apply(path, filter, sender);
                 }
             });
         }
