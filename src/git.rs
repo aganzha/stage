@@ -165,7 +165,6 @@ impl File {
         for hunk in &mut self.hunks {
             for oh in &other.hunks {
                 if hunk.header == oh.header {
-                    println!("copy hunk view for {:?}", hunk.header);
                     dbg!(oh.view.clone());
                     hunk.view = oh.view.clone();
                     hunk.enrich_views(oh.clone());
@@ -185,6 +184,7 @@ impl Default for File {
 pub struct Diff {
     pub files: Vec<File>,
     pub view: View,
+    pub dirty: bool,
 }
 
 impl Diff {
@@ -192,6 +192,7 @@ impl Diff {
         Self {
             files: Vec::new(),
             view: View::new(),
+            dirty: false,
         }
     }
 
@@ -378,5 +379,4 @@ pub fn stage_via_apply(
     sender
         .send(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
-
 }

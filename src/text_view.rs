@@ -5,7 +5,6 @@ use gtk::prelude::*;
 use gtk::{gdk, gio, glib, TextBuffer, TextIter, TextTag, TextView};
 use std::ffi::OsString;
 
-
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
 const CURSOR_HIGHLIGHT_END: &str = "CursorHightlightEnd";
@@ -615,6 +614,12 @@ impl Status {
         let mut parent_file = String::from("");
         let mut found = false;
         let unstaged = self.unstaged.as_mut().unwrap();
+        // avoid races during separate render of staged/unstaged
+        // (when staged is arrived - it does not need rerender dirty unstaged)
+        unstaged.dirty = true;
+        if let Some(staged) = &mut self.staged {
+            staged.dirty = true;
+        }
         unstaged.walk_down(&mut |vc: &mut dyn ViewContainer| {
             if vc.get_kind() == ViewKind::File {
                 parent_file = vc.get_content();
@@ -790,20 +795,29 @@ pub fn cursor(
 }
 
 pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::Event>) {
-
     let buffer = txt.buffer();
     let mut iter = buffer.iter_at_offset(0);
 
     status.head.render(&buffer, &mut iter);
     status.origin.render(&buffer, &mut iter);
     status.staged_label.render(&buffer, &mut iter);
-    if status.unstaged.is_some() {
-        status.unstaged.as_mut().unwrap().render(&buffer, &mut iter);
+    if let Some(unstaged) = &mut status.unstaged {
+        if !unstaged.dirty {
+            unstaged.render(&buffer, &mut iter);
+        }
     }
+    // if status.unstaged.is_some() {
+    //     status.unstaged.as_mut().unwrap().render(&buffer, &mut iter);
+    // }
     status.unstaged_label.render(&buffer, &mut iter);
-    if status.staged.is_some() {
-        status.staged.as_mut().unwrap().render(&buffer, &mut iter);
+    if let Some(staged) = &mut status.staged {
+        if !staged.dirty {
+            staged.render(&buffer, &mut iter);
+        }
     }
+    // if status.staged.is_some() {
+    //     status.staged.as_mut().unwrap().render(&buffer, &mut iter);
+    // }
     buffer.delete(&mut iter, &mut buffer.end_iter());
 }
 

@@ -98,13 +98,13 @@ fn build_ui(app: &adw::Application) {
             }
             Event::Staged(d) => {
                 println!("main. staged {:p}", &d);
-                status.staged.replace(d);             
+                status.staged.replace(d);
                 render_status(&txt, &mut status, sender.clone());
             }
             Event::Unstaged(d) => {
                 println!("main. unstaged {:p}", &d);
                 status.unstaged.replace(d);
-                render_status(&txt, &mut status, sender.clone());                
+                render_status(&txt, &mut status, sender.clone());
             }
             Event::Expand(offset, line_no) => {
                 expand(&txt, &mut status, offset, line_no, sender.clone());
