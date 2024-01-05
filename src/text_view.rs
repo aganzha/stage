@@ -76,7 +76,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
 
     txt.connect_move_cursor({
         let sndr = sndr.clone();
-        let mut latest_char_offset = RefCell::new(0); // :&mut i32 = &mut 0;
+        let latest_char_offset = RefCell::new(0);
         move |view: &TextView, step, count, _selection| {
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
