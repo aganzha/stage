@@ -8,7 +8,7 @@ use gdk::Display;
 use git::{
     get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Hunk, Line, LineKind, View,
 };
-use glib::{MainContext, Priority};
+use glib::{clone, MainContext, Priority};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, Box, CssProvider, Label, Orientation, ScrolledWindow}; // TextIter
 
@@ -52,6 +52,13 @@ fn build_ui(app: &adw::Application) {
     window.set_default_size(1280, 960);
     //window.set_default_size(640, 480);
     let scroll = ScrolledWindow::new();
+
+    let action_close = gio::SimpleAction::new("close", None);
+    action_close.connect_activate(clone!(@weak window => move |_, _| {
+        window.close();
+    }));
+    window.add_action(&action_close);
+    app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
     let container = Box::builder().build();
     container.set_orientation(Orientation::Vertical);

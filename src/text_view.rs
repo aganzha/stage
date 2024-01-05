@@ -5,7 +5,7 @@ use glib::Sender;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, TextBuffer, TextIter, TextTag, TextView};
 use std::ffi::OsString;
-use std::{thread, time};
+use std::{cell::RefCell, thread, time};
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
@@ -76,10 +76,12 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
 
     txt.connect_move_cursor({
         let sndr = sndr.clone();
-        move |view, step, count, _selection| {
+        let mut latest_char_offset = RefCell::new(0); // :&mut i32 = &mut 0;
+        move |view: &TextView, step, count, _selection| {
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);
+            // println!("line {:?}, lineoffset {:?} and is {:?}", start_iter.line(), start_iter.line_offset(), step);
             match step {
                 gtk::MovementStep::LogicalPositions | gtk::MovementStep::VisualPositions => {
                     start_iter.forward_chars(count);
@@ -90,7 +92,31 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                 gtk::MovementStep::DisplayLines => {
                     let loffset = start_iter.line_offset();
                     start_iter.forward_lines(count);
-                    start_iter.forward_chars(loffset);
+                    // we are moving by lines mainaining inline (char) offset;
+                    // if next line has length < current offset, we want to set at that
+                    // max offset (eol) to not follback to prev line
+                    start_iter.forward_to_line_end();
+                    if start_iter.line_offset() > loffset {
+                        // have place to go (backward to same offset)
+                        start_iter.set_line_offset(0);
+                        let mut cnt = latest_char_offset.borrow_mut();
+                        if *cnt > loffset {
+                            // but if it was narrowed before.
+                            // go to previously stored offset
+                            start_iter.forward_chars(*cnt);
+                            // and kill stored
+                            *cnt = 0;
+                        } else {
+                            // just go to the same offset
+                            start_iter.forward_chars(loffset);
+                        }
+                    } else {
+                        // save last known line offset
+                        let mut cnt = latest_char_offset.borrow_mut();
+                        if loffset > *cnt {
+                            *cnt = loffset;
+                        }
+                    }
                 }
                 gtk::MovementStep::DisplayLineEnds
                 | gtk::MovementStep::Paragraphs
@@ -175,32 +201,32 @@ impl View {
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
         let line_no = iter.line();
-        println!(
-            "line {:?} render view {:?} which is at line {:?}",
-            line_no, content, self.line_no
-        );
+        // println!(
+        //     "line {:?} render view {:?} which is at line {:?}",
+        //     line_no, content, self.line_no
+        // );
         if self.is_rendered_in(line_no) {
             // skip untouched view
-            println!(
-                "---------------------------------------------> {:?}",
-                iter.line()
-            );
+            // println!(
+            //     "---------------------------------------------> {:?}",
+            //     iter.line()
+            // );
             iter.forward_lines(1);
-            println!("in place {:?}", iter.line());
+            // println!("in place {:?}", iter.line());
         } else if !self.rendered {
             // render brand new view
             buffer.insert(iter, &format!("{} {}\n", line_no, content));
             self.line_no = line_no;
             self.rendered = true;
             self.apply_tags(buffer);
-            println!("insert!");
+            // println!("insert!");
         } else if self.dirty && !self.transfered {
             // replace view with new content
-            if self.line_no != line_no {
-                println!("dirty at wrong line {:?}", line_no);
-                println!("{:?}", content);
-                dbg!(self.clone());
-            }
+            // if self.line_no != line_no {
+            //     println!("dirty at wrong line {:?}", line_no);
+            //     println!("{:?}", content);
+            //     dbg!(self.clone());
+            // }
             assert!(self.line_no == line_no);
             let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
             eol_iter.forward_to_line_end();
@@ -209,14 +235,14 @@ impl View {
             iter.forward_lines(1);
             self.apply_tags(buffer);
             self.rendered = true;
-            println!("dirty");
+            // println!("dirty");
         } else if self.squashed {
             // just delete it
             let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
             nel_iter.forward_lines(1);
             buffer.delete(iter, &mut nel_iter);
             self.rendered = false;
-            println!("delete!");
+            // println!("delete!");
         } else {
             // view was just moved to another line
             // due to expansion/collapsing
@@ -238,10 +264,10 @@ impl View {
             if !moved {
                 // happens sometimes when buffer is over
                 buffer.insert(iter, "\n");
-                println!("insert on pass as buffer is over");
-            } else {
-                println!("just pass");
-            }
+                // println!("insert on pass as buffer is over");
+            } //  else {
+              //     println!("just pass");
+              // }
         }
 
         self.dirty = false;
