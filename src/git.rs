@@ -204,7 +204,7 @@ impl Diff {
     pub fn enrich_views(&mut self, other: Diff) {
         for file in &mut self.files {
             for of in &other.files {
-                if file.path == of.path {                    
+                if file.path == of.path {
                     file.view = of.view.transfer();
                     file.enrich_views(of.clone());
                 }

@@ -187,8 +187,6 @@ impl View {
             "line {:?} render view {:?} which is at line {:?}",
             line_no, content, self.line_no
         );
-        // thread::sleep(time::Duration::from_millis(200));
-        dbg!(self.clone());
         if self.is_rendered_in(line_no) {
             // skip untouched view
             println!(
@@ -230,7 +228,6 @@ impl View {
             // view was just moved to another line
             // due ti expansion/collapsing
             self.line_no = line_no;
-            println!("wtfffffffffffffffffffffffffffff? before {:?}", line_no);
             let moved = iter.forward_lines(1);
             if !moved {
                 // happens sometimes when buffer is over
@@ -290,6 +287,8 @@ impl Default for View {
 
 pub trait ViewContainer {
     fn get_kind(&self) -> ViewKind;
+
+    fn child_count(&self) -> usize;
 
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer>;
 
@@ -410,6 +409,10 @@ impl ViewContainer for Diff {
         ViewKind::Diff
     }
 
+    fn child_count(&self) -> usize {
+        self.files.len()
+    }
+
     fn line_from(&self) -> i32 {
         if self.files.is_empty() {
             return 0;
@@ -461,6 +464,10 @@ impl ViewContainer for File {
         ViewKind::File
     }
 
+    fn child_count(&self) -> usize {
+        self.hunks.len()
+    }
+
     fn get_self(&self) -> &dyn ViewContainer {
         self
     }
@@ -493,6 +500,10 @@ impl ViewContainer for File {
 impl ViewContainer for Hunk {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Hunk
+    }
+
+    fn child_count(&self) -> usize {
+        self.lines.len()
     }
 
     fn get_self(&self) -> &dyn ViewContainer {
@@ -544,6 +555,9 @@ impl ViewContainer for Line {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Line
     }
+    fn child_count(&self) -> usize {
+        0
+    }
     fn get_self(&self) -> &dyn ViewContainer {
         self
     }
@@ -581,6 +595,9 @@ impl ViewContainer for Line {
 impl ViewContainer for Label {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
+    }
+    fn child_count(&self) -> usize {
+        0
     }
     fn get_self(&self) -> &dyn ViewContainer {
         self
@@ -640,64 +657,59 @@ impl Status {
         sender: Sender<crate::Event>,
     ) {
         let mut filter = ApplyFilter::default();
-        let mut parent_hunk = String::from("");
-        let mut parent_file = String::from("");
-        let mut found = false;
         let unstaged = self.unstaged.as_mut().unwrap();
-
+        let mut file_path_so_stage = String::new();
         unstaged.walk_down(&mut |vc: &mut dyn ViewContainer| {
-            if vc.get_kind() == ViewKind::File {
-                parent_file = vc.get_content();
-            }
-            if vc.get_kind() == ViewKind::Hunk {
-                parent_hunk = vc.get_content();
-            }
-            // TODO!
-            // why there are no check for file.expanded?
-            // something is missing...
-            let v = vc.get_view();
-            if v.line_no == line_no {
-                found = true;
-                match vc.get_kind() {
-                    ViewKind::File => {
-                        filter.file_path = vc.get_content();
+            let content = vc.get_content();
+            let kind = vc.get_kind();
+            let view = vc.get_view();            
+            match kind {
+                ViewKind::File => {
+                    file_path_so_stage = content;
+                }
+                ViewKind::Hunk => {
+                    if !view.active {
+                        return;
                     }
-                    ViewKind::Hunk => {
-                        filter.file_path = parent_file.clone();
-                        filter.hunk_header = vc.get_content();
+                    filter.file_path = file_path_so_stage.clone();
+                    filter.hunk_header = content;
+                    view.squashed = true;
+                }
+                ViewKind::Line => {
+                    if !view.active {
+                        return;
                     }
-                    ViewKind::Line => {
-                        filter.file_path = parent_file.clone();
-                        filter.hunk_header = parent_hunk.clone();
-                    }
-                    _ => {}
-                };
+                    view.squashed = true;
+                }
+                _ => return,
             }
         });
+        println!("++++++++++++++++++++++++++> {:?}", filter);
         if !filter.file_path.is_empty() {
-            for file in &mut unstaged.files {
-                if file.title() == filter.file_path {
-                    // even if only 1 hunk is staged all hunk headers
-                    // will be changed. it need to kill everything
-                    let single_hunk = file.hunks.len() == 1;
-                    let view = file.get_view();
-                    if single_hunk || filter.hunk_header.is_empty() {
-                        // stage whole file
-                        view.squashed = true;
-                        // and here if file is expanded
-                        // all its children will remain rendered!
+            let buffer = txt.buffer();
+            unstaged.files.retain_mut(|f| {
+                // it need to remove either whole file
+                // or just 1 hunk inside file
+                let mut remove_file = false;
+                if f.title() == filter.file_path {
+                    let hunk_index = f.hunks.iter().position(|h| h.view.squashed).unwrap();
+                    if f.hunks.len() == 1 || f.view.current {
+                        remove_file = true;
+                        f.view.squashed = true;
                     }
-                    // go kill all children
-                    view.child_dirty = true;
-                    file.walk_down(&mut |vc: &mut dyn ViewContainer| {
-                        let view = vc.get_view();
-                        // when response from git comes, it could be another
-                        // diff causing render. so, kill all hunks
-                        // in this file
-                        view.squashed = true;
-                    });
+                    let mut iter = buffer.iter_at_line(f.view.line_no).unwrap();
+                    f.render(&buffer, &mut iter);
+
+                    f.hunks.remove(hunk_index);
                 }
-            }
+                if remove_file {
+                    // kill hunk in filter to stage all hunks
+                    filter.hunk_header = String::new();
+                    false
+                } else {
+                    true
+                }
+            });
 
             let u = self.unstaged.clone();
             let s = self.staged.clone();
@@ -855,10 +867,14 @@ pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::E
     if let Some(staged) = &mut status.staged {
         staged.render(&buffer, &mut iter);
     }
-    // iter.backward_lines(2);
-    // println!("iter stand at line {:0} with content {:0}", iter.line(), buffer.slice(&iter,  &buffer.end_iter(), true));
-    // iter.forward_lines(2);
-    // buffer.delete(&mut iter, &mut buffer.end_iter());
+    iter.backward_lines(2);
+    println!(
+        "iter stand at line {:0} with content {:0}",
+        iter.line(),
+        buffer.slice(&iter, &buffer.end_iter(), true)
+    );
+    iter.forward_lines(2);
+    buffer.delete(&mut iter, &mut buffer.end_iter());
 }
 
 #[cfg(test)]
