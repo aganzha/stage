@@ -107,6 +107,7 @@ impl Hunk {
     }
     pub fn enrich_views(&mut self, other: Hunk) {
         if self.lines.len() != other.lines.len() {
+            // so :) what todo?
             panic!(
                 "lines length are not the same {:?} {:?}",
                 self.lines.len(),
@@ -160,6 +161,14 @@ impl File {
     }
 
     pub fn enrich_views(&mut self, other: File) {
+        if self.hunks.len() != other.hunks.len() {
+            // so :) what todo?
+            panic!(
+                "lines length are not the same {:?} {:?}",
+                self.hunks.len(),
+                other.hunks.len()
+            );
+        }
         for pair in zip(&mut self.hunks, &other.hunks) {
             pair.0.view = pair.1.transfer_view();
             pair.0.enrich_views(pair.1.clone());

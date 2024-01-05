@@ -237,8 +237,7 @@ impl View {
             let moved = iter.forward_lines(1);
             if !moved {
                 // happens sometimes when buffer is over
-                buffer.insert(iter, &format!("{} {}\n", line_no, content));
-                self.apply_tags(buffer);
+                buffer.insert(iter, "\n");
                 println!("insert on pass as buffer is over");
             } else {
                 println!("just pass");
@@ -745,6 +744,35 @@ pub fn expand(
     line_no: i32,
     sndr: Sender<crate::Event>,
 ) {
+    let mut triggered = false;
+    if let Some(unstaged) = &mut status.unstaged {
+        for file in &mut unstaged.files {
+            if file.expand(line_no) {
+                triggered = true;
+                break
+            }
+        }
+    }
+    if let Some(staged) = &mut status.staged {
+        for file in &mut staged.files {
+            if file.expand(line_no) {     
+                triggered = true;
+                break
+            }
+        }
+    }
+    if triggered {
+        render_status(txt, status, sndr);
+    }
+}
+
+pub fn expand_legacy(
+    txt: &TextView,
+    status: &mut Status,
+    offset: i32,
+    line_no: i32,
+    sndr: Sender<crate::Event>,
+) {
     let mut expanded = false;
 
     // lines changed during expand/collapse
@@ -882,14 +910,11 @@ pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::E
     if let Some(staged) = &mut status.staged {
         staged.render(&buffer, &mut iter);
     }
-    iter.backward_lines(2);
-    println!(
-        "iter stand at line {:0} with content {:0}",
-        iter.line(),
-        buffer.slice(&iter, &buffer.end_iter(), true)
-    );
-    iter.forward_lines(2);
-    buffer.delete(&mut iter, &mut buffer.end_iter());
+    
+    // iter.set_line_offset(0);
+    // let eof_iter = &mut buffer.end_iter();
+    // eof_iter.forward_to_line_end();
+    // buffer.delete(&mut iter, eof_iter);
 }
 
 #[cfg(test)]
