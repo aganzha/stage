@@ -69,6 +69,7 @@ impl Line {
 pub struct Hunk {
     pub view: View,
     pub header: String,
+    pub old_start: u32,
     pub lines: Vec<Line>,
 }
 
@@ -78,6 +79,7 @@ impl Hunk {
             view: View::new(),
             header: String::new(),
             lines: Vec::new(),
+            old_start: 0,
         }
     }
 
@@ -161,15 +163,25 @@ impl File {
     }
 
     pub fn enrich_views(&mut self, other: File) {
-        if self.hunks.len() != other.hunks.len() {
-            // so :) what todo?
+        let mut filtered: Vec<&mut Hunk> = {
+            if self.hunks.len() == other.hunks.len() {
+                self.hunks.iter_mut().map(|h| h).collect()
+            } else {
+                let starts: Vec<u32> = other.hunks.iter().map(|h| h.old_start).collect();
+                self.hunks
+                    .iter_mut()
+                    .filter(|h| starts.contains(&h.old_start))
+                    .collect()
+            }
+        };
+        if filtered.len() != other.hunks.len() {
             panic!(
-                "lines length are not the same {:?} {:?}",
-                self.hunks.len(),
+                "hunks length are not the same {:?} {:?}",
+                filtered.len(),
                 other.hunks.len()
             );
         }
-        for pair in zip(&mut self.hunks, &other.hunks) {
+        for pair in zip(filtered, &other.hunks) {
             pair.0.view = pair.1.transfer_view();
             pair.0.enrich_views(pair.1.clone());
         }
@@ -302,15 +314,18 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
         }
         if let Some(diff_hunk) = o_diff_hunk {
             let hh = Hunk::get_header_from(&diff_hunk);
+            let old_start = diff_hunk.old_start();
             if current_hunk.header.is_empty() {
                 // init hunk
                 current_hunk.header = hh.clone();
+                current_hunk.old_start = old_start;
             }
             if current_hunk.header != hh {
                 // go to next hunk
                 current_file.push_hunk(current_hunk.clone());
                 current_hunk = Hunk::new();
                 current_hunk.header = hh.clone();
+                current_hunk.old_start = old_start;
             }
             current_hunk.push_line(Line::from_diff_line(&diff_line));
         } else {

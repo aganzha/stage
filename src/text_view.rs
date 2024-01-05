@@ -749,15 +749,15 @@ pub fn expand(
         for file in &mut unstaged.files {
             if file.expand(line_no) {
                 triggered = true;
-                break
+                break;
             }
         }
     }
     if let Some(staged) = &mut status.staged {
         for file in &mut staged.files {
-            if file.expand(line_no) {     
+            if file.expand(line_no) {
                 triggered = true;
-                break
+                break;
             }
         }
     }
@@ -910,7 +910,7 @@ pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::E
     if let Some(staged) = &mut status.staged {
         staged.render(&buffer, &mut iter);
     }
-    
+
     // iter.set_line_offset(0);
     // let eof_iter = &mut buffer.end_iter();
     // eof_iter.forward_to_line_end();
