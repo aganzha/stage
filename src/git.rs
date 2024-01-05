@@ -29,6 +29,7 @@ pub struct View {
     pub child_dirty: bool,
     pub active: bool,
     pub current: bool,
+    pub transfered: bool,
     pub tags: Vec<String>,
 }
 
@@ -58,6 +59,8 @@ impl Line {
     }
 
     pub fn transfer_view(&self) -> View {
+        let mut clone = self.view.clone();
+        clone.transfered = true;
         self.view.clone()
     }
 }
@@ -93,6 +96,7 @@ impl Hunk {
         // hunk headers are changing always
         // during partial staging
         clone.dirty = true;
+        clone.transfered = true;
         clone
     }
     pub fn push_line(&mut self, line: Line) {
@@ -110,8 +114,7 @@ impl Hunk {
             );
         }
         for pair in zip(&mut self.lines, &other.lines) {
-            pair.0.view = pair.1.transfer_view();            
-            dbg!(pair.0.view.clone());
+            pair.0.view = pair.1.transfer_view();
         }
     }
 }
@@ -164,7 +167,9 @@ impl File {
     }
 
     pub fn transfer_view(&self) -> View {
-        self.view.clone()
+        let mut clone = self.view.clone();
+        clone.transfered = true;
+        clone
     }
 }
 

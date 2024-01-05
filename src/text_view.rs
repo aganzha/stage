@@ -164,6 +164,7 @@ impl View {
             child_dirty: false,
             active: false,
             current: false,
+            transfered: false,
             tags: Vec::new(),
         }
     }
@@ -193,10 +194,11 @@ impl View {
             self.rendered = true;
             self.apply_tags(buffer);
             println!("insert!");
-        } else if self.dirty {
+        } else if self.dirty && !self.transfered {
             // replace view with new content
             if self.line_no != line_no {
                 println!("dirty at wrong line {:?}", line_no);
+                println!("{:?}", content);
                 dbg!(self.clone());
             }
             assert!(self.line_no == line_no);
@@ -217,7 +219,20 @@ impl View {
             println!("delete!");
         } else {
             // view was just moved to another line
-            // due ti expansion/collapsing
+            // due to expansion/collapsing
+            let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
+            eol_iter.forward_to_line_end();
+            if self.dirty {
+                assert!(self.transfered);
+                buffer.delete(iter, &mut eol_iter);
+                buffer.insert(iter, &format!("{} {}", line_no, content));
+                eol_iter.forward_to_line_end();
+                self.apply_tags(buffer);
+            }
+            // let inbuffer = buffer.slice(&iter, &eol_iter, true);
+            // if !inbuffer.contains(&content) {
+            //     panic!("WHILE MOVE {} != {}", inbuffer, content);
+            // }
             self.line_no = line_no;
             let moved = iter.forward_lines(1);
             if !moved {
@@ -232,6 +247,7 @@ impl View {
 
         self.dirty = false;
         self.squashed = false;
+        self.transfered = false;
         self
     }
 
