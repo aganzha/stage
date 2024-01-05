@@ -680,7 +680,7 @@ impl Status {
                 _ => return,
             }
         });
-        println!("++++++++++++++++++++++++++> {:?}", filter);
+
         if !filter.file_path.is_empty() {
             let buffer = txt.buffer();
             unstaged.files.retain_mut(|f| {
