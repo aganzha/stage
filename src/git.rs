@@ -6,7 +6,7 @@ use git2::{
     ApplyLocation, ApplyOptions, Diff as GitDiff, DiffFile, DiffFormat, DiffHunk, DiffLine,
     DiffLineType, Oid, Repository,
 };
-use std::{env, ffi, path, str};
+use std::{env, ffi, path, str, iter::zip};
 
 fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> {
     let path = path_buff.as_path();
@@ -43,34 +43,22 @@ pub enum LineKind {
 pub struct Line {
     pub view: View,
     pub origin: DiffLineType,
-    pub content: String,
-    pub kind: LineKind,
+    pub content: String
 }
 
 impl Line {
-    pub fn new() -> Self {
-        Self {
-            view: View::new(),
-            origin: DiffLineType::HunkHeader,
-            content: String::new(),
-            kind: LineKind::File,
-        }
-    }
-    pub fn from_diff_line(l: &DiffLine, k: LineKind) -> Self {
+    pub fn from_diff_line(l: &DiffLine) -> Self {
         return Self {
             view: View::new(),
             origin: l.origin_value(),
             content: String::from(str::from_utf8(l.content()).unwrap())
                 .replace("\r\n", "")
                 .replace('\n', ""),
-            kind: k,
         };
     }
-}
 
-impl Default for Line {
-    fn default() -> Self {
-        Self::new()
+    pub fn transfer_view(&self) -> View {
+        self.view.clone()
     }
 }
 
@@ -96,27 +84,21 @@ impl Hunk {
             .replace('\n', "")
     }
 
-    pub fn push_line(&mut self, mut l: Line) {
-        if self.lines.is_empty() {
-            l.kind = LineKind::File;
-        }
-        if self.lines.len() == 1 {
-            l.kind = LineKind::Hunk;
-        }
-        self.lines.push(l);
-    }
-
     pub fn title(&self) -> String {
         self.header.to_string()
     }
 
+    pub fn transfer_view(&self) -> View {
+        let mut clone = self.view.clone();
+        // hunk headers are changing always
+        // during partial staging
+        clone.dirty = true;
+        clone
+    }
+
     pub fn enrich_views(&mut self, other: Hunk) {
-        for line in &mut self.lines {
-            for ol in &other.lines {
-                if line.content == ol.content {
-                    line.view = ol.view.transfer();
-                }
-            }
+        for pair in zip(&mut self.lines, &other.lines) {
+            pair.0.view = pair.1.transfer_view();
         }
     }
 }
@@ -162,15 +144,49 @@ impl File {
     }
 
     pub fn enrich_views(&mut self, other: File) {
-        for hunk in &mut self.hunks {
-            for oh in &other.hunks {
-                if hunk.header == oh.header {
-                    hunk.view = oh.view.transfer();
-                    hunk.enrich_views(oh.clone());
-                }
-            }
+        // naive implementation
+        // hunk headers are changing during staging
+        // so it is impossible to compare them.
+        // lets assume hunks remain the same during staging
+        // IT IS NOT POSSIBLE TO ZIP HUNKS LINES AND FILES
+        // CAUSE THEIR LENGTH DIFFERS. WHEN NEW ELEMENT CAME
+        // FROM GIT - THERE ARE NO YET ELEMENT IN MEMORY!
+        // so, i deleted elements in unstaged, but do not add them
+        // to staged! if ai will add? in what order to add???
+        // so, for now - only deleting occurs in view, but no adding.
+        // hm.... there is no way to compare hunks and lines. only files
+        // by path. hm... how to detect new hunks? eg in staged???
+        // staging second hunk?
+        // either add new elements during staging, or what???
+        // deleting only is easier. and it is required to detect garbage.
+        // hunks are always ordered by line. files are ordered by file name.
+        // so, somehow new elements could be detected, but how...
+        // why do i need enriching views at all?
+        // when fresh elements came from git, i have already
+        // rendrered something. if views will be not enruiched,
+        // then new elements just will be inserted in view.
+        // everything that has already rendered become garbage.
+        // lets assume enriching views only for same length.
+        // it will work for unstaged and all lines. if element is new
+        //
+        for pair in zip(&mut self.hunks, &other.hunks) {
+            pair.0.view = pair.1.transfer_view();
+            pair.0.enrich_views(pair.1.clone());
         }
+        // for hunk in &mut self.hunks {
+        //     for oh in &other.hunks {
+        //         if hunk.header == oh.header {
+        //             hunk.view = oh.view.transfer();
+        //             hunk.enrich_views(oh.clone());
+        //         }
+        //     }
+        // }
     }
+
+    pub fn transfer_view(&self) -> View {
+        self.view.clone()
+    }
+
 }
 
 impl Default for File {
@@ -205,7 +221,7 @@ impl Diff {
         for file in &mut self.files {
             for of in &other.files {
                 if file.path == of.path {
-                    file.view = of.view.transfer();
+                    file.view = of.transfer_view();
                     file.enrich_views(of.clone());
                 }
             }
@@ -303,10 +319,10 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
                 current_hunk = Hunk::new();
                 current_hunk.header = hh.clone();
             }
-            current_hunk.push_line(Line::from_diff_line(&diff_line, LineKind::Regular));
+            current_hunk.lines.push(Line::from_diff_line(&diff_line));
         } else {
             // this is file header line.
-            current_hunk.push_line(Line::from_diff_line(&diff_line, LineKind::File))
+            current_hunk.lines.push(Line::from_diff_line(&diff_line))
         }
 
         true

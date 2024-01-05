@@ -1,9 +1,13 @@
 use crate::{Diff, File, Hunk, Line, View};
+use git2::DiffLineType;
 
 pub fn create_line(prefix: i32) -> Line {
-    let mut line = Line::new();
+    let mut line = Line {
+        content: String::new(),
+        origin: DiffLineType::Context,
+        view: View::new(),
+    };
     line.content = format!("line {}", prefix);
-    line.kind = crate::LineKind::Regular;
     line
 }
 

@@ -1,5 +1,6 @@
 use crate::common_tests::*;
 use crate::{stage_via_apply, ApplyFilter, Diff, File, Hunk, Line, View};
+use git2::DiffLineType;
 use glib::Sender;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, TextBuffer, TextIter, TextTag, TextView};
@@ -165,16 +166,6 @@ impl View {
             current: false,
             tags: Vec::new(),
         }
-    }
-
-    pub fn transfer(&self) -> View {
-        let mut clone = self.clone();
-        if clone.squashed {
-            clone.squashed = false;
-            clone.rendered = false;
-            clone.tags = Vec::new();
-        }
-        clone
     }
 
     fn is_rendered_in(&self, line_no: i32) -> bool {
@@ -533,7 +524,12 @@ impl ViewContainer for Hunk {
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
         self.lines
             .iter_mut()
-            .filter(|l| !matches!(l.kind, crate::LineKind::File | crate::LineKind::Hunk))
+            .filter(|l| {
+                !matches!(
+                    l.origin,
+                    DiffLineType::FileHeader | DiffLineType::HunkHeader
+                )
+            })
             .map(|vh| vh as &mut dyn ViewContainer)
             .collect()
     }
@@ -662,7 +658,7 @@ impl Status {
         unstaged.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let content = vc.get_content();
             let kind = vc.get_kind();
-            let view = vc.get_view();            
+            let view = vc.get_view();
             match kind {
                 ViewKind::File => {
                     file_path_so_stage = content;
@@ -698,6 +694,9 @@ impl Status {
                         f.view.squashed = true;
                     }
                     let mut iter = buffer.iter_at_line(f.view.line_no).unwrap();
+                    // CAUTION. rendering just 1 file
+                    // will change every diff line_from -> line_to
+                    // but those are used by cursor and expand!
                     f.render(&buffer, &mut iter);
 
                     f.hunks.remove(hunk_index);
