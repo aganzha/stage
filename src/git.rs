@@ -70,6 +70,9 @@ pub struct Hunk {
     pub view: View,
     pub header: String,
     pub old_start: u32,
+    pub new_start: u32,
+    pub old_lines: u32,
+    pub new_lines: u32,
     pub lines: Vec<Line>,
 }
 
@@ -80,6 +83,9 @@ impl Hunk {
             header: String::new(),
             lines: Vec::new(),
             old_start: 0,
+            new_start: 0,
+            old_lines: 0,
+            new_lines: 0,
         }
     }
 
@@ -180,28 +186,51 @@ impl File {
     }
 
     pub fn enrich_views(&mut self, other: File) {
-        let mut filtered: Vec<&mut Hunk> = {
-            if self.hunks.len() == other.hunks.len() {
-                self.hunks.iter_mut().map(|h| h).collect()
-            } else {
-                let starts: Vec<u32> = other.hunks.iter().map(|h| h.old_start).collect();
-                self.hunks
-                    .iter_mut()
-                    .filter(|h| starts.contains(&h.old_start))
-                    .collect()
+        // used ti maintain view state if existent hunks
+        // there are 2 cases
+        // 1. side from which hunks are moved out (eg unstaged during staging)
+        // this one is simple, cause self.hunks and other.hunks are the same length.
+        // just transfer views between them in order.
+        // 2. side on which hunks are receiving new hunk (eg staged hunks during staging)
+        // this one is hard, cause new hunk (there will be only 1), could break the order
+        // of existent hunks and their headers will mutate (line numbers will differ)
+        if self.hunks.len() == other.hunks.len() {
+            for pair in zip(&mut self.hunks, &other.hunks) {
+                pair.0.view = pair.1.transfer_view();
+                pair.0.enrich_views(pair.1.clone());
             }
-        };
-        if filtered.len() != other.hunks.len() {
-            panic!(
-                "hunks length are not the same {:?} {:?}",
-                filtered.len(),
-                other.hunks.len()
-            );
+            return;
         }
+        // So. It need to map new hunks (self) to existent one: other.
+        // Example of new hunks
+        // "@@ -1,3 +1,7 @@"
+        // "@@ -20,10 +24,11 @@ STAGING LINE INSIDE HUNK (STAGING HUNK MUST BE THE SAME)"
+        // "@@ -54,7 +59,6 @@ do not call render on everything"
+        // Example of exising hunks
+        // "@@ -1,3 +1,7 @@",
+        // "@@ -55,7 +59,6 @@ do not call render on everything",
+        assert!(self.hunks.len() == other.hunks.len() + 1);
+        let mut mine_cursor = 0;
+        let mut other_cursor = 0;
+        let mut hunk_to_exclude = String::new();
+        for pair in zip(&self.hunks, &other.hunks) {
+            mine_cursor += pair.0.new_start + pair.0.new_lines - pair.0.old_lines;
+            other_cursor += pair.1.new_start + pair.1.new_lines - pair.1.old_lines;
+            if mine_cursor != other_cursor {
+                hunk_to_exclude = pair.0.header.clone();
+                break;
+            }
+        }
+        let filtered: Vec<&mut Hunk> = self.hunks
+            .iter_mut()
+            .filter(|h| h.header != hunk_to_exclude)
+            .collect();
+
         for pair in zip(filtered, &other.hunks) {
             pair.0.view = pair.1.transfer_view();
             pair.0.enrich_views(pair.1.clone());
         }
+
     }
 
     pub fn transfer_view(&self) -> View {
@@ -332,10 +361,16 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
         if let Some(diff_hunk) = o_diff_hunk {
             let hh = Hunk::get_header_from(&diff_hunk);
             let old_start = diff_hunk.old_start();
+            let old_lines = diff_hunk.old_lines();
+            let new_start = diff_hunk.new_start();
+            let new_lines = diff_hunk.new_lines();
             if current_hunk.header.is_empty() {
                 // init hunk
                 current_hunk.header = hh.clone();
                 current_hunk.old_start = old_start;
+                current_hunk.old_lines = old_lines;
+                current_hunk.new_start = new_start;
+                current_hunk.new_lines = new_lines;
             }
             if current_hunk.header != hh {
                 // go to next hunk
@@ -343,6 +378,9 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
                 current_hunk = Hunk::new();
                 current_hunk.header = hh.clone();
                 current_hunk.old_start = old_start;
+                current_hunk.old_lines = old_lines;
+                current_hunk.new_start = new_start;
+                current_hunk.new_lines = new_lines;
             }
             current_hunk.push_line(Line::from_diff_line(&diff_line));
         } else {
