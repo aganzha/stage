@@ -252,9 +252,9 @@ impl View {
                 assert!(self.transfered);
                 buffer.delete(iter, &mut eol_iter);
                 buffer.insert(iter, &format!("{} {}", line_no, content));
-                eol_iter.forward_to_line_end();
                 self.apply_tags(buffer);
             }
+            // does not work. until line numbers are there thats for sure
             // let inbuffer = buffer.slice(&iter, &eol_iter, true);
             // if !inbuffer.contains(&content) {
             //     panic!("WHILE MOVE {} != {}", inbuffer, content);
