@@ -45,6 +45,11 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                     sndr.send(crate::Event::Stage(iter.offset(), iter.line()))
                         .expect("Could not send through channel");
                 }
+                gdk::Key::u => {
+                    let iter = buffer.iter_at_offset(buffer.cursor_position());
+                    sndr.send(crate::Event::UnStage(iter.offset(), iter.line()))
+                        .expect("Could not send through channel");
+                }
                 gdk::Key::d => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send(crate::Event::Debug)
@@ -265,9 +270,9 @@ impl View {
                 // happens sometimes when buffer is over
                 buffer.insert(iter, "\n");
                 // println!("insert on pass as buffer is over");
-            } //  else {
-              //     println!("just pass");
-              // }
+            }  else {
+                // println!("just pass");
+            }
         }
 
         self.dirty = false;
@@ -691,12 +696,23 @@ impl Status {
         txt: &TextView,
         line_no: i32,
         path: &OsString,
+        is_staging: bool,
         sender: Sender<crate::Event>,
     ) {
+        // when stage, the patch is applied to index with
+        // Diff diff_index_to_workdir
+        // to unstage it need to apply patch to index with
+        // diff_tree_to_index with reverse flag!
         let mut filter = ApplyFilter::default();
-        let unstaged = self.unstaged.as_mut().unwrap();
+        let diff = {
+            if is_staging {
+                self.unstaged.as_mut().unwrap()
+            } else {
+                self.staged.as_mut().unwrap()
+            }
+        };
         let mut file_path_so_stage = String::new();
-        unstaged.walk_down(&mut |vc: &mut dyn ViewContainer| {
+        diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let content = vc.get_content();
             let kind = vc.get_kind();
             let view = vc.get_view();
@@ -724,7 +740,7 @@ impl Status {
 
         if !filter.file_path.is_empty() {
             let buffer = txt.buffer();
-            unstaged.files.retain_mut(|f| {
+            diff.files.retain_mut(|f| {
                 // it need to remove either whole file
                 // or just 1 hunk inside file
                 let mut remove_file = false;
@@ -756,7 +772,7 @@ impl Status {
             gio::spawn_blocking({
                 let path = path.clone();
                 move || {
-                    stage_via_apply(u.unwrap(), s, path, filter, sender);
+                    stage_via_apply(u, s, is_staging, path, filter, sender);
                 }
             });
         }
@@ -857,11 +873,16 @@ pub fn stage(
     offset: i32,
     line_no: i32,
     repo_path: &OsString,
+    is_staging: bool,
     sndr: Sender<crate::Event>,
 ) {
-    if status.unstaged.is_some() {
-        status.try_stage(txt, line_no, repo_path, sndr);
+    if is_staging && !status.unstaged.is_some() {
+        return;
     }
+    if !is_staging && !status.staged.is_some() {
+        return;
+    }
+    status.try_stage(txt, line_no, repo_path, is_staging, sndr);
 }
 
 pub fn cursor(

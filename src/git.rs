@@ -1,10 +1,10 @@
 use crate::gio;
 use crate::glib::Sender;
-
+use regex::Regex;
 use ffi::OsString;
 use git2::{
     ApplyLocation, ApplyOptions, Diff as GitDiff, DiffFile, DiffFormat, DiffHunk, DiffLine,
-    DiffLineType, Oid, Repository,
+    DiffLineType, DiffOptions, Oid, Repository,
 };
 use std::{env, ffi, iter::zip, path, str};
 
@@ -87,6 +87,23 @@ impl Hunk {
         String::from(str::from_utf8(dh.header()).unwrap())
             .replace("\r\n", "")
             .replace('\n', "")
+    }
+
+    pub fn reverse_header(header: String) ->String {
+        // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
+        // "@@ -20,10 +24,11 @@ STAGING LINE..." -> "@@ -24,11 +20,10 @@ STAGING LINE..."
+        // "@@ -54,7 +59,6 @@ do not call..." -> "@@ -59,6 +54,7 @@ do not call..."
+        let re = Regex::new(r"@@ [+-]([0-9].*,[0-9]*) [+-]([0-9].*,[0-9].*) @@").unwrap();
+        for (whole, [nums1, nums2]) in re.captures_iter(&header).map(|c| {
+            c.extract()
+        }) {
+            let result = whole.replace(nums1, "mock")
+                .replace(nums2, nums1)
+                .replace("mock", nums2);
+            return header.replace(whole, &result);
+        }
+        panic!("cant reveverse header {}", header);
+        String::from("fail")
     }
 
     pub fn title(&self) -> String {
@@ -341,16 +358,29 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
 }
 
 pub fn stage_via_apply(
-    unstaged: Diff,
+    unstaged: Option<Diff>,
     staged: Option<Diff>,
+    is_staging: bool,
     path: OsString,
     filter: ApplyFilter,
     sender: Sender<crate::Event>,
 ) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
-    let diff = repo
-        .diff_index_to_workdir(None, None)
-        .expect("can't get diff");
+    let git_diff = {
+        if is_staging {
+            repo.diff_index_to_workdir(None, None)
+                .expect("can't get diff")
+        } else {
+            let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+            let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+            repo.diff_tree_to_index(
+                Some(&current_tree),
+                None,
+                Some(DiffOptions::new().reverse(true)),
+            )
+            .expect("can't get diff")
+        }
+    };
     let mut options = ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
@@ -359,19 +389,27 @@ pub fn stage_via_apply(
         }
         if let Some(dh) = odh {
             let header = Hunk::get_header_from(&dh);
-            return filter.hunk_header == header;
+            println!("huuuuuuuuuuuuuuunk header{:?}", header);
+            return {
+                if is_staging {
+                    filter.hunk_header == header
+                } else {
+                    filter.hunk_header == Hunk::reverse_header(header)
+                }
+            };
         }
         false
     });
     options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
             let new_file = dd.new_file();
+            println!("file callback {:?}", new_file);
             let file = File::from_diff_file(&new_file);
             return filter.file_path == file.path.into_string().unwrap();
         }
         true
     });
-    repo.apply(&diff, ApplyLocation::Index, Some(&mut options))
+    repo.apply(&git_diff, ApplyLocation::Index, Some(&mut options))
         .expect("can't apply patch");
 
     // staged changes
@@ -385,8 +423,8 @@ pub fn stage_via_apply(
                 .diff_tree_to_index(Some(&current_tree), None, None)
                 .expect("can't get diff tree to index");
             let mut diff = make_diff(git_diff);
-            if staged.is_some() {
-                diff.enrich_views(staged.unwrap());
+            if let Some(s) = staged {
+                diff.enrich_views(s);
             }
             sender
                 .send(crate::Event::Staged(diff))
@@ -398,7 +436,9 @@ pub fn stage_via_apply(
         .diff_index_to_workdir(None, None)
         .expect("cant get diff_index_to_workdir");
     let mut diff = make_diff(git_diff);
-    diff.enrich_views(unstaged);
+    if let Some(u) = unstaged {
+        diff.enrich_views(u);
+    }
     sender
         .send(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");

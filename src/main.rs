@@ -45,6 +45,7 @@ pub enum Event {
     Cursor(i32, i32),
     // does not used for now
     Stage(i32, i32),
+    UnStage(i32, i32),
 }
 
 fn build_ui(app: &adw::Application) {
@@ -130,6 +131,19 @@ fn build_ui(app: &adw::Application) {
                     offset,
                     line_no,
                     current_repo_path.as_ref().unwrap(),
+                    true,
+                    sender.clone(),
+                );
+                println!("STAGE THIS TEXT {:?} in {:?}", offset, line_no);
+            }
+            Event::UnStage(offset, line_no) => {
+                stage(
+                    &txt,
+                    &mut status,
+                    offset,
+                    line_no,
+                    current_repo_path.as_ref().unwrap(),
+                    false,
                     sender.clone(),
                 );
                 println!("STAGE THIS TEXT {:?} in {:?}", offset, line_no);
