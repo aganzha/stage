@@ -818,8 +818,10 @@ impl Status {
     pub fn choose_cursor_position(&mut self, txt: &TextView, buffer: &TextBuffer) {
         if buffer.cursor_position() ==  buffer.end_iter().offset() {
             // first render. buffer at eof
-            if let Some(unstaged) = &self.unstaged {
+            if let Some(unstaged) = &self.staged {
                 if !unstaged.files.is_empty() {
+                    println!("?????????????????????");
+                    dbg!(&unstaged);
                     let line_no = unstaged.files[0].view.line_no;
                     let iter = buffer.iter_at_line(line_no).unwrap();
                     self.cursor(txt, line_no, iter.offset());
