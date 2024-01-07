@@ -52,6 +52,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                 }
                 gdk::Key::d => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
+                    println!("debug ... debug ... {:?} {:?}", iter.line(), iter.line_offset());
                     sndr.send(crate::Event::Debug)
                         .expect("Could not send through channel");
                 }
@@ -97,29 +98,39 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                 gtk::MovementStep::DisplayLines => {
                     let loffset = start_iter.line_offset();
                     start_iter.forward_lines(count);
-                    // we are moving by lines mainaining inline (char) offset;
-                    // if next line has length < current offset, we want to set at that
-                    // max offset (eol) to not follback to prev line
-                    start_iter.forward_to_line_end();
-                    if start_iter.line_offset() > loffset {
-                        // have place to go (backward to same offset)
-                        start_iter.set_line_offset(0);
-                        let mut cnt = latest_char_offset.borrow_mut();
-                        if *cnt > loffset {
-                            // but if it was narrowed before.
-                            // go to previously stored offset
-                            start_iter.forward_chars(*cnt);
-                            // and kill stored
-                            *cnt = 0;
+                    // in case of empty line nothing below is required
+                    if !start_iter.ends_line() {
+                        // we are moving by lines mainaining inline (char) offset;
+                        // if next line has length < current offset, we want to set at that
+                        // max offset (eol) to not follback to prev line
+                        start_iter.forward_to_line_end();
+                        let eol_offset = start_iter.line_offset();
+                        if eol_offset > loffset {
+                            // have place to go (backward to same offset)
+                            start_iter.set_line_offset(0);
+                            let mut cnt = latest_char_offset.borrow_mut();
+                            if *cnt > loffset {
+                                // but if it was narrowed before.
+                                // go to previously stored offset
+                                if *cnt > eol_offset {
+                                    // want to flow to last known offset
+                                    // but line are still to narrow
+                                    start_iter.forward_to_line_end();
+                                } else {
+                                    start_iter.forward_chars(*cnt);
+                                    // and kill stored
+                                    *cnt = 0;
+                                }
+                            } else {
+                                // just go to the same offset
+                                start_iter.forward_chars(loffset);
+                            }
                         } else {
-                            // just go to the same offset
-                            start_iter.forward_chars(loffset);
-                        }
-                    } else {
-                        // save last known line offset
-                        let mut cnt = latest_char_offset.borrow_mut();
-                        if loffset > *cnt {
-                            *cnt = loffset;
+                            // save last known line offset
+                            let mut cnt = latest_char_offset.borrow_mut();
+                            if loffset > *cnt {
+                                *cnt = loffset;
+                            }
                         }
                     }
                 }
@@ -911,29 +922,7 @@ pub fn cursor(
     }
 }
 
-pub fn debug(txt: &TextView, status: &mut Status) {
-    println!("uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu");
-    dbg!(status.unstaged_label.view.clone());
-    status.unstaged.as_mut().unwrap().walk_down(&mut |vc| {
-        let content = vc.get_content();
-        let view = vc.get_view();
-        if view.line_no > 0 {
-            println!(">>");
-            println!("{:?}", content);
-            dbg!(view.clone());
-        }
-    });
-    println!("staaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaged");
-    dbg!(status.staged_label.view.clone());
-    status.staged.as_mut().unwrap().walk_down(&mut |vc| {
-        let content = vc.get_content();
-        let view = vc.get_view();
-        if view.line_no > 0 {
-            println!(">>");
-            println!("{:?}", content);
-            dbg!(view.clone());
-        }
-    });
+pub fn debug(_txt: &TextView, _status: &mut Status) {
 }
 
 pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::Event>) {
