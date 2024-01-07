@@ -129,6 +129,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);
+            let line_before = start_iter.line();
             // TODO! do not emit event if line is not changed!
             match step {
                 gtk::MovementStep::LogicalPositions | gtk::MovementStep::VisualPositions => {
@@ -150,8 +151,11 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                 | gtk::MovementStep::HorizontalPages => {}
                 _ => todo!(),
             }
-            sndr.send(crate::Event::Cursor(start_iter.offset(), start_iter.line()))
-                .expect("Could not send through channel");
+            let current_line = start_iter.line();
+            if line_before != current_line {
+                sndr.send(crate::Event::Cursor(start_iter.offset(), current_line))
+                    .expect("Could not send through channel");
+            }
         }
     });
 
