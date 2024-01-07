@@ -17,6 +17,44 @@ const REGION_HIGHLIGHT_START: &str = "RegionHightlightStart";
 const REGION_HIGHLIGHT_END: &str = "RegionHightlightEnd";
 const REGION_COLOR: &str = "#f2f2f2";
 
+fn handle_line_offset(iter: &mut TextIter, loffset: i32, latest_char_offset: &RefCell<i32>) {
+    // in case of empty line nothing below is required
+    if !iter.ends_line() {
+        // we are moving by lines mainaining inline (char) offset;
+        // if next line has length < current offset, we want to set at that
+        // max offset (eol) to not follback to prev line
+        iter.forward_to_line_end();
+        let eol_offset = iter.line_offset();
+        if eol_offset > loffset {
+            // have place to go (backward to same offset)
+            iter.set_line_offset(0);
+            let mut cnt = latest_char_offset.borrow_mut();
+            if *cnt > loffset {
+                // but if it was narrowed before.
+                // go to previously stored offset
+                if *cnt > eol_offset {
+                    // want to flow to last known offset
+                    // but line are still to narrow
+                    iter.forward_to_line_end();
+                } else {
+                    iter.forward_chars(*cnt);
+                    // and kill stored
+                    *cnt = 0;
+                }
+            } else {
+                // just go to the same offset
+                iter.forward_chars(loffset);
+            }
+        } else {
+            // save last known line offset
+            let mut cnt = latest_char_offset.borrow_mut();
+            if loffset > *cnt {
+                *cnt = loffset;
+            }
+        }
+    }
+}
+
 pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
     let txt = TextView::builder().build();
     let buffer = txt.buffer();
@@ -87,7 +125,6 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);
-            // println!("line {:?}, lineoffset {:?} and is {:?}", start_iter.line(), start_iter.line_offset(), step);
             match step {
                 gtk::MovementStep::LogicalPositions | gtk::MovementStep::VisualPositions => {
                     start_iter.forward_chars(count);
@@ -98,41 +135,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                 gtk::MovementStep::DisplayLines => {
                     let loffset = start_iter.line_offset();
                     start_iter.forward_lines(count);
-                    // in case of empty line nothing below is required
-                    if !start_iter.ends_line() {
-                        // we are moving by lines mainaining inline (char) offset;
-                        // if next line has length < current offset, we want to set at that
-                        // max offset (eol) to not follback to prev line
-                        start_iter.forward_to_line_end();
-                        let eol_offset = start_iter.line_offset();
-                        if eol_offset > loffset {
-                            // have place to go (backward to same offset)
-                            start_iter.set_line_offset(0);
-                            let mut cnt = latest_char_offset.borrow_mut();
-                            if *cnt > loffset {
-                                // but if it was narrowed before.
-                                // go to previously stored offset
-                                if *cnt > eol_offset {
-                                    // want to flow to last known offset
-                                    // but line are still to narrow
-                                    start_iter.forward_to_line_end();
-                                } else {
-                                    start_iter.forward_chars(*cnt);
-                                    // and kill stored
-                                    *cnt = 0;
-                                }
-                            } else {
-                                // just go to the same offset
-                                start_iter.forward_chars(loffset);
-                            }
-                        } else {
-                            // save last known line offset
-                            let mut cnt = latest_char_offset.borrow_mut();
-                            if loffset > *cnt {
-                                *cnt = loffset;
-                            }
-                        }
-                    }
+                    handle_line_offset(&mut start_iter, loffset, &latest_char_offset);
                 }
                 gtk::MovementStep::DisplayLineEnds
                 | gtk::MovementStep::Paragraphs
