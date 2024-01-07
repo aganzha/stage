@@ -1,5 +1,5 @@
 mod text_view;
-use text_view::{cursor, debug, expand, render_status, stage, text_view_factory, Status};
+use text_view::{debug, text_view_factory, Status};
 mod common_tests;
 mod git;
 use adw::prelude::*;
@@ -108,45 +108,39 @@ fn build_ui(app: &adw::Application) {
                 println!("main. staged {:p}", &d);
                 status.staged.replace(d);
                 if status.staged.is_some() && status.unstaged.is_some() {
-                    render_status(&txt, &mut status, sender.clone());
+                    status.render(&txt);
                 }
             }
             Event::Unstaged(d) => {
                 println!("main. unstaged {:p}", &d);
                 status.unstaged.replace(d);
                 if status.staged.is_some() && status.unstaged.is_some() {
-                    render_status(&txt, &mut status, sender.clone());
+                    status.render(&txt);
                 }
             }
-            Event::Expand(offset, line_no) => {
-                expand(&txt, &mut status, offset, line_no, sender.clone());
+            Event::Expand(_offset, line_no) => {
+                status.expand(&txt, line_no);
             }
-            Event::Cursor(offset, line_no) => {
-                cursor(&txt, &mut status, offset, line_no, sender.clone());
+            Event::Cursor(_offset, line_no) => {
+                status.cursor(&txt, line_no);
             }
-            Event::Stage(offset, line_no) => {
-                stage(
+            Event::Stage(_offset, line_no) => {
+                status.stage(
                     &txt,
-                    &mut status,
-                    offset,
                     line_no,
                     current_repo_path.as_ref().unwrap(),
                     true,
                     sender.clone(),
                 );
-                println!("STAGE THIS TEXT {:?} in {:?}", offset, line_no);
             }
-            Event::UnStage(offset, line_no) => {
-                stage(
+            Event::UnStage(_offset, line_no) => {
+                status.stage(
                     &txt,
-                    &mut status,
-                    offset,
                     line_no,
                     current_repo_path.as_ref().unwrap(),
                     false,
                     sender.clone(),
                 );
-                println!("STAGE THIS TEXT {:?} in {:?}", offset, line_no);
             }
         };
         glib::ControlFlow::Continue

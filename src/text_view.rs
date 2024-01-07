@@ -90,7 +90,11 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                 }
                 gdk::Key::d => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    println!("debug ... debug ... {:?} {:?}", iter.line(), iter.line_offset());
+                    println!(
+                        "debug ... debug ... {:?} {:?}",
+                        iter.line(),
+                        iter.line_offset()
+                    );
                     sndr.send(crate::Event::Debug)
                         .expect("Could not send through channel");
                 }
@@ -183,13 +187,6 @@ pub struct Label {
 }
 
 impl Label {
-    pub fn new() -> Self {
-        Label {
-            content: String::new(),
-            view: View::new(),
-        }
-    }
-
     pub fn from_string(content: &str) -> Self {
         Label {
             content: String::from(content),
@@ -284,7 +281,7 @@ impl View {
                 // happens sometimes when buffer is over
                 buffer.insert(iter, "\n");
                 // println!("insert on pass as buffer is over");
-            }  else {
+            } else {
                 // println!("just pass");
             }
         }
@@ -373,7 +370,9 @@ pub trait ViewContainer {
         self.get_view().child_dirty = false;
     }
 
-    fn cursor(&mut self, line_no: i32, parent_active: bool) {
+    fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
+        let mut result = false;
+
         let view = self.get_view();
 
         let current_before = view.current;
@@ -407,10 +406,12 @@ pub trait ViewContainer {
         if view.rendered {
             // repaint if highlight is changed
             view.dirty = view.active != active_before || view.current != current_before;
+            result = view.dirty;
         }
         for child in self.get_children() {
-            child.cursor(line_no, self_active);
+            result = child.cursor(line_no, self_active) || result;
         }
+        result
     }
 
     fn is_active_by_child(&self, _child_active: bool) -> bool {
@@ -496,10 +497,12 @@ impl ViewContainer for Diff {
             .collect()
     }
 
-    fn cursor(&mut self, line_no: i32, parent_active: bool) {
+    fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
+        let mut result = false;
         for file in &mut self.files {
-            file.cursor(line_no, parent_active);
+            result = result || file.cursor(line_no, parent_active);
         }
+        result
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
@@ -705,7 +708,61 @@ impl Status {
 }
 
 impl Status {
-    fn try_stage(
+    pub fn cursor(&mut self, txt: &TextView, line_no: i32) {
+        let mut changed = false;
+        if let Some(unstaged) = &mut self.unstaged {
+            changed = changed || unstaged.cursor(line_no, false);
+        }
+        if let Some(staged) = &mut self.staged {
+            changed = changed || staged.cursor(line_no, false);
+        }
+        if changed {
+            self.render(txt);
+        }
+    }
+
+    pub fn expand(&mut self, txt: &TextView, line_no: i32) {
+        let mut changed = false;
+        if let Some(unstaged) = &mut self.unstaged {
+            for file in &mut unstaged.files {
+                if file.expand(line_no) {
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        if let Some(staged) = &mut self.staged {
+            for file in &mut staged.files {
+                if file.expand(line_no) {
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        if changed {
+            self.render(txt);
+        }
+    }
+
+    pub fn render(&mut self, txt: &TextView) {
+        let buffer = txt.buffer();
+        let mut iter = buffer.iter_at_offset(0);
+
+        self.head.render(&buffer, &mut iter);
+        self.origin.render(&buffer, &mut iter);
+
+        self.unstaged_label.render(&buffer, &mut iter);
+        if let Some(unstaged) = &mut self.unstaged {
+            unstaged.render(&buffer, &mut iter);
+        }
+
+        self.staged_label.render(&buffer, &mut iter);
+        if let Some(staged) = &mut self.staged {
+            staged.render(&buffer, &mut iter);
+        }
+    }
+
+    pub fn stage(
         &mut self,
         txt: &TextView,
         line_no: i32,
@@ -713,10 +770,12 @@ impl Status {
         is_staging: bool,
         sender: Sender<crate::Event>,
     ) {
-        // when stage, the patch is applied to index with
-        // Diff diff_index_to_workdir
-        // to unstage it need to apply patch to index with
-        // diff_tree_to_index with reverse flag!
+        if is_staging && self.unstaged.is_none() {
+            return;
+        }
+        if !is_staging && self.staged.is_none() {
+            return;
+        }
         let mut filter = ApplyFilter::default();
         let diff = {
             if is_staging {
@@ -793,168 +852,7 @@ impl Status {
     }
 }
 
-pub fn expand(
-    txt: &TextView,
-    status: &mut Status,
-    offset: i32,
-    line_no: i32,
-    sndr: Sender<crate::Event>,
-) {
-    let mut triggered = false;
-    if let Some(unstaged) = &mut status.unstaged {
-        for file in &mut unstaged.files {
-            if file.expand(line_no) {
-                triggered = true;
-                break;
-            }
-        }
-    }
-    if let Some(staged) = &mut status.staged {
-        for file in &mut staged.files {
-            if file.expand(line_no) {
-                triggered = true;
-                break;
-            }
-        }
-    }
-    if triggered {
-        render_status(txt, status, sndr);
-    }
-}
-
-pub fn expand_legacy(
-    txt: &TextView,
-    status: &mut Status,
-    offset: i32,
-    line_no: i32,
-    sndr: Sender<crate::Event>,
-) {
-    let mut expanded = false;
-
-    // lines changed during expand/collapse
-    // e.g. +10 or -10
-    // will be applied to the view next to expanded/collapsed
-    let mut delta: i32 = 0;
-    let mut last_line: i32 = 0;
-
-    // 1 view will be marked expanded/collapsed
-    // next view will be marked squashed, to delete preceeding lines
-    // on render. squashed view could be on another diff!
-    let mut diffs: Vec<&mut Diff> = Vec::new();
-    if status.unstaged.is_some() {
-        diffs.push(status.unstaged.as_mut().unwrap());
-    }
-    if status.staged.is_some() {
-        diffs.push(status.staged.as_mut().unwrap());
-    }
-    for diff in diffs {
-        for file in &mut diff.files {
-            if !expanded {
-                expanded = file.expand(line_no);
-            }
-            if expanded {
-                break;
-            }
-        }
-
-        if expanded {
-            // render expanded and every other diff
-            let from = diff.line_from();
-            let to = diff.line_to();
-
-            let buffer = txt.buffer();
-            let mut iter = buffer.iter_at_line(from + delta).unwrap();
-            diff.render(&buffer, &mut iter);
-
-            last_line = diff.line_to();
-            delta = last_line - to;
-        }
-    }
-
-    if expanded {
-        let buffer = txt.buffer();
-        let mut iter = buffer.iter_at_line(last_line).unwrap();
-        // why do i need that?????????????
-        buffer.delete(&mut iter, &mut buffer.end_iter());
-        iter.set_offset(offset);
-        buffer.place_cursor(&iter);
-    }
-}
-
-pub fn stage(
-    txt: &TextView,
-    status: &mut Status,
-    offset: i32,
-    line_no: i32,
-    repo_path: &OsString,
-    is_staging: bool,
-    sndr: Sender<crate::Event>,
-) {
-    if is_staging && !status.unstaged.is_some() {
-        return;
-    }
-    if !is_staging && !status.staged.is_some() {
-        return;
-    }
-    status.try_stage(txt, line_no, repo_path, is_staging, sndr);
-}
-
-pub fn cursor(
-    txt: &TextView,
-    status: &mut Status,
-    offset: i32,
-    line_no: i32,
-    _sndr: Sender<crate::Event>,
-) {
-    let mut diffs: Vec<&mut Diff> = Vec::new();
-    if status.unstaged.is_some() {
-        diffs.push(status.unstaged.as_mut().unwrap());
-    }
-    if status.staged.is_some() {
-        diffs.push(status.staged.as_mut().unwrap());
-    }
-    for diff in diffs {
-        diff.cursor(line_no, false);
-        let buffer = txt.buffer();
-        let mut iter = buffer.iter_at_line(diff.line_from()).unwrap();
-        diff.render(&buffer, &mut iter);
-
-        // TODO: this cursor is set in loop! fix it!
-        iter.set_offset(offset);
-        iter.buffer().place_cursor(&iter);
-    }
-}
-
-pub fn debug(_txt: &TextView, _status: &mut Status) {
-}
-
-pub fn render_status(txt: &TextView, status: &mut Status, _sndr: Sender<crate::Event>) {
-    let buffer = txt.buffer();
-    let mut iter = buffer.iter_at_offset(0);
-
-    status.head.render(&buffer, &mut iter);
-    status.origin.render(&buffer, &mut iter);
-
-    status.unstaged_label.render(&buffer, &mut iter);
-    if let Some(unstaged) = &mut status.unstaged {
-        unstaged.render(&buffer, &mut iter);
-        println!(
-            "UNstaged from to {:?} {:?}",
-            unstaged.line_from(),
-            unstaged.line_to()
-        );
-    }
-
-    status.staged_label.render(&buffer, &mut iter);
-    if let Some(staged) = &mut status.staged {
-        staged.render(&buffer, &mut iter);
-    }
-
-    // iter.set_line_offset(0);
-    // let eof_iter = &mut buffer.end_iter();
-    // eof_iter.forward_to_line_end();
-    // buffer.delete(&mut iter, eof_iter);
-}
+pub fn debug(_txt: &TextView, _status: &mut Status) {}
 
 #[cfg(test)]
 mod tests {

@@ -20,10 +20,11 @@ STAGING LINE INSIDE HUNK (STAGING HUNK MUST BE THE SAME)
    is it need to kill everything inside file (as it being collapsed)????
    probably yes. because there are no way to match old views - hunk headers,
    are changed. even hunk is the same.
-
    lets try to kill everuthing inside file.
 
-   !!!!!!!!!!!!for future and clarity - next hunk become active and current in magit, when prev hunk staged
+   !!!!!!!!!!!!for future and clarity - next hunk become active and current in magit, when prev hunk stag
+
+ed
    !!!!!!!!!!!!for future and clarity - in magit when staging hunk staged FILES are not expanded.
    (hunks are expanded by default)
    - whats get applied???

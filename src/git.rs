@@ -1,11 +1,11 @@
 use crate::gio;
 use crate::glib::Sender;
-use regex::Regex;
 use ffi::OsString;
 use git2::{
     ApplyLocation, ApplyOptions, Diff as GitDiff, DiffFile, DiffFormat, DiffHunk, DiffLine,
     DiffLineType, DiffOptions, Oid, Repository,
 };
+use regex::Regex;
 use std::{env, ffi, iter::zip, path, str};
 
 fn get_current_repo(mut path_buff: path::PathBuf) -> Result<Repository, String> {
@@ -95,15 +95,14 @@ impl Hunk {
             .replace('\n', "")
     }
 
-    pub fn reverse_header(header: String) ->String {
+    pub fn reverse_header(header: String) -> String {
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
         // "@@ -20,10 +24,11 @@ STAGING LINE..." -> "@@ -24,11 +20,10 @@ STAGING LINE..."
         // "@@ -54,7 +59,6 @@ do not call..." -> "@@ -59,6 +54,7 @@ do not call..."
         let re = Regex::new(r"@@ [+-]([0-9].*,[0-9]*) [+-]([0-9].*,[0-9].*) @@").unwrap();
-        for (whole, [nums1, nums2]) in re.captures_iter(&header).map(|c| {
-            c.extract()
-        }) {
-            let result = whole.replace(nums1, "mock")
+        for (whole, [nums1, nums2]) in re.captures_iter(&header).map(|c| c.extract()) {
+            let result = whole
+                .replace(nums1, "mock")
                 .replace(nums2, nums1)
                 .replace("mock", nums2);
             return header.replace(whole, &result);
@@ -221,7 +220,8 @@ impl File {
                 break;
             }
         }
-        let filtered: Vec<&mut Hunk> = self.hunks
+        let filtered: Vec<&mut Hunk> = self
+            .hunks
             .iter_mut()
             .filter(|h| h.header != hunk_to_exclude)
             .collect();
@@ -230,7 +230,6 @@ impl File {
             pair.0.view = pair.1.transfer_view();
             pair.0.enrich_views(pair.1.clone());
         }
-
     }
 
     pub fn transfer_view(&self) -> View {
@@ -427,7 +426,6 @@ pub fn stage_via_apply(
         }
         if let Some(dh) = odh {
             let header = Hunk::get_header_from(&dh);
-            println!("huuuuuuuuuuuuuuunk header{:?}", header);
             return {
                 if is_staging {
                     filter.hunk_header == header
