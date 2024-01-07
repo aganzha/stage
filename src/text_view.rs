@@ -4,8 +4,8 @@ use git2::DiffLineType;
 use glib::Sender;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, TextBuffer, TextIter, TextTag, TextView};
+use std::cell::RefCell;
 use std::ffi::OsString;
-use std::{cell::RefCell};
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
@@ -17,7 +17,11 @@ const REGION_HIGHLIGHT_START: &str = "RegionHightlightStart";
 const REGION_HIGHLIGHT_END: &str = "RegionHightlightEnd";
 const REGION_COLOR: &str = "#f2f2f2";
 
-fn handle_line_offset(iter: &mut TextIter, prev_line_offset: i32, latest_char_offset: &RefCell<i32>) {
+fn handle_line_offset(
+    iter: &mut TextIter,
+    prev_line_offset: i32,
+    latest_char_offset: &RefCell<i32>,
+) {
     // in case of empty line nothing below is required
     if !iter.ends_line() {
         // we are moving by lines mainaining inline (char) offset;
@@ -75,6 +79,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
     event_controller.connect_key_pressed({
         let buffer = buffer.clone();
         let sndr = sndr.clone();
+        let txt = txt.clone();
         move |_, key, _, _| {
             match key {
                 gdk::Key::Tab => {
@@ -91,6 +96,10 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send(crate::Event::UnStage(iter.offset(), iter.line()))
                         .expect("Could not send through channel");
+                }
+                gdk::Key::c => {
+                    txt.activate_action("win.commit", None)
+                        .expect("action does not exists");
                 }
                 gdk::Key::d => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());

@@ -443,7 +443,6 @@ pub fn stage_via_apply(
     options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
             let new_file = dd.new_file();
-            println!("file callback {:?}", new_file);
             let file = File::from_diff_file(&new_file);
             return filter.file_path == file.path.into_string().unwrap();
         }

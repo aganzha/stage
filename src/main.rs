@@ -3,14 +3,12 @@ use text_view::{debug, text_view_factory, Status};
 mod common_tests;
 mod git;
 use adw::prelude::*;
-use adw::{Application, ApplicationWindow, HeaderBar};
+use adw::{Application, ApplicationWindow, HeaderBar, MessageDialog, ResponseAppearance};
 use gdk::Display;
-use git::{
-    get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Hunk, Line, LineKind, View,
-};
-use glib::{clone, MainContext, Priority};
+use git::{get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Hunk, Line, View};
+use glib::{clone, MainContext, Priority, Sender};
 use gtk::prelude::*;
-use gtk::{gdk, gio, glib, Box, CssProvider, Label, Orientation, ScrolledWindow}; // TextIter
+use gtk::{gdk, gio, glib, Box, CssProvider, Entry, Label, Orientation, ScrolledWindow, TextView};
 
 const APP_ID: &str = "io.github.aganzha.Stage";
 
@@ -46,6 +44,61 @@ pub enum Event {
     // does not used for now
     Stage(i32, i32),
     UnStage(i32, i32),
+    Commit(String),
+}
+
+fn show_commit_message(window: &ApplicationWindow, sndr: Sender<Event>) {
+    let txt = TextView::builder()
+        .monospace(true)
+        .css_classes(["commit_message"])
+        .build();
+    let cancel_response = "cancel";
+    let create_response = "create";
+
+    let dialog = MessageDialog::builder()
+        .heading("Commit")
+        .transient_for(window)
+        .modal(true)
+        .destroy_with_parent(true)
+        .close_response(cancel_response)
+        .default_response(create_response)
+        .extra_child(&txt)
+        .default_width(640)
+        .default_height(120)
+        .build();
+    dialog.add_responses(&[(cancel_response, "Cancel"), (create_response, "Create")]);
+    // Make the dialog button insensitive initially
+    dialog.set_response_enabled(create_response, false);
+    dialog.set_response_appearance(create_response, ResponseAppearance::Suggested);
+
+    let event_controller = gtk::EventControllerKey::new();
+    event_controller.connect_key_pressed({
+        let dialog = dialog.clone();
+        move |_, _, _, _| {
+            dialog.set_response_enabled(create_response, true);
+            glib::Propagation::Proceed
+        }
+    });
+    txt.add_controller(event_controller);
+    // Connect response to dialog
+    dialog.connect_response(None, move |dialog, response| {
+        // clone!(@weak window, @weak entry =>
+        // Destroy dialog
+        dialog.destroy();
+
+        // Return if the user chose a response different than `create_response`
+        if response != create_response {
+            println!("return from commit dialog");
+            return;
+        }
+        let buffer = txt.buffer();
+        let start = buffer.iter_at_offset(0);
+        let end = buffer.end_iter();
+        let message = buffer.slice(&start, &end, false);
+        sndr.send(Event::Commit(message.to_string()))
+            .expect("cant send through channel");
+    });
+    dialog.present();
 }
 
 fn build_ui(app: &adw::Application) {
@@ -88,6 +141,12 @@ fn build_ui(app: &adw::Application) {
     let mut current_repo_path: Option<std::ffi::OsString> = None;
     let mut status = Status::new();
 
+    let action_commit = gio::SimpleAction::new("commit", None);
+    action_commit.connect_activate(clone!(@weak window, @strong sender => move |_, _| {
+        show_commit_message(&window, sender.clone());
+    }));
+    window.add_action(&action_commit);
+
     gio::spawn_blocking({
         let sender = sender.clone();
         move || {
@@ -103,6 +162,9 @@ fn build_ui(app: &adw::Application) {
             Event::Debug => {
                 println!("main. FAKE");
                 debug(&txt, &mut status);
+            }
+            Event::Commit(message) => {
+                println!("do commit! {:?}", message);
             }
             Event::Staged(d) => {
                 println!("main. staged {:p}", &d);
