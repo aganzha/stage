@@ -118,8 +118,8 @@ fn build_ui(app: &adw::Application) {
                     status.render(&txt);
                 }
             }
-            Event::Expand(_offset, line_no) => {
-                status.expand(&txt, line_no);
+            Event::Expand(offset, line_no) => {
+                status.expand(&txt, line_no, offset);
             }
             Event::Cursor(offset, line_no) => {
                 status.cursor(&txt, line_no, offset);

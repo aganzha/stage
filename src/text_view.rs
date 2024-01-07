@@ -5,7 +5,7 @@ use glib::Sender;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, TextBuffer, TextIter, TextTag, TextView};
 use std::ffi::OsString;
-use std::{cell::RefCell, thread, time};
+use std::{cell::RefCell};
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
@@ -17,7 +17,7 @@ const REGION_HIGHLIGHT_START: &str = "RegionHightlightStart";
 const REGION_HIGHLIGHT_END: &str = "RegionHightlightEnd";
 const REGION_COLOR: &str = "#f2f2f2";
 
-fn handle_line_offset(iter: &mut TextIter, loffset: i32, latest_char_offset: &RefCell<i32>) {
+fn handle_line_offset(iter: &mut TextIter, prev_line_offset: i32, latest_char_offset: &RefCell<i32>) {
     // in case of empty line nothing below is required
     if !iter.ends_line() {
         // we are moving by lines mainaining inline (char) offset;
@@ -25,11 +25,11 @@ fn handle_line_offset(iter: &mut TextIter, loffset: i32, latest_char_offset: &Re
         // max offset (eol) to not follback to prev line
         iter.forward_to_line_end();
         let eol_offset = iter.line_offset();
-        if eol_offset > loffset {
+        if eol_offset > prev_line_offset {
             // have place to go (backward to same offset)
             iter.set_line_offset(0);
             let mut cnt = latest_char_offset.borrow_mut();
-            if *cnt > loffset {
+            if *cnt > prev_line_offset {
                 // but if it was narrowed before.
                 // go to previously stored offset
                 if *cnt > eol_offset {
@@ -43,13 +43,17 @@ fn handle_line_offset(iter: &mut TextIter, loffset: i32, latest_char_offset: &Re
                 }
             } else {
                 // just go to the same offset
-                iter.forward_chars(loffset);
+                iter.forward_chars(prev_line_offset);
+                // let mut cnt = latest_char_offset.borrow_mut();
+                if prev_line_offset > *cnt {
+                    *cnt = prev_line_offset;
+                }
             }
         } else {
             // save last known line offset
             let mut cnt = latest_char_offset.borrow_mut();
-            if loffset > *cnt {
-                *cnt = loffset;
+            if prev_line_offset > *cnt {
+                *cnt = prev_line_offset;
             }
         }
     }
@@ -697,7 +701,7 @@ impl Status {
         }
     }
 
-    pub fn expand(&mut self, txt: &TextView, line_no: i32) {
+    pub fn expand(&mut self, txt: &TextView, line_no: i32, offset: i32) {
         let mut changed = false;
         if let Some(unstaged) = &mut self.unstaged {
             for file in &mut unstaged.files {
@@ -717,6 +721,11 @@ impl Status {
         }
         if changed {
             self.render(txt);
+            // this works only if cursor is on expandable
+            // view itself. when it will collapse on line
+            // it will not work!
+            let buffer = txt.buffer();
+            buffer.place_cursor(&buffer.iter_at_offset(offset));
         }
     }
 
