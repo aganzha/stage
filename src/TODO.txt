@@ -1,3 +1,5 @@
+Handle pressing tibe inside line
+
 BUG: Tags are accumulating!
 drug racing exists )) views of deleted hunks are still there.
 perhaps just skip rendering diff via dirty flag? it still be there collapsed.

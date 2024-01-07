@@ -342,10 +342,6 @@ pub trait ViewContainer {
 
     fn get_view(&mut self) -> &mut View;
 
-    fn line_from(&self) -> i32;
-
-    fn line_to(&self) -> i32;
-
     fn get_self(&self) -> &dyn ViewContainer;
 
     // TODO - return bool and stop iteration when false
@@ -465,19 +461,6 @@ impl ViewContainer for Diff {
         self.files.len()
     }
 
-    fn line_from(&self) -> i32 {
-        if self.files.is_empty() {
-            return 0;
-        }
-        self.files[0].view.line_no
-    }
-
-    fn line_to(&self) -> i32 {
-        // on diff line_no
-        // stores LAST rendered line
-        self.view.line_no
-    }
-
     fn get_view(&mut self) -> &mut View {
         &mut self.view
     }
@@ -526,15 +509,6 @@ impl ViewContainer for File {
         self
     }
 
-    fn line_from(&self) -> i32 {
-        self.view.line_no
-    }
-
-    fn line_to(&self) -> i32 {
-        todo!();
-        self.view.line_no
-    }
-
     fn get_view(&mut self) -> &mut View {
         &mut self.view
     }
@@ -562,14 +536,6 @@ impl ViewContainer for Hunk {
 
     fn get_self(&self) -> &dyn ViewContainer {
         self
-    }
-    fn line_from(&self) -> i32 {
-        self.view.line_no
-    }
-
-    fn line_to(&self) -> i32 {
-        todo!();
-        self.view.line_no
     }
 
     fn get_content(&self) -> String {
@@ -620,13 +586,6 @@ impl ViewContainer for Line {
     fn get_self(&self) -> &dyn ViewContainer {
         self
     }
-    fn line_from(&self) -> i32 {
-        self.view.line_no
-    }
-
-    fn line_to(&self) -> i32 {
-        self.view.line_no
-    }
 
     fn get_view(&mut self) -> &mut View {
         &mut self.view
@@ -671,14 +630,6 @@ impl ViewContainer for Label {
 
     fn get_content(&self) -> String {
         self.content.to_string()
-    }
-
-    fn line_to(&self) -> i32 {
-        self.view.line_no
-    }
-
-    fn line_from(&self) -> i32 {
-        self.view.line_no
     }
 }
 
@@ -825,7 +776,6 @@ impl Status {
                     }
                     let mut iter = buffer.iter_at_line(f.view.line_no).unwrap();
                     // CAUTION. rendering just 1 file
-                    // will change every diff line_from -> line_to
                     // but those are used by cursor and expand!
                     f.render(&buffer, &mut iter);
 
