@@ -185,7 +185,7 @@ pub enum ViewKind {
     File,
     Hunk,
     Line,
-    Label
+    Label,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -223,6 +223,13 @@ impl View {
         self.rendered && self.line_no == line_no && !self.dirty && !self.squashed
     }
 
+    fn replace_dirty_content(&self, buffer: &TextBuffer, iter: &mut TextIter, content: &String) {
+        let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
+        eol_iter.forward_to_line_end();
+        buffer.delete(iter, &mut eol_iter);
+        buffer.insert(iter, &content);
+    }
+
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
         let line_no = iter.line();
         // println!(
@@ -253,13 +260,9 @@ impl View {
             assert!(self.line_no == line_no);
             // weird. empty views somehow shorten entire buffer by theses ops
             if !content.is_empty() {
-                let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
-                eol_iter.forward_to_line_end();
-                buffer.delete(iter, &mut eol_iter);
-                buffer.insert(iter, &format!("{}", content));
+                self.replace_dirty_content(buffer, iter, &content);
             }
-            let moved = iter.forward_lines(1);
-            assert!(moved);
+            assert!(iter.forward_lines(1));
             self.apply_tags(buffer);
             self.rendered = true;
             // println!("dirty");
@@ -273,12 +276,8 @@ impl View {
         } else {
             // view was just moved to another line
             // due to expansion/collapsing
-            let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
-            eol_iter.forward_to_line_end();
-            if self.dirty {
-                assert!(self.transfered);
-                buffer.delete(iter, &mut eol_iter);
-                buffer.insert(iter, &format!("{} {}", line_no, content));
+            if self.dirty && !content.is_empty() {
+                self.replace_dirty_content(buffer, iter, &content);
                 self.apply_tags(buffer);
             }
             // does not work. until line numbers are there thats for sure
@@ -304,7 +303,11 @@ impl View {
     }
 
     fn apply_tags(&mut self, buffer: &TextBuffer) {
-        let mut start_iter = buffer.iter_at_line(self.line_no).unwrap();
+        let may_be_iter = buffer.iter_at_line(self.line_no);
+        if may_be_iter.is_none() {
+            dbg!(&self);
+        }
+        let mut start_iter = may_be_iter.unwrap();
         let mut end_iter = buffer.iter_at_line(self.line_no).unwrap();
         start_iter.set_line_offset(0);
         end_iter.forward_to_line_end();
@@ -718,7 +721,6 @@ impl Status {
     }
 
     pub fn render(&mut self, txt: &TextView) {
-        
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
 
@@ -728,7 +730,7 @@ impl Status {
         self.unstaged_spacer.render(&buffer, &mut iter);
         self.unstaged_label.render(&buffer, &mut iter);
         if let Some(unstaged) = &mut self.unstaged {
-            unstaged.render(&buffer, &mut iter);        
+            unstaged.render(&buffer, &mut iter);
         }
 
         self.staged_spacer.render(&buffer, &mut iter);
@@ -828,7 +830,7 @@ impl Status {
     }
 
     pub fn choose_cursor_position(&mut self, txt: &TextView, buffer: &TextBuffer) {
-        if buffer.cursor_position() ==  buffer.end_iter().offset() {
+        if buffer.cursor_position() == buffer.end_iter().offset() {
             // first render. buffer at eof
             if let Some(unstaged) = &self.unstaged {
                 if !unstaged.files.is_empty() {
