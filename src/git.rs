@@ -389,8 +389,12 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
 
         true
     });
-    current_file.push_hunk(current_hunk);
-    diff.files.push(current_file);
+    if !current_hunk.header.is_empty() {
+        current_file.push_hunk(current_hunk);
+    }
+    if !current_file.path.is_empty() {
+        diff.files.push(current_file);
+    }
     diff
 }
 
