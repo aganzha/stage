@@ -121,8 +121,8 @@ fn build_ui(app: &adw::Application) {
             Event::Expand(_offset, line_no) => {
                 status.expand(&txt, line_no);
             }
-            Event::Cursor(_offset, line_no) => {
-                status.cursor(&txt, line_no);
+            Event::Cursor(offset, line_no) => {
+                status.cursor(&txt, line_no, offset);
             }
             Event::Stage(_offset, line_no) => {
                 status.stage(

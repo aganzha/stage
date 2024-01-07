@@ -129,6 +129,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);
+            // TODO! do not emit event if line is not changed!
             match step {
                 gtk::MovementStep::LogicalPositions | gtk::MovementStep::VisualPositions => {
                     start_iter.forward_chars(count);
@@ -370,7 +371,10 @@ pub trait ViewContainer {
         let mut result = false;
 
         let view = self.get_view();
-
+        // this affect tests somehow!
+        // if !view.rendered {
+        //     return false;
+        // }
         let current_before = view.current;
         let active_before = view.active;
 
@@ -379,7 +383,6 @@ pub trait ViewContainer {
         let current = view.is_rendered_in(line_no);
 
         let active_by_parent = self.is_active_by_parent(parent_active);
-
         let mut active_by_child = false;
 
         // todo: make 1 line iter
@@ -483,7 +486,7 @@ impl ViewContainer for Diff {
     fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
         let mut result = false;
         for file in &mut self.files {
-            result = result || file.cursor(line_no, parent_active);
+            result = file.cursor(line_no, parent_active) || result;
         }
         result
     }
@@ -659,7 +662,7 @@ impl Status {
 }
 
 impl Status {
-    pub fn cursor(&mut self, txt: &TextView, line_no: i32) {
+    pub fn cursor(&mut self, txt: &TextView, line_no: i32, offset: i32) {
         let mut changed = false;
         if let Some(unstaged) = &mut self.unstaged {
             changed = changed || unstaged.cursor(line_no, false);
@@ -669,6 +672,8 @@ impl Status {
         }
         if changed {
             self.render(txt);
+            let buffer = txt.buffer();
+            buffer.place_cursor(&buffer.iter_at_offset(offset));
         }
     }
 
