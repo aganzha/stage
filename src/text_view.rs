@@ -236,10 +236,9 @@ impl View {
             //     iter.line()
             // );
             iter.forward_lines(1);
-            // println!("in place {:?}", iter.line());
         } else if !self.rendered {
             // render brand new view
-            buffer.insert(iter, &format!("{} {}\n", line_no, content));
+            buffer.insert(iter, &format!("{}\n", content));
             self.line_no = line_no;
             self.rendered = true;
             self.apply_tags(buffer);
@@ -252,11 +251,15 @@ impl View {
             //     dbg!(self.clone());
             // }
             assert!(self.line_no == line_no);
-            let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
-            eol_iter.forward_to_line_end();
-            buffer.delete(iter, &mut eol_iter);
-            buffer.insert(iter, &format!("{} {}", line_no, content));
-            iter.forward_lines(1);
+            // weird. empty views somehow shorten entire buffer by theses ops
+            if !content.is_empty() {
+                let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
+                eol_iter.forward_to_line_end();
+                buffer.delete(iter, &mut eol_iter);
+                buffer.insert(iter, &format!("{}", content));
+            }
+            let moved = iter.forward_lines(1);
+            assert!(moved);
             self.apply_tags(buffer);
             self.rendered = true;
             // println!("dirty");
