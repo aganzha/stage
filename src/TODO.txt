@@ -1,4 +1,5 @@
-Handle pressing tibe inside line
+Cursor become broken just on second file :(
+Handle pressing TAB inside line
 
 BUG: Tags are accumulating!
 drug racing exists )) views of deleted hunks are still there.
@@ -57,7 +58,6 @@ do not call render on everything
 - .gitignore does not counted in gitlib2 !!!! flags : Status(IGNORED)
 
 op
-
 - in parallel thread, go to the source file, while read hunks and put whole file in tree sitter,
 make a syntax, highlight it and put into the diff. while insert line into the buffer, paint it with tags
 by the tree sitter structure

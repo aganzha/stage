@@ -375,9 +375,12 @@ pub trait ViewContainer {
         let mut result = false;
 
         let view = self.get_view();
-        // this affect tests somehow!
         // if !view.rendered {
-        //     return false;
+        //   when view is not rendered, it also
+        //   could be marked active/inactive
+        //   e.g. after expandinf file, all hunks are
+        //   expanded and everything inside file is
+        //   maked as active
         // }
         let current_before = view.current;
         let active_before = view.active;
@@ -705,6 +708,7 @@ impl Status {
     }
 
     pub fn render(&mut self, txt: &TextView) {
+        
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
 
@@ -713,13 +717,14 @@ impl Status {
 
         self.unstaged_label.render(&buffer, &mut iter);
         if let Some(unstaged) = &mut self.unstaged {
-            unstaged.render(&buffer, &mut iter);
+            unstaged.render(&buffer, &mut iter);        
         }
 
         self.staged_label.render(&buffer, &mut iter);
         if let Some(staged) = &mut self.staged {
             staged.render(&buffer, &mut iter);
         }
+        self.choose_cursor_position(&txt, &buffer);
     }
 
     pub fn stage(
@@ -807,6 +812,19 @@ impl Status {
                     stage_via_apply(u, s, is_staging, path, filter, sender);
                 }
             });
+        }
+    }
+
+    pub fn choose_cursor_position(&mut self, txt: &TextView, buffer: &TextBuffer) {
+        if buffer.cursor_position() ==  buffer.end_iter().offset() {
+            // first render. buffer at eof
+            if let Some(unstaged) = &self.unstaged {
+                if !unstaged.files.is_empty() {
+                    let line_no = unstaged.files[0].view.line_no;
+                    let iter = buffer.iter_at_line(line_no).unwrap();
+                    self.cursor(txt, line_no, iter.offset());
+                }
+            }
         }
     }
 }
