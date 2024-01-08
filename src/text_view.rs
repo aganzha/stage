@@ -15,10 +15,50 @@ const CURSOR_COLOR: &str = "#f6fecd";
 const DELETED_COLOR: &str = "fecdda";
 const ADDED_COLOR: &str = "8af2a9";
 
+const BOLD: &str  = "bold";
 const REGION_HIGHLIGHT: &str = "RegionHighlight";
 const REGION_HIGHLIGHT_START: &str = "RegionHightlightStart";
 const REGION_HIGHLIGHT_END: &str = "RegionHightlightEnd";
 const REGION_COLOR: &str = "#f2f2f2";
+
+pub enum Tag {
+    Bold,
+    Added,
+    Removed
+}
+
+impl Tag {    
+        
+    fn create(&self) -> TextTag {
+        match self {
+            Self::Bold =>{
+                let tt = self.new_tag();
+                tt.set_weight(700);
+                tt
+            },
+            Self::Added =>{
+                let tt = self.new_tag();
+                tt.set_background(Some("#ebfcf1"));
+                tt
+            },
+            Self::Removed =>{
+                let tt = self.new_tag();
+                tt.set_background(Some("#fbf0f3"));
+                tt
+            },
+        }
+    }
+    fn new_tag(&self) -> TextTag {
+        TextTag::new(Some(self.name()))
+    }
+    fn name(&self) -> &str {
+        match self {
+            Self::Bold => "bold",
+            Self::Added => "added",
+            Self::Removed => "removed",
+        }
+    }
+}
 
 fn handle_line_offset(
     iter: &mut TextIter,
@@ -66,7 +106,7 @@ fn handle_line_offset(
     } else {
         let mut cnt = latest_char_offset.borrow_mut();
         if prev_line_offset > *cnt {
-            *cnt  = prev_line_offset;
+            *cnt = prev_line_offset;
         }
     }
 }
@@ -78,16 +118,21 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
     let tag = TextTag::new(Some(CURSOR_HIGHLIGHT));
     tag.set_background(Some(CURSOR_COLOR));
     buffer.tag_table().add(&tag);
-
+    
     let tag = TextTag::new(Some(REGION_HIGHLIGHT));
     tag.set_background(Some(REGION_COLOR));
     buffer.tag_table().add(&tag);
 
+    let bold = Tag::Bold.create();
+    buffer.tag_table().add(&bold);
+    buffer.tag_table().add(&Tag::Added.create());
+    buffer.tag_table().add(&Tag::Removed.create());
+    
     let event_controller = gtk::EventControllerKey::new();
     event_controller.connect_key_pressed({
         let buffer = buffer.clone();
         let sndr = sndr.clone();
-        let txt = txt.clone();
+        // let txt = txt.clone();
         move |_, key, _, _| {
             match key {
                 gdk::Key::Tab => {
@@ -255,7 +300,13 @@ impl View {
         buffer.insert(iter, content);
     }
 
-    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
+    fn render(
+        &mut self,
+        buffer: &TextBuffer,
+        iter: &mut TextIter,
+        content: String,
+        content_tags: Vec<Tag>,
+    ) -> &mut Self {
         let line_no = iter.line();
         // println!(
         //     "line {:?} render view {:?} which is at line {:?}",
@@ -273,7 +324,7 @@ impl View {
             buffer.insert(iter, &format!("{}\n", content));
             self.line_no = line_no;
             self.rendered = true;
-            self.apply_tags(buffer, &content);
+            self.apply_tags(buffer, &content, &content_tags);
             // println!("insert!");
         } else if self.dirty && !self.transfered {
             // replace view with new content
@@ -290,7 +341,7 @@ impl View {
             if !iter.forward_lines(1) {
                 assert!(iter.offset() == buffer.end_iter().offset());
             }
-            self.apply_tags(buffer, &content);
+            self.apply_tags(buffer, &content, &content_tags);
             self.rendered = true;
             // println!("dirty");
         } else if self.squashed {
@@ -305,7 +356,7 @@ impl View {
             // due to expansion/collapsing
             if self.dirty && !content.is_empty() {
                 self.replace_dirty_content(buffer, iter, &content);
-                self.apply_tags(buffer, &content);
+                self.apply_tags(buffer, &content, &content_tags);
             }
             // does not work. until line numbers are there thats for sure
             // let inbuffer = buffer.slice(&iter, &eol_iter, true);
@@ -355,11 +406,11 @@ impl View {
         self.tags.push(String::from(tag));
     }
 
-    fn apply_tags(&mut self, buffer: &TextBuffer, content: &str) {
+    fn apply_tags(&mut self, buffer: &TextBuffer, content: &str, content_tags: &Vec<Tag>) {
         if content.is_empty() {
             return;
         }
-        if self.current {
+        if self.current {            
             self.add_tag(buffer, CURSOR_HIGHLIGHT);
         } else {
             self.remove_tag(buffer, CURSOR_HIGHLIGHT);
@@ -368,6 +419,9 @@ impl View {
             } else {
                 self.remove_tag(buffer, REGION_HIGHLIGHT);
             }
+        }
+        for t in content_tags {
+            self.add_tag(buffer, t.name());
         }
     }
 
@@ -407,9 +461,16 @@ pub trait ViewContainer {
 
     fn get_content(&self) -> String;
 
+    fn tags(&self) -> Vec<Tag> {
+        Vec::new()
+    }
+
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
         let content = self.get_content();
-        let view = self.get_view().render(buffer, iter, content);
+        let tags = self.tags();
+        let view = self
+            .get_view()
+            .render(buffer, iter, content, tags);
         if view.expanded || view.child_dirty {
             for child in self.get_children() {
                 child.render(buffer, iter)
@@ -578,6 +639,10 @@ impl ViewContainer for File {
             .map(|vh| vh as &mut dyn ViewContainer)
             .collect()
     }
+    fn tags(&self) -> Vec<Tag> {
+        vec![Tag::Bold]
+    }
+
 }
 
 impl ViewContainer for Hunk {
@@ -662,6 +727,13 @@ impl ViewContainer for Line {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
         active
+    }
+    fn tags(&self) -> Vec<Tag> {
+        match self.origin {
+            DiffLineType::Addition => vec![Tag::Added],
+            DiffLineType::Deletion => vec![Tag::Removed],
+            _ => Vec::new()
+        }
     }
 }
 
