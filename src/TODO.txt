@@ -1,5 +1,18 @@
+BUG: in magit, when there are only staged or unstaged - other title is not shown.
+     so there are no jumps when staging single file.
+     just staged and understaged title is replaced. its nice
+     
+BUG: added or removed ampty lines. it need to detect them visually (no line - no background now)
+Write everything to logs!
+BUG: empty lines in the end of textview are still accumulating
+BUG: sometimes cursor jumps to first staged file, because it is in eof
+     lets perhaps pass parameter to choose cursor. eg enum like AfterRender, AfterExpand etc
+
+lfs support. sparse checkout
+
 Cursor become broken just on second file :(
 Handle pressing TAB inside line
+
 
 BUG: Tags are accumulating!
 drug racing exists )) views of deleted hunks are still there.
@@ -11,6 +24,7 @@ it is OK to call render, cause nothing will blink, cause everything is on its pl
 
 so, here is the problem - one thread pushes th changed and another diff is rerendered.
 it need to separate it to different renders of individual diff!
+
 
 STAGING LINE INSIDE HUNK (STAGING HUNK MUST BE THE SAME)
 
@@ -36,6 +50,7 @@ ed
 
 - refactor cursor to every view, by selecting actual view.
 do not call render on everything
+
 
 - collapse when press tab on line? YES, please
 
