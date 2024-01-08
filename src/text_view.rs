@@ -98,8 +98,10 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                         .expect("Could not send through channel");
                 }
                 gdk::Key::c => {
-                    txt.activate_action("win.commit", None)
-                        .expect("action does not exists");
+                    sndr.send(crate::Event::CommitRequest)
+                        .expect("Could not send through channel");
+                    // txt.activate_action("win.commit", None)
+                    //     .expect("action does not exists");
                 }
                 gdk::Key::d => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
@@ -694,9 +696,6 @@ impl Status {
             rendered: false,
         }
     }
-}
-
-impl Status {
     pub fn cursor(&mut self, txt: &TextView, line_no: i32, offset: i32) {
         let mut changed = false;
         if let Some(unstaged) = &mut self.unstaged {
@@ -739,7 +738,6 @@ impl Status {
             buffer.place_cursor(&buffer.iter_at_offset(offset));
         }
     }
-
     pub fn render(&mut self, txt: &TextView) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
@@ -848,7 +846,6 @@ impl Status {
             });
         }
     }
-
     pub fn choose_cursor_position(&mut self, txt: &TextView, buffer: &TextBuffer) {
         if buffer.cursor_position() == buffer.end_iter().offset() {
             // first render. buffer at eof
@@ -860,6 +857,12 @@ impl Status {
                 }
             }
         }
+    }
+    pub fn has_staged(&self) -> bool {
+        if let Some(staged) = &self.staged {
+            return !staged.files.is_empty();
+        }
+        false
     }
 }
 

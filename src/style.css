@@ -4,3 +4,10 @@
 .commit_message {
     font-size: 24px;
 }
+.dialog-vbox .vertical {
+    /* hack. under dialog-vbox there are */
+    /* 2 classes: vertical with label */
+    /* and horisontal with action. */
+    /* and no any other classes */
+    font-size: 24px;
+}
