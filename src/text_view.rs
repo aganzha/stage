@@ -669,6 +669,13 @@ impl ViewContainer for Label {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum RenderSource {
+    Git,
+    Cursor,
+    Expand
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Status {
     pub head: Label,
@@ -705,7 +712,7 @@ impl Status {
             changed = changed || staged.cursor(line_no, false);
         }
         if changed {
-            self.render(txt);
+            self.render(txt, RenderSource::Cursor);
             let buffer = txt.buffer();
             buffer.place_cursor(&buffer.iter_at_offset(offset));
         }
@@ -730,7 +737,7 @@ impl Status {
             }
         }
         if changed {
-            self.render(txt);
+            self.render(txt, RenderSource::Expand);
             // this works only if cursor is on expandable
             // view itself. when it will collapse on line
             // it will not work!
@@ -738,7 +745,7 @@ impl Status {
             buffer.place_cursor(&buffer.iter_at_offset(offset));
         }
     }
-    pub fn render(&mut self, txt: &TextView) {
+    pub fn render(&mut self, txt: &TextView, source: RenderSource) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
 
@@ -756,7 +763,11 @@ impl Status {
         if let Some(staged) = &mut self.staged {
             staged.render(&buffer, &mut iter);
         }
-        self.choose_cursor_position(&txt, &buffer);
+
+        if source != RenderSource::Cursor {
+            // avoid loops on cursor renders
+            self.choose_cursor_position(&txt, &buffer);
+        }
     }
 
     pub fn stage(

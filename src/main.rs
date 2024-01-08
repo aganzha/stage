@@ -1,5 +1,5 @@
 mod text_view;
-use text_view::{debug, text_view_factory, Status};
+use text_view::{debug, text_view_factory, Status, RenderSource};
 
 mod common_tests;
 
@@ -127,14 +127,14 @@ fn build_ui(app: &adw::Application) {
                 println!("main. staged {:p}", &d);
                 status.staged.replace(d);
                 if status.staged.is_some() && status.unstaged.is_some() {
-                    status.render(&txt);
+                    status.render(&txt, RenderSource::Git);
                 }
             }
             Event::Unstaged(d) => {
                 println!("main. unstaged {:p}", &d);
                 status.unstaged.replace(d);
                 if status.staged.is_some() && status.unstaged.is_some() {
-                    status.render(&txt);
+                    status.render(&txt, RenderSource::Git);
                 }
             }
             Event::Expand(offset, line_no) => {
