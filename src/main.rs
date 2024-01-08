@@ -1,5 +1,5 @@
 mod text_view;
-use text_view::{debug, text_view_factory, Status, RenderSource};
+use text_view::{debug, text_view_factory, RenderSource, Status};
 
 mod common_tests;
 
@@ -102,7 +102,7 @@ fn build_ui(app: &adw::Application) {
         }
     });
     window.present();
-    
+
     receiver.attach(None, move |event: Event| {
         match event {
             Event::CurrentRepo(path) => {

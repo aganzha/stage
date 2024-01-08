@@ -10,7 +10,10 @@ use std::ffi::OsString;
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
 const CURSOR_HIGHLIGHT_END: &str = "CursorHightlightEnd";
+
 const CURSOR_COLOR: &str = "#f6fecd";
+const DELETED_COLOR: &str = "fecdda";
+const ADDED_COLOR: &str = "8af2a9";
 
 const REGION_HIGHLIGHT: &str = "RegionHighlight";
 const REGION_HIGHLIGHT_START: &str = "RegionHightlightStart";
@@ -238,11 +241,13 @@ impl View {
         self.rendered && self.line_no == line_no && !self.dirty && !self.squashed
     }
 
-    fn replace_dirty_content(&self, buffer: &TextBuffer, iter: &mut TextIter, content: &String) {
+    fn replace_dirty_content(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: &str) {
         let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
         eol_iter.forward_to_line_end();
+        buffer.remove_all_tags(iter, &mut eol_iter);
+        self.tags = Vec::new();
         buffer.delete(iter, &mut eol_iter);
-        buffer.insert(iter, &content);
+        buffer.insert(iter, content);
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: String) -> &mut Self {
@@ -263,7 +268,7 @@ impl View {
             buffer.insert(iter, &format!("{}\n", content));
             self.line_no = line_no;
             self.rendered = true;
-            self.apply_tags(buffer);
+            self.apply_tags(buffer, &content);
             // println!("insert!");
         } else if self.dirty && !self.transfered {
             // replace view with new content
@@ -280,7 +285,7 @@ impl View {
             if !iter.forward_lines(1) {
                 assert!(iter.offset() == buffer.end_iter().offset());
             }
-            self.apply_tags(buffer);
+            self.apply_tags(buffer, &content);
             self.rendered = true;
             // println!("dirty");
         } else if self.squashed {
@@ -295,7 +300,7 @@ impl View {
             // due to expansion/collapsing
             if self.dirty && !content.is_empty() {
                 self.replace_dirty_content(buffer, iter, &content);
-                self.apply_tags(buffer);
+                self.apply_tags(buffer, &content);
             }
             // does not work. until line numbers are there thats for sure
             // let inbuffer = buffer.slice(&iter, &eol_iter, true);
@@ -312,40 +317,51 @@ impl View {
                 // println!("just pass");
             }
         }
-
         self.dirty = false;
         self.squashed = false;
         self.transfered = false;
         self
     }
 
-    fn apply_tags(&mut self, buffer: &TextBuffer) {
-        let may_be_iter = buffer.iter_at_line(self.line_no);
-        if may_be_iter.is_none() {
-            dbg!(&self);
-        }
-        let mut start_iter = may_be_iter.unwrap();
-        let mut end_iter = buffer.iter_at_line(self.line_no).unwrap();
+    fn start_end_iters(&self, buffer: &TextBuffer) -> (TextIter, TextIter) {
+        let mut start_iter = buffer.iter_at_line(self.line_no).unwrap();
         start_iter.set_line_offset(0);
+        let mut end_iter = buffer.iter_at_line(self.line_no).unwrap();
         end_iter.forward_to_line_end();
+        (start_iter, end_iter)
+    }
+
+    fn remove_tag(&mut self, buffer: &TextBuffer, tag: &str) {
+        let index = self.tags.iter().position(|t| t == tag);
+        if let Some(ind) = index {
+            let (start_iter, end_iter) = self.start_end_iters(buffer);
+            buffer.remove_tag_by_name(tag, &start_iter, &end_iter);
+            self.tags.remove(ind);
+        }
+    }
+
+    fn add_tag(&mut self, buffer: &TextBuffer, tag: &str) {
+        let index = self.tags.iter().position(|t| t == tag);
+        if index.is_some() {
+            return;
+        }
+        let (start_iter, end_iter) = self.start_end_iters(buffer);
+        buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
+        self.tags.push(String::from(tag));
+    }
+
+    fn apply_tags(&mut self, buffer: &TextBuffer, content: &str) {
+        if content.is_empty() {
+            return;
+        }
         if self.current {
-            buffer.apply_tag_by_name(CURSOR_HIGHLIGHT, &start_iter, &end_iter);
-            self.tags.push(String::from(CURSOR_HIGHLIGHT));
+            self.add_tag(buffer, CURSOR_HIGHLIGHT);
         } else {
-            let index = self.tags.iter().position(|t| t == CURSOR_HIGHLIGHT);
-            if let Some(ind) = index {
-                buffer.remove_tag_by_name(CURSOR_HIGHLIGHT, &start_iter, &end_iter);
-                self.tags.remove(ind);
-            }
+            self.remove_tag(buffer, CURSOR_HIGHLIGHT);
             if self.active {
-                buffer.apply_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
-                self.tags.push(String::from(REGION_HIGHLIGHT));
+                self.add_tag(buffer, REGION_HIGHLIGHT);
             } else {
-                let index = self.tags.iter().position(|t| t == REGION_HIGHLIGHT);
-                if let Some(ind) = index {
-                    buffer.remove_tag_by_name(REGION_HIGHLIGHT, &start_iter, &end_iter);
-                    self.tags.remove(ind);
-                }
+                self.remove_tag(buffer, REGION_HIGHLIGHT);
             }
         }
     }
@@ -399,7 +415,6 @@ pub trait ViewContainer {
 
     fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
         let mut result = false;
-
         let view = self.get_view();
         // if !view.rendered {
         //   when view is not rendered, it also
@@ -414,7 +429,6 @@ pub trait ViewContainer {
         let view_expanded = view.expanded;
 
         let current = view.is_rendered_in(line_no);
-
         let active_by_parent = self.is_active_by_parent(parent_active);
         let mut active_by_child = false;
 
@@ -673,7 +687,7 @@ impl ViewContainer for Label {
 pub enum RenderSource {
     Git,
     Cursor,
-    Expand
+    Expand,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -746,6 +760,7 @@ impl Status {
         }
     }
     pub fn render(&mut self, txt: &TextView, source: RenderSource) {
+        println!(">>>>>>>>>>>>render {:?}", source);
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
 
@@ -766,7 +781,7 @@ impl Status {
 
         if source != RenderSource::Cursor {
             // avoid loops on cursor renders
-            self.choose_cursor_position(&txt, &buffer);
+            self.choose_cursor_position(txt, &buffer);
         }
     }
 
@@ -815,7 +830,7 @@ impl Status {
                     }
                     view.squashed = true;
                 }
-                _ => return,
+                _ => (),
             }
         });
 
