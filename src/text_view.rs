@@ -63,6 +63,11 @@ fn handle_line_offset(
                 *cnt = prev_line_offset;
             }
         }
+    } else {
+        let mut cnt = latest_char_offset.borrow_mut();
+        if prev_line_offset > *cnt {
+            *cnt  = prev_line_offset;
+        }
     }
 }
 
@@ -760,7 +765,6 @@ impl Status {
         }
     }
     pub fn render(&mut self, txt: &TextView, source: RenderSource) {
-        println!(">>>>>>>>>>>>render {:?}", source);
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
 
