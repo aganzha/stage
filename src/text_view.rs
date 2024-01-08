@@ -271,11 +271,13 @@ impl View {
             //     dbg!(self.clone());
             // }
             assert!(self.line_no == line_no);
-            // weird. empty views somehow shorten entire buffer by theses ops
+            // weird. empty views somehow shorten entire buffer by theese ops
             if !content.is_empty() {
                 self.replace_dirty_content(buffer, iter, &content);
             }
-            assert!(iter.forward_lines(1));
+            if !iter.forward_lines(1) {
+                assert!(iter.offset() == buffer.end_iter().offset());
+            }
             self.apply_tags(buffer);
             self.rendered = true;
             // println!("dirty");
