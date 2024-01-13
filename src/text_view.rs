@@ -1,5 +1,8 @@
 use crate::common_tests::*;
-use crate::{stage_via_apply, ApplyFilter, Diff, File, Hunk, Line, View};
+use crate::{
+    commit_staged, get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Hunk, Line,
+    View,
+};
 use git2::DiffLineType;
 use glib::Sender;
 use gtk::prelude::*;
@@ -568,6 +571,17 @@ pub trait ViewContainer {
         }
         found
     }
+
+    fn erase(&mut self) {
+        let view = self.get_view();
+        view.squashed = true;
+        view.child_dirty = true;
+        self.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            let view = vc.get_view();
+            view.squashed = true;
+            view.child_dirty = true;
+        });
+    }
 }
 
 impl ViewContainer for Diff {
@@ -769,6 +783,7 @@ pub enum RenderSource {
     Git,
     Cursor,
     Expand,
+    Erase,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -798,6 +813,47 @@ impl Status {
             rendered: false,
         }
     }
+
+    pub fn get_status(&self, sender: Sender<crate::Event>) {
+        gio::spawn_blocking({
+            move || {
+                get_current_repo_status(None, sender);
+            }
+        });
+    }
+
+    pub fn commit_staged(
+        &mut self,
+        path: &OsString,
+        message: String,
+        txt: &TextView,
+        sender: Sender<crate::Event>,
+    ) {
+        if let Some(diff) = &mut self.staged {
+            diff.erase();
+            self.render(txt, RenderSource::Erase);
+        }
+        gio::spawn_blocking({
+            let path = path.clone();
+            move || {
+                commit_staged(path, message, sender);
+            }
+        });
+    }
+    pub fn update_staged(&mut self, diff: Diff, txt: &TextView) {
+        self.staged.replace(diff);
+        if self.staged.is_some() && self.unstaged.is_some() {
+            self.render(&txt, RenderSource::Git);
+        }
+    }
+
+    pub fn update_unstaged(&mut self, diff: Diff, txt: &TextView) {
+        self.unstaged.replace(diff);
+        if self.staged.is_some() && self.unstaged.is_some() {
+            self.render(&txt, RenderSource::Git);
+        }
+    }
+
     pub fn cursor(&mut self, txt: &TextView, line_no: i32, offset: i32) {
         let mut changed = false;
         if let Some(unstaged) = &mut self.unstaged {
@@ -927,7 +983,8 @@ impl Status {
                         f.view.squashed = true;
                     }
                     let mut iter = buffer.iter_at_line(f.view.line_no).unwrap();
-                    // CAUTION. rendering just 1 file
+                    // CAUTION. ATTENTION. IMPORTANT
+                    // rendering just 1 file
                     // but those are used by cursor and expand!
                     f.render(&buffer, &mut iter);
 

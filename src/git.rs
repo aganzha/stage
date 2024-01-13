@@ -506,7 +506,27 @@ pub fn commit_staged(path: OsString, message: String, sender: Sender<crate::Even
         .revparse_single("HEAD^{commit}")
         .expect("fail revparse");
     let parent = repo.find_commit(ob.id()).expect("can't find commit");
-    let result = repo.commit(Some("HEAD"), &me, &me, &message, &tree, &vec![&parent]).expect("can't commit");
+    let result = repo
+        .commit(Some("HEAD"), &me, &me, &message, &tree, &vec![&parent])
+        .expect("can't commit");
     println!("cooooooooooooooommmit {:?}", result);
-    get_current_repo_status(Some(path.clone()), sender)
+
+
+    // update staged changes
+    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    let git_diff = repo
+        .diff_tree_to_index(Some(&current_tree), None, None)
+        .expect("can't get diff tree to index");
+    sender
+        .send(crate::Event::Staged(make_diff(git_diff)))
+        .expect("Could not send through channel");
+    // TODO! signal above with unstaged!
+    // NO! it does not require update STAGED. just unstaged are gone!
+    // so. get status for only head on top and cleanup unstaged changes.
+    // perhaps here just return top head and thats it!
+    // yes. exactly that. thats how stage_via_apply works.
+    // it calls manually staged and unstaged and enrich
+    // views! so, for now i will put it to main.
+    // get_current_repo_status(Some(path.clone()), sender)
 }
