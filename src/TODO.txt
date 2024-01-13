@@ -1,4 +1,17 @@
+inconsistency. when stage, git op is calling from Status.
+when commit, it must also be called from status!
+
+
+while commit both staged and unstaged rendered views become obsolete.
+why unstaged become obsolete? no. no need to update them.
+it is just need to kill all staged changes!
+
+
+lets say for now, that commit is always successfull.
+it need to kill both in status, cause theyl become obsolete!
+
 TODO: mark region not for every line, but for region!!! with marks, probably
+
 DONE CRITICAL: expand file. collapse it. expand again - no color
 
 ok, tags are always removed if view is dirty. hmm. lets sey its ok, for now
