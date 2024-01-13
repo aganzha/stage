@@ -1,3 +1,9 @@
+
+todo: test to bug below: test erase!
+todo: test to bug below: test tags (Vec::new() for replace_dirty_content and squahed branch!
+DONE CRITICAL: render squashed views (children) just render them if they are squashed!
+DONE CRITICAL: line_no of diff is the last line! 
+
 inconsistency. when stage, git op is calling from Status.
 when commit, it must also be called from status!
 
