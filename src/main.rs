@@ -1,5 +1,5 @@
 mod text_view;
-use text_view::{debug, text_view_factory, RenderSource, Status};
+use text_view::{debug, text_view_factory, Status};
 
 mod common_tests;
 
@@ -97,13 +97,7 @@ fn build_ui(app: &adw::Application) {
 
     let mut current_repo_path: Option<std::ffi::OsString> = None;
     let mut status = Status::new();
-
-    gio::spawn_blocking({
-        let sender = sender.clone();
-        move || {
-            get_current_repo_status(None, sender);
-        }
-    });
+    status.get_status(sender.clone());
     window.present();
 
     receiver.attach(None, move |event: Event| {
@@ -125,7 +119,12 @@ fn build_ui(app: &adw::Application) {
             }
             Event::Commit(message) => {
                 println!("do commit! {:?}", message);
-                commit_staged(current_repo_path.as_ref().unwrap(), message, sender.clone());
+                status.commit_staged(
+                    current_repo_path.as_ref().unwrap(),
+                    message,
+                    &txt,
+                    sender.clone(),
+                );
                 // gio::spawn_blocking({
                 //     let sender = sender.clone();
                 //     move || {
@@ -135,17 +134,11 @@ fn build_ui(app: &adw::Application) {
             }
             Event::Staged(d) => {
                 println!("main. staged {:p}", &d);
-                status.staged.replace(d);
-                if status.staged.is_some() && status.unstaged.is_some() {
-                    status.render(&txt, RenderSource::Git);
-                }
+                status.update_staged(d, &txt);
             }
             Event::Unstaged(d) => {
                 println!("main. unstaged {:p}", &d);
-                status.unstaged.replace(d);
-                if status.staged.is_some() && status.unstaged.is_some() {
-                    status.render(&txt, RenderSource::Git);
-                }
+                status.update_unstaged(d, &txt);
             }
             Event::Expand(offset, line_no) => {
                 status.expand(&txt, line_no, offset);
