@@ -281,25 +281,27 @@ impl Diff {
     }
 }
 
-pub fn get_current_repo_status(sender: Sender<crate::Event>) {
-    let path_buff_r =
-        env::current_exe().map_err(|e| format!("can't get repo from executable {:?}", e));
-    if path_buff_r.is_err() {
-        println!("error while open current repo {:?}", path_buff_r);
-        todo!("signal no repo for user to choose one");
-    }
-    let some = get_current_repo(path_buff_r.unwrap());
-    if some.is_err() {
-        println!("error while open current repo");
-        todo!("signal no repo for user to choose one");
-    }
-    let repo = some.unwrap();
-
+pub fn get_cwd_repo(sender: Sender<crate::Event>) -> Repository {
+    let path_buff = env::current_exe().expect("cant't get exe path");
+    let repo = get_current_repo(path_buff).expect("cant't get repo for current exe");
     let path = OsString::from(repo.path());
-
     sender
         .send(crate::Event::CurrentRepo(path.clone()))
         .expect("Could not send through channel");
+    repo
+}
+
+pub fn get_current_repo_status(current_path: Option<OsString>, sender: Sender<crate::Event>) {
+    let (repo, path) = {
+        if let Some(path) = current_path {
+            let repo = Repository::open(path.clone()).expect("can't open repo");
+            (repo, path)
+        } else {
+            let repo = get_cwd_repo(sender.clone());
+            let path = OsString::from(repo.path());
+            (repo, path)
+        }
+    };
 
     // get staged
     gio::spawn_blocking({
@@ -483,4 +485,28 @@ pub fn stage_via_apply(
     sender
         .send(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
+}
+
+pub fn commit_staged(path: &OsString, message: String, sender: Sender<crate::Event>) {
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let me = repo.signature().expect("can't get signature");
+    // update_ref: Option<&str>,
+    // author: &Signature<'_>,
+    // committer: &Signature<'_>,
+    // message: &str,
+    // tree: &Tree<'_>,
+    // parents: &[&Commit<'_>]
+    let tree_oid = repo
+        .index()
+        .expect("can't get index")
+        .write_tree()
+        .expect("can't write tree");
+    let tree = repo.find_tree(tree_oid).expect("can't find tree");
+    let ob = repo
+        .revparse_single("HEAD^{commit}")
+        .expect("fail revparse");
+    let parent = repo.find_commit(ob.id()).expect("can't find commit");
+    let result = repo.commit(Some("HEAD"), &me, &me, &message, &tree, &vec![&parent]);
+    println!("cooooooooooooooommmit {:?}", result);
+    get_current_repo_status(Some(path.clone()), sender)
 }

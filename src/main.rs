@@ -4,7 +4,10 @@ use text_view::{debug, text_view_factory, RenderSource, Status};
 mod common_tests;
 
 mod git;
-use git::{get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Hunk, Line, View};
+use git::{
+    commit_staged, get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Hunk, Line,
+    View,
+};
 
 mod widgets;
 use widgets::{display_error, show_commit_message};
@@ -98,7 +101,7 @@ fn build_ui(app: &adw::Application) {
     gio::spawn_blocking({
         let sender = sender.clone();
         move || {
-            get_current_repo_status(sender);
+            get_current_repo_status(None, sender);
         }
     });
     window.present();
@@ -122,6 +125,13 @@ fn build_ui(app: &adw::Application) {
             }
             Event::Commit(message) => {
                 println!("do commit! {:?}", message);
+                commit_staged(current_repo_path.as_ref().unwrap(), message, sender.clone());
+                // gio::spawn_blocking({
+                //     let sender = sender.clone();
+                //     move || {
+                //         commit_staged(path, message, sender);
+                //     }
+                // });
             }
             Event::Staged(d) => {
                 println!("main. staged {:p}", &d);
