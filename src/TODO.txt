@@ -46,7 +46,6 @@ so, here is the problem - one thread pushes th changed and another diff is reren
 it need to separate it to different renders of individual diff!
 
 STAGING LINE INSIDE HUNK (STAGING HUNK MUST BE THE SAME)
-
 1. after staging 1 hunk, other hunk headers changed!
    so all hunks must be rerenderred!. but how to i know them?
    headers are changed??? so what? it need just to render file stupid!
