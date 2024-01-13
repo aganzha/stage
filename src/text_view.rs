@@ -4,9 +4,10 @@ use git2::DiffLineType;
 use glib::Sender;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, pango, TextBuffer, TextIter, TextTag, TextView};
+use pango::Style;
 use std::cell::RefCell;
 use std::ffi::OsString;
-use pango::{Style};
+// use backtrace::Backtrace;             println!("{:?}", Backtrace::new());
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const REGION_HIGHLIGHT: &str = "RegionHighlight";
@@ -17,43 +18,42 @@ pub enum Tag {
     Removed,
     Cursor,
     Region,
-    Italic
+    Italic,
 }
 
-impl Tag {    
-        
+impl Tag {
     fn create(&self) -> TextTag {
         match self {
-            Self::Bold =>{
+            Self::Bold => {
                 let tt = self.new_tag();
                 tt.set_weight(700);
                 tt
-            },
-            Self::Added =>{
+            }
+            Self::Added => {
                 let tt = self.new_tag();
                 tt.set_background(Some("#ebfcf1"));
                 tt
-            },
-            Self::Removed =>{
+            }
+            Self::Removed => {
                 let tt = self.new_tag();
                 tt.set_background(Some("#fbf0f3"));
                 tt
-            },
-            Self::Cursor =>{
+            }
+            Self::Cursor => {
                 let tt = self.new_tag();
                 tt.set_background(Some("#f6fecd"));
                 tt
-              },
-            Self::Region =>{
+            }
+            Self::Region => {
                 let tt = self.new_tag();
                 tt.set_background(Some("#f2f2f2"));
                 tt
-            },
-            Self::Italic =>{
+            }
+            Self::Italic => {
                 let tt = self.new_tag();
                 tt.set_style(Style::Italic);
                 tt
-            },
+            }
         }
     }
     fn new_tag(&self) -> TextTag {
@@ -129,7 +129,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
     // let tag = TextTag::new(Some(CURSOR_HIGHLIGHT));
     // tag.set_background(Some(CURSOR_COLOR));
     // buffer.tag_table().add(&tag);
-    
+
     // let tag = TextTag::new(Some(REGION_HIGHLIGHT));
     // tag.set_background(Some(REGION_COLOR));
     // buffer.tag_table().add(&tag);
@@ -140,7 +140,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
     buffer.tag_table().add(&Tag::Added.create());
     buffer.tag_table().add(&Tag::Removed.create());
     buffer.tag_table().add(&Tag::Italic.create());
-    
+
     let event_controller = gtk::EventControllerKey::new();
     event_controller.connect_key_pressed({
         let buffer = buffer.clone();
@@ -402,19 +402,19 @@ impl View {
 
     fn add_tag(&mut self, buffer: &TextBuffer, tag: &str) {
         let index = self.tags.iter().position(|t| t == tag);
-        if index.is_some() {
-            return;
+        if let Some(_) = index {
+        } else {
+            let (start_iter, end_iter) = self.start_end_iters(buffer);
+            buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
+            self.tags.push(String::from(tag));
         }
-        let (start_iter, end_iter) = self.start_end_iters(buffer);
-        buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
-        self.tags.push(String::from(tag));
     }
 
     fn apply_tags(&mut self, buffer: &TextBuffer, content: &str, content_tags: &Vec<Tag>) {
         if content.is_empty() {
             return;
         }
-        if self.current {            
+        if self.current {
             self.add_tag(buffer, CURSOR_HIGHLIGHT);
         } else {
             self.remove_tag(buffer, CURSOR_HIGHLIGHT);
@@ -472,9 +472,7 @@ pub trait ViewContainer {
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
         let content = self.get_content();
         let tags = self.tags();
-        let view = self
-            .get_view()
-            .render(buffer, iter, content, tags);
+        let view = self.get_view().render(buffer, iter, content, tags);
         if view.expanded || view.child_dirty {
             for child in self.get_children() {
                 child.render(buffer, iter)
@@ -646,7 +644,6 @@ impl ViewContainer for File {
     fn tags(&self) -> Vec<Tag> {
         vec![Tag::Bold]
     }
-
 }
 
 impl ViewContainer for Hunk {
@@ -739,7 +736,7 @@ impl ViewContainer for Line {
         match self.origin {
             DiffLineType::Addition => vec![Tag::Added],
             DiffLineType::Deletion => vec![Tag::Removed],
-            _ => Vec::new()
+            _ => Vec::new(),
         }
     }
 }
