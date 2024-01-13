@@ -58,7 +58,7 @@ pub enum Event {
 fn build_ui(app: &adw::Application) {
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
-    //window.set_default_size(640, 480);
+    // window.set_default_size(640, 480);
     let scroll = ScrolledWindow::new();
 
     let action_close = gio::SimpleAction::new("close", None);

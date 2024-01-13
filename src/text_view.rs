@@ -3,28 +3,21 @@ use crate::{stage_via_apply, ApplyFilter, Diff, File, Hunk, Line, View};
 use git2::DiffLineType;
 use glib::Sender;
 use gtk::prelude::*;
-use gtk::{gdk, gio, glib, TextBuffer, TextIter, TextTag, TextView};
+use gtk::{gdk, gio, glib, pango, TextBuffer, TextIter, TextTag, TextView};
 use std::cell::RefCell;
 use std::ffi::OsString;
+use pango::{Style};
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
-const CURSOR_HIGHLIGHT_START: &str = "CursorHightlightStart";
-const CURSOR_HIGHLIGHT_END: &str = "CursorHightlightEnd";
-
-const CURSOR_COLOR: &str = "#f6fecd";
-const DELETED_COLOR: &str = "fecdda";
-const ADDED_COLOR: &str = "8af2a9";
-
-const BOLD: &str  = "bold";
 const REGION_HIGHLIGHT: &str = "RegionHighlight";
-const REGION_HIGHLIGHT_START: &str = "RegionHightlightStart";
-const REGION_HIGHLIGHT_END: &str = "RegionHightlightEnd";
-const REGION_COLOR: &str = "#f2f2f2";
 
 pub enum Tag {
     Bold,
     Added,
-    Removed
+    Removed,
+    Cursor,
+    Region,
+    Italic
 }
 
 impl Tag {    
@@ -46,6 +39,21 @@ impl Tag {
                 tt.set_background(Some("#fbf0f3"));
                 tt
             },
+            Self::Cursor =>{
+                let tt = self.new_tag();
+                tt.set_background(Some("#f6fecd"));
+                tt
+              },
+            Self::Region =>{
+                let tt = self.new_tag();
+                tt.set_background(Some("#f2f2f2"));
+                tt
+            },
+            Self::Italic =>{
+                let tt = self.new_tag();
+                tt.set_style(Style::Italic);
+                tt
+            },
         }
     }
     fn new_tag(&self) -> TextTag {
@@ -56,6 +64,9 @@ impl Tag {
             Self::Bold => "bold",
             Self::Added => "added",
             Self::Removed => "removed",
+            Self::Cursor => CURSOR_HIGHLIGHT,
+            Self::Region => REGION_HIGHLIGHT,
+            Self::Italic => "italic",
         }
     }
 }
@@ -114,19 +125,21 @@ fn handle_line_offset(
 pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
     let txt = TextView::builder().build();
     let buffer = txt.buffer();
-    // let signal_id = signal.signal_id();
-    let tag = TextTag::new(Some(CURSOR_HIGHLIGHT));
-    tag.set_background(Some(CURSOR_COLOR));
-    buffer.tag_table().add(&tag);
-    
-    let tag = TextTag::new(Some(REGION_HIGHLIGHT));
-    tag.set_background(Some(REGION_COLOR));
-    buffer.tag_table().add(&tag);
 
-    let bold = Tag::Bold.create();
-    buffer.tag_table().add(&bold);
+    // let tag = TextTag::new(Some(CURSOR_HIGHLIGHT));
+    // tag.set_background(Some(CURSOR_COLOR));
+    // buffer.tag_table().add(&tag);
+    
+    // let tag = TextTag::new(Some(REGION_HIGHLIGHT));
+    // tag.set_background(Some(REGION_COLOR));
+    // buffer.tag_table().add(&tag);
+
+    buffer.tag_table().add(&Tag::Cursor.create());
+    buffer.tag_table().add(&Tag::Region.create());
+    buffer.tag_table().add(&Tag::Bold.create());
     buffer.tag_table().add(&Tag::Added.create());
     buffer.tag_table().add(&Tag::Removed.create());
+    buffer.tag_table().add(&Tag::Italic.create());
     
     let event_controller = gtk::EventControllerKey::new();
     event_controller.connect_key_pressed({
@@ -234,16 +247,6 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
     txt.set_editable(false);
 
     buffer.place_cursor(&buffer.iter_at_offset(0));
-
-    let start_iter = buffer.iter_at_offset(0);
-    buffer.create_mark(Some(CURSOR_HIGHLIGHT_START), &start_iter, false);
-    buffer.create_mark(Some(REGION_HIGHLIGHT_START), &start_iter, false);
-
-    let mut end_iter = buffer.iter_at_offset(0);
-    end_iter.forward_to_line_end();
-    buffer.create_mark(Some(CURSOR_HIGHLIGHT_END), &end_iter, false);
-    buffer.create_mark(Some(REGION_HIGHLIGHT_END), &end_iter, false);
-
     txt
 }
 
@@ -693,6 +696,9 @@ impl ViewContainer for Hunk {
         // if line is active (cursor on it)
         // whole hunk is active
         active
+    }
+    fn tags(&self) -> Vec<Tag> {
+        vec![Tag::Italic]
     }
 }
 
