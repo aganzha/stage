@@ -487,7 +487,7 @@ pub fn stage_via_apply(
         .expect("Could not send through channel");
 }
 
-pub fn commit_staged(path: &OsString, message: String, sender: Sender<crate::Event>) {
+pub fn commit_staged(path: OsString, message: String, sender: Sender<crate::Event>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
     // update_ref: Option<&str>,
