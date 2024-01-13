@@ -353,6 +353,7 @@ impl View {
             nel_iter.forward_lines(1);
             buffer.delete(iter, &mut nel_iter);
             self.rendered = false;
+            self.tags = Vec::new();
             // println!("delete!");
         } else {
             // view was just moved to another line

@@ -1,3 +1,10 @@
+TODO: mark region not for every line, but for region!!! with marks, probably
+DONE CRITICAL: expand file. collapse it. expand again - no color
+
+ok, tags are always removed if view is dirty. hmm. lets sey its ok, for now
+
+in View render replace ifs withsingle match with destructuring view
+
 BUG: in magit, when there are only staged or unstaged - other title is not shown.
      so there are no jumps when staging single file.
      just staged and understaged title is replaced. its nice
