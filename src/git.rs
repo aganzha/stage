@@ -506,7 +506,7 @@ pub fn commit_staged(path: &OsString, message: String, sender: Sender<crate::Eve
         .revparse_single("HEAD^{commit}")
         .expect("fail revparse");
     let parent = repo.find_commit(ob.id()).expect("can't find commit");
-    let result = repo.commit(Some("HEAD"), &me, &me, &message, &tree, &vec![&parent]);
+    let result = repo.commit(Some("HEAD"), &me, &me, &message, &tree, &vec![&parent]).expect("can't commit");
     println!("cooooooooooooooommmit {:?}", result);
     get_current_repo_status(Some(path.clone()), sender)
 }
