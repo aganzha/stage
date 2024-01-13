@@ -32,7 +32,6 @@ it is OK to call render, cause nothing will blink, cause everything is on its pl
 so, here is the problem - one thread pushes th changed and another diff is rerendered.
 it need to separate it to different renders of individual diff!
 
-
 STAGING LINE INSIDE HUNK (STAGING HUNK MUST BE THE SAME)
 
 1. after staging 1 hunk, other hunk headers changed!
