@@ -833,12 +833,12 @@ impl Status {
             diff.erase();
             self.render(txt, RenderSource::Erase);
         }
-        gio::spawn_blocking({
-            let path = path.clone();
-            move || {
-                commit_staged(path, message, sender);
-            }
-        });
+        // gio::spawn_blocking({
+        //     let path = path.clone();
+        //     move || {
+        //         commit_staged(path, message, sender);
+        //     }
+        // });
     }
     pub fn update_staged(&mut self, diff: Diff, txt: &TextView) {
         self.staged.replace(diff);
