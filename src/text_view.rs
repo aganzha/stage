@@ -313,6 +313,8 @@ impl View {
         content: String,
         content_tags: Vec<Tag>,
     ) -> &mut Self {
+        // important. self.line_no is assigned only in 2 cases
+        // below!!!!
         let line_no = iter.line();
         // println!(
         //     "line {:?} render view {:?} which is at line {:?}",
@@ -326,12 +328,18 @@ impl View {
             // );
             iter.forward_lines(1);
         } else if !self.rendered {
-            // render brand new view
-            buffer.insert(iter, &format!("{}\n", content));
-            self.line_no = line_no;
-            self.rendered = true;
-            self.apply_tags(buffer, &content, &content_tags);
-            // println!("insert!");
+            // even if view is not renderred it could be squashed!
+            if self.squashed{
+                // println!("not rendered and squashed");
+                // what to do?
+            } else {
+                // render brand new view
+                buffer.insert(iter, &format!("{}\n", content));
+                self.line_no = line_no;
+                self.rendered = true;
+                self.apply_tags(buffer, &content, &content_tags);
+                // println!("insert! {:?}", self.squashed);
+            }
         } else if self.dirty && !self.transfered {
             // replace view with new content
             // if self.line_no != line_no {
@@ -572,8 +580,12 @@ pub trait ViewContainer {
         found
     }
 
-    fn erase(&mut self) {
+    fn erase(&mut self, txt: &TextView) {
+        // CAUTION. ATTENTION. IMPORTANT
+        // this ONLY rendering
+        // the structure is still there. is it ok?
         let view = self.get_view();
+        let line_no = view.line_no;
         view.squashed = true;
         view.child_dirty = true;
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
@@ -581,6 +593,9 @@ pub trait ViewContainer {
             view.squashed = true;
             view.child_dirty = true;
         });
+        let buffer = txt.buffer();
+        let mut iter = buffer.iter_at_line(line_no).expect("can't get iter at line");
+        self.render(&buffer, &mut iter);        
     }
 }
 
@@ -621,10 +636,10 @@ impl ViewContainer for Diff {
     }
 
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
+        self.view.line_no = iter.line();
         for file in &mut self.files {
             file.render(buffer, iter);
-        }
-        self.view.line_no = iter.line();
+        }        
     }
 }
 
@@ -830,15 +845,20 @@ impl Status {
         sender: Sender<crate::Event>,
     ) {
         if let Some(diff) = &mut self.staged {
-            diff.erase();
-            self.render(txt, RenderSource::Erase);
+            // CAUTION. ATTENTION. IMPORTANT
+            diff.erase(txt);
+            // diff will only erase views visually
+            // here we are killing the structure
+            // is it ok? git will return new files
+            // (there will be no files, actually)
+            diff.files = Vec::new();
+            gio::spawn_blocking({
+                let path = path.clone();
+                move || {
+                    commit_staged(path, message, sender);
+                }
+            });
         }
-        // gio::spawn_blocking({
-        //     let path = path.clone();
-        //     move || {
-        //         commit_staged(path, message, sender);
-        //     }
-        // });
     }
     pub fn update_staged(&mut self, diff: Diff, txt: &TextView) {
         self.staged.replace(diff);
@@ -972,6 +992,9 @@ impl Status {
 
         if !filter.file_path.is_empty() {
             let buffer = txt.buffer();
+            // CAUTION. ATTENTION. IMPORTANT
+            // this do both: rendering and changing structure!
+            // is it ok?
             diff.files.retain_mut(|f| {
                 // it need to remove either whole file
                 // or just 1 hunk inside file
