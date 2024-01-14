@@ -100,6 +100,8 @@ fn build_ui(app: &adw::Application) {
     status.get_status(sender.clone());
     window.present();
 
+    env_logger::builder().format_timestamp(None).init();
+
     receiver.attach(None, move |event: Event| {
         match event {
             Event::CurrentRepo(path) => {
@@ -125,12 +127,6 @@ fn build_ui(app: &adw::Application) {
                     &txt,
                     sender.clone(),
                 );
-                // gio::spawn_blocking({
-                //     let sender = sender.clone();
-                //     move || {
-                //         commit_staged(path, message, sender);
-                //     }
-                // });
             }
             Event::Staged(d) => {
                 println!("main. staged {:p}", &d);

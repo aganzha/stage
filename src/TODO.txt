@@ -1,4 +1,4 @@
-
+todo: get rid of transfered! just not mark as dirty!
 todo: test to bug below: test erase!
 todo: test to bug below: test tags (Vec::new() for replace_dirty_content and squahed branch!
 DONE CRITICAL: render squashed views (children) just render them if they are squashed!

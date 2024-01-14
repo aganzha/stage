@@ -7,10 +7,11 @@ use git2::DiffLineType;
 use glib::Sender;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, pango, TextBuffer, TextIter, TextTag, TextView};
+use log::{debug, error, info, log_enabled, trace};
 use pango::Style;
 use std::cell::RefCell;
 use std::ffi::OsString;
-// use backtrace::Backtrace;             println!("{:?}", Backtrace::new());
+use backtrace::Backtrace;
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const REGION_HIGHLIGHT: &str = "RegionHighlight";
@@ -316,78 +317,71 @@ impl View {
         // important. self.line_no is assigned only in 2 cases
         // below!!!!
         let line_no = iter.line();
-        // println!(
-        //     "line {:?} render view {:?} which is at line {:?}",
-        //     line_no, content, self.line_no
-        // );
-        if self.is_rendered_in(line_no) {
-            // skip untouched view
-            // println!(
-            //     "---------------------------------------------> {:?}",
-            //     iter.line()
-            // );
-            iter.forward_lines(1);
-        } else if !self.rendered {
-            // even if view is not renderred it could be squashed!
-            if self.squashed{
-                // println!("not rendered and squashed");
-                // what to do?
-            } else {
-                // render brand new view
+        trace!(
+            "line {:?} render view {:?} which is at line {:?}",
+            line_no,
+            content,
+            self.line_no
+        );
+        match self.get_state_for(line_no) {
+            ViewState::RenderedInLine(l) => {
+                debug!("..render MATCH rendered_in_line {:?}", l);
+                iter.forward_lines(1);
+            }
+            ViewState::Deleted => {
+                // nothing todo. calling render on
+                // some whuch will be destroyed
+                debug!("..render MATCH !rendered squashed {:?}", line_no);
+            }
+            ViewState::NotRendered => {
+                debug!("..render MATCH insert {:?}", line_no);
                 buffer.insert(iter, &format!("{}\n", content));
                 self.line_no = line_no;
                 self.rendered = true;
                 self.apply_tags(buffer, &content, &content_tags);
-                // println!("insert! {:?}", self.squashed);
             }
-        } else if self.dirty && !self.transfered {
-            // replace view with new content
-            // if self.line_no != line_no {
-            //     println!("dirty at wrong line {:?}", line_no);
-            //     println!("{:?}", content);
-            //     dbg!(self.clone());
-            // }
-            assert!(self.line_no == line_no);
-            // weird. empty views somehow shorten entire buffer by theese ops
-            if !content.is_empty() {
-                self.replace_dirty_content(buffer, iter, &content);
-            }
-            if !iter.forward_lines(1) {
-                assert!(iter.offset() == buffer.end_iter().offset());
-            }
-            self.apply_tags(buffer, &content, &content_tags);
-            self.rendered = true;
-            // println!("dirty");
-        } else if self.squashed {
-            // just delete it
-            let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
-            nel_iter.forward_lines(1);
-            buffer.delete(iter, &mut nel_iter);
-            self.rendered = false;
-            self.tags = Vec::new();
-            // println!("delete!");
-        } else {
-            // view was just moved to another line
-            // due to expansion/collapsing
-            if self.dirty && !content.is_empty() {
-                self.replace_dirty_content(buffer, iter, &content);
+            ViewState::RenderedAndMarkedAsDirty => {
+                debug!("..render MATCH dirty !transfered {:?}", line_no);
+                if !content.is_empty() {
+                    self.replace_dirty_content(buffer, iter, &content);
+                }
+                if !iter.forward_lines(1) {
+                    assert!(iter.offset() == buffer.end_iter().offset());
+                }
                 self.apply_tags(buffer, &content, &content_tags);
+                self.rendered = true;
             }
-            // does not work. until line numbers are there thats for sure
-            // let inbuffer = buffer.slice(&iter, &eol_iter, true);
-            // if !inbuffer.contains(&content) {
-            //     panic!("WHILE MOVE {} != {}", inbuffer, content);
-            // }
-            self.line_no = line_no;
-            let moved = iter.forward_lines(1);
-            if !moved {
-                // happens sometimes when buffer is over
-                buffer.insert(iter, "\n");
-                // println!("insert on pass as buffer is over");
-            } else {
-                // println!("just pass");
+            ViewState::RenderedAndMarkedAsSquashed => {
+                debug!("..render MATCH squashed {:?}", line_no);
+                let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+                nel_iter.forward_lines(1);
+                buffer.delete(iter, &mut nel_iter);
+                self.rendered = false;
+                self.tags = Vec::new();
+            },
+            ViewState::RenderedNotInLine(_) => {
+                // TODO: somehow it is related to transfered!
+                if self.dirty && !content.is_empty() {
+                    self.replace_dirty_content(buffer, iter, &content);
+                    self.apply_tags(buffer, &content, &content_tags);
+                }
+                // does not work. until line numbers are there thats for sure
+                // let inbuffer = buffer.slice(&iter, &eol_iter, true);
+                // if !inbuffer.contains(&content) {
+                //     panic!("WHILE MOVE {} != {}", inbuffer, content);
+                // }
+                self.line_no = line_no;
+                let moved = iter.forward_lines(1);
+                if !moved {
+                    // happens sometimes when buffer is over
+                    buffer.insert(iter, "\n");
+                    // println!("insert on pass as buffer is over");
+                } else {
+                    // println!("just pass");
+                }
             }
         }
+
         self.dirty = false;
         self.squashed = false;
         self.transfered = false;
@@ -439,13 +433,33 @@ impl View {
             self.add_tag(buffer, t.name());
         }
     }
-
-    pub fn repr(&self) -> String {
-        format!(
-            "line_no {:?}, expanded {:?}, rendered: {:?}, active {:?}, current {:?}",
-            self.line_no, self.expanded, self.rendered, self.active, self.current
-        )
+    fn get_state_for(&self, line_no: i32) -> ViewState {
+        if self.is_rendered_in(line_no) {
+            return ViewState::RenderedInLine(line_no);
+        }
+        if !self.rendered && self.squashed {
+            return ViewState::Deleted;
+        }
+        if !self.rendered {
+            return ViewState::NotRendered;
+        }
+        if self.dirty && !self.transfered {
+            return ViewState::RenderedAndMarkedAsDirty;
+        }
+        if self.squashed {
+            return ViewState::RenderedAndMarkedAsSquashed;
+        }
+        ViewState::RenderedNotInLine(line_no)
     }
+}
+
+pub enum ViewState {
+    RenderedInLine(i32),
+    Deleted,
+    NotRendered,
+    RenderedAndMarkedAsDirty,
+    RenderedAndMarkedAsSquashed,
+    RenderedNotInLine(i32),
 }
 
 impl Default for View {
@@ -594,8 +608,10 @@ pub trait ViewContainer {
             view.child_dirty = true;
         });
         let buffer = txt.buffer();
-        let mut iter = buffer.iter_at_line(line_no).expect("can't get iter at line");
-        self.render(&buffer, &mut iter);        
+        let mut iter = buffer
+            .iter_at_line(line_no)
+            .expect("can't get iter at line");
+        self.render(&buffer, &mut iter);
     }
 }
 
@@ -639,7 +655,7 @@ impl ViewContainer for Diff {
         self.view.line_no = iter.line();
         for file in &mut self.files {
             file.render(buffer, iter);
-        }        
+        }
     }
 }
 

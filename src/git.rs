@@ -187,7 +187,7 @@ impl File {
     }
 
     pub fn enrich_views(&mut self, other: File) {
-        // used ti maintain view state if existent hunks
+        // used to maintain view state in existent hunks
         // there are 2 cases
         // 1. side from which hunks are moved out (eg unstaged during staging)
         // this one is simple, cause self.hunks and other.hunks are the same length.
@@ -510,7 +510,6 @@ pub fn commit_staged(path: OsString, message: String, sender: Sender<crate::Even
         .commit(Some("HEAD"), &me, &me, &message, &tree, &vec![&parent])
         .expect("can't commit");
     println!("cooooooooooooooommmit {:?}", result);
-
 
     // update staged changes
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");

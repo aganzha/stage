@@ -11,3 +11,5 @@ adw = { version = "0.5.3", package = "libadwaita", features = ["gtk_v4_10", "v1_
 git2 = "0.18.1"
 regex = "1.10.2"
 backtrace = "0.3.69"
+log = "0.4.20"
+env_logger = "0.10.1"
