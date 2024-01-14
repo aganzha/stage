@@ -1,5 +1,5 @@
 mod text_view;
-use text_view::{debug, text_view_factory, Status};
+use text_view::{text_view_factory, Status};
 
 mod common_tests;
 
@@ -19,6 +19,8 @@ use gdk::Display;
 use glib::{clone, MainContext, Priority, Sender};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, Box, CssProvider, Entry, Label, Orientation, ScrolledWindow, TextView};
+
+use log::{debug, error, info, log_enabled, trace};
 
 const APP_ID: &str = "io.github.aganzha.Stage";
 
@@ -108,11 +110,11 @@ fn build_ui(app: &adw::Application) {
                 current_repo_path.replace(path);
             }
             Event::Debug => {
-                println!("main. FAKE");
-                debug(&txt, &mut status);
+                info!("main. debug");
+                status.debug(&txt);
             }
             Event::CommitRequest => {
-                println!("commit request");
+                info!("commit request");
                 if !status.has_staged() {
                     display_error(&window, "No changes were staged. Stage by hitting 's'");
                 } else {
@@ -120,7 +122,7 @@ fn build_ui(app: &adw::Application) {
                 }
             }
             Event::Commit(message) => {
-                println!("do commit! {:?}", message);
+                info!("do commit! {:?}", message);
                 status.commit_staged(
                     current_repo_path.as_ref().unwrap(),
                     message,
@@ -129,11 +131,11 @@ fn build_ui(app: &adw::Application) {
                 );
             }
             Event::Staged(d) => {
-                println!("main. staged {:p}", &d);
+                info!("main. staged {:p}", &d);
                 status.update_staged(d, &txt);
             }
             Event::Unstaged(d) => {
-                println!("main. unstaged {:p}", &d);
+                info!("main. unstaged {:p}", &d);
                 status.update_unstaged(d, &txt);
             }
             Event::Expand(offset, line_no) => {

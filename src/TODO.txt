@@ -1,3 +1,9 @@
+todo: test for cursor
+todo: it need make search works inside text view!
+todo: write func to search view at line (see fn debug - it is incompleted. want to debug labels also)
+BUG: open with 1 file staged. unstaged it. cursor will be at second file (must be at firts though).
+move up onto the first line = 2 files are selected!
+BUG: stage 1 file. cursor is on second file. move it right - file is not selected!
 todo: get rid of transfered! just not mark as dirty!
 todo: test to bug below: test erase!
 todo: test to bug below: test tags (Vec::new() for replace_dirty_content and squahed branch!

@@ -36,11 +36,3 @@ pub fn create_diff() -> Diff {
     }
     diff
 }
-
-#[test]
-fn test_diff_add() {
-    println!("++++++++++++++++++++++++");
-    let mut diff = create_diff();
-    let mut other = create_diff();
-    diff.add(other);
-}
