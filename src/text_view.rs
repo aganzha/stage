@@ -324,8 +324,8 @@ impl View {
             self.line_no
         );
         match self.get_state_for(line_no) {
-            ViewState::RenderedInLine(l) => {
-                debug!("..render MATCH rendered_in_line {:?}", l);
+            ViewState::RenderedInPlace => {
+                debug!("..render MATCH rendered_in_line {:?}", line_no);
                 iter.forward_lines(1);
             }
             ViewState::Deleted => {
@@ -340,7 +340,7 @@ impl View {
                 self.rendered = true;
                 self.apply_tags(buffer, &content, &content_tags);
             }
-            ViewState::RenderedAndMarkedAsDirty => {
+            ViewState::RenderedDirtyInPlace => {
                 debug!("..render MATCH dirty !transfered {:?}", line_no);
                 if !content.is_empty() {
                     self.replace_dirty_content(buffer, iter, &content);
@@ -359,26 +359,18 @@ impl View {
                 self.rendered = false;
                 self.tags = Vec::new();
             },
-            ViewState::RenderedNotInLine(_) => {
-                // TODO: somehow it is related to transfered!
-                if self.dirty && !content.is_empty() {
-                    self.replace_dirty_content(buffer, iter, &content);
-                    self.apply_tags(buffer, &content, &content_tags);
-                }
-                // does not work. until line numbers are there thats for sure
-                // let inbuffer = buffer.slice(&iter, &eol_iter, true);
-                // if !inbuffer.contains(&content) {
-                //     panic!("WHILE MOVE {} != {}", inbuffer, content);
-                // }
+            ViewState::RenderedDirtyNotInPlace(l) => {
+                debug!(".. render match dirty not in place {:?}", l);
                 self.line_no = line_no;
-                let moved = iter.forward_lines(1);
-                if !moved {
-                    // happens sometimes when buffer is over
-                    buffer.insert(iter, "\n");
-                    // println!("insert on pass as buffer is over");
-                } else {
-                    // println!("just pass");
-                }
+                self.replace_dirty_content(buffer, iter, &content);
+                self.apply_tags(buffer, &content, &content_tags);
+                self.force_forward(buffer, iter);
+            },
+            ViewState::RenderedNotInPlace(l) => {
+                // TODO: somehow it is related to transfered!
+                debug!(".. render match not in place {:?}", l);
+                self.line_no = line_no;
+                self.force_forward(buffer, iter);                
             }
         }
 
@@ -388,6 +380,16 @@ impl View {
         self
     }
 
+    fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
+        debug!("force forward");
+        let moved = iter.forward_lines(1);
+        if !moved {
+            // happens sometimes when buffer is over
+            debug!("buffer is over. force 1 line forward");
+            buffer.insert(iter, "\n");
+        }
+    }
+    
     fn start_end_iters(&self, buffer: &TextBuffer) -> (TextIter, TextIter) {
         let mut start_iter = buffer.iter_at_line(self.line_no).unwrap();
         start_iter.set_line_offset(0);
@@ -435,7 +437,7 @@ impl View {
     }
     fn get_state_for(&self, line_no: i32) -> ViewState {
         if self.is_rendered_in(line_no) {
-            return ViewState::RenderedInLine(line_no);
+            return ViewState::RenderedInPlace;
         }
         if !self.rendered && self.squashed {
             return ViewState::Deleted;
@@ -444,22 +446,26 @@ impl View {
             return ViewState::NotRendered;
         }
         if self.dirty && !self.transfered {
-            return ViewState::RenderedAndMarkedAsDirty;
+            return ViewState::RenderedDirtyInPlace;
+        }
+        if self.dirty && self.transfered {
+            return ViewState::RenderedDirtyNotInPlace(self.line_no);
         }
         if self.squashed {
             return ViewState::RenderedAndMarkedAsSquashed;
         }
-        ViewState::RenderedNotInLine(line_no)
+        ViewState::RenderedNotInPlace(self.line_no)
     }
 }
 
 pub enum ViewState {
-    RenderedInLine(i32),
+    RenderedInPlace,
     Deleted,
     NotRendered,
-    RenderedAndMarkedAsDirty,
+    RenderedDirtyInPlace,
     RenderedAndMarkedAsSquashed,
-    RenderedNotInLine(i32),
+    RenderedDirtyNotInPlace(i32),
+    RenderedNotInPlace(i32),    
 }
 
 impl Default for View {
@@ -525,7 +531,6 @@ pub trait ViewContainer {
         let active_by_parent = self.is_active_by_parent(parent_active);
         let mut active_by_child = false;
 
-        // todo: make 1 line iter
         if view_expanded {
             for child in self.get_children() {
                 active_by_child = child.get_view().is_rendered_in(line_no);
