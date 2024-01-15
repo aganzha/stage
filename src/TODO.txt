@@ -1,3 +1,10 @@
+failed workflow:
+    cargo:warning=`PKG_CONFIG_ALLOW_SYSTEM_CFLAGS="1" "pkg-config" "--libs" "--cflags" "pango" "pango >= 1.49.2"` did not exit successfully: exit status: 1
+  error: could not find system library 'pango' required by the 'pango-sys' crate
+
+  --- stderr
+  Package pango w
+  
 todo: test for cursor
 todo: it need make search works inside text view!
 todo: write func to search view at line (see fn debug - it is incompleted. want to debug labels also)
