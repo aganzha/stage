@@ -3,6 +3,7 @@ use crate::{
     commit_staged, get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Hunk, Line,
     View,
 };
+use backtrace::Backtrace;
 use git2::DiffLineType;
 use glib::Sender;
 use gtk::prelude::*;
@@ -11,7 +12,6 @@ use log::{debug, error, info, log_enabled, trace};
 use pango::Style;
 use std::cell::RefCell;
 use std::ffi::OsString;
-use backtrace::Backtrace;
 
 const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
 const REGION_HIGHLIGHT: &str = "RegionHighlight";
@@ -356,14 +356,14 @@ impl View {
                 buffer.delete(iter, &mut nel_iter);
                 self.rendered = false;
                 self.tags = Vec::new();
-            },
+            }
             ViewState::RenderedDirtyNotInPlace(l) => {
                 trace!(".. render match dirty not in place {:?}", l);
                 self.line_no = line_no;
                 self.replace_dirty_content(buffer, iter, &content);
                 self.apply_tags(buffer, &content, &content_tags);
                 self.force_forward(buffer, iter);
-            },
+            }
             ViewState::RenderedNotInPlace(l) => {
                 // TODO: somehow it is related to transfered!
                 trace!(".. render match not in place {:?}", l);
@@ -388,7 +388,10 @@ impl View {
             if iter.line() - 2 == current_line {
                 iter.forward_lines(-1);
             }
-            trace!("buffer is over. force 1 line forward. iter now is it line {:?}", iter.line());
+            trace!(
+                "buffer is over. force 1 line forward. iter now is it line {:?}",
+                iter.line()
+            );
         }
         assert!(current_line + 1 == iter.line());
     }
@@ -502,7 +505,7 @@ pub trait ViewContainer {
     fn tags(&self) -> Vec<Tag> {
         Vec::new()
     }
-
+    // ViewContainer
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
         let content = self.get_content();
         let tags = self.tags();
@@ -580,7 +583,10 @@ pub trait ViewContainer {
                     view.squashed = true;
                 }
             });
-        } else if { let view = self.get_view(); view.expanded && view.rendered} {
+        } else if {
+            let view = self.get_view();
+            view.expanded && view.rendered
+        } {
             // go deeper for self.children
             for child in self.get_children() {
                 found_line = child.expand(line_no);
@@ -660,11 +666,17 @@ impl ViewContainer for Diff {
         result
     }
 
+    // Diff
     fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
         self.view.line_no = iter.line();
         for file in &mut self.files {
             file.render(buffer, iter);
         }
+    }
+    // Diff
+    fn expand(&mut self, line_no: i32) -> Option<i32> {
+        todo!("no one calls expand on diff");
+        None
     }
 }
 
@@ -756,7 +768,6 @@ impl ViewContainer for Hunk {
     fn is_expandable_by_child(&self) -> bool {
         true
     }
-
 }
 
 impl ViewContainer for Line {
@@ -932,7 +943,7 @@ impl Status {
             for file in &mut unstaged.files {
                 if let Some(expanded_line) = file.expand(line_no) {
                     self.render(txt, RenderSource::Expand(expanded_line));
-                    return
+                    return;
                 }
             }
         }
@@ -940,12 +951,13 @@ impl Status {
             for file in &mut staged.files {
                 if let Some(expanded_line) = file.expand(line_no) {
                     self.render(txt, RenderSource::Expand(expanded_line));
-                    return
+                    return;
                 }
             }
         }
     }
-    
+
+    // Status
     pub fn render(&mut self, txt: &TextView, source: RenderSource) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
@@ -969,17 +981,17 @@ impl Status {
             RenderSource::Cursor(_) => {
                 // avoid loops on cursor renders
                 debug!("avoid cursor position on cursor");
-            },
+            }
             RenderSource::Expand(line_no) => {
                 // avoid loops on cursor renders
                 self.choose_cursor_position(txt, &buffer, Some(line_no));
                 debug!("expand call cursor himself");
-            },
+            }
             RenderSource::Git => {
                 // avoid loops on cursor renders
                 debug!("expand call cursor himself");
                 self.choose_cursor_position(txt, &buffer, None);
-            },
+            }
             _ => {
                 debug!("unsuported render operation");
             }
@@ -1077,7 +1089,12 @@ impl Status {
             });
         }
     }
-    pub fn choose_cursor_position(&mut self, txt: &TextView, buffer: &TextBuffer, line_no: Option<i32>) {
+    pub fn choose_cursor_position(
+        &mut self,
+        txt: &TextView,
+        buffer: &TextBuffer,
+        line_no: Option<i32>,
+    ) {
         debug!("choose_cursor_position");
         let offset = buffer.cursor_position();
         if offset == buffer.end_iter().offset() {
@@ -1118,7 +1135,7 @@ impl Status {
             diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let content = vc.get_content();
                 let view = vc.get_view();
-                if view.line_no == current_line{
+                if view.line_no == current_line {
                     println!("found view {:?}", content);
                     dbg!(view);
                 }
@@ -1131,22 +1148,18 @@ impl Status {
             diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let content = vc.get_content();
                 let view = vc.get_view();
-                if view.line_no == current_line{
+                if view.line_no == current_line {
                     println!("found view {:?}", content);
                     dbg!(view);
                 }
             });
         }
-
     }
-
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     pub fn mock_render_view(vc: &mut dyn ViewContainer, mut line_no: i32) -> i32 {
         let view = vc.get_view();
@@ -1309,11 +1322,20 @@ mod tests {
         }
     }
 
+    use std::sync::Once;
+
+    static INIT: Once = Once::new();
+
+    pub fn initialize() {
+        INIT.call_once(|| {
+            env_logger::builder().format_timestamp(None).init();
+            _ = gtk::init();
+        });
+    }
+
     #[test]
     fn test_render_view() {
-        env_logger::builder().format_timestamp(None).init();
-
-        _ = gtk::init();
+        initialize();
         let buffer = TextBuffer::new(None);
         let mut iter = buffer.iter_at_line(0).unwrap();
         buffer.insert(&mut iter, "begin\n");
@@ -1382,5 +1404,68 @@ mod tests {
         assert!(view3.line_no == 3);
         assert!(view3.rendered);
         assert!(iter.line() == 4);
+        // call it here, cause rust creates threads event with --test-threads=1
+        // and gtk should be called only from main thread
+        test_expand_line();
+    }
+
+    fn test_expand_line() {
+        let buffer = TextBuffer::new(None);
+        let mut iter = buffer.iter_at_line(0).unwrap();
+        buffer.insert(&mut iter, "begin\n");
+        let mut diff = create_diff();
+
+        diff.render(&buffer, &mut iter);
+        // if cursor returns true it need to rerender as in Status!
+        if diff.cursor(1, false) {
+            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap());
+        }
+
+        // expand first file
+        diff.files[0].expand(1);
+        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap());
+
+        let content = buffer.slice(&mut buffer.start_iter(), &mut buffer.end_iter(), true);
+        let content_lines = content.split("\n");
+
+        for (i, cl) in content_lines.enumerate() {
+            if i == 0 {
+                continue;
+            }
+            diff.walk_down(&mut move |vc: &mut dyn ViewContainer| {
+                if vc.get_view().line_no == i as i32 {
+                    debug!("{:?} - {:?} = {:?}", i, cl, vc.get_content());
+                    assert!(cl == vc.get_content());
+                }
+            });
+        }
+
+        let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no;
+        // put cursor inside first hunk
+        if diff.cursor(line_of_line, false) {
+            // if comment out next line the line_of_line will be not sqashed
+            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap());
+        }
+        // expand on line inside first hunk
+        diff.files[0].expand(line_of_line);
+        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap());
+
+        let content = buffer.slice(&mut buffer.start_iter(), &mut buffer.end_iter(), true);
+        let content_lines = content.split("\n");
+        // ensure that hunk1 is collapsed eg hunk2 follows hunk1 (no lines between)
+        let hunk1_content = diff.files[0].hunks[0].get_content();
+        let hunk2_content = diff.files[0].hunks[1].get_content();
+        let mut hunk1_passed = false;
+        for (i, cl) in content_lines.enumerate() {
+            debug!("{} {}", i, cl);
+            if cl == hunk1_content {
+                hunk1_passed = true
+            } else {
+                if hunk1_passed {
+                    assert!(cl == hunk2_content);
+                    hunk1_passed = false;
+                }
+            }
+        }
     }
 }
