@@ -578,6 +578,7 @@ pub trait ViewContainer {
             self.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
                 if expanded {
+                    view.squashed = false;
                     view.rendered = false;
                 } else {
                     view.squashed = true;
@@ -590,11 +591,11 @@ pub trait ViewContainer {
             // go deeper for self.children
             for child in self.get_children() {
                 found_line = child.expand(line_no);
-                if let Some(_) = found_line {
+                if found_line.is_some() {
                     break;
                 }
             }
-            if let Some(_) = found_line {
+            if found_line.is_some() {
                 if self.is_expandable_by_child() {
                     let my_line = self.get_view().line_no;
                     return self.expand(my_line);
@@ -1236,6 +1237,7 @@ mod tests {
                     let view = vc.get_view();
                     assert!(view.rendered);
                     assert!(view.active);
+                    assert!(!view.squashed);
                     assert!(!view.current);
                 });
             } else {
