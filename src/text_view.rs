@@ -249,8 +249,6 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
 
     txt.set_monospace(true);
     txt.set_editable(false);
-
-    buffer.place_cursor(&buffer.iter_at_offset(0));
     txt
 }
 
@@ -325,23 +323,23 @@ impl View {
         );
         match self.get_state_for(line_no) {
             ViewState::RenderedInPlace => {
-                debug!("..render MATCH rendered_in_line {:?}", line_no);
+                trace!("..render MATCH rendered_in_line {:?}", line_no);
                 iter.forward_lines(1);
             }
             ViewState::Deleted => {
                 // nothing todo. calling render on
                 // some whuch will be destroyed
-                debug!("..render MATCH !rendered squashed {:?}", line_no);
+                trace!("..render MATCH !rendered squashed {:?}", line_no);
             }
             ViewState::NotRendered => {
-                debug!("..render MATCH insert {:?}", line_no);
+                trace!("..render MATCH insert {:?}", line_no);
                 buffer.insert(iter, &format!("{}\n", content));
                 self.line_no = line_no;
                 self.rendered = true;
                 self.apply_tags(buffer, &content, &content_tags);
             }
             ViewState::RenderedDirtyInPlace => {
-                debug!("..render MATCH dirty !transfered {:?}", line_no);
+                trace!("..render MATCH dirty !transfered {:?}", line_no);
                 if !content.is_empty() {
                     self.replace_dirty_content(buffer, iter, &content);
                 }
@@ -352,7 +350,7 @@ impl View {
                 self.rendered = true;
             }
             ViewState::RenderedAndMarkedAsSquashed => {
-                debug!("..render MATCH squashed {:?}", line_no);
+                trace!("..render MATCH squashed {:?}", line_no);
                 let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
                 nel_iter.forward_lines(1);
                 buffer.delete(iter, &mut nel_iter);
@@ -360,7 +358,7 @@ impl View {
                 self.tags = Vec::new();
             },
             ViewState::RenderedDirtyNotInPlace(l) => {
-                debug!(".. render match dirty not in place {:?}", l);
+                trace!(".. render match dirty not in place {:?}", l);
                 self.line_no = line_no;
                 self.replace_dirty_content(buffer, iter, &content);
                 self.apply_tags(buffer, &content, &content_tags);
@@ -368,7 +366,7 @@ impl View {
             },
             ViewState::RenderedNotInPlace(l) => {
                 // TODO: somehow it is related to transfered!
-                debug!(".. render match not in place {:?}", l);
+                trace!(".. render match not in place {:?}", l);
                 self.line_no = line_no;
                 self.force_forward(buffer, iter);
             }
@@ -382,7 +380,7 @@ impl View {
 
     fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
         let current_line = iter.line();
-        debug!("force forward at line {:?}", current_line);
+        trace!("force forward at line {:?}", current_line);
         let moved = iter.forward_lines(1);
         if !moved {
             // happens sometimes when buffer is over
@@ -390,7 +388,7 @@ impl View {
             if iter.line() - 2 == current_line {
                 iter.forward_lines(-1);
             }
-            debug!("buffer is over. force 1 line forward. iter now is it line {:?}", iter.line());
+            trace!("buffer is over. force 1 line forward. iter now is it line {:?}", iter.line());
         }
         assert!(current_line + 1 == iter.line());
     }
@@ -517,21 +515,22 @@ pub trait ViewContainer {
         self.get_view().child_dirty = false;
     }
 
+    // ViewContainer
     fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
         let mut result = false;
         let view = self.get_view();
-        // if !view.rendered {
-        //   when view is not rendered, it also
-        //   could be marked active/inactive
-        //   e.g. after expandinf file, all hunks are
-        //   expanded and everything inside file is
-        //   maked as active
-        // }
+
         let current_before = view.current;
         let active_before = view.active;
 
         let view_expanded = view.expanded;
-
+        if view.line_no == 4 {
+            debug!("before");
+            dbg!(&view);
+        }
+        // TODO when view is actually on same line it could be not curent
+        // because of dirty! and because it is not current, it is also
+        // NOT active!
         let current = view.is_rendered_in(line_no);
         if current {
             debug!("current!!!!!! {:?}", line_no);
@@ -552,6 +551,7 @@ pub trait ViewContainer {
         let self_active = active_by_parent || current || active_by_child;
 
         let view = self.get_view();
+        let my_line = view.line_no;
         view.active = self_active;
         view.current = current;
 
@@ -559,6 +559,10 @@ pub trait ViewContainer {
             // repaint if highlight is changed
             view.dirty = view.active != active_before || view.current != current_before;
             result = view.dirty;
+        }
+        if my_line == 4 {
+            debug!("after {:?} {:?} {:?} {:?} {:?}", active_before, current_before, result, current, self_active);
+            dbg!(&view);
         }
         for child in self.get_children() {
             result = child.cursor(line_no, self_active) || result;
@@ -574,17 +578,21 @@ pub trait ViewContainer {
         false
     }
 
-    fn expand(&mut self, line_no: i32) -> bool {
-        let view = self.get_view();
-        let mut found = false;
-
-        if !view.rendered {
-            return false;
+    // ViewContainer
+    fn expand(&mut self, line_no: i32) -> Option<i32> {
+        let mut found_line: Option<i32> = None;
+        if line_no == 4 && self.get_view().line_no == 4 {
+            debug!("aaaaaaaaaaaaaghh {:?}", self.get_view().is_rendered_in(line_no));
         }
-        if view.line_no == line_no {
-            found = true;
+        if self.get_view().is_rendered_in(line_no) {
+            let view = self.get_view();
+            found_line = Some(line_no);
             view.expanded = !view.expanded;
-            view.dirty = true;
+            // all tests are passed, but nothing works :(
+            // lets try remove dirty here
+            // CRITICAL. all tests are passed but nothing works
+            // eg expand doesn not work! thats because of dirty in render_in_line?
+            // view.dirty = true;
             view.child_dirty = true;
             let expanded = view.expanded;
             self.walk_down(&mut |vc: &mut dyn ViewContainer| {
@@ -595,16 +603,26 @@ pub trait ViewContainer {
                     view.squashed = true;
                 }
             });
-        } else if view.expanded {
+        } else if { let view = self.get_view(); view.expanded && view.rendered} {
             // go deeper for self.children
             for child in self.get_children() {
-                found = child.expand(line_no);
-                if found {
+                found_line = child.expand(line_no);
+                if let Some(_) = found_line {
                     break;
                 }
             }
+            if let Some(_) = found_line {
+                if self.is_expandable_by_child() {
+                    let my_line = self.get_view().line_no;
+                    return self.expand(my_line);
+                }
+            }
         }
-        found
+        found_line
+    }
+
+    fn is_expandable_by_child(&self) -> bool {
+        false
     }
 
     fn erase(&mut self, txt: &TextView) {
@@ -656,6 +674,7 @@ impl ViewContainer for Diff {
             .collect()
     }
 
+    // diff
     fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
         let mut result = false;
         for file in &mut self.files {
@@ -756,6 +775,11 @@ impl ViewContainer for Hunk {
     fn tags(&self) -> Vec<Tag> {
         vec![Tag::Italic]
     }
+
+    fn is_expandable_by_child(&self) -> bool {
+        true
+    }
+
 }
 
 impl ViewContainer for Line {
@@ -781,8 +805,13 @@ impl ViewContainer for Line {
         Vec::new()
     }
 
-    fn expand(&mut self, _line_no: i32) -> bool {
-        false
+    // line
+    fn expand(&mut self, line_no: i32) -> Option<i32> {
+        // here we want to expand hunk
+        if self.get_view().line_no == line_no {
+            return Some(line_no);
+        }
+        None
     }
 
     fn is_active_by_parent(&self, active: bool) -> bool {
@@ -825,8 +854,8 @@ impl ViewContainer for Label {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RenderSource {
     Git,
-    Cursor,
-    Expand,
+    Cursor(i32),
+    Expand(i32),
     Erase,
 }
 
@@ -902,7 +931,7 @@ impl Status {
             self.render(&txt, RenderSource::Git);
         }
     }
-
+    // status
     pub fn cursor(&mut self, txt: &TextView, line_no: i32, offset: i32) {
         let mut changed = false;
         if let Some(unstaged) = &mut self.unstaged {
@@ -912,40 +941,34 @@ impl Status {
             changed = changed || staged.cursor(line_no, false);
         }
         if changed {
-            self.render(txt, RenderSource::Cursor);
+            self.render(txt, RenderSource::Cursor(line_no));
             let buffer = txt.buffer();
-            debug!("put cursor on line {:?}", &buffer.iter_at_offset(offset).line());
+            debug!("put cursor on line {:?} in CURSOR", line_no);
             buffer.place_cursor(&buffer.iter_at_offset(offset));
         }
     }
 
+    // Status
     pub fn expand(&mut self, txt: &TextView, line_no: i32, offset: i32) {
-        let mut changed = false;
+        // let mut changed = false;
         if let Some(unstaged) = &mut self.unstaged {
             for file in &mut unstaged.files {
-                if file.expand(line_no) {
-                    changed = true;
-                    break;
+                if let Some(expanded_line) = file.expand(line_no) {
+                    self.render(txt, RenderSource::Expand(expanded_line));
+                    return
                 }
             }
         }
         if let Some(staged) = &mut self.staged {
             for file in &mut staged.files {
-                if file.expand(line_no) {
-                    changed = true;
-                    break;
+                if let Some(expanded_line) = file.expand(line_no) {
+                    self.render(txt, RenderSource::Expand(expanded_line));
+                    return
                 }
             }
         }
-        if changed {
-            self.render(txt, RenderSource::Expand);
-            // this works only if cursor is on expandable
-            // view itself. when it will collapse on line
-            // it will not work!
-            let buffer = txt.buffer();
-            buffer.place_cursor(&buffer.iter_at_offset(offset));
-        }
     }
+    
     pub fn render(&mut self, txt: &TextView, source: RenderSource) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
@@ -966,13 +989,22 @@ impl Status {
         }
         debug!("render source {:?}", source);
         match source {
-            RenderSource::Cursor => {
+            RenderSource::Cursor(_) => {
                 // avoid loops on cursor renders
                 debug!("avoid cursor position on cursor");
             },
+            RenderSource::Expand(line_no) => {
+                // avoid loops on cursor renders
+                self.choose_cursor_position(txt, &buffer, Some(line_no));
+                debug!("expand call cursor himself");
+            },
+            RenderSource::Git => {
+                // avoid loops on cursor renders
+                debug!("expand call cursor himself");
+                self.choose_cursor_position(txt, &buffer, None);
+            },
             _ => {
-                debug!("call choose_cursor_position");
-                self.choose_cursor_position(txt, &buffer);
+                debug!("unsuported render operation");
             }
         };
     }
@@ -1068,7 +1100,7 @@ impl Status {
             });
         }
     }
-    pub fn choose_cursor_position(&mut self, txt: &TextView, buffer: &TextBuffer) {
+    pub fn choose_cursor_position(&mut self, txt: &TextView, buffer: &TextBuffer, line_no: Option<i32>) {
         debug!("choose_cursor_position");
         let offset = buffer.cursor_position();
         if offset == buffer.end_iter().offset() {
@@ -1087,10 +1119,10 @@ impl Status {
         // after git op view could be shifted.
         // cursor is on place and it is visually current,
         // but view under it is not current, cause line_no differs
-        debug!("choose cursor when not on eof {:?}", iter.line());
+        debug!("choose cursor when NOT on eof {:?}", iter.line());
         self.cursor(txt, iter.line(), offset);
     }
-    
+
     pub fn has_staged(&self) -> bool {
         if let Some(staged) = &self.staged {
             return !staged.files.is_empty();
@@ -1161,7 +1193,7 @@ mod tests {
         }
         line_no
     }
-
+    // tests
     pub fn cursor(diff: &mut Diff, line_no: i32) {
         for (_, file) in diff.files.iter_mut().enumerate() {
             file.cursor(line_no, false);
@@ -1195,7 +1227,7 @@ mod tests {
         // the cursor is on it
         let mut cursor_line = 2;
         for file in &mut diff.files {
-            if file.expand(cursor_line) {
+            if let Some(expanded_line) = file.expand(cursor_line) {
                 assert!(file.get_view().child_dirty);
                 break;
             }
@@ -1233,7 +1265,7 @@ mod tests {
         cursor(&mut diff, cursor_line);
 
         for file in &mut diff.files {
-            if file.expand(cursor_line) {
+            if let Some(expanded_line) = file.expand(cursor_line) {
                 break;
             }
         }
@@ -1282,7 +1314,7 @@ mod tests {
         cursor_line = 2;
         cursor(&mut diff, cursor_line);
         for file in &mut diff.files {
-            if file.expand(cursor_line) {
+            if let Some(expanded_line) = file.expand(cursor_line) {
                 for child in file.get_children() {
                     let view = child.get_view();
                     if view.line_no == cursor_line {
