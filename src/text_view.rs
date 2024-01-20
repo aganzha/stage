@@ -524,17 +524,7 @@ pub trait ViewContainer {
         let active_before = view.active;
 
         let view_expanded = view.expanded;
-        if view.line_no == 4 {
-            debug!("before");
-            dbg!(&view);
-        }
-        // TODO when view is actually on same line it could be not curent
-        // because of dirty! and because it is not current, it is also
-        // NOT active!
         let current = view.is_rendered_in(line_no);
-        if current {
-            debug!("current!!!!!! {:?}", line_no);
-        }
         let active_by_parent = self.is_active_by_parent(parent_active);
         let mut active_by_child = false;
 
@@ -551,7 +541,6 @@ pub trait ViewContainer {
         let self_active = active_by_parent || current || active_by_child;
 
         let view = self.get_view();
-        let my_line = view.line_no;
         view.active = self_active;
         view.current = current;
 
@@ -559,10 +548,6 @@ pub trait ViewContainer {
             // repaint if highlight is changed
             view.dirty = view.active != active_before || view.current != current_before;
             result = view.dirty;
-        }
-        if my_line == 4 {
-            debug!("after {:?} {:?} {:?} {:?} {:?}", active_before, current_before, result, current, self_active);
-            dbg!(&view);
         }
         for child in self.get_children() {
             result = child.cursor(line_no, self_active) || result;
@@ -581,18 +566,10 @@ pub trait ViewContainer {
     // ViewContainer
     fn expand(&mut self, line_no: i32) -> Option<i32> {
         let mut found_line: Option<i32> = None;
-        if line_no == 4 && self.get_view().line_no == 4 {
-            debug!("aaaaaaaaaaaaaghh {:?}", self.get_view().is_rendered_in(line_no));
-        }
         if self.get_view().is_rendered_in(line_no) {
             let view = self.get_view();
             found_line = Some(line_no);
             view.expanded = !view.expanded;
-            // all tests are passed, but nothing works :(
-            // lets try remove dirty here
-            // CRITICAL. all tests are passed but nothing works
-            // eg expand doesn not work! thats because of dirty in render_in_line?
-            // view.dirty = true;
             view.child_dirty = true;
             let expanded = view.expanded;
             self.walk_down(&mut |vc: &mut dyn ViewContainer| {
