@@ -1,10 +1,28 @@
+inconsistency: magit highlight in yello all top level sections with their children^ staged, unstaged etc.
+inside the hunk in does not hihjlihjy in yello. only in grey. and cursor is visible
+In stage now cursor become yellow inside hunk and does not highlight sections in yellow. only current row. So basically in magit yelow highlight is for top rendered sections and grey highlight is for code.
+lets mimic that also! and make cursor visible.
+
+
+DONE: when apply tags to dirty content (cursor leave the line for the next line)
+and prev line is rendered in place. it doesn not return its length.
+why at all length is required to apply tags? those are cursor tags, which must be applied anyway...
+
+
+DONE: collapse hunk. then collapse file. then expand file. then expand hunk - it will not expand 
+// TODO when view is actually on same line it could be not curent
+todo: tests for the new expand (bug with render by calling cursor)
+todo: new files
+todo: mark blank added/delete lines
+lets choose where to put cursor
 failed workflow:
     cargo:warning=`PKG_CONFIG_ALLOW_SYSTEM_CFLAGS="1" "pkg-config" "--libs" "--cflags" "pango" "pango >= 1.49.2"` did not exit successfully: exit status: 1
   error: could not find system library 'pango' required by the 'pango-sys' crate
 
   --- stderr
   Package pango w
-  
+
+
 todo: test for cursor
 todo: it need make search works inside text view!
 todo: write func to search view at line (see fn debug - it is incompleted. want to debug labels also)
@@ -16,14 +34,6 @@ todo: test to bug below: test erase!
 todo: test to bug below: test tags (Vec::new() for replace_dirty_content and squahed branch!
 DONE CRITICAL: render squashed views (children) just render them if they are squashed!
 DONE CRITICAL: line_no of diff is the last line! 
-
-inconsistency. when stage, git op is calling from Status.
-when commit, it must also be called from status!
-
-
-while commit both staged and unstaged rendered views become obsolete.
-why unstaged become obsolete? no. no need to update them.
-it is just need to kill all staged changes!
 
 
 lets say for now, that commit is always successfull.
