@@ -305,13 +305,27 @@ impl View {
         buffer.insert(iter, content);
     }
 
+    fn build_up(&self, content: &String, prev_line_len: Option<i32>) -> String {
+        if content.len() == 0 {
+            if let Some(len) = prev_line_len {
+                return format!("{}", " ".repeat(len as usize));
+            } else {
+                return String::from("");
+            }
+        } else {
+            return format!("{}", content);
+        }
+    }
+    
+    // View
     fn render(
         &mut self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
         content: String,
         content_tags: Vec<Tag>,
-    ) -> &mut Self {
+        prev_line_len: Option<i32>
+    ) -> (&mut Self, Option<i32>) {
         // important. self.line_no is assigned only in 2 cases
         // below!!!!
         let line_no = iter.line();
@@ -321,6 +335,7 @@ impl View {
             content,
             self.line_no
         );
+        let mut line_len: Option<i32> = None;
         match self.get_state_for(line_no) {
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
@@ -333,20 +348,27 @@ impl View {
             }
             ViewState::NotRendered => {
                 trace!("..render MATCH insert {:?}", line_no);
-                buffer.insert(iter, &format!("{}\n", content));
+                let visualized = self.build_up(&content, prev_line_len);
+                line_len = Some(visualized.len() as i32);
+                buffer.insert(iter, &format!("{}\n", visualized));
                 self.line_no = line_no;
                 self.rendered = true;
-                self.apply_tags(buffer, &content, &content_tags);
+                if !visualized.is_empty() {
+                    self.apply_tags(buffer, &content_tags);
+                }
             }
             ViewState::RenderedDirtyInPlace => {
                 trace!("..render MATCH dirty !transfered {:?}", line_no);
-                if !content.is_empty() {
-                    self.replace_dirty_content(buffer, iter, &content);
+                
+                let visualized = self.build_up(&content, prev_line_len);
+                line_len = Some(visualized.len() as i32);
+                if !visualized.is_empty() {
+                    self.replace_dirty_content(buffer, iter, &visualized);                    
+                    self.apply_tags(buffer, &content_tags);
                 }
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
                 }
-                self.apply_tags(buffer, &content, &content_tags);
                 self.rendered = true;
             }
             ViewState::RenderedAndMarkedAsSquashed => {
@@ -360,8 +382,12 @@ impl View {
             ViewState::RenderedDirtyNotInPlace(l) => {
                 trace!(".. render match dirty not in place {:?}", l);
                 self.line_no = line_no;
-                self.replace_dirty_content(buffer, iter, &content);
-                self.apply_tags(buffer, &content, &content_tags);
+                let visualized = self.build_up(&content, prev_line_len);
+                line_len = Some(visualized.len() as i32);
+                self.replace_dirty_content(buffer, iter, &visualized);
+                if !visualized.is_empty() {
+                    self.apply_tags(buffer, &content_tags);
+                }
                 self.force_forward(buffer, iter);
             }
             ViewState::RenderedNotInPlace(l) => {
@@ -375,7 +401,7 @@ impl View {
         self.dirty = false;
         self.squashed = false;
         self.transfered = false;
-        self
+        (self, line_len)
     }
 
     fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
@@ -423,10 +449,7 @@ impl View {
         }
     }
 
-    fn apply_tags(&mut self, buffer: &TextBuffer, content: &str, content_tags: &Vec<Tag>) {
-        if content.is_empty() {
-            return;
-        }
+    fn apply_tags(&mut self, buffer: &TextBuffer, content_tags: &Vec<Tag>) {        
         if self.current {
             self.add_tag(buffer, CURSOR_HIGHLIGHT);
         } else {
@@ -506,16 +529,17 @@ pub trait ViewContainer {
         Vec::new()
     }
     // ViewContainer
-    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
+    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, prev_line_len: Option<i32>) -> Option<i32> {
         let content = self.get_content();
         let tags = self.tags();
-        let view = self.get_view().render(buffer, iter, content, tags);
+        let (mut view, mut line_len) = self.get_view().render(buffer, iter, content, tags, prev_line_len);
         if view.expanded || view.child_dirty {
-            for child in self.get_children() {
-                child.render(buffer, iter)
+            for child in self.get_children() {                
+                line_len = child.render(buffer, iter, line_len);
             }
         }
         self.get_view().child_dirty = false;
+        line_len
     }
 
     // ViewContainer
@@ -609,6 +633,7 @@ pub trait ViewContainer {
         false
     }
 
+    // ViewContainer
     fn erase(&mut self, txt: &TextView) {
         // CAUTION. ATTENTION. IMPORTANT
         // this ONLY rendering
@@ -626,7 +651,7 @@ pub trait ViewContainer {
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
-        self.render(&buffer, &mut iter);
+        self.render(&buffer, &mut iter, None);
     }
 }
 
@@ -668,11 +693,13 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter) {
+    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, prev_line_len: Option<i32>) -> Option<i32> {
         self.view.line_no = iter.line();
+        let mut prev_line_len: Option<i32> = None;
         for file in &mut self.files {
-            file.render(buffer, iter);
+            prev_line_len = file.render(buffer, iter, None);
         }
+        prev_line_len
     }
     // Diff
     fn expand(&mut self, line_no: i32) -> Option<i32> {
@@ -963,38 +990,38 @@ impl Status {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
 
-        self.head.render(&buffer, &mut iter);
-        self.origin.render(&buffer, &mut iter);
+        self.head.render(&buffer, &mut iter, None);
+        self.origin.render(&buffer, &mut iter, None);
 
-        self.unstaged_spacer.render(&buffer, &mut iter);
-        self.unstaged_label.render(&buffer, &mut iter);
+        self.unstaged_spacer.render(&buffer, &mut iter, None);
+        self.unstaged_label.render(&buffer, &mut iter, None);        
         if let Some(unstaged) = &mut self.unstaged {
-            unstaged.render(&buffer, &mut iter);
+            unstaged.render(&buffer, &mut iter, None);
         }
 
-        self.staged_spacer.render(&buffer, &mut iter);
-        self.staged_label.render(&buffer, &mut iter);
+        self.staged_spacer.render(&buffer, &mut iter, None);
+        self.staged_label.render(&buffer, &mut iter, None);
         if let Some(staged) = &mut self.staged {
-            staged.render(&buffer, &mut iter);
+            staged.render(&buffer, &mut iter, None);
         }
         debug!("render source {:?}", source);
         match source {
             RenderSource::Cursor(_) => {
                 // avoid loops on cursor renders
-                debug!("avoid cursor position on cursor");
+                trace!("avoid cursor position on cursor");
             }
             RenderSource::Expand(line_no) => {
                 // avoid loops on cursor renders
                 self.choose_cursor_position(txt, &buffer, Some(line_no));
-                debug!("expand call cursor himself");
+                trace!("expand call cursor himself");
             }
             RenderSource::Git => {
                 // avoid loops on cursor renders
-                debug!("expand call cursor himself");
+                trace!("expand call cursor himself");
                 self.choose_cursor_position(txt, &buffer, None);
             }
             _ => {
-                debug!("unsuported render operation");
+                trace!("unsuported render operation");
             }
         };
     }
@@ -1067,7 +1094,7 @@ impl Status {
                     // CAUTION. ATTENTION. IMPORTANT
                     // rendering just 1 file
                     // but those are used by cursor and expand!
-                    f.render(&buffer, &mut iter);
+                    f.render(&buffer, &mut iter, None);
 
                     f.hunks.remove(hunk_index);
                 }
@@ -1345,9 +1372,9 @@ mod tests {
         let mut view1 = View::new();
         let mut view2 = View::new();
         let mut view3 = View::new();
-        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new());
-        view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new());
-        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new());
+        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), None);
+        view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), None);
+        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), None);
         assert!(view1.line_no == 1);
         assert!(view2.line_no == 2);
         assert!(view3.line_no == 3);
@@ -1357,9 +1384,9 @@ mod tests {
         assert!(iter.line() == 4);
         // ------------------ test rendered in line
         iter = buffer.iter_at_line(1).unwrap();
-        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new());
-        view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new());
-        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new());
+        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), None);
+        view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), None);
+        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), None);
         assert!(iter.line() == 4);
 
         // ------------------ test deleted
@@ -1367,24 +1394,24 @@ mod tests {
         view1.squashed = true;
         view1.rendered = false;
 
-        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new());
+        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), None);
         assert!(!view1.rendered);
         // its no longer squashed. is it ok?
         assert!(!view1.squashed);
         // iter was not moved (nothing to delete, view was not rendered)
         assert!(iter.line() == 1);
         // rerender it
-        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new());
+        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), None);
         assert!(iter.line() == 2);
 
         // -------------------- test dirty
         view2.dirty = true;
-        view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new());
+        view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), None);
         assert!(!view2.dirty);
         assert!(iter.line() == 3);
         // -------------------- test squashed
         view3.squashed = true;
-        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new());
+        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), None);
         assert!(!view3.squashed);
         // iter remains on same kine, just squashing view in place
         assert!(iter.line() == 3);
@@ -1392,7 +1419,7 @@ mod tests {
         view3.line_no = 0;
         view3.dirty = true;
         view3.transfered = true;
-        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new());
+        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), None);
         assert!(view3.line_no == 3);
         assert!(view3.rendered);
         assert!(!view3.dirty);
@@ -1402,7 +1429,7 @@ mod tests {
         // --------------------- test not in place
         iter = buffer.iter_at_line(3).unwrap();
         view3.line_no = 0;
-        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new());
+        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), None);
         assert!(view3.line_no == 3);
         assert!(view3.rendered);
         assert!(iter.line() == 4);
@@ -1417,15 +1444,15 @@ mod tests {
         buffer.insert(&mut iter, "begin\n");
         let mut diff = create_diff();
 
-        diff.render(&buffer, &mut iter);
+        diff.render(&buffer, &mut iter, None);
         // if cursor returns true it need to rerender as in Status!
         if diff.cursor(1, false) {
-            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap());
+            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
         }
 
         // expand first file
         diff.files[0].expand(1);
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap());
+        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
 
         let content = buffer.slice(&mut buffer.start_iter(), &mut buffer.end_iter(), true);
         let content_lines = content.split("\n");
@@ -1446,11 +1473,11 @@ mod tests {
         // put cursor inside first hunk
         if diff.cursor(line_of_line, false) {
             // if comment out next line the line_of_line will be not sqashed
-            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap());
+            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
         }
         // expand on line inside first hunk
         diff.files[0].expand(line_of_line);
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap());
+        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
 
         let content = buffer.slice(&mut buffer.start_iter(), &mut buffer.end_iter(), true);
         let content_lines = content.split("\n");
