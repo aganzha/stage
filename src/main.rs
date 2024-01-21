@@ -86,7 +86,6 @@ fn build_ui(app: &adw::Application) {
     container.append(&hb);
 
     let (sender, receiver) = MainContext::channel(Priority::default());
-
     let txt = text_view_factory(sender.clone());
 
     scroll.set_min_content_height(960);
@@ -101,15 +100,16 @@ fn build_ui(app: &adw::Application) {
     let mut status = Status::new();
     status.get_status(sender.clone());
     window.present();
-
     env_logger::builder().format_timestamp(None).init();
 
     receiver.attach(None, move |event: Event| {
+        // let sett = txt.settings();
+        // debug!("cursor settings {} {} {} {}", sett.is_gtk_cursor_blink(), sett.gtk_cursor_aspect_ratio(), sett.gtk_cursor_blink_time(), sett.gtk_cursor_blink_timeout());
         match event {
             Event::CurrentRepo(path) => {
                 current_repo_path.replace(path);
             }
-            Event::Debug => {
+            Event::Debug => {                
                 info!("main. debug");
                 status.debug(&txt);
             }
