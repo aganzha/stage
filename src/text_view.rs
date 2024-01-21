@@ -316,7 +316,7 @@ impl View {
             return format!("{}", content);
         }
     }
-    
+
     // View
     fn render(
         &mut self,
@@ -324,13 +324,13 @@ impl View {
         iter: &mut TextIter,
         content: String,
         content_tags: Vec<Tag>,
-        prev_line_len: Option<i32>
+        prev_line_len: Option<i32>,
     ) -> (&mut Self, Option<i32>) {
         // important. self.line_no is assigned only in 2 cases
         // below!!!!
         let line_no = iter.line();
         trace!(
-            "line {:?} render view {:?} which is at line {:?}",
+            "======= line {:?} render view {:?} which is at line {:?}",
             line_no,
             content,
             self.line_no
@@ -358,12 +358,14 @@ impl View {
                 }
             }
             ViewState::RenderedDirtyInPlace => {
-                trace!("..render MATCH dirty !transfered {:?}", line_no);
-                
-                let visualized = self.build_up(&content, prev_line_len);
-                line_len = Some(visualized.len() as i32);
-                if !visualized.is_empty() {
-                    self.replace_dirty_content(buffer, iter, &visualized);                    
+                trace!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
+                if !content.is_empty() {
+                    let visualized = self.build_up(&content, prev_line_len);
+                    line_len = Some(visualized.len() as i32);
+                    self.replace_dirty_content(buffer, iter, &visualized);
+                    self.apply_tags(buffer, &content_tags);
+                } else if self.tags.contains(&String::from(CURSOR_HIGHLIGHT)) {
+                    // special case for cleanup cursor highlight
                     self.apply_tags(buffer, &content_tags);
                 }
                 if !iter.forward_lines(1) {
@@ -449,7 +451,7 @@ impl View {
         }
     }
 
-    fn apply_tags(&mut self, buffer: &TextBuffer, content_tags: &Vec<Tag>) {        
+    fn apply_tags(&mut self, buffer: &TextBuffer, content_tags: &Vec<Tag>) {
         if self.current {
             self.add_tag(buffer, CURSOR_HIGHLIGHT);
         } else {
@@ -529,12 +531,19 @@ pub trait ViewContainer {
         Vec::new()
     }
     // ViewContainer
-    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, prev_line_len: Option<i32>) -> Option<i32> {
+    fn render(
+        &mut self,
+        buffer: &TextBuffer,
+        iter: &mut TextIter,
+        prev_line_len: Option<i32>,
+    ) -> Option<i32> {
         let content = self.get_content();
         let tags = self.tags();
-        let (mut view, mut line_len) = self.get_view().render(buffer, iter, content, tags, prev_line_len);
+        let (mut view, mut line_len) =
+            self.get_view()
+                .render(buffer, iter, content, tags, prev_line_len);
         if view.expanded || view.child_dirty {
-            for child in self.get_children() {                
+            for child in self.get_children() {
                 line_len = child.render(buffer, iter, line_len);
             }
         }
@@ -693,7 +702,12 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn render(&mut self, buffer: &TextBuffer, iter: &mut TextIter, prev_line_len: Option<i32>) -> Option<i32> {
+    fn render(
+        &mut self,
+        buffer: &TextBuffer,
+        iter: &mut TextIter,
+        prev_line_len: Option<i32>,
+    ) -> Option<i32> {
         self.view.line_no = iter.line();
         let mut prev_line_len: Option<i32> = None;
         for file in &mut self.files {
@@ -959,7 +973,7 @@ impl Status {
         if changed {
             self.render(txt, RenderSource::Cursor(line_no));
             let buffer = txt.buffer();
-            debug!("put cursor on line {:?} in CURSOR", line_no);
+            trace!("put cursor on line {:?} in CURSOR", line_no);
             buffer.place_cursor(&buffer.iter_at_offset(offset));
         }
     }
@@ -994,7 +1008,7 @@ impl Status {
         self.origin.render(&buffer, &mut iter, None);
 
         self.unstaged_spacer.render(&buffer, &mut iter, None);
-        self.unstaged_label.render(&buffer, &mut iter, None);        
+        self.unstaged_label.render(&buffer, &mut iter, None);
         if let Some(unstaged) = &mut self.unstaged {
             unstaged.render(&buffer, &mut iter, None);
         }
@@ -1004,7 +1018,7 @@ impl Status {
         if let Some(staged) = &mut self.staged {
             staged.render(&buffer, &mut iter, None);
         }
-        debug!("render source {:?}", source);
+        trace!("render source {:?}", source);
         match source {
             RenderSource::Cursor(_) => {
                 // avoid loops on cursor renders
@@ -1123,7 +1137,7 @@ impl Status {
         buffer: &TextBuffer,
         line_no: Option<i32>,
     ) {
-        debug!("choose_cursor_position");
+        trace!("choose_cursor_position");
         let offset = buffer.cursor_position();
         if offset == buffer.end_iter().offset() {
             // first render. buffer at eof
@@ -1131,7 +1145,7 @@ impl Status {
                 if !unstaged.files.is_empty() {
                     let line_no = unstaged.files[0].view.line_no;
                     let iter = buffer.iter_at_line(line_no).unwrap();
-                    debug!("choose cursor at first unstaged file {:?}", line_no);
+                    trace!("choose cursor at first unstaged file {:?}", line_no);
                     self.cursor(txt, line_no, iter.offset());
                     return;
                 }
