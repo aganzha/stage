@@ -249,6 +249,10 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
 
     txt.set_monospace(true);
     txt.set_editable(false);
+    // let sett = txt.settings();
+    // sett.set_gtk_cursor_blink(true);
+    // sett.set_gtk_cursor_blink_time(3000);
+    // sett.set_gtk_cursor_aspect_ratio(0.05);
     txt
 }
 
@@ -382,14 +386,17 @@ impl View {
                 self.tags = Vec::new();
             }
             ViewState::RenderedDirtyNotInPlace(l) => {
-                trace!(".. render match dirty not in place {:?}", l);
+                trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
                 self.line_no = line_no;
-                let visualized = self.build_up(&content, prev_line_len);
-                line_len = Some(visualized.len() as i32);
-                self.replace_dirty_content(buffer, iter, &visualized);
-                if !visualized.is_empty() {
+                if !content.is_empty() {
+                    let visualized = self.build_up(&content, prev_line_len);
+                    line_len = Some(visualized.len() as i32);
+                    self.replace_dirty_content(buffer, iter, &visualized);
                     self.apply_tags(buffer, &content_tags);
-                }
+                } else if self.tags.contains(&String::from(CURSOR_HIGHLIGHT)) {
+                    // special case for cleanup cursor highlight
+                    self.apply_tags(buffer, &content_tags);
+                }                
                 self.force_forward(buffer, iter);
             }
             ViewState::RenderedNotInPlace(l) => {
