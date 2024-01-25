@@ -5,8 +5,8 @@ mod common_tests;
 
 mod git;
 use git::{
-    commit_staged, get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Hunk, Line,
-    View,
+    commit_staged, get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Head, Hunk,
+    Line, View,
 };
 
 mod widgets;
@@ -51,6 +51,7 @@ pub enum Event {
     CurrentRepo(std::ffi::OsString),
     Unstaged(Diff),
     Staged(Diff),
+    Head(Head),
     Expand(i32, i32),
     Cursor(i32, i32),
     // does not used for now
@@ -96,11 +97,12 @@ fn build_ui(app: &adw::Application) {
 
     window.set_content(Some(&container));
 
+    env_logger::builder().format_timestamp(None).init();
+
     let mut current_repo_path: Option<std::ffi::OsString> = None;
     let mut status = Status::new();
     status.get_status(sender.clone());
     window.present();
-    env_logger::builder().format_timestamp(None).init();
 
     receiver.attach(None, move |event: Event| {
         // let sett = txt.settings();
@@ -109,7 +111,7 @@ fn build_ui(app: &adw::Application) {
             Event::CurrentRepo(path) => {
                 current_repo_path.replace(path);
             }
-            Event::Debug => {                
+            Event::Debug => {
                 info!("main. debug");
                 status.debug(&txt);
             }
@@ -129,6 +131,10 @@ fn build_ui(app: &adw::Application) {
                     &txt,
                     sender.clone(),
                 );
+            }
+            Event::Head(h) => {
+                info!("main. head {:?}", &h);
+                status.update_head(h, &txt);
             }
             Event::Staged(d) => {
                 info!("main. staged {:p}", &d);

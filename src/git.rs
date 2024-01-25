@@ -2,9 +2,10 @@ use crate::gio;
 use crate::glib::Sender;
 use ffi::OsString;
 use git2::{
-    ApplyLocation, ApplyOptions, Diff as GitDiff, DiffFile, DiffFormat, DiffHunk, DiffLine,
-    DiffLineType, DiffOptions, Oid, Repository,
+    ApplyLocation, ApplyOptions, Commit, Diff as GitDiff, DiffFile, DiffFormat, DiffHunk, DiffLine,
+    DiffLineType, DiffOptions, ObjectType, Oid, Reference, Repository,
 };
+use log::{debug, error, info, log_enabled, trace};
 use regex::Regex;
 use std::{env, ffi, iter::zip, path, str};
 
@@ -31,6 +32,7 @@ pub struct View {
     pub current: bool,
     pub transfered: bool,
     pub tags: Vec<String>,
+    pub markup: bool
 }
 
 #[derive(Debug, Clone)]
@@ -291,6 +293,35 @@ pub fn get_cwd_repo(sender: Sender<crate::Event>) -> Repository {
     repo
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Head {
+    pub commit: String,
+    pub branch: String,
+    pub view: View
+}
+
+impl Head {
+    pub fn new(commit: Commit, head_ref: Reference) -> Self {
+        Self {
+            commit: commit_string(&commit),
+            branch: local_branch_name(String::from(head_ref.name().or(Some("")).unwrap())),
+            view: View::new_markup()
+        }
+    }
+}
+
+pub fn commit_string(c: &Commit) -> String {
+    return format!(
+        "{} {}",
+        &c.id().to_string()[..7],
+        c.message().or(Some("")).unwrap().replace("\n", "")
+    );
+}
+
+pub fn local_branch_name(name: String) -> String {
+    name.replace("refs/heads/", "")
+}
+
 pub fn get_current_repo_status(current_path: Option<OsString>, sender: Sender<crate::Event>) {
     let (repo, path) = {
         if let Some(path) = current_path {
@@ -302,6 +333,25 @@ pub fn get_current_repo_status(current_path: Option<OsString>, sender: Sender<cr
             (repo, path)
         }
     };
+
+    // get HEAD
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        let path = path.clone();
+        move || {
+            let repo = Repository::open(path).expect("can't open repo");
+            let head_ref = repo.head().expect("can't get head");
+            assert!(head_ref.is_branch());
+            debug!("branch name {:?}", head_ref.name());
+            let ob = head_ref
+                .peel(ObjectType::Commit)
+                .expect("can't get commit from ref!");
+            let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+            sender
+                .send(crate::Event::Head(Head::new(commit, head_ref)))
+                .expect("Could not send through channel");
+        }
+    });
 
     // get staged
     gio::spawn_blocking({
