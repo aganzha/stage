@@ -1,7 +1,7 @@
 use crate::common_tests::*;
 use crate::{
     commit_staged, get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Hunk, Line,
-    View,
+    View, Head
 };
 use backtrace::Backtrace;
 use git2::DiffLineType;
@@ -275,7 +275,7 @@ impl Label {
     pub fn from_string(content: &str) -> Self {
         Label {
             content: String::from(content),
-            view: View::new(),
+            view: View::new_markup(),
         }
     }
 }
@@ -293,7 +293,13 @@ impl View {
             current: false,
             transfered: false,
             tags: Vec::new(),
+            markup: false
         }
+    }
+    pub fn new_markup() -> Self {
+        let mut view = Self::new();
+        view.markup = true;
+        view
     }
 
     fn is_rendered_in(&self, line_no: i32) -> bool {
@@ -306,7 +312,11 @@ impl View {
         buffer.remove_all_tags(iter, &mut eol_iter);
         self.tags = Vec::new();
         buffer.delete(iter, &mut eol_iter);
-        buffer.insert(iter, content);
+        if self.markup {
+            buffer.insert_markup(iter, content);
+        } else {
+            buffer.insert(iter, content);
+        }
     }
 
     fn build_up(&self, content: &String, prev_line_len: Option<i32>) -> String {
@@ -354,7 +364,11 @@ impl View {
                 trace!("..render MATCH insert {:?}", line_no);
                 let visualized = self.build_up(&content, prev_line_len);
                 line_len = Some(visualized.len() as i32);
-                buffer.insert(iter, &format!("{}\n", visualized));
+                if self.markup {
+                    buffer.insert_markup(iter, &format!("{}\n", visualized));
+                } else {
+                    buffer.insert(iter, &format!("{}\n", visualized));
+                }
                 self.line_no = line_no;
                 self.rendered = true;
                 if !visualized.is_empty() {
@@ -396,7 +410,7 @@ impl View {
                 } else if self.tags.contains(&String::from(CURSOR_HIGHLIGHT)) {
                     // special case for cleanup cursor highlight
                     self.apply_tags(buffer, &content_tags);
-                }                
+                }
                 self.force_forward(buffer, iter);
             }
             ViewState::RenderedNotInPlace(l) => {
@@ -888,6 +902,29 @@ impl ViewContainer for Label {
     }
 }
 
+impl ViewContainer for Head {
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Label
+    }
+    fn child_count(&self) -> usize {
+        0
+    }
+    fn get_self(&self) -> &dyn ViewContainer {
+        self
+    }
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
+    }
+
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        Vec::new()
+    }
+
+    fn get_content(&self) -> String {
+        format!("Head:   <span color=\"#4a708b\">{}</span> {}", &self.branch, self.commit)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum RenderSource {
     Git,
@@ -898,7 +935,7 @@ pub enum RenderSource {
 
 #[derive(Debug, Clone, Default)]
 pub struct Status {
-    pub head: Label,
+    pub head: Option<Head>,
     pub origin: Label,
     pub staged_spacer: Label,
     pub staged_label: Label,
@@ -912,13 +949,13 @@ pub struct Status {
 impl Status {
     pub fn new() -> Self {
         Self {
-            head: Label::from_string("Head:     common_view refactor cursor"),
+            head: None,
             origin: Label::from_string("Origin: common_view refactor cursor"),
             staged_spacer: Label::from_string(""),
-            staged_label: Label::from_string("Staged changes"),
+            staged_label: Label::from_string("<span weight=\"bold\" color=\"#8b6508\">Staged changes</span>"),
             staged: None,
             unstaged_spacer: Label::from_string(""),
-            unstaged_label: Label::from_string("Unstaged changes"),
+            unstaged_label: Label::from_string("<span weight=\"bold\" color=\"#8b6508\">Unstaged changes</span>"),
             unstaged: None,
             rendered: false,
         }
@@ -955,6 +992,12 @@ impl Status {
             });
         }
     }
+
+    pub fn update_head(&mut self, head: Head, txt: &TextView) {
+        self.head.replace(head);        
+        self.render(&txt, RenderSource::Git);        
+    }
+    
     pub fn update_staged(&mut self, diff: Diff, txt: &TextView) {
         self.staged.replace(diff);
         if self.staged.is_some() && self.unstaged.is_some() {
@@ -1006,12 +1049,19 @@ impl Status {
         }
     }
 
+    // pub fn render_head(&mut self, head: Head) {
+    //     self.head.content = format!("Head:   {} {}", head.branch, head.commit);
+    //     self.head.view.dirty = true;
+    // }
     // Status
     pub fn render(&mut self, txt: &TextView, source: RenderSource) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
-
-        self.head.render(&buffer, &mut iter, None);
+        
+        if let Some(head) = &mut self.head {
+            head.render(&buffer, &mut iter, None);
+        }
+        
         self.origin.render(&buffer, &mut iter, None);
 
         self.unstaged_spacer.render(&buffer, &mut iter, None);
@@ -1162,7 +1212,7 @@ impl Status {
         // after git op view could be shifted.
         // cursor is on place and it is visually current,
         // but view under it is not current, cause line_no differs
-        debug!("choose cursor when NOT on eof {:?}", iter.line());
+        trace!("choose cursor when NOT on eof {:?}", iter.line());
         self.cursor(txt, iter.line(), offset);
     }
 
