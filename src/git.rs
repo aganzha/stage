@@ -78,6 +78,14 @@ pub struct Hunk {
     pub lines: Vec<Line>,
 }
 
+pub enum Related {
+    Before,
+    OverlapBefore,
+    Matched,
+    OverlapAfter,
+    After
+}
+
 impl Hunk {
     pub fn new() -> Self {
         Self {
@@ -114,6 +122,52 @@ impl Hunk {
         panic!("cant reverse header {}", header);
         String::from("fail")
     }
+    pub fn delta_in_lines(&self) -> i32 {
+        // returns how much lines this hunk
+        // will add to file (could be negative when lines are deleted)
+        // self.new_start + self.new_lines - self.old_start - self.old_lines
+        self.lines.iter().map(|l| {
+            match l.origin {
+                DiffLineType::Addition => 1,
+                DiffLineType::Deletion => -1,
+                _ => 0
+            }
+        }).sum()
+    }
+    
+    pub fn related_to_other(&self, other: &Hunk) -> Related {
+        // returns how this hunk is related to other hunk (in file)
+        debug!("related to other self.new_start {:?} self.new_lines {:?}
+                  other.new_start {:?} other.new_lines {:?}", self.new_start, self.new_lines, other.new_start, other.new_lines);
+        if self.new_start < other.new_start &&
+            self.new_start + self.new_lines < other.new_start {
+                debug!("before");
+                return Related::Before
+            }
+        if self.new_start < other.new_start &&
+            self.new_start + self.new_lines > other.new_start {
+                debug!("overlap");
+                return Related::OverlapBefore
+            }
+        if self.new_start == other.new_start &&
+            self.new_lines == other.new_lines {
+                debug!("matched");
+                return Related::Matched
+            }
+        if self.new_start > other.new_start &&
+            self.new_start + self.new_lines < other.new_start + other.new_lines {
+                debug!("overlap");
+                return Related::OverlapAfter
+            }
+        if self.new_start > other.new_start &&
+            self.new_start > other.new_start + other.new_lines {
+                debug!("after");
+                return Related::After
+            }
+        panic!("unknown case self.new_start {:?} self.new_lines {:?}
+                  other.new_start {:?} other.new_lines {:?}", self.new_start, self.new_lines, other.new_start, other.new_lines);
+        Related::After
+    }
 
     pub fn title(&self) -> String {
         self.header.to_string()
@@ -133,7 +187,7 @@ impl Hunk {
             _ => self.lines.push(line),
         }
     }
-    pub fn enrich_views(&mut self, other: Hunk) {
+    pub fn enrich_views(&mut self, other: &Hunk) {
         if self.lines.len() != other.lines.len() {
             // so :) what todo?
             panic!(
@@ -188,52 +242,72 @@ impl File {
         self.path.to_str().unwrap().to_string()
     }
 
-    pub fn enrich_views(&mut self, other: File) {
+    pub fn enrich_views(&mut self, other: &mut File) {
         // used to maintain view state in existent hunks
         // there are 2 cases
         // 1. side from which hunks are moved out (eg unstaged during staging)
         // this one is simple, cause self.hunks and other.hunks are the same length.
         // just transfer views between them in order.
         // 2. side on which hunks are receiving new hunk (eg staged hunks during staging)
+        // NO! it could be several hunks!!!!!!!!!!!!!!!!!!!!
+        // eg stages hunks in file and then stage 2 more hunks to the same file!
         // this one is hard, cause new hunk (there will be only 1), could break the order
         // of existent hunks and their headers will mutate (line numbers will differ)
         if self.hunks.len() == other.hunks.len() {
             for pair in zip(&mut self.hunks, &other.hunks) {
                 pair.0.view = pair.1.transfer_view();
-                pair.0.enrich_views(pair.1.clone());
+                pair.0.enrich_views(pair.1);
             }
             return;
         }
-        // So. It need to map new hunks (self) to existent one: other.
-        // Example of new hunks
-        // "@@ -1,3 +1,7 @@"
-        // "@@ -20,10 +24,11 @@ STAGING LINE INSIDE HUNK (STAGING HUNK MUST BE THE SAME)"
-        // "@@ -54,7 +59,6 @@ do not call render on everything"
-        // Example of exising hunks
-        // "@@ -1,3 +1,7 @@",
-        // "@@ -55,7 +59,6 @@ do not call render on everything",
-        assert!(self.hunks.len() == other.hunks.len() + 1);
-        let mut mine_cursor = 0;
-        let mut other_cursor = 0;
-        let mut hunk_to_exclude = String::new();
-        for pair in zip(&self.hunks, &other.hunks) {
-            mine_cursor += pair.0.new_start + pair.0.new_lines - pair.0.old_lines;
-            other_cursor += pair.1.new_start + pair.1.new_lines - pair.1.old_lines;
-            if mine_cursor != other_cursor {
-                hunk_to_exclude = pair.0.header.clone();
-                break;
+        // all hunks are ordered
+        for hunk in self.hunks.iter_mut() {
+            trace!("outer cycle");
+            // go "insert" (no real insertion is required) every new hunk in old_hunks.
+            // that one, that will be overlapped + before + after - those will be
+            // new views.
+            // insertion means - shift all rest old hunks according to delta
+            for other_hunk in other.hunks.iter_mut() {
+                trace!("inner cycle for other_hunk");
+                match hunk.related_to_other(other_hunk) {
+                    // me relative to other hunks
+                    Related::Before => {
+                        trace!("choose new hunk start");
+                        trace!("just shift old hunk by my lines {:?}", hunk.delta_in_lines());
+                        // my lines - means diff in lines between my other_hunk and my new hunk
+                        other_hunk.new_start = (
+                            (other_hunk.new_start as i32) + hunk.delta_in_lines()
+                        ) as u32;
+                    },
+                    Related::OverlapBefore => {
+                        // insert diff betweeen old and new view
+                        todo!("extend hunk by start diff");
+                        // hm. old_lines are not included at all...
+                        // other_hunk.new_lines += other_hunk.new_start - hunk.new_start; 
+                        // other_hunk.new_start = hunk.new_start;
+                        
+                    },
+                    Related::Matched => {
+                        trace!("enrich!");
+                        hunk.view = other_hunk.transfer_view();
+                        hunk.enrich_views(other_hunk);
+                        // no furtger processing
+                        break;
+                    },
+                    Related::OverlapAfter => {
+                        todo!("choose old hunk start");
+                        // trace!("extend hunk by start diff");
+                        // other_hunk.new_lines += hunk.new_start - other_hunk.new_start;
+                        // hm. old lines are not present at all?
+                    },
+                    Related::After => {
+                        trace!("nothing todo!");
+                        // nothing to do
+                    }
+                }
             }
         }
-        let filtered: Vec<&mut Hunk> = self
-            .hunks
-            .iter_mut()
-            .filter(|h| h.header != hunk_to_exclude)
-            .collect();
 
-        for pair in zip(filtered, &other.hunks) {
-            pair.0.view = pair.1.transfer_view();
-            pair.0.enrich_views(pair.1.clone());
-        }
     }
 
     pub fn transfer_view(&self) -> View {
@@ -271,12 +345,12 @@ impl Diff {
         }
     }
 
-    pub fn enrich_views(&mut self, other: Diff) {
+    pub fn enrich_views(&mut self, other: &mut Diff) {
         for file in &mut self.files {
-            for of in &other.files {
+            for of in &mut other.files {
                 if file.path == of.path {
                     file.view = of.transfer_view();
-                    file.enrich_views(of.clone());
+                    file.enrich_views(of);
                 }
             }
         }
@@ -364,60 +438,10 @@ pub fn get_current_repo_status(current_path: Option<OsString>, sender: Sender<cr
                     .send(crate::Event::Upstream(head))
                     .expect("Could not send through channel");
             } else {
-                todo!("some branches could contain only pushRemote, but no
-                      origin. There will be no upstream then. It need to lookup
-                      pushRemote in config and check refs/remotes/<origin>/")
+                // todo!("some branches could contain only pushRemote, but no
+                //       origin. There will be no upstream then. It need to lookup
+                //       pushRemote in config and check refs/remotes/<origin>/")
             };
-            // let maybe_branch = repo.find_branch(&local_branch_name(head_ref.name().unwrap()), BranchType::Local);
-            // if let Ok(branch) = maybe_branch {
-            //     debug!("-------------------------> {:?}", branch.name());
-            // } else {
-            //     todo!("head is not branch")
-            // }
-            // let remote = branch.unwrap().upstream();
-            // if let Ok(rem) = remote {
-            //     debug!("remoooooooooooooote {:?}", rem.name());
-            // } else {
-            //     println!("fuck 000000000000000000000000");
-            // }
-
-            // debug!("branch name {:?}", head_ref.name());
-            // // there are 2 cases for local branch: remote and pushRemote
-            // let remote = repo.find_remote(head_ref.name().unwrap());
-            // if let Ok(r) = remote {
-            //     debug!("remote {:?}", r.name());
-            // } else {
-            //     debug!("fuck!");
-            // }
-            // let buf = repo.branch_remote_name(head_ref.name().unwrap());
-            // if let Ok(b) = buf {
-            //     debug!("remote ????????? {:?}", b.as_str());
-            // } else {
-            //     debug!("fuck1");
-            // }
-            // let remotes = repo.remotes().unwrap();
-            // for r in remotes.iter() {
-            //     debug!("---------> {:?}", r);
-            // }
-            // // i have 1 remote - origin
-            // // i have a record in config: pushRemote: origin
-            // // no remote in config. how do i now branch is sync with remote???
-            // let bname = head_ref.name().unwrap();
-
-            // let upstream_remote = repo.branch_upstream_remote(&bname).expect("no upstream remote"); // config value 'branch.render_status.remote'
-            // let upstream_name = repo.branch_upstream_name(&bname).expect("no upsteam name"); //"config value 'branch.render_status.remote'
-            // debug!(
-            //     "upstream name and remote {:?} {:?}",
-            //     upstream_name.as_str().unwrap(),
-            //     upstream_remote.as_str().unwrap()
-            // );
-            // let ob = head_ref
-            //     .peel(ObjectType::Commit)
-            //     .expect("can't get commit from ref!");
-            // let commit = ob.peel_to_commit().expect("can't get commit from ob!");
-            // sender
-            //     .send(crate::Event::Head(Head::new(commit, head_ref)))
-            //     .expect("Could not send through channel");
         }
     });
 
@@ -521,8 +545,8 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
 }
 
 pub fn stage_via_apply(
-    unstaged: Option<Diff>,
-    staged: Option<Diff>,
+    mut unstaged: Option<Diff>,
+    mut staged: Option<Diff>,
     is_staging: bool,
     path: OsString,
     filter: ApplyFilter,
@@ -584,7 +608,7 @@ pub fn stage_via_apply(
                 .diff_tree_to_index(Some(&current_tree), None, None)
                 .expect("can't get diff tree to index");
             let mut diff = make_diff(git_diff);
-            if let Some(s) = staged {
+            if let Some(s) = &mut staged {
                 diff.enrich_views(s);
             }
             sender
@@ -597,7 +621,7 @@ pub fn stage_via_apply(
         .diff_index_to_workdir(None, None)
         .expect("cant get diff_index_to_workdir");
     let mut diff = make_diff(git_diff);
-    if let Some(u) = unstaged {
+    if let Some(u) = &mut unstaged {
         diff.enrich_views(u);
     }
     sender

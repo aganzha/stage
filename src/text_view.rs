@@ -362,28 +362,27 @@ impl View {
             }
             ViewState::NotRendered => {
                 trace!("..render MATCH insert {:?}", line_no);
-                let visualized = self.build_up(&content, prev_line_len);
-                line_len = Some(visualized.len() as i32);
+                let empty_spaces = self.build_up(&content, prev_line_len);
+                line_len = Some(empty_spaces.len() as i32);
                 if self.markup {
-                    buffer.insert_markup(iter, &format!("{}\n", visualized));
+                    buffer.insert_markup(iter, &format!("{}\n", empty_spaces));
                 } else {
-                    buffer.insert(iter, &format!("{}\n", visualized));
+                    buffer.insert(iter, &format!("{}\n", empty_spaces));
                 }
                 self.line_no = line_no;
                 self.rendered = true;
-                if !visualized.is_empty() {
+                if !empty_spaces.is_empty() {
                     self.apply_tags(buffer, &content_tags);
                 }
             }
             ViewState::RenderedDirtyInPlace => {
                 trace!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
                 if !content.is_empty() {
-                    let visualized = self.build_up(&content, prev_line_len);
-                    line_len = Some(visualized.len() as i32);
-                    self.replace_dirty_content(buffer, iter, &visualized);
+                    let empty_spaces = self.build_up(&content, prev_line_len);
+                    line_len = Some(empty_spaces.len() as i32);
+                    self.replace_dirty_content(buffer, iter, &empty_spaces);                    
                     self.apply_tags(buffer, &content_tags);
-                } else if self.tags.contains(&String::from(CURSOR_HIGHLIGHT)) {
-                    // special case for cleanup cursor highlight
+                } else {
                     self.apply_tags(buffer, &content_tags);
                 }
                 if !iter.forward_lines(1) {
@@ -403,9 +402,9 @@ impl View {
                 trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
                 self.line_no = line_no;
                 if !content.is_empty() {
-                    let visualized = self.build_up(&content, prev_line_len);
-                    line_len = Some(visualized.len() as i32);
-                    self.replace_dirty_content(buffer, iter, &visualized);
+                    let empty_spaces = self.build_up(&content, prev_line_len);
+                    line_len = Some(empty_spaces.len() as i32);
+                    self.replace_dirty_content(buffer, iter, &empty_spaces);
                     self.apply_tags(buffer, &content_tags);
                 } else if self.tags.contains(&String::from(CURSOR_HIGHLIGHT)) {
                     // special case for cleanup cursor highlight
@@ -1005,7 +1004,7 @@ impl Status {
         self.head.replace(head);
         self.render(&txt, RenderSource::Git);
     }
-    
+
     pub fn update_upstream(&mut self, upstream: Head, txt: &TextView) {
         self.upstream.replace(upstream);
         self.render(&txt, RenderSource::Git);
@@ -1062,10 +1061,7 @@ impl Status {
         }
     }
 
-    // pub fn render_head(&mut self, head: Head) {
-    //     self.head.content = format!("Head:   {} {}", head.branch, head.commit);
-    //     self.head.view.dirty = true;
-    // }
+
     // Status
     pub fn render(&mut self, txt: &TextView, source: RenderSource) {
         let buffer = txt.buffer();
@@ -1079,15 +1075,25 @@ impl Status {
             upstream.render(&buffer, &mut iter, None);
         }
 
-        self.unstaged_spacer.render(&buffer, &mut iter, None);
-        self.unstaged_label.render(&buffer, &mut iter, None);
+
         if let Some(unstaged) = &mut self.unstaged {
+            if unstaged.files.is_empty() {
+                self.unstaged_spacer.view.squashed = true;
+                self.unstaged_label.view.squashed = true;                
+            }
+            self.unstaged_spacer.render(&buffer, &mut iter, None);
+            self.unstaged_label.render(&buffer, &mut iter, None);
             unstaged.render(&buffer, &mut iter, None);
         }
 
-        self.staged_spacer.render(&buffer, &mut iter, None);
-        self.staged_label.render(&buffer, &mut iter, None);
         if let Some(staged) = &mut self.staged {
+            if staged.files.is_empty() {
+                self.staged_spacer.view.squashed = true;
+                self.staged_label.view.squashed = true;
+
+            }
+            self.staged_spacer.render(&buffer, &mut iter, None);
+            self.staged_label.render(&buffer, &mut iter, None);
             staged.render(&buffer, &mut iter, None);
         }
         trace!("render source {:?}", source);
@@ -1098,16 +1104,16 @@ impl Status {
             }
             RenderSource::Expand(line_no) => {
                 // avoid loops on cursor renders
-                self.choose_cursor_position(txt, &buffer, Some(line_no));
-                trace!("expand call cursor himself");
+                trace!("render source expand");
+                self.choose_cursor_position(txt, &buffer, Some(line_no));                
             }
             RenderSource::Git => {
                 // avoid loops on cursor renders
-                trace!("expand call cursor himself");
+                trace!("render source git");
                 self.choose_cursor_position(txt, &buffer, None);
             }
-            _ => {
-                trace!("unsuported render operation");
+           src => {
+                trace!("other render source {:?}", src);
             }
         };
     }
@@ -1193,8 +1199,8 @@ impl Status {
                 }
             });
 
-            let u = self.unstaged.clone();
-            let s = self.staged.clone();
+            let mut u = self.unstaged.clone();
+            let mut s = self.staged.clone();
             gio::spawn_blocking({
                 let path = path.clone();
                 move || {
@@ -1209,7 +1215,7 @@ impl Status {
         buffer: &TextBuffer,
         line_no: Option<i32>,
     ) {
-        trace!("choose_cursor_position");
+        trace!("choose_cursor_position. optional line {:?}", line_no);
         let offset = buffer.cursor_position();
         if offset == buffer.end_iter().offset() {
             // first render. buffer at eof
