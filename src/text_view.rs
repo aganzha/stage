@@ -1,7 +1,7 @@
 use crate::common_tests::*;
 use crate::{
-    commit_staged, get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Hunk, Line,
-    View, Head
+    commit_staged, get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Head, Hunk,
+    Line, View,
 };
 use backtrace::Backtrace;
 use git2::DiffLineType;
@@ -293,7 +293,7 @@ impl View {
             current: false,
             transfered: false,
             tags: Vec::new(),
-            markup: false
+            markup: false,
         }
     }
     pub fn new_markup() -> Self {
@@ -921,7 +921,11 @@ impl ViewContainer for Head {
     }
 
     fn get_content(&self) -> String {
-        format!("Head:   <span color=\"#4a708b\">{}</span> {}", &self.branch, self.commit)
+        format!(
+            "{}<span color=\"#4a708b\">{}</span> {}",
+            if !self.remote {"Head:     "} else {"Upstream: "},
+            &self.branch, self.commit
+        )
     }
 }
 
@@ -936,7 +940,7 @@ pub enum RenderSource {
 #[derive(Debug, Clone, Default)]
 pub struct Status {
     pub head: Option<Head>,
-    pub origin: Label,
+    pub upstream: Option<Head>,
     pub staged_spacer: Label,
     pub staged_label: Label,
     pub staged: Option<Diff>,
@@ -950,12 +954,16 @@ impl Status {
     pub fn new() -> Self {
         Self {
             head: None,
-            origin: Label::from_string("Origin: common_view refactor cursor"),
+            upstream: None,
             staged_spacer: Label::from_string(""),
-            staged_label: Label::from_string("<span weight=\"bold\" color=\"#8b6508\">Staged changes</span>"),
+            staged_label: Label::from_string(
+                "<span weight=\"bold\" color=\"#8b6508\">Staged changes</span>",
+            ),
             staged: None,
             unstaged_spacer: Label::from_string(""),
-            unstaged_label: Label::from_string("<span weight=\"bold\" color=\"#8b6508\">Unstaged changes</span>"),
+            unstaged_label: Label::from_string(
+                "<span weight=\"bold\" color=\"#8b6508\">Unstaged changes</span>",
+            ),
             unstaged: None,
             rendered: false,
         }
@@ -994,10 +1002,15 @@ impl Status {
     }
 
     pub fn update_head(&mut self, head: Head, txt: &TextView) {
-        self.head.replace(head);        
-        self.render(&txt, RenderSource::Git);        
+        self.head.replace(head);
+        self.render(&txt, RenderSource::Git);
     }
     
+    pub fn update_upstream(&mut self, upstream: Head, txt: &TextView) {
+        self.upstream.replace(upstream);
+        self.render(&txt, RenderSource::Git);
+    }
+
     pub fn update_staged(&mut self, diff: Diff, txt: &TextView) {
         self.staged.replace(diff);
         if self.staged.is_some() && self.unstaged.is_some() {
@@ -1057,12 +1070,14 @@ impl Status {
     pub fn render(&mut self, txt: &TextView, source: RenderSource) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
-        
+
         if let Some(head) = &mut self.head {
             head.render(&buffer, &mut iter, None);
         }
-        
-        self.origin.render(&buffer, &mut iter, None);
+
+        if let Some(upstream) = &mut self.upstream {
+            upstream.render(&buffer, &mut iter, None);
+        }
 
         self.unstaged_spacer.render(&buffer, &mut iter, None);
         self.unstaged_label.render(&buffer, &mut iter, None);
