@@ -2,8 +2,8 @@ use crate::gio;
 use crate::glib::Sender;
 use ffi::OsString;
 use git2::{
-    ApplyLocation, ApplyOptions, Commit, Diff as GitDiff, DiffFile, DiffFormat, DiffHunk, DiffLine,
-    DiffLineType, DiffOptions, ObjectType, Oid, Reference, Repository,
+    ApplyLocation, ApplyOptions, Branch, BranchType, Commit, Diff as GitDiff, DiffFile, DiffFormat,
+    DiffHunk, DiffLine, DiffLineType, DiffOptions, ObjectType, Oid, Reference, Repository,
 };
 use log::{debug, error, info, log_enabled, trace};
 use regex::Regex;
@@ -32,7 +32,7 @@ pub struct View {
     pub current: bool,
     pub transfered: bool,
     pub tags: Vec<String>,
-    pub markup: bool
+    pub markup: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -297,15 +297,17 @@ pub fn get_cwd_repo(sender: Sender<crate::Event>) -> Repository {
 pub struct Head {
     pub commit: String,
     pub branch: String,
-    pub view: View
+    pub view: View,
+    pub remote: bool
 }
 
 impl Head {
-    pub fn new(commit: Commit, head_ref: Reference) -> Self {
+    pub fn new(branch: &Branch, commit: &Commit) -> Self {
         Self {
+            branch: String::from(branch.name().unwrap().unwrap()),
             commit: commit_string(&commit),
-            branch: local_branch_name(String::from(head_ref.name().or(Some("")).unwrap())),
-            view: View::new_markup()
+            view: View::new_markup(),
+            remote: false
         }
     }
 }
@@ -318,7 +320,7 @@ pub fn commit_string(c: &Commit) -> String {
     );
 }
 
-pub fn local_branch_name(name: String) -> String {
+pub fn local_branch_name(name: &str) -> String {
     name.replace("refs/heads/", "")
 }
 
@@ -342,14 +344,80 @@ pub fn get_current_repo_status(current_path: Option<OsString>, sender: Sender<cr
             let repo = Repository::open(path).expect("can't open repo");
             let head_ref = repo.head().expect("can't get head");
             assert!(head_ref.is_branch());
-            debug!("branch name {:?}", head_ref.name());
             let ob = head_ref
                 .peel(ObjectType::Commit)
                 .expect("can't get commit from ref!");
             let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+            let branch = Branch::wrap(head_ref);
             sender
-                .send(crate::Event::Head(Head::new(commit, head_ref)))
+                .send(crate::Event::Head(Head::new(&branch, &commit)))
                 .expect("Could not send through channel");
+            if let Ok(upstream) = branch.upstream() {
+                let upstream_ref = upstream.get();
+                let ob = upstream_ref
+                    .peel(ObjectType::Commit)
+                    .expect("can't get commit from ref!");
+                let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+                let mut head = Head::new(&upstream, &commit);
+                head.remote = true;
+                sender
+                    .send(crate::Event::Upstream(head))
+                    .expect("Could not send through channel");
+            } else {
+                todo!("some branches could contain only pushRemote, but no
+                      origin. There will be no upstream then. It need to lookup
+                      pushRemote in config and check refs/remotes/<origin>/")
+            };
+            // let maybe_branch = repo.find_branch(&local_branch_name(head_ref.name().unwrap()), BranchType::Local);
+            // if let Ok(branch) = maybe_branch {
+            //     debug!("-------------------------> {:?}", branch.name());
+            // } else {
+            //     todo!("head is not branch")
+            // }
+            // let remote = branch.unwrap().upstream();
+            // if let Ok(rem) = remote {
+            //     debug!("remoooooooooooooote {:?}", rem.name());
+            // } else {
+            //     println!("fuck 000000000000000000000000");
+            // }
+
+            // debug!("branch name {:?}", head_ref.name());
+            // // there are 2 cases for local branch: remote and pushRemote
+            // let remote = repo.find_remote(head_ref.name().unwrap());
+            // if let Ok(r) = remote {
+            //     debug!("remote {:?}", r.name());
+            // } else {
+            //     debug!("fuck!");
+            // }
+            // let buf = repo.branch_remote_name(head_ref.name().unwrap());
+            // if let Ok(b) = buf {
+            //     debug!("remote ????????? {:?}", b.as_str());
+            // } else {
+            //     debug!("fuck1");
+            // }
+            // let remotes = repo.remotes().unwrap();
+            // for r in remotes.iter() {
+            //     debug!("---------> {:?}", r);
+            // }
+            // // i have 1 remote - origin
+            // // i have a record in config: pushRemote: origin
+            // // no remote in config. how do i now branch is sync with remote???
+            // let bname = head_ref.name().unwrap();
+
+            // let upstream_remote = repo.branch_upstream_remote(&bname).expect("no upstream remote"); // config value 'branch.render_status.remote'
+            // let upstream_name = repo.branch_upstream_name(&bname).expect("no upsteam name"); //"config value 'branch.render_status.remote'
+            // debug!(
+            //     "upstream name and remote {:?} {:?}",
+            //     upstream_name.as_str().unwrap(),
+            //     upstream_remote.as_str().unwrap()
+            // );
+            // let ob = head_ref
+            //     .peel(ObjectType::Commit)
+            //     .expect("can't get commit from ref!");
+            // let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+            // sender
+            //     .send(crate::Event::Head(Head::new(commit, head_ref)))
+            //     .expect("Could not send through channel");
         }
     });
 

@@ -52,6 +52,7 @@ pub enum Event {
     Unstaged(Diff),
     Staged(Diff),
     Head(Head),
+    Upstream(Head),
     Expand(i32, i32),
     Cursor(i32, i32),
     // does not used for now
@@ -135,6 +136,10 @@ fn build_ui(app: &adw::Application) {
             Event::Head(h) => {
                 info!("main. head {:?}", &h);
                 status.update_head(h, &txt);
+            }
+            Event::Upstream(h) => {
+                info!("main. upstream {:?}", &h);
+                status.update_upstream(h, &txt);
             }
             Event::Staged(d) => {
                 info!("main. staged {:p}", &d);
