@@ -1,13 +1,17 @@
 use crate::common_tests::*;
 use crate::{
-    commit_staged, get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Head, Hunk,
-    Line, View,
+    commit_staged, get_current_repo_status,
+    stage_via_apply, ApplyFilter, Diff, File, Head,
+    Hunk, Line, View,
 };
 use backtrace::Backtrace;
 use git2::DiffLineType;
 use glib::Sender;
 use gtk::prelude::*;
-use gtk::{gdk, gio, glib, pango, TextBuffer, TextIter, TextTag, TextView};
+use gtk::{
+    gdk, gio, glib, pango, TextBuffer, TextIter,
+    TextTag, TextView,
+};
 use log::{debug, error, info, log_enabled, trace};
 use pango::Style;
 use std::cell::RefCell;
@@ -90,7 +94,8 @@ fn handle_line_offset(
         if eol_offset > prev_line_offset {
             // have place to go (backward to same offset)
             iter.set_line_offset(0);
-            let mut cnt = latest_char_offset.borrow_mut();
+            let mut cnt =
+                latest_char_offset.borrow_mut();
             if *cnt > prev_line_offset {
                 // but if it was narrowed before.
                 // go to previously stored offset
@@ -105,7 +110,9 @@ fn handle_line_offset(
                 }
             } else {
                 // just go to the same offset
-                iter.forward_chars(prev_line_offset);
+                iter.forward_chars(
+                    prev_line_offset,
+                );
                 // let mut cnt = latest_char_offset.borrow_mut();
                 if prev_line_offset > *cnt {
                     *cnt = prev_line_offset;
@@ -113,20 +120,24 @@ fn handle_line_offset(
             }
         } else {
             // save last known line offset
-            let mut cnt = latest_char_offset.borrow_mut();
+            let mut cnt =
+                latest_char_offset.borrow_mut();
             if prev_line_offset > *cnt {
                 *cnt = prev_line_offset;
             }
         }
     } else {
-        let mut cnt = latest_char_offset.borrow_mut();
+        let mut cnt =
+            latest_char_offset.borrow_mut();
         if prev_line_offset > *cnt {
             *cnt = prev_line_offset;
         }
     }
 }
 
-pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
+pub fn text_view_factory(
+    sndr: Sender<crate::Event>,
+) -> TextView {
     let txt = TextView::builder().build();
     let buffer = txt.buffer();
 
@@ -145,7 +156,8 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
     buffer.tag_table().add(&Tag::Removed.create());
     buffer.tag_table().add(&Tag::Italic.create());
 
-    let event_controller = gtk::EventControllerKey::new();
+    let event_controller =
+        gtk::EventControllerKey::new();
     event_controller.connect_key_pressed({
         let buffer = buffer.clone();
         let sndr = sndr.clone();
@@ -173,6 +185,12 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                     // txt.activate_action("win.commit", None)
                     //     .expect("action does not exists");
                 }
+                gdk::Key::p => {
+                    sndr.send(crate::Event::PushRequest)
+                        .expect("Could not send through channel");
+                    // txt.activate_action("win.commit", None)
+                    //     .expect("action does not exists");
+                }
                 gdk::Key::d => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     println!(
@@ -190,7 +208,8 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
     });
     txt.add_controller(event_controller);
 
-    let gesture_controller = gtk::GestureClick::new();
+    let gesture_controller =
+        gtk::GestureClick::new();
     gesture_controller.connect_released({
         let sndr = sndr.clone();
         let txt = txt.clone();
@@ -303,11 +322,21 @@ impl View {
     }
 
     fn is_rendered_in(&self, line_no: i32) -> bool {
-        self.rendered && self.line_no == line_no && !self.dirty && !self.squashed
+        self.rendered
+            && self.line_no == line_no
+            && !self.dirty
+            && !self.squashed
     }
 
-    fn replace_dirty_content(&mut self, buffer: &TextBuffer, iter: &mut TextIter, content: &str) {
-        let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
+    fn replace_dirty_content(
+        &mut self,
+        buffer: &TextBuffer,
+        iter: &mut TextIter,
+        content: &str,
+    ) {
+        let mut eol_iter = buffer
+            .iter_at_line(iter.line())
+            .unwrap();
         eol_iter.forward_to_line_end();
         buffer.remove_all_tags(iter, &mut eol_iter);
         self.tags = Vec::new();
@@ -319,10 +348,17 @@ impl View {
         }
     }
 
-    fn build_up(&self, content: &String, prev_line_len: Option<i32>) -> String {
+    fn build_up(
+        &self,
+        content: &String,
+        prev_line_len: Option<i32>,
+    ) -> String {
         if content.len() == 0 {
             if let Some(len) = prev_line_len {
-                return format!("{}", " ".repeat(len as usize));
+                return format!(
+                    "{}",
+                    " ".repeat(len as usize)
+                );
             } else {
                 return String::from("");
             }
@@ -380,7 +416,7 @@ impl View {
                 if !content.is_empty() {
                     let empty_spaces = self.build_up(&content, prev_line_len);
                     line_len = Some(empty_spaces.len() as i32);
-                    self.replace_dirty_content(buffer, iter, &empty_spaces);                    
+                    self.replace_dirty_content(buffer, iter, &empty_spaces);
                     self.apply_tags(buffer, &content_tags);
                 } else {
                     self.apply_tags(buffer, &content_tags);
@@ -426,9 +462,16 @@ impl View {
         (self, line_len)
     }
 
-    fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
+    fn force_forward(
+        &self,
+        buffer: &TextBuffer,
+        iter: &mut TextIter,
+    ) {
         let current_line = iter.line();
-        trace!("force forward at line {:?}", current_line);
+        trace!(
+            "force forward at line {:?}",
+            current_line
+        );
         let moved = iter.forward_lines(1);
         if !moved {
             // happens sometimes when buffer is over
@@ -444,49 +487,92 @@ impl View {
         assert!(current_line + 1 == iter.line());
     }
 
-    fn start_end_iters(&self, buffer: &TextBuffer) -> (TextIter, TextIter) {
-        let mut start_iter = buffer.iter_at_line(self.line_no).unwrap();
+    fn start_end_iters(
+        &self,
+        buffer: &TextBuffer,
+    ) -> (TextIter, TextIter) {
+        let mut start_iter = buffer
+            .iter_at_line(self.line_no)
+            .unwrap();
         start_iter.set_line_offset(0);
-        let mut end_iter = buffer.iter_at_line(self.line_no).unwrap();
+        let mut end_iter = buffer
+            .iter_at_line(self.line_no)
+            .unwrap();
         end_iter.forward_to_line_end();
         (start_iter, end_iter)
     }
 
-    fn remove_tag(&mut self, buffer: &TextBuffer, tag: &str) {
-        let index = self.tags.iter().position(|t| t == tag);
+    fn remove_tag(
+        &mut self,
+        buffer: &TextBuffer,
+        tag: &str,
+    ) {
+        let index =
+            self.tags.iter().position(|t| t == tag);
         if let Some(ind) = index {
-            let (start_iter, end_iter) = self.start_end_iters(buffer);
-            buffer.remove_tag_by_name(tag, &start_iter, &end_iter);
+            let (start_iter, end_iter) =
+                self.start_end_iters(buffer);
+            buffer.remove_tag_by_name(
+                tag,
+                &start_iter,
+                &end_iter,
+            );
             self.tags.remove(ind);
         }
     }
 
-    fn add_tag(&mut self, buffer: &TextBuffer, tag: &str) {
-        let index = self.tags.iter().position(|t| t == tag);
+    fn add_tag(
+        &mut self,
+        buffer: &TextBuffer,
+        tag: &str,
+    ) {
+        let index =
+            self.tags.iter().position(|t| t == tag);
         if let Some(_) = index {
         } else {
-            let (start_iter, end_iter) = self.start_end_iters(buffer);
-            buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
+            let (start_iter, end_iter) =
+                self.start_end_iters(buffer);
+            buffer.apply_tag_by_name(
+                tag,
+                &start_iter,
+                &end_iter,
+            );
             self.tags.push(String::from(tag));
         }
     }
 
-    fn apply_tags(&mut self, buffer: &TextBuffer, content_tags: &Vec<Tag>) {
+    fn apply_tags(
+        &mut self,
+        buffer: &TextBuffer,
+        content_tags: &Vec<Tag>,
+    ) {
         if self.current {
             self.add_tag(buffer, CURSOR_HIGHLIGHT);
         } else {
-            self.remove_tag(buffer, CURSOR_HIGHLIGHT);
+            self.remove_tag(
+                buffer,
+                CURSOR_HIGHLIGHT,
+            );
             if self.active {
-                self.add_tag(buffer, REGION_HIGHLIGHT);
+                self.add_tag(
+                    buffer,
+                    REGION_HIGHLIGHT,
+                );
             } else {
-                self.remove_tag(buffer, REGION_HIGHLIGHT);
+                self.remove_tag(
+                    buffer,
+                    REGION_HIGHLIGHT,
+                );
             }
         }
         for t in content_tags {
             self.add_tag(buffer, t.name());
         }
     }
-    fn get_state_for(&self, line_no: i32) -> ViewState {
+    fn get_state_for(
+        &self,
+        line_no: i32,
+    ) -> ViewState {
         if self.is_rendered_in(line_no) {
             return ViewState::RenderedInPlace;
         }
@@ -530,7 +616,9 @@ pub trait ViewContainer {
 
     fn child_count(&self) -> usize;
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer>;
+    fn get_children(
+        &mut self,
+    ) -> Vec<&mut dyn ViewContainer>;
 
     fn get_view(&mut self) -> &mut View;
 
@@ -538,7 +626,12 @@ pub trait ViewContainer {
 
     // TODO - return bool and stop iteration when false
     // visitor takes child as first arg and parent as second arg
-    fn walk_down(&mut self, visitor: &mut dyn FnMut(&mut dyn ViewContainer)) {
+    fn walk_down(
+        &mut self,
+        visitor: &mut dyn FnMut(
+            &mut dyn ViewContainer,
+        ),
+    ) {
         for child in self.get_children() {
             visitor(child);
             child.walk_down(visitor);
@@ -560,11 +653,17 @@ pub trait ViewContainer {
         let content = self.get_content();
         let tags = self.tags();
         let (mut view, mut line_len) =
-            self.get_view()
-                .render(buffer, iter, content, tags, prev_line_len);
+            self.get_view().render(
+                buffer,
+                iter,
+                content,
+                tags,
+                prev_line_len,
+            );
         if view.expanded || view.child_dirty {
             for child in self.get_children() {
-                line_len = child.render(buffer, iter, line_len);
+                line_len = child
+                    .render(buffer, iter, line_len);
             }
         }
         self.get_view().child_dirty = false;
@@ -572,7 +671,11 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
+    fn cursor(
+        &mut self,
+        line_no: i32,
+        parent_active: bool,
+    ) -> bool {
         let mut result = false;
         let view = self.get_view();
 
@@ -581,20 +684,26 @@ pub trait ViewContainer {
 
         let view_expanded = view.expanded;
         let current = view.is_rendered_in(line_no);
-        let active_by_parent = self.is_active_by_parent(parent_active);
+        let active_by_parent =
+            self.is_active_by_parent(parent_active);
         let mut active_by_child = false;
 
         if view_expanded {
             for child in self.get_children() {
-                active_by_child = child.get_view().is_rendered_in(line_no);
+                active_by_child = child
+                    .get_view()
+                    .is_rendered_in(line_no);
                 if active_by_child {
                     break;
                 }
             }
         }
-        active_by_child = self.is_active_by_child(active_by_child);
+        active_by_child = self
+            .is_active_by_child(active_by_child);
 
-        let self_active = active_by_parent || current || active_by_child;
+        let self_active = active_by_parent
+            || current
+            || active_by_child;
 
         let view = self.get_view();
         view.active = self_active;
@@ -602,25 +711,38 @@ pub trait ViewContainer {
 
         if view.rendered {
             // repaint if highlight is changed
-            view.dirty = view.active != active_before || view.current != current_before;
+            view.dirty = view.active
+                != active_before
+                || view.current != current_before;
             result = view.dirty;
         }
         for child in self.get_children() {
-            result = child.cursor(line_no, self_active) || result;
+            result = child
+                .cursor(line_no, self_active)
+                || result;
         }
         result
     }
 
-    fn is_active_by_child(&self, _child_active: bool) -> bool {
+    fn is_active_by_child(
+        &self,
+        _child_active: bool,
+    ) -> bool {
         false
     }
 
-    fn is_active_by_parent(&self, _parent_active: bool) -> bool {
+    fn is_active_by_parent(
+        &self,
+        _parent_active: bool,
+    ) -> bool {
         false
     }
 
     // ViewContainer
-    fn expand(&mut self, line_no: i32) -> Option<i32> {
+    fn expand(
+        &mut self,
+        line_no: i32,
+    ) -> Option<i32> {
         let mut found_line: Option<i32> = None;
         if self.get_view().is_rendered_in(line_no) {
             let view = self.get_view();
@@ -650,7 +772,8 @@ pub trait ViewContainer {
             }
             if found_line.is_some() {
                 if self.is_expandable_by_child() {
-                    let my_line = self.get_view().line_no;
+                    let my_line =
+                        self.get_view().line_no;
                     return self.expand(my_line);
                 }
             }
@@ -671,11 +794,13 @@ pub trait ViewContainer {
         let line_no = view.line_no;
         view.squashed = true;
         view.child_dirty = true;
-        self.walk_down(&mut |vc: &mut dyn ViewContainer| {
-            let view = vc.get_view();
-            view.squashed = true;
-            view.child_dirty = true;
-        });
+        self.walk_down(
+            &mut |vc: &mut dyn ViewContainer| {
+                let view = vc.get_view();
+                view.squashed = true;
+                view.child_dirty = true;
+            },
+        );
         let buffer = txt.buffer();
         let mut iter = buffer
             .iter_at_line(line_no)
@@ -705,7 +830,9 @@ impl ViewContainer for Diff {
         self
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(
+        &mut self,
+    ) -> Vec<&mut dyn ViewContainer> {
         self.files
             .iter_mut()
             .map(|vh| vh as &mut dyn ViewContainer)
@@ -713,10 +840,16 @@ impl ViewContainer for Diff {
     }
 
     // diff
-    fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
+    fn cursor(
+        &mut self,
+        line_no: i32,
+        parent_active: bool,
+    ) -> bool {
         let mut result = false;
         for file in &mut self.files {
-            result = file.cursor(line_no, parent_active) || result;
+            result = file
+                .cursor(line_no, parent_active)
+                || result;
         }
         result
     }
@@ -731,12 +864,16 @@ impl ViewContainer for Diff {
         self.view.line_no = iter.line();
         let mut prev_line_len: Option<i32> = None;
         for file in &mut self.files {
-            prev_line_len = file.render(buffer, iter, None);
+            prev_line_len =
+                file.render(buffer, iter, None);
         }
         prev_line_len
     }
     // Diff
-    fn expand(&mut self, line_no: i32) -> Option<i32> {
+    fn expand(
+        &mut self,
+        line_no: i32,
+    ) -> Option<i32> {
         todo!("no one calls expand on diff");
         None
     }
@@ -763,7 +900,9 @@ impl ViewContainer for File {
         self.title()
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(
+        &mut self,
+    ) -> Vec<&mut dyn ViewContainer> {
         self.hunks
             .iter_mut()
             .map(|vh| vh as &mut dyn ViewContainer)
@@ -792,33 +931,44 @@ impl ViewContainer for Hunk {
     }
 
     fn get_view(&mut self) -> &mut View {
-        if self.view.line_no == 0 && !self.view.expanded {
+        if self.view.line_no == 0
+            && !self.view.expanded
+        {
             // hunks are expanded by default
             self.view.expanded = true
         }
         &mut self.view
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(
+        &mut self,
+    ) -> Vec<&mut dyn ViewContainer> {
         self.lines
             .iter_mut()
             .filter(|l| {
                 !matches!(
                     l.origin,
-                    DiffLineType::FileHeader | DiffLineType::HunkHeader
+                    DiffLineType::FileHeader
+                        | DiffLineType::HunkHeader
                 )
             })
             .map(|vh| vh as &mut dyn ViewContainer)
             .collect()
     }
 
-    fn is_active_by_parent(&self, active: bool) -> bool {
+    fn is_active_by_parent(
+        &self,
+        active: bool,
+    ) -> bool {
         // if file is active (cursor on it)
         // whole hunk is active
         active
     }
 
-    fn is_active_by_child(&self, active: bool) -> bool {
+    fn is_active_by_child(
+        &self,
+        active: bool,
+    ) -> bool {
         // if line is active (cursor on it)
         // whole hunk is active
         active
@@ -851,12 +1001,17 @@ impl ViewContainer for Line {
         self.content.to_string()
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(
+        &mut self,
+    ) -> Vec<&mut dyn ViewContainer> {
         Vec::new()
     }
 
     // line
-    fn expand(&mut self, line_no: i32) -> Option<i32> {
+    fn expand(
+        &mut self,
+        line_no: i32,
+    ) -> Option<i32> {
         // here we want to expand hunk
         if self.get_view().line_no == line_no {
             return Some(line_no);
@@ -864,15 +1019,22 @@ impl ViewContainer for Line {
         None
     }
 
-    fn is_active_by_parent(&self, active: bool) -> bool {
+    fn is_active_by_parent(
+        &self,
+        active: bool,
+    ) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
         active
     }
     fn tags(&self) -> Vec<Tag> {
         match self.origin {
-            DiffLineType::Addition => vec![Tag::Added],
-            DiffLineType::Deletion => vec![Tag::Removed],
+            DiffLineType::Addition => {
+                vec![Tag::Added]
+            }
+            DiffLineType::Deletion => {
+                vec![Tag::Removed]
+            }
             _ => Vec::new(),
         }
     }
@@ -892,7 +1054,9 @@ impl ViewContainer for Label {
         &mut self.view
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(
+        &mut self,
+    ) -> Vec<&mut dyn ViewContainer> {
         Vec::new()
     }
 
@@ -915,15 +1079,22 @@ impl ViewContainer for Head {
         &mut self.view
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(
+        &mut self,
+    ) -> Vec<&mut dyn ViewContainer> {
         Vec::new()
     }
 
     fn get_content(&self) -> String {
         format!(
             "{}<span color=\"#4a708b\">{}</span> {}",
-            if !self.remote {"Head:     "} else {"Upstream: "},
-            &self.branch, self.commit
+            if !self.remote {
+                "Head:     "
+            } else {
+                "Upstream: "
+            },
+            &self.branch,
+            self.commit
         )
     }
 }
@@ -968,10 +1139,15 @@ impl Status {
         }
     }
 
-    pub fn get_status(&self, sender: Sender<crate::Event>) {
+    pub fn get_status(
+        &self,
+        sender: Sender<crate::Event>,
+    ) {
         gio::spawn_blocking({
             move || {
-                get_current_repo_status(None, sender);
+                get_current_repo_status(
+                    None, sender,
+                );
             }
         });
     }
@@ -991,79 +1167,142 @@ impl Status {
             // is it ok? git will return new files
             // (there will be no files, actually)
             diff.files = Vec::new();
+            let h = self.head.clone();
+            let u = self.upstream.clone();
             gio::spawn_blocking({
                 let path = path.clone();
                 move || {
-                    commit_staged(path, message, sender);
+                    commit_staged(
+                        h, // used to enrich views
+                        u, // used to enrich views
+                        path, message, sender,
+                    );
                 }
             });
         }
     }
 
-    pub fn update_head(&mut self, head: Head, txt: &TextView) {
+    pub fn update_head(
+        &mut self,
+        head: Head,
+        txt: &TextView,
+    ) {
         self.head.replace(head);
         self.render(&txt, RenderSource::Git);
     }
 
-    pub fn update_upstream(&mut self, upstream: Head, txt: &TextView) {
+    pub fn update_upstream(
+        &mut self,
+        upstream: Head,
+        txt: &TextView,
+    ) {
         self.upstream.replace(upstream);
         self.render(&txt, RenderSource::Git);
     }
 
-    pub fn update_staged(&mut self, diff: Diff, txt: &TextView) {
+    pub fn update_staged(
+        &mut self,
+        diff: Diff,
+        txt: &TextView,
+    ) {
         self.staged.replace(diff);
-        if self.staged.is_some() && self.unstaged.is_some() {
+        if self.staged.is_some()
+            && self.unstaged.is_some()
+        {
             self.render(&txt, RenderSource::Git);
         }
     }
 
-    pub fn update_unstaged(&mut self, diff: Diff, txt: &TextView) {
+    pub fn update_unstaged(
+        &mut self,
+        diff: Diff,
+        txt: &TextView,
+    ) {
         self.unstaged.replace(diff);
-        if self.staged.is_some() && self.unstaged.is_some() {
+        if self.staged.is_some()
+            && self.unstaged.is_some()
+        {
             self.render(&txt, RenderSource::Git);
         }
     }
     // status
-    pub fn cursor(&mut self, txt: &TextView, line_no: i32, offset: i32) {
+    pub fn cursor(
+        &mut self,
+        txt: &TextView,
+        line_no: i32,
+        offset: i32,
+    ) {
         let mut changed = false;
         if let Some(unstaged) = &mut self.unstaged {
-            changed = changed || unstaged.cursor(line_no, false);
+            changed = changed
+                || unstaged.cursor(line_no, false);
         }
         if let Some(staged) = &mut self.staged {
-            changed = changed || staged.cursor(line_no, false);
+            changed = changed
+                || staged.cursor(line_no, false);
         }
         if changed {
-            self.render(txt, RenderSource::Cursor(line_no));
+            self.render(
+                txt,
+                RenderSource::Cursor(line_no),
+            );
             let buffer = txt.buffer();
-            trace!("put cursor on line {:?} in CURSOR", line_no);
-            buffer.place_cursor(&buffer.iter_at_offset(offset));
+            trace!(
+                "put cursor on line {:?} in CURSOR",
+                line_no
+            );
+            buffer.place_cursor(
+                &buffer.iter_at_offset(offset),
+            );
         }
     }
 
     // Status
-    pub fn expand(&mut self, txt: &TextView, line_no: i32, offset: i32) {
+    pub fn expand(
+        &mut self,
+        txt: &TextView,
+        line_no: i32,
+        offset: i32,
+    ) {
         // let mut changed = false;
         if let Some(unstaged) = &mut self.unstaged {
             for file in &mut unstaged.files {
-                if let Some(expanded_line) = file.expand(line_no) {
-                    self.render(txt, RenderSource::Expand(expanded_line));
+                if let Some(expanded_line) =
+                    file.expand(line_no)
+                {
+                    self.render(
+                        txt,
+                        RenderSource::Expand(
+                            expanded_line,
+                        ),
+                    );
                     return;
                 }
             }
         }
         if let Some(staged) = &mut self.staged {
             for file in &mut staged.files {
-                if let Some(expanded_line) = file.expand(line_no) {
-                    self.render(txt, RenderSource::Expand(expanded_line));
+                if let Some(expanded_line) =
+                    file.expand(line_no)
+                {
+                    self.render(
+                        txt,
+                        RenderSource::Expand(
+                            expanded_line,
+                        ),
+                    );
                     return;
                 }
             }
         }
     }
 
-
     // Status
-    pub fn render(&mut self, txt: &TextView, source: RenderSource) {
+    pub fn render(
+        &mut self,
+        txt: &TextView,
+        source: RenderSource,
+    ) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
 
@@ -1072,28 +1311,37 @@ impl Status {
         }
 
         if let Some(upstream) = &mut self.upstream {
-            upstream.render(&buffer, &mut iter, None);
+            upstream
+                .render(&buffer, &mut iter, None);
         }
-
 
         if let Some(unstaged) = &mut self.unstaged {
             if unstaged.files.is_empty() {
-                self.unstaged_spacer.view.squashed = true;
-                self.unstaged_label.view.squashed = true;                
+                self.unstaged_spacer
+                    .view
+                    .squashed = true;
+                self.unstaged_label.view.squashed =
+                    true;
             }
-            self.unstaged_spacer.render(&buffer, &mut iter, None);
-            self.unstaged_label.render(&buffer, &mut iter, None);
-            unstaged.render(&buffer, &mut iter, None);
+            self.unstaged_spacer
+                .render(&buffer, &mut iter, None);
+            self.unstaged_label
+                .render(&buffer, &mut iter, None);
+            unstaged
+                .render(&buffer, &mut iter, None);
         }
 
         if let Some(staged) = &mut self.staged {
             if staged.files.is_empty() {
-                self.staged_spacer.view.squashed = true;
-                self.staged_label.view.squashed = true;
-
+                self.staged_spacer.view.squashed =
+                    true;
+                self.staged_label.view.squashed =
+                    true;
             }
-            self.staged_spacer.render(&buffer, &mut iter, None);
-            self.staged_label.render(&buffer, &mut iter, None);
+            self.staged_spacer
+                .render(&buffer, &mut iter, None);
+            self.staged_label
+                .render(&buffer, &mut iter, None);
             staged.render(&buffer, &mut iter, None);
         }
         trace!("render source {:?}", source);
@@ -1104,17 +1352,19 @@ impl Status {
             }
             RenderSource::Expand(line_no) => {
                 // avoid loops on cursor renders
-                trace!("render source expand");
-                self.choose_cursor_position(txt, &buffer, Some(line_no));                
+                self.choose_cursor_position(
+                    txt,
+                    &buffer,
+                    Some(line_no),
+                );
             }
             RenderSource::Git => {
                 // avoid loops on cursor renders
-                trace!("render source git");
-                self.choose_cursor_position(txt, &buffer, None);
+                self.choose_cursor_position(
+                    txt, &buffer, None,
+                );
             }
-           src => {
-                trace!("other render source {:?}", src);
-            }
+            src => {}
         };
     }
 
@@ -1141,31 +1391,37 @@ impl Status {
             }
         };
         let mut file_path_so_stage = String::new();
-        diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
-            let content = vc.get_content();
-            let kind = vc.get_kind();
-            let view = vc.get_view();
-            match kind {
-                ViewKind::File => {
-                    file_path_so_stage = content;
-                }
-                ViewKind::Hunk => {
-                    if !view.active {
-                        return;
+        diff.walk_down(
+            &mut |vc: &mut dyn ViewContainer| {
+                let content = vc.get_content();
+                let kind = vc.get_kind();
+                let view = vc.get_view();
+                match kind {
+                    ViewKind::File => {
+                        file_path_so_stage =
+                            content;
                     }
-                    filter.file_path = file_path_so_stage.clone();
-                    filter.hunk_header = content;
-                    view.squashed = true;
-                }
-                ViewKind::Line => {
-                    if !view.active {
-                        return;
+                    ViewKind::Hunk => {
+                        if !view.active {
+                            return;
+                        }
+                        filter.file_path =
+                            file_path_so_stage
+                                .clone();
+                        filter.hunk_header =
+                            content;
+                        view.squashed = true;
                     }
-                    view.squashed = true;
+                    ViewKind::Line => {
+                        if !view.active {
+                            return;
+                        }
+                        view.squashed = true;
+                    }
+                    _ => (),
                 }
-                _ => (),
-            }
-        });
+            },
+        );
 
         if !filter.file_path.is_empty() {
             let buffer = txt.buffer();
@@ -1177,34 +1433,54 @@ impl Status {
                 // or just 1 hunk inside file
                 let mut remove_file = false;
                 if f.title() == filter.file_path {
-                    let hunk_index = f.hunks.iter().position(|h| h.view.squashed).unwrap();
-                    if f.hunks.len() == 1 || f.view.current {
+                    let hunk_index = f
+                        .hunks
+                        .iter()
+                        .position(|h| {
+                            h.view.squashed
+                        })
+                        .unwrap();
+                    if f.hunks.len() == 1
+                        || f.view.current
+                    {
                         remove_file = true;
                         f.view.squashed = true;
                     }
-                    let mut iter = buffer.iter_at_line(f.view.line_no).unwrap();
+                    let mut iter = buffer
+                        .iter_at_line(
+                            f.view.line_no,
+                        )
+                        .unwrap();
                     // CAUTION. ATTENTION. IMPORTANT
                     // rendering just 1 file
                     // but those are used by cursor and expand!
-                    f.render(&buffer, &mut iter, None);
+                    f.render(
+                        &buffer, &mut iter, None,
+                    );
 
                     f.hunks.remove(hunk_index);
                 }
                 if remove_file {
                     // kill hunk in filter to stage all hunks
-                    filter.hunk_header = String::new();
+                    filter.hunk_header =
+                        String::new();
                     false
                 } else {
                     true
                 }
             });
 
-            let mut u = self.unstaged.clone();
-            let mut s = self.staged.clone();
+            let u = self.unstaged.clone();
+            let s = self.staged.clone();
             gio::spawn_blocking({
                 let path = path.clone();
                 move || {
-                    stage_via_apply(u, s, is_staging, path, filter, sender);
+                    stage_via_apply(
+                        u, // used to enrich views
+                        s, // used to enrich views
+                        is_staging, path, filter,
+                        sender,
+                    );
                 }
             });
         }
@@ -1221,10 +1497,18 @@ impl Status {
             // first render. buffer at eof
             if let Some(unstaged) = &self.unstaged {
                 if !unstaged.files.is_empty() {
-                    let line_no = unstaged.files[0].view.line_no;
-                    let iter = buffer.iter_at_line(line_no).unwrap();
+                    let line_no = unstaged.files[0]
+                        .view
+                        .line_no;
+                    let iter = buffer
+                        .iter_at_line(line_no)
+                        .unwrap();
                     trace!("choose cursor at first unstaged file {:?}", line_no);
-                    self.cursor(txt, line_no, iter.offset());
+                    self.cursor(
+                        txt,
+                        line_no,
+                        iter.offset(),
+                    );
                     return;
                 }
             }
@@ -1233,7 +1517,10 @@ impl Status {
         // after git op view could be shifted.
         // cursor is on place and it is visually current,
         // but view under it is not current, cause line_no differs
-        trace!("choose cursor when NOT on eof {:?}", iter.line());
+        trace!(
+            "choose cursor when NOT on eof {:?}",
+            iter.line()
+        );
         self.cursor(txt, iter.line(), offset);
     }
 
@@ -1245,9 +1532,14 @@ impl Status {
     }
     pub fn debug(&mut self, txt: &TextView) {
         let buffer = txt.buffer();
-        let iter = buffer.iter_at_offset(buffer.cursor_position());
+        let iter = buffer.iter_at_offset(
+            buffer.cursor_position(),
+        );
         let current_line = iter.line();
-        println!("debug at line {:?}", current_line);
+        println!(
+            "debug at line {:?}",
+            current_line
+        );
         if let Some(diff) = &mut self.staged {
             for f in &diff.files {
                 dbg!(&f);
@@ -1281,7 +1573,10 @@ impl Status {
 mod tests {
     use super::*;
 
-    pub fn mock_render_view(vc: &mut dyn ViewContainer, mut line_no: i32) -> i32 {
+    pub fn mock_render_view(
+        vc: &mut dyn ViewContainer,
+        mut line_no: i32,
+    ) -> i32 {
         let view = vc.get_view();
         view.line_no = line_no;
         view.rendered = true;
@@ -1289,7 +1584,8 @@ mod tests {
         line_no += 1;
         if view.expanded || view.child_dirty {
             for child in vc.get_children() {
-                line_no = mock_render_view(child, line_no)
+                line_no =
+                    mock_render_view(child, line_no)
             }
             vc.get_view().child_dirty = false;
         }
@@ -1299,13 +1595,16 @@ mod tests {
     pub fn mock_render(diff: &mut Diff) -> i32 {
         let mut line_no: i32 = 0;
         for file in &mut diff.files {
-            line_no = mock_render_view(file, line_no);
+            line_no =
+                mock_render_view(file, line_no);
         }
         line_no
     }
     // tests
     pub fn cursor(diff: &mut Diff, line_no: i32) {
-        for (_, file) in diff.files.iter_mut().enumerate() {
+        for (_, file) in
+            diff.files.iter_mut().enumerate()
+        {
             file.cursor(line_no, false);
         }
         // some views will be rerenderred cause highlight changes
@@ -1321,7 +1620,9 @@ mod tests {
         for cursor_line in 0..3 {
             cursor(&mut diff, cursor_line);
 
-            for (i, file) in diff.files.iter_mut().enumerate() {
+            for (i, file) in
+                diff.files.iter_mut().enumerate()
+            {
                 let view = file.get_view();
                 if i as i32 == cursor_line {
                     assert!(view.active);
@@ -1337,15 +1638,21 @@ mod tests {
         // the cursor is on it
         let mut cursor_line = 2;
         for file in &mut diff.files {
-            if let Some(expanded_line) = file.expand(cursor_line) {
-                assert!(file.get_view().child_dirty);
+            if let Some(expanded_line) =
+                file.expand(cursor_line)
+            {
+                assert!(
+                    file.get_view().child_dirty
+                );
                 break;
             }
         }
 
         mock_render(&mut diff);
 
-        for (i, file) in diff.files.iter_mut().enumerate() {
+        for (i, file) in
+            diff.files.iter_mut().enumerate()
+        {
             let view = file.get_view();
             if i as i32 == cursor_line {
                 assert!(view.rendered);
@@ -1376,13 +1683,17 @@ mod tests {
         cursor(&mut diff, cursor_line);
 
         for file in &mut diff.files {
-            if let Some(expanded_line) = file.expand(cursor_line) {
+            if let Some(expanded_line) =
+                file.expand(cursor_line)
+            {
                 break;
             }
         }
 
         mock_render(&mut diff);
-        for (i, file) in diff.files.iter_mut().enumerate() {
+        for (i, file) in
+            diff.files.iter_mut().enumerate()
+        {
             let view = file.get_view();
             let j = i as i32;
             if j < cursor_line {
@@ -1425,7 +1736,9 @@ mod tests {
         cursor_line = 2;
         cursor(&mut diff, cursor_line);
         for file in &mut diff.files {
-            if let Some(expanded_line) = file.expand(cursor_line) {
+            if let Some(expanded_line) =
+                file.expand(cursor_line)
+            {
                 for child in file.get_children() {
                     let view = child.get_view();
                     if view.line_no == cursor_line {
@@ -1433,8 +1746,13 @@ mod tests {
                         // now they are collapsed!
                         assert!(!view.expanded);
                         assert!(view.child_dirty);
-                        for line in child.get_children() {
-                            assert!(line.get_view().squashed);
+                        for line in
+                            child.get_children()
+                        {
+                            assert!(
+                                line.get_view()
+                                    .squashed
+                            );
                         }
                     }
                 }
@@ -1449,7 +1767,9 @@ mod tests {
 
     pub fn initialize() {
         INIT.call_once(|| {
-            env_logger::builder().format_timestamp(None).init();
+            env_logger::builder()
+                .format_timestamp(None)
+                .init();
             _ = gtk::init();
         });
     }
@@ -1458,15 +1778,34 @@ mod tests {
     fn test_render_view() {
         initialize();
         let buffer = TextBuffer::new(None);
-        let mut iter = buffer.iter_at_line(0).unwrap();
+        let mut iter =
+            buffer.iter_at_line(0).unwrap();
         buffer.insert(&mut iter, "begin\n");
         // -------------------- test insert
         let mut view1 = View::new();
         let mut view2 = View::new();
         let mut view3 = View::new();
-        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), None);
-        view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), None);
-        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), None);
+        view1.render(
+            &buffer,
+            &mut iter,
+            "test1".to_string(),
+            Vec::new(),
+            None,
+        );
+        view2.render(
+            &buffer,
+            &mut iter,
+            "test2".to_string(),
+            Vec::new(),
+            None,
+        );
+        view3.render(
+            &buffer,
+            &mut iter,
+            "test3".to_string(),
+            Vec::new(),
+            None,
+        );
         assert!(view1.line_no == 1);
         assert!(view2.line_no == 2);
         assert!(view3.line_no == 3);
@@ -1476,9 +1815,27 @@ mod tests {
         assert!(iter.line() == 4);
         // ------------------ test rendered in line
         iter = buffer.iter_at_line(1).unwrap();
-        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), None);
-        view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), None);
-        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), None);
+        view1.render(
+            &buffer,
+            &mut iter,
+            "test1".to_string(),
+            Vec::new(),
+            None,
+        );
+        view2.render(
+            &buffer,
+            &mut iter,
+            "test2".to_string(),
+            Vec::new(),
+            None,
+        );
+        view3.render(
+            &buffer,
+            &mut iter,
+            "test3".to_string(),
+            Vec::new(),
+            None,
+        );
         assert!(iter.line() == 4);
 
         // ------------------ test deleted
@@ -1486,24 +1843,48 @@ mod tests {
         view1.squashed = true;
         view1.rendered = false;
 
-        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), None);
+        view1.render(
+            &buffer,
+            &mut iter,
+            "test1".to_string(),
+            Vec::new(),
+            None,
+        );
         assert!(!view1.rendered);
         // its no longer squashed. is it ok?
         assert!(!view1.squashed);
         // iter was not moved (nothing to delete, view was not rendered)
         assert!(iter.line() == 1);
         // rerender it
-        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), None);
+        view1.render(
+            &buffer,
+            &mut iter,
+            "test1".to_string(),
+            Vec::new(),
+            None,
+        );
         assert!(iter.line() == 2);
 
         // -------------------- test dirty
         view2.dirty = true;
-        view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), None);
+        view2.render(
+            &buffer,
+            &mut iter,
+            "test2".to_string(),
+            Vec::new(),
+            None,
+        );
         assert!(!view2.dirty);
         assert!(iter.line() == 3);
         // -------------------- test squashed
         view3.squashed = true;
-        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), None);
+        view3.render(
+            &buffer,
+            &mut iter,
+            "test3".to_string(),
+            Vec::new(),
+            None,
+        );
         assert!(!view3.squashed);
         // iter remains on same kine, just squashing view in place
         assert!(iter.line() == 3);
@@ -1511,7 +1892,13 @@ mod tests {
         view3.line_no = 0;
         view3.dirty = true;
         view3.transfered = true;
-        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), None);
+        view3.render(
+            &buffer,
+            &mut iter,
+            "test3".to_string(),
+            Vec::new(),
+            None,
+        );
         assert!(view3.line_no == 3);
         assert!(view3.rendered);
         assert!(!view3.dirty);
@@ -1521,7 +1908,13 @@ mod tests {
         // --------------------- test not in place
         iter = buffer.iter_at_line(3).unwrap();
         view3.line_no = 0;
-        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), None);
+        view3.render(
+            &buffer,
+            &mut iter,
+            "test3".to_string(),
+            Vec::new(),
+            None,
+        );
         assert!(view3.line_no == 3);
         assert!(view3.rendered);
         assert!(iter.line() == 4);
@@ -1532,21 +1925,36 @@ mod tests {
 
     fn test_expand_line() {
         let buffer = TextBuffer::new(None);
-        let mut iter = buffer.iter_at_line(0).unwrap();
+        let mut iter =
+            buffer.iter_at_line(0).unwrap();
         buffer.insert(&mut iter, "begin\n");
         let mut diff = create_diff();
 
         diff.render(&buffer, &mut iter, None);
         // if cursor returns true it need to rerender as in Status!
         if diff.cursor(1, false) {
-            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
+            diff.render(
+                &buffer,
+                &mut buffer
+                    .iter_at_line(1)
+                    .unwrap(),
+                None,
+            );
         }
 
         // expand first file
         diff.files[0].expand(1);
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
+        diff.render(
+            &buffer,
+            &mut buffer.iter_at_line(1).unwrap(),
+            None,
+        );
 
-        let content = buffer.slice(&mut buffer.start_iter(), &mut buffer.end_iter(), true);
+        let content = buffer.slice(
+            &mut buffer.start_iter(),
+            &mut buffer.end_iter(),
+            true,
+        );
         let content_lines = content.split("\n");
 
         for (i, cl) in content_lines.enumerate() {
@@ -1561,21 +1969,40 @@ mod tests {
             });
         }
 
-        let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no;
+        let line_of_line = diff.files[0].hunks[0]
+            .lines[1]
+            .view
+            .line_no;
         // put cursor inside first hunk
         if diff.cursor(line_of_line, false) {
             // if comment out next line the line_of_line will be not sqashed
-            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
+            diff.render(
+                &buffer,
+                &mut buffer
+                    .iter_at_line(1)
+                    .unwrap(),
+                None,
+            );
         }
         // expand on line inside first hunk
         diff.files[0].expand(line_of_line);
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
+        diff.render(
+            &buffer,
+            &mut buffer.iter_at_line(1).unwrap(),
+            None,
+        );
 
-        let content = buffer.slice(&mut buffer.start_iter(), &mut buffer.end_iter(), true);
+        let content = buffer.slice(
+            &mut buffer.start_iter(),
+            &mut buffer.end_iter(),
+            true,
+        );
         let content_lines = content.split("\n");
         // ensure that hunk1 is collapsed eg hunk2 follows hunk1 (no lines between)
-        let hunk1_content = diff.files[0].hunks[0].get_content();
-        let hunk2_content = diff.files[0].hunks[1].get_content();
+        let hunk1_content =
+            diff.files[0].hunks[0].get_content();
+        let hunk2_content =
+            diff.files[0].hunks[1].get_content();
         let mut hunk1_passed = false;
         for (i, cl) in content_lines.enumerate() {
             debug!("{} {}", i, cl);
