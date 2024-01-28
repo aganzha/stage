@@ -3,12 +3,13 @@ use crate::glib::Sender;
 use ffi::OsString;
 use git2::{
     ApplyLocation, ApplyOptions, Branch,
-    BranchType, Commit, Diff as GitDiff, DiffFile,
-    DiffFormat, DiffHunk, DiffLine, DiffLineType,
-    DiffOptions, ObjectType, Oid, Reference,
+    BranchType, Commit, Cred, Diff as GitDiff,
+    DiffFile, DiffFormat, DiffHunk, DiffLine,
+    DiffLineType, DiffOptions, ObjectType, Oid,
+    PushOptions, Reference, RemoteCallbacks,
     Repository,
 };
-use log::{debug, error, info, log_enabled, trace};
+use log::{debug, trace};
 use regex::Regex;
 use std::{env, ffi, iter::zip, path, str};
 
@@ -317,12 +318,12 @@ impl File {
         for hunk in self.hunks.iter_mut() {
             trace!("outer cycle");
             // go "insert" (no real insertion is required) every new hunk in old_hunks.
-            // that one, new hunk which will be overlapped + before + after - those will have
-            // new views. overlapping is not possible, really. i think so :)
+            // that new hunk which will be overlapped or before or after old_hunk - those will have
+            // new view. (i believe overlapping is not possible)
             // insertion means - shift all rest old hunks according to lines delta
             // and only hunks which match exactly will be enriched by views of old
             // hunks. line_no actually does not matter - they will be shifted.
-            // but props like rendered, expanded will be copied for smother rendering
+            // but props like rendered, expanded will be copied for smoother rendering
             for other_hunk in other.hunks.iter_mut()
             {
                 trace!(
@@ -494,14 +495,9 @@ pub fn commit_string(c: &Commit) -> String {
     );
 }
 
-pub fn local_branch_name(name: &str) -> String {
-    name.replace("refs/heads/", "")
-}
-
-pub fn get_head_and_upstream(
+pub fn get_head(
     path: OsString,
     old_head: Option<Head>,
-    old_upstream: Option<Head>,
     sender: Sender<crate::Event>,
 ) {
     let repo = Repository::open(path)
@@ -523,6 +519,20 @@ pub fn get_head_and_upstream(
     sender
         .send(crate::Event::Head(new_head))
         .expect("Could not send through channel");
+}
+
+
+pub fn get_upstream(
+    path: OsString,
+    old_upstream: Option<Head>,
+    sender: Sender<crate::Event>,
+) {
+    let repo = Repository::open(path)
+        .expect("can't open repo");
+    let head_ref =
+        repo.head().expect("can't get head");
+    assert!(head_ref.is_branch());
+    let branch = Branch::wrap(head_ref);
     if let Ok(upstream) = branch.upstream() {
         let upstream_ref = upstream.get();
         let ob = upstream_ref
@@ -573,9 +583,8 @@ pub fn get_current_repo_status(
         let sender = sender.clone();
         let path = path.clone();
         move || {
-            get_head_and_upstream(
-                path, None, None, sender,
-            )
+            get_head(path.clone(), None, sender.clone());
+            get_upstream(path, None, sender);
         }
     });
 
