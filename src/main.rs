@@ -167,11 +167,11 @@ fn build_ui(app: &adw::Application) {
                 );
             }
             Event::Head(h) => {
-                info!("main. head {:?}", &h);
+                info!("main. head");
                 status.update_head(h, &txt);
             }
             Event::Upstream(h) => {
-                info!("main. upstream {:?}", &h);
+                info!("main. upstream");
                 status.update_upstream(h, &txt);
             }
             Event::Staged(d) => {
