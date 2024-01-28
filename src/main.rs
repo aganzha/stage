@@ -5,27 +5,39 @@ mod common_tests;
 
 mod git;
 use git::{
-    commit_staged, get_current_repo_status, stage_via_apply, ApplyFilter, Diff, File, Head, Hunk,
-    Line, View,
+    commit_staged, get_current_repo_status,
+    stage_via_apply, ApplyFilter, Diff, File, Head,
+    Hunk, Line, View,
 };
 
 mod widgets;
-use widgets::{display_error, show_commit_message};
+use widgets::{
+    display_error, show_commit_message,
+    show_push_message,
+};
 
 use adw::prelude::*;
-use adw::{Application, ApplicationWindow, HeaderBar, MessageDialog, ResponseAppearance};
+use adw::{
+    Application, ApplicationWindow, HeaderBar,
+    MessageDialog, ResponseAppearance,
+};
 use gdk::Display;
 
 use glib::{clone, MainContext, Priority, Sender};
 use gtk::prelude::*;
-use gtk::{gdk, gio, glib, Box, CssProvider, Entry, Label, Orientation, ScrolledWindow, TextView};
+use gtk::{
+    gdk, gio, glib, Box, CssProvider, Entry, Label,
+    Orientation, ScrolledWindow, TextView,
+};
 
 use log::{debug, error, info, log_enabled, trace};
 
 const APP_ID: &str = "io.github.aganzha.Stage";
 
 fn main() -> glib::ExitCode {
-    let app = Application::builder().application_id(APP_ID).build();
+    let app = Application::builder()
+        .application_id(APP_ID)
+        .build();
 
     app.connect_startup(|_| load_css());
     app.connect_activate(build_ui);
@@ -36,11 +48,14 @@ fn main() -> glib::ExitCode {
 fn load_css() {
     // Load the CSS file and add it to the provider
     let provider = CssProvider::new();
-    provider.load_from_data(include_str!("style.css"));
+    provider
+        .load_from_data(include_str!("style.css"));
 
     // Add the provider to the default screen
     gtk::style_context_add_provider_for_display(
-        &Display::default().expect("Could not connect to a display."),
+        &Display::default().expect(
+            "Could not connect to a display.",
+        ),
         &provider,
         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
@@ -59,6 +74,7 @@ pub enum Event {
     Stage(i32, i32),
     UnStage(i32, i32),
     CommitRequest,
+    PushRequest,
     Commit(String),
 }
 
@@ -68,15 +84,22 @@ fn build_ui(app: &adw::Application) {
     // window.set_default_size(640, 480);
     let scroll = ScrolledWindow::new();
 
-    let action_close = gio::SimpleAction::new("close", None);
-    action_close.connect_activate(clone!(@weak window => move |_, _| {
-        window.close();
-    }));
+    let action_close =
+        gio::SimpleAction::new("close", None);
+    action_close.connect_activate(
+        clone!(@weak window => move |_, _| {
+            window.close();
+        }),
+    );
     window.add_action(&action_close);
-    app.set_accels_for_action("win.close", &["<Ctrl>W"]);
+    app.set_accels_for_action(
+        "win.close",
+        &["<Ctrl>W"],
+    );
 
     let container = Box::builder().build();
-    container.set_orientation(Orientation::Vertical);
+    container
+        .set_orientation(Orientation::Vertical);
     container.add_css_class("stage");
     let hb = HeaderBar::new();
     let lbl = Label::builder()
@@ -87,7 +110,8 @@ fn build_ui(app: &adw::Application) {
     hb.set_title_widget(Some(&lbl));
     container.append(&hb);
 
-    let (sender, receiver) = MainContext::channel(Priority::default());
+    let (sender, receiver) =
+        MainContext::channel(Priority::default());
     let txt = text_view_factory(sender.clone());
 
     scroll.set_min_content_height(960);
@@ -98,9 +122,13 @@ fn build_ui(app: &adw::Application) {
 
     window.set_content(Some(&container));
 
-    env_logger::builder().format_timestamp(None).init();
+    env_logger::builder()
+        .format_timestamp(None)
+        .init();
 
-    let mut current_repo_path: Option<std::ffi::OsString> = None;
+    let mut current_repo_path: Option<
+        std::ffi::OsString,
+    > = None;
     let mut status = Status::new();
     status.get_status(sender.clone());
     window.present();
@@ -123,6 +151,11 @@ fn build_ui(app: &adw::Application) {
                 } else {
                     show_commit_message(&window, sender.clone());
                 }
+            }
+            Event::PushRequest => {
+                info!("push request");
+                // todo - check that there is something to push
+                show_push_message(&window, sender.clone());
             }
             Event::Commit(message) => {
                 info!("do commit! {:?}", message);
