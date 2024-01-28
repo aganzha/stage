@@ -6,7 +6,7 @@ use adw::{
 use glib::Sender;
 use gtk::prelude::*;
 use gtk::{glib, TextView};
-use log::debug;
+use log::{debug, trace};
 
 pub fn display_error(
     w: &ApplicationWindow,
@@ -153,9 +153,7 @@ pub fn show_push_message(
                 println!("return from push dialog");
                 return;
             }
-            debug!(
-                "perform puuuuuuuuuuuuuuuuuuuuuush"
-            );
+            trace!("push window");
             // let buffer = txt.buffer();
             // let start = buffer.iter_at_offset(0);
             // let end = buffer.end_iter();
