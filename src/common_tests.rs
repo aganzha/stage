@@ -15,8 +15,10 @@ pub fn create_hunk(name: String) -> Hunk {
     let mut hunk = Hunk::new();
     hunk.header = name.to_string();
     for i in 0..3 {
-        hunk.lines
-            .push(create_line(format!("{} -> line {}", hunk.header, i)))
+        hunk.lines.push(create_line(format!(
+            "{} -> line {}",
+            hunk.header, i
+        )))
     }
     hunk
 }
@@ -25,8 +27,10 @@ pub fn create_file(name: String) -> File {
     let mut file = File::new();
     file.path = format!("{}", name).into();
     for i in 0..3 {
-        file.hunks
-            .push(create_hunk(format!("{} -> hunk {}", name, i)));
+        file.hunks.push(create_hunk(format!(
+            "{} -> hunk {}",
+            name, i
+        )));
     }
     file
 }
@@ -34,7 +38,10 @@ pub fn create_file(name: String) -> File {
 pub fn create_diff() -> Diff {
     let mut diff = Diff::new();
     for i in 0..3 {
-        diff.files.push(create_file(format!("file{}.rs", i)));
+        diff.files.push(create_file(format!(
+            "file{}.rs",
+            i
+        )));
     }
     diff
 }
