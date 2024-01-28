@@ -957,30 +957,24 @@ pub fn push(
         // "git@github.com:aganzha/stage.git"
         debug!("auth credentials username_from_url {:?}", username_from_url);
         debug!("auth credentials allowed_types url {:?}", allowed_types);
-        match allowed_types {
-            CredentialType::SSH_KEY 
-            | CredentialType::SSH_MEMORY
-            | CredentialType::SSH_CUSTOM => {
-                let id_rsa_path = format!(
-                    "{}/.ssh/id_rsa",
-                    env::var("HOME").unwrap()
-                );
-                debug!("id_rsa_path {:?}", id_rsa_path);
-                let private_key = std::path::Path::new(
-                    &id_rsa_path
-                );
-                let cred = Cred::ssh_key(
-                    username_from_url.unwrap(),
-                    None,// public key
-                    private_key,
-                    None, // passphrase. does not work without pass
-                );
-                cred
-            }
-            _ => {
-                todo!("implement other CredentialType");
-            }
-        }        
+        if allowed_types.contains(CredentialType::SSH_KEY) {
+
+            let id_rsa_path = format!(
+                "{}/.ssh/id_rsa",
+                env::var("HOME").unwrap()
+            );
+            debug!("id_rsa_path {:?}", id_rsa_path);
+            let private_key = std::path::Path::new(
+                &id_rsa_path
+            );
+            return Cred::ssh_key(
+                username_from_url.unwrap(),
+                None,// public key
+                private_key,
+                None, // passphrase. does not work without pass
+            );
+        }
+        todo!("implement other types");
     });
     opts.remote_callbacks(callbacks);
     remote
