@@ -7,7 +7,7 @@ use git2::{
     DiffFile, DiffFormat, DiffHunk, DiffLine,
     DiffLineType, DiffOptions, ObjectType, Oid,
     PushOptions, Reference, RemoteCallbacks,
-    Repository, CredentialType
+    Repository, CredentialType, Error
 };
 use log::{debug, trace};
 use regex::Regex;
@@ -958,21 +958,9 @@ pub fn push(
         debug!("auth credentials username_from_url {:?}", username_from_url);
         debug!("auth credentials allowed_types url {:?}", allowed_types);
         if allowed_types.contains(CredentialType::SSH_KEY) {
-
-            let id_rsa_path = format!(
-                "{}/.ssh/id_rsa",
-                env::var("HOME").unwrap()
-            );
-            debug!("id_rsa_path {:?}", id_rsa_path);
-            let private_key = std::path::Path::new(
-                &id_rsa_path
-            );
-            return Cred::ssh_key(
-                username_from_url.unwrap(),
-                None,// public key
-                private_key,
-                None, // passphrase. does not work without pass
-            );
+            return Cred::ssh_key_from_agent(
+                username_from_url.unwrap()
+            )
         }
         todo!("implement other types");
     });
