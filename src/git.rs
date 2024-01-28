@@ -249,10 +249,10 @@ impl File {
         // this one is simple, cause self.hunks and other.hunks are the same length.
         // just transfer views between them in order.
         // 2. side on which hunks are receiving new hunk (eg staged hunks during staging)
-        // NO! it could be several hunks!!!!!!!!!!!!!!!!!!!!
         // eg stages hunks in file and then stage 2 more hunks to the same file!
-        // this one is hard, cause new hunk (there will be only 1), could break the order
+        // this one is hard, cause new hunks could break the order
         // of existent hunks and their headers will mutate (line numbers will differ)
+        // case 1.
         if self.hunks.len() == other.hunks.len() {
             for pair in zip(&mut self.hunks, &other.hunks) {
                 pair.0.view = pair.1.transfer_view();
@@ -260,13 +260,17 @@ impl File {
             }
             return;
         }
+        //case 2.
         // all hunks are ordered
         for hunk in self.hunks.iter_mut() {
             trace!("outer cycle");
             // go "insert" (no real insertion is required) every new hunk in old_hunks.
-            // that one, that will be overlapped + before + after - those will be
-            // new views.
-            // insertion means - shift all rest old hunks according to delta
+            // that one, new hunk which will be overlapped + before + after - those will have
+            // new views. overlapping is not possible, really. i think so :)
+            // insertion means - shift all rest old hunks according to lines delta
+            // and only hunks which match exactly will be enriched by views of old
+            // hunks. line_no actually does not matter - they will be shifted.
+            // but props like rendered, expanded will be copied for smother rendering
             for other_hunk in other.hunks.iter_mut() {
                 trace!("inner cycle for other_hunk");
                 match hunk.related_to_other(other_hunk) {
@@ -278,7 +282,7 @@ impl File {
                         other_hunk.new_start = (
                             (other_hunk.new_start as i32) + hunk.delta_in_lines()
                         ) as u32;
-                    },
+                    }
                     Related::OverlapBefore => {
                         // insert diff betweeen old and new view
                         todo!("extend hunk by start diff");
@@ -286,20 +290,20 @@ impl File {
                         // other_hunk.new_lines += other_hunk.new_start - hunk.new_start; 
                         // other_hunk.new_start = hunk.new_start;
                         
-                    },
+                    }
                     Related::Matched => {
                         trace!("enrich!");
                         hunk.view = other_hunk.transfer_view();
                         hunk.enrich_views(other_hunk);
                         // no furtger processing
                         break;
-                    },
+                    }
                     Related::OverlapAfter => {
                         todo!("choose old hunk start");
                         // trace!("extend hunk by start diff");
                         // other_hunk.new_lines += hunk.new_start - other_hunk.new_start;
                         // hm. old lines are not present at all?
-                    },
+                    }
                     Related::After => {
                         trace!("nothing todo!");
                         // nothing to do
@@ -648,10 +652,9 @@ pub fn commit_staged(path: OsString, message: String, sender: Sender<crate::Even
         .revparse_single("HEAD^{commit}")
         .expect("fail revparse");
     let parent = repo.find_commit(ob.id()).expect("can't find commit");
-    let result = repo
+    repo
         .commit(Some("HEAD"), &me, &me, &message, &tree, &vec![&parent])
         .expect("can't commit");
-    println!("cooooooooooooooommmit {:?}", result);
 
     // update staged changes
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
