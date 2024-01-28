@@ -299,9 +299,9 @@ impl File {
         // this one is simple, cause self.hunks and other.hunks are the same length.
         // just transfer views between them in order.
         // 2. side on which hunks are receiving new hunk (eg staged hunks during staging)
-        // eg stages hunks in file and then stage 2 more hunks to the same file!
-        // this one is hard, cause new hunks could break the order
-        // of existent hunks and their headers will mutate (line numbers will differ)
+        // Like stage some hunks in file and then stage some more hunks to the same file!
+        // New hunks could break old ones:
+        // lines become changed and headers will be changed also
         // case 1.
         if self.hunks.len() == other.hunks.len() {
             for pair in
@@ -849,8 +849,8 @@ pub fn stage_via_apply(
 }
 
 pub fn commit_staged(
-    mut head: Option<Head>,
-    mut upstream: Option<Head>,
+    head: Option<Head>,
+    upstream: Option<Head>,
     path: OsString,
     message: String,
     sender: Sender<crate::Event>,
@@ -909,7 +909,100 @@ pub fn commit_staged(
             git_diff,
         )))
         .expect("Could not send through channel");
-    get_head_and_upstream(
-        path, head, upstream, sender,
+    get_head(
+        path, head, sender
     )
+}
+
+pub fn push(
+    upstream: Option<Head>,
+    path: OsString,
+    sender: Sender<crate::Event>,
+) {
+    let repo = Repository::open(path.clone())
+        .expect("can't open repo");
+    let head_ref =
+        repo.head().expect("can't get head");
+    debug!("head ref name {:?}", head_ref.name());
+    assert!(head_ref.is_branch());
+    let mut remote = repo
+        .find_remote("origin") // TODO harcode
+        .expect("no remote");
+    let mut opts = PushOptions::new();
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.update_tips({
+        move |some, oid1, oid2| {
+            debug!("update tiiiiiiiiiiiiiiiiiiiiiips {:?} {:?} {:?}", some, oid1, oid2);
+            get_upstream(
+                path.clone(),
+                upstream.clone(),
+                sender.clone(),
+            );
+            // todo what is this?
+            true
+        }
+    });
+    callbacks.push_update_reference({
+        move |ref_name, opt_status| {
+            debug!("pppppppushed {:?}", ref_name);
+            debug!("push status {:?}", opt_status);
+            // TODO - if status is not None
+            // it will need to interact with user
+            assert!(opt_status.is_none());
+            Ok(())
+        }
+    });
+    callbacks.credentials(|url, username_from_url, allowed_types| {
+        debug!("auth credentials url {:?}", url);
+        // "git@github.com:aganzha/stage.git"
+        debug!("auth credentials username_from_url {:?}", username_from_url);
+        debug!("auth credentials allowed_types url {:?}", allowed_types);
+        let id_rsa_path = format!(
+            "{}/.ssh/id_rsa",
+            env::var("HOME").unwrap()
+        );
+        debug!("id_rsa_path {:?}", id_rsa_path);
+        let private_key = std::path::Path::new(
+            &id_rsa_path
+        );
+        let cred = Cred::ssh_key(
+            username_from_url.unwrap(),
+            None,// public key
+            private_key,
+            None, // passphrase. does not work without pass
+        );
+        cred
+    });
+    opts.remote_callbacks(callbacks);
+    remote
+        .push(
+            &[head_ref.name().unwrap()],
+            Some(&mut opts),
+        )
+        .expect("cant push to remote");
+
+    // let branch = Branch::wrap(head_ref);
+    // let branch_name = branch
+    //     .name()
+    //     .expect("no upstream name")
+    //     .expect("no remote name inner");
+    // debug!("branch_name {:?}", branch_name);
+    // if let Ok(upstream) = branch.upstream() {
+    //     let upstream_name = upstream
+    //         .name()
+    //         .expect("no upstream name")
+    //         .expect("no remote name inner");
+    //     debug!("upstream_name {:?}", upstream_name);
+    //     let remote = repo
+    //         .find_remote("origin") // TODO harcode
+    //         .expect("no remote");
+    //     if let Ok(refspec) = remote.fetch_refspecs() {
+    //         debug!("????????????????? {:?}", refspec.len());
+    //         for r in refspec.iter() {
+    //             debug!("remote refspec {:?}", r);
+    //         }
+    //     }
+    // } else {
+    //     todo!("pass upstream as option!");
+    // };
 }
