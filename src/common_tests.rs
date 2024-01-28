@@ -25,7 +25,7 @@ pub fn create_hunk(name: String) -> Hunk {
 
 pub fn create_file(name: String) -> File {
     let mut file = File::new();
-    file.path = format!("{}", name).into();
+    file.path = name.to_string().into();
     for i in 0..3 {
         file.hunks.push(create_hunk(format!(
             "{} -> hunk {}",

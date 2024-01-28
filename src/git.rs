@@ -3,11 +3,11 @@ use crate::glib::Sender;
 use ffi::OsString;
 use git2::{
     ApplyLocation, ApplyOptions, Branch,
-    BranchType, Commit, Cred, Diff as GitDiff,
-    DiffFile, DiffFormat, DiffHunk, DiffLine,
-    DiffLineType, DiffOptions, ObjectType, Oid,
-    PushOptions, Reference, RemoteCallbacks,
-    Repository, CredentialType, Error
+    BranchType, Commit, Cred, CredentialType,
+    Diff as GitDiff, DiffFile, DiffFormat,
+    DiffHunk, DiffLine, DiffLineType, DiffOptions,
+    Error, ObjectType, Oid, PushOptions, Reference,
+    RemoteCallbacks, Repository,
 };
 use log::{debug, trace};
 use regex::Regex;
@@ -468,7 +468,7 @@ impl Head {
             branch: String::from(
                 branch.name().unwrap().unwrap(),
             ),
-            commit: commit_string(&commit),
+            commit: commit_string(commit),
             view: View::new_markup(),
             remote: false,
         }
@@ -485,14 +485,13 @@ impl Head {
 }
 
 pub fn commit_string(c: &Commit) -> String {
-    return format!(
+    format!(
         "{} {}",
         &c.id().to_string()[..7],
         c.message()
-            .or(Some(""))
-            .unwrap()
+            .unwrap_or("")
             .replace("\n", "")
-    );
+    )
 }
 
 pub fn get_head(
@@ -520,7 +519,6 @@ pub fn get_head(
         .send(crate::Event::Head(new_head))
         .expect("Could not send through channel");
 }
-
 
 pub fn get_upstream(
     path: OsString,
@@ -583,7 +581,11 @@ pub fn get_current_repo_status(
         let sender = sender.clone();
         let path = path.clone();
         move || {
-            get_head(path.clone(), None, sender.clone());
+            get_head(
+                path.clone(),
+                None,
+                sender.clone(),
+            );
             get_upstream(path, None, sender);
         }
     });
@@ -886,7 +888,7 @@ pub fn commit_staged(
         &me,
         &message,
         &tree,
-        &vec![&parent],
+        &[&parent],
     )
     .expect("can't commit");
 
@@ -909,9 +911,7 @@ pub fn commit_staged(
             git_diff,
         )))
         .expect("Could not send through channel");
-    get_head(
-        path, head, sender
-    )
+    get_head(path, head, sender)
 }
 
 pub fn push(
@@ -931,8 +931,13 @@ pub fn push(
     let mut opts = PushOptions::new();
     let mut callbacks = RemoteCallbacks::new();
     callbacks.update_tips({
-        move |some, oid1, oid2| {
-            debug!("update tiiiiiiiiiiiiiiiiiiiiiips {:?} {:?} {:?}", some, oid1, oid2);
+        move |updated_ref, oid1, oid2| {
+            trace!(
+                "updated local references {:?} {:?} {:?}",
+                updated_ref,
+                oid1,
+                oid2
+            );
             get_upstream(
                 path.clone(),
                 upstream.clone(),
@@ -944,8 +949,11 @@ pub fn push(
     });
     callbacks.push_update_reference({
         move |ref_name, opt_status| {
-            debug!("pppppppushed {:?}", ref_name);
-            debug!("push status {:?}", opt_status);
+            trace!(
+                "push update red {:?}",
+                ref_name
+            );
+            trace!("push status {:?}", opt_status);
             // TODO - if status is not None
             // it will need to interact with user
             assert!(opt_status.is_none());
@@ -955,8 +963,8 @@ pub fn push(
     callbacks.credentials(|url, username_from_url, allowed_types| {
         debug!("auth credentials url {:?}", url);
         // "git@github.com:aganzha/stage.git"
-        debug!("auth credentials username_from_url {:?}", username_from_url);
-        debug!("auth credentials allowed_types url {:?}", allowed_types);
+        trace!("auth credentials username_from_url {:?}", username_from_url);
+        trace!("auth credentials allowed_types url {:?}", allowed_types);
         if allowed_types.contains(CredentialType::SSH_KEY) {
             return Cred::ssh_key_from_agent(
                 username_from_url.unwrap()
@@ -971,29 +979,4 @@ pub fn push(
             Some(&mut opts),
         )
         .expect("cant push to remote");
-
-    // let branch = Branch::wrap(head_ref);
-    // let branch_name = branch
-    //     .name()
-    //     .expect("no upstream name")
-    //     .expect("no remote name inner");
-    // debug!("branch_name {:?}", branch_name);
-    // if let Ok(upstream) = branch.upstream() {
-    //     let upstream_name = upstream
-    //         .name()
-    //         .expect("no upstream name")
-    //         .expect("no remote name inner");
-    //     debug!("upstream_name {:?}", upstream_name);
-    //     let remote = repo
-    //         .find_remote("origin") // TODO harcode
-    //         .expect("no remote");
-    //     if let Ok(refspec) = remote.fetch_refspecs() {
-    //         debug!("????????????????? {:?}", refspec.len());
-    //         for r in refspec.iter() {
-    //             debug!("remote refspec {:?}", r);
-    //         }
-    //     }
-    // } else {
-    //     todo!("pass upstream as option!");
-    // };
 }
