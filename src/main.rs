@@ -5,7 +5,7 @@ mod common_tests;
 
 mod git;
 use git::{
-    commit_staged, get_current_repo_status,
+    commit_staged, get_current_repo_status, push,
     stage_via_apply, ApplyFilter, Diff, File, Head,
     Hunk, Line, View,
 };
@@ -76,6 +76,7 @@ pub enum Event {
     CommitRequest,
     PushRequest,
     Commit(String),
+    Push,
 }
 
 fn build_ui(app: &adw::Application) {
@@ -153,15 +154,23 @@ fn build_ui(app: &adw::Application) {
                 }
             }
             Event::PushRequest => {
-                info!("push request");
+                info!("main.push request");
                 // todo - check that there is something to push
                 show_push_message(&window, sender.clone());
             }
             Event::Commit(message) => {
-                info!("do commit! {:?}", message);
+                info!("main.commit");
                 status.commit_staged(
                     current_repo_path.as_ref().unwrap(),
                     message,
+                    &txt,
+                    sender.clone(),
+                );
+            }
+            Event::Push => {
+                info!("main.push");
+                status.push(
+                    current_repo_path.as_ref().unwrap(),
                     &txt,
                     sender.clone(),
                 );
