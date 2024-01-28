@@ -1,6 +1,6 @@
 use crate::common_tests::*;
 use crate::{
-    commit_staged, get_current_repo_status,
+    commit_staged, get_current_repo_status, push,
     stage_via_apply, ApplyFilter, Diff, File, Head,
     Hunk, Line, View,
 };
@@ -1147,6 +1147,24 @@ impl Status {
             move || {
                 get_current_repo_status(
                     None, sender,
+                );
+            }
+        });
+    }
+
+    pub fn push(
+        &mut self,
+        path: &OsString,
+        txt: &TextView,
+        sender: Sender<crate::Event>,
+    ) {
+        let u = self.upstream.clone();
+        gio::spawn_blocking({
+            let path = path.clone();
+            move || {
+                push(
+                    u, // used to enrich views
+                    path, sender,
                 );
             }
         });
