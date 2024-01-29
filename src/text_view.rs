@@ -4,7 +4,6 @@ use crate::{
     stage_via_apply, ApplyFilter, Diff, File, Head,
     Hunk, Line, View,
 };
-use backtrace::Backtrace;
 use git2::DiffLineType;
 use glib::Sender;
 use gtk::prelude::*;
@@ -12,7 +11,7 @@ use gtk::{
     gdk, gio, glib, pango, TextBuffer, TextIter,
     TextTag, TextView,
 };
-use log::{debug, error, info, log_enabled, trace};
+use log::{debug, trace};
 use pango::Style;
 use std::cell::RefCell;
 use std::ffi::OsString;
@@ -338,7 +337,7 @@ impl View {
             .iter_at_line(iter.line())
             .unwrap();
         eol_iter.forward_to_line_end();
-        buffer.remove_all_tags(iter, &mut eol_iter);
+        buffer.remove_all_tags(iter, &eol_iter);
         self.tags = Vec::new();
         buffer.delete(iter, &mut eol_iter);
         if self.markup {
@@ -353,18 +352,14 @@ impl View {
         content: &String,
         prev_line_len: Option<i32>,
     ) -> String {
-        if content.len() == 0 {
+        if content.is_empty() {
             if let Some(len) = prev_line_len {
-                return format!(
-                    "{}",
-                    " ".repeat(len as usize)
-                );
+                return " ".repeat(len as usize).to_string();                
             } else {
                 return String::from("");
             }
-        } else {
-            return format!("{}", content);
         }
+        content.to_string()
     }
 
     // View
@@ -528,8 +523,7 @@ impl View {
     ) {
         let index =
             self.tags.iter().position(|t| t == tag);
-        if let Some(_) = index {
-        } else {
+        if index.is_none() {
             let (start_iter, end_iter) =
                 self.start_end_iters(buffer);
             buffer.apply_tag_by_name(
@@ -652,7 +646,7 @@ pub trait ViewContainer {
     ) -> Option<i32> {
         let content = self.get_content();
         let tags = self.tags();
-        let (mut view, mut line_len) =
+        let (view, mut line_len) =
             self.get_view().render(
                 buffer,
                 iter,
@@ -1206,7 +1200,7 @@ impl Status {
         txt: &TextView,
     ) {
         self.head.replace(head);
-        self.render(&txt, RenderSource::Git);
+        self.render(txt, RenderSource::Git);
     }
 
     pub fn update_upstream(
@@ -1215,7 +1209,7 @@ impl Status {
         txt: &TextView,
     ) {
         self.upstream.replace(upstream);
-        self.render(&txt, RenderSource::Git);
+        self.render(txt, RenderSource::Git);
     }
 
     pub fn update_staged(
@@ -1227,7 +1221,7 @@ impl Status {
         if self.staged.is_some()
             && self.unstaged.is_some()
         {
-            self.render(&txt, RenderSource::Git);
+            self.render(txt, RenderSource::Git);
         }
     }
 
@@ -1240,7 +1234,7 @@ impl Status {
         if self.staged.is_some()
             && self.unstaged.is_some()
         {
-            self.render(&txt, RenderSource::Git);
+            self.render(txt, RenderSource::Git);
         }
     }
     // status
