@@ -44,13 +44,6 @@ pub struct View {
 }
 
 #[derive(Debug, Clone)]
-pub enum LineKind {
-    File,
-    Hunk,
-    Regular,
-}
-
-#[derive(Debug, Clone)]
 pub struct Line {
     pub view: View,
     pub origin: DiffLineType,
@@ -488,9 +481,7 @@ pub fn commit_string(c: &Commit) -> String {
     format!(
         "{} {}",
         &c.id().to_string()[..7],
-        c.message()
-            .unwrap_or("")
-            .replace("\n", "")
+        c.message().unwrap_or("").replace("\n", "")
     )
 }
 
