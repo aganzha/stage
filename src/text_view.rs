@@ -15,14 +15,17 @@ use log::{debug, trace};
 use pango::Style;
 use std::cell::RefCell;
 use std::ffi::OsString;
+use std::collections::HashSet;
 
-const CURSOR_HIGHLIGHT: &str = "CursorHighlight";
-const REGION_HIGHLIGHT: &str = "RegionHighlight";
+const CURSOR_TAG: &str = "CursorTag";
 
+#[derive(Eq, Hash, PartialEq)]
 pub enum Tag {
     Bold,
     Added,
+    EnhancedAdded,
     Removed,
+    EnhancedRemoved,
     Cursor,
     Region,
     Italic,
@@ -41,9 +44,19 @@ impl Tag {
                 tt.set_background(Some("#ebfcf1"));
                 tt
             }
+            Self::EnhancedAdded => {
+                let tt = self.new_tag();
+                tt.set_background(Some("#d3fae1"));
+                tt
+            }
             Self::Removed => {
                 let tt = self.new_tag();
                 tt.set_background(Some("#fbf0f3"));
+                tt
+            }
+            Self::EnhancedRemoved => {
+                let tt = self.new_tag();
+                tt.set_background(Some("#f4c3d0"));
                 tt
             }
             Self::Cursor => {
@@ -70,10 +83,19 @@ impl Tag {
         match self {
             Self::Bold => "bold",
             Self::Added => "added",
+            Self::EnhancedAdded => "enhancedAdded",
             Self::Removed => "removed",
-            Self::Cursor => CURSOR_HIGHLIGHT,
-            Self::Region => REGION_HIGHLIGHT,
+            Self::EnhancedRemoved => "enhancedRemoved",
+            Self::Cursor => CURSOR_TAG,
+            Self::Region => "region",
             Self::Italic => "italic",
+        }
+    }
+    fn enhance(&self) -> &Self {
+        match self {
+            Self::Added => &Self::EnhancedAdded,
+            Self::Removed => &Self::EnhancedRemoved,
+            other => other
         }
     }
 }
@@ -140,19 +162,13 @@ pub fn text_view_factory(
     let txt = TextView::builder().build();
     let buffer = txt.buffer();
 
-    // let tag = TextTag::new(Some(CURSOR_HIGHLIGHT));
-    // tag.set_background(Some(CURSOR_COLOR));
-    // buffer.tag_table().add(&tag);
-
-    // let tag = TextTag::new(Some(REGION_HIGHLIGHT));
-    // tag.set_background(Some(REGION_COLOR));
-    // buffer.tag_table().add(&tag);
-
     buffer.tag_table().add(&Tag::Cursor.create());
     buffer.tag_table().add(&Tag::Region.create());
     buffer.tag_table().add(&Tag::Bold.create());
     buffer.tag_table().add(&Tag::Added.create());
+    buffer.tag_table().add(&Tag::EnhancedAdded.create());
     buffer.tag_table().add(&Tag::Removed.create());
+    buffer.tag_table().add(&Tag::EnhancedRemoved.create());
     buffer.tag_table().add(&Tag::Italic.create());
 
     let event_controller =
@@ -437,7 +453,7 @@ impl View {
                     line_len = Some(empty_spaces.len() as i32);
                     self.replace_dirty_content(buffer, iter, &empty_spaces);
                     self.apply_tags(buffer, &content_tags);
-                } else if self.tags.contains(&String::from(CURSOR_HIGHLIGHT)) {
+                } else if self.tags.contains(&String::from(CURSOR_TAG)) {
                     // special case for cleanup cursor highlight
                     self.apply_tags(buffer, &content_tags);
                 }
@@ -540,27 +556,44 @@ impl View {
         buffer: &TextBuffer,
         content_tags: &Vec<Tag>,
     ) {
+        let mut fltr: HashSet<Tag> = HashSet::new();
         if self.current {
-            self.add_tag(buffer, CURSOR_HIGHLIGHT);
+            self.add_tag(buffer, Tag::Cursor.name());
+            fltr.insert(Tag::Added);
+            fltr.insert(Tag::Removed);
+            fltr.insert(Tag::Region);
+            // it need to filter background tags            
         } else {
             self.remove_tag(
                 buffer,
-                CURSOR_HIGHLIGHT,
+                Tag::Cursor.name(),
             );
-            if self.active {
+        }        
+        if self.active {
+            if !fltr.contains(&Tag::Region) {
                 self.add_tag(
                     buffer,
-                    REGION_HIGHLIGHT,
-                );
-            } else {
-                self.remove_tag(
-                    buffer,
-                    REGION_HIGHLIGHT,
+                    Tag::Region.name(),                    
                 );
             }
-        }
-        for t in content_tags {
-            self.add_tag(buffer, t.name());
+            for t in content_tags {
+                if !fltr.contains(t) {
+                    self.add_tag(buffer, t.enhance().name());
+                }
+            }
+        } else {
+            self.remove_tag(
+                buffer,
+                Tag::Region.name(),
+            );
+            for t in content_tags {
+                self.remove_tag(buffer, t.enhance().name());
+            }
+            for t in content_tags {
+                if !fltr.contains(t) {
+                    self.add_tag(buffer, t.name());
+                }
+            }
         }
     }
     fn get_state_for(
