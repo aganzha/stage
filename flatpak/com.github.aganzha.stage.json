@@ -1,0 +1,37 @@
+{
+    "app-id": "com.github.aganzha.stage",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "45",
+    "sdk": "org.gnome.Sdk",
+    "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
+    "command": "stage",
+    "finish-args": [
+        "--share=ipc",
+        "--socket=fallback-x11",
+        "--socket=wayland",
+        "--device=dri"
+    ],
+    "build-options": {
+        "append-path": "/usr/lib/sdk/rust-stable/bin"
+    },
+    "modules": [{
+        "name": "stage",
+        "buildsystem": "simple",
+        "build-options": {
+            "env": {
+                "CARGO_HOME": "/run/build/stage/cargo"
+            }
+        },
+        "build-commands": [
+            "cargo --offline fetch --manifest-path Cargo.toml --verbose",
+            "cargo --offline build --release --verbose",
+            "install -Dm755 ./target/debug/stage -t /app/bin/"
+        ],
+        "sources": [{
+                "type": "dir",
+                "path": "."
+            },
+            "cargo-sources.json"
+        ]
+    }]
+}
