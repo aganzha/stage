@@ -1,3 +1,7 @@
+TODO: rename file (move to another folder, and then change. what will be in staged? in magit there is "renamed" status with 2 modified rows
+
+inconsistency: enrich_view in diff, hunk, life works on child (not on self.view). but in head it works on self.view. refactor it to modify self.view everywhere
+
 inconsistency: magit highlight in yello all top level sections with their children^ staged, unstaged etc.
 inside the hunk in does not hihjlihjy in yello. only in grey. and cursor is visible
 In stage now cursor become yellow inside hunk and does not highlight sections in yellow. only current row. So basically in magit yelow highlight is for top rendered sections and grey highlight is for code.
@@ -7,6 +11,8 @@ lets mimic that also! and make cursor visible.
 DONE: when apply tags to dirty content (cursor leave the line for the next line)
 and prev line is rendered in place. it doesn not return its length.
 why at all length is required to apply tags? those are cursor tags, which must be applied anyway...
+
+
 
 
 DONE: collapse hunk. then collapse file. then expand file. then expand hunk - it will not expand 
@@ -41,6 +47,9 @@ it need to kill both in status, cause theyl become obsolete!
 
 TODO: mark region not for every line, but for region!!! with marks, probably
 
+
+
+
 DONE CRITICAL: expand file. collapse it. expand again - no color
 
 ok, tags are always removed if view is dirty. hmm. lets sey its ok, for now
@@ -67,6 +76,8 @@ BUG: Tags are accumulating!
 drug racing exists )) views of deleted hunks are still there.
 perhaps just skip rendering diff via dirty flag? it still be there collapsed.
 or empty while other diff become rendered. hm.
+
+
 
 every view should render every time! on every call!
 it is OK to call render, cause nothing will blink, cause everything is on its place!

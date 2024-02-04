@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# python3 flatpak-cargo-generator.py ./Cargo.lock -o cargo-sources.json
+# https://github.com/flatpak/flatpak-builder-tools/blob/master/cargo/README.md
 
 __license__ = 'MIT'
 import json
