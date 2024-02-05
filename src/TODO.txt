@@ -1,3 +1,4 @@
+INFO: so. it runs as flatpak run -uv --socket=session-bus com.github.aganzha.stage
 TODO: rename file (move to another folder, and then change. what will be in staged? in magit there is "renamed" status with 2 modified rows
 
 inconsistency: enrich_view in diff, hunk, life works on child (not on self.view). but in head it works on self.view. refactor it to modify self.view everywhere
