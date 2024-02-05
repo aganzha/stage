@@ -32,7 +32,7 @@ use gtk::{
 
 use log::{debug, error, info, log_enabled, trace};
 
-const APP_ID: &str = "io.github.aganzha.Stage";
+const APP_ID: &str = "com.github.aganzha.stage";
 
 fn main() -> glib::ExitCode {
     let app = Application::builder()
