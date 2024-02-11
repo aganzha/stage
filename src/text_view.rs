@@ -5,11 +5,15 @@ use crate::{
     Hunk, Line, View,
 };
 use git2::DiffLineType;
-use glib::Sender;
-use gtk::prelude::*;
-use gtk::{
+// use glib::Sender;
+// use std::sync::mpsc::Sender;
+use async_channel::Sender;
+
+use gtk4::prelude::*;
+use gtk4::{
     gdk, gio, glib, pango, TextBuffer, TextIter,
-    TextTag, TextView,
+    TextTag, TextView, EventControllerKey, GestureClick, EventSequenceState, TextWindowType,
+    MovementStep
 };
 use log::{debug, trace};
 use pango::Style;
@@ -172,7 +176,7 @@ pub fn text_view_factory(
     buffer.tag_table().add(&Tag::Italic.create());
 
     let event_controller =
-        gtk::EventControllerKey::new();
+        EventControllerKey::new();
     event_controller.connect_key_pressed({
         let buffer = buffer.clone();
         let sndr = sndr.clone();
@@ -181,28 +185,28 @@ pub fn text_view_factory(
             match key {
                 gdk::Key::Tab => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send(crate::Event::Expand(iter.offset(), iter.line()))
-                        .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Expand(iter.offset(), iter.line()));
+                        //.expect("Could not send through channel");
                 }
                 gdk::Key::s => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send(crate::Event::Stage(iter.offset(), iter.line()))
-                        .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Stage(iter.offset(), iter.line()));
+                        //.expect("Could not send through channel");
                 }
                 gdk::Key::u => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send(crate::Event::UnStage(iter.offset(), iter.line()))
-                        .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::UnStage(iter.offset(), iter.line()));
+                        //.expect("Could not send through channel");
                 }
                 gdk::Key::c => {
-                    sndr.send(crate::Event::CommitRequest)
-                        .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::CommitRequest);
+                        //.expect("Could not send through channel");
                     // txt.activate_action("win.commit", None)
                     //     .expect("action does not exists");
                 }
                 gdk::Key::p => {
-                    sndr.send(crate::Event::PushRequest)
-                        .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::PushRequest);
+                        //.expect("Could not send through channel");
                     // txt.activate_action("win.commit", None)
                     //     .expect("action does not exists");
                 }
@@ -213,8 +217,8 @@ pub fn text_view_factory(
                         iter.line(),
                         iter.line_offset()
                     );
-                    sndr.send(crate::Event::Debug)
-                        .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Debug);
+                        //.expect("Could not send through channel");
                 }
                 _ => (),
             }
@@ -224,17 +228,17 @@ pub fn text_view_factory(
     txt.add_controller(event_controller);
 
     let gesture_controller =
-        gtk::GestureClick::new();
+        GestureClick::new();
     gesture_controller.connect_released({
         let sndr = sndr.clone();
         let txt = txt.clone();
         move |gesture, _some, wx, wy| {
-            gesture.set_state(gtk::EventSequenceState::Claimed);
+            gesture.set_state(EventSequenceState::Claimed);
             let (x, y) =
-                txt.window_to_buffer_coords(gtk::TextWindowType::Text, wx as i32, wy as i32);
+                txt.window_to_buffer_coords(TextWindowType::Text, wx as i32, wy as i32);
             if let Some(iter) = txt.iter_at_location(x, y) {
-                sndr.send(crate::Event::Cursor(iter.offset(), iter.line()))
-                    .expect("Could not send through channel");
+                sndr.send_blocking(crate::Event::Cursor(iter.offset(), iter.line()));
+                    //.expect("Could not send through channel");
             }
         }
     });
@@ -245,35 +249,36 @@ pub fn text_view_factory(
         let sndr = sndr.clone();
         let latest_char_offset = RefCell::new(0);
         move |view: &TextView, step, count, _selection| {
+            
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);
             let line_before = start_iter.line();
             // TODO! do not emit event if line is not changed!
             match step {
-                gtk::MovementStep::LogicalPositions | gtk::MovementStep::VisualPositions => {
+                MovementStep::LogicalPositions | MovementStep::VisualPositions => {
                     start_iter.forward_chars(count);
                 }
-                gtk::MovementStep::Words => {
+                MovementStep::Words => {
                     start_iter.forward_word_end();
                 }
-                gtk::MovementStep::DisplayLines => {
+                MovementStep::DisplayLines => {
                     let loffset = start_iter.line_offset();
                     start_iter.forward_lines(count);
                     handle_line_offset(&mut start_iter, loffset, &latest_char_offset);
                 }
-                gtk::MovementStep::DisplayLineEnds
-                | gtk::MovementStep::Paragraphs
-                | gtk::MovementStep::ParagraphEnds
-                | gtk::MovementStep::Pages
-                | gtk::MovementStep::BufferEnds
-                | gtk::MovementStep::HorizontalPages => {}
+                MovementStep::DisplayLineEnds
+                | MovementStep::Paragraphs
+                | MovementStep::ParagraphEnds
+                | MovementStep::Pages
+                | MovementStep::BufferEnds
+                | MovementStep::HorizontalPages => {}
                 _ => todo!(),
             }
             let current_line = start_iter.line();
             if line_before != current_line {
-                sndr.send(crate::Event::Cursor(start_iter.offset(), current_line))
-                    .expect("Could not send through channel");
+                sndr.send_blocking(crate::Event::Cursor(start_iter.offset(), current_line));
+                    //.expect("Could not send through channel");
             } else {
                 let mut cnt = latest_char_offset.borrow_mut();
                 *cnt = 0;

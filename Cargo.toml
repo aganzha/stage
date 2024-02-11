@@ -6,10 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gtk = { version = "0.7.3", package = "gtk4", features = ["v4_10"] }
-adw = { version = "0.5.3", package = "libadwaita", features = ["gtk_v4_10", "v1_2"] }
+gtk4 = { version = "0.8.0", features = ["v4_12"] }
+libadwaita = { version = "0.6.0", features = ["gtk_v4_12", "v1_4"] }
 git2 = "0.18.1"
 regex = "1.10.2"
 backtrace = "0.3.69"
 log = "0.4.20"
 env_logger = "0.10.1"
+async-channel = "2.2.0"
