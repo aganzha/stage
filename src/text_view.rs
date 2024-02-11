@@ -185,28 +185,28 @@ pub fn text_view_factory(
             match key {
                 gdk::Key::Tab => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::Expand(iter.offset(), iter.line()));
-                        //.expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Expand(iter.offset(), iter.line()))
+                        .expect("Could not send through channel");
                 }
                 gdk::Key::s => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::Stage(iter.offset(), iter.line()));
-                        //.expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Stage(iter.offset(), iter.line()))
+                        .expect("Could not send through channel");
                 }
                 gdk::Key::u => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::UnStage(iter.offset(), iter.line()));
-                        //.expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::UnStage(iter.offset(), iter.line()))
+                        .expect("Could not send through channel");
                 }
                 gdk::Key::c => {
-                    sndr.send_blocking(crate::Event::CommitRequest);
-                        //.expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::CommitRequest)
+                        .expect("Could not send through channel");
                     // txt.activate_action("win.commit", None)
                     //     .expect("action does not exists");
                 }
                 gdk::Key::p => {
-                    sndr.send_blocking(crate::Event::PushRequest);
-                        //.expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::PushRequest)
+                        .expect("Could not send through channel");
                     // txt.activate_action("win.commit", None)
                     //     .expect("action does not exists");
                 }
@@ -217,8 +217,8 @@ pub fn text_view_factory(
                         iter.line(),
                         iter.line_offset()
                     );
-                    sndr.send_blocking(crate::Event::Debug);
-                        //.expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Debug)
+                        .expect("Could not send through channel");
                 }
                 _ => (),
             }
@@ -237,8 +237,8 @@ pub fn text_view_factory(
             let (x, y) =
                 txt.window_to_buffer_coords(TextWindowType::Text, wx as i32, wy as i32);
             if let Some(iter) = txt.iter_at_location(x, y) {
-                sndr.send_blocking(crate::Event::Cursor(iter.offset(), iter.line()));
-                    //.expect("Could not send through channel");
+                sndr.send_blocking(crate::Event::Cursor(iter.offset(), iter.line()))
+                    .expect("Could not send through channel");
             }
         }
     });
@@ -277,8 +277,8 @@ pub fn text_view_factory(
             }
             let current_line = start_iter.line();
             if line_before != current_line {
-                sndr.send_blocking(crate::Event::Cursor(start_iter.offset(), current_line));
-                    //.expect("Could not send through channel");
+                sndr.send_blocking(crate::Event::Cursor(start_iter.offset(), current_line))
+                    .expect("Could not send through channel");
             } else {
                 let mut cnt = latest_char_offset.borrow_mut();
                 *cnt = 0;
