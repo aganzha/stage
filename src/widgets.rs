@@ -1,18 +1,21 @@
-use adw::prelude::*;
-use adw::{
+use libadwaita::prelude::*;
+use libadwaita::{
     ApplicationWindow, MessageDialog,
     ResponseAppearance,
 };
-use glib::Sender;
-use gtk::prelude::*;
-use gtk::{glib, TextView};
-use log::{debug, trace};
+// use glib::Sender;
+// use std::sync::mpsc::Sender;
+use async_channel::Sender;
+
+use gtk4::prelude::*;
+use gtk4::{glib, TextView, AlertDialog, EventControllerKey};
+use log::{trace};
 
 pub fn display_error(
     w: &ApplicationWindow,
     message: &str,
 ) {
-    let d = gtk::AlertDialog::builder()
+    let d = AlertDialog::builder()
         .message(message)
         .build();
     d.show(Some(w));
@@ -55,7 +58,7 @@ pub fn show_commit_message(
     );
 
     let event_controller =
-        gtk::EventControllerKey::new();
+        EventControllerKey::new();
     event_controller.connect_key_pressed({
         let dialog = dialog.clone();
         move |_, _, _, _| {
@@ -87,7 +90,7 @@ pub fn show_commit_message(
             let end = buffer.end_iter();
             let message =
                 buffer.slice(&start, &end, false);
-            sndr.send(crate::Event::Commit(
+            sndr.send_blocking(crate::Event::Commit(
                 message.to_string(),
             ))
             .expect("cant send through channel");
@@ -158,7 +161,7 @@ pub fn show_push_message(
             // let start = buffer.iter_at_offset(0);
             // let end = buffer.end_iter();
             // let message = buffer.slice(&start, &end, false);
-            sndr.send(crate::Event::Push).expect(
+            sndr.send_blocking(crate::Event::Push).expect(
                 "cant send through channel",
             );
         },

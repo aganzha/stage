@@ -3,6 +3,10 @@ use text_view::{text_view_factory, Status};
 
 mod common_tests;
 
+//use std::sync::mpsc::channel;
+//use std::sync::mpsc::Sender;
+use async_channel::Sender;
+
 mod git;
 use git::{
     commit_staged, get_current_repo_status, push,
@@ -16,18 +20,19 @@ use widgets::{
     show_push_message,
 };
 
-use adw::prelude::*;
-use adw::{
-    Application, ApplicationWindow, HeaderBar,
-    MessageDialog, ResponseAppearance,
+use libadwaita::prelude::*;
+use libadwaita::{
+    Application, ApplicationWindow, HeaderBar    
 };
+
 use gdk::Display;
 
-use glib::{clone, MainContext, Priority, Sender};
-use gtk::prelude::*;
-use gtk::{
-    gdk, gio, glib, Box, CssProvider, Entry, Label,
-    Orientation, ScrolledWindow, TextView,
+use glib::{clone, MainContext, Priority};
+use gtk4::prelude::*;
+use gtk4::{
+    gdk, gio, glib, Box, CssProvider, Label,
+    Orientation, ScrolledWindow,
+    style_context_add_provider_for_display, STYLE_PROVIDER_PRIORITY_APPLICATION
 };
 
 use log::{debug, error, info, log_enabled, trace};
@@ -52,15 +57,16 @@ fn load_css() {
         .load_from_data(include_str!("style.css"));
 
     // Add the provider to the default screen
-    gtk::style_context_add_provider_for_display(
+    style_context_add_provider_for_display(
         &Display::default().expect(
             "Could not connect to a display.",
         ),
         &provider,
-        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
 }
 
+#[derive(Debug)]
 pub enum Event {
     Debug,
     CurrentRepo(std::ffi::OsString),
@@ -79,11 +85,11 @@ pub enum Event {
     Push,
 }
 
-fn build_ui(app: &adw::Application) {
+fn build_ui(app: &Application) {
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
     // window.set_default_size(640, 480);
-    let scroll = ScrolledWindow::new();
+
 
     let action_close =
         gio::SimpleAction::new("close", None);
@@ -112,9 +118,12 @@ fn build_ui(app: &adw::Application) {
     container.append(&hb);
 
     let (sender, receiver) =
-        MainContext::channel(Priority::default());
+        async_channel::unbounded();
+    // let (sender, receiver) = channel();
+    
     let txt = text_view_factory(sender.clone());
 
+    let scroll = ScrolledWindow::new();
     scroll.set_min_content_height(960);
     scroll.set_max_content_height(960);
     scroll.set_child(Some(&txt));
@@ -126,7 +135,7 @@ fn build_ui(app: &adw::Application) {
     env_logger::builder()
         .format_timestamp(None)
         .init();
-
+    info!(".................................................>");
     let mut current_repo_path: Option<
         std::ffi::OsString,
     > = None;
@@ -134,88 +143,177 @@ fn build_ui(app: &adw::Application) {
     status.get_status(sender.clone());
     window.present();
 
-    receiver.attach(None, move |event: Event| {
-        // let sett = txt.settings();
-        // debug!("cursor settings {} {} {} {}", sett.is_gtk_cursor_blink(), sett.gtk_cursor_aspect_ratio(), sett.gtk_cursor_blink_time(), sett.gtk_cursor_blink_timeout());
-        match event {
-            Event::CurrentRepo(path) => {
-                current_repo_path.replace(path);
-            }
-            Event::Debug => {
-                info!("main. debug");
-                status.debug(&txt);
-            }
-            Event::CommitRequest => {
-                info!("commit request");
-                if !status.has_staged() {
-                    display_error(&window, "No changes were staged. Stage by hitting 's'");
-                } else {
-                    show_commit_message(&window, sender.clone());
+    glib::spawn_future_local(async move {
+
+        while let Ok(event) = receiver.recv().await {
+
+            match event {
+                Event::CurrentRepo(path) => {
+                    current_repo_path.replace(path);
                 }
-            }
-            Event::PushRequest => {
-                info!("main.push request");
-                // todo - check that there is something to push
-                show_push_message(&window, sender.clone());
-            }
-            Event::Commit(message) => {
-                info!("main.commit");
-                status.commit_staged(
-                    current_repo_path.as_ref().unwrap(),
-                    message,
-                    &txt,
-                    sender.clone(),
-                );
-            }
-            Event::Push => {
-                info!("main.push");
-                status.push(
-                    current_repo_path.as_ref().unwrap(),
-                    &txt,
-                    sender.clone(),
-                );
-            }
-            Event::Head(h) => {
-                info!("main. head");
-                status.update_head(h, &txt);
-            }
-            Event::Upstream(h) => {
-                info!("main. upstream");
-                status.update_upstream(h, &txt);
-            }
-            Event::Staged(d) => {
-                info!("main. staged {:p}", &d);
-                status.update_staged(d, &txt);
-            }
-            Event::Unstaged(d) => {
-                info!("main. unstaged {:p}", &d);
-                status.update_unstaged(d, &txt);
-            }
-            Event::Expand(offset, line_no) => {
-                status.expand(&txt, line_no, offset);
-            }
-            Event::Cursor(offset, line_no) => {
-                status.cursor(&txt, line_no, offset);
-            }
-            Event::Stage(_offset, line_no) => {
-                status.stage(
-                    &txt,
-                    line_no,
-                    current_repo_path.as_ref().unwrap(),
-                    true,
-                    sender.clone(),
-                );
-            }
-            Event::UnStage(_offset, line_no) => {
-                status.stage(
-                    &txt,
-                    line_no,
-                    current_repo_path.as_ref().unwrap(),
-                    false,
-                    sender.clone(),
-                );
-            }
-        };
-        glib::ControlFlow::Continue
+                Event::Debug => {
+                    info!("main. debug");
+                    status.debug(&txt);                
+                }
+                Event::CommitRequest => {
+                    info!("commit request");
+                    if !status.has_staged() {
+                        display_error(&window, "No changes were staged. Stage by hitting 's'");
+                    } else {
+                        show_commit_message(&window, sender.clone());
+                    }
+                }
+                Event::PushRequest => {
+                    info!("main.push request");
+                    // todo - check that there is something to push
+                    show_push_message(&window, sender.clone());
+                }
+                Event::Commit(message) => {
+                    info!("main.commit");
+                    status.commit_staged(
+                        current_repo_path.as_ref().unwrap(),
+                        message,
+                        &txt,
+                        sender.clone(),
+                    );
+                }
+                Event::Push => {
+                    info!("main.push");
+                    status.push(
+                        current_repo_path.as_ref().unwrap(),
+                        &txt,
+                        sender.clone(),
+                    );
+                }
+                Event::Head(h) => {
+                    info!("main. head");
+                    status.update_head(h, &txt);
+                }
+                Event::Upstream(h) => {
+                    info!("main. upstream");
+                    status.update_upstream(h, &txt);
+                }
+                Event::Staged(d) => {
+                    info!("main. staged {:p}", &d);
+                    status.update_staged(d, &txt);
+                }
+                Event::Unstaged(d) => {
+                    info!("main. unstaged {:p}", &d);
+                    status.update_unstaged(d, &txt);
+                }
+                Event::Expand(offset, line_no) => {
+                    status.expand(&txt, line_no, offset);
+                }
+                Event::Cursor(offset, line_no) => {
+                    status.cursor(&txt, line_no, offset);
+                }
+                Event::Stage(_offset, line_no) => {
+                    status.stage(
+                        &txt,
+                        line_no,
+                        current_repo_path.as_ref().unwrap(),
+                        true,
+                        sender.clone(),
+                    );
+                }
+                Event::UnStage(_offset, line_no) => {
+                    status.stage(
+                        &txt,
+                        line_no,
+                        current_repo_path.as_ref().unwrap(),
+                        false,
+                        sender.clone(),
+                    );
+                }
+            };
+            
+        }
+
     });
+    
+    info!("===================================================>");
+    // receiver.attach(None, move |event: Event| {
+    //     // let sett = txt.settings();
+    //     // debug!("cursor settings {} {} {} {}", sett.is_gtk_cursor_blink(), sett.gtk_cursor_aspect_ratio(), sett.gtk_cursor_blink_time(), sett.gtk_cursor_blink_timeout());
+    //     match event {
+    //         Event::CurrentRepo(path) => {
+    //             current_repo_path.replace(path);
+    //         }
+    //         Event::Debug => {
+    //             info!("main. debug");
+    //             status.debug(&txt);
+    //         }
+    //         Event::CommitRequest => {
+    //             info!("commit request");
+    //             if !status.has_staged() {
+    //                 display_error(&window, "No changes were staged. Stage by hitting 's'");
+    //             } else {
+    //                 show_commit_message(&window, sender.clone());
+    //             }
+    //         }
+    //         Event::PushRequest => {
+    //             info!("main.push request");
+    //             // todo - check that there is something to push
+    //             show_push_message(&window, sender.clone());
+    //         }
+    //         Event::Commit(message) => {
+    //             info!("main.commit");
+    //             status.commit_staged(
+    //                 current_repo_path.as_ref().unwrap(),
+    //                 message,
+    //                 &txt,
+    //                 sender.clone(),
+    //             );
+    //         }
+    //         Event::Push => {
+    //             info!("main.push");
+    //             status.push(
+    //                 current_repo_path.as_ref().unwrap(),
+    //                 &txt,
+    //                 sender.clone(),
+    //             );
+    //         }
+    //         Event::Head(h) => {
+    //             info!("main. head");
+    //             status.update_head(h, &txt);
+    //         }
+    //         Event::Upstream(h) => {
+    //             info!("main. upstream");
+    //             status.update_upstream(h, &txt);
+    //         }
+    //         Event::Staged(d) => {
+    //             info!("main. staged {:p}", &d);
+    //             status.update_staged(d, &txt);
+    //         }
+    //         Event::Unstaged(d) => {
+    //             info!("main. unstaged {:p}", &d);
+    //             status.update_unstaged(d, &txt);
+    //         }
+    //         Event::Expand(offset, line_no) => {
+    //             status.expand(&txt, line_no, offset);
+    //         }
+    //         Event::Cursor(offset, line_no) => {
+    //             status.cursor(&txt, line_no, offset);
+    //         }
+    //         Event::Stage(_offset, line_no) => {
+    //             status.stage(
+    //                 &txt,
+    //                 line_no,
+    //                 current_repo_path.as_ref().unwrap(),
+    //                 true,
+    //                 sender.clone(),
+    //             );
+    //         }
+    //         Event::UnStage(_offset, line_no) => {
+    //             status.stage(
+    //                 &txt,
+    //                 line_no,
+    //                 current_repo_path.as_ref().unwrap(),
+    //                 false,
+    //                 sender.clone(),
+    //             );
+    //         }
+    //     };
+    //     glib::ControlFlow::Continue
+    // });
 }

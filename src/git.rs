@@ -1,5 +1,7 @@
 use crate::gio;
-use crate::glib::Sender;
+// use crate::glib::Sender;
+// use std::sync::mpsc::Sender;
+use async_channel::Sender;
 use ffi::OsString;
 use git2::{
     ApplyLocation, ApplyOptions, Branch,
@@ -437,7 +439,7 @@ pub fn get_cwd_repo(
         .expect("cant't get repo for current exe");
     let path = OsString::from(repo.path());
     sender
-        .send(crate::Event::CurrentRepo(
+        .send_blocking(crate::Event::CurrentRepo(
             path.clone(),
         ))
         .expect("Could not send through channel");
@@ -507,7 +509,7 @@ pub fn get_head(
         new_head.enrich_view(&oh);
     }
     sender
-        .send(crate::Event::Head(new_head))
+        .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
 }
 
@@ -537,7 +539,7 @@ pub fn get_upstream(
             new_upstream.enrich_view(&ou);
         }
         sender
-            .send(crate::Event::Upstream(
+            .send_blocking(crate::Event::Upstream(
                 new_upstream,
             ))
             .expect(
@@ -604,7 +606,7 @@ pub fn get_current_repo_status(
                 );
             let diff = make_diff(git_diff);
             sender
-                .send(crate::Event::Staged(diff))
+                .send_blocking(crate::Event::Staged(diff))
                 .expect("Could not send through channel");
         }
     });
@@ -614,7 +616,7 @@ pub fn get_current_repo_status(
         .expect("cant' get diff index to workdir");
     let diff = make_diff(git_diff);
     sender
-        .send(crate::Event::Unstaged(diff))
+        .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
 }
 
@@ -824,7 +826,7 @@ pub fn stage_via_apply(
                 diff.enrich_view(s);
             }
             sender
-                .send(crate::Event::Staged(diff))
+                .send_blocking(crate::Event::Staged(diff))
                 .expect("Could not send through channel");
         }
     });
@@ -837,7 +839,7 @@ pub fn stage_via_apply(
         diff.enrich_view(u);
     }
     sender
-        .send(crate::Event::Unstaged(diff))
+        .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
 }
 
@@ -898,7 +900,7 @@ pub fn commit_staged(
         )
         .expect("can't get diff tree to index");
     sender
-        .send(crate::Event::Staged(make_diff(
+        .send_blocking(crate::Event::Staged(make_diff(
             git_diff,
         )))
         .expect("Could not send through channel");
