@@ -1820,7 +1820,7 @@ mod tests {
             env_logger::builder()
                 .format_timestamp(None)
                 .init();
-            _ = gtk::init();
+            _ = gtk4::init();
         });
     }
 
