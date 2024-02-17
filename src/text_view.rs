@@ -163,7 +163,12 @@ fn handle_line_offset(
 pub fn text_view_factory(
     sndr: Sender<crate::Event>,
 ) -> TextView {
-    let txt = TextView::builder().build();
+    let txt = TextView::builder()
+        .margin_start(12)
+        .margin_end(12)
+        .margin_top(12)
+        .margin_bottom(12)
+        .build();
     let buffer = txt.buffer();
 
     buffer.tag_table().add(&Tag::Cursor.create());
@@ -285,7 +290,7 @@ pub fn text_view_factory(
             }
         }
     });
-
+    txt.add_css_class("stage");
     txt.set_monospace(true);
     txt.set_editable(false);
     // let sett = txt.settings();

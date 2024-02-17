@@ -22,7 +22,7 @@ use widgets::{
 
 use libadwaita::prelude::*;
 use libadwaita::{
-    Application, ApplicationWindow, HeaderBar    
+    Application, ApplicationWindow, HeaderBar, ToolbarView
 };
 
 use gdk::Display;
@@ -88,8 +88,6 @@ pub enum Event {
 fn build_ui(app: &Application) {
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
-    // window.set_default_size(640, 480);
-
 
     let action_close =
         gio::SimpleAction::new("close", None);
@@ -104,33 +102,27 @@ fn build_ui(app: &Application) {
         &["<Ctrl>W"],
     );
 
-    let container = Box::builder().build();
-    container
-        .set_orientation(Orientation::Vertical);
-    container.add_css_class("stage");
     let hb = HeaderBar::new();
-    let lbl = Label::builder()
-        .label("stage")
-        .single_line_mode(true)
-        .width_chars(5)
-        .build();
-    hb.set_title_widget(Some(&lbl));
-    container.append(&hb);
 
     let (sender, receiver) =
         async_channel::unbounded();
-    // let (sender, receiver) = channel();
-    
+
     let txt = text_view_factory(sender.clone());
 
     let scroll = ScrolledWindow::new();
-    scroll.set_min_content_height(960);
-    scroll.set_max_content_height(960);
     scroll.set_child(Some(&txt));
 
-    container.append(&scroll);
 
-    window.set_content(Some(&container));
+    let tb = ToolbarView::builder()
+        .content(&scroll)
+        .build();
+    tb.add_top_bar(&hb);
+
+    window.set_content(Some(&tb));
+
+
+
+    // window.set_content(Some(&container));
 
     env_logger::builder()
         .format_timestamp(None)
@@ -153,7 +145,7 @@ fn build_ui(app: &Application) {
                 }
                 Event::Debug => {
                     info!("main. debug");
-                    status.debug(&txt);                
+                    status.debug(&txt);
                 }
                 Event::CommitRequest => {
                     info!("commit request");
@@ -226,11 +218,11 @@ fn build_ui(app: &Application) {
                     );
                 }
             };
-            
+
         }
 
     });
-    
+
     info!("===================================================>");
     // receiver.attach(None, move |event: Event| {
     //     // let sett = txt.settings();
