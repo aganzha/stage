@@ -17,10 +17,10 @@ glib::wrapper! {
 }
 
 impl BranchItem {
-    pub fn new(branchtitle: String, lastcommit: String) -> Self {
+    pub fn new(branch_title: String, last_commit: String) -> Self {
         let result: BranchItem = Object::builder()
-            .property("branchtitle", branchtitle)
-            .property("lastcommit", lastcommit)
+            .property("branch-title", branch_title)
+            .property("last-commit", last_commit)
             .build();
         return result;
     }
@@ -38,10 +38,10 @@ mod branch_item {
     pub struct BranchItem {
 
         #[property(get, set)]
-        pub branchtitle: RefCell<String>,
+        pub branch_title: RefCell<String>,
         
         #[property(get, set)]
-        pub lastcommit: RefCell<String>
+        pub last_commit: RefCell<String>
     }
 
     #[glib::object_subclass]
@@ -89,9 +89,9 @@ pub fn show_branches_window(app_window: &ApplicationWindow) {
 
         let item = list_item
             .property_expression("item");        
-        item.chain_property::<BranchItem>("branchtitle")
+        item.chain_property::<BranchItem>("branch-title")
             .bind(&label, "label", Widget::NONE);
-        item.chain_property::<BranchItem>("lastcommit")
+        item.chain_property::<BranchItem>("last-commit")
             .bind(&label1, "label", Widget::NONE);
         
     });
