@@ -1,6 +1,9 @@
 mod text_view;
 use text_view::{text_view_factory, Status};
 
+mod branches;
+use branches::{show_branches_window};
+
 mod common_tests;
 
 //use std::sync::mpsc::channel;
@@ -83,6 +86,7 @@ pub enum Event {
     PushRequest,
     Commit(String),
     Push,
+    Branches
 }
 
 fn build_ui(app: &Application) {
@@ -159,7 +163,7 @@ fn build_ui(app: &Application) {
                     info!("main.push request");
                     // todo - check that there is something to push
                     show_push_message(&window, sender.clone());
-                }
+                }                
                 Event::Commit(message) => {
                     info!("main.commit");
                     status.commit_staged(
@@ -176,6 +180,10 @@ fn build_ui(app: &Application) {
                         &txt,
                         sender.clone(),
                     );
+                }
+                Event::Branches => {
+                    info!("main.braches");
+                    show_branches_window(&window);
                 }
                 Event::Head(h) => {
                     info!("main. head");
