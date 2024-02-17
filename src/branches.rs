@@ -5,10 +5,53 @@ use libadwaita::{
 };
 use gtk4::{
     gio, glib, gdk,
-    ScrolledWindow, EventControllerKey    
+    ScrolledWindow, EventControllerKey, ListView,
+    ListItem, ListHeader, StringList, NoSelection, SignalListItemFactory,
+    StringObject, Widget, Label, SectionModel, Box, Orientation
 };
-use glib::{clone};
+use glib::{Object};
 use log::{debug, error, info, log_enabled, trace};
+
+glib::wrapper! {
+    pub struct BranchItem(ObjectSubclass<branch_item::BranchItem>);
+}
+
+impl BranchItem {
+    pub fn new(branchtitle: String, lastcommit: String) -> Self {
+        let result: BranchItem = Object::builder()
+            .property("branchtitle", branchtitle)
+            .property("lastcommit", lastcommit)
+            .build();
+        return result;
+    }
+}
+
+mod branch_item {
+    use std::cell::RefCell;
+    use glib::Properties;
+    use gtk4::glib;
+    use gtk4::prelude::*;
+    use gtk4::subclass::prelude::*;
+
+    #[derive(Properties, Default)]
+    #[properties(wrapper_type = super::BranchItem)]
+    pub struct BranchItem {
+
+        #[property(get, set)]
+        pub branchtitle: RefCell<String>,
+        
+        #[property(get, set)]
+        pub lastcommit: RefCell<String>
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for BranchItem {
+        const NAME: &'static str = "StageBranchItem";
+        type Type = super::BranchItem;
+    }
+    #[glib::derived_properties]
+    impl ObjectImpl for BranchItem {}
+}
 
 
 pub fn show_branches_window(app_window: &ApplicationWindow) {
@@ -22,6 +65,68 @@ pub fn show_branches_window(app_window: &ApplicationWindow) {
         .build();
 
     let scroll = ScrolledWindow::new();
+
+    let factory = SignalListItemFactory::new();
+    factory.connect_setup(move |_, list_item| {
+
+        let label = Label::new(None);
+        let label1 = Label::new(None);
+
+        let bx = Box::builder()
+            .orientation(Orientation::Horizontal)
+            .margin_top(2)
+            .margin_bottom(2)
+            .margin_start(2)
+            .margin_end(2)
+            .spacing(2)
+            .build();
+        bx.append(&label);
+        bx.append(&label1);
+        let list_item = list_item
+            .downcast_ref::<ListItem>()
+            .expect("Needs to be ListItem");
+        list_item.set_child(Some(&bx));
+
+        let item = list_item
+            .property_expression("item");        
+        item.chain_property::<BranchItem>("branchtitle")
+            .bind(&label, "label", Widget::NONE);
+        item.chain_property::<BranchItem>("lastcommit")
+            .bind(&label1, "label", Widget::NONE);
+        
+    });
+    let header_factory = SignalListItemFactory::new();
+    header_factory.connect_setup(move |_, list_item| {        
+        let label = Label::new(Some("section"));
+        debug!("======================> {:?}", list_item);
+        let list_item = list_item
+            .downcast_ref::<ListHeader>()
+            .expect("Needs to be ListHeader");
+        list_item.set_child(Some(&label));
+    });
+
+    // let model: StringList = (0..=20).map(|number| number.to_string()).collect();
+    let model = gio::ListStore::new::<BranchItem>();
+    let fake_branches: Vec<BranchItem> = (0..=20).map(
+        |number| {
+            BranchItem::new(
+                format!("title {}", number),
+                format!("commit {}", number)
+            )
+        }
+    ).collect();
+    model.extend_from_slice(&fake_branches);
+    let selection_model = NoSelection::new(Some(model));
+    debug!("++++++++++++++++++++=> {:?}", selection_model.section(1));
+    debug!("++++++++++++++++++++=> {:?}", selection_model.section(10));
+    // let list_view = ListView::new(Some(selection_model), Some(factory));
+    let list_view = ListView::builder()
+        .model(&selection_model)
+        .factory(&factory)
+        .header_factory(&header_factory)
+        .build();
+    scroll.set_child(Some(&list_view));
+    
     let tb = ToolbarView::builder()
         .content(&scroll)
         .build();
@@ -40,7 +145,6 @@ pub fn show_branches_window(app_window: &ApplicationWindow) {
                     window.close();
                 }
                 _ => {
-                    debug!("some other pressed");
                 }
             }
             glib::Propagation::Proceed
@@ -48,26 +152,4 @@ pub fn show_branches_window(app_window: &ApplicationWindow) {
     });
     window.add_controller(event_controller);
     window.present();
-
-    // let action_close =
-    //     gio::SimpleAction::new("close", None);
-    // action_close.connect_activate(
-    //     clone!(@weak window => move |_, _| {
-    //         window.close();
-    //     }),
-    // );
-    // window.insert_action_group();
-    // window.add_action(&action_close);
-    // window.action_set_enabled("close", true);
-    // window.action_set_enabled("win.close", true);
-    // // window.set_accels_for_action(
-    // //     "win.close",
-    // //     &["<Ctrl>W"],
-    // // );
-    // window.present();
-    // window.action_name();
-    // let some = window.activate_action("win.close", None);
-    // debug!("action {:?}", some);
-    // let some = window.activate_action("close", None);
-    // debug!("action 1 {:?}", some);
 }
