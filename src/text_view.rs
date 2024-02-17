@@ -215,6 +215,12 @@ pub fn text_view_factory(
                     // txt.activate_action("win.commit", None)
                     //     .expect("action does not exists");
                 }
+                gdk::Key::b => {
+                    sndr.send_blocking(crate::Event::Branches)
+                        .expect("Could not send through channel");
+                    // txt.activate_action("win.commit", None)
+                    //     .expect("action does not exists");
+                }
                 gdk::Key::d => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     println!(
