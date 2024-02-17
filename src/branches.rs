@@ -26,13 +26,6 @@ impl BranchItem {
             .build();
         return result;
     }
-    fn section(&self, position: u32) -> (u32, u32) {
-        debug!("[[[[[[[[[[[[[[[[[[");
-        (2, 3)
-    }
-    // pub fn model(&self) -> Self {
-    //     self.clone()
-    // }
 }
 
 mod branch_item {
@@ -113,7 +106,8 @@ mod branch_list {
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::BranchList)]
     pub struct BranchList {
-        pub list: RefCell<Vec<super::Branch>>,
+        pub list: RefCell<Vec<super::BranchItem>>,
+
         #[property(get, set)]
         pub li: RefCell<String>
     }
@@ -128,19 +122,19 @@ mod branch_list {
 
     #[glib::derived_properties]
     impl ObjectImpl for BranchList {
-        fn constructed(&self) {
-            self.parent_constructed();
-            let b = super::Branch::new();
-            self.list.borrow_mut().push(b);
-            let b1 = super::Branch::new();
-            self.list.borrow_mut().push(b1);
-            log::debug!("construuuu {:?}", self.list);
-        }
+        // fn constructed(&self) {
+        //     self.parent_constructed();
+        //     let b = super::Branch::new();
+        //     self.list.borrow_mut().push(b);
+        //     let b1 = super::Branch::new();
+        //     self.list.borrow_mut().push(b1);
+        //     log::debug!("construuuu {:?}", self.list);
+        // }
     }
 
     impl ListModelImpl for BranchList {
         fn item_type(&self) -> glib::Type {
-            super::Branch::static_type()
+            super::BranchItem::static_type()
         }
 
         fn n_items(&self) -> u32 {
@@ -148,6 +142,7 @@ mod branch_list {
         }
 
         fn item(&self, position: u32) -> Option<glib::Object> {
+            // ??? clone ???
             Some(self.list.borrow()[position as usize].clone().into())
         }
     }
@@ -160,10 +155,20 @@ impl BranchList {
     }
 
     pub fn make_list(&mut self) {        
-        let b1 = Branch::new();
-        self.imp().list.borrow_mut().push(b1);
-        debug!("-------------------> {:?}", self.imp().list);
-
+        let fake_branches: Vec<BranchItem> = (0..=20).map(
+            |number| {
+                BranchItem::new(
+                    format!("title {}", number),
+                    format!("commit {}", number)
+                )
+            }
+        ).collect();
+        for b in fake_branches {
+            self.imp().list.borrow_mut().push(b);
+        }
+        // let b1 = Branch::new();
+        // self.imp().list.borrow_mut().push(b1);
+        // debug!("-------------------> {:?}", self.imp().list);
     }
 }
 
@@ -239,14 +244,14 @@ pub fn show_branches_window(app_window: &ApplicationWindow) {
 
     // let model = gio::ListStore::new::<BranchItem>();
     let mut model = BranchList::new();
-    let fake_branches: Vec<BranchItem> = (0..=20).map(
-        |number| {
-            BranchItem::new(
-                format!("title {}", number),
-                format!("commit {}", number)
-            )
-        }
-    ).collect();
+    // let fake_branches: Vec<BranchItem> = (0..=20).map(
+    //     |number| {
+    //         BranchItem::new(
+    //             format!("title {}", number),
+    //             format!("commit {}", number)
+    //         )
+    //     }
+    // ).collect();
     model.make_list();
     //model.extend_from_slice(&fake_branches);
 
