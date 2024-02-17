@@ -159,8 +159,11 @@ impl BranchList {
         Object::builder().build()
     }
 
-    pub fn make_list(&mut self) {
+    pub fn make_list(&mut self) {        
+        let b1 = Branch::new();
+        self.imp().list.borrow_mut().push(b1);
         debug!("-------------------> {:?}", self.imp().list);
+
     }
 }
 
