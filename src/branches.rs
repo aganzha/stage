@@ -57,45 +57,12 @@ mod branch_item {
 }
 
 glib::wrapper! {
-    pub struct Branch(ObjectSubclass<branch::Branch>);
-}
-mod branch {
-    use std::cell::RefCell;
-    use glib::Properties;
-    use gtk4::glib;
-    use gtk4::prelude::*;
-    use gtk4::subclass::prelude::*;
-
-    #[derive(Properties, Default)]
-    #[properties(wrapper_type = super::BranchItem)]
-    pub struct Branch {
-
-        #[property(get, set)]
-        pub title: RefCell<String>,
-
-    }
-
-    #[glib::object_subclass]
-    impl ObjectSubclass for Branch {
-        const NAME: &'static str = "StageBranch";
-        type Type = super::Branch;
-    }
-    #[glib::derived_properties]
-    impl ObjectImpl for Branch {}
-}
-
-impl Branch {
-    pub fn new() -> Self {
-        Object::builder().build()
-    }
-}
-
-glib::wrapper! {
     pub struct BranchList(ObjectSubclass<branch_list::BranchList>)
-        @implements gio::ListModel;
+        @implements gio::ListModel, SectionModel;
 }
 
 mod branch_list {
+    use crate::debug;
     use std::cell::RefCell;
     use glib::Properties;
     use gtk4::glib;
@@ -117,19 +84,11 @@ mod branch_list {
         const NAME: &'static str = "StageBranchList";
         type Type = super::BranchList;
         type ParentType = glib::Object;
-        type Interfaces = (gio::ListModel,);
+        type Interfaces = (gio::ListModel, gtk4::SectionModel);
     }
 
     #[glib::derived_properties]
     impl ObjectImpl for BranchList {
-        // fn constructed(&self) {
-        //     self.parent_constructed();
-        //     let b = super::Branch::new();
-        //     self.list.borrow_mut().push(b);
-        //     let b1 = super::Branch::new();
-        //     self.list.borrow_mut().push(b1);
-        //     log::debug!("construuuu {:?}", self.list);
-        // }
     }
 
     impl ListModelImpl for BranchList {
@@ -144,6 +103,30 @@ mod branch_list {
         fn item(&self, position: u32) -> Option<glib::Object> {
             // ??? clone ???
             Some(self.list.borrow()[position as usize].clone().into())
+        }
+    }
+
+    impl SectionModelImpl for BranchList {
+        fn section(&self, position: u32) -> (u32, u32) {
+            debug!("~~~~~~~~~~~~~~~~~~~~~~~~~~~calling section in BranchList {:?}", position);
+            match position {
+                0..= 4 => {
+                    debug!(">returns 0, 5");
+                    (0, 5)
+                }
+                5..=9 => {
+                    debug!(">returns 5, 10");
+                    (5, 10)
+                }
+                10..=14 => {
+                    debug!(">returns 10, 15");
+                    (10, 15)
+                }
+                _ => {
+                    debug!(">returns 15, 21");
+                    (15, 21)
+                }
+            }
         }
     }
 }
@@ -166,9 +149,6 @@ impl BranchList {
         for b in fake_branches {
             self.imp().list.borrow_mut().push(b);
         }
-        // let b1 = Branch::new();
-        // self.imp().list.borrow_mut().push(b1);
-        // debug!("-------------------> {:?}", self.imp().list);
     }
 }
 
@@ -194,23 +174,8 @@ pub fn show_branches_window(app_window: &ApplicationWindow) {
         list_item.set_child(Some(&label));
     });
 
-    // factory for StringList
+
     let factory = SignalListItemFactory::new();
-    // factory.connect_setup(move |_, list_item| {
-    //     // Create label
-    //     let label = Label::new(None);
-    //     let list_item = list_item
-    //         .downcast_ref::<ListItem>()
-    //         .expect("Needs to be ListItem");
-    //     list_item.set_child(Some(&label));
-
-    //     // Bind `list_item->item->string` to `label->label`
-    //     list_item
-    //         .property_expression("item")
-    //         .chain_property::<StringObject>("string")
-    //         .bind(&label, "label", Widget::NONE);
-    // });
-
     factory.connect_setup(move |_, list_item| {
 
         let label = Label::new(None);
@@ -240,26 +205,14 @@ pub fn show_branches_window(app_window: &ApplicationWindow) {
 
     });
 
-    // let model: StringList = (0..=20).map(|number| number.to_string()).collect();
 
-    // let model = gio::ListStore::new::<BranchItem>();
     let mut model = BranchList::new();
-    // let fake_branches: Vec<BranchItem> = (0..=20).map(
-    //     |number| {
-    //         BranchItem::new(
-    //             format!("title {}", number),
-    //             format!("commit {}", number)
-    //         )
-    //     }
-    // ).collect();
+
     model.make_list();
-    //model.extend_from_slice(&fake_branches);
 
 
     let selection_model = NoSelection::new(Some(model));
-    debug!("++++++++++++++++++++=> {:?}", selection_model.section(1));
-    debug!("++++++++++++++++++++=> {:?}", selection_model.section(10));
-    // let list_view = ListView::new(Some(selection_model), Some(factory));
+
     let list_view = ListView::builder()
         .model(&selection_model)
         .factory(&factory)
