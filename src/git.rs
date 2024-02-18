@@ -9,7 +9,7 @@ use git2::{
     Diff as GitDiff, DiffFile, DiffFormat,
     DiffHunk, DiffLine, DiffLineType, DiffOptions,
     Error, ObjectType, Oid, PushOptions, Reference,
-    RemoteCallbacks, Repository, Delta
+    RemoteCallbacks, Repository, Delta, DiffDelta
 };
 use log::{debug, trace};
 use regex::Regex;
@@ -760,6 +760,7 @@ pub fn stage_via_apply(
 ) {
     let repo = Repository::open(path.clone())
         .expect("can't open repo");
+    // get actual diff for repo
     let git_diff = {
         if is_staging {
             repo.diff_index_to_workdir(None, None)
@@ -782,6 +783,7 @@ pub fn stage_via_apply(
             .expect("can't get diff")
         }
     };
+    // filter selected files and hunks
     let mut options = ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
@@ -805,15 +807,18 @@ pub fn stage_via_apply(
     });
     options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
+            let status = dd.status();
+            debug!("delta_callback in stage_via_apply status {:?}", status);
             let new_file = dd.new_file();
             let file =
                 File::from_diff_file(&new_file);
-            return filter.file_path
-                == file
-                    .path
-                    .into_string()
-                    .unwrap();
+            let path = file
+                .path
+                .into_string()
+                .unwrap();
+            return filter.file_path == path;
         }
+        todo!("diff without delta");
         true
     });
     repo.apply(
@@ -821,7 +826,8 @@ pub fn stage_via_apply(
         ApplyLocation::Index,
         Some(&mut options),
     )
-    .expect("can't apply patch");
+        .expect("can't apply patch");
+    
 
     // staged changes
     gio::spawn_blocking({

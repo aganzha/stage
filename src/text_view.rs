@@ -1459,6 +1459,8 @@ impl Status {
                 let view = vc.get_view();
                 match kind {
                     ViewKind::File => {
+                        // just store current file_path
+                        // in this loop. temporary variable
                         file_path_so_stage =
                             content;
                     }
@@ -1466,6 +1468,9 @@ impl Status {
                         if !view.active {
                             return;
                         }
+                        // store active hunk in filter
+                        // if the cursor is on file, all
+                        // hunks under it will be active
                         filter.file_path =
                             file_path_so_stage
                                 .clone();
@@ -1477,13 +1482,15 @@ impl Status {
                         if !view.active {
                             return;
                         }
+                        // lines are not supported.
+                        // just squash em
                         view.squashed = true;
                     }
                     _ => (),
                 }
             },
         );
-
+        debug!("stage. apply filter {:?}", filter);
         if !filter.file_path.is_empty() {
             let buffer = txt.buffer();
             // CAUTION. ATTENTION. IMPORTANT
