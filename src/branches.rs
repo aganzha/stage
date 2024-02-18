@@ -19,8 +19,9 @@ glib::wrapper! {
 }
 
 impl BranchItem {
-    pub fn new(branch_title: String, last_commit: String) -> Self {
+    pub fn new(ref_kind: String, branch_title: String, last_commit: String) -> Self {
         let result: BranchItem = Object::builder()
+            .property("ref-kind", ref_kind)
             .property("branch-title", branch_title)
             .property("last-commit", last_commit)
             .build();
@@ -38,6 +39,9 @@ mod branch_item {
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::BranchItem)]
     pub struct BranchItem {
+
+        #[property(get, set)]
+        pub ref_kind: RefCell<String>,
 
         #[property(get, set)]
         pub branch_title: RefCell<String>,
@@ -108,22 +112,17 @@ mod branch_list {
 
     impl SectionModelImpl for BranchList {
         fn section(&self, position: u32) -> (u32, u32) {
-            debug!("~~~~~~~~~~~~~~~~~~~~~~~~~~~calling section in BranchList {:?}", position);
             match position {
                 0..= 4 => {
-                    debug!(">returns 0, 5");
                     (0, 5)
                 }
                 5..=9 => {
-                    debug!(">returns 5, 10");
                     (5, 10)
                 }
                 10..=14 => {
-                    debug!(">returns 10, 15");
                     (10, 15)
                 }
                 _ => {
-                    debug!(">returns 15, 21");
                     (15, 21)
                 }
             }
@@ -137,10 +136,14 @@ impl BranchList {
         Object::builder().build()
     }
 
-    pub fn make_list(&mut self) {        
+    pub fn make_list(&mut self) {
         let fake_branches: Vec<BranchItem> = (0..=20).map(
             |number| {
                 BranchItem::new(
+                    match number {
+                        0..=9 => "Branches".into(),
+                        _ => "Remotes".into()
+                    },
                     format!("title {}", number),
                     format!("commit {}", number)
                 )
@@ -167,11 +170,28 @@ pub fn show_branches_window(app_window: &ApplicationWindow) {
     let header_factory = SignalListItemFactory::new();
     header_factory.connect_setup(move |_, list_item| {
         let label = Label::new(Some("section"));
-        debug!("======================> {:?}", list_item);
         let list_item = list_item
             .downcast_ref::<ListHeader>()
             .expect("Needs to be ListHeader");
         list_item.set_child(Some(&label));
+
+        // this works
+        let item = list_item
+            .property_expression("item");
+        item.chain_property::<BranchItem>("ref-kind")
+            .bind(&label, "label", Widget::NONE);
+
+        // this works
+        // list_item.property_expression("start")
+        //     .bind(&label, "label", Widget::NONE);
+
+        // this does not work. because it is not expression!
+        // it works once when list is constructed, and 
+        // start property is not set
+        // list_item.bind_property("start", &label, "label");
+        debug!("---------------inside header factory {:?}", list_item);
+
+
     });
 
 
