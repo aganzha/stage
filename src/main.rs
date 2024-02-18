@@ -1,8 +1,8 @@
 mod text_view;
 use text_view::{text_view_factory, Status};
 
-mod branches;
-use branches::{show_branches_window};
+mod refs_view;
+use refs_view::{show_refs_window};
 
 mod common_tests;
 
@@ -183,7 +183,7 @@ fn build_ui(app: &Application) {
                 }
                 Event::Branches => {
                     info!("main.braches");
-                    show_branches_window(&window);
+                    show_refs_window(&window);
                 }
                 Event::Head(h) => {
                     info!("main. head");
