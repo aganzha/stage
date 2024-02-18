@@ -9,7 +9,7 @@ use git2::{
     Diff as GitDiff, DiffFile, DiffFormat,
     DiffHunk, DiffLine, DiffLineType, DiffOptions,
     Error, ObjectType, Oid, PushOptions, Reference,
-    RemoteCallbacks, Repository,
+    RemoteCallbacks, Repository, Delta
 };
 use log::{debug, trace};
 use regex::Regex;
@@ -633,18 +633,41 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
     let _res = git_diff.print(
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
-            let new_file = diff_delta.new_file();
-            let oid = new_file.id();
+            // new_file - is workdir side
+            // old_file - index side
+            // oid of the file is used as uniq id
+            // when file is Delta.Modified, there will be old
+            // and new file in diff. we are interesetd in new
+            // new_file, of course.
+            // but when file is Delta.Deleted - there will be now new_file
+            // and we will use old_file instead
+            let status = diff_delta.status();
+            let file: DiffFile = match status {
+                Delta::Modified => {
+                    // all ok. code below will works
+                    diff_delta.new_file()
+                }
+                Delta::Deleted => {
+                    // all ok. code below will works
+                    diff_delta.old_file()
+                }
+                _ => {
+                    todo!()
+                }
+            };
+            let oid = file.id();
             if oid.is_zero() {
+                // this is case of deleted file
                 todo!();
             }
-            if new_file.path().is_none() {
+            if file.path().is_none() {
                 todo!();
             }
+            // build up diff structure
             if current_file.id.is_zero() {
                 // init new file
                 current_file =
-                    File::from_diff_file(&new_file);
+                    File::from_diff_file(&file);
             }
             if current_file.id != oid {
                 // go to next file
@@ -657,7 +680,7 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
                 diff.files
                     .push(current_file.clone());
                 current_file =
-                    File::from_diff_file(&new_file);
+                    File::from_diff_file(&file);
             }
             if let Some(diff_hunk) = o_diff_hunk {
                 let hh = Hunk::get_header_from(
