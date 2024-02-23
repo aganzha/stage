@@ -1,8 +1,8 @@
 mod text_view;
 use text_view::{text_view_factory, Status};
 
-mod refs_view;
-use refs_view::{show_refs_window};
+mod branches_view;
+use branches_view::{show_branches_window};
 
 mod common_tests;
 
@@ -14,7 +14,7 @@ mod git;
 use git::{
     commit_staged, get_current_repo_status, push,
     stage_via_apply, get_refs, ApplyFilter, Diff, File, Head,
-    Hunk, Line, View, BranchItem
+    Hunk, Line, View, BranchData
 };
 
 mod widgets;
@@ -183,7 +183,7 @@ fn build_ui(app: &Application) {
                 }
                 Event::Branches => {
                     info!("main.braches");
-                    show_refs_window(&window, current_repo_path.as_ref().unwrap().clone());
+                    show_branches_window(&window, current_repo_path.as_ref().unwrap().clone());
                 }
                 Event::Head(h) => {
                     info!("main. head");
