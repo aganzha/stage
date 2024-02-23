@@ -1,5 +1,7 @@
+BUG: can't stage all changes. nothing happens - ApplyFilter is empty
 BUG: i saw main in staged changes and it was not possible to unstage it.
      perhaps it is related to deleted file!
+     https://github.com/libgit2/libgit2/issues/6643
 ffbf06 - logo color
 INFO: so. it runs as flatpak run -uv --socket=session-bus com.github.aganzha.stage
 TODO: rename file (move to another folder, and then change. what will be in staged? in magit there is "renamed" status with 2 modified rows
