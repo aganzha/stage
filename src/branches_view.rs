@@ -92,7 +92,7 @@ mod branch_list {
     #[derive(Default)]
     pub struct BranchList {
         pub list             : RefCell<Vec<super::BranchItem>>,
-        pub remote_start_pos : Option<u32>
+        pub remote_start_pos : RefCell<Option<u32>>
     }
 
 
@@ -124,21 +124,14 @@ mod branch_list {
 
     impl SectionModelImpl for BranchList {
         fn section(&self, position: u32) -> (u32, u32) {
-            debug!("------------> section for {:?} {:?}", position, self.list.borrow().len());
-            match position {
-                0..= 4 => {
-                    (0, 5)
-                }
-                5..=9 => {
-                    (5, 10)
-                }
-                10..=14 => {
-                    (10, 15)
-                }
-                _ => {
-                    (15, 21)
+            if let Some(pos) = *self.remote_start_pos.borrow() {
+                if position <= pos {
+                    return (0, pos);
+                } else {
+                    return (pos, self.list.borrow().len() as u32);
                 }
             }
+            (0, self.list.borrow().len() as u32)
         }
     }
 }
@@ -159,15 +152,21 @@ impl BranchList {
                 let items: Vec<BranchItem> = branches.into_iter()
                     .map(|branch| BranchItem::new(branch))
                     .collect();
-
+                debug!("tooooooooootal items {:?}", items.len());
                 let le = items.len() as u32;
+                let mut pos = 0;
                 let mut remote_start_pos: Option<u32> = None; 
                 for item in items {
                     if remote_start_pos.is_none() && item.imp().branch.borrow().branch_type == BranchType::Remote {
-                        
+                        remote_start_pos.replace(pos as u32);
                     }
                     branch_list.imp().list.borrow_mut().push(item);
+                    pos += 1;
                 }
+                // if let Some(rsp) = remote_start_pos {
+                //     branch_list.imp().remote_start_pos.replace(rsp);
+                // }
+                branch_list.imp().remote_start_pos.replace(remote_start_pos);
                 branch_list.items_changed(0, 0, le);
             })});
     }
@@ -184,21 +183,35 @@ pub fn show_branches_window(app_window: &ApplicationWindow, repo_path: std::ffi:
         .build();
 
     let scroll = ScrolledWindow::new();
-
+    let mut section_title = std::cell::RefCell::new(String::from("Branches"));
     let header_factory = SignalListItemFactory::new();
     header_factory.connect_setup(move |_, list_header| {
-        let label = Label::new(Some("section"));
+
+        let label = Label::new(Some(&*section_title.borrow()));
         let list_header = list_header
             .downcast_ref::<ListHeader>()
             .expect("Needs to be ListHeader");
         list_header.set_child(Some(&label));
-
-        let item = list_header
-            .property_expression("item");
-        item.chain_property::<BranchItem>("ref-kind")
-            .bind(&label, "label", Widget::NONE);
-
-        debug!("---------------inside header factory {:?}", list_header);
+        section_title.replace(String::from("Remotes"));
+        // does not work. it is always git first BranchItem
+        // why???
+        // list_header.connect_item_notify(move |lh| {
+        //     debug!("hhhhhhhhf {:?} {:?} {:?}", lh.start(), lh.end(), lh.n_items());
+        //     let ob = lh.item().unwrap();
+        //     let item: &BranchItem = ob
+        //         .downcast_ref::<BranchItem>()
+        //         .unwrap();
+        //     // let title = match item.imp().branch.borrow().branch_type {
+        //     //     BranchType::Local => "Branches",
+        //     //     BranchType::Remote => "Remote"
+        //     // };
+        //     // label.set_label(title);
+        // });
+        // does not work also
+        // let item = list_header
+        //     .property_expression("item");
+        // item.chain_property::<BranchItem>("ref-kind")
+        //     .bind(&label, "label", Widget::NONE);
 
     });
 
@@ -208,6 +221,7 @@ pub fn show_branches_window(app_window: &ApplicationWindow, repo_path: std::ffi:
         let label = Label::new(None);
         let label1 = Label::new(None);
         let label2 = Label::new(None);
+        let label3 = Label::new(None);
         
         let bx = Box::builder()
             .orientation(Orientation::Horizontal)
@@ -232,6 +246,8 @@ pub fn show_branches_window(app_window: &ApplicationWindow, repo_path: std::ffi:
         item.chain_property::<BranchItem>("last-commit")
             .bind(&label1, "label", Widget::NONE);
         item.chain_property::<BranchItem>("dt")
+            .bind(&label2, "label", Widget::NONE);
+        item.chain_property::<BranchItem>("ref_kind")
             .bind(&label2, "label", Widget::NONE);
     });
 
