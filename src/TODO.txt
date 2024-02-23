@@ -1,3 +1,4 @@
+BUG: CRITICAL: got panic not yet implemented: extend hunk by start diff
 BUG: can't stage all changes. nothing happens - ApplyFilter is empty
 BUG: i saw main in staged changes and it was not possible to unstage it.
      perhaps it is related to deleted file!
