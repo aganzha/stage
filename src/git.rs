@@ -1002,3 +1002,55 @@ pub fn push(
         )
         .expect("cant push to remote");
 }
+
+pub struct BranchItem {
+    pub name: String,
+    pub branch_type: BranchType,
+    pub oid: Oid,
+    pub commit: String,
+    pub is_head: bool,
+    pub upstream_name: Option<String>
+}
+
+impl BranchItem {
+
+    pub fn new(branch: Branch, branch_type: BranchType) -> Self {
+        let name = branch.name().unwrap().unwrap().to_string();
+        let mut upstream_name: Option<String> = None;
+        if let Ok(upstream) = branch.upstream() {
+            upstream_name = Some(upstream.name().unwrap().unwrap().to_string());
+        }
+        let is_head = branch.is_head();
+        let bref  = branch.get();
+        let ob = bref
+            .peel(ObjectType::Commit)
+            .expect("can't get commit from ref!");
+        let commit = ob
+            .peel_to_commit()
+            .expect("can't get commit from ob!");
+        let commit = commit_string(&commit);
+        let oid = branch.get().target().unwrap();
+        
+        BranchItem {
+            name,
+            branch_type,
+            oid,
+            commit,
+            is_head,
+            upstream_name
+        }
+    }
+}
+
+pub fn get_refs(path: OsString) -> Vec<BranchItem> {
+
+    let repo = Repository::open(path.clone())
+        .expect("can't open repo");
+    let mut result = Vec::new();
+    let branches = repo.branches(None).expect("can't get branches");
+    branches.for_each(|item| {
+        let (branch, branch_type) = item.unwrap();
+        result.push(BranchItem::new(branch, branch_type));
+    });
+    result
+}

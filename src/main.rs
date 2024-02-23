@@ -13,8 +13,8 @@ use async_channel::Sender;
 mod git;
 use git::{
     commit_staged, get_current_repo_status, push,
-    stage_via_apply, ApplyFilter, Diff, File, Head,
-    Hunk, Line, View,
+    stage_via_apply, get_refs, ApplyFilter, Diff, File, Head,
+    Hunk, Line, View, BranchItem
 };
 
 mod widgets;
@@ -183,7 +183,7 @@ fn build_ui(app: &Application) {
                 }
                 Event::Branches => {
                     info!("main.braches");
-                    show_refs_window(&window);
+                    show_refs_window(&window, current_repo_path.as_ref().unwrap().clone());
                 }
                 Event::Head(h) => {
                     info!("main. head");

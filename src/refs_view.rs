@@ -12,9 +12,7 @@ use gtk4::{
 };
 use glib::{Object, clone};
 use log::{debug, error, info, log_enabled, trace};
-use std::thread;
-use std::time::Duration;
-use std::rc::Rc;
+use git2::{BranchType};
 
 
 glib::wrapper! {
@@ -22,13 +20,27 @@ glib::wrapper! {
 }
 
 impl RefItem {
-    pub fn new(ref_kind: String, title: String, last_commit: String) -> Self {
-        let result: RefItem = Object::builder()
+    // pub fn new(ref_kind: String, title: String, last_commit: String) -> Self {
+    //     let result: RefItem = Object::builder()
+    //         .property("ref-kind", ref_kind)
+    //         .property("title", title)
+    //         .property("last-commit", last_commit)
+    //         .build();
+    //     return result;
+    // }
+    
+    pub fn new(branch: crate::BranchItem) -> Self {
+        let ref_kind = {
+            match branch.branch_type {
+                BranchType::Local => String::from("Branches"),
+                BranchType::Remote => String::from("Remote")
+            }
+        };
+        Object::builder::<RefItem>()
             .property("ref-kind", ref_kind)
-            .property("title", title)
-            .property("last-commit", last_commit)
-            .build();
-        return result;
+            .property("title", branch.name)
+            .property("last-commit", branch.commit)
+            .build()
     }
 }
 
@@ -128,34 +140,20 @@ mod ref_list {
     }
 }
 
-impl RefList {
-
+impl RefList {    
     pub fn new() -> Self {
         Object::builder().build()
     }
 
-    pub fn make_list(&self) {
+    pub fn make_list(&self, repo_path: std::ffi::OsString) {
 
         glib::spawn_future_local({
             clone!(@weak self as ref_list=> async move {
-                let fake_branches: Vec<(String, String, String)> = gio::spawn_blocking(move || {
-                    let five_seconds = Duration::from_secs(1);
-                    thread::sleep(five_seconds);
-                    (0..=20).map(
-                        |number| {
-                            (
-                                match number {
-                                    0..=9 => "Refes".into(),
-                                    _ => "Remotes".into()
-                                },
-                                format!("title {}", number),
-                                format!("commit {}", number)
-                            )
-                        }
-                    ).collect()
-                }).await.expect("Task needs to finish successfully.");
-                let items: Vec<RefItem> = fake_branches.into_iter()
-                    .map(|branch| RefItem::new(branch.0, branch.1, branch.2))
+                let refs: Vec<crate::BranchItem> = gio::spawn_blocking(||crate::get_refs(repo_path))
+                    .await.expect("Task needs to finish successfully.");
+                
+                let items: Vec<RefItem> = refs.into_iter()
+                    .map(|branch| RefItem::new(branch))
                     .collect();
                 
                 let le = items.len() as u32;
@@ -167,7 +165,7 @@ impl RefList {
     }
 }
 
-pub fn show_refs_window(app_window: &ApplicationWindow) {
+pub fn show_refs_window(app_window: &ApplicationWindow, repo_path: std::ffi::OsString) {
     let window = Window::builder()
         .application(&app_window.application().unwrap())
         .transient_for(app_window)
@@ -227,7 +225,7 @@ pub fn show_refs_window(app_window: &ApplicationWindow) {
 
     let model = RefList::new();
 
-    model.make_list();
+    model.make_list(repo_path);
 
     let selection_model = NoSelection::new(Some(model));
 
