@@ -14,6 +14,10 @@ use git2::{
 use log::{debug, trace};
 use regex::Regex;
 use std::{env, ffi, iter::zip, path, str};
+use chrono::prelude::*;
+use chrono::{DateTime, TimeZone, FixedOffset, LocalResult};
+use std::cmp::Ordering;
+
 
 fn get_current_repo(
     mut path_buff: path::PathBuf,
@@ -479,6 +483,7 @@ impl Head {
     }
 }
 
+
 pub fn commit_string(c: &Commit) -> String {
     format!(
         "{} {}",
@@ -486,6 +491,16 @@ pub fn commit_string(c: &Commit) -> String {
         c.message().unwrap_or("").replace("\n", "")
     )
 }
+
+pub fn commit_dt(c: &Commit) -> DateTime<FixedOffset> {
+    let tz = FixedOffset::east_opt(c.time().offset_minutes() * 60).unwrap();
+    match tz.timestamp_opt(c.time().seconds(), 0) {
+        LocalResult::Single(dt) => dt,
+        LocalResult::Ambiguous(dt, _) => dt,
+        _ => todo!("not implemented")
+    }    
+}
+
 
 pub fn get_head(
     path: OsString,
@@ -1003,13 +1018,29 @@ pub fn push(
         .expect("cant push to remote");
 }
 
+#[derive(Debug, Clone)]
 pub struct BranchData {
     pub name: String,
     pub branch_type: BranchType,
     pub oid: Oid,
-    pub commit: String,
+    pub commit_string: String,
     pub is_head: bool,
-    pub upstream_name: Option<String>
+    pub upstream_name: Option<String>,
+    pub commit_dt: DateTime<FixedOffset>
+}
+
+impl Default for BranchData {
+    fn default() -> Self {
+        BranchData {
+            name: String::from(""),
+            branch_type: BranchType::Local,
+            oid: Oid::zero(),
+            commit_string: String::from(""),
+            is_head: false,
+            upstream_name: None,
+            commit_dt: DateTime::<FixedOffset>::MIN_UTC.into()
+        }
+    }
 }
 
 impl BranchData {
@@ -1028,16 +1059,18 @@ impl BranchData {
         let commit = ob
             .peel_to_commit()
             .expect("can't get commit from ob!");
-        let commit = commit_string(&commit);
+        let commit_string = commit_string(&commit);
         let oid = branch.get().target().unwrap();
-        
+
+        let commit_dt = commit_dt(&commit);
         BranchData {
             name,
             branch_type,
             oid,
-            commit,
+            commit_string,
             is_head,
-            upstream_name
+            upstream_name,
+            commit_dt
         }
     }
 }
@@ -1051,6 +1084,21 @@ pub fn get_refs(path: OsString) -> Vec<BranchData> {
     branches.for_each(|item| {
         let (branch, branch_type) = item.unwrap();
         result.push(BranchData::new(branch, branch_type));
+    });
+    result.sort_by(|a, b| {
+        if a.is_head {
+            return Ordering::Less;
+        }
+        if b.is_head {
+            return Ordering::Greater;
+        }
+        if a.branch_type == BranchType::Local && b.branch_type != BranchType::Local {
+            return Ordering::Less;
+        }
+        if b.branch_type == BranchType::Local && a.branch_type != BranchType::Local {
+            return Ordering::Greater;
+        }
+        return b.commit_dt.cmp(&a.commit_dt);        
     });
     result
 }
