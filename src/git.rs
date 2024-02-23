@@ -1003,7 +1003,7 @@ pub fn push(
         .expect("cant push to remote");
 }
 
-pub struct BranchItem {
+pub struct BranchData {
     pub name: String,
     pub branch_type: BranchType,
     pub oid: Oid,
@@ -1012,7 +1012,7 @@ pub struct BranchItem {
     pub upstream_name: Option<String>
 }
 
-impl BranchItem {
+impl BranchData {
 
     pub fn new(branch: Branch, branch_type: BranchType) -> Self {
         let name = branch.name().unwrap().unwrap().to_string();
@@ -1031,7 +1031,7 @@ impl BranchItem {
         let commit = commit_string(&commit);
         let oid = branch.get().target().unwrap();
         
-        BranchItem {
+        BranchData {
             name,
             branch_type,
             oid,
@@ -1042,7 +1042,7 @@ impl BranchItem {
     }
 }
 
-pub fn get_refs(path: OsString) -> Vec<BranchItem> {
+pub fn get_refs(path: OsString) -> Vec<BranchData> {
 
     let repo = Repository::open(path.clone())
         .expect("can't open repo");
@@ -1050,7 +1050,7 @@ pub fn get_refs(path: OsString) -> Vec<BranchItem> {
     let branches = repo.branches(None).expect("can't get branches");
     branches.for_each(|item| {
         let (branch, branch_type) = item.unwrap();
-        result.push(BranchItem::new(branch, branch_type));
+        result.push(BranchData::new(branch, branch_type));
     });
     result
 }
