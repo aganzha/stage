@@ -81,6 +81,7 @@ mod ref_list {
         pub list: RefCell<Vec<super::RefItem>>,
     }
 
+    
     #[glib::object_subclass]
     impl ObjectSubclass for RefList {
         const NAME: &'static str = "StageRefList";
@@ -98,7 +99,6 @@ mod ref_list {
         }
 
         fn n_items(&self) -> u32 {
-            debug!("calling reflist n_items................ {:?}", self.list.borrow().len() as u32);
             self.list.borrow().len() as u32
         }
 
@@ -135,54 +135,35 @@ impl RefList {
     }
 
     pub fn make_list(&self) {
-        // let fake_branches: Vec<RefItem> = (0..=20).map(
-        //     |number| {
-        //         RefItem::new(
-        //             match number {
-        //                 0..=9 => "Refes".into(),
-        //                 _ => "Remotes".into()
-        //             },
-        //             format!("title {}", number),
-        //             format!("commit {}", number)
-        //         )
-        //     }
-        // ).collect();
 
         glib::spawn_future_local({
-            debug!("before spawn future {:?}", self);
             clone!(@weak self as ref_list=> async move {
-                // Deactivate the button until the operation is done
-                debug!("INSIDE future {:?}", ref_list);
-                gio::spawn_blocking(move || {
-                    let five_seconds = Duration::from_secs(5);
+                let fake_branches: Vec<(String, String, String)> = gio::spawn_blocking(move || {
+                    let five_seconds = Duration::from_secs(1);
                     thread::sleep(five_seconds);
-                    true
-                })
-                    .await
-                    .expect("Task needs to finish successfully.");
-                let fake_branches: Vec<RefItem> = (0..=20).map(
-                    |number| {
-                        RefItem::new(
-                            match number {
-                                0..=9 => "Refes".into(),
-                                _ => "Remotes".into()
-                            },
-                            format!("title {}", number),
-                            format!("commit {}", number)
-                        )
-                    }
-                ).collect();
-                debug!("fake branches! {:?}", fake_branches);
-                let le = fake_branches.len() as u32;
-                for b in fake_branches {
-                    ref_list.imp().list.borrow_mut().push(b);
+                    (0..=20).map(
+                        |number| {
+                            (
+                                match number {
+                                    0..=9 => "Refes".into(),
+                                    _ => "Remotes".into()
+                                },
+                                format!("title {}", number),
+                                format!("commit {}", number)
+                            )
+                        }
+                    ).collect()
+                }).await.expect("Task needs to finish successfully.");
+                let items: Vec<RefItem> = fake_branches.into_iter()
+                    .map(|branch| RefItem::new(branch.0, branch.1, branch.2))
+                    .collect();
+                
+                let le = items.len() as u32;
+                for item in items {
+                    ref_list.imp().list.borrow_mut().push(item);
                 }
                 ref_list.items_changed(0, 0, le);
             })});
-        
-        // for b in fake_branches {
-        //     self.imp().list.borrow_mut().push(b);
-        // }
     }
 }
 
