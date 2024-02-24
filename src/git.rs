@@ -1042,9 +1042,7 @@ impl Default for BranchData {
             commit_string: String::from(""),
             is_head: false,
             upstream_name: None,
-            commit_dt:
-                DateTime::<FixedOffset>::MIN_UTC
-                    .into(),
+            commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
         }
     }
 }
