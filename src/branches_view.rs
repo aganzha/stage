@@ -260,7 +260,7 @@ pub fn make_item_factory() -> SignalListItemFactory
             .width_chars(24)
             .max_width_chars(24)
             .ellipsize(pango::EllipsizeMode::End)
-            .selectable(true)
+            //.selectable(true)
             .use_markup(true)
             .can_focus(true)
             .can_target(true)
@@ -273,7 +273,7 @@ pub fn make_item_factory() -> SignalListItemFactory
             .width_chars(36)
             .max_width_chars(36)
             .ellipsize(pango::EllipsizeMode::End)
-            .selectable(true)
+            //.selectable(true)
             .use_markup(true)
             .can_focus(true)
             .can_target(true)
@@ -286,7 +286,7 @@ pub fn make_item_factory() -> SignalListItemFactory
             .width_chars(24)
             .max_width_chars(24)
             .ellipsize(pango::EllipsizeMode::End)
-            .selectable(true)
+            //.selectable(true)
             .use_markup(true)
             .can_focus(true)
             .can_target(true)
@@ -308,10 +308,13 @@ pub fn make_item_factory() -> SignalListItemFactory
             .downcast_ref::<ListItem>()
             .expect("Needs to be ListItem");
         list_item.set_child(Some(&bx));
-
+        list_item.set_selectable(true);
+        list_item.set_activatable(true);
+        list_item.set_focusable(true);
+        
         let item =
             list_item.property_expression("item");
-
+        
         item.chain_property::<BranchItem>("title")
             .bind(
                 &label_title,
@@ -337,6 +340,22 @@ pub fn make_item_factory() -> SignalListItemFactory
             Widget::NONE,
         );
     });
+    factory.connect_bind(move |_, list_item| {
+        let list_item = list_item
+            .downcast_ref::<ListItem>()
+            .expect("Needs to be ListItem");
+        if let Some(branch_item) = list_item.item() {
+            let branch_item = branch_item.downcast_ref::<BranchItem>()
+                .unwrap();
+            // if branch_item.imp().branch.borrow().is_head {
+            //     list_item.set_selected(true);
+            // }
+        } else {
+            panic!("no item on bind list_item");
+        }
+        
+        // debug!("-----------------------> {:?} {:?}", list_item, branch_item);
+    });
     factory
 }
 
@@ -357,7 +376,23 @@ pub fn make_list_view(
         .model(&selection_model)
         .factory(&factory)
         .header_factory(&header_factory)
+        .margin_start(12)
+        .margin_end(12)
+        .margin_top(12)
+        .margin_bottom(12)
+        .show_separators(true)
+        .single_click_activate(true)
         .build();
+    list_view.connect_activate(|lv: &ListView, pos: u32| {
+        debug!("activateeeeeeeeeeeeeeed {:?}", pos);
+        let branch_list = lv.model().unwrap();
+        let item_ob = branch_list.item(pos);
+        if let Some(item) = item_ob {
+            let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+            debug!("------------------------------------_>{:?}", branch_item.imp().branch.borrow().name);
+        }        
+        // let item = branch_list.imp().list.borrow()[pos];
+    });
     list_view.add_css_class("stage");
     list_view
 }
