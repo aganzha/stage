@@ -4,7 +4,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, Box, EventControllerKey, Label,
-    ListHeader, ListItem, ListView, NoSelection,
+    ListHeader, ListItem, ListView, NoSelection, SingleSelection,
     Orientation, PropertyExpression,
     ScrolledWindow, SectionModel, SelectionModel,
     SignalListItemFactory, StringList,
@@ -16,6 +16,9 @@ use libadwaita::{
     Window,
 };
 use log::{debug, error, info, log_enabled, trace};
+use std::thread;
+use std::time::Duration;
+
 
 glib::wrapper! {
     pub struct BranchItem(ObjectSubclass<branch_item::BranchItem>);
@@ -135,13 +138,12 @@ mod branch_list {
             &self,
             position: u32,
         ) -> Option<glib::Object> {
+            let list = self.list.borrow();
+            if list.is_empty() {
+                return None;
+            }
             // ??? clone ???
-            Some(
-                self.list.borrow()
-                    [position as usize]
-                    .clone()
-                    .into(),
-            )
+            return Some(list[position as usize].clone().into())            
         }
     }
 
@@ -176,7 +178,7 @@ impl BranchList {
     pub fn make_list(
         &self,
         repo_path: std::ffi::OsString,
-    ) {
+    ) -> glib::JoinHandle<()> {
         glib::spawn_future_local({
             clone!(@weak self as branch_list=> async move {
                 let branches: Vec<crate::BranchData> = gio::spawn_blocking(||crate::get_refs(repo_path))
@@ -196,13 +198,11 @@ impl BranchList {
                     branch_list.imp().list.borrow_mut().push(item);
                     pos += 1;
                 }
-                // if let Some(rsp) = remote_start_pos {
-                //     branch_list.imp().remote_start_pos.replace(rsp);
-                // }
                 branch_list.imp().remote_start_pos.replace(remote_start_pos);
                 branch_list.items_changed(0, 0, le);
+                
             })
-        });
+        })
     }
 }
 
@@ -340,22 +340,22 @@ pub fn make_item_factory() -> SignalListItemFactory
             Widget::NONE,
         );
     });
-    factory.connect_bind(move |_, list_item| {
-        let list_item = list_item
-            .downcast_ref::<ListItem>()
-            .expect("Needs to be ListItem");
-        if let Some(branch_item) = list_item.item() {
-            let branch_item = branch_item.downcast_ref::<BranchItem>()
-                .unwrap();
-            // if branch_item.imp().branch.borrow().is_head {
-            //     list_item.set_selected(true);
-            // }
-        } else {
-            panic!("no item on bind list_item");
-        }
+    // factory.connect_bind(move |_, list_item| {
+    //     let list_item = list_item
+    //         .downcast_ref::<ListItem>()
+    //         .expect("Needs to be ListItem");
+    //     if let Some(branch_item) = list_item.item() {
+    //         let branch_item = branch_item.downcast_ref::<BranchItem>()
+    //             .unwrap();
+    //         if branch_item.imp().branch.borrow().is_head {
+    //             list_item.activate();
+    //         }
+    //     } else {
+    //         panic!("no item on bind list_item");
+    //     }
         
-        // debug!("-----------------------> {:?} {:?}", list_item, branch_item);
-    });
+    //     // debug!("-----------------------> {:?} {:?}", list_item, branch_item);
+    // });
     factory
 }
 
@@ -366,11 +366,19 @@ pub fn make_list_view(
     let factory = make_item_factory();
 
     let model = BranchList::new();
-
     model.make_list(repo_path);
 
     let selection_model =
-        NoSelection::new(Some(model));
+        SingleSelection::new(Some(model));
+
+    // let five_seconds = Duration::from_secs(5);
+    // thread::sleep(five_seconds);
+    
+    selection_model.set_autoselect(true);
+    selection_model.set_selected(0);
+    selection_model.set_can_unselect(false);
+
+    debug!("what is selected ??????????????????? {:?}", selection_model.selected_item());
 
     let list_view = ListView::builder()
         .model(&selection_model)
@@ -381,10 +389,11 @@ pub fn make_list_view(
         .margin_top(12)
         .margin_bottom(12)
         .show_separators(true)
-        .single_click_activate(true)
+        //.single_click_activate(true)
         .build();
-    list_view.connect_activate(|lv: &ListView, pos: u32| {
+    list_view.connect_activate(move |lv: &ListView, pos: u32| {
         debug!("activateeeeeeeeeeeeeeed {:?}", pos);
+        debug!("what is selected ??????????????????? {:?}", selection_model.selected_item());
         let branch_list = lv.model().unwrap();
         let item_ob = branch_list.item(pos);
         if let Some(item) = item_ob {
