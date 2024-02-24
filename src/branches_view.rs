@@ -240,9 +240,7 @@ pub fn make_header_factory() -> SignalListItemFactory {
     header_factory
 }
 
-pub fn make_list_view(repo_path: std::ffi::OsString) -> ListView {
-
-    let header_factory = make_header_factory();
+pub fn make_item_factory() -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
         let label = Label::new(None);
@@ -289,6 +287,13 @@ pub fn make_list_view(repo_path: std::ffi::OsString) -> ListView {
                 Widget::NONE,
             );
     });
+    factory
+}
+
+pub fn make_list_view(repo_path: std::ffi::OsString) -> ListView {
+
+    let header_factory = make_header_factory();
+    let factory = make_item_factory();
 
     let model = BranchList::new();
 
