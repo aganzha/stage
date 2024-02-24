@@ -2,7 +2,7 @@ mod text_view;
 use text_view::{text_view_factory, Status};
 
 mod branches_view;
-use branches_view::{show_branches_window};
+use branches_view::show_branches_window;
 
 mod common_tests;
 
@@ -12,9 +12,9 @@ use async_channel::Sender;
 
 mod git;
 use git::{
-    commit_staged, get_current_repo_status, push,
-    stage_via_apply, get_refs, ApplyFilter, Diff, File, Head,
-    Hunk, Line, View, BranchData
+    commit_staged, get_current_repo_status,
+    get_refs, push, stage_via_apply, ApplyFilter,
+    BranchData, Diff, File, Head, Hunk, Line, View,
 };
 
 mod widgets;
@@ -25,7 +25,8 @@ use widgets::{
 
 use libadwaita::prelude::*;
 use libadwaita::{
-    Application, ApplicationWindow, HeaderBar, ToolbarView
+    Application, ApplicationWindow, HeaderBar,
+    ToolbarView,
 };
 
 use gdk::Display;
@@ -33,9 +34,11 @@ use gdk::Display;
 use glib::{clone, MainContext, Priority};
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Box, CssProvider, Label,
-    Orientation, ScrolledWindow,
-    style_context_add_provider_for_display, STYLE_PROVIDER_PRIORITY_APPLICATION
+    gdk, gio, glib,
+    style_context_add_provider_for_display, Box,
+    CssProvider, Label, Orientation,
+    ScrolledWindow,
+    STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
 use log::{debug, error, info, log_enabled, trace};
@@ -86,7 +89,7 @@ pub enum Event {
     PushRequest,
     Commit(String),
     Push,
-    Branches
+    Branches,
 }
 
 fn build_ui(app: &Application) {
@@ -116,15 +119,12 @@ fn build_ui(app: &Application) {
     let scroll = ScrolledWindow::new();
     scroll.set_child(Some(&txt));
 
-
     let tb = ToolbarView::builder()
         .content(&scroll)
         .build();
     tb.add_top_bar(&hb);
 
     window.set_content(Some(&tb));
-
-
 
     // window.set_content(Some(&container));
 
@@ -140,9 +140,8 @@ fn build_ui(app: &Application) {
     window.present();
 
     glib::spawn_future_local(async move {
-
-        while let Ok(event) = receiver.recv().await {
-
+        while let Ok(event) = receiver.recv().await
+        {
             match event {
                 Event::CurrentRepo(path) => {
                     current_repo_path.replace(path);
@@ -156,18 +155,26 @@ fn build_ui(app: &Application) {
                     if !status.has_staged() {
                         display_error(&window, "No changes were staged. Stage by hitting 's'");
                     } else {
-                        show_commit_message(&window, sender.clone());
+                        show_commit_message(
+                            &window,
+                            sender.clone(),
+                        );
                     }
                 }
                 Event::PushRequest => {
                     info!("main.push request");
                     // todo - check that there is something to push
-                    show_push_message(&window, sender.clone());
-                }                
+                    show_push_message(
+                        &window,
+                        sender.clone(),
+                    );
+                }
                 Event::Commit(message) => {
                     info!("main.commit");
                     status.commit_staged(
-                        current_repo_path.as_ref().unwrap(),
+                        current_repo_path
+                            .as_ref()
+                            .unwrap(),
                         message,
                         &txt,
                         sender.clone(),
@@ -176,14 +183,22 @@ fn build_ui(app: &Application) {
                 Event::Push => {
                     info!("main.push");
                     status.push(
-                        current_repo_path.as_ref().unwrap(),
+                        current_repo_path
+                            .as_ref()
+                            .unwrap(),
                         &txt,
                         sender.clone(),
                     );
                 }
                 Event::Branches => {
                     info!("main.braches");
-                    show_branches_window(&window, current_repo_path.as_ref().unwrap().clone());
+                    show_branches_window(
+                        &window,
+                        current_repo_path
+                            .as_ref()
+                            .unwrap()
+                            .clone(),
+                    );
                 }
                 Event::Head(h) => {
                     info!("main. head");
@@ -198,37 +213,49 @@ fn build_ui(app: &Application) {
                     status.update_staged(d, &txt);
                 }
                 Event::Unstaged(d) => {
-                    info!("main. unstaged {:p}", &d);
+                    info!(
+                        "main. unstaged {:p}",
+                        &d
+                    );
                     status.update_unstaged(d, &txt);
                 }
                 Event::Expand(offset, line_no) => {
-                    status.expand(&txt, line_no, offset);
+                    status.expand(
+                        &txt, line_no, offset,
+                    );
                 }
                 Event::Cursor(offset, line_no) => {
-                    status.cursor(&txt, line_no, offset);
+                    status.cursor(
+                        &txt, line_no, offset,
+                    );
                 }
                 Event::Stage(_offset, line_no) => {
                     status.stage(
                         &txt,
                         line_no,
-                        current_repo_path.as_ref().unwrap(),
+                        current_repo_path
+                            .as_ref()
+                            .unwrap(),
                         true,
                         sender.clone(),
                     );
                 }
-                Event::UnStage(_offset, line_no) => {
+                Event::UnStage(
+                    _offset,
+                    line_no,
+                ) => {
                     status.stage(
                         &txt,
                         line_no,
-                        current_repo_path.as_ref().unwrap(),
+                        current_repo_path
+                            .as_ref()
+                            .unwrap(),
                         false,
                         sender.clone(),
                     );
                 }
             };
-
         }
-
     });
 
     info!("===================================================>");
