@@ -199,22 +199,8 @@ impl BranchList {
     }
 }
 
-pub fn show_branches_window(
-    app_window: &ApplicationWindow,
-    repo_path: std::ffi::OsString,
-) {
-    let window = Window::builder()
-        .application(
-            &app_window.application().unwrap(),
-        )
-        .transient_for(app_window)
-        .default_width(640)
-        .default_height(480)
-        .build();
-    let hb = HeaderBar::builder().build();
-
-    let scroll = ScrolledWindow::new();
-    let mut section_title = std::cell::RefCell::new(
+pub fn make_header_factory() -> SignalListItemFactory {
+    let section_title = std::cell::RefCell::new(
         String::from("Branches"),
     );
     let header_factory =
@@ -251,7 +237,12 @@ pub fn show_branches_window(
             //     .bind(&label, "label", Widget::NONE);
         },
     );
+    header_factory
+}
 
+pub fn make_list_view(repo_path: std::ffi::OsString) -> ListView {
+
+    let header_factory = make_header_factory();
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
         let label = Label::new(None);
@@ -282,21 +273,21 @@ pub fn show_branches_window(
         item.chain_property::<BranchItem>(
             "last-commit",
         )
-        .bind(
-            &label1,
-            "label",
-            Widget::NONE,
-        );
+            .bind(
+                &label1,
+                "label",
+                Widget::NONE,
+            );
         item.chain_property::<BranchItem>("dt")
             .bind(&label2, "label", Widget::NONE);
         item.chain_property::<BranchItem>(
             "ref_kind",
         )
-        .bind(
-            &label2,
-            "label",
-            Widget::NONE,
-        );
+            .bind(
+                &label2,
+                "label",
+                Widget::NONE,
+            );
     });
 
     let model = BranchList::new();
@@ -311,6 +302,29 @@ pub fn show_branches_window(
         .factory(&factory)
         .header_factory(&header_factory)
         .build();
+    list_view.add_css_class("stage");
+    list_view
+}
+
+pub fn show_branches_window(
+    app_window: &ApplicationWindow,
+    repo_path: std::ffi::OsString,
+) {
+    let window = Window::builder()
+        .application(
+            &app_window.application().unwrap(),
+        )
+        .transient_for(app_window)
+        .default_width(640)
+        .default_height(480)
+        .build();
+    window.set_default_size(1280, 960);
+    
+    let hb = HeaderBar::builder().build();
+
+    let scroll = ScrolledWindow::new();
+
+    let list_view = make_list_view(repo_path);
     scroll.set_child(Some(&list_view));
 
     let tb = ToolbarView::builder()
