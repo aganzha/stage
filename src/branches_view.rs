@@ -1,13 +1,14 @@
 use git2::BranchType;
-use glib::{clone, Object};
+use glib::{clone, closure, types, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Box, EventControllerKey, Label,
+    gdk, gio, glib, pango, Box, EventControllerKey, Label,
     ListHeader, ListItem, ListView, NoSelection,
-    Orientation, ScrolledWindow, SectionModel,
-    SelectionModel, SignalListItemFactory,
-    StringList, StringObject, Widget,
+    Orientation, PropertyExpression,
+    ScrolledWindow, SectionModel, SelectionModel,
+    SignalListItemFactory, StringList,
+    StringObject, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -69,7 +70,13 @@ impl BranchItem {
         };
         let ob = Object::builder::<BranchItem>()
             .property("ref-kind", ref_kind)
-            .property("title", &branch.name)
+            .property(
+                "title",
+                format!(
+                    "<span color=\"#4a708b\">{}</span>",
+                    &branch.name
+                )
+            )
             .property(
                 "last-commit",
                 &branch.commit_string,
@@ -199,7 +206,8 @@ impl BranchList {
     }
 }
 
-pub fn make_header_factory() -> SignalListItemFactory {
+pub fn make_header_factory() -> SignalListItemFactory
+{
     let section_title = std::cell::RefCell::new(
         String::from("Branches"),
     );
@@ -240,13 +248,49 @@ pub fn make_header_factory() -> SignalListItemFactory {
     header_factory
 }
 
-pub fn make_item_factory() -> SignalListItemFactory {
+pub fn make_item_factory() -> SignalListItemFactory
+{
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
-        let label = Label::new(None);
-        let label1 = Label::new(None);
-        let label2 = Label::new(None);
-        let label3 = Label::new(None);
+        let label_title = Label::builder()
+            .label("")
+            .lines(1)
+            .single_line_mode(true)
+            .xalign(0.0)
+            .width_chars(24)
+            .max_width_chars(24)
+            .ellipsize(pango::EllipsizeMode::End)
+            .selectable(true)
+            .use_markup(true)
+            .can_focus(true)
+            .can_target(true)
+            .build();
+        let label_commit = Label::builder()
+            .label("")
+            .lines(1)
+            .single_line_mode(true)
+            .xalign(0.0)
+            .width_chars(36)
+            .max_width_chars(36)
+            .ellipsize(pango::EllipsizeMode::End)
+            .selectable(true)
+            .use_markup(true)
+            .can_focus(true)
+            .can_target(true)
+            .build();
+        let label_dt = Label::builder()
+            .label("")
+            .lines(1)
+            .single_line_mode(true)
+            .xalign(0.0)
+            .width_chars(24)
+            .max_width_chars(24)
+            .ellipsize(pango::EllipsizeMode::End)
+            .selectable(true)
+            .use_markup(true)
+            .can_focus(true)
+            .can_target(true)
+            .build();
 
         let bx = Box::builder()
             .orientation(Orientation::Horizontal)
@@ -254,11 +298,12 @@ pub fn make_item_factory() -> SignalListItemFactory {
             .margin_bottom(2)
             .margin_start(2)
             .margin_end(2)
-            .spacing(2)
+            .spacing(12)
             .build();
-        bx.append(&label);
-        bx.append(&label1);
-        bx.append(&label2);
+        bx.append(&label_title);
+        bx.append(&label_commit);
+        bx.append(&label_dt);
+
         let list_item = list_item
             .downcast_ref::<ListItem>()
             .expect("Needs to be ListItem");
@@ -266,32 +311,38 @@ pub fn make_item_factory() -> SignalListItemFactory {
 
         let item =
             list_item.property_expression("item");
+
         item.chain_property::<BranchItem>("title")
-            .bind(&label, "label", Widget::NONE);
+            .bind(
+                &label_title,
+                "label",
+                Widget::NONE,
+            );
+
         item.chain_property::<BranchItem>(
             "last-commit",
         )
-            .bind(
-                &label1,
-                "label",
-                Widget::NONE,
-            );
-        item.chain_property::<BranchItem>("dt")
-            .bind(&label2, "label", Widget::NONE);
+        .bind(
+            &label_commit,
+            "label",
+            Widget::NONE,
+        );
+
         item.chain_property::<BranchItem>(
-            "ref_kind",
+            "dt",
         )
-            .bind(
-                &label2,
-                "label",
-                Widget::NONE,
-            );
+        .bind(
+            &label_dt,
+            "label",
+            Widget::NONE,
+        );
     });
     factory
 }
 
-pub fn make_list_view(repo_path: std::ffi::OsString) -> ListView {
-
+pub fn make_list_view(
+    repo_path: std::ffi::OsString,
+) -> ListView {
     let header_factory = make_header_factory();
     let factory = make_item_factory();
 
@@ -324,7 +375,7 @@ pub fn show_branches_window(
         .default_height(480)
         .build();
     window.set_default_size(1280, 960);
-    
+
     let hb = HeaderBar::builder().build();
 
     let scroll = ScrolledWindow::new();
