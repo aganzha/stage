@@ -11,15 +11,16 @@ use async_channel::Sender;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, TextBuffer, TextIter,
-    TextTag, TextView, EventControllerKey, GestureClick, EventSequenceState, TextWindowType,
-    MovementStep
+    gdk, gio, glib, pango, EventControllerKey,
+    EventSequenceState, GestureClick, MovementStep,
+    TextBuffer, TextIter, TextTag, TextView,
+    TextWindowType,
 };
 use log::{debug, trace};
 use pango::Style;
 use std::cell::RefCell;
-use std::ffi::OsString;
 use std::collections::HashSet;
+use std::ffi::OsString;
 
 const CURSOR_TAG: &str = "CursorTag";
 
@@ -89,7 +90,9 @@ impl Tag {
             Self::Added => "added",
             Self::EnhancedAdded => "enhancedAdded",
             Self::Removed => "removed",
-            Self::EnhancedRemoved => "enhancedRemoved",
+            Self::EnhancedRemoved => {
+                "enhancedRemoved"
+            }
             Self::Cursor => CURSOR_TAG,
             Self::Region => "region",
             Self::Italic => "italic",
@@ -99,7 +102,7 @@ impl Tag {
         match self {
             Self::Added => &Self::EnhancedAdded,
             Self::Removed => &Self::EnhancedRemoved,
-            other => other
+            other => other,
         }
     }
 }
@@ -175,9 +178,13 @@ pub fn text_view_factory(
     buffer.tag_table().add(&Tag::Region.create());
     buffer.tag_table().add(&Tag::Bold.create());
     buffer.tag_table().add(&Tag::Added.create());
-    buffer.tag_table().add(&Tag::EnhancedAdded.create());
+    buffer
+        .tag_table()
+        .add(&Tag::EnhancedAdded.create());
     buffer.tag_table().add(&Tag::Removed.create());
-    buffer.tag_table().add(&Tag::EnhancedRemoved.create());
+    buffer
+        .tag_table()
+        .add(&Tag::EnhancedRemoved.create());
     buffer.tag_table().add(&Tag::Italic.create());
 
     let event_controller =
@@ -238,8 +245,7 @@ pub fn text_view_factory(
     });
     txt.add_controller(event_controller);
 
-    let gesture_controller =
-        GestureClick::new();
+    let gesture_controller = GestureClick::new();
     gesture_controller.connect_released({
         let sndr = sndr.clone();
         let txt = txt.clone();
@@ -260,7 +266,6 @@ pub fn text_view_factory(
         let sndr = sndr.clone();
         let latest_char_offset = RefCell::new(0);
         move |view: &TextView, step, count, _selection| {
-            
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);
@@ -386,7 +391,9 @@ impl View {
     ) -> String {
         if content.is_empty() {
             if let Some(len) = prev_line_len {
-                return " ".repeat(len as usize).to_string();                
+                return " "
+                    .repeat(len as usize)
+                    .to_string();
             } else {
                 return String::from("");
             }
@@ -574,27 +581,33 @@ impl View {
     ) {
         let mut fltr: HashSet<Tag> = HashSet::new();
         if self.current {
-            self.add_tag(buffer, Tag::Cursor.name());
+            self.add_tag(
+                buffer,
+                Tag::Cursor.name(),
+            );
             fltr.insert(Tag::Added);
             fltr.insert(Tag::Removed);
             fltr.insert(Tag::Region);
-            // it need to filter background tags            
+            // it need to filter background tags
         } else {
             self.remove_tag(
                 buffer,
                 Tag::Cursor.name(),
             );
-        }        
+        }
         if self.active {
             if !fltr.contains(&Tag::Region) {
                 self.add_tag(
                     buffer,
-                    Tag::Region.name(),                    
+                    Tag::Region.name(),
                 );
             }
             for t in content_tags {
                 if !fltr.contains(t) {
-                    self.add_tag(buffer, t.enhance().name());
+                    self.add_tag(
+                        buffer,
+                        t.enhance().name(),
+                    );
                 }
             }
         } else {
@@ -603,7 +616,10 @@ impl View {
                 Tag::Region.name(),
             );
             for t in content_tags {
-                self.remove_tag(buffer, t.enhance().name());
+                self.remove_tag(
+                    buffer,
+                    t.enhance().name(),
+                );
             }
             for t in content_tags {
                 if !fltr.contains(t) {

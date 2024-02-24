@@ -2,22 +2,24 @@ use crate::gio;
 // use crate::glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
+use chrono::prelude::*;
+use chrono::{
+    DateTime, FixedOffset, LocalResult, TimeZone,
+};
 use ffi::OsString;
 use git2::{
     ApplyLocation, ApplyOptions, Branch,
     BranchType, Commit, Cred, CredentialType,
-    Diff as GitDiff, DiffFile, DiffFormat,
-    DiffHunk, DiffLine, DiffLineType, DiffOptions,
-    Error, ObjectType, Oid, PushOptions, Reference,
-    RemoteCallbacks, Repository, Delta, DiffDelta
+    Delta, Diff as GitDiff, DiffDelta, DiffFile,
+    DiffFormat, DiffHunk, DiffLine, DiffLineType,
+    DiffOptions, Error, ObjectType, Oid,
+    PushOptions, Reference, RemoteCallbacks,
+    Repository,
 };
 use log::{debug, trace};
 use regex::Regex;
-use std::{env, ffi, iter::zip, path, str};
-use chrono::prelude::*;
-use chrono::{DateTime, TimeZone, FixedOffset, LocalResult};
 use std::cmp::Ordering;
-
+use std::{env, ffi, iter::zip, path, str};
 
 fn get_current_repo(
     mut path_buff: path::PathBuf,
@@ -483,7 +485,6 @@ impl Head {
     }
 }
 
-
 pub fn commit_string(c: &Commit) -> String {
     format!(
         "{} {}",
@@ -492,15 +493,19 @@ pub fn commit_string(c: &Commit) -> String {
     )
 }
 
-pub fn commit_dt(c: &Commit) -> DateTime<FixedOffset> {
-    let tz = FixedOffset::east_opt(c.time().offset_minutes() * 60).unwrap();
+pub fn commit_dt(
+    c: &Commit,
+) -> DateTime<FixedOffset> {
+    let tz = FixedOffset::east_opt(
+        c.time().offset_minutes() * 60,
+    )
+    .unwrap();
     match tz.timestamp_opt(c.time().seconds(), 0) {
         LocalResult::Single(dt) => dt,
         LocalResult::Ambiguous(dt, _) => dt,
-        _ => todo!("not implemented")
-    }    
+        _ => todo!("not implemented"),
+    }
 }
-
 
 pub fn get_head(
     path: OsString,
@@ -841,8 +846,7 @@ pub fn stage_via_apply(
         ApplyLocation::Index,
         Some(&mut options),
     )
-        .expect("can't apply patch");
-    
+    .expect("can't apply patch");
 
     // staged changes
     gio::spawn_blocking({
@@ -944,9 +948,9 @@ pub fn commit_staged(
         )
         .expect("can't get diff tree to index");
     sender
-        .send_blocking(crate::Event::Staged(make_diff(
-            git_diff,
-        )))
+        .send_blocking(crate::Event::Staged(
+            make_diff(git_diff),
+        ))
         .expect("Could not send through channel");
     get_head(path, head, sender)
 }
@@ -1026,7 +1030,7 @@ pub struct BranchData {
     pub commit_string: String,
     pub is_head: bool,
     pub upstream_name: Option<String>,
-    pub commit_dt: DateTime<FixedOffset>
+    pub commit_dt: DateTime<FixedOffset>,
 }
 
 impl Default for BranchData {
@@ -1038,21 +1042,36 @@ impl Default for BranchData {
             commit_string: String::from(""),
             is_head: false,
             upstream_name: None,
-            commit_dt: DateTime::<FixedOffset>::MIN_UTC.into()
+            commit_dt:
+                DateTime::<FixedOffset>::MIN_UTC
+                    .into(),
         }
     }
 }
 
 impl BranchData {
-
-    pub fn new(branch: Branch, branch_type: BranchType) -> Self {
-        let name = branch.name().unwrap().unwrap().to_string();
-        let mut upstream_name: Option<String> = None;
+    pub fn new(
+        branch: Branch,
+        branch_type: BranchType,
+    ) -> Self {
+        let name = branch
+            .name()
+            .unwrap()
+            .unwrap()
+            .to_string();
+        let mut upstream_name: Option<String> =
+            None;
         if let Ok(upstream) = branch.upstream() {
-            upstream_name = Some(upstream.name().unwrap().unwrap().to_string());
+            upstream_name = Some(
+                upstream
+                    .name()
+                    .unwrap()
+                    .unwrap()
+                    .to_string(),
+            );
         }
         let is_head = branch.is_head();
-        let bref  = branch.get();
+        let bref = branch.get();
         let ob = bref
             .peel(ObjectType::Commit)
             .expect("can't get commit from ref!");
@@ -1070,20 +1089,24 @@ impl BranchData {
             commit_string,
             is_head,
             upstream_name,
-            commit_dt
+            commit_dt,
         }
     }
 }
 
 pub fn get_refs(path: OsString) -> Vec<BranchData> {
-
     let repo = Repository::open(path.clone())
         .expect("can't open repo");
     let mut result = Vec::new();
-    let branches = repo.branches(None).expect("can't get branches");
+    let branches = repo
+        .branches(None)
+        .expect("can't get branches");
     branches.for_each(|item| {
         let (branch, branch_type) = item.unwrap();
-        result.push(BranchData::new(branch, branch_type));
+        result.push(BranchData::new(
+            branch,
+            branch_type,
+        ));
     });
     result.sort_by(|a, b| {
         if a.is_head {
@@ -1092,13 +1115,17 @@ pub fn get_refs(path: OsString) -> Vec<BranchData> {
         if b.is_head {
             return Ordering::Greater;
         }
-        if a.branch_type == BranchType::Local && b.branch_type != BranchType::Local {
+        if a.branch_type == BranchType::Local
+            && b.branch_type != BranchType::Local
+        {
             return Ordering::Less;
         }
-        if b.branch_type == BranchType::Local && a.branch_type != BranchType::Local {
+        if b.branch_type == BranchType::Local
+            && a.branch_type != BranchType::Local
+        {
             return Ordering::Greater;
         }
-        return b.commit_dt.cmp(&a.commit_dt);        
+        return b.commit_dt.cmp(&a.commit_dt);
     });
     result
 }

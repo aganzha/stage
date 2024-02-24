@@ -8,8 +8,10 @@ use libadwaita::{
 use async_channel::Sender;
 
 use gtk4::prelude::*;
-use gtk4::{glib, TextView, AlertDialog, EventControllerKey};
-use log::{trace};
+use gtk4::{
+    glib, AlertDialog, EventControllerKey, TextView,
+};
+use log::trace;
 
 pub fn display_error(
     w: &ApplicationWindow,
@@ -90,9 +92,11 @@ pub fn show_commit_message(
             let end = buffer.end_iter();
             let message =
                 buffer.slice(&start, &end, false);
-            sndr.send_blocking(crate::Event::Commit(
-                message.to_string(),
-            ))
+            sndr.send_blocking(
+                crate::Event::Commit(
+                    message.to_string(),
+                ),
+            )
             .expect("cant send through channel");
         },
     );
@@ -161,9 +165,10 @@ pub fn show_push_message(
             // let start = buffer.iter_at_offset(0);
             // let end = buffer.end_iter();
             // let message = buffer.slice(&start, &end, false);
-            sndr.send_blocking(crate::Event::Push).expect(
-                "cant send through channel",
-            );
+            sndr.send_blocking(crate::Event::Push)
+                .expect(
+                    "cant send through channel",
+                );
         },
     );
     dialog.present();
