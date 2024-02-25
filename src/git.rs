@@ -1107,12 +1107,12 @@ pub fn get_refs(path: OsString) -> Vec<BranchData> {
         ));
     });
     result.sort_by(|a, b| {
-        if a.is_head {
-            return Ordering::Less;
-        }
-        if b.is_head {
-            return Ordering::Greater;
-        }
+        // if a.is_head {
+        //     return Ordering::Less;
+        // }
+        // if b.is_head {
+        //     return Ordering::Greater;
+        // }
         if a.branch_type == BranchType::Local
             && b.branch_type != BranchType::Local
         {
