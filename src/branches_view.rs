@@ -462,18 +462,17 @@ pub fn make_list_view(
         let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
         let list_model = single_selection.model().unwrap();
         let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
-        for branch_item in branch_list.imp().list.borrow().iter() {
-            branch_item.set_is_head(false);
-            branch_item.set_progress(false);
-            branch_item.set_no_progress(true);            
-        }
-        debug!("ssssssssssssssssssss {:?}", branch_list);
+
         let item_ob = selection_model.item(pos);
         if let Some(item) = item_ob {
+            for branch_item in branch_list.imp().list.borrow().iter() {
+                branch_item.set_is_head(false);
+                branch_item.set_progress(false);
+                branch_item.set_no_progress(true);            
+            }
             let branch_item = item.downcast_ref::<BranchItem>().unwrap();
             branch_item.set_progress(true);
             branch_item.set_no_progress(false);
-            debug!("jjjjjuuuuuuuuuuust set progress! {:?} {:?}", branch_item.progress(), branch_item.no_progress());
         }
     });
     list_view.add_css_class("stage");
