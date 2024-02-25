@@ -3,9 +3,9 @@ use glib::{clone, closure, types, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, EventControllerKey, Label,
+    gdk, gio, glib, pango, Box, EventControllerKey, Label, CheckButton,
     ListHeader, ListItem, ListView, NoSelection, SingleSelection,
-    Orientation, PropertyExpression,
+    Orientation, PropertyExpression, Spinner,
     ScrolledWindow, SectionModel, SelectionModel,
     SignalListItemFactory, StringList,
     StringObject, Widget,
@@ -35,6 +35,15 @@ mod branch_item {
     #[properties(wrapper_type = super::BranchItem)]
     pub struct BranchItem {
         pub branch: RefCell<crate::BranchData>,
+
+        #[property(get, set)]
+        pub progress: RefCell<bool>,
+
+        #[property(get, set)]
+        pub no_progress: RefCell<bool>,
+
+        #[property(get, set)]
+        pub is_head: RefCell<bool>,
 
         #[property(get, set)]
         pub ref_kind: RefCell<String>,
@@ -72,6 +81,9 @@ impl BranchItem {
             }
         };
         let ob = Object::builder::<BranchItem>()
+            .property("is-head", branch.is_head)
+            .property("progress", false)
+            .property("no-progress", true)
             .property("ref-kind", ref_kind)
             .property(
                 "title",
@@ -143,7 +155,7 @@ mod branch_list {
                 return None;
             }
             // ??? clone ???
-            return Some(list[position as usize].clone().into())            
+            return Some(list[position as usize].clone().into())
         }
     }
 
@@ -200,7 +212,9 @@ impl BranchList {
                 }
                 branch_list.imp().remote_start_pos.replace(remote_start_pos);
                 branch_list.items_changed(0, 0, le);
-                
+                // I NEED TO SELECT SOMETHING!
+                // branch_list.set_selected(0);
+
             })
         })
     }
@@ -252,6 +266,13 @@ pub fn make_item_factory() -> SignalListItemFactory
 {
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
+        let fake_btn = CheckButton::new();
+        let btn = CheckButton::new();
+        btn.set_group(Some(&fake_btn));
+        btn.set_sensitive(false);
+        let spinner = Spinner::new();
+        spinner.set_visible(false);
+        // spinner.set_spinning(true);
         let label_title = Label::builder()
             .label("")
             .lines(1)
@@ -300,6 +321,8 @@ pub fn make_item_factory() -> SignalListItemFactory
             .margin_end(2)
             .spacing(12)
             .build();
+        bx.append(&btn);
+        bx.append(&spinner);
         bx.append(&label_title);
         bx.append(&label_commit);
         bx.append(&label_dt);
@@ -311,10 +334,34 @@ pub fn make_item_factory() -> SignalListItemFactory
         list_item.set_selectable(true);
         list_item.set_activatable(true);
         list_item.set_focusable(true);
-        
+
         let item =
             list_item.property_expression("item");
-        
+
+        item.chain_property::<BranchItem>("is_head")
+            .bind(
+                &btn,
+                "active",
+                Widget::NONE,
+            );
+        item.chain_property::<BranchItem>("no-progress")
+            .bind(
+                &btn,
+                "visible",
+                Widget::NONE,
+            );
+        item.chain_property::<BranchItem>("progress")
+            .bind(
+                &spinner,
+                "visible",
+                Widget::NONE,
+            );
+        item.chain_property::<BranchItem>("progress")
+            .bind(
+                &spinner,
+                "spinning",
+                Widget::NONE,
+            );
         item.chain_property::<BranchItem>("title")
             .bind(
                 &label_title,
@@ -353,7 +400,7 @@ pub fn make_item_factory() -> SignalListItemFactory
     //     } else {
     //         panic!("no item on bind list_item");
     //     }
-        
+
     //     // debug!("-----------------------> {:?} {:?}", list_item, branch_item);
     // });
     factory
@@ -373,7 +420,7 @@ pub fn make_list_view(
 
     // let five_seconds = Duration::from_secs(5);
     // thread::sleep(five_seconds);
-    
+
     selection_model.set_autoselect(true);
     selection_model.set_selected(0);
     selection_model.set_can_unselect(false);
@@ -391,16 +438,43 @@ pub fn make_list_view(
         .show_separators(true)
         //.single_click_activate(true)
         .build();
+    // so. selected and selected_item - is just a cursor position
+    // and activated - is pressing enter or double click
+    // selection_model.connect_model_notify(|_| {
+    //     debug!("selection_model MODEL notify!!!!!!!!!!!!!!");
+    // });
+    // selection_model.connect_selected_notify(|sm| {
+    //     let selected_item = sm.selected_item();
+    //     if let Some(item) = selected_item {
+    //         let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+    //         debug!("selection_model SELECTED notify!!!!!!!!!!!!!! {:?}", branch_item.imp().branch.borrow().name);
+    //     }
+    // });
+    // selection_model.connect_selected_item_notify(|sm| {
+    //     let selected_item = sm.selected_item();
+    //     if let Some(item) = selected_item {
+    //         let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+    //         debug!("selection_model SELECTED ITEM notify!!!!!!!!!!!!!! {:?}", branch_item.imp().branch.borrow().name);
+    //     }
+    // });
     list_view.connect_activate(move |lv: &ListView, pos: u32| {
-        debug!("activateeeeeeeeeeeeeeed {:?}", pos);
-        debug!("what is selected ??????????????????? {:?}", selection_model.selected_item());
-        let branch_list = lv.model().unwrap();
-        let item_ob = branch_list.item(pos);
+        let selection_model = lv.model().unwrap();
+        let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
+        let list_model = single_selection.model().unwrap();
+        let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
+        for branch_item in branch_list.imp().list.borrow().iter() {
+            branch_item.set_is_head(false);
+            branch_item.set_progress(false);
+            branch_item.set_no_progress(true);            
+        }
+        debug!("ssssssssssssssssssss {:?}", branch_list);
+        let item_ob = selection_model.item(pos);
         if let Some(item) = item_ob {
             let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-            debug!("------------------------------------_>{:?}", branch_item.imp().branch.borrow().name);
-        }        
-        // let item = branch_list.imp().list.borrow()[pos];
+            branch_item.set_progress(true);
+            branch_item.set_no_progress(false);
+            debug!("jjjjjuuuuuuuuuuust set progress! {:?} {:?}", branch_item.progress(), branch_item.no_progress());
+        }
     });
     list_view.add_css_class("stage");
     list_view
@@ -453,4 +527,5 @@ pub fn show_branches_window(
     });
     window.add_controller(event_controller);
     window.present();
+    list_view.grab_focus();
 }
