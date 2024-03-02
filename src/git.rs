@@ -1139,5 +1139,9 @@ pub fn set_head(
     refname: &str,
 ) -> Result<(), String> {
     debug!("set head.......{:?}", refname);
+    let repo = Repository::open(path.clone())
+        .expect("can't open repo");
+    let result = repo.set_head(refname);
+    debug!("======================> {:?}", result);
     Ok(())
 }
