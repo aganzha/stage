@@ -14,6 +14,7 @@ mod git;
 use git::{
     commit_staged, get_current_repo_status,
     get_refs, push, set_head, stage_via_apply,
+    checkout,
     ApplyFilter, BranchData, Diff, File, Head,
     Hunk, Line, View,
 };
@@ -26,7 +27,7 @@ use widgets::{
 
 use libadwaita::prelude::*;
 use libadwaita::{
-    Application, ApplicationWindow, HeaderBar,
+    Application, ApplicationWindow, Window, HeaderBar,
     ToolbarView,
 };
 

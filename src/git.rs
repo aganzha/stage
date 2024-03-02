@@ -12,10 +12,11 @@ use git2::{
     BranchType, Commit, Cred, CredentialType,
     Delta, Diff as GitDiff, DiffDelta, DiffFile,
     DiffFormat, DiffHunk, DiffLine, DiffLineType,
-    DiffOptions, Error, ObjectType, Oid,
+    DiffOptions, Error, ErrorCode, ObjectType, Oid,
     PushOptions, Reference, RemoteCallbacks,
-    Repository,
+    Repository
 };
+use git2::build::{CheckoutBuilder};
 use log::{debug, trace};
 use regex::Regex;
 use std::cmp::Ordering;
@@ -1142,6 +1143,39 @@ pub fn set_head(
     let repo = Repository::open(path.clone())
         .expect("can't open repo");
     let result = repo.set_head(refname);
-    debug!("======================> {:?}", result);
+    debug!("======================DADA> {:?}", result);
     Ok(())
+}
+
+fn git_checkout(
+    // path: OsString,
+    // branch_data: BranchData,
+    repo: Repository,
+    oid: Oid,
+    refname: &str
+) -> Result<(), Error> {
+    let mut builder = CheckoutBuilder::new();
+    let opts = builder.safe();
+    let commit = repo.find_commit(oid)?;
+    repo.checkout_tree(commit.as_object(), Some(opts))?;
+    repo.set_head(&refname)?;
+    Ok(())
+}
+
+pub fn checkout(path: OsString,
+                oid: Oid,
+                refname: &str) -> Result<(), String> {        
+    let repo = Repository::open(path.clone())
+        .expect("can't open repo");
+    if let  Err(err) = git_checkout(repo, oid, refname) {
+        debug!("err on checkout {:?} {:?} {:?}", err.code(), err.class(), err.message());
+        // match err.code() {
+        //     ErrorCode::Conflict => {
+        //         return Err(String::from(""));
+        //     }
+        // }
+        return Err(String::from(err.message()));
+    }
+    // todo -> message to update text_view
+    Ok(())        
 }

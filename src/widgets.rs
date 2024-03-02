@@ -1,7 +1,7 @@
 use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, MessageDialog,
-    ResponseAppearance,
+    ResponseAppearance, Window
 };
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
@@ -10,11 +10,12 @@ use async_channel::Sender;
 use gtk4::prelude::*;
 use gtk4::{
     glib, AlertDialog, EventControllerKey, TextView,
+    Window as Gtk4Window
 };
 use log::trace;
 
 pub fn display_error(
-    w: &ApplicationWindow,
+    w: &impl IsA<Gtk4Window>,// Application
     message: &str,
 ) {
     let d = AlertDialog::builder()
