@@ -228,9 +228,14 @@ impl BranchList {
     pub fn checkout(
         &self,
         repo_path: std::ffi::OsString,
-        branch_data: &crate::BranchData,
+        selected_item: &BranchItem,
+        current_item: &BranchItem,
         window: &Window
     ) {
+        let branch_data = selected_item
+            .imp()
+            .branch
+            .borrow();
         debug!(
             "checkout........... {:?}",
             branch_data
@@ -238,20 +243,25 @@ impl BranchList {
         let name = branch_data.refname.clone();
         let oid = branch_data.oid.clone();
         glib::spawn_future_local({
-            clone!(@weak self as branch_list, @weak window as window => async move {
+            clone!(@weak self as branch_list, @weak window as window, @weak selected_item, @weak current_item => async move {
                 let result = gio::spawn_blocking(move || {
                     crate::checkout(repo_path, oid, &name)
                 }).await;
                 let mut err_message = String::from("git error");
                 if let Ok(git_result) = result {                    
+                    selected_item.set_progress(false);
                     match git_result {
                         Ok(_) => {
                             debug!("suuuuuuuuuuuuuccessful checkout");
+                            selected_item.set_is_head(true);
+                            selected_item.set_no_progress(true);
+                            current_item.set_is_head(false);
                             return;
                         }
                         Err(err) => err_message = err
                     }
                 }
+                selected_item.set_no_progress(true);
                 crate::display_error(&window, &err_message);
                 debug!("result in set head {:?}", err_message);
             })
@@ -504,14 +514,18 @@ pub fn make_list_view(
                 .unwrap();
 
             let item_ob = selection_model.item(pos);
+            let mut current_item: Option<&BranchItem> = None;
             if let Some(item) = item_ob {
-                for branch_item in branch_list
+                let list = branch_list
                     .imp()
                     .list
-                    .borrow()
-                    .iter()
+                    .borrow();
+                for branch_item in list.iter()
                 {
-                    branch_item.set_is_head(false);
+                    if branch_item.is_head() {
+                        current_item.replace(branch_item);
+                    }
+                    // branch_item.set_is_head(false);
                     branch_item.set_progress(false);
                     branch_item
                         .set_no_progress(true);
@@ -521,15 +535,12 @@ pub fn make_list_view(
                     .unwrap();
                 branch_item.set_progress(true);
                 branch_item.set_no_progress(false);
-                let branch_ref = branch_item
-                    .imp()
-                    .branch
-                    .borrow();
                 let root = lv.root().unwrap();
                 let window = root.downcast_ref::<Window>().unwrap();
                 branch_list.checkout(
                     repo_path.clone(),
-                    &*branch_ref,
+                    &branch_item,
+                    current_item.unwrap(),
                     &window
                 );
             }
