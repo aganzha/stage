@@ -1025,6 +1025,7 @@ pub fn push(
 #[derive(Debug, Clone)]
 pub struct BranchData {
     pub name: String,
+    pub refname: String,
     pub branch_type: BranchType,
     pub oid: Oid,
     pub commit_string: String,
@@ -1037,12 +1038,15 @@ impl Default for BranchData {
     fn default() -> Self {
         BranchData {
             name: String::from(""),
+            refname: String::from(""),
             branch_type: BranchType::Local,
             oid: Oid::zero(),
             commit_string: String::from(""),
             is_head: false,
             upstream_name: None,
-            commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
+            commit_dt:
+                DateTime::<FixedOffset>::MIN_UTC
+                    .into(),
         }
     }
 }
@@ -1068,8 +1072,9 @@ impl BranchData {
                     .to_string(),
             );
         }
-        let is_head = branch.is_head();
+        let is_head = branch.is_head();        
         let bref = branch.get();
+        let refname = bref.name().unwrap().to_string();
         let ob = bref
             .peel(ObjectType::Commit)
             .expect("can't get commit from ref!");
@@ -1082,6 +1087,7 @@ impl BranchData {
         let commit_dt = commit_dt(&commit);
         BranchData {
             name,
+            refname,
             branch_type,
             oid,
             commit_string,
@@ -1126,4 +1132,12 @@ pub fn get_refs(path: OsString) -> Vec<BranchData> {
         return b.commit_dt.cmp(&a.commit_dt);
     });
     result
+}
+
+pub fn set_head(
+    path: OsString,
+    refname: &str,
+) -> Result<(), String> {
+    debug!("set head.......{:?}", refname);
+    Ok(())
 }

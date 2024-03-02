@@ -3,12 +3,13 @@ use glib::{clone, closure, types, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, EventControllerKey, Label, CheckButton,
-    ListHeader, ListItem, ListView, NoSelection, SingleSelection,
-    Orientation, PropertyExpression, Spinner,
-    ScrolledWindow, SectionModel, SelectionModel,
-    SignalListItemFactory, StringList,
-    StringObject, Widget,
+    gdk, gio, glib, pango, Box, CheckButton,
+    EventControllerKey, Label, ListHeader,
+    ListItem, ListView, NoSelection, Orientation,
+    PropertyExpression, ScrolledWindow,
+    SectionModel, SelectionModel,
+    SignalListItemFactory, SingleSelection,
+    Spinner, StringList, StringObject, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -18,7 +19,6 @@ use libadwaita::{
 use log::{debug, error, info, log_enabled, trace};
 use std::thread;
 use std::time::Duration;
-
 
 glib::wrapper! {
     pub struct BranchItem(ObjectSubclass<branch_item::BranchItem>);
@@ -155,7 +155,11 @@ mod branch_list {
                 return None;
             }
             // ??? clone ???
-            return Some(list[position as usize].clone().into())
+            return Some(
+                list[position as usize]
+                    .clone()
+                    .into(),
+            );
         }
     }
 
@@ -190,16 +194,17 @@ impl BranchList {
     pub fn make_list(
         &self,
         repo_path: std::ffi::OsString,
-    ) -> glib::JoinHandle<()> {
+    ) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list=> async move {
-                let branches: Vec<crate::BranchData> = gio::spawn_blocking(||crate::get_refs(repo_path))
-                    .await.expect("Task needs to finish successfully.");
+                let branches: Vec<crate::BranchData> = gio::spawn_blocking(move || {
+                    crate::get_refs(repo_path)
+                }).await.expect("Task needs to finish successfully.");
 
                 let items: Vec<BranchItem> = branches.into_iter()
                     .map(|branch| BranchItem::new(branch))
                     .collect();
-                debug!("tooooooooootal items {:?}", items.len());
+
                 let le = items.len() as u32;
                 let mut pos = 0;
                 let mut remote_start_pos: Option<u32> = None;
@@ -216,7 +221,27 @@ impl BranchList {
                 // branch_list.set_selected(0);
 
             })
-        })
+        });
+    }
+
+    pub fn checkout(
+        &self,
+        repo_path: std::ffi::OsString,
+        branch_data: &crate::BranchData,
+    ) {
+        debug!(
+            "checkout........... {:?}",
+            branch_data
+        );
+        let name = branch_data.refname.clone();
+        glib::spawn_future_local({
+            clone!(@weak self as branch_list=> async move {
+                let result = gio::spawn_blocking(move || {
+                    crate::set_head(repo_path, &name)
+                }).await;
+                debug!("result in set head {:?}", result);
+            })
+        });
     }
 }
 
@@ -338,30 +363,34 @@ pub fn make_item_factory() -> SignalListItemFactory
         let item =
             list_item.property_expression("item");
 
-        item.chain_property::<BranchItem>("is_head")
-            .bind(
-                &btn,
-                "active",
-                Widget::NONE,
-            );
-        item.chain_property::<BranchItem>("no-progress")
-            .bind(
-                &btn,
-                "visible",
-                Widget::NONE,
-            );
-        item.chain_property::<BranchItem>("progress")
-            .bind(
-                &spinner,
-                "visible",
-                Widget::NONE,
-            );
-        item.chain_property::<BranchItem>("progress")
-            .bind(
-                &spinner,
-                "spinning",
-                Widget::NONE,
-            );
+        item.chain_property::<BranchItem>(
+            "is_head",
+        )
+        .bind(&btn, "active", Widget::NONE);
+        item.chain_property::<BranchItem>(
+            "no-progress",
+        )
+        .bind(
+            &btn,
+            "visible",
+            Widget::NONE,
+        );
+        item.chain_property::<BranchItem>(
+            "progress",
+        )
+        .bind(
+            &spinner,
+            "visible",
+            Widget::NONE,
+        );
+        item.chain_property::<BranchItem>(
+            "progress",
+        )
+        .bind(
+            &spinner,
+            "spinning",
+            Widget::NONE,
+        );
         item.chain_property::<BranchItem>("title")
             .bind(
                 &label_title,
@@ -378,14 +407,8 @@ pub fn make_item_factory() -> SignalListItemFactory
             Widget::NONE,
         );
 
-        item.chain_property::<BranchItem>(
-            "dt",
-        )
-        .bind(
-            &label_dt,
-            "label",
-            Widget::NONE,
-        );
+        item.chain_property::<BranchItem>("dt")
+            .bind(&label_dt, "label", Widget::NONE);
     });
     // factory.connect_bind(move |_, list_item| {
     //     let list_item = list_item
@@ -413,7 +436,7 @@ pub fn make_list_view(
     let factory = make_item_factory();
 
     let model = BranchList::new();
-    model.make_list(repo_path);
+    model.make_list(repo_path.clone());
 
     let selection_model =
         SingleSelection::new(Some(model));
@@ -425,7 +448,10 @@ pub fn make_list_view(
     selection_model.set_selected(0);
     selection_model.set_can_unselect(false);
 
-    debug!("what is selected ??????????????????? {:?}", selection_model.selected_item());
+    debug!(
+        "what is selected ??????????????????? {:?}",
+        selection_model.selected_item()
+    );
 
     let list_view = ListView::builder()
         .model(&selection_model)
@@ -457,24 +483,48 @@ pub fn make_list_view(
     //         debug!("selection_model SELECTED ITEM notify!!!!!!!!!!!!!! {:?}", branch_item.imp().branch.borrow().name);
     //     }
     // });
-    list_view.connect_activate(move |lv: &ListView, pos: u32| {
-        let selection_model = lv.model().unwrap();
-        let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
-        let list_model = single_selection.model().unwrap();
-        let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
+    list_view.connect_activate(
+        move |lv: &ListView, pos: u32| {
+            let selection_model =
+                lv.model().unwrap();
+            let single_selection = selection_model
+                .downcast_ref::<SingleSelection>()
+                .unwrap();
+            let list_model =
+                single_selection.model().unwrap();
+            let branch_list = list_model
+                .downcast_ref::<BranchList>()
+                .unwrap();
 
-        let item_ob = selection_model.item(pos);
-        if let Some(item) = item_ob {
-            for branch_item in branch_list.imp().list.borrow().iter() {
-                branch_item.set_is_head(false);
-                branch_item.set_progress(false);
-                branch_item.set_no_progress(true);            
+            let item_ob = selection_model.item(pos);
+            if let Some(item) = item_ob {
+                for branch_item in branch_list
+                    .imp()
+                    .list
+                    .borrow()
+                    .iter()
+                {
+                    branch_item.set_is_head(false);
+                    branch_item.set_progress(false);
+                    branch_item
+                        .set_no_progress(true);
+                }
+                let branch_item = item
+                    .downcast_ref::<BranchItem>()
+                    .unwrap();
+                branch_item.set_progress(true);
+                branch_item.set_no_progress(false);
+                let branch_ref = branch_item
+                    .imp()
+                    .branch
+                    .borrow();
+                branch_list.checkout(
+                    repo_path.clone(),
+                    &*branch_ref,
+                );
             }
-            let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-            branch_item.set_progress(true);
-            branch_item.set_no_progress(false);
-        }
-    });
+        },
+    );
     list_view.add_css_class("stage");
     list_view
 }

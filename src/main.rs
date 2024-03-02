@@ -13,8 +13,9 @@ use async_channel::Sender;
 mod git;
 use git::{
     commit_staged, get_current_repo_status,
-    get_refs, push, stage_via_apply, ApplyFilter,
-    BranchData, Diff, File, Head, Hunk, Line, View,
+    get_refs, push, set_head, stage_via_apply,
+    ApplyFilter, BranchData, Diff, File, Head,
+    Hunk, Line, View,
 };
 
 mod widgets;
