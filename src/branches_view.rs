@@ -10,6 +10,7 @@ use gtk4::{
     SectionModel, SelectionModel,
     SignalListItemFactory, SingleSelection,
     Spinner, StringList, StringObject, Widget,
+    AlertDialog
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -228,18 +229,31 @@ impl BranchList {
         &self,
         repo_path: std::ffi::OsString,
         branch_data: &crate::BranchData,
+        window: &Window
     ) {
         debug!(
             "checkout........... {:?}",
             branch_data
         );
         let name = branch_data.refname.clone();
+        let oid = branch_data.oid.clone();
         glib::spawn_future_local({
-            clone!(@weak self as branch_list=> async move {
+            clone!(@weak self as branch_list, @weak window as window => async move {
                 let result = gio::spawn_blocking(move || {
-                    crate::set_head(repo_path, &name)
+                    crate::checkout(repo_path, oid, &name)
                 }).await;
-                debug!("result in set head {:?}", result);
+                let mut err_message = String::from("git error");
+                if let Ok(git_result) = result {                    
+                    match git_result {
+                        Ok(_) => {
+                            debug!("suuuuuuuuuuuuuccessful checkout");
+                            return;
+                        }
+                        Err(err) => err_message = err
+                    }
+                }
+                crate::display_error(&window, &err_message);
+                debug!("result in set head {:?}", err_message);
             })
         });
     }
@@ -441,17 +455,10 @@ pub fn make_list_view(
     let selection_model =
         SingleSelection::new(Some(model));
 
-    // let five_seconds = Duration::from_secs(5);
-    // thread::sleep(five_seconds);
-
     selection_model.set_autoselect(true);
     selection_model.set_selected(0);
     selection_model.set_can_unselect(false);
 
-    debug!(
-        "what is selected ??????????????????? {:?}",
-        selection_model.selected_item()
-    );
 
     let list_view = ListView::builder()
         .model(&selection_model)
@@ -518,9 +525,12 @@ pub fn make_list_view(
                     .imp()
                     .branch
                     .borrow();
+                let root = lv.root().unwrap();
+                let window = root.downcast_ref::<Window>().unwrap();
                 branch_list.checkout(
                     repo_path.clone(),
                     &*branch_ref,
+                    &window
                 );
             }
         },
@@ -577,4 +587,8 @@ pub fn show_branches_window(
     window.add_controller(event_controller);
     window.present();
     list_view.grab_focus();
+    // let d = AlertDialog::builder()
+    //     .message("ou----------- mou")
+    //     .build();
+    // d.show(Some(&window));
 }
