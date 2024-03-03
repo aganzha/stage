@@ -386,7 +386,7 @@ impl File {
         }
     }
 
-    // Dile
+    // File
     pub fn transfer_view(&self) -> View {
         let mut clone = self.view.clone();
         clone.transfered = true;
@@ -1143,7 +1143,7 @@ pub fn set_head(
     let repo = Repository::open(path.clone())
         .expect("can't open repo");
     let result = repo.set_head(refname);
-    debug!("======================DADA> {:?}", result);
+    debug!("!======================> {:?}", result);
     Ok(())
 }
 
