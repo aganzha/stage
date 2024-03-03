@@ -1164,7 +1164,8 @@ fn git_checkout(
 
 pub fn checkout(path: OsString,
                 oid: Oid,
-                refname: &str) -> Result<(), String> {        
+                refname: &str,
+                sender: Sender<crate::Event>) -> Result<(), String> {        
     let repo = Repository::open(path.clone())
         .expect("can't open repo");
     if let  Err(err) = git_checkout(repo, oid, refname) {
@@ -1177,5 +1178,6 @@ pub fn checkout(path: OsString,
         return Err(String::from(err.message()));
     }
     // todo -> message to update text_view
+    get_current_repo_status(Some(path), sender);
     Ok(())        
 }

@@ -5,8 +5,6 @@ use crate::{
     Hunk, Line, View,
 };
 use git2::DiffLineType;
-// use glib::Sender;
-// use std::sync::mpsc::Sender;
 use async_channel::Sender;
 
 use gtk4::prelude::*;
