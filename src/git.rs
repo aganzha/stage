@@ -385,7 +385,7 @@ impl File {
         }
     }
 
-    // Dile
+    // File
     pub fn transfer_view(&self) -> View {
         let mut clone = self.view.clone();
         clone.transfered = true;
