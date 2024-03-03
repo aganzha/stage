@@ -195,11 +195,12 @@ fn build_ui(app: &Application) {
                 Event::Branches => {
                     info!("main.braches");
                     show_branches_window(
-                        &window,
                         current_repo_path
                             .as_ref()
                             .unwrap()
                             .clone(),
+                        &window,
+                        sender.clone()
                     );
                 }
                 Event::Head(h) => {

@@ -17,6 +17,7 @@ use libadwaita::{
     ApplicationWindow, HeaderBar, ToolbarView,
     Window,
 };
+use async_channel::Sender;
 use log::{debug, error, info, log_enabled, trace};
 use std::thread;
 use std::time::Duration;
@@ -230,7 +231,8 @@ impl BranchList {
         repo_path: std::ffi::OsString,
         selected_item: &BranchItem,
         current_item: &BranchItem,
-        window: &Window
+        window: &Window,
+        sender: Sender<crate::Event>
     ) {
         let branch_data = selected_item
             .imp()
@@ -245,7 +247,7 @@ impl BranchList {
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window, @weak selected_item, @weak current_item => async move {
                 let result = gio::spawn_blocking(move || {
-                    crate::checkout(repo_path, oid, &name)
+                    crate::checkout(repo_path, oid, &name, sender)
                 }).await;
                 let mut err_message = String::from("git error");
                 if let Ok(git_result) = result {                    
@@ -455,6 +457,7 @@ pub fn make_item_factory() -> SignalListItemFactory
 
 pub fn make_list_view(
     repo_path: std::ffi::OsString,
+    sender: Sender<crate::Event>
 ) -> ListView {
     let header_factory = make_header_factory();
     let factory = make_item_factory();
@@ -481,25 +484,7 @@ pub fn make_list_view(
         .show_separators(true)
         //.single_click_activate(true)
         .build();
-    // so. selected and selected_item - is just a cursor position
-    // and activated - is pressing enter or double click
-    // selection_model.connect_model_notify(|_| {
-    //     debug!("selection_model MODEL notify!!!!!!!!!!!!!!");
-    // });
-    // selection_model.connect_selected_notify(|sm| {
-    //     let selected_item = sm.selected_item();
-    //     if let Some(item) = selected_item {
-    //         let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-    //         debug!("selection_model SELECTED notify!!!!!!!!!!!!!! {:?}", branch_item.imp().branch.borrow().name);
-    //     }
-    // });
-    // selection_model.connect_selected_item_notify(|sm| {
-    //     let selected_item = sm.selected_item();
-    //     if let Some(item) = selected_item {
-    //         let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-    //         debug!("selection_model SELECTED ITEM notify!!!!!!!!!!!!!! {:?}", branch_item.imp().branch.borrow().name);
-    //     }
-    // });
+
     list_view.connect_activate(
         move |lv: &ListView, pos: u32| {
             let selection_model =
@@ -525,7 +510,6 @@ pub fn make_list_view(
                     if branch_item.is_head() {
                         current_item.replace(branch_item);
                     }
-                    // branch_item.set_is_head(false);
                     branch_item.set_progress(false);
                     branch_item
                         .set_no_progress(true);
@@ -541,7 +525,8 @@ pub fn make_list_view(
                     repo_path.clone(),
                     &branch_item,
                     current_item.unwrap(),
-                    &window
+                    &window,
+                    sender.clone(),
                 );
             }
         },
@@ -550,9 +535,10 @@ pub fn make_list_view(
     list_view
 }
 
-pub fn show_branches_window(
-    app_window: &ApplicationWindow,
+pub fn show_branches_window(    
     repo_path: std::ffi::OsString,
+    app_window: &ApplicationWindow,
+    sender: Sender<crate::Event>,
 ) {
     let window = Window::builder()
         .application(
@@ -568,7 +554,7 @@ pub fn show_branches_window(
 
     let scroll = ScrolledWindow::new();
 
-    let list_view = make_list_view(repo_path);
+    let list_view = make_list_view(repo_path, sender);
     scroll.set_child(Some(&list_view));
 
     let tb = ToolbarView::builder()
