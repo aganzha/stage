@@ -418,6 +418,7 @@ impl View {
             self.line_no
         );
         let mut line_len: Option<i32> = None;
+        dbg!(&self);
         match self.get_state_for(line_no) {
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
