@@ -171,7 +171,7 @@ impl File {
                 if other_hunk.adopt_and_match(hunk) {
                     hunk.view = other_hunk.transfer_view();
                     hunk.enrich_view(other_hunk);
-                }                
+                }
             }
         }
     }
