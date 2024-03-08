@@ -168,45 +168,10 @@ impl File {
             // hunks. line_no actually does not matter - they will be shifted.
             // but props like rendered, expanded will be copied for smoother rendering
             for other_hunk in other.hunks.iter_mut() {
-                trace!("inner cycle for other_hunk");
-                match hunk.related_to_other(other_hunk) {
-                    // me relative to other hunks
-                    Related::Before => {
-                        trace!("choose new hunk start");
-                        trace!(
-                            "just shift old hunk by my lines {:?}",
-                            hunk.delta_in_lines()
-                        );
-                        // my lines - means diff in lines between my other_hunk and my new hunk
-                        other_hunk.new_start = ((other_hunk.new_start as i32)
-                            + hunk.delta_in_lines())
-                            as u32;
-                    }
-                    Related::OverlapBefore => {
-                        // insert diff betweeen old and new view
-                        todo!("extend hunk by start diff");
-                        // hm. old_lines are not included at all...
-                        // other_hunk.new_lines += other_hunk.new_start - hunk.new_start;
-                        // other_hunk.new_start = hunk.new_start;
-                    }
-                    Related::Matched => {
-                        trace!("enrich!");
-                        hunk.view = other_hunk.transfer_view();
-                        hunk.enrich_view(other_hunk);
-                        // no furtger processing
-                        break;
-                    }
-                    Related::OverlapAfter => {
-                        todo!("choose old hunk start");
-                        // trace!("extend hunk by start diff");
-                        // other_hunk.new_lines += hunk.new_start - other_hunk.new_start;
-                        // hm. old lines are not present at all?
-                    }
-                    Related::After => {
-                        trace!("nothing todo!");
-                        // nothing to do
-                    }
-                }
+                if other_hunk.adopt_and_match(hunk) {
+                    hunk.view = other_hunk.transfer_view();
+                    hunk.enrich_view(other_hunk);
+                }                
             }
         }
     }
