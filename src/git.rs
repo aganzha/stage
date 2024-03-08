@@ -204,7 +204,7 @@ impl Hunk {
                 );
                 // my lines - means diff in lines between my self and my new hunk
                 self.new_start = ((self.new_start as i32)
-                                        + new_hunk.delta_in_lines())
+                    + new_hunk.delta_in_lines())
                     as u32;
             }
             Related::OverlapBefore => {
@@ -231,7 +231,7 @@ impl Hunk {
         }
         false
     }
-    
+
     pub fn title(&self) -> String {
         self.header.to_string()
     }

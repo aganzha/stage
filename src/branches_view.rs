@@ -412,12 +412,8 @@ pub fn make_list_view(
     model.make_list(repo_path.clone());
 
     let selection_model = SingleSelection::new(Some(model));
-    let model = selection_model.model().unwrap();//.downcast_ref::<BranchList>().unwrap();
-    let bind = selection_model.bind_property(
-        "selected",
-        &model,
-        "selected",
-    );
+    let model = selection_model.model().unwrap(); //.downcast_ref::<BranchList>().unwrap();
+    let bind = selection_model.bind_property("selected", &model, "selected");
     let some = bind.bidirectional().build();
     debug!("===========================> {:?}", some);
     selection_model.set_autoselect(true);
@@ -460,7 +456,11 @@ pub fn make_list_view(
             branch_item.set_no_progress(false);
             let root = lv.root().unwrap();
             let window = root.downcast_ref::<Window>().unwrap();
-            debug!("cheeeeeeckout! {:?} {:?}", single_selection.selected(), branch_list.selected());
+            debug!(
+                "cheeeeeeckout! {:?} {:?}",
+                single_selection.selected(),
+                branch_list.selected()
+            );
             branch_list.checkout(
                 repo_path.clone(),
                 &branch_item,
