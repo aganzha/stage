@@ -1,23 +1,17 @@
+use async_channel::Sender;
 use git2::BranchType;
 use glib::{clone, closure, types, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, CheckButton,
-    EventControllerKey, Label, ListHeader,
-    ListItem, ListView, NoSelection, Orientation,
-    PropertyExpression, ScrolledWindow,
-    SectionModel, SelectionModel,
-    SignalListItemFactory, SingleSelection,
-    Spinner, StringList, StringObject, Widget,
-    AlertDialog
+    gdk, gio, glib, pango, AlertDialog, Box, CheckButton, EventControllerKey,
+    Label, ListHeader, ListItem, ListView, NoSelection, Orientation,
+    PropertyExpression, ScrolledWindow, SectionModel, SelectionModel,
+    SignalListItemFactory, SingleSelection, Spinner, StringList, StringObject,
+    Widget,
 };
 use libadwaita::prelude::*;
-use libadwaita::{
-    ApplicationWindow, HeaderBar, ToolbarView,
-    Window,
-};
-use async_channel::Sender;
+use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
 use log::{debug, error, info, log_enabled, trace};
 use std::thread;
 use std::time::Duration;
@@ -62,8 +56,7 @@ mod branch_item {
 
     #[glib::object_subclass]
     impl ObjectSubclass for BranchItem {
-        const NAME: &'static str =
-            "StageBranchItem";
+        const NAME: &'static str = "StageBranchItem";
         type Type = super::BranchItem;
     }
     #[glib::derived_properties]
@@ -74,12 +67,8 @@ impl BranchItem {
     pub fn new(branch: crate::BranchData) -> Self {
         let ref_kind = {
             match branch.branch_type {
-                BranchType::Local => {
-                    String::from("Branches")
-                }
-                BranchType::Remote => {
-                    String::from("Remote")
-                }
+                BranchType::Local => String::from("Branches"),
+                BranchType::Remote => String::from("Remote"),
             }
         };
         let ob = Object::builder::<BranchItem>()
@@ -89,19 +78,10 @@ impl BranchItem {
             .property("ref-kind", ref_kind)
             .property(
                 "title",
-                format!(
-                    "<span color=\"#4a708b\">{}</span>",
-                    &branch.name
-                )
+                format!("<span color=\"#4a708b\">{}</span>", &branch.name),
             )
-            .property(
-                "last-commit",
-                &branch.commit_string,
-            )
-            .property(
-                "dt",
-                branch.commit_dt.to_string(),
-            )
+            .property("last-commit", &branch.commit_string)
+            .property("dt", branch.commit_dt.to_string())
             .build();
         ob.imp().branch.replace(branch);
         ob
@@ -129,12 +109,10 @@ mod branch_list {
 
     #[glib::object_subclass]
     impl ObjectSubclass for BranchList {
-        const NAME: &'static str =
-            "StageBranchList";
+        const NAME: &'static str = "StageBranchList";
         type Type = super::BranchList;
         type ParentType = glib::Object;
-        type Interfaces =
-            (gio::ListModel, gtk4::SectionModel);
+        type Interfaces = (gio::ListModel, gtk4::SectionModel);
     }
 
     impl ObjectImpl for BranchList {}
@@ -148,39 +126,23 @@ mod branch_list {
             self.list.borrow().len() as u32
         }
 
-        fn item(
-            &self,
-            position: u32,
-        ) -> Option<glib::Object> {
+        fn item(&self, position: u32) -> Option<glib::Object> {
             let list = self.list.borrow();
             if list.is_empty() {
                 return None;
             }
             // ??? clone ???
-            return Some(
-                list[position as usize]
-                    .clone()
-                    .into(),
-            );
+            return Some(list[position as usize].clone().into());
         }
     }
 
     impl SectionModelImpl for BranchList {
-        fn section(
-            &self,
-            position: u32,
-        ) -> (u32, u32) {
-            if let Some(pos) =
-                *self.remote_start_pos.borrow()
-            {
+        fn section(&self, position: u32) -> (u32, u32) {
+            if let Some(pos) = *self.remote_start_pos.borrow() {
                 if position <= pos {
                     return (0, pos);
                 } else {
-                    return (
-                        pos,
-                        self.list.borrow().len()
-                            as u32,
-                    );
+                    return (pos, self.list.borrow().len() as u32);
                 }
             }
             (0, self.list.borrow().len() as u32)
@@ -193,10 +155,7 @@ impl BranchList {
         Object::builder().build()
     }
 
-    pub fn make_list(
-        &self,
-        repo_path: std::ffi::OsString,
-    ) {
+    pub fn make_list(&self, repo_path: std::ffi::OsString) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list=> async move {
                 let branches: Vec<crate::BranchData> = gio::spawn_blocking(move || {
@@ -232,16 +191,10 @@ impl BranchList {
         selected_item: &BranchItem,
         current_item: &BranchItem,
         window: &Window,
-        sender: Sender<crate::Event>
+        sender: Sender<crate::Event>,
     ) {
-        let branch_data = selected_item
-            .imp()
-            .branch
-            .borrow();
-        debug!(
-            "checkout........... {:?}",
-            branch_data
-        );
+        let branch_data = selected_item.imp().branch.borrow();
+        debug!("checkout........... {:?}", branch_data);
         let name = branch_data.refname.clone();
         let oid = branch_data.oid.clone();
         glib::spawn_future_local({
@@ -250,7 +203,7 @@ impl BranchList {
                     crate::checkout(repo_path, oid, &name, sender)
                 }).await;
                 let mut err_message = String::from("git error");
-                if let Ok(git_result) = result {                    
+                if let Ok(git_result) = result {
                     selected_item.set_progress(false);
                     match git_result {
                         Ok(_) => {
@@ -271,50 +224,40 @@ impl BranchList {
     }
 }
 
-pub fn make_header_factory() -> SignalListItemFactory
-{
-    let section_title = std::cell::RefCell::new(
-        String::from("Branches"),
-    );
-    let header_factory =
-        SignalListItemFactory::new();
-    header_factory.connect_setup(
-        move |_, list_header| {
-            let label = Label::new(Some(
-                &*section_title.borrow(),
-            ));
-            let list_header = list_header
-                .downcast_ref::<ListHeader>()
-                .expect("Needs to be ListHeader");
-            list_header.set_child(Some(&label));
-            section_title
-                .replace(String::from("Remotes"));
-            // does not work. it is always git first BranchItem
-            // why???
-            // list_header.connect_item_notify(move |lh| {
-            //     debug!("hhhhhhhhf {:?} {:?} {:?}", lh.start(), lh.end(), lh.n_items());
-            //     let ob = lh.item().unwrap();
-            //     let item: &BranchItem = ob
-            //         .downcast_ref::<BranchItem>()
-            //         .unwrap();
-            //     // let title = match item.imp().branch.borrow().branch_type {
-            //     //     BranchType::Local => "Branches",
-            //     //     BranchType::Remote => "Remote"
-            //     // };
-            //     // label.set_label(title);
-            // });
-            // does not work also
-            // let item = list_header
-            //     .property_expression("item");
-            // item.chain_property::<BranchItem>("ref-kind")
-            //     .bind(&label, "label", Widget::NONE);
-        },
-    );
+pub fn make_header_factory() -> SignalListItemFactory {
+    let section_title = std::cell::RefCell::new(String::from("Branches"));
+    let header_factory = SignalListItemFactory::new();
+    header_factory.connect_setup(move |_, list_header| {
+        let label = Label::new(Some(&*section_title.borrow()));
+        let list_header = list_header
+            .downcast_ref::<ListHeader>()
+            .expect("Needs to be ListHeader");
+        list_header.set_child(Some(&label));
+        section_title.replace(String::from("Remotes"));
+        // does not work. it is always git first BranchItem
+        // why???
+        // list_header.connect_item_notify(move |lh| {
+        //     debug!("hhhhhhhhf {:?} {:?} {:?}", lh.start(), lh.end(), lh.n_items());
+        //     let ob = lh.item().unwrap();
+        //     let item: &BranchItem = ob
+        //         .downcast_ref::<BranchItem>()
+        //         .unwrap();
+        //     // let title = match item.imp().branch.borrow().branch_type {
+        //     //     BranchType::Local => "Branches",
+        //     //     BranchType::Remote => "Remote"
+        //     // };
+        //     // label.set_label(title);
+        // });
+        // does not work also
+        // let item = list_header
+        //     .property_expression("item");
+        // item.chain_property::<BranchItem>("ref-kind")
+        //     .bind(&label, "label", Widget::NONE);
+    });
     header_factory
 }
 
-pub fn make_item_factory() -> SignalListItemFactory
-{
+pub fn make_item_factory() -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
         let fake_btn = CheckButton::new();
@@ -386,55 +329,45 @@ pub fn make_item_factory() -> SignalListItemFactory
         list_item.set_activatable(true);
         list_item.set_focusable(true);
 
-        let item =
-            list_item.property_expression("item");
+        let item = list_item.property_expression("item");
 
-        item.chain_property::<BranchItem>(
-            "is_head",
-        )
-        .bind(&btn, "active", Widget::NONE);
-        item.chain_property::<BranchItem>(
-            "no-progress",
-        )
-        .bind(
+        item.chain_property::<BranchItem>("is_head").bind(
+            &btn,
+            "active",
+            Widget::NONE,
+        );
+        item.chain_property::<BranchItem>("no-progress").bind(
             &btn,
             "visible",
             Widget::NONE,
         );
-        item.chain_property::<BranchItem>(
-            "progress",
-        )
-        .bind(
+        item.chain_property::<BranchItem>("progress").bind(
             &spinner,
             "visible",
             Widget::NONE,
         );
-        item.chain_property::<BranchItem>(
-            "progress",
-        )
-        .bind(
+        item.chain_property::<BranchItem>("progress").bind(
             &spinner,
             "spinning",
             Widget::NONE,
         );
-        item.chain_property::<BranchItem>("title")
-            .bind(
-                &label_title,
-                "label",
-                Widget::NONE,
-            );
+        item.chain_property::<BranchItem>("title").bind(
+            &label_title,
+            "label",
+            Widget::NONE,
+        );
 
-        item.chain_property::<BranchItem>(
-            "last-commit",
-        )
-        .bind(
+        item.chain_property::<BranchItem>("last-commit").bind(
             &label_commit,
             "label",
             Widget::NONE,
         );
 
-        item.chain_property::<BranchItem>("dt")
-            .bind(&label_dt, "label", Widget::NONE);
+        item.chain_property::<BranchItem>("dt").bind(
+            &label_dt,
+            "label",
+            Widget::NONE,
+        );
     });
     // factory.connect_bind(move |_, list_item| {
     //     let list_item = list_item
@@ -457,7 +390,7 @@ pub fn make_item_factory() -> SignalListItemFactory
 
 pub fn make_list_view(
     repo_path: std::ffi::OsString,
-    sender: Sender<crate::Event>
+    sender: Sender<crate::Event>,
 ) -> ListView {
     let header_factory = make_header_factory();
     let factory = make_item_factory();
@@ -465,13 +398,11 @@ pub fn make_list_view(
     let model = BranchList::new();
     model.make_list(repo_path.clone());
 
-    let selection_model =
-        SingleSelection::new(Some(model));
+    let selection_model = SingleSelection::new(Some(model));
 
     selection_model.set_autoselect(true);
     selection_model.set_selected(0);
     selection_model.set_can_unselect(false);
-
 
     let list_view = ListView::builder()
         .model(&selection_model)
@@ -485,65 +416,49 @@ pub fn make_list_view(
         //.single_click_activate(true)
         .build();
 
-    list_view.connect_activate(
-        move |lv: &ListView, pos: u32| {
-            let selection_model =
-                lv.model().unwrap();
-            let single_selection = selection_model
-                .downcast_ref::<SingleSelection>()
-                .unwrap();
-            let list_model =
-                single_selection.model().unwrap();
-            let branch_list = list_model
-                .downcast_ref::<BranchList>()
-                .unwrap();
+    list_view.connect_activate(move |lv: &ListView, pos: u32| {
+        let selection_model = lv.model().unwrap();
+        let single_selection =
+            selection_model.downcast_ref::<SingleSelection>().unwrap();
+        let list_model = single_selection.model().unwrap();
+        let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
 
-            let item_ob = selection_model.item(pos);
-            let mut current_item: Option<&BranchItem> = None;
-            if let Some(item) = item_ob {
-                let list = branch_list
-                    .imp()
-                    .list
-                    .borrow();
-                for branch_item in list.iter()
-                {
-                    if branch_item.is_head() {
-                        current_item.replace(branch_item);
-                    }
-                    branch_item.set_progress(false);
-                    branch_item
-                        .set_no_progress(true);
+        let item_ob = selection_model.item(pos);
+        let mut current_item: Option<&BranchItem> = None;
+        if let Some(item) = item_ob {
+            let list = branch_list.imp().list.borrow();
+            for branch_item in list.iter() {
+                if branch_item.is_head() {
+                    current_item.replace(branch_item);
                 }
-                let branch_item = item
-                    .downcast_ref::<BranchItem>()
-                    .unwrap();
-                branch_item.set_progress(true);
-                branch_item.set_no_progress(false);
-                let root = lv.root().unwrap();
-                let window = root.downcast_ref::<Window>().unwrap();
-                branch_list.checkout(
-                    repo_path.clone(),
-                    &branch_item,
-                    current_item.unwrap(),
-                    &window,
-                    sender.clone(),
-                );
+                branch_item.set_progress(false);
+                branch_item.set_no_progress(true);
             }
-        },
-    );
+            let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+            branch_item.set_progress(true);
+            branch_item.set_no_progress(false);
+            let root = lv.root().unwrap();
+            let window = root.downcast_ref::<Window>().unwrap();
+            branch_list.checkout(
+                repo_path.clone(),
+                &branch_item,
+                current_item.unwrap(),
+                &window,
+                sender.clone(),
+            );
+        }
+    });
     list_view.add_css_class("stage");
     list_view
 }
 
-pub fn show_branches_window(    
+pub fn show_branches_window(
     repo_path: std::ffi::OsString,
     app_window: &ApplicationWindow,
     sender: Sender<crate::Event>,
 ) {
     let window = Window::builder()
-        .application(
-            &app_window.application().unwrap(),
-        )
+        .application(&app_window.application().unwrap())
         .transient_for(app_window)
         .default_width(640)
         .default_height(480)
@@ -557,23 +472,17 @@ pub fn show_branches_window(
     let list_view = make_list_view(repo_path, sender);
     scroll.set_child(Some(&list_view));
 
-    let tb = ToolbarView::builder()
-        .content(&scroll)
-        .build();
+    let tb = ToolbarView::builder().content(&scroll).build();
     tb.add_top_bar(&hb);
 
     window.set_content(Some(&tb));
 
-    let event_controller =
-        EventControllerKey::new();
+    let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
         let window = window.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
-                (
-                    gdk::Key::w,
-                    gdk::ModifierType::CONTROL_MASK,
-                ) => {
+                (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
                     window.close();
                 }
                 _ => {}

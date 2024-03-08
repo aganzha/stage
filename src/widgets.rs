@@ -1,7 +1,6 @@
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, MessageDialog,
-    ResponseAppearance, Window
+    ApplicationWindow, MessageDialog, ResponseAppearance, Window,
 };
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
@@ -9,18 +8,15 @@ use async_channel::Sender;
 
 use gtk4::prelude::*;
 use gtk4::{
-    glib, AlertDialog, EventControllerKey, TextView,
-    Window as Gtk4Window
+    glib, AlertDialog, EventControllerKey, TextView, Window as Gtk4Window,
 };
 use log::trace;
 
 pub fn display_error(
-    w: &impl IsA<Gtk4Window>,// Application
+    w: &impl IsA<Gtk4Window>, // Application
     message: &str,
 ) {
-    let d = AlertDialog::builder()
-        .message(message)
-        .build();
+    let d = AlertDialog::builder().message(message).build();
     d.show(Some(w));
 }
 
@@ -51,56 +47,39 @@ pub fn show_commit_message(
         (create_response, "Create"),
     ]);
     // Make the dialog button insensitive initially
-    dialog.set_response_enabled(
-        create_response,
-        false,
-    );
+    dialog.set_response_enabled(create_response, false);
     dialog.set_response_appearance(
         create_response,
         ResponseAppearance::Suggested,
     );
 
-    let event_controller =
-        EventControllerKey::new();
+    let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
         let dialog = dialog.clone();
         move |_, _, _, _| {
-            dialog.set_response_enabled(
-                create_response,
-                true,
-            );
+            dialog.set_response_enabled(create_response, true);
             glib::Propagation::Proceed
         }
     });
     txt.add_controller(event_controller);
     // Connect response to dialog
-    dialog.connect_response(
-        None,
-        move |dialog, response| {
-            // clone!(@weak window, @weak entry =>
-            // Destroy dialog
-            dialog.destroy();
+    dialog.connect_response(None, move |dialog, response| {
+        // clone!(@weak window, @weak entry =>
+        // Destroy dialog
+        dialog.destroy();
 
-            // Return if the user chose a response different than `create_response`
-            if response != create_response {
-                println!(
-                    "return from commit dialog"
-                );
-                return;
-            }
-            let buffer = txt.buffer();
-            let start = buffer.iter_at_offset(0);
-            let end = buffer.end_iter();
-            let message =
-                buffer.slice(&start, &end, false);
-            sndr.send_blocking(
-                crate::Event::Commit(
-                    message.to_string(),
-                ),
-            )
+        // Return if the user chose a response different than `create_response`
+        if response != create_response {
+            println!("return from commit dialog");
+            return;
+        }
+        let buffer = txt.buffer();
+        let start = buffer.iter_at_offset(0);
+        let end = buffer.end_iter();
+        let message = buffer.slice(&start, &end, false);
+        sndr.send_blocking(crate::Event::Commit(message.to_string()))
             .expect("cant send through channel");
-        },
-    );
+    });
     dialog.present();
 }
 
@@ -149,28 +128,23 @@ pub fn show_push_message(
     // txt.add_controller(event_controller);
 
     // Connect response to dialog
-    dialog.connect_response(
-        None,
-        move |dialog, response| {
-            // clone!(@weak window, @weak entry =>
-            // Destroy dialog
-            dialog.destroy();
+    dialog.connect_response(None, move |dialog, response| {
+        // clone!(@weak window, @weak entry =>
+        // Destroy dialog
+        dialog.destroy();
 
-            // Return if the user chose a response different than `create_response`
-            if response != create_response {
-                println!("return from push dialog");
-                return;
-            }
-            trace!("push window");
-            // let buffer = txt.buffer();
-            // let start = buffer.iter_at_offset(0);
-            // let end = buffer.end_iter();
-            // let message = buffer.slice(&start, &end, false);
-            sndr.send_blocking(crate::Event::Push)
-                .expect(
-                    "cant send through channel",
-                );
-        },
-    );
+        // Return if the user chose a response different than `create_response`
+        if response != create_response {
+            println!("return from push dialog");
+            return;
+        }
+        trace!("push window");
+        // let buffer = txt.buffer();
+        // let start = buffer.iter_at_offset(0);
+        // let end = buffer.end_iter();
+        // let message = buffer.slice(&start, &end, false);
+        sndr.send_blocking(crate::Event::Push)
+            .expect("cant send through channel");
+    });
     dialog.present();
 }

@@ -3,20 +3,15 @@ use crate::gio;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
 use chrono::prelude::*;
-use chrono::{
-    DateTime, FixedOffset, LocalResult, TimeZone,
-};
+use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use ffi::OsString;
+use git2::build::CheckoutBuilder;
 use git2::{
-    ApplyLocation, ApplyOptions, Branch,
-    BranchType, Commit, Cred, CredentialType,
-    Delta, Diff as GitDiff, DiffDelta, DiffFile,
-    DiffFormat, DiffHunk, DiffLine, DiffLineType,
-    DiffOptions, Error, ErrorCode, ObjectType, Oid,
-    PushOptions, Reference, RemoteCallbacks,
-    Repository
+    ApplyLocation, ApplyOptions, Branch, BranchType, Commit, Cred,
+    CredentialType, Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat,
+    DiffHunk, DiffLine, DiffLineType, DiffOptions, Error, ErrorCode,
+    ObjectType, Oid, PushOptions, Reference, RemoteCallbacks, Repository,
 };
-use git2::build::{CheckoutBuilder};
 use log::{debug, trace};
 use regex::Regex;
 use std::cmp::Ordering;
@@ -29,9 +24,7 @@ fn get_current_repo(
     Repository::open(path).or_else(|error| {
         println!("err while open repo {:?}", error);
         if !path_buff.pop() {
-            return Err(
-                "no repoitory found".to_string()
-            );
+            return Err("no repoitory found".to_string());
         }
         get_current_repo(path_buff)
     })
@@ -64,19 +57,10 @@ impl Line {
         return Self {
             view: View::new(),
             origin: l.origin_value(),
-            content: String::from(
-                str::from_utf8(l.content())
-                    .unwrap(),
-            )
-            .replace("\r\n", "")
-            .replace('\n', ""),
+            content: String::from(str::from_utf8(l.content()).unwrap())
+                .replace("\r\n", "")
+                .replace('\n', ""),
         };
-    }
-    // line
-    pub fn transfer_view(&self) -> View {
-        let mut clone = self.view.clone();
-        clone.transfered = true;
-        clone
     }
 }
 
@@ -112,27 +96,21 @@ impl Hunk {
         }
     }
 
-    pub fn get_header_from(
-        dh: &DiffHunk,
-    ) -> String {
-        String::from(
-            str::from_utf8(dh.header()).unwrap(),
-        )
-        .replace("\r\n", "")
-        .replace('\n', "")
+    pub fn get_header_from(dh: &DiffHunk) -> String {
+        String::from(str::from_utf8(dh.header()).unwrap())
+            .replace("\r\n", "")
+            .replace('\n', "")
     }
 
-    pub fn reverse_header(
-        header: String,
-    ) -> String {
+    pub fn reverse_header(header: String) -> String {
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
         // "@@ -20,10 +24,11 @@ STAGING LINE..." -> "@@ -24,11 +20,10 @@ STAGING LINE..."
         // "@@ -54,7 +59,6 @@ do not call..." -> "@@ -59,6 +54,7 @@ do not call..."
-        let re = Regex::new(r"@@ [+-]([0-9].*,[0-9]*) [+-]([0-9].*,[0-9].*) @@").unwrap();
-        if let Some((whole, [nums1, nums2])) = re
-            .captures_iter(&header)
-            .map(|c| c.extract())
-            .next()
+        let re =
+            Regex::new(r"@@ [+-]([0-9].*,[0-9]*) [+-]([0-9].*,[0-9].*) @@")
+                .unwrap();
+        if let Some((whole, [nums1, nums2])) =
+            re.captures_iter(&header).map(|c| c.extract()).next()
         {
             // for (whole, [nums1, nums2]) in re.captures_iter(&header).map(|c| c.extract()) {
             let result = whole
@@ -158,10 +136,7 @@ impl Hunk {
             .sum()
     }
 
-    pub fn related_to_other(
-        &self,
-        other: &Hunk,
-    ) -> Related {
+    pub fn related_to_other(&self, other: &Hunk) -> Related {
         // returns how this hunk is related to other hunk (in file)
         debug!(
             "related to other self.new_start {:?} self.new_lines {:?}
@@ -169,15 +144,13 @@ impl Hunk {
             self.new_start, self.new_lines, other.new_start, other.new_lines
         );
         if self.new_start < other.new_start
-            && self.new_start + self.new_lines
-                < other.new_start
+            && self.new_start + self.new_lines < other.new_start
         {
             debug!("before");
             return Related::Before;
         }
         if self.new_start < other.new_start
-            && self.new_start + self.new_lines
-                > other.new_start
+            && self.new_start + self.new_lines > other.new_start
         {
             debug!("overlap");
             return Related::OverlapBefore;
@@ -196,8 +169,7 @@ impl Hunk {
             return Related::OverlapAfter;
         }
         if self.new_start > other.new_start
-            && self.new_start
-                > other.new_start + other.new_lines
+            && self.new_start > other.new_start + other.new_lines
         {
             debug!("after");
             return Related::After;
@@ -205,10 +177,7 @@ impl Hunk {
         panic!(
             "unknown case self.new_start {:?} self.new_lines {:?}
                   other.new_start {:?} other.new_lines {:?}",
-            self.new_start,
-            self.new_lines,
-            other.new_start,
-            other.new_lines
+            self.new_start, self.new_lines, other.new_start, other.new_lines
         );
         Related::After
     }
@@ -217,37 +186,12 @@ impl Hunk {
         self.header.to_string()
     }
 
-    // Hunk
-    pub fn transfer_view(&self) -> View {
-        let mut clone = self.view.clone();
-        // hunk headers are changing always
-        // during partial staging
-        clone.dirty = true;
-        clone.transfered = true;
-        clone
-    }
     pub fn push_line(&mut self, line: Line) {
         match line.origin {
             DiffLineType::FileHeader
             | DiffLineType::HunkHeader
             | DiffLineType::Binary => {}
             _ => self.lines.push(line),
-        }
-    }
-    // hunk
-    pub fn enrich_view(&mut self, other: &Hunk) {
-        if self.lines.len() != other.lines.len() {
-            // so :) what todo?
-            panic!(
-                "lines length are not the same {:?} {:?}",
-                self.lines.len(),
-                other.lines.len()
-            );
-        }
-        for pair in
-            zip(&mut self.lines, &other.lines)
-        {
-            pair.0.view = pair.1.transfer_view();
         }
     }
 }
@@ -291,109 +235,6 @@ impl File {
     pub fn title(&self) -> String {
         self.path.to_str().unwrap().to_string()
     }
-
-    // file
-    pub fn enrich_view(
-        &mut self,
-        other: &mut File,
-    ) {
-        // used to maintain view state in existent hunks
-        // there are 2 cases
-        // 1. side from which hunks are moved out (eg unstaged during staging)
-        // this one is simple, cause self.hunks and other.hunks are the same length.
-        // just transfer views between them in order.
-        // 2. side on which hunks are receiving new hunk (eg staged hunks during staging)
-        // Like stage some hunks in file and then stage some more hunks to the same file!
-        // New hunks could break old ones:
-        // lines become changed and headers will be changed also
-        // case 1.
-        if self.hunks.len() == other.hunks.len() {
-            for pair in
-                zip(&mut self.hunks, &other.hunks)
-            {
-                pair.0.view =
-                    pair.1.transfer_view();
-                pair.0.enrich_view(pair.1);
-            }
-            return;
-        }
-        //case 2.
-        // all hunks are ordered
-        for hunk in self.hunks.iter_mut() {
-            trace!("outer cycle");
-            // go "insert" (no real insertion is required) every new hunk in old_hunks.
-            // that new hunk which will be overlapped or before or after old_hunk - those will have
-            // new view. (i believe overlapping is not possible)
-            // insertion means - shift all rest old hunks according to lines delta
-            // and only hunks which match exactly will be enriched by views of old
-            // hunks. line_no actually does not matter - they will be shifted.
-            // but props like rendered, expanded will be copied for smoother rendering
-            for other_hunk in other.hunks.iter_mut()
-            {
-                trace!(
-                    "inner cycle for other_hunk"
-                );
-                match hunk
-                    .related_to_other(other_hunk)
-                {
-                    // me relative to other hunks
-                    Related::Before => {
-                        trace!(
-                            "choose new hunk start"
-                        );
-                        trace!(
-                            "just shift old hunk by my lines {:?}",
-                            hunk.delta_in_lines()
-                        );
-                        // my lines - means diff in lines between my other_hunk and my new hunk
-                        other_hunk.new_start =
-                            ((other_hunk.new_start
-                                as i32)
-                                + hunk
-                                    .delta_in_lines(
-                                    ))
-                                as u32;
-                    }
-                    Related::OverlapBefore => {
-                        // insert diff betweeen old and new view
-                        todo!("extend hunk by start diff");
-                        // hm. old_lines are not included at all...
-                        // other_hunk.new_lines += other_hunk.new_start - hunk.new_start;
-                        // other_hunk.new_start = hunk.new_start;
-                    }
-                    Related::Matched => {
-                        trace!("enrich!");
-                        hunk.view = other_hunk
-                            .transfer_view();
-                        hunk.enrich_view(
-                            other_hunk,
-                        );
-                        // no furtger processing
-                        break;
-                    }
-                    Related::OverlapAfter => {
-                        todo!(
-                            "choose old hunk start"
-                        );
-                        // trace!("extend hunk by start diff");
-                        // other_hunk.new_lines += hunk.new_start - other_hunk.new_start;
-                        // hm. old lines are not present at all?
-                    }
-                    Related::After => {
-                        trace!("nothing todo!");
-                        // nothing to do
-                    }
-                }
-            }
-        }
-    }
-
-    // File
-    pub fn transfer_view(&self) -> View {
-        let mut clone = self.view.clone();
-        clone.transfered = true;
-        clone
-    }
 }
 
 impl Default for File {
@@ -425,10 +266,7 @@ impl Diff {
     }
 
     // diff
-    pub fn enrich_view(
-        &mut self,
-        other: &mut Diff,
-    ) {
+    pub fn enrich_view(&mut self, other: &mut Diff) {
         for file in &mut self.files {
             for of in &mut other.files {
                 if file.path == of.path {
@@ -440,18 +278,13 @@ impl Diff {
     }
 }
 
-pub fn get_cwd_repo(
-    sender: Sender<crate::Event>,
-) -> Repository {
-    let path_buff = env::current_exe()
-        .expect("cant't get exe path");
-    let repo = get_current_repo(path_buff)
-        .expect("cant't get repo for current exe");
+pub fn get_cwd_repo(sender: Sender<crate::Event>) -> Repository {
+    let path_buff = env::current_exe().expect("cant't get exe path");
+    let repo =
+        get_current_repo(path_buff).expect("cant't get repo for current exe");
     let path = OsString::from(repo.path());
     sender
-        .send_blocking(crate::Event::CurrentRepo(
-            path.clone(),
-        ))
+        .send_blocking(crate::Event::CurrentRepo(path.clone()))
         .expect("Could not send through channel");
     repo
 }
@@ -465,14 +298,9 @@ pub struct Head {
 }
 
 impl Head {
-    pub fn new(
-        branch: &Branch,
-        commit: &Commit,
-    ) -> Self {
+    pub fn new(branch: &Branch, commit: &Commit) -> Self {
         Self {
-            branch: String::from(
-                branch.name().unwrap().unwrap(),
-            ),
+            branch: String::from(branch.name().unwrap().unwrap()),
             commit: commit_string(commit),
             view: View::new_markup(),
             remote: false,
@@ -498,13 +326,8 @@ pub fn commit_string(c: &Commit) -> String {
     )
 }
 
-pub fn commit_dt(
-    c: &Commit,
-) -> DateTime<FixedOffset> {
-    let tz = FixedOffset::east_opt(
-        c.time().offset_minutes() * 60,
-    )
-    .unwrap();
+pub fn commit_dt(c: &Commit) -> DateTime<FixedOffset> {
+    let tz = FixedOffset::east_opt(c.time().offset_minutes() * 60).unwrap();
     match tz.timestamp_opt(c.time().seconds(), 0) {
         LocalResult::Single(dt) => dt,
         LocalResult::Ambiguous(dt, _) => dt,
@@ -512,36 +335,24 @@ pub fn commit_dt(
     }
 }
 
-pub fn get_head(
-    path: OsString,
-    sender: Sender<crate::Event>,
-) {
-    let repo = Repository::open(path)
-        .expect("can't open repo");
-    let head_ref =
-        repo.head().expect("can't get head");
+pub fn get_head(path: OsString, sender: Sender<crate::Event>) {
+    let repo = Repository::open(path).expect("can't open repo");
+    let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
     let ob = head_ref
         .peel(ObjectType::Commit)
         .expect("can't get commit from ref!");
-    let commit = ob
-        .peel_to_commit()
-        .expect("can't get commit from ob!");
-    let branch = Branch::wrap(head_ref);    
-    let new_head = Head::new(&branch, &commit);    
+    let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+    let branch = Branch::wrap(head_ref);
+    let new_head = Head::new(&branch, &commit);
     sender
         .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
 }
 
-pub fn get_upstream(
-    path: OsString,
-    sender: Sender<crate::Event>,
-) {
-    let repo = Repository::open(path)
-        .expect("can't open repo");
-    let head_ref =
-        repo.head().expect("can't get head");
+pub fn get_upstream(path: OsString, sender: Sender<crate::Event>) {
+    let repo = Repository::open(path).expect("can't open repo");
+    let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
     let branch = Branch::wrap(head_ref);
     if let Ok(upstream) = branch.upstream() {
@@ -549,19 +360,12 @@ pub fn get_upstream(
         let ob = upstream_ref
             .peel(ObjectType::Commit)
             .expect("can't get commit from ref!");
-        let commit = ob
-            .peel_to_commit()
-            .expect("can't get commit from ob!");
-        let mut new_upstream =
-            Head::new(&upstream, &commit);
+        let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+        let mut new_upstream = Head::new(&upstream, &commit);
         new_upstream.remote = true;
         sender
-            .send_blocking(crate::Event::Upstream(
-                new_upstream,
-            ))
-            .expect(
-                "Could not send through channel",
-            );
+            .send_blocking(crate::Event::Upstream(new_upstream))
+            .expect("Could not send through channel");
     } else {
         // todo!("some branches could contain only pushRemote, but no
         //       origin. There will be no upstream then. It need to lookup
@@ -576,8 +380,7 @@ pub fn get_current_repo_status(
     let (repo, path) = {
         if let Some(path) = current_path {
             let repo =
-                Repository::open(path.clone())
-                    .expect("can't open repo");
+                Repository::open(path.clone()).expect("can't open repo");
             (repo, path)
         } else {
             let repo = get_cwd_repo(sender.clone());
@@ -591,10 +394,7 @@ pub fn get_current_repo_status(
         let sender = sender.clone();
         let path = path.clone();
         move || {
-            get_head(
-                path.clone(),
-                sender.clone(),
-            );
+            get_head(path.clone(), sender.clone());
             get_upstream(path, sender);
         }
     });
@@ -603,23 +403,14 @@ pub fn get_current_repo_status(
     gio::spawn_blocking({
         let sender = sender.clone();
         move || {
-            let repo = Repository::open(path)
-                .expect("can't open repo");
-            let ob = repo
-                .revparse_single("HEAD^{tree}")
-                .expect("fail revparse");
-            let current_tree = repo
-                .find_tree(ob.id())
-                .expect("no working tree");
+            let repo = Repository::open(path).expect("can't open repo");
+            let ob =
+                repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+            let current_tree =
+                repo.find_tree(ob.id()).expect("no working tree");
             let git_diff = repo
-                .diff_tree_to_index(
-                    Some(&current_tree),
-                    None,
-                    None,
-                )
-                .expect(
-                    "can't get diff tree to index",
-                );
+                .diff_tree_to_index(Some(&current_tree), None, None)
+                .expect("can't get diff tree to index");
             let diff = make_diff(git_diff);
             sender
                 .send_blocking(crate::Event::Staged(diff))
@@ -682,76 +473,45 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
             // build up diff structure
             if current_file.id.is_zero() {
                 // init new file
-                current_file =
-                    File::from_diff_file(&file);
+                current_file = File::from_diff_file(&file);
             }
             if current_file.id != oid {
                 // go to next file
                 // push current_hunk to file and init new empty hunk
-                current_file.push_hunk(
-                    current_hunk.clone(),
-                );
+                current_file.push_hunk(current_hunk.clone());
                 current_hunk = Hunk::new();
                 // push current_file to diff and change to new file
-                diff.files
-                    .push(current_file.clone());
-                current_file =
-                    File::from_diff_file(&file);
+                diff.files.push(current_file.clone());
+                current_file = File::from_diff_file(&file);
             }
             if let Some(diff_hunk) = o_diff_hunk {
-                let hh = Hunk::get_header_from(
-                    &diff_hunk,
-                );
-                let old_start =
-                    diff_hunk.old_start();
-                let old_lines =
-                    diff_hunk.old_lines();
-                let new_start =
-                    diff_hunk.new_start();
-                let new_lines =
-                    diff_hunk.new_lines();
+                let hh = Hunk::get_header_from(&diff_hunk);
+                let old_start = diff_hunk.old_start();
+                let old_lines = diff_hunk.old_lines();
+                let new_start = diff_hunk.new_start();
+                let new_lines = diff_hunk.new_lines();
                 if current_hunk.header.is_empty() {
                     // init hunk
-                    current_hunk.header =
-                        hh.clone();
-                    current_hunk.old_start =
-                        old_start;
-                    current_hunk.old_lines =
-                        old_lines;
-                    current_hunk.new_start =
-                        new_start;
-                    current_hunk.new_lines =
-                        new_lines;
+                    current_hunk.header = hh.clone();
+                    current_hunk.old_start = old_start;
+                    current_hunk.old_lines = old_lines;
+                    current_hunk.new_start = new_start;
+                    current_hunk.new_lines = new_lines;
                 }
                 if current_hunk.header != hh {
                     // go to next hunk
-                    current_file.push_hunk(
-                        current_hunk.clone(),
-                    );
+                    current_file.push_hunk(current_hunk.clone());
                     current_hunk = Hunk::new();
-                    current_hunk.header =
-                        hh.clone();
-                    current_hunk.old_start =
-                        old_start;
-                    current_hunk.old_lines =
-                        old_lines;
-                    current_hunk.new_start =
-                        new_start;
-                    current_hunk.new_lines =
-                        new_lines;
+                    current_hunk.header = hh.clone();
+                    current_hunk.old_start = old_start;
+                    current_hunk.old_lines = old_lines;
+                    current_hunk.new_start = new_start;
+                    current_hunk.new_lines = new_lines;
                 }
-                current_hunk.push_line(
-                    Line::from_diff_line(
-                        &diff_line,
-                    ),
-                );
+                current_hunk.push_line(Line::from_diff_line(&diff_line));
             } else {
                 // this is file header line.
-                current_hunk.push_line(
-                    Line::from_diff_line(
-                        &diff_line,
-                    ),
-                )
+                current_hunk.push_line(Line::from_diff_line(&diff_line))
             }
 
             true
@@ -772,27 +532,21 @@ pub fn stage_via_apply(
     filter: ApplyFilter,
     sender: Sender<crate::Event>,
 ) {
-    let repo = Repository::open(path.clone())
-        .expect("can't open repo");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
     // get actual diff for repo
     let git_diff = {
         if is_staging {
             repo.diff_index_to_workdir(None, None)
                 .expect("can't get diff")
         } else {
-            let ob = repo
-                .revparse_single("HEAD^{tree}")
-                .expect("fail revparse");
-            let current_tree = repo
-                .find_tree(ob.id())
-                .expect("no working tree");
+            let ob =
+                repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+            let current_tree =
+                repo.find_tree(ob.id()).expect("no working tree");
             repo.diff_tree_to_index(
                 Some(&current_tree),
                 None,
-                Some(
-                    DiffOptions::new()
-                        .reverse(true),
-                ),
+                Some(DiffOptions::new().reverse(true)),
             )
             .expect("can't get diff")
         }
@@ -810,10 +564,7 @@ pub fn stage_via_apply(
                 if is_staging {
                     filter.hunk_header == header
                 } else {
-                    filter.hunk_header
-                        == Hunk::reverse_header(
-                            header,
-                        )
+                    filter.hunk_header == Hunk::reverse_header(header)
                 }
             };
         }
@@ -824,45 +575,28 @@ pub fn stage_via_apply(
             let status = dd.status();
             debug!("delta_callback in stage_via_apply status {:?}", status);
             let new_file = dd.new_file();
-            let file =
-                File::from_diff_file(&new_file);
-            let path = file
-                .path
-                .into_string()
-                .unwrap();
+            let file = File::from_diff_file(&new_file);
+            let path = file.path.into_string().unwrap();
             return filter.file_path == path;
         }
         todo!("diff without delta");
         true
     });
-    repo.apply(
-        &git_diff,
-        ApplyLocation::Index,
-        Some(&mut options),
-    )
-    .expect("can't apply patch");
+    repo.apply(&git_diff, ApplyLocation::Index, Some(&mut options))
+        .expect("can't apply patch");
 
     // staged changes
     gio::spawn_blocking({
         let sender = sender.clone();
         move || {
-            let repo = Repository::open(path)
-                .expect("can't open repo");
-            let ob = repo
-                .revparse_single("HEAD^{tree}")
-                .expect("fail revparse");
-            let current_tree = repo
-                .find_tree(ob.id())
-                .expect("no working tree");
+            let repo = Repository::open(path).expect("can't open repo");
+            let ob =
+                repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+            let current_tree =
+                repo.find_tree(ob.id()).expect("no working tree");
             let git_diff = repo
-                .diff_tree_to_index(
-                    Some(&current_tree),
-                    None,
-                    None,
-                )
-                .expect(
-                    "can't get diff tree to index",
-                );
+                .diff_tree_to_index(Some(&current_tree), None, None)
+                .expect("can't get diff tree to index");
             let diff = make_diff(git_diff);
             sender
                 .send_blocking(crate::Event::Staged(diff))
@@ -884,11 +618,8 @@ pub fn commit_staged(
     message: String,
     sender: Sender<crate::Event>,
 ) {
-    let repo = Repository::open(path.clone())
-        .expect("can't open repo");
-    let me = repo
-        .signature()
-        .expect("can't get signature");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let me = repo.signature().expect("can't get signature");
     // update_ref: Option<&str>,
     // author: &Signature<'_>,
     // committer: &Signature<'_>,
@@ -900,55 +631,29 @@ pub fn commit_staged(
         .expect("can't get index")
         .write_tree()
         .expect("can't write tree");
-    let tree = repo
-        .find_tree(tree_oid)
-        .expect("can't find tree");
+    let tree = repo.find_tree(tree_oid).expect("can't find tree");
     let ob = repo
         .revparse_single("HEAD^{commit}")
         .expect("fail revparse");
-    let parent = repo
-        .find_commit(ob.id())
-        .expect("can't find commit");
-    repo.commit(
-        Some("HEAD"),
-        &me,
-        &me,
-        &message,
-        &tree,
-        &[&parent],
-    )
-    .expect("can't commit");
+    let parent = repo.find_commit(ob.id()).expect("can't find commit");
+    repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&parent])
+        .expect("can't commit");
 
     // update staged changes
-    let ob = repo
-        .revparse_single("HEAD^{tree}")
-        .expect("fail revparse");
-    let current_tree = repo
-        .find_tree(ob.id())
-        .expect("no working tree");
+    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
     let git_diff = repo
-        .diff_tree_to_index(
-            Some(&current_tree),
-            None,
-            None,
-        )
+        .diff_tree_to_index(Some(&current_tree), None, None)
         .expect("can't get diff tree to index");
     sender
-        .send_blocking(crate::Event::Staged(
-            make_diff(git_diff),
-        ))
+        .send_blocking(crate::Event::Staged(make_diff(git_diff)))
         .expect("Could not send through channel");
     get_head(path, sender)
 }
 
-pub fn push(
-    path: OsString,
-    sender: Sender<crate::Event>,
-) {
-    let repo = Repository::open(path.clone())
-        .expect("can't open repo");
-    let head_ref =
-        repo.head().expect("can't get head");
+pub fn push(path: OsString, sender: Sender<crate::Event>) {
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let head_ref = repo.head().expect("can't get head");
     debug!("head ref name {:?}", head_ref.name());
     assert!(head_ref.is_branch());
     let mut remote = repo
@@ -964,20 +669,14 @@ pub fn push(
                 oid1,
                 oid2
             );
-            get_upstream(
-                path.clone(),
-                sender.clone(),
-            );
+            get_upstream(path.clone(), sender.clone());
             // todo what is this?
             true
         }
     });
     callbacks.push_update_reference({
         move |ref_name, opt_status| {
-            trace!(
-                "push update red {:?}",
-                ref_name
-            );
+            trace!("push update red {:?}", ref_name);
             trace!("push status {:?}", opt_status);
             // TODO - if status is not None
             // it will need to interact with user
@@ -991,18 +690,13 @@ pub fn push(
         trace!("auth credentials username_from_url {:?}", username_from_url);
         trace!("auth credentials allowed_types url {:?}", allowed_types);
         if allowed_types.contains(CredentialType::SSH_KEY) {
-            return Cred::ssh_key_from_agent(
-                username_from_url.unwrap()
-            )
+            return Cred::ssh_key_from_agent(username_from_url.unwrap());
         }
         todo!("implement other types");
     });
     opts.remote_callbacks(callbacks);
     remote
-        .push(
-            &[head_ref.name().unwrap()],
-            Some(&mut opts),
-        )
+        .push(&[head_ref.name().unwrap()], Some(&mut opts))
         .expect("cant push to remote");
 }
 
@@ -1028,43 +722,26 @@ impl Default for BranchData {
             commit_string: String::from(""),
             is_head: false,
             upstream_name: None,
-            commit_dt:
-                DateTime::<FixedOffset>::MIN_UTC
-                    .into(),
+            commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
         }
     }
 }
 
 impl BranchData {
-    pub fn new(
-        branch: Branch,
-        branch_type: BranchType,
-    ) -> Self {
-        let name = branch
-            .name()
-            .unwrap()
-            .unwrap()
-            .to_string();
-        let mut upstream_name: Option<String> =
-            None;
+    pub fn new(branch: Branch, branch_type: BranchType) -> Self {
+        let name = branch.name().unwrap().unwrap().to_string();
+        let mut upstream_name: Option<String> = None;
         if let Ok(upstream) = branch.upstream() {
-            upstream_name = Some(
-                upstream
-                    .name()
-                    .unwrap()
-                    .unwrap()
-                    .to_string(),
-            );
+            upstream_name =
+                Some(upstream.name().unwrap().unwrap().to_string());
         }
-        let is_head = branch.is_head();        
+        let is_head = branch.is_head();
         let bref = branch.get();
         let refname = bref.name().unwrap().to_string();
         let ob = bref
             .peel(ObjectType::Commit)
             .expect("can't get commit from ref!");
-        let commit = ob
-            .peel_to_commit()
-            .expect("can't get commit from ob!");
+        let commit = ob.peel_to_commit().expect("can't get commit from ob!");
         let commit_string = commit_string(&commit);
         let oid = branch.get().target().unwrap();
 
@@ -1083,18 +760,12 @@ impl BranchData {
 }
 
 pub fn get_refs(path: OsString) -> Vec<BranchData> {
-    let repo = Repository::open(path.clone())
-        .expect("can't open repo");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
-    let branches = repo
-        .branches(None)
-        .expect("can't get branches");
+    let branches = repo.branches(None).expect("can't get branches");
     branches.for_each(|item| {
         let (branch, branch_type) = item.unwrap();
-        result.push(BranchData::new(
-            branch,
-            branch_type,
-        ));
+        result.push(BranchData::new(branch, branch_type));
     });
     result.sort_by(|a, b| {
         // if a.is_head {
@@ -1118,13 +789,9 @@ pub fn get_refs(path: OsString) -> Vec<BranchData> {
     result
 }
 
-pub fn set_head(
-    path: OsString,
-    refname: &str,
-) -> Result<(), String> {
+pub fn set_head(path: OsString, refname: &str) -> Result<(), String> {
     debug!("set head.......{:?}", refname);
-    let repo = Repository::open(path.clone())
-        .expect("can't open repo");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
     let result = repo.set_head(refname);
     debug!("!======================> {:?}", result);
     Ok(())
@@ -1135,7 +802,7 @@ fn git_checkout(
     // branch_data: BranchData,
     repo: Repository,
     oid: Oid,
-    refname: &str
+    refname: &str,
 ) -> Result<(), Error> {
     let mut builder = CheckoutBuilder::new();
     let opts = builder.safe();
@@ -1145,14 +812,20 @@ fn git_checkout(
     Ok(())
 }
 
-pub fn checkout(path: OsString,
-                oid: Oid,
-                refname: &str,
-                sender: Sender<crate::Event>) -> Result<(), String> {        
-    let repo = Repository::open(path.clone())
-        .expect("can't open repo");
-    if let  Err(err) = git_checkout(repo, oid, refname) {
-        debug!("err on checkout {:?} {:?} {:?}", err.code(), err.class(), err.message());
+pub fn checkout(
+    path: OsString,
+    oid: Oid,
+    refname: &str,
+    sender: Sender<crate::Event>,
+) -> Result<(), String> {
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    if let Err(err) = git_checkout(repo, oid, refname) {
+        debug!(
+            "err on checkout {:?} {:?} {:?}",
+            err.code(),
+            err.class(),
+            err.message()
+        );
         // match err.code() {
         //     ErrorCode::Conflict => {
         //         return Err(String::from(""));
@@ -1162,5 +835,5 @@ pub fn checkout(path: OsString,
     }
     // todo -> message to update text_view
     get_current_repo_status(Some(path), sender);
-    Ok(())        
+    Ok(())
 }
