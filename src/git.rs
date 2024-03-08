@@ -234,6 +234,7 @@ impl Hunk {
             _ => self.lines.push(line),
         }
     }
+    // hunk
     pub fn enrich_view(&mut self, other: &Hunk) {
         if self.lines.len() != other.lines.len() {
             // so :) what todo?
@@ -291,6 +292,7 @@ impl File {
         self.path.to_str().unwrap().to_string()
     }
 
+    // file
     pub fn enrich_view(
         &mut self,
         other: &mut File,
@@ -422,6 +424,7 @@ impl Diff {
         }
     }
 
+    // diff
     pub fn enrich_view(
         &mut self,
         other: &mut Diff,
@@ -475,6 +478,7 @@ impl Head {
             remote: false,
         }
     }
+    // head
     pub fn enrich_view(&mut self, other: &Head) {
         self.view = other.transfer_view();
     }
@@ -525,10 +529,6 @@ pub fn get_head(
         .expect("can't get commit from ob!");
     let branch = Branch::wrap(head_ref);    
     let new_head = Head::new(&branch, &commit);    
-    // refactor.enrich
-    // if let Some(oh) = old_head {
-    //     new_head.enrich_view(&oh);
-    // }
     sender
         .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
@@ -555,10 +555,6 @@ pub fn get_upstream(
         let mut new_upstream =
             Head::new(&upstream, &commit);
         new_upstream.remote = true;
-        // refactor.enrich
-        // if let Some(ou) = old_upstream {
-        //     new_upstream.enrich_view(&ou);
-        // }
         sender
             .send_blocking(crate::Event::Upstream(
                 new_upstream,
@@ -868,10 +864,6 @@ pub fn stage_via_apply(
                     "can't get diff tree to index",
                 );
             let diff = make_diff(git_diff);
-            // refactor.enrich
-            // if let Some(s) = &mut staged {
-            //     diff.enrich_view(s);
-            // }
             sender
                 .send_blocking(crate::Event::Staged(diff))
                 .expect("Could not send through channel");
@@ -882,10 +874,6 @@ pub fn stage_via_apply(
         .diff_index_to_workdir(None, None)
         .expect("cant get diff_index_to_workdir");
     let diff = make_diff(git_diff);
-    // refactor.enrich
-    // if let Some(u) = &mut unstaged {
-    //     diff.enrich_view(u);
-    // }
     sender
         .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
