@@ -182,6 +182,56 @@ impl Hunk {
         Related::After
     }
 
+    pub fn adopt_and_match(&mut self, new_hunk: &mut Hunk) -> bool {
+        // go "insert" (no real insertion is required) every new hunk in old_hunks.
+        // that new hunk which will be overlapped or before or after old_hunk - those will have
+        // new view. (i believe overlapping is not possible)
+        // insertion means - shift all rest old hunks according to lines delta
+        // and only hunks which match exactly will be enriched by views of old
+        // hunks. line_no actually does not matter - they will be shifted.
+        // but props like rendered, expanded will be copied for smoother rendering
+
+        // self - is old_hunk. it lines possible will be changed
+        // cause we are inserting new_hunk in file
+        trace!("inner cycle for self");
+        match new_hunk.related_to_other(self) {
+            // me relative to other hunks
+            Related::Before => {
+                trace!("choose new hunk start");
+                trace!(
+                    "just shift old hunk by my lines {:?}",
+                    new_hunk.delta_in_lines()
+                );
+                // my lines - means diff in lines between my self and my new hunk
+                self.new_start = ((self.new_start as i32)
+                                        + new_hunk.delta_in_lines())
+                    as u32;
+            }
+            Related::OverlapBefore => {
+                // insert diff betweeen old and new view
+                todo!("extend hunk by start diff");
+                // hm. old_lines are not included at all...
+                // self.new_lines += self.new_start - hunk.new_start;
+                // self.new_start = hunk.new_start;
+            }
+            Related::Matched => {
+                trace!("enrich!");
+                return true;
+            }
+            Related::OverlapAfter => {
+                todo!("choose old hunk start");
+                // trace!("extend hunk by start diff");
+                // self.new_lines += hunk.new_start - other_hunk.new_start;
+                // hm. old lines are not present at all?
+            }
+            Related::After => {
+                trace!("nothing todo!");
+                // nothing to do
+            }
+        }
+        false
+    }
+    
     pub fn title(&self) -> String {
         self.header.to_string()
     }
