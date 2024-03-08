@@ -680,8 +680,6 @@ pub trait ViewContainer {
 
     fn get_view(&mut self) -> &mut View;
 
-    fn get_self(&self) -> &dyn ViewContainer;
-
     // TODO - return bool and stop iteration when false
     // visitor takes child as first arg and parent as second arg
     fn walk_down(
@@ -884,10 +882,6 @@ impl ViewContainer for Diff {
         String::from("")
     }
 
-    fn get_self(&self) -> &dyn ViewContainer {
-        self
-    }
-
     fn get_children(
         &mut self,
     ) -> Vec<&mut dyn ViewContainer> {
@@ -946,10 +940,6 @@ impl ViewContainer for File {
         self.hunks.len()
     }
 
-    fn get_self(&self) -> &dyn ViewContainer {
-        self
-    }
-
     fn get_view(&mut self) -> &mut View {
         &mut self.view
     }
@@ -978,10 +968,6 @@ impl ViewContainer for Hunk {
 
     fn child_count(&self) -> usize {
         self.lines.len()
-    }
-
-    fn get_self(&self) -> &dyn ViewContainer {
-        self
     }
 
     fn get_content(&self) -> String {
@@ -1047,9 +1033,6 @@ impl ViewContainer for Line {
     fn child_count(&self) -> usize {
         0
     }
-    fn get_self(&self) -> &dyn ViewContainer {
-        self
-    }
 
     fn get_view(&mut self) -> &mut View {
         &mut self.view
@@ -1105,9 +1088,7 @@ impl ViewContainer for Label {
     fn child_count(&self) -> usize {
         0
     }
-    fn get_self(&self) -> &dyn ViewContainer {
-        self
-    }
+
     fn get_view(&mut self) -> &mut View {
         &mut self.view
     }
@@ -1129,9 +1110,6 @@ impl ViewContainer for Head {
     }
     fn child_count(&self) -> usize {
         0
-    }
-    fn get_self(&self) -> &dyn ViewContainer {
-        self
     }
     fn get_view(&mut self) -> &mut View {
         &mut self.view
