@@ -418,7 +418,7 @@ impl View {
             self.line_no
         );
         let mut line_len: Option<i32> = None;
-        dbg!(&self);
+        // dbg!(&self);
         match self.get_state_for(line_no) {
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
@@ -1216,12 +1216,10 @@ impl Status {
         txt: &TextView,
         sender: Sender<crate::Event>,
     ) {
-        let u = self.upstream.clone();
         gio::spawn_blocking({
             let path = path.clone();
             move || {
                 push(
-                    u, // used to enrich views
                     path, sender,
                 );
             }
@@ -1243,14 +1241,10 @@ impl Status {
             // is it ok? git will return new files
             // (there will be no files, actually)
             diff.files = Vec::new();
-            let h = self.head.clone();
-            let u = self.upstream.clone();
             gio::spawn_blocking({
                 let path = path.clone();
                 move || {
                     commit_staged(
-                        h, // used to enrich views
-                        u, // used to enrich views
                         path, message, sender,
                     );
                 }
@@ -1260,27 +1254,38 @@ impl Status {
 
     pub fn update_head(
         &mut self,
-        head: Head,
+        mut head: Head,
         txt: &TextView,
     ) {
+        // refactor.enrich
+        if let Some(current_head) = &self.head {
+            head.enrich_view(&current_head);
+        }
         self.head.replace(head);
         self.render(txt, RenderSource::Git);
     }
 
     pub fn update_upstream(
         &mut self,
-        upstream: Head,
+        mut upstream: Head,
         txt: &TextView,
     ) {
+        // refactor.enrich
+        if let Some(current_upstream) = &self.upstream {
+            upstream.enrich_view(&current_upstream);
+        }
         self.upstream.replace(upstream);
         self.render(txt, RenderSource::Git);
     }
 
     pub fn update_staged(
         &mut self,
-        diff: Diff,
+        mut diff: Diff,
         txt: &TextView,
     ) {
+        if let Some(s) = &mut self.staged {
+            diff.enrich_view(s);
+        }
         self.staged.replace(diff);
         if self.staged.is_some()
             && self.unstaged.is_some()
@@ -1291,9 +1296,12 @@ impl Status {
 
     pub fn update_unstaged(
         &mut self,
-        diff: Diff,
+        mut diff: Diff,
         txt: &TextView,
     ) {
+        if let Some(u) = &mut self.unstaged {
+            diff.enrich_view(u);
+        }
         self.unstaged.replace(diff);
         if self.staged.is_some()
             && self.unstaged.is_some()
@@ -1552,15 +1560,10 @@ impl Status {
                     true
                 }
             });
-
-            let u = self.unstaged.clone();
-            let s = self.staged.clone();
             gio::spawn_blocking({
                 let path = path.clone();
                 move || {
                     stage_via_apply(
-                        u, // used to enrich views
-                        s, // used to enrich views
                         is_staging, path, filter,
                         sender,
                     );

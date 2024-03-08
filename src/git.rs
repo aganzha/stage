@@ -510,7 +510,6 @@ pub fn commit_dt(
 
 pub fn get_head(
     path: OsString,
-    old_head: Option<Head>,
     sender: Sender<crate::Event>,
 ) {
     let repo = Repository::open(path)
@@ -524,11 +523,12 @@ pub fn get_head(
     let commit = ob
         .peel_to_commit()
         .expect("can't get commit from ob!");
-    let branch = Branch::wrap(head_ref);
-    let mut new_head = Head::new(&branch, &commit);
-    if let Some(oh) = old_head {
-        new_head.enrich_view(&oh);
-    }
+    let branch = Branch::wrap(head_ref);    
+    let new_head = Head::new(&branch, &commit);    
+    // refactor.enrich
+    // if let Some(oh) = old_head {
+    //     new_head.enrich_view(&oh);
+    // }
     sender
         .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
@@ -536,7 +536,6 @@ pub fn get_head(
 
 pub fn get_upstream(
     path: OsString,
-    old_upstream: Option<Head>,
     sender: Sender<crate::Event>,
 ) {
     let repo = Repository::open(path)
@@ -556,9 +555,10 @@ pub fn get_upstream(
         let mut new_upstream =
             Head::new(&upstream, &commit);
         new_upstream.remote = true;
-        if let Some(ou) = old_upstream {
-            new_upstream.enrich_view(&ou);
-        }
+        // refactor.enrich
+        // if let Some(ou) = old_upstream {
+        //     new_upstream.enrich_view(&ou);
+        // }
         sender
             .send_blocking(crate::Event::Upstream(
                 new_upstream,
@@ -597,10 +597,9 @@ pub fn get_current_repo_status(
         move || {
             get_head(
                 path.clone(),
-                None,
                 sender.clone(),
             );
-            get_upstream(path, None, sender);
+            get_upstream(path, sender);
         }
     });
 
@@ -772,8 +771,6 @@ pub fn make_diff(git_diff: GitDiff) -> Diff {
 }
 
 pub fn stage_via_apply(
-    mut unstaged: Option<Diff>,
-    mut staged: Option<Diff>,
     is_staging: bool,
     path: OsString,
     filter: ApplyFilter,
@@ -870,10 +867,11 @@ pub fn stage_via_apply(
                 .expect(
                     "can't get diff tree to index",
                 );
-            let mut diff = make_diff(git_diff);
-            if let Some(s) = &mut staged {
-                diff.enrich_view(s);
-            }
+            let diff = make_diff(git_diff);
+            // refactor.enrich
+            // if let Some(s) = &mut staged {
+            //     diff.enrich_view(s);
+            // }
             sender
                 .send_blocking(crate::Event::Staged(diff))
                 .expect("Could not send through channel");
@@ -883,18 +881,17 @@ pub fn stage_via_apply(
     let git_diff = repo
         .diff_index_to_workdir(None, None)
         .expect("cant get diff_index_to_workdir");
-    let mut diff = make_diff(git_diff);
-    if let Some(u) = &mut unstaged {
-        diff.enrich_view(u);
-    }
+    let diff = make_diff(git_diff);
+    // refactor.enrich
+    // if let Some(u) = &mut unstaged {
+    //     diff.enrich_view(u);
+    // }
     sender
         .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
 }
 
 pub fn commit_staged(
-    head: Option<Head>,
-    upstream: Option<Head>,
     path: OsString,
     message: String,
     sender: Sender<crate::Event>,
@@ -953,11 +950,10 @@ pub fn commit_staged(
             make_diff(git_diff),
         ))
         .expect("Could not send through channel");
-    get_head(path, head, sender)
+    get_head(path, sender)
 }
 
 pub fn push(
-    upstream: Option<Head>,
     path: OsString,
     sender: Sender<crate::Event>,
 ) {
@@ -982,7 +978,6 @@ pub fn push(
             );
             get_upstream(
                 path.clone(),
-                upstream.clone(),
                 sender.clone(),
             );
             // todo what is this?
