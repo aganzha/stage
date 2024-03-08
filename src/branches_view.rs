@@ -95,16 +95,21 @@ glib::wrapper! {
 
 mod branch_list {
     use crate::debug;
+    use glib::Properties;
     use gtk4::gio;
     use gtk4::glib;
     use gtk4::prelude::*;
     use gtk4::subclass::prelude::*;
     use std::cell::RefCell;
 
-    #[derive(Default)]
+    #[derive(Properties, Default)]
+    #[properties(wrapper_type = super::BranchList)]
     pub struct BranchList {
         pub list: RefCell<Vec<super::BranchItem>>,
         pub remote_start_pos: RefCell<Option<u32>>,
+
+        #[property(get, set)]
+        pub selected: RefCell<u32>,
     }
 
     #[glib::object_subclass]
@@ -115,6 +120,7 @@ mod branch_list {
         type Interfaces = (gio::ListModel, gtk4::SectionModel);
     }
 
+    #[glib::derived_properties]
     impl ObjectImpl for BranchList {}
 
     impl ListModelImpl for BranchList {
@@ -169,9 +175,13 @@ impl BranchList {
                 let le = items.len() as u32;
                 let mut pos = 0;
                 let mut remote_start_pos: Option<u32> = None;
+                let mut selected = 0;
                 for item in items {
                     if remote_start_pos.is_none() && item.imp().branch.borrow().branch_type == BranchType::Remote {
                         remote_start_pos.replace(pos as u32);
+                    }
+                    if item.imp().branch.borrow().is_head {
+                        selected = pos;
                     }
                     branch_list.imp().list.borrow_mut().push(item);
                     pos += 1;
@@ -179,7 +189,10 @@ impl BranchList {
                 branch_list.imp().remote_start_pos.replace(remote_start_pos);
                 branch_list.items_changed(0, 0, le);
                 // I NEED TO SELECT SOMETHING!
-                // branch_list.set_selected(0);
+                debug!("befooooore {:?}", branch_list.selected());
+                debug!("seeeeeeeeeeeeeeeeeetttt selected! {:?}", selected);
+                branch_list.set_selected(selected);
+                debug!("affterrrr {:?}", branch_list.selected());
 
             })
         });
@@ -399,9 +412,17 @@ pub fn make_list_view(
     model.make_list(repo_path.clone());
 
     let selection_model = SingleSelection::new(Some(model));
-
+    let model = selection_model.model().unwrap();//.downcast_ref::<BranchList>().unwrap();
+    let bind = selection_model.bind_property(
+        "selected",
+        &model,
+        "selected",
+    );
+    let some = bind.bidirectional().build();
+    debug!("===========================> {:?}", some);
     selection_model.set_autoselect(true);
-    selection_model.set_selected(0);
+    // selection_model.set_selected(3);
+    // debug!("set selected.......... {:?} {:?}", selection_model.selected(), model.selected());
     selection_model.set_can_unselect(false);
 
     let list_view = ListView::builder()
@@ -439,6 +460,7 @@ pub fn make_list_view(
             branch_item.set_no_progress(false);
             let root = lv.root().unwrap();
             let window = root.downcast_ref::<Window>().unwrap();
+            debug!("cheeeeeeckout! {:?} {:?}", single_selection.selected(), branch_list.selected());
             branch_list.checkout(
                 repo_path.clone(),
                 &branch_item,
