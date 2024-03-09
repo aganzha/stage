@@ -33,6 +33,9 @@ mod branch_item {
         pub branch: RefCell<crate::BranchData>,
 
         #[property(get, set)]
+        pub initial_focus: RefCell<bool>,
+        
+        #[property(get, set)]
         pub progress: RefCell<bool>,
 
         #[property(get, set)]
@@ -82,6 +85,7 @@ impl BranchItem {
             )
             .property("last-commit", &branch.commit_string)
             .property("dt", branch.commit_dt.to_string())
+            .property("initial-focus", false)
             .build();
         ob.imp().branch.replace(branch);
         ob
@@ -163,7 +167,7 @@ impl BranchList {
 
     pub fn make_list(&self, repo_path: std::ffi::OsString) {
         glib::spawn_future_local({
-            clone!(@weak self as branch_list=> async move {
+            clone!(@weak self as branch_list => async move {
                 let branches: Vec<crate::BranchData> = gio::spawn_blocking(move || {
                     crate::get_refs(repo_path)
                 }).await.expect("Task needs to finish successfully.");
@@ -182,18 +186,15 @@ impl BranchList {
                     }
                     if item.imp().branch.borrow().is_head {
                         selected = pos;
+                        item.set_initial_focus(true)
                     }
                     branch_list.imp().list.borrow_mut().push(item);
                     pos += 1;
                 }
                 branch_list.imp().remote_start_pos.replace(remote_start_pos);
                 branch_list.items_changed(0, 0, le);
-                // I NEED TO SELECT SOMETHING!
-                debug!("befooooore {:?}", branch_list.selected());
-                debug!("seeeeeeeeeeeeeeeeeetttt selected! {:?}", selected);
+                // works via bind to single_selection selected
                 branch_list.set_selected(selected);
-                debug!("affterrrr {:?}", branch_list.selected());
-
             })
         });
     }
@@ -207,7 +208,6 @@ impl BranchList {
         sender: Sender<crate::Event>,
     ) {
         let branch_data = selected_item.imp().branch.borrow();
-        debug!("checkout........... {:?}", branch_data);
         let name = branch_data.refname.clone();
         let oid = branch_data.oid.clone();
         glib::spawn_future_local({
@@ -220,7 +220,6 @@ impl BranchList {
                     selected_item.set_progress(false);
                     match git_result {
                         Ok(_) => {
-                            debug!("suuuuuuuuuuuuuccessful checkout");
                             selected_item.set_is_head(true);
                             selected_item.set_no_progress(true);
                             current_item.set_is_head(false);
@@ -250,7 +249,6 @@ pub fn make_header_factory() -> SignalListItemFactory {
         // does not work. it is always git first BranchItem
         // why???
         // list_header.connect_item_notify(move |lh| {
-        //     debug!("hhhhhhhhf {:?} {:?} {:?}", lh.start(), lh.end(), lh.n_items());
         //     let ob = lh.item().unwrap();
         //     let item: &BranchItem = ob
         //         .downcast_ref::<BranchItem>()
@@ -327,6 +325,8 @@ pub fn make_item_factory() -> SignalListItemFactory {
             .margin_start(2)
             .margin_end(2)
             .spacing(12)
+            .can_focus(true)
+            .focusable(true)
             .build();
         bx.append(&btn);
         bx.append(&spinner);
@@ -341,7 +341,16 @@ pub fn make_item_factory() -> SignalListItemFactory {
         list_item.set_selectable(true);
         list_item.set_activatable(true);
         list_item.set_focusable(true);
-
+        list_item.connect_selected_notify(|li: &ListItem| {
+            // grab foxus only once on list init
+            let ob = li.item().unwrap();
+            let branch_item = ob.downcast_ref::<BranchItem>().unwrap();
+            if branch_item.initial_focus() {
+                li.child().unwrap().grab_focus();
+                branch_item.set_initial_focus(false)
+            }
+        });
+        
         let item = list_item.property_expression("item");
 
         item.chain_property::<BranchItem>("is_head").bind(
@@ -382,44 +391,28 @@ pub fn make_item_factory() -> SignalListItemFactory {
             Widget::NONE,
         );
     });
-    // factory.connect_bind(move |_, list_item| {
-    //     let list_item = list_item
-    //         .downcast_ref::<ListItem>()
-    //         .expect("Needs to be ListItem");
-    //     if let Some(branch_item) = list_item.item() {
-    //         let branch_item = branch_item.downcast_ref::<BranchItem>()
-    //             .unwrap();
-    //         if branch_item.imp().branch.borrow().is_head {
-    //             list_item.activate();
-    //         }
-    //     } else {
-    //         panic!("no item on bind list_item");
-    //     }
 
-    //     // debug!("-----------------------> {:?} {:?}", list_item, branch_item);
-    // });
     factory
 }
 
 pub fn make_list_view(
     repo_path: std::ffi::OsString,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event>
 ) -> ListView {
     let header_factory = make_header_factory();
     let factory = make_item_factory();
 
-    let model = BranchList::new();
-    model.make_list(repo_path.clone());
+    let branch_list = BranchList::new();
 
-    let selection_model = SingleSelection::new(Some(model));
-    let model = selection_model.model().unwrap(); //.downcast_ref::<BranchList>().unwrap();
+    let selection_model = SingleSelection::new(Some(branch_list));
+    let model = selection_model.model().unwrap();
     let bind = selection_model.bind_property("selected", &model, "selected");
-    let some = bind.bidirectional().build();
-    debug!("===========================> {:?}", some);
-    selection_model.set_autoselect(true);
-    // selection_model.set_selected(3);
-    // debug!("set selected.......... {:?} {:?}", selection_model.selected(), model.selected());
-    selection_model.set_can_unselect(false);
+    let _ = bind.bidirectional().build();
+
+    let branch_list = model.downcast_ref::<BranchList>().unwrap();
+    branch_list.make_list(repo_path.clone());
+    
+    selection_model.set_autoselect(false);
 
     let list_view = ListView::builder()
         .model(&selection_model)
@@ -430,9 +423,8 @@ pub fn make_list_view(
         .margin_top(12)
         .margin_bottom(12)
         .show_separators(true)
-        //.single_click_activate(true)
         .build();
-
+    
     list_view.connect_activate(move |lv: &ListView, pos: u32| {
         let selection_model = lv.model().unwrap();
         let single_selection =
@@ -515,8 +507,4 @@ pub fn show_branches_window(
     window.add_controller(event_controller);
     window.present();
     list_view.grab_focus();
-    // let d = AlertDialog::builder()
-    //     .message("ou----------- mou")
-    //     .build();
-    // d.show(Some(&window));
 }
