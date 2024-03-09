@@ -4,7 +4,7 @@ use glib::{clone, closure, types, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, AlertDialog, Box, CheckButton, EventControllerKey,
+    gdk, gio, glib, pango, AlertDialog, Box, CheckButton, Button, EventControllerKey,
     Label, ListHeader, ListItem, ListView, NoSelection, Orientation,
     PropertyExpression, ScrolledWindow, SectionModel, SelectionModel,
     SignalListItemFactory, SingleSelection, Spinner, StringList, StringObject,
@@ -34,7 +34,7 @@ mod branch_item {
 
         #[property(get, set)]
         pub initial_focus: RefCell<bool>,
-        
+
         #[property(get, set)]
         pub progress: RefCell<bool>,
 
@@ -350,7 +350,7 @@ pub fn make_item_factory() -> SignalListItemFactory {
                 branch_item.set_initial_focus(false)
             }
         });
-        
+
         let item = list_item.property_expression("item");
 
         item.chain_property::<BranchItem>("is_head").bind(
@@ -411,7 +411,7 @@ pub fn make_list_view(
 
     let branch_list = model.downcast_ref::<BranchList>().unwrap();
     branch_list.make_list(repo_path.clone());
-    
+
     selection_model.set_autoselect(false);
 
     let list_view = ListView::builder()
@@ -424,7 +424,7 @@ pub fn make_list_view(
         .margin_bottom(12)
         .show_separators(true)
         .build();
-    
+
     list_view.connect_activate(move |lv: &ListView, pos: u32| {
         let selection_model = lv.model().unwrap();
         let single_selection =
@@ -456,6 +456,7 @@ pub fn make_list_view(
             branch_list.checkout(
                 repo_path.clone(),
                 &branch_item,
+                // got panic here!
                 current_item.unwrap(),
                 &window,
                 sender.clone(),
@@ -466,11 +467,59 @@ pub fn make_list_view(
     list_view
 }
 
+pub fn make_headerbar() -> HeaderBar {
+    let hb = HeaderBar::builder().build();
+    let lbl = Label::builder()
+        .label("branches")
+        .single_line_mode(true)
+        .build();
+    let new_btn = Button::builder()
+        .label("N")
+        .can_shrink(true)
+        .tooltip_text("New")
+        .sensitive(true)
+        .use_underline(true)
+        .action_name("branches.new")
+        .build();
+    let kill_btn = Button::builder()
+        .label("K")
+        .use_underline(true)
+        .tooltip_text("Kill")
+        .sensitive(false)
+        .can_shrink(true)
+        .action_name("branches.kill")
+        .build();
+    let merge_btn = Button::builder()
+        .label("M")
+        .use_underline(true)
+        .tooltip_text("Merge")
+        .sensitive(false)
+        .can_shrink(true)
+        .action_name("branches.merge")
+        .build();
+    hb.set_title_widget(Some(&lbl));
+    hb.pack_end(&new_btn);
+    hb.pack_end(&kill_btn);
+    hb.pack_end(&merge_btn);
+    hb.set_show_end_title_buttons(true);
+    hb.set_show_back_button(true);
+    hb
+}
+
 pub fn show_branches_window(
     repo_path: std::ffi::OsString,
     app_window: &ApplicationWindow,
     sender: Sender<crate::Event>,
-) {
+) {    
+
+    //     let action = gio::SimpleAction::new("open", None);
+    // let btn = self.clone();
+    // action.connect_activate(move |_, _| {
+    //     btn.open_config_file(sndr.clone());
+    // });
+
+    // when some branch is selected list view must signal about that to header buttons
+    // when buttons are clicked, they must single about it to list view
     let window = Window::builder()
         .application(&app_window.application().unwrap())
         .transient_for(app_window)
@@ -479,11 +528,13 @@ pub fn show_branches_window(
         .build();
     window.set_default_size(1280, 960);
 
-    let hb = HeaderBar::builder().build();
-
+    let hb = make_headerbar();
+    
     let scroll = ScrolledWindow::new();
 
     let list_view = make_list_view(repo_path, sender);
+    
+    
     scroll.set_child(Some(&list_view));
 
     let tb = ToolbarView::builder().content(&scroll).build();
