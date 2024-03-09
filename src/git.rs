@@ -887,3 +887,11 @@ pub fn checkout(
     get_current_repo_status(Some(path), sender);
     Ok(())
 }
+
+
+pub fn checkout_new(path: OsString,
+                    oid: &Oid,
+                    refname: &str,
+                    sender: Sender<crate::Event>) -> BranchData {
+    BranchData::default()
+}
