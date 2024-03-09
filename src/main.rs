@@ -13,12 +13,12 @@ use async_channel::Sender;
 mod git;
 use git::{
     checkout, commit_staged, get_current_repo_status, get_refs, push,
-    set_head, stage_via_apply, ApplyFilter, BranchData, Diff, File, Head,
+    set_head, stage_via_apply, checkout_new, ApplyFilter, BranchData, Diff, File, Head,
     Hunk, Line, Related, View,
 };
 
 mod widgets;
-use widgets::{display_error, show_commit_message, show_push_message};
+use widgets::{display_error, show_commit_message, show_push_message, get_new_branch_name};
 
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -74,6 +74,7 @@ pub enum Event {
     Stage(i32, i32),
     UnStage(i32, i32),
     CommitRequest,
+    // NewBranchRequest,
     PushRequest,
     Commit(String),
     Push,

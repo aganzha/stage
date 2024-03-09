@@ -114,6 +114,9 @@ mod branch_list {
 
         #[property(get, set)]
         pub selected: RefCell<u32>,
+
+        #[property(get, set)]
+        pub newclick: RefCell<bool>,
     }
 
     #[glib::object_subclass]
@@ -161,9 +164,48 @@ mod branch_list {
 }
 
 impl BranchList {
-    pub fn new() -> Self {
-        Object::builder().build()
+    pub fn new(sender: Sender<crate::Event>) -> Self {
+        let ob: Self = Object::builder().build();
+        ob.connect_newclick_notify(|slf| {
+            debug!("connect_newclick_notify in branchlist");
+            // it works!
+            debug!("(((((((((((((((((((((9 {:?}", slf.selected());
+            // let item = slf.item(slf.selected()).unwrap();
+            // sender.send_blocking(crate::Event::NewBranchRequest)
+            //             .expect("Could not send through channel");
+
+            // let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+            // let list_item = branch_item
+            //     .downcast_ref::<ListItem>()
+            //     .expect("Needs to be ListItem");
+            // let bx = list_item.child().unwrap();
+            // let root = bx.root().unwrap();
+            // debug!("roooooooooooooooot in branch_list {:?}", branch_item);
+            // let window = root.downcast_ref::<Window>().unwrap();
+        });
+        ob
     }
+
+    pub fn create_new_branch(&self, repo_path: std::ffi::OsString, sender: Sender<crate::Event>, window: &Window) {
+        debug!("cccccccreate_new_branch {:?} {:?}", sender, window);
+        crate::get_new_branch_name(window, sender.clone(), clone!(@weak self as branch_list => move |new_name: String| {
+            
+            let item = branch_list.item(branch_list.selected()).unwrap();            
+            let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+            let current_branch = branch_item.imp().branch.borrow();
+            let oid = &current_branch.oid;
+            let refname = &current_branch.refname;
+            debug!("got new name from message dialog {:?} {:?} {:?} {:?}", new_name, repo_path, refname, oid);
+            // glib::spawn_future_local(async move {
+            //     let new_branch: crate::BranchData = gio::spawn_blocking(move || {
+            //         crate::checkout_new(repo_path, oid, refname, sender)
+            //     }).await.expect("Task needs to finish successfully.");
+            // });            
+        }));
+    }
+
+    // pub fn got_branch_name(&self, branch_name: String) {
+    // }
 
     pub fn make_list(&self, repo_path: std::ffi::OsString) {
         glib::spawn_future_local({
@@ -402,7 +444,7 @@ pub fn make_list_view(
     let header_factory = make_header_factory();
     let factory = make_item_factory();
 
-    let branch_list = BranchList::new();
+    let branch_list = BranchList::new(sender.clone());
 
     let selection_model = SingleSelection::new(Some(branch_list));
     let model = selection_model.model().unwrap();
@@ -467,7 +509,7 @@ pub fn make_list_view(
     list_view
 }
 
-pub fn make_headerbar() -> HeaderBar {
+pub fn make_headerbar(branch_list: &BranchList, repo_path: std::ffi::OsString, sender: Sender<crate::Event>) -> HeaderBar {
     let hb = HeaderBar::builder().build();
     let lbl = Label::builder()
         .label("branches")
@@ -479,15 +521,21 @@ pub fn make_headerbar() -> HeaderBar {
         .tooltip_text("New")
         .sensitive(true)
         .use_underline(true)
-        .action_name("branches.new")
+        // .action_name("branches.new")
         .build();
+    new_btn.connect_clicked(clone!(@weak branch_list as branch_list => move |btn| {
+        debug!(">>>>>>>>>>>>>>>>>>>>>>> new btn_clicked");
+        let root = btn.root().unwrap();
+        let window = root.downcast_ref::<Window>().unwrap();
+        branch_list.create_new_branch(repo_path.clone(), sender.clone(), &window);
+    }));
     let kill_btn = Button::builder()
         .label("K")
         .use_underline(true)
         .tooltip_text("Kill")
         .sensitive(false)
         .can_shrink(true)
-        .action_name("branches.kill")
+        //.action_name("branches.kill")
         .build();
     let merge_btn = Button::builder()
         .label("M")
@@ -495,7 +543,7 @@ pub fn make_headerbar() -> HeaderBar {
         .tooltip_text("Merge")
         .sensitive(false)
         .can_shrink(true)
-        .action_name("branches.merge")
+        //.action_name("branches.merge")
         .build();
     hb.set_title_widget(Some(&lbl));
     hb.pack_end(&new_btn);
@@ -510,7 +558,7 @@ pub fn show_branches_window(
     repo_path: std::ffi::OsString,
     app_window: &ApplicationWindow,
     sender: Sender<crate::Event>,
-) {    
+) {
 
     //     let action = gio::SimpleAction::new("open", None);
     // let btn = self.clone();
@@ -528,13 +576,20 @@ pub fn show_branches_window(
         .build();
     window.set_default_size(1280, 960);
 
-    let hb = make_headerbar();
-    
     let scroll = ScrolledWindow::new();
 
-    let list_view = make_list_view(repo_path, sender);
-    
-    
+    let list_view = make_list_view(repo_path.clone(), sender.clone());
+
+    // let single_selection = list_view.model().unwrap();
+    // let branch_list = single_selection.model().unwrap();
+
+    let selection_model = list_view.model().unwrap();
+    let single_selection =
+        selection_model.downcast_ref::<SingleSelection>().unwrap();
+    let list_model = single_selection.model().unwrap();
+    let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
+    let hb = make_headerbar(branch_list, repo_path, sender.clone());
+
     scroll.set_child(Some(&list_view));
 
     let tb = ToolbarView::builder().content(&scroll).build();
