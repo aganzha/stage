@@ -23,8 +23,8 @@
             }
         },
         "build-commands": [
-            "cargo fetch --manifest-path Cargo.toml --verbose",
-            "cargo build --release --verbose",
+            "cargo --offline fetch --manifest-path Cargo.toml --verbose",
+            "cargo --offline build --release --verbose",
             "install -Dm755 ./target/debug/stage -t /app/bin/"
         ],
         "sources": [{

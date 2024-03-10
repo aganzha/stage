@@ -427,6 +427,7 @@ pub fn get_current_repo_status(
     current_path: Option<OsString>,
     sender: Sender<crate::Event>,
 ) {
+    debug!("get_current_repo_status {:?}", current_path);
     let (repo, path) = {
         if let Some(path) = current_path {
             let repo =

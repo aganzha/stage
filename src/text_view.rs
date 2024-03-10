@@ -1129,10 +1129,10 @@ impl Status {
         }
     }
 
-    pub fn get_status(&self, sender: Sender<crate::Event>) {
+    pub fn get_status(&self, path: Option<OsString>, sender: Sender<crate::Event>) {
         gio::spawn_blocking({
             move || {
-                get_current_repo_status(None, sender);
+                get_current_repo_status(path, sender);
             }
         });
     }
