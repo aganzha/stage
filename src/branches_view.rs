@@ -523,8 +523,10 @@ pub fn make_list_view(
 
 pub fn make_headerbar(
     repo_path: std::ffi::OsString,
+    list_view: &ListView,
     sender: Sender<Event>,
 ) -> HeaderBar {
+    
     let hb = HeaderBar::builder().build();
     let lbl = Label::builder()
         .label("branches")
@@ -554,6 +556,16 @@ pub fn make_headerbar(
         .can_shrink(true)
         //.action_name("branches.kill")
         .build();
+    let selection_model = list_view.model().unwrap();
+    let single_selection =
+        selection_model.downcast_ref::<SingleSelection>().unwrap();
+    // kill_btn.bind_property("sensitive", &single_selection, "selected").transform_from(|some, pos: u32| {
+    //     debug!("transform_from =========== {:?} {:?}", some, pos);
+    //     Some(true)
+    // }).build();
+    let _ = single_selection.bind_property("selected-item", &kill_btn, "sensitive").transform_to(move |_, item: BranchItem| {
+        Some(!item.is_head())
+    }).build();
     let merge_btn = Button::builder()
         .label("M")
         .use_underline(true)
@@ -562,6 +574,9 @@ pub fn make_headerbar(
         .can_shrink(true)
         //.action_name("branches.merge")
         .build();
+    let _ = single_selection.bind_property("selected-item", &merge_btn, "sensitive").transform_to(move |_, item: BranchItem| {
+        Some(!item.is_head())
+    }).build();
     hb.set_title_widget(Some(&lbl));
     hb.pack_end(&new_btn);
     hb.pack_end(&kill_btn);
@@ -608,7 +623,7 @@ pub fn show_branches_window(
 
     let list_view = make_list_view(repo_path.clone(), main_sender.clone());
 
-    let hb = make_headerbar(repo_path.clone(), sender.clone());
+    let hb = make_headerbar(repo_path.clone(), &list_view, sender.clone());
 
     scroll.set_child(Some(&list_view));
 
