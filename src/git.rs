@@ -888,10 +888,16 @@ pub fn checkout(
     Ok(())
 }
 
-
-pub fn checkout_new(path: OsString,
-                    oid: &Oid,
-                    refname: &str,
-                    sender: Sender<crate::Event>) -> BranchData {
-    BranchData::default()
+pub fn create_branch(
+    path: OsString,
+    new_branch_name: String,
+    branch_data: BranchData,
+    sender: Sender<crate::Event>,
+) -> Result<BranchData, String> {
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let commit = repo.find_commit(branch_data.oid).expect("cant find commit");
+    let branch = repo
+        .branch(&new_branch_name, &commit, false)
+        .expect("cant create branch");
+    Ok(BranchData::new(branch, BranchType::Local))
 }

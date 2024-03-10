@@ -2,7 +2,7 @@ mod text_view;
 use text_view::{text_view_factory, Status};
 
 mod branches_view;
-use branches_view::show_branches_window;
+use branches_view::{show_branches_window, Event as BranchesEvent};
 
 mod common_tests;
 
@@ -12,13 +12,15 @@ use async_channel::Sender;
 
 mod git;
 use git::{
-    checkout, commit_staged, get_current_repo_status, get_refs, push,
-    set_head, stage_via_apply, checkout_new, ApplyFilter, BranchData, Diff, File, Head,
-    Hunk, Line, Related, View,
+    checkout, create_branch, commit_staged, get_current_repo_status, get_refs,
+    push, set_head, stage_via_apply, ApplyFilter, BranchData, Diff, File,
+    Head, Hunk, Line, Related, View,
 };
 
 mod widgets;
-use widgets::{display_error, show_commit_message, show_push_message, get_new_branch_name};
+use widgets::{
+    display_error, get_new_branch_name, show_commit_message, show_push_message,
+};
 
 use libadwaita::prelude::*;
 use libadwaita::{

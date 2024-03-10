@@ -4,11 +4,11 @@ use glib::{clone, closure, types, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, AlertDialog, Box, CheckButton, Button, EventControllerKey,
-    Label, ListHeader, ListItem, ListView, NoSelection, Orientation,
-    PropertyExpression, ScrolledWindow, SectionModel, SelectionModel,
-    SignalListItemFactory, SingleSelection, Spinner, StringList, StringObject,
-    Widget,
+    gdk, gio, glib, pango, AlertDialog, Box, Button, CheckButton,
+    EventControllerKey, Label, ListHeader, ListItem, ListView, NoSelection,
+    Orientation, PropertyExpression, ScrolledWindow, SectionModel,
+    SelectionModel, SignalListItemFactory, SingleSelection, Spinner,
+    StringList, StringObject, Widget, ListScrollFlags
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
@@ -113,8 +113,11 @@ mod branch_list {
         pub remote_start_pos: RefCell<Option<u32>>,
 
         #[property(get, set)]
-        pub selected: RefCell<u32>,
+        pub proxyselected: RefCell<u32>,
 
+        #[property(get, set)]
+        pub proxyscrolled: RefCell<u32>,
+        
         #[property(get, set)]
         pub newclick: RefCell<bool>,
     }
@@ -164,48 +167,10 @@ mod branch_list {
 }
 
 impl BranchList {
+
     pub fn new(sender: Sender<crate::Event>) -> Self {
-        let ob: Self = Object::builder().build();
-        ob.connect_newclick_notify(|slf| {
-            debug!("connect_newclick_notify in branchlist");
-            // it works!
-            debug!("(((((((((((((((((((((9 {:?}", slf.selected());
-            // let item = slf.item(slf.selected()).unwrap();
-            // sender.send_blocking(crate::Event::NewBranchRequest)
-            //             .expect("Could not send through channel");
-
-            // let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-            // let list_item = branch_item
-            //     .downcast_ref::<ListItem>()
-            //     .expect("Needs to be ListItem");
-            // let bx = list_item.child().unwrap();
-            // let root = bx.root().unwrap();
-            // debug!("roooooooooooooooot in branch_list {:?}", branch_item);
-            // let window = root.downcast_ref::<Window>().unwrap();
-        });
-        ob
+        Object::builder().build()
     }
-
-    pub fn create_new_branch(&self, repo_path: std::ffi::OsString, sender: Sender<crate::Event>, window: &Window) {
-        debug!("cccccccreate_new_branch {:?} {:?}", sender, window);
-        crate::get_new_branch_name(window, sender.clone(), clone!(@weak self as branch_list => move |new_name: String| {
-            
-            let item = branch_list.item(branch_list.selected()).unwrap();            
-            let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-            let current_branch = branch_item.imp().branch.borrow();
-            let oid = &current_branch.oid;
-            let refname = &current_branch.refname;
-            debug!("got new name from message dialog {:?} {:?} {:?} {:?}", new_name, repo_path, refname, oid);
-            // glib::spawn_future_local(async move {
-            //     let new_branch: crate::BranchData = gio::spawn_blocking(move || {
-            //         crate::checkout_new(repo_path, oid, refname, sender)
-            //     }).await.expect("Task needs to finish successfully.");
-            // });            
-        }));
-    }
-
-    // pub fn got_branch_name(&self, branch_name: String) {
-    // }
 
     pub fn make_list(&self, repo_path: std::ffi::OsString) {
         glib::spawn_future_local({
@@ -236,7 +201,7 @@ impl BranchList {
                 branch_list.imp().remote_start_pos.replace(remote_start_pos);
                 branch_list.items_changed(0, 0, le);
                 // works via bind to single_selection selected
-                branch_list.set_selected(selected);
+                branch_list.set_proxyselected(selected);
             })
         });
     }
@@ -245,7 +210,7 @@ impl BranchList {
         &self,
         repo_path: std::ffi::OsString,
         selected_item: &BranchItem,
-        current_item: &BranchItem,
+        current_item: &BranchItem, // TODO refactor. get this item from branch_list itself
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
@@ -272,7 +237,54 @@ impl BranchList {
                 }
                 selected_item.set_no_progress(true);
                 crate::display_error(&window, &err_message);
-                debug!("result in set head {:?}", err_message);
+            })
+        });
+    }
+
+    pub fn create_branch(
+        &self,
+        repo_path: std::ffi::OsString,
+        new_branch_name: String,
+        window: &Window,
+        branch_sender: Sender<Event>,
+        sender: Sender<crate::Event>,
+    ) {
+        glib::spawn_future_local({
+            clone!(@weak self as branch_list, @weak window as window => async move {
+                let item = branch_list.item(branch_list.proxyselected()).unwrap();
+                let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+                let branch_data = branch_item.imp().branch.borrow().clone();
+                let result = gio::spawn_blocking(move || {
+                    crate::create_branch(repo_path, new_branch_name, branch_data, sender)
+                }).await;
+                let mut err_message = String::from("git error");
+                if let Ok(git_result) = result {
+                    debug!("new branch git result -------------------> {:?}", git_result);
+                    match git_result {
+                        Ok(branch_data) => {
+                            // branch_item.set_is_head(false);
+                            let new_item = BranchItem::new(branch_data);
+                            debug!("just created new item {:?}", new_item.is_head());
+                            {
+                                // put borrow in block
+                                branch_list.imp().list.borrow_mut().insert(0, new_item);
+                                let mut pos = branch_list.imp().remote_start_pos.borrow_mut();
+                                if let Some(mut rem_pos) = *pos {
+                                    rem_pos += 1;
+                                    pos.replace(rem_pos);
+                                    debug!("replace rem pos {:?} {:?}", rem_pos, pos);
+                                }
+                            }
+                            branch_list.items_changed(0, 0, 1);
+                            branch_list.set_proxyselected(0);                            
+                            branch_sender.send_blocking(Event::Scroll(0));
+                            // TODO! it must be activated, not only selected!
+                            return;
+                        }
+                        Err(err) => err_message = err
+                    }
+                }
+                crate::display_error(&window, &err_message);
             })
         });
     }
@@ -439,7 +451,7 @@ pub fn make_item_factory() -> SignalListItemFactory {
 
 pub fn make_list_view(
     repo_path: std::ffi::OsString,
-    sender: Sender<crate::Event>
+    sender: Sender<crate::Event>,
 ) -> ListView {
     let header_factory = make_header_factory();
     let factory = make_item_factory();
@@ -447,14 +459,14 @@ pub fn make_list_view(
     let branch_list = BranchList::new(sender.clone());
 
     let selection_model = SingleSelection::new(Some(branch_list));
+    selection_model.set_autoselect(false);
+
     let model = selection_model.model().unwrap();
-    let bind = selection_model.bind_property("selected", &model, "selected");
+    let bind = selection_model.bind_property("selected", &model, "proxyselected");
     let _ = bind.bidirectional().build();
 
     let branch_list = model.downcast_ref::<BranchList>().unwrap();
     branch_list.make_list(repo_path.clone());
-
-    selection_model.set_autoselect(false);
 
     let list_view = ListView::builder()
         .model(&selection_model)
@@ -493,7 +505,7 @@ pub fn make_list_view(
             debug!(
                 "cheeeeeeckout! {:?} {:?}",
                 single_selection.selected(),
-                branch_list.selected()
+                branch_list.proxyselected()
             );
             branch_list.checkout(
                 repo_path.clone(),
@@ -509,7 +521,10 @@ pub fn make_list_view(
     list_view
 }
 
-pub fn make_headerbar(branch_list: &BranchList, repo_path: std::ffi::OsString, sender: Sender<crate::Event>) -> HeaderBar {
+pub fn make_headerbar(
+    repo_path: std::ffi::OsString,
+    sender: Sender<Event>,
+) -> HeaderBar {
     let hb = HeaderBar::builder().build();
     let lbl = Label::builder()
         .label("branches")
@@ -523,12 +538,14 @@ pub fn make_headerbar(branch_list: &BranchList, repo_path: std::ffi::OsString, s
         .use_underline(true)
         // .action_name("branches.new")
         .build();
-    new_btn.connect_clicked(clone!(@weak branch_list as branch_list => move |btn| {
-        debug!(">>>>>>>>>>>>>>>>>>>>>>> new btn_clicked");
-        let root = btn.root().unwrap();
-        let window = root.downcast_ref::<Window>().unwrap();
-        branch_list.create_new_branch(repo_path.clone(), sender.clone(), &window);
-    }));
+    new_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(Event::NewBranchRequest)
+                .expect("Could not send through channel");
+        }
+    });
     let kill_btn = Button::builder()
         .label("K")
         .use_underline(true)
@@ -554,20 +571,31 @@ pub fn make_headerbar(branch_list: &BranchList, repo_path: std::ffi::OsString, s
     hb
 }
 
+pub enum Event {
+    NewBranchRequest,
+    NewBranch(String),
+    Scroll(u32)
+}
+
+pub fn selected_branch(list_view: &ListView) -> crate::BranchData {
+    let selection_model = list_view.model().unwrap();
+    let single_selection =
+        selection_model.downcast_ref::<SingleSelection>().unwrap();
+    let list_model = single_selection.model().unwrap();
+    let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
+    let item = branch_list.item(branch_list.proxyselected()).unwrap();
+    let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+    let branch_data = branch_item.imp().branch.borrow().clone();
+    branch_data
+}
+
 pub fn show_branches_window(
     repo_path: std::ffi::OsString,
     app_window: &ApplicationWindow,
-    sender: Sender<crate::Event>,
+    main_sender: Sender<crate::Event>,
 ) {
+    let (sender, receiver) = async_channel::unbounded();
 
-    //     let action = gio::SimpleAction::new("open", None);
-    // let btn = self.clone();
-    // action.connect_activate(move |_, _| {
-    //     btn.open_config_file(sndr.clone());
-    // });
-
-    // when some branch is selected list view must signal about that to header buttons
-    // when buttons are clicked, they must single about it to list view
     let window = Window::builder()
         .application(&app_window.application().unwrap())
         .transient_for(app_window)
@@ -578,17 +606,9 @@ pub fn show_branches_window(
 
     let scroll = ScrolledWindow::new();
 
-    let list_view = make_list_view(repo_path.clone(), sender.clone());
+    let list_view = make_list_view(repo_path.clone(), main_sender.clone());
 
-    // let single_selection = list_view.model().unwrap();
-    // let branch_list = single_selection.model().unwrap();
-
-    let selection_model = list_view.model().unwrap();
-    let single_selection =
-        selection_model.downcast_ref::<SingleSelection>().unwrap();
-    let list_model = single_selection.model().unwrap();
-    let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
-    let hb = make_headerbar(branch_list, repo_path, sender.clone());
+    let hb = make_headerbar(repo_path.clone(), sender.clone());
 
     scroll.set_child(Some(&list_view));
 
@@ -600,10 +620,16 @@ pub fn show_branches_window(
     let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
         let window = window.clone();
+        let sender = sender.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
                     window.close();
+                }
+                (gdk::Key::n, _) => {
+                    sender
+                        .send_blocking(Event::NewBranchRequest)
+                        .expect("Could not send through channel");
                 }
                 _ => {}
             }
@@ -611,6 +637,44 @@ pub fn show_branches_window(
         }
     });
     window.add_controller(event_controller);
+
     window.present();
     list_view.grab_focus();
+
+    glib::spawn_future_local(async move {
+        while let Ok(event) = receiver.recv().await {
+            match event {
+                Event::NewBranchRequest => {
+                    let current_branch = selected_branch(&list_view);
+                    info!("branches. new branch request");
+                    crate::get_new_branch_name(
+                        &window,
+                        &current_branch,
+                        sender.clone(),
+                    );
+                }
+                Event::NewBranch(new_branch_name) => {
+                    info!("branches. got new branch name");
+                    let selection_model = list_view.model().unwrap();
+                    let single_selection = selection_model
+                        .downcast_ref::<SingleSelection>()
+                        .unwrap();
+                    let list_model = single_selection.model().unwrap();
+                    let branch_list =
+                        list_model.downcast_ref::<BranchList>().unwrap();
+                    branch_list.create_branch(
+                        repo_path.clone(),
+                        new_branch_name,
+                        &window,
+                        sender.clone(),
+                        main_sender.clone(),
+                    );
+                }
+                Event::Scroll(pos) => {
+                    info!("branches. scroll {:?}", pos);
+                    list_view.scroll_to(pos, ListScrollFlags::empty(), None);
+                }
+            }
+        }
+    });
 }
