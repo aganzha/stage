@@ -258,9 +258,9 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
         let buffer = buffer.clone();
         let sndr = sndr.clone();
         // let txt = txt.clone();
-        move |_, key, _, _| {
-            match key {
-                gdk::Key::Tab => {
+        move |_, key, _, modifier| {
+            match (key, modifier) {
+                (gdk::Key::Tab, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Expand(
                         iter.offset(),
@@ -268,7 +268,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                     ))
                     .expect("Could not send through channel");
                 }
-                gdk::Key::s => {
+                (gdk::Key::s, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Stage(
                         iter.offset(),
@@ -276,7 +276,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                     ))
                     .expect("Could not send through channel");
                 }
-                gdk::Key::u => {
+                (gdk::Key::u, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::UnStage(
                         iter.offset(),
@@ -284,25 +284,28 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                     ))
                     .expect("Could not send through channel");
                 }
-                gdk::Key::c => {
+                (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
+                    // for ctrl-c
+                }
+                (gdk::Key::c, _) => {
                     sndr.send_blocking(crate::Event::CommitRequest)
                         .expect("Could not send through channel");
                     // txt.activate_action("win.commit", None)
                     //     .expect("action does not exists");
                 }
-                gdk::Key::p => {
+                (gdk::Key::p, _) => {
                     sndr.send_blocking(crate::Event::PushRequest)
                         .expect("Could not send through channel");
                     // txt.activate_action("win.commit", None)
                     //     .expect("action does not exists");
                 }
-                gdk::Key::b => {
+                (gdk::Key::b, _) => {
                     sndr.send_blocking(crate::Event::Branches)
                         .expect("Could not send through channel");
                     // txt.activate_action("win.commit", None)
                     //     .expect("action does not exists");
                 }
-                gdk::Key::d => {
+                (gdk::Key::d, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     println!(
                         "debug ... debug ... {:?} {:?}",
