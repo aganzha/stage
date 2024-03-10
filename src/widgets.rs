@@ -10,7 +10,7 @@ use gtk4::prelude::*;
 use gtk4::{
     glib, AlertDialog, EventControllerKey, TextView, Window as Gtk4Window,
 };
-use log::{trace, debug};
+use log::{debug, trace};
 
 pub fn display_error(
     w: &impl IsA<Gtk4Window>, // Application
@@ -149,11 +149,10 @@ pub fn show_push_message(
     dialog.present();
 }
 
-
 pub fn get_new_branch_name(
     window: &Window,
-    sndr: Sender<crate::Event>,
-    clbk: impl Fn (String) + 'static
+    current_branch: &crate::BranchData,
+    sndr: Sender<crate::BranchesEvent>,
 ) {
     let txt = TextView::builder()
         .monospace(true)
@@ -209,9 +208,11 @@ pub fn get_new_branch_name(
         let end = buffer.end_iter();
         let new_branch_name = buffer.slice(&start, &end, false);
         debug!("yyyyyyyyyyyyyyyyyyy new branch name {:?}", new_branch_name);
-        clbk(new_branch_name.to_string());
-        // sndr.send_blocking(crate::Event::Commit(message.to_string()))
-        //     .expect("cant send through channel");
+        // clbk(new_branch_name.to_string());
+        sndr.send_blocking(crate::BranchesEvent::NewBranch(
+            new_branch_name.to_string(),
+        ))
+        .expect("cant send through channel");
     });
     dialog.present();
 }
