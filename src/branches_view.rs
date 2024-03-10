@@ -268,20 +268,19 @@ impl BranchList {
                                     if let Some(mut rem_pos) = *pos {
                                         rem_pos -= 1;
                                         pos.replace(rem_pos);
-                                        debug!("replace rem pos {:?} {:?}", rem_pos, pos);
+                                        trace!("branches.replace rem pos {:?} {:?}", rem_pos, pos);
                                     }
                                 }
                             }
                             let shifted_item = branch_list.item(pos);
-                            debug!("removed item at pos {:?}", pos);
+                            trace!("branches. removed item at pos {:?}", pos);
                             let mut new_pos = pos;
                             if let Some(item) = shifted_item {
-                                debug!("shift item");
+                                trace!("branches.shift item");
                                 // next item in list will shift to this position
                                 // and must get focus
                                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
                                 branch_item.set_initial_focus(true);
-                                debug!("item in shift {:?}", branch_item.title());
                                 // if not select new_pos there will be panic in transform_to
                                 // there will be no value (no item) in selected-item
                                 // during items_changed
@@ -294,7 +293,7 @@ impl BranchList {
                                         0
                                     }
                                 };
-                                debug!("got last item. decrement pos {:?}", new_pos);
+                                trace!("branches.got last item. decrement pos {:?}", new_pos);
                                 let prev_item = branch_list.item(new_pos).unwrap();
                                 let branch_item = prev_item.downcast_ref::<BranchItem>().unwrap();
                                 branch_item.set_initial_focus(true);
@@ -340,7 +339,7 @@ impl BranchList {
                         Ok(branch_data) => {
                             // branch_item.set_is_head(false);
                             let new_item = BranchItem::new(branch_data);
-                            debug!("just created new item {:?}", new_item.is_head());
+                            trace!("branches.just created new item {:?}", new_item.is_head());
                             {
                                 // put borrow in block
                                 branch_list.imp().list.borrow_mut().insert(0, new_item);
@@ -348,7 +347,7 @@ impl BranchList {
                                 if let Some(mut rem_pos) = *pos {
                                     rem_pos += 1;
                                     pos.replace(rem_pos);
-                                    debug!("replace rem pos {:?} {:?}", rem_pos, pos);
+                                    trace!("branches. replace rem pos {:?} {:?}", rem_pos, pos);
                                 }
                             }
                             branch_list.items_changed(0, 0, 1);
@@ -476,7 +475,7 @@ pub fn make_item_factory() -> SignalListItemFactory {
             // grab focus only once on list init
             if let Some(item) = li.item() {
                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                debug!(
+                trace!(
                     "item in connect selected {:?} {:?} {:?}",
                     branch_item.title(),
                     branch_item.initial_focus(), li.position()
@@ -486,7 +485,7 @@ pub fn make_item_factory() -> SignalListItemFactory {
                     branch_item.set_initial_focus(false)
                 }
             } else {
-                debug!("nooooooooo item in connect_selected_notify {:?}", li.position());
+                trace!("branches. no item in connect_selected_notify {:?}", li.position());
             }
         });
 
@@ -591,8 +590,8 @@ pub fn make_list_view(
             activated_branch_item.set_no_progress(false);
             let root = lv.root().unwrap();
             let window = root.downcast_ref::<Window>().unwrap();
-            debug!(
-                "cheeeeeeckout! {:?} {:?}",
+            trace!(
+                "branches checkout! {:?} {:?}",
                 single_selection.selected(),
                 branch_list.proxyselected()
             );
