@@ -482,6 +482,8 @@ pub fn make_item_factory() -> SignalListItemFactory {
                     li.child().unwrap().grab_focus();
                     branch_item.set_initial_focus(false)
                 }
+            } else {
+                debug!("nooooooooo item in connect_selected_notify");
             }
         });
 
