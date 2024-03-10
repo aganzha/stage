@@ -105,7 +105,15 @@ pub enum Event {
     Branches,
 }
 
-fn run_with_args(app: &Application, files: &[gtk4::gio::File], blah: &str) {
+fn run_with_args(app: &Application, files: &[gio::File], blah: &str) {
+    let le = files.len();
+    if le > 0 {
+        if let Some(path) = files[0].path() {
+            println!("................... {:?}", path);
+            run_app(app, Some(path.into_os_string()));
+            return;
+        }
+    }
     println!("heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeey {:?} {:?}", files, blah);
     run_app(app, None)
 }
@@ -115,7 +123,7 @@ fn run_without_args(app: &Application) {
 // fn build_ui(app: &Application, files: &[gtk4::gio::File], blah: &str) {    
 
 fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {        
-    println!("oooooooooooooooooooooo {:?}", initial_path);
+
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
 
@@ -140,13 +148,10 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     window.set_content(Some(&tb));
 
-    // window.set_content(Some(&container));
-
     env_logger::builder().format_timestamp(None).init();
-    info!(".................................................>");
-    let mut current_repo_path: Option<std::ffi::OsString> = None;
+    let mut current_repo_path = initial_path;
     let mut status = Status::new();
-    status.get_status(sender.clone());
+    status.get_status(current_repo_path.clone(), sender.clone());
     window.present();
 
     glib::spawn_future_local(async move {
