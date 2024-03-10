@@ -117,7 +117,6 @@ mod branch_list {
 
         #[property(get, set)]
         pub proxyscrolled: RefCell<u32>,
-
     }
 
     #[glib::object_subclass]
@@ -143,6 +142,9 @@ mod branch_list {
         fn item(&self, position: u32) -> Option<glib::Object> {
             let list = self.list.borrow();
             if list.is_empty() {
+                return None;
+            }
+            if position as usize >= list.len() {
                 return None;
             }
             // ??? clone ???
@@ -274,16 +276,35 @@ impl BranchList {
                                 }
                             }
                             let shifted_item = branch_list.item(pos);
+                            debug!("removed item at pos {:?}", pos);
+                            let mut new_pos = pos;
                             if let Some(item) = shifted_item {
+                                debug!("shift item");
+                                // next item in list will shift to this position
+                                // and must get focus
                                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
                                 branch_item.set_initial_focus(true);
-                                debug!("item in set_initial_focus {:?}", branch_item.title());
+                                debug!("item in shift {:?}", branch_item.title());
                                 // if not select new_pos there will be panic in transform_to
                                 // there will be no value (no item) in selected-item
+                                // during items_changed
                                 branch_list.set_proxyselected(0);
+                            } else {
+                                new_pos = pos - 1;
+                                if new_pos < 0 {
+                                    new_pos = 0;
+                                }
+                                debug!("got last item. decrement pos {:?}", new_pos);
+                                let prev_item = branch_list.item(new_pos).unwrap();
+                                let branch_item = prev_item.downcast_ref::<BranchItem>().unwrap();
+                                branch_item.set_initial_focus(true);
+                                branch_list.set_proxyselected(new_pos);
                             }
-                            branch_list.items_changed(pos, 1, 0);                                                            
-                            branch_list.set_proxyselected(pos);
+                            branch_list.items_changed(pos, 1, 0);
+                            // restore selected position to next one
+                            // will will get focus
+                            debug!("set proxyselected at {:?}", new_pos);
+                            branch_list.set_proxyselected(new_pos);
                             return;
                         }
                         Err(err) => err_message = err
@@ -449,13 +470,18 @@ pub fn make_item_factory() -> SignalListItemFactory {
         list_item.set_activatable(true);
         list_item.set_focusable(true);
         list_item.connect_selected_notify(|li: &ListItem| {
-            // grab foxus only once on list init
-            let ob = li.item().unwrap();
-            let branch_item = ob.downcast_ref::<BranchItem>().unwrap();
-            debug!("item in connect selected {:?} {:?}", branch_item.title(), branch_item.initial_focus());
-            if branch_item.initial_focus() {
-                li.child().unwrap().grab_focus();
-                branch_item.set_initial_focus(false)
+            // grab focus only once on list init
+            if let Some(item) = li.item() {
+                let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+                debug!(
+                    "item in connect selected {:?} {:?}",
+                    branch_item.title(),
+                    branch_item.initial_focus()
+                );
+                if branch_item.initial_focus() {
+                    li.child().unwrap().grab_focus();
+                    branch_item.set_initial_focus(false)
+                }
             }
         });
 
@@ -788,7 +814,11 @@ pub fn show_branches_window(
                             let branch_list = list_model
                                 .downcast_ref::<BranchList>()
                                 .unwrap();
-                            branch_list.kill_branch(repo_path.clone(), &window, main_sender.clone());
+                            branch_list.kill_branch(
+                                repo_path.clone(),
+                                &window,
+                                main_sender.clone(),
+                            );
                         }
                     }
                 }
