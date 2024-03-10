@@ -901,3 +901,32 @@ pub fn create_branch(
         .expect("cant create branch");
     Ok(BranchData::new(branch, BranchType::Local))
 }
+
+pub fn kill_branch(
+    path: OsString,
+    branch_data: BranchData,
+    sender: Sender<crate::Event>,
+) -> Result<(), String> {
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let name = &branch_data.name;
+    let kind = branch_data.branch_type;
+    let mut branch = repo
+        .find_branch(name, kind)
+        .expect("can't find branch");
+    let result = branch.delete();
+    if let Err(err) = result {
+        debug!(
+            "err on checkout {:?} {:?} {:?}",
+            err.code(),
+            err.class(),
+            err.message()
+        );
+        // match err.code() {
+        //     ErrorCode::Conflict => {
+        //         return Err(String::from(""));
+        //     }
+        // }
+        return Err(String::from(err.message()));
+    }
+    Ok(())
+}
