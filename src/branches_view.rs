@@ -118,8 +118,6 @@ mod branch_list {
         #[property(get, set)]
         pub proxyscrolled: RefCell<u32>,
 
-        #[property(get, set)]
-        pub newclick: RefCell<bool>,
     }
 
     #[glib::object_subclass]
@@ -251,6 +249,7 @@ impl BranchList {
                 let pos = branch_list.proxyselected();
                 let item = branch_list.item(pos).unwrap();
                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+                debug!("....... kill item {:?}", branch_item.title());
                 let branch_data = branch_item.imp().branch.borrow().clone();
                 let kind = branch_data.branch_type;
                 let result = gio::spawn_blocking(move || {
@@ -262,7 +261,6 @@ impl BranchList {
                     match git_result {
                         Ok(_) => {
                             debug!("just killed branch");
-                            let le = branch_list.imp().list.borrow().len() as u32;
                             {
                                 // put borrow in block
                                 branch_list.imp().list.borrow_mut().remove(pos as usize);
@@ -275,17 +273,17 @@ impl BranchList {
                                     }
                                 }
                             }
-                            debug!("---------------------------------> {:?}", pos);
-                            let mut new_pos = pos + 1;
-
-                            if new_pos >= le {
-                                new_pos = le - 1
+                            let shifted_item = branch_list.item(pos);
+                            if let Some(item) = shifted_item {
+                                let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+                                branch_item.set_initial_focus(true);
+                                debug!("item in set_initial_focus {:?}", branch_item.title());
+                                // if not select new_pos there will be panic in transform_to
+                                // there will be no value (no item) in selected-item
+                                branch_list.set_proxyselected(0);
                             }
-
-                            branch_list.set_proxyselected(new_pos);
-                            branch_list.items_changed(pos, 1, 0);
-                            // branch_list.set_proxyselected(0);
-                            // branch_sender.send_blocking(Event::Scroll(0));
+                            branch_list.items_changed(pos, 1, 0);                                                            
+                            branch_list.set_proxyselected(pos);
                             return;
                         }
                         Err(err) => err_message = err
@@ -454,6 +452,7 @@ pub fn make_item_factory() -> SignalListItemFactory {
             // grab foxus only once on list init
             let ob = li.item().unwrap();
             let branch_item = ob.downcast_ref::<BranchItem>().unwrap();
+            debug!("item in connect selected {:?} {:?}", branch_item.title(), branch_item.initial_focus());
             if branch_item.initial_focus() {
                 li.child().unwrap().grab_focus();
                 branch_item.set_initial_focus(false)
