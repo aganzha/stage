@@ -6,9 +6,13 @@
     "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
     "command": "stage",
     "finish-args": [
+       "--filesystem=home",
         "--share=ipc",
+        "--share=network",
         "--socket=fallback-x11",
         "--socket=wayland",
+        "--socket=ssh-auth",
+        "--socket=gpg-agent",
         "--device=dri"
     ],
     "build-options": {
