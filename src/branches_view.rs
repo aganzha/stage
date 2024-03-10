@@ -251,7 +251,6 @@ impl BranchList {
                 let pos = branch_list.proxyselected();
                 let item = branch_list.item(pos).unwrap();
                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                debug!("....... kill item {:?}", branch_item.title());
                 let branch_data = branch_item.imp().branch.borrow().clone();
                 let kind = branch_data.branch_type;
                 let result = gio::spawn_blocking(move || {
@@ -259,10 +258,8 @@ impl BranchList {
                 }).await;
                 let mut err_message = String::from("git error");
                 if let Ok(git_result) = result {
-                    debug!("kill branch git result -------------------> {:?}", git_result);
                     match git_result {
                         Ok(_) => {
-                            debug!("just killed branch");
                             {
                                 // put borrow in block
                                 branch_list.imp().list.borrow_mut().remove(pos as usize);
@@ -306,7 +303,10 @@ impl BranchList {
                             branch_list.items_changed(pos, 1, 0);
                             // restore selected position to next one
                             // will will get focus
-                            debug!("set proxyselected at {:?}", new_pos);
+                            // when delete LAST list item, next expr has no effect:
+                            // there will be item with overflown position
+                            // connect_selected_notify and cursor will jump
+                            // to first position
                             branch_list.set_proxyselected(new_pos);
                             return;
                         }
@@ -336,7 +336,6 @@ impl BranchList {
                 }).await;
                 let mut err_message = String::from("git error");
                 if let Ok(git_result) = result {
-                    debug!("new branch git result -------------------> {:?}", git_result);
                     match git_result {
                         Ok(branch_data) => {
                             // branch_item.set_is_head(false);
@@ -354,7 +353,8 @@ impl BranchList {
                             }
                             branch_list.items_changed(0, 0, 1);
                             branch_list.set_proxyselected(0);
-                            branch_sender.send_blocking(Event::Scroll(0));
+                            branch_sender.send_blocking(Event::Scroll(0))
+                                .expect("Could not send through channel");
                             // TODO! it must be activated, not only selected!
                             return;
                         }
