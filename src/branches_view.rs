@@ -483,7 +483,7 @@ pub fn make_item_factory() -> SignalListItemFactory {
                     branch_item.set_initial_focus(false)
                 }
             } else {
-                debug!("nooooooooo item in connect_selected_notify");
+                debug!("nooooooooo item in connect_selected_notify {:?}", li.position());
             }
         });
 
@@ -573,6 +573,10 @@ pub fn make_list_view(
         let mut current_item: Option<&BranchItem> = None;
         if let Some(item) = item_ob {
             let list = branch_list.imp().list.borrow();
+            let activated_branch_item = item.downcast_ref::<BranchItem>().unwrap();
+            if activated_branch_item.is_head() {
+                return;
+            }
             for branch_item in list.iter() {
                 if branch_item.is_head() {
                     current_item.replace(branch_item);
@@ -580,9 +584,8 @@ pub fn make_list_view(
                 branch_item.set_progress(false);
                 branch_item.set_no_progress(true);
             }
-            let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-            branch_item.set_progress(true);
-            branch_item.set_no_progress(false);
+            activated_branch_item.set_progress(true);
+            activated_branch_item.set_no_progress(false);
             let root = lv.root().unwrap();
             let window = root.downcast_ref::<Window>().unwrap();
             debug!(
@@ -592,7 +595,7 @@ pub fn make_list_view(
             );
             branch_list.checkout(
                 repo_path.clone(),
-                &branch_item,
+                &activated_branch_item,
                 // got panic here!
                 current_item.unwrap(),
                 &window,
