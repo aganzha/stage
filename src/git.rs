@@ -910,9 +910,7 @@ pub fn kill_branch(
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let name = &branch_data.name;
     let kind = branch_data.branch_type;
-    let mut branch = repo
-        .find_branch(name, kind)
-        .expect("can't find branch");
+    let mut branch = repo.find_branch(name, kind).expect("can't find branch");
     let result = branch.delete();
     if let Err(err) = result {
         debug!(
