@@ -290,10 +290,13 @@ impl BranchList {
                                 // during items_changed
                                 branch_list.set_proxyselected(0);
                             } else {
-                                new_pos = pos - 1;
-                                if new_pos < 0 {
-                                    new_pos = 0;
-                                }
+                                new_pos = {
+                                    if pos > 1 {
+                                        pos - 1
+                                    } else {
+                                        0
+                                    }
+                                };
                                 debug!("got last item. decrement pos {:?}", new_pos);
                                 let prev_item = branch_list.item(new_pos).unwrap();
                                 let branch_item = prev_item.downcast_ref::<BranchItem>().unwrap();
@@ -474,9 +477,9 @@ pub fn make_item_factory() -> SignalListItemFactory {
             if let Some(item) = li.item() {
                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
                 debug!(
-                    "item in connect selected {:?} {:?}",
+                    "item in connect selected {:?} {:?} {:?}",
                     branch_item.title(),
-                    branch_item.initial_focus()
+                    branch_item.initial_focus(), li.position()
                 );
                 if branch_item.initial_focus() {
                     li.child().unwrap().grab_focus();
