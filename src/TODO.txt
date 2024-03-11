@@ -1,3 +1,6 @@
+BUG: thread '<unnamed>' panicked at src/git.rs:673:31:
+can't get signature: Error { code: -3, klass: 7, message: "config value 'user.name' was not found" }
+
 BUG: Stage all changes does not work
 BUG: CRITICAL: got panic not yet implemented: extend hunk by start diff
 BUG: can't stage all changes. nothing happens - ApplyFilter is empty
