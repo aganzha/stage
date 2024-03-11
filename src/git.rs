@@ -794,7 +794,15 @@ impl BranchData {
             .expect("can't get commit from ref!");
         let commit = ob.peel_to_commit().expect("can't get commit from ob!");
         let commit_string = commit_string(&commit);
-        let oid = branch.get().target().unwrap();
+        let target = branch.get().target();
+        let mut oid = Oid::zero();
+        if let Some(t) = target {
+            // this could be
+            // name: "origin/HEAD" refname: "refs/remotes/origin/HEAD"
+            oid = t;
+        } else {
+            debug!("ZERO OID -----------------------------> {:?} {:?} {:?} {:?}", target, name, refname, ob.id());
+        }
 
         let commit_dt = commit_dt(&commit);
         BranchData {
@@ -816,7 +824,10 @@ pub fn get_refs(path: OsString) -> Vec<BranchData> {
     let branches = repo.branches(None).expect("can't get branches");
     branches.for_each(|item| {
         let (branch, branch_type) = item.unwrap();
-        result.push(BranchData::new(branch, branch_type));
+        let branch_data = BranchData::new(branch, branch_type);
+        if branch_data.oid != Oid::zero() {
+            result.push(branch_data);
+        }
     });
     result.sort_by(|a, b| {
         // if a.is_head {
