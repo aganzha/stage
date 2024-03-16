@@ -31,6 +31,7 @@ pub enum Tag {
     Cursor,
     Region,
     Italic,
+    // Link
 }
 impl Tag {
     fn create(&self) -> TextTag {
@@ -75,6 +76,12 @@ impl Tag {
                 tt.set_style(Style::Italic);
                 tt
             }
+            // Self::Link => {
+            //     let tt = self.new_tag();
+            //     tt.set_background(Some("0000ff"));
+            //     tt.set_style(Style::Underlined);
+            //     tt
+            // }
         }
     }
     fn new_tag(&self) -> TextTag {
@@ -1155,7 +1162,9 @@ impl ViewContainer for State {
             RepositoryState::Merge => "<span color=\"#ff0000\">Merge</span>",
             RepositoryState::Revert => "<span color=\"#ff0000\">Revert</span>",
             RepositoryState::RevertSequence => "<span color=\"#ff0000\">RevertSequence</span>",
-            RepositoryState::CherryPick => "<span color=\"#ff0000\">CherryPick</span>",
+            RepositoryState::CherryPick => {
+                "<span color=\"#ff0000\">CherryPick</span>"
+            },
             RepositoryState::CherryPickSequence => "<span color=\"#ff0000\">CherryPickSequence</span>",
             RepositoryState::Bisect => "<span color=\"#ff0000\">Bisect</span>",
             RepositoryState::Rebase => "<span color=\"#ff0000\">Rebase</span>",
