@@ -44,6 +44,7 @@ pub struct View {
     pub transfered: bool,
     pub tags: Vec<String>,
     pub markup: bool,
+    pub hidden: bool
 }
 
 #[derive(Debug, Clone)]
@@ -338,9 +339,13 @@ pub struct State {
 
 impl State {
     pub fn new(state: RepositoryState) -> Self {
+        let mut view = View::new_markup();
+        if state == RepositoryState::Clean {
+            view.hidden = true;
+        }
         Self {
             state: state,
-            view: View::new_markup(),
+            view: view,
         }
     }
 }
@@ -969,6 +974,7 @@ pub fn cherry_pick(
     }
     todo!("cherry pick could not change the current branch, cause of merge conflict.
           So it need also update status.");
+    let state = repo.state();
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
     let ob = head_ref
@@ -978,8 +984,12 @@ pub fn cherry_pick(
     let branch = Branch::wrap(head_ref);
     let new_head = Head::new(&branch, &commit);
     sender
+        .send_blocking(crate::Event::State(State::new(state)))
+        .expect("Could not send through channel");
+    sender
         .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
+
     Ok(BranchData::new(branch, BranchType::Local))
 }
 
