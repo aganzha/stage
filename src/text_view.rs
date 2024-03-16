@@ -10,7 +10,10 @@ use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, EventControllerKey, EventSequenceState,
     GestureClick, MovementStep, TextBuffer, TextIter, TextTag, TextView,
-    TextWindowType,
+    TextWindowType, AlertDialog, Window as Gtk4Window
+};
+use libadwaita::{
+    ApplicationWindow, Window,
 };
 use log::{debug, trace};
 use pango::Style;
@@ -347,16 +350,12 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                     //     .expect("action does not exists");
                 }
                 (gdk::Key::p, _) => {
-                    sndr.send_blocking(crate::Event::PushRequest)
+                    sndr.send_blocking(crate::Event::Push)
                         .expect("Could not send through channel");
-                    // txt.activate_action("win.commit", None)
-                    //     .expect("action does not exists");
                 }
                 (gdk::Key::b, _) => {
                     sndr.send_blocking(crate::Event::Branches)
                         .expect("Could not send through channel");
-                    // txt.activate_action("win.commit", None)
-                    //     .expect("action does not exists");
                 }
                 (gdk::Key::d, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
@@ -1245,13 +1244,34 @@ impl Status {
     pub fn push(
         &mut self,
         path: &OsString,
-        txt: &TextView,
+        window: &impl IsA<Gtk4Window>,
         sender: Sender<crate::Event>,
     ) {
-        gio::spawn_blocking({
+        let btns = vec!["Cancel", "Push"];                    
+        let alert = AlertDialog::builder()
+            .buttons(btns)
+            .message("Push")
+            .detail(format!(
+                "push dialog {}",
+                "remote info"
+            ))
+            .build();
+        alert.choose(Some(window), None::<&gio::Cancellable>, {
             let path = path.clone();
-            move || {
-                push(path, sender);
+            let window = window.clone();
+            let sender = sender.clone();
+            move |result| {
+                debug!("push dialog result {:?}", result);
+                if let Ok(ind) = result {
+                    if ind == 1 {                                
+                        gio::spawn_blocking({
+                            let path = path.clone();
+                            move || {
+                                push(path, sender);
+                            }
+                        });
+                    }
+                }
             }
         });
     }
