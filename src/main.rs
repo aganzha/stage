@@ -18,7 +18,7 @@ use git::{
 };
 mod widgets;
 use widgets::{
-    display_error, get_new_branch_name, show_commit_message, show_push_message,
+    display_error, get_new_branch_name, show_commit_message
 };
 
 use libadwaita::prelude::*;
@@ -98,8 +98,6 @@ pub enum Event {
     Stage(i32, i32),
     UnStage(i32, i32),
     CommitRequest,
-    // NewBranchRequest,
-    PushRequest,
     Commit(String),
     Push,
     Branches,
@@ -178,11 +176,6 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                         show_commit_message(&window, sender.clone());
                     }
                 }
-                Event::PushRequest => {
-                    info!("main.push request");
-                    // todo - check that there is something to push
-                    show_push_message(&window, sender.clone());
-                }
                 Event::Commit(message) => {
                     info!("main.commit");
                     status.commit_staged(
@@ -196,7 +189,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     info!("main.push");
                     status.push(
                         current_repo_path.as_ref().unwrap(),
-                        &txt,
+                        &window,
                         sender.clone(),
                     );
                 }
