@@ -11,7 +11,7 @@ use git2::{
     CredentialType, Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat,
     DiffHunk, DiffLine, DiffLineType, DiffOptions, Error, ErrorCode,
     ObjectType, Oid, PushOptions, Reference, RemoteCallbacks, Repository,
-    CherrypickOptions
+    CherrypickOptions, RepositoryState
 };
 use log::{debug, trace};
 use regex::Regex;
@@ -316,17 +316,6 @@ impl Diff {
         }
     }
 
-    // diff
-    pub fn enrich_view(&mut self, other: &mut Diff) {
-        for file in &mut self.files {
-            for of in &mut other.files {
-                if file.path == of.path {
-                    file.view = of.transfer_view();
-                    file.enrich_view(of);
-                }
-            }
-        }
-    }
 }
 
 pub fn get_cwd_repo(sender: Sender<crate::Event>) -> Repository {
@@ -338,6 +327,22 @@ pub fn get_cwd_repo(sender: Sender<crate::Event>) -> Repository {
         .send_blocking(crate::Event::CurrentRepo(path.clone()))
         .expect("Could not send through channel");
     repo
+}
+
+#[derive(Debug, Clone)]
+pub struct State {
+    pub state: RepositoryState,
+    pub view: View
+}
+
+
+impl State {
+    pub fn new(state: RepositoryState) -> Self {
+        Self {
+            state: state,
+            view: View::new_markup(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -357,23 +362,16 @@ impl Head {
             remote: false,
         }
     }
-    // head
-    pub fn enrich_view(&mut self, other: &Head) {
-        self.view = other.transfer_view();
-    }
-    pub fn transfer_view(&self) -> View {
-        let mut clone = self.view.clone();
-        clone.transfered = true;
-        clone.dirty = true;
-        clone
-    }
 }
 
 pub fn commit_string(c: &Commit) -> String {
+    let message = c.message().unwrap_or("").replace("\n", "");
+    let mut encoded = String::new();
+    html_escape::encode_safe_to_string(&message, &mut encoded);
     format!(
         "{} {}",
         &c.id().to_string()[..7],
-        c.message().unwrap_or("").replace("\n", "")
+        encoded
     )
 }
 
@@ -441,6 +439,10 @@ pub fn get_current_repo_status(
         }
     };
 
+    sender
+        .send_blocking(crate::Event::State(State::new(repo.state())))
+        .expect("Could not send through channel");
+    
     // get HEAD
     gio::spawn_blocking({
         let sender = sender.clone();
@@ -965,7 +967,8 @@ pub fn cherry_pick(
         // }
         return Err(String::from(err.message()));
     }
-
+    todo!("cherry pick could not change the current branch, cause of merge conflict.
+          So it need also update status.");
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
     let ob = head_ref
