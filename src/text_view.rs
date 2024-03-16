@@ -1,10 +1,10 @@
 use crate::common_tests::*;
 use crate::{
     commit_staged, get_current_repo_status, push, stage_via_apply,
-    ApplyFilter, Diff, File, Head, Hunk, Line, Related, View,
+    ApplyFilter, Diff, File, Head, Hunk, Line, Related, View, State
 };
 use async_channel::Sender;
-use git2::DiffLineType;
+use git2::{DiffLineType, RepositoryState};
 
 use gtk4::prelude::*;
 use gtk4::{
@@ -180,6 +180,47 @@ impl File {
     pub fn transfer_view(&self) -> View {
         let mut clone = self.view.clone();
         clone.transfered = true;
+        clone
+    }
+}
+
+impl Diff {
+    pub fn enrich_view(&mut self, other: &mut Diff) {
+        for file in &mut self.files {
+            for of in &mut other.files {
+                if file.path == of.path {
+                    file.view = of.transfer_view();
+                    file.enrich_view(of);
+                }
+            }
+        }
+    }
+}
+
+impl Head {
+    // head
+    pub fn enrich_view(&mut self, other: &Head) {
+        self.view = other.transfer_view();
+    }
+    // head
+    pub fn transfer_view(&self) -> View {
+        let mut clone = self.view.clone();
+        clone.transfered = true;
+        clone.dirty = true;
+        clone
+    }
+}
+
+impl State {
+    // state
+    pub fn enrich_view(&mut self, other: &Self) {
+        self.view = other.transfer_view();
+    }
+    // state
+    pub fn transfer_view(&self) -> View {
+        let mut clone = self.view.clone();
+        clone.transfered = true;
+        clone.dirty = true;
         clone
     }
 }
@@ -467,7 +508,9 @@ impl View {
         self.tags = Vec::new();
         buffer.delete(iter, &mut eol_iter);
         if self.markup {
-            buffer.insert_markup(iter, content);
+            // let mut encoded = String::new();
+            // html_escape::encode_safe_to_string(&content, &mut encoded);
+            buffer.insert_markup(iter, &content);
         } else {
             buffer.insert(iter, content);
         }
@@ -520,25 +563,27 @@ impl View {
             }
             ViewState::NotRendered => {
                 trace!("..render MATCH insert {:?}", line_no);
-                let empty_spaces = self.build_up(&content, prev_line_len);
-                line_len = Some(empty_spaces.len() as i32);
+                let content = self.build_up(&content, prev_line_len);
+                line_len = Some(content.len() as i32);
                 if self.markup {
-                    buffer.insert_markup(iter, &format!("{}\n", empty_spaces));
+                    // let mut encoded = String::new();
+                    // html_escape::encode_safe_to_string(&content, &mut encoded);
+                    buffer.insert_markup(iter, &format!("{}\n", content));
                 } else {
-                    buffer.insert(iter, &format!("{}\n", empty_spaces));
+                    buffer.insert(iter, &format!("{}\n", content));
                 }
                 self.line_no = line_no;
                 self.rendered = true;
-                if !empty_spaces.is_empty() {
+                if !content.is_empty() {
                     self.apply_tags(buffer, &content_tags);
                 }
             }
             ViewState::RenderedDirtyInPlace => {
                 trace!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
                 if !content.is_empty() {
-                    let empty_spaces = self.build_up(&content, prev_line_len);
-                    line_len = Some(empty_spaces.len() as i32);
-                    self.replace_dirty_content(buffer, iter, &empty_spaces);
+                    let content = self.build_up(&content, prev_line_len);
+                    line_len = Some(content.len() as i32);
+                    self.replace_dirty_content(buffer, iter, &content);
                     self.apply_tags(buffer, &content_tags);
                 } else {
                     self.apply_tags(buffer, &content_tags);
@@ -560,9 +605,9 @@ impl View {
                 trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
                 self.line_no = line_no;
                 if !content.is_empty() {
-                    let empty_spaces = self.build_up(&content, prev_line_len);
-                    line_len = Some(empty_spaces.len() as i32);
-                    self.replace_dirty_content(buffer, iter, &empty_spaces);
+                    let content = self.build_up(&content, prev_line_len);
+                    line_len = Some(content.len() as i32);
+                    self.replace_dirty_content(buffer, iter, &content);
                     self.apply_tags(buffer, &content_tags);
                 } else if self.tags.contains(&String::from(CURSOR_TAG)) {
                     // special case for cleanup cursor highlight
@@ -1089,6 +1134,41 @@ impl ViewContainer for Head {
     }
 }
 
+impl ViewContainer for State {
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Label
+    }
+    fn child_count(&self) -> usize {
+        0
+    }
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
+    }
+
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        Vec::new()
+    }
+
+    fn get_content(&self) -> String {
+        let state = match self.state {
+            RepositoryState::Clean => "Clean",
+            RepositoryState::Merge => "<span color=\"#ff0000\">Merge</span>",
+            RepositoryState::Revert => "<span color=\"#ff0000\">Revert</span>",
+            RepositoryState::RevertSequence => "<span color=\"#ff0000\">RevertSequence</span>",
+            RepositoryState::CherryPick => "<span color=\"#ff0000\">CherryPick</span>",
+            RepositoryState::CherryPickSequence => "<span color=\"#ff0000\">CherryPickSequence</span>",
+            RepositoryState::Bisect => "<span color=\"#ff0000\">Bisect</span>",
+            RepositoryState::Rebase => "<span color=\"#ff0000\">Rebase</span>",
+            RepositoryState::RebaseInteractive => "<span color=\"#ff0000\">RebaseInteractive</span>",
+            RepositoryState::RebaseMerge => "<span color=\"#ff0000\">RebaseMerge</span>",
+            RepositoryState::ApplyMailbox => "<span color=\"#ff0000\">ApplyMailbox</span>",
+            RepositoryState::ApplyMailboxOrRebase => "<span color=\"#ff0000\">ApplyMailboxOrRebase</span>"
+        };
+        format!("State:    {}", state)
+    }
+}
+
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum RenderSource {
     Git,
@@ -1101,6 +1181,7 @@ pub enum RenderSource {
 pub struct Status {
     pub head: Option<Head>,
     pub upstream: Option<Head>,
+    pub state: Option<State>,
     pub staged_spacer: Label,
     pub staged_label: Label,
     pub staged: Option<Diff>,
@@ -1115,6 +1196,7 @@ impl Status {
         Self {
             head: None,
             upstream: None,
+            state: None,
             staged_spacer: Label::from_string(""),
             staged_label: Label::from_string(
                 "<span weight=\"bold\" color=\"#8b6508\">Staged changes</span>",
@@ -1193,6 +1275,14 @@ impl Status {
         self.render(txt, RenderSource::Git);
     }
 
+    pub fn update_state(&mut self, mut state: State, txt: &TextView) {
+        if let Some(current_state) = &self.state {
+            state.enrich_view(current_state)
+        }
+        self.state.replace(state);
+        self.render(txt, RenderSource::Git);
+    }
+
     pub fn update_staged(&mut self, mut diff: Diff, txt: &TextView) {
         if let Some(s) = &mut self.staged {
             diff.enrich_view(s);
@@ -1261,6 +1351,10 @@ impl Status {
 
         if let Some(upstream) = &mut self.upstream {
             upstream.render(&buffer, &mut iter, None);
+        }
+
+        if let Some(state) = &mut self.state {
+            state.render(&buffer, &mut iter, None);
         }
 
         if let Some(unstaged) = &mut self.unstaged {

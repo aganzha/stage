@@ -1,3 +1,11 @@
+[DEBUG stage::git] overlap
+thread 'main' panicked at src/git.rs:213:17:
+not yet implemented: extend hunk by start diff
+stack backtrace:
+   0: rust_begin_unwind
+
+
+
 BUG: thread '<unnamed>' panicked at src/git.rs:673:31:
 can't get signature: Error { code: -3, klass: 7, message: "config value 'user.name' was not found" }
 

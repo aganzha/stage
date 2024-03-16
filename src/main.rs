@@ -13,10 +13,9 @@ use async_channel::Sender;
 mod git;
 use git::{
     checkout, commit_staged, create_branch, get_current_repo_status, get_refs,
-    kill_branch, cherry_pick, push, set_head, stage_via_apply, ApplyFilter, BranchData,
-    Diff, File, Head, Hunk, Line, Related, View,
+    kill_branch, cherry_pick, push, stage_via_apply, ApplyFilter, BranchData,
+    Diff, File, Head, Hunk, Line, Related, View, State
 };
-
 mod widgets;
 use widgets::{
     display_error, get_new_branch_name, show_commit_message, show_push_message,
@@ -92,6 +91,7 @@ pub enum Event {
     Staged(Diff),
     Head(Head),
     Upstream(Head),
+    State(State),
     Expand(i32, i32),
     Cursor(i32, i32),
     // does not used for now
@@ -159,6 +159,9 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
             match event {
                 Event::CurrentRepo(path) => {
                     current_repo_path.replace(path);
+                }
+                Event::State(state) => {
+                    status.update_state(state, &txt);
                 }
                 Event::Debug => {
                     info!("main. debug");
