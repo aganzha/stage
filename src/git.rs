@@ -11,6 +11,7 @@ use git2::{
     CredentialType, Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat,
     DiffHunk, DiffLine, DiffLineType, DiffOptions, Error, ErrorCode,
     ObjectType, Oid, PushOptions, Reference, RemoteCallbacks, Repository,
+    CherrypickOptions
 };
 use log::{debug, trace};
 use regex::Regex;
@@ -940,3 +941,42 @@ pub fn kill_branch(
     }
     Ok(())
 }
+
+
+pub fn cherry_pick(
+    path: OsString,
+    branch_data: BranchData,
+    sender: Sender<crate::Event>,
+) -> Result<BranchData, String> {
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let commit = repo.find_commit(branch_data.oid).expect("cant find commit");
+    let result = repo.cherrypick(&commit, Some(&mut CherrypickOptions::new()));
+    if let Err(err) = result {
+        debug!(
+            "err on checkout {:?} {:?} {:?}",
+            err.code(),
+            err.class(),
+            err.message()
+        );
+        // match err.code() {
+        //     ErrorCode::Conflict => {
+        //         return Err(String::from(""));
+        //     }
+        // }
+        return Err(String::from(err.message()));
+    }
+
+    let head_ref = repo.head().expect("can't get head");
+    assert!(head_ref.is_branch());
+    let ob = head_ref
+        .peel(ObjectType::Commit)
+        .expect("can't get commit from ref!");
+    let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+    let branch = Branch::wrap(head_ref);
+    let new_head = Head::new(&branch, &commit);
+    sender
+        .send_blocking(crate::Event::Head(new_head))
+        .expect("Could not send through channel");
+    Ok(BranchData::new(branch, BranchType::Local))
+}
+
