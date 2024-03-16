@@ -8,7 +8,7 @@ use gtk4::{
     EventControllerKey, Label, ListHeader, ListItem, ListScrollFlags,
     ListView, NoSelection, Orientation, PropertyExpression, ScrolledWindow,
     SectionModel, SelectionModel, SignalListItemFactory, SingleSelection,
-    Spinner, StringList, StringObject, Widget,
+    Spinner, StringList, StringObject, Widget
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
@@ -116,7 +116,7 @@ mod branch_list {
         pub proxyselected: RefCell<u32>,
 
         #[property(get, set)]
-        pub proxyscrolled: RefCell<u32>,
+        pub current: RefCell<u32>,
     }
 
     #[glib::object_subclass]
@@ -201,6 +201,7 @@ impl BranchList {
                 branch_list.items_changed(0, 0, le);
                 // works via bind to single_selection selected
                 branch_list.set_proxyselected(selected);
+                branch_list.set_current(selected);
             })
         });
     }
@@ -229,6 +230,7 @@ impl BranchList {
                             selected_item.set_is_head(true);
                             selected_item.set_no_progress(true);
                             current_item.set_is_head(false);
+                            todo!("set current item on branch list");
                             return;
                         }
                         Err(err) => err_message = err
@@ -240,6 +242,39 @@ impl BranchList {
         });
     }
 
+    pub fn cherry_pick(
+        &self,
+        repo_path: std::ffi::OsString,
+        window: &Window,
+        sender: Sender<crate::Event>,
+    ) {
+        glib::spawn_future_local({
+            clone!(@weak self as branch_list, @weak window as window => async move {
+                let pos = branch_list.proxyselected();
+                let item = branch_list.item(pos).unwrap();
+                let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+                let branch_data = branch_item.imp().branch.borrow().clone();
+                let result = gio::spawn_blocking(move || {                    
+                    crate::cherry_pick(repo_path, branch_data, sender)
+                }).await;
+                let mut err_message = String::from("git error");
+                if let Ok(git_result) = result {
+                    match git_result {                        
+                        Ok(branch_data) => {
+                            debug!("oooooooooooooooooou {:?}", branch_data);
+                            let current_item = branch_list.item(branch_list.current()).unwrap();
+                            let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+                            branch_item.imp().branch.replace(branch_data);
+                            return;
+                        }
+                        Err(err) => err_message = err
+                    }
+                }
+                crate::display_error(&window, &err_message);
+            })
+        });
+    }
+    
     pub fn kill_branch(
         &self,
         repo_path: std::ffi::OsString,
@@ -695,18 +730,24 @@ pub enum Event {
     Scroll(u32),
     KillRequest,
     MergeRequest,
+    CherryPickRequest
 }
 
-pub fn selected_branch(list_view: &ListView) -> crate::BranchData {
+pub fn branches_in_use(list_view: &ListView) -> (crate::BranchData, crate::BranchData) {
     let selection_model = list_view.model().unwrap();
     let single_selection =
         selection_model.downcast_ref::<SingleSelection>().unwrap();
     let list_model = single_selection.model().unwrap();
     let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
-    let item = branch_list.item(branch_list.proxyselected()).unwrap();
-    let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-    let branch_data = branch_item.imp().branch.borrow().clone();
-    branch_data
+
+    let selected_item = branch_list.item(branch_list.proxyselected()).unwrap();
+    let selected_branch_item = selected_item.downcast_ref::<BranchItem>().unwrap();
+    let selected_branch_data = selected_branch_item.imp().branch.borrow().clone();
+
+    let current_item = branch_list.item(branch_list.current()).unwrap();
+    let current_branch_item = current_item.downcast_ref::<BranchItem>().unwrap();
+    let current_branch_data = current_branch_item.imp().branch.borrow().clone();
+    (current_branch_data, selected_branch_data)
 }
 
 pub fn show_branches_window(
@@ -761,6 +802,11 @@ pub fn show_branches_window(
                         .send_blocking(Event::MergeRequest)
                         .expect("Could not send through channel");
                 }
+                (gdk::Key::a, _) => {
+                    sender
+                        .send_blocking(Event::CherryPickRequest)
+                        .expect("Could not send through channel");
+                }
                 _ => {}
             }
             glib::Propagation::Proceed
@@ -775,7 +821,7 @@ pub fn show_branches_window(
         while let Ok(event) = receiver.recv().await {
             match event {
                 Event::NewBranchRequest => {
-                    let current_branch = selected_branch(&list_view);
+                    let (current_branch, _) = branches_in_use(&list_view);
                     info!("branches. new branch request");
                     crate::get_new_branch_name(
                         &window,
@@ -831,6 +877,45 @@ pub fn show_branches_window(
                 }
                 Event::MergeRequest => {
                     info!("branches. merge request");
+                }
+                Event::CherryPickRequest => {
+                    info!("branches. cherry-pick request");
+                    let (current_branch, selected_branch) = branches_in_use(&list_view);
+                    debug!("==========================> {:?} {:?}", current_branch, selected_branch);
+                    let btns = vec!["Cancel", "Cherry-pick"];                    
+                    let alert = AlertDialog::builder()
+                        .buttons(btns)
+                        .message("Cherry picking")
+                        .detail(format!(
+                            "Cherry picing commit {:?} from branch {:?} onto branch {:?}",
+                            selected_branch.commit_string, selected_branch.name, current_branch.name
+                        ))
+                        .build();
+                    let selection_model = list_view.model().unwrap();
+                    let single_selection = selection_model
+                        .downcast_ref::<SingleSelection>()
+                        .unwrap();
+                    let list_model = single_selection.model().unwrap();
+                    let branch_list = list_model
+                        .downcast_ref::<BranchList>()
+                        .unwrap();
+                    alert.choose(Some(&window), None::<&gio::Cancellable>, {
+                        let path = repo_path.clone();
+                        let window = window.clone();
+                        let sender = main_sender.clone();
+                        clone!(@weak branch_list => move |result| {
+                            debug!("meeeeeeeeeeeeeeeeee {:?}", result);
+                            if let Ok(ind) = result {
+                                if ind == 1 {                                
+                                    branch_list.cherry_pick(
+                                        path,
+                                        &window,
+                                        sender
+                                    )
+                                }
+                            }
+                        })
+                    });                    
                 }
             }
         }

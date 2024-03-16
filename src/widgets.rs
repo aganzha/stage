@@ -87,6 +87,7 @@ pub fn show_push_message(
     window: &ApplicationWindow,
     sndr: Sender<crate::Event>,
 ) {
+    todo!("switch to alert dialog!");
     let cancel_response = "cancel";
     let create_response = "create";
     // select with remotes
@@ -216,3 +217,4 @@ pub fn get_new_branch_name(
     });
     dialog.present();
 }
+
