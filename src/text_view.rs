@@ -226,8 +226,13 @@ impl State {
     // state
     pub fn transfer_view(&self) -> View {
         let mut clone = self.view.clone();
-        clone.transfered = true;
-        clone.dirty = true;
+        if self.state == RepositoryState::Clean {
+            clone.hidden = true;
+        } else {
+            clone.hidden = false;
+            clone.transfered = true;
+            clone.dirty = true;
+        }
         clone
     }
 }
@@ -488,6 +493,7 @@ impl View {
             transfered: false,
             tags: Vec::new(),
             markup: false,
+            hidden: false
         }
     }
     pub fn new_markup() -> Self {
@@ -559,6 +565,10 @@ impl View {
         let mut line_len: Option<i32> = None;
         // dbg!(&self);
         match self.get_state_for(line_no) {
+            ViewState::Hidden => {
+                trace!("skip hidden view");
+                return (self, prev_line_len);
+            }
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
                 iter.forward_lines(1);
@@ -713,6 +723,9 @@ impl View {
         }
     }
     fn get_state_for(&self, line_no: i32) -> ViewState {
+        if self.hidden {
+            return ViewState::Hidden;
+        }
         if self.is_rendered_in(line_no) {
             return ViewState::RenderedInPlace;
         }
@@ -742,6 +755,7 @@ impl Default for View {
 }
 
 pub enum ViewState {
+    Hidden,
     RenderedInPlace,
     Deleted,
     NotRendered,
