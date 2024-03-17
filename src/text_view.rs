@@ -209,15 +209,21 @@ impl File {
 }
 
 impl Diff {
-    pub fn enrich_view(&mut self, other: &mut Diff) {
+    pub fn enrich_view(&mut self, other: &mut Diff, txt: &TextView) {
+        let mut replaces_by_new = HashSet::new();
         for file in &mut self.files {
             for of in &mut other.files {
                 if file.path == of.path {
                     file.view = of.transfer_view();
                     file.enrich_view(of);
+                    replaces_by_new.insert(file.path.clone());
                 }
             }
         }
+        // erase all stale views
+        self.files.iter_mut()
+            .filter(|f| !replaces_by_new.contains(&f.path))
+            .for_each(|f| f.erase(txt));
     }
 }
 
@@ -1412,7 +1418,7 @@ impl Status {
 
     pub fn update_staged(&mut self, mut diff: Diff, txt: &TextView) {
         if let Some(s) = &mut self.staged {
-            diff.enrich_view(s);
+            diff.enrich_view(s, txt);
         }
         self.staged.replace(diff);
         if self.staged.is_some() && self.unstaged.is_some() {
@@ -1422,7 +1428,7 @@ impl Status {
 
     pub fn update_unstaged(&mut self, mut diff: Diff, txt: &TextView) {
         if let Some(u) = &mut self.unstaged {
-            diff.enrich_view(u);
+            diff.enrich_view(u, txt);
         }
         self.unstaged.replace(diff);
         if self.staged.is_some() && self.unstaged.is_some() {
