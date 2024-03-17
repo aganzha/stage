@@ -81,7 +81,6 @@ pub fn get_new_branch_name(
         let start = buffer.iter_at_offset(0);
         let end = buffer.end_iter();
         let new_branch_name = buffer.slice(&start, &end, false);
-        debug!("yyyyyyyyyyyyyyyyyyy new branch name {:?}", new_branch_name);
         // clbk(new_branch_name.to_string());
         sndr.send_blocking(crate::BranchesEvent::NewBranch(
             new_branch_name.to_string(),
