@@ -178,12 +178,19 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Commit(message) => {
                     info!("main.commit");
-                    status.commit_staged(
-                        current_repo_path.as_ref().unwrap(),
-                        message,
-                        &txt,
-                        sender.clone(),
-                    );
+                    if !status.has_staged() {
+                        display_error(
+                            &window,
+                            "No changes were staged. Stage by hitting 's'",
+                        );
+                    } else {
+                        status.commit_staged(
+                            current_repo_path.as_ref().unwrap(),
+                            &txt,
+                            &window,
+                            sender.clone(),
+                        );
+                    }                    
                 }
                 Event::Push => {
                     info!("main.push");
