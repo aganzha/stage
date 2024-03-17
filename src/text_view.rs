@@ -3,9 +3,11 @@ use crate::{
     commit_staged, get_current_repo_status, push, stage_via_apply,
     ApplyFilter, Diff, File, Head, Hunk, Line, Related, State, View,
 };
+// use alloc::rc::Rc;
+use std::rc::Rc;
 use async_channel::Sender;
 use git2::{DiffLineType, RepositoryState};
-
+use glib::{clone};
 use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, AlertDialog, EventControllerKey,
@@ -13,6 +15,7 @@ use gtk4::{
     TextBuffer, TextIter, TextTag, TextView, TextWindowType,
     Window as Gtk4Window,
 };
+
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, EntryRow, SwitchRow, Window};
 use log::{debug, trace};
@@ -355,8 +358,9 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                     // for ctrl-c
                 }
                 (gdk::Key::c, _) => {
-                    sndr.send_blocking(crate::Event::CommitRequest)
-                        .expect("Could not send through channel");
+                    
+                    // sndr.send_blocking(crate::Event::CommitRequest)
+                    //     .expect("Could not send through channel");
                 }
                 (gdk::Key::p, _) => {
                     sndr.send_blocking(crate::Event::Push)
@@ -1280,16 +1284,7 @@ impl Status {
             .css_classes(vec!["input_field"])
             .active(true)
             .build();
-        // let switch = upstream.child().unwrap();
-        // switch.connect_show(|sw| {
-        //     debug!("shooooooooooooooooooow switch");
-        //     sw.grab_focus();
-        // });
-        // switch.connect_move_focus(|sw, dir| {
-        //     debug!("focus switch");
-        //     sw.grab_focus();
-        // });
-        // debug!("----------------------> {:?}", switch);
+
         let input = EntryRow::builder()
             .title("Remote branch name:")
             .css_classes(vec!["input_field"])
@@ -1345,24 +1340,48 @@ impl Status {
     pub fn commit_staged(
         &mut self,
         path: &OsString,
-        message: String,
         txt: &TextView,
+        window: &impl IsA<Gtk4Window>,
         sender: Sender<crate::Event>,
     ) {
-        if let Some(diff) = &mut self.staged {
-            // CAUTION. ATTENTION. IMPORTANT
-            diff.erase(txt);
-            // diff will only erase views visually
-            // here we are killing the structure
-            // is it ok? git will return new files
-            // (there will be no files, actually)
-            diff.files = Vec::new();
-            gio::spawn_blocking({
-                let path = path.clone();
-                move || {
-                    commit_staged(path, message, sender);
-                }
-            });
+        if let Some(_) = &mut self.staged {
+
+            let lb = ListBox::builder()
+                .selection_mode(SelectionMode::None)
+                .css_classes(vec![String::from("boxed-list")])
+                .build();
+            let input = EntryRow::builder()
+                .title("Commit message:")
+                .css_classes(vec!["input_field"])
+                .build();
+            lb.append(&input);
+            // let me = Rc::new(RefCell::new(self));
+            crate::make_confirm_dialog(
+                window,
+                Some(&lb),
+                "Commit", // TODO here is harcode
+                "Commit",
+            )
+                .choose(None::<&gio::Cancellable>, {
+                    let path = path.clone();
+                    let sender = sender.clone();
+                    // let me = Rc::clone(&me);
+                    move |result| {
+                        if result == "confirm" {
+                            trace!(
+                                "confirm commit dialog {:?}",
+                                input.text()
+                            );
+                            let message = format!("{}", input.text());
+                            gio::spawn_blocking({
+                                let path = path.clone();
+                                move || {
+                                    commit_staged(path, message, sender);
+                                }
+                            });
+                        }
+                    }
+                });
         }
     }
 
