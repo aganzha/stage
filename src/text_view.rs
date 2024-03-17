@@ -211,6 +211,7 @@ impl File {
 impl Diff {
     pub fn enrich_view(&mut self, other: &mut Diff, txt: &TextView) {
         let mut replaces_by_new = HashSet::new();
+        debug!("enrich view in diff {:?}", self.files.len());
         for file in &mut self.files {
             for of in &mut other.files {
                 if file.path == of.path {
