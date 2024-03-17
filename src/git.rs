@@ -675,7 +675,7 @@ pub fn stage_via_apply(
         .expect("Could not send through channel");
 }
 
-pub fn commit_staged(
+pub fn commit(
     path: OsString,
     message: String,
     sender: Sender<crate::Event>,
@@ -710,6 +710,22 @@ pub fn commit_staged(
     sender
         .send_blocking(crate::Event::Staged(make_diff(git_diff)))
         .expect("Could not send through channel");
+
+    // get unstaged
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        let path = path.clone();
+        move || {
+            let repo = Repository::open(path).expect("can't open repo");
+            let git_diff = repo
+                .diff_index_to_workdir(None, None)
+                .expect("cant' get diff index to workdir");
+            let diff = make_diff(git_diff);
+            sender
+                .send_blocking(crate::Event::Unstaged(diff))
+                .expect("Could not send through channel");
+        }
+    });
     get_head(path, sender)
 }
 
