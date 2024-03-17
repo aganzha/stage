@@ -7,11 +7,11 @@ use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use ffi::OsString;
 use git2::build::CheckoutBuilder;
 use git2::{
-    ApplyLocation, ApplyOptions, Branch, BranchType, Commit, Cred,
-    CredentialType, Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat,
-    DiffHunk, DiffLine, DiffLineType, DiffOptions, Error, ErrorCode,
-    ObjectType, Oid, PushOptions, Reference, RemoteCallbacks, Repository,
-    CherrypickOptions, RepositoryState
+    ApplyLocation, ApplyOptions, Branch, BranchType, CherrypickOptions,
+    Commit, Cred, CredentialType, Delta, Diff as GitDiff, DiffDelta, DiffFile,
+    DiffFormat, DiffHunk, DiffLine, DiffLineType, DiffOptions, Error,
+    ErrorCode, ObjectType, Oid, PushOptions, Reference, RemoteCallbacks,
+    Repository, RepositoryState,
 };
 use log::{debug, trace};
 use regex::Regex;
@@ -44,7 +44,7 @@ pub struct View {
     pub transfered: bool,
     pub tags: Vec<String>,
     pub markup: bool,
-    pub hidden: bool
+    pub hidden: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -145,18 +145,21 @@ impl Hunk {
                   other.new_start {:?} other.new_lines {:?}",
             self.new_start, self.new_lines, other.new_start, other.new_lines
         );
+
         if self.new_start < other.new_start
             && self.new_start + self.new_lines < other.new_start
         {
             debug!("before");
             return Related::Before;
         }
+        
         if self.new_start < other.new_start
-            && self.new_start + self.new_lines > other.new_start
+            && self.new_start + self.new_lines >= other.new_start
         {
             debug!("overlap");
             return Related::OverlapBefore;
         }
+
         if self.new_start == other.new_start
             && self.new_lines == other.new_lines
         {
@@ -164,8 +167,8 @@ impl Hunk {
             return Related::Matched;
         }
         if self.new_start > other.new_start
-            && self.new_start + self.new_lines
-                < other.new_start + other.new_lines
+            && self.new_start
+                <= other.new_start + other.new_lines
         {
             debug!("overlap");
             return Related::OverlapAfter;
@@ -176,6 +179,11 @@ impl Hunk {
             debug!("after");
             return Related::After;
         }
+        // GOT PANIC HERE
+        // unknown case self.new_start 489 self.new_lines 7
+        //          other.new_start 488 other.new_lines 7
+        // some files were staged. and 1 of them was unstaged also
+        // staged it and got panic
         panic!(
             "unknown case self.new_start {:?} self.new_lines {:?}
                   other.new_start {:?} other.new_lines {:?}",
@@ -211,10 +219,11 @@ impl Hunk {
             }
             Related::OverlapBefore => {
                 // insert diff betweeen old and new view
-                todo!("extend hunk by start diff");
-                // hm. old_lines are not included at all...
-                // self.new_lines += self.new_start - hunk.new_start;
-                // self.new_start = hunk.new_start;
+                debug!("overlap before");
+                //debug!(self.header, new_hunk.header);
+                assert!(self.new_lines == new_hunk.new_lines);
+                self.new_start = new_hunk.new_start;                
+                // this is just a shift, maybe?
             }
             Related::Matched => {
                 trace!("enrich!");
@@ -316,7 +325,6 @@ impl Diff {
             self.files.push(file);
         }
     }
-
 }
 
 pub fn get_cwd_repo(sender: Sender<crate::Event>) -> Repository {
@@ -333,9 +341,8 @@ pub fn get_cwd_repo(sender: Sender<crate::Event>) -> Repository {
 #[derive(Debug, Clone)]
 pub struct State {
     pub state: RepositoryState,
-    pub view: View
+    pub view: View,
 }
-
 
 impl State {
     pub fn new(state: RepositoryState) -> Self {
@@ -373,11 +380,7 @@ pub fn commit_string(c: &Commit) -> String {
     let message = c.message().unwrap_or("").replace("\n", "");
     let mut encoded = String::new();
     html_escape::encode_safe_to_string(&message, &mut encoded);
-    format!(
-        "{} {}",
-        &c.id().to_string()[..7],
-        encoded
-    )
+    format!("{} {}", &c.id().to_string()[..7], encoded)
 }
 
 pub fn commit_dt(c: &Commit) -> DateTime<FixedOffset> {
@@ -447,7 +450,7 @@ pub fn get_current_repo_status(
     sender
         .send_blocking(crate::Event::State(State::new(repo.state())))
         .expect("Could not send through channel");
-    
+
     // get HEAD
     gio::spawn_blocking({
         let sender = sender.clone();
@@ -710,14 +713,23 @@ pub fn commit_staged(
     get_head(path, sender)
 }
 
-pub fn push(path: OsString, sender: Sender<crate::Event>) {
+pub fn push(
+    path: OsString,
+    remote_branch: String,
+    tracking_remote: bool,
+    sender: Sender<crate::Event>,
+) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
-    debug!("head ref name {:?}", head_ref.name());
+    trace!("push.head ref name {:?}", head_ref.name());
     assert!(head_ref.is_branch());
+    let refspec = format!("{}:refs/heads/{}", head_ref.name().unwrap(), remote_branch);
+    trace!("push. refspec {}", refspec);
+    let mut branch = Branch::wrap(head_ref);
     let mut remote = repo
-        .find_remote("origin") // TODO harcode
+        .find_remote("origin") // TODO here is hardcode
         .expect("no remote");
+
     let mut opts = PushOptions::new();
     let mut callbacks = RemoteCallbacks::new();
     callbacks.update_tips({
@@ -728,6 +740,10 @@ pub fn push(path: OsString, sender: Sender<crate::Event>) {
                 oid1,
                 oid2
             );
+            if tracking_remote {                
+                let res = branch.set_upstream(Some(&remote_branch));
+                debug!("result on set upstream {:?}", res);
+            }
             get_upstream(path.clone(), sender.clone());
             // todo what is this?
             true
@@ -735,7 +751,7 @@ pub fn push(path: OsString, sender: Sender<crate::Event>) {
     });
     callbacks.push_update_reference({
         move |ref_name, opt_status| {
-            trace!("push update red {:?}", ref_name);
+            trace!("push update ref {:?}", ref_name);
             trace!("push status {:?}", opt_status);
             // TODO - if status is not None
             // it will need to interact with user
@@ -753,9 +769,9 @@ pub fn push(path: OsString, sender: Sender<crate::Event>) {
         }
         todo!("implement other types");
     });
-    opts.remote_callbacks(callbacks);
+    opts.remote_callbacks(callbacks);    
     remote
-        .push(&[head_ref.name().unwrap()], Some(&mut opts))
+        .push(&[refspec], Some(&mut opts))
         .expect("cant push to remote");
 }
 
@@ -809,7 +825,13 @@ impl BranchData {
             // name: "origin/HEAD" refname: "refs/remotes/origin/HEAD"
             oid = t;
         } else {
-            debug!("ZERO OID -----------------------------> {:?} {:?} {:?} {:?}", target, name, refname, ob.id());
+            debug!(
+                "ZERO OID -----------------------------> {:?} {:?} {:?} {:?}",
+                target,
+                name,
+                refname,
+                ob.id()
+            );
         }
 
         let commit_dt = commit_dt(&commit);
@@ -916,10 +938,11 @@ pub fn create_branch(
 ) -> Result<BranchData, String> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let commit = repo.find_commit(branch_data.oid).expect("cant find commit");
-    let branch = repo
-        .branch(&new_branch_name, &commit, false)
-        .expect("cant create branch");
-    Ok(BranchData::new(branch, BranchType::Local))
+    let result = repo.branch(&new_branch_name, &commit, false);
+    match result {
+        Ok(branch) => Ok(BranchData::new(branch, BranchType::Local)),
+        Err(error) => Err(String::from(error.message())),
+    }
 }
 
 pub fn kill_branch(
@@ -948,7 +971,6 @@ pub fn kill_branch(
     }
     Ok(())
 }
-
 
 pub fn cherry_pick(
     path: OsString,
@@ -992,4 +1014,3 @@ pub fn cherry_pick(
 
     Ok(BranchData::new(branch, BranchType::Local))
 }
-

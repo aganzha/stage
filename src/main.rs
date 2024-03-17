@@ -12,18 +12,20 @@ use async_channel::Sender;
 
 mod git;
 use git::{
-    checkout, commit_staged, create_branch, get_current_repo_status, get_refs,
-    kill_branch, cherry_pick, push, stage_via_apply, ApplyFilter, BranchData,
-    Diff, File, Head, Hunk, Line, Related, View, State
+    checkout, cherry_pick, commit_staged, create_branch,
+    get_current_repo_status, get_refs, kill_branch, push, stage_via_apply,
+    ApplyFilter, BranchData, Diff, File, Head, Hunk, Line, Related, State,
+    View,
 };
 mod widgets;
 use widgets::{
-    display_error, get_new_branch_name, show_commit_message
+    display_error, get_new_branch_name, make_confirm_dialog,
+    show_commit_message,
 };
 
 use libadwaita::prelude::*;
 use libadwaita::{
-    Application, ApplicationWindow, HeaderBar, ToolbarView, Window
+    Application, ApplicationWindow, HeaderBar, ToolbarView, Window,
 };
 
 use gdk::Display;
@@ -32,7 +34,7 @@ use glib::{clone, MainContext, Priority};
 use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Box, CssProvider,
-    Label, Orientation, ScrolledWindow, STYLE_PROVIDER_PRIORITY_APPLICATION
+    Label, Orientation, ScrolledWindow, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
 use log::{debug, error, info, log_enabled, trace};
@@ -40,7 +42,6 @@ use log::{debug, error, info, log_enabled, trace};
 const APP_ID: &str = "com.github.aganzha.stage";
 
 fn main() -> glib::ExitCode {
-
     // let pattern = std::env::args().nth(1).expect("no pattern given");
     // let path = std::env::args().nth(2).expect("no path given");
     // println!("-------- {:?} -----------------> {:?}", pattern, path);
@@ -67,7 +68,7 @@ fn main() -> glib::ExitCode {
         app.connect_activate(run_without_args);
     }
 
-    app.run()    
+    app.run()
 }
 
 fn load_css() {
@@ -118,10 +119,9 @@ fn run_with_args(app: &Application, files: &[gio::File], blah: &str) {
 fn run_without_args(app: &Application) {
     run_app(app, None)
 }
-// fn build_ui(app: &Application, files: &[gtk4::gio::File], blah: &str) {    
+// fn build_ui(app: &Application, files: &[gtk4::gio::File], blah: &str) {
 
-fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {        
-
+fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
 

@@ -1,6 +1,7 @@
+use glib::clone;
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, MessageDialog, ResponseAppearance, Window,
+    builders, ApplicationWindow, MessageDialog, ResponseAppearance, Window,
 };
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
@@ -8,7 +9,8 @@ use async_channel::Sender;
 
 use gtk4::prelude::*;
 use gtk4::{
-    glib, AlertDialog, EventControllerKey, TextView, Window as Gtk4Window,
+    glib, AlertDialog, EventControllerKey, TextView, Widget,
+    Window as Gtk4Window,
 };
 use log::{debug, trace};
 
@@ -151,3 +153,52 @@ pub fn get_new_branch_name(
     dialog.present();
 }
 
+// pub trait ChildProducer {
+//     fn child_widget() -> Box<dyn IsA<Widget>>;
+// }
+// fn show_user_input(window: &impl IsA<Gtk4Window>) {
+//     let bx = TextView::new();
+//     get_user_input(window, Some(&bx), clone!(@weak bx => move || {
+//         debug!("------------------> {:?}", bx);
+//     }));
+// }
+
+pub fn make_confirm_dialog(
+    window: &impl IsA<Gtk4Window>,
+    child: Option<&impl IsA<Widget>>,
+    heading: &str,
+    confirm_title: &str,
+) -> MessageDialog {
+    let cancel_response = "cancel";
+    let confirm_response = "confirm";
+
+    let dialog = MessageDialog::builder()
+        .heading(heading)
+        .transient_for(window)
+        .modal(true)
+        .destroy_with_parent(true)
+        .close_response(cancel_response)
+        .default_response(confirm_response)
+        .default_width(640)
+        .default_height(120)
+        .build();
+    dialog.set_extra_child(child);
+    dialog.add_responses(&[
+        (cancel_response, "Cancel"),
+        (confirm_response, confirm_title),
+    ]);
+    // // Make the dialog button insensitive initially
+    // dialog.set_response_enabled(create_response, false);
+    dialog.set_response_appearance(
+        confirm_response,
+        ResponseAppearance::Suggested,
+    );
+    dialog
+    // dialog.connect_response(None, move |dialog, response| {
+    //     dialog.destroy();
+    //     if response == confirm_response {
+    //         callback();
+    //     }
+    // });
+    // dialog.present();
+}
