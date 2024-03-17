@@ -182,23 +182,17 @@ pub fn make_confirm_dialog(
         .default_width(640)
         .default_height(120)
         .build();
+
     dialog.set_extra_child(child);
     dialog.add_responses(&[
         (cancel_response, "Cancel"),
         (confirm_response, confirm_title),
     ]);
-    // // Make the dialog button insensitive initially
-    // dialog.set_response_enabled(create_response, false);
+
     dialog.set_response_appearance(
         confirm_response,
         ResponseAppearance::Suggested,
     );
     dialog
-    // dialog.connect_response(None, move |dialog, response| {
-    //     dialog.destroy();
-    //     if response == confirm_response {
-    //         callback();
-    //     }
-    // });
-    // dialog.present();
+
 }
