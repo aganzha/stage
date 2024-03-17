@@ -1,6 +1,6 @@
 use crate::common_tests::*;
 use crate::{
-    commit_staged, get_current_repo_status, push, stage_via_apply,
+    commit, get_current_repo_status, push, stage_via_apply,
     ApplyFilter, Diff, File, Head, Hunk, Line, Related, State, View,
 };
 // use alloc::rc::Rc;
@@ -358,9 +358,8 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                     // for ctrl-c
                 }
                 (gdk::Key::c, _) => {
-                    
-                    // sndr.send_blocking(crate::Event::CommitRequest)
-                    //     .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Commit)
+                        .expect("Could not send through channel");
                 }
                 (gdk::Key::p, _) => {
                     sndr.send_blocking(crate::Event::Push)
@@ -1337,7 +1336,7 @@ impl Status {
         String::from("origin/master")
     }
 
-    pub fn commit_staged(
+    pub fn commit(
         &mut self,
         path: &OsString,
         txt: &TextView,
@@ -1359,7 +1358,7 @@ impl Status {
             crate::make_confirm_dialog(
                 window,
                 Some(&lb),
-                "Commit", // TODO here is harcode
+                "Commit",
                 "Commit",
             )
                 .choose(None::<&gio::Cancellable>, {
@@ -1376,7 +1375,7 @@ impl Status {
                             gio::spawn_blocking({
                                 let path = path.clone();
                                 move || {
-                                    commit_staged(path, message, sender);
+                                    commit(path, message, sender);
                                 }
                             });
                         }
@@ -1619,6 +1618,7 @@ impl Status {
             });
         }
     }
+    
     pub fn choose_cursor_position(
         &mut self,
         txt: &TextView,
