@@ -12,15 +12,14 @@ use async_channel::Sender;
 
 mod git;
 use git::{
-    checkout, cherry_pick, commit_staged, create_branch,
+    checkout, cherry_pick, commit, create_branch,
     get_current_repo_status, get_refs, kill_branch, push, stage_via_apply,
     ApplyFilter, BranchData, Diff, File, Head, Hunk, Line, Related, State,
     View,
 };
 mod widgets;
 use widgets::{
-    display_error, get_new_branch_name, make_confirm_dialog,
-    show_commit_message,
+    display_error, get_new_branch_name, make_confirm_dialog
 };
 
 use libadwaita::prelude::*;
@@ -98,8 +97,7 @@ pub enum Event {
     // does not used for now
     Stage(i32, i32),
     UnStage(i32, i32),
-    CommitRequest,
-    Commit(String),
+    Commit,
     Push,
     Branches,
 }
@@ -113,13 +111,13 @@ fn run_with_args(app: &Application, files: &[gio::File], blah: &str) {
             return;
         }
     }
-    println!("heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeey {:?} {:?}", files, blah);
     run_app(app, None)
 }
+
 fn run_without_args(app: &Application) {
     run_app(app, None)
 }
-// fn build_ui(app: &Application, files: &[gtk4::gio::File], blah: &str) {
+
 
 fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     let window = ApplicationWindow::new(app);
@@ -165,18 +163,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     info!("main. debug");
                     status.debug(&txt);
                 }
-                Event::CommitRequest => {
-                    info!("commit request");
-                    if !status.has_staged() {
-                        display_error(
-                            &window,
-                            "No changes were staged. Stage by hitting 's'",
-                        );
-                    } else {
-                        show_commit_message(&window, sender.clone());
-                    }
-                }
-                Event::Commit(message) => {
+                Event::Commit => {
                     info!("main.commit");
                     if !status.has_staged() {
                         display_error(
@@ -184,7 +171,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                             "No changes were staged. Stage by hitting 's'",
                         );
                     } else {
-                        status.commit_staged(
+                        status.commit(
                             current_repo_path.as_ref().unwrap(),
                             &txt,
                             &window,
