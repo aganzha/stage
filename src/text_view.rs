@@ -221,6 +221,7 @@ impl Diff {
             }
         }
         // erase all stale views
+        debug!("erasing {:?} for all {:?}", replaces_by_new, self.files.len());
         self.files.iter_mut()
             .filter(|f| !replaces_by_new.contains(&f.path))
             .for_each(|f| f.erase(txt));
@@ -927,6 +928,7 @@ pub trait ViewContainer {
         let line_no = view.line_no;
         view.squashed = true;
         view.child_dirty = true;
+        debug!("erasing ......{:?}", &view);
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let view = vc.get_view();
             view.squashed = true;
