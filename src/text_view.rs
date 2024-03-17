@@ -210,6 +210,7 @@ impl File {
 
 impl Diff {
     pub fn enrich_view(&mut self, other: &mut Diff, txt: &TextView) {
+        // here self is new diff, which coming from repo without views
         let mut replaces_by_new = HashSet::new();
         debug!("---------------enrich view in diff. my files {:?}, other files {:?}", self.files.len(), other.files.len());
         for file in &mut self.files {
@@ -222,8 +223,8 @@ impl Diff {
             }
         }
         // erase all stale views
-        debug!("erasing {:?} for all {:?}", replaces_by_new, self.files.len());
-        self.files.iter_mut()
+        debug!("erasing {:?} for all {:?}", replaces_by_new, other.files.len());
+        other.files.iter_mut()
             .filter(|f| !replaces_by_new.contains(&f.path))
             .for_each(|f| f.erase(txt));
     }
