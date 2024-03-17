@@ -8,7 +8,7 @@ use gtk4::{
     EventControllerKey, Label, ListHeader, ListItem, ListScrollFlags,
     ListView, NoSelection, Orientation, PropertyExpression, ScrolledWindow,
     SectionModel, SelectionModel, SignalListItemFactory, SingleSelection,
-    Spinner, StringList, StringObject, Widget
+    Spinner, StringList, StringObject, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
@@ -254,12 +254,12 @@ impl BranchList {
                 let item = branch_list.item(pos).unwrap();
                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
                 let branch_data = branch_item.imp().branch.borrow().clone();
-                let result = gio::spawn_blocking(move || {                    
+                let result = gio::spawn_blocking(move || {
                     crate::cherry_pick(repo_path, branch_data, sender)
                 }).await;
                 let mut err_message = String::from("git error");
                 if let Ok(git_result) = result {
-                    match git_result {                        
+                    match git_result {
                         Ok(branch_data) => {
                             debug!("oooooooooooooooooou {:?}", branch_data);
                             let current_item = branch_list.item(branch_list.current()).unwrap();
@@ -274,7 +274,7 @@ impl BranchList {
             })
         });
     }
-    
+
     pub fn kill_branch(
         &self,
         repo_path: std::ffi::OsString,
@@ -513,14 +513,18 @@ pub fn make_item_factory() -> SignalListItemFactory {
                 trace!(
                     "item in connect selected {:?} {:?} {:?}",
                     branch_item.title(),
-                    branch_item.initial_focus(), li.position()
+                    branch_item.initial_focus(),
+                    li.position()
                 );
                 if branch_item.initial_focus() {
                     li.child().unwrap().grab_focus();
                     branch_item.set_initial_focus(false)
                 }
             } else {
-                trace!("branches. no item in connect_selected_notify {:?}", li.position());
+                trace!(
+                    "branches. no item in connect_selected_notify {:?}",
+                    li.position()
+                );
             }
         });
 
@@ -610,7 +614,8 @@ pub fn make_list_view(
         let mut current_item: Option<&BranchItem> = None;
         if let Some(item) = item_ob {
             let list = branch_list.imp().list.borrow();
-            let activated_branch_item = item.downcast_ref::<BranchItem>().unwrap();
+            let activated_branch_item =
+                item.downcast_ref::<BranchItem>().unwrap();
             if activated_branch_item.is_head() {
                 return;
             }
@@ -730,10 +735,12 @@ pub enum Event {
     Scroll(u32),
     KillRequest,
     MergeRequest,
-    CherryPickRequest
+    CherryPickRequest,
 }
 
-pub fn branches_in_use(list_view: &ListView) -> (crate::BranchData, crate::BranchData) {
+pub fn branches_in_use(
+    list_view: &ListView,
+) -> (crate::BranchData, crate::BranchData) {
     let selection_model = list_view.model().unwrap();
     let single_selection =
         selection_model.downcast_ref::<SingleSelection>().unwrap();
@@ -741,12 +748,16 @@ pub fn branches_in_use(list_view: &ListView) -> (crate::BranchData, crate::Branc
     let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
 
     let selected_item = branch_list.item(branch_list.proxyselected()).unwrap();
-    let selected_branch_item = selected_item.downcast_ref::<BranchItem>().unwrap();
-    let selected_branch_data = selected_branch_item.imp().branch.borrow().clone();
+    let selected_branch_item =
+        selected_item.downcast_ref::<BranchItem>().unwrap();
+    let selected_branch_data =
+        selected_branch_item.imp().branch.borrow().clone();
 
     let current_item = branch_list.item(branch_list.current()).unwrap();
-    let current_branch_item = current_item.downcast_ref::<BranchItem>().unwrap();
-    let current_branch_data = current_branch_item.imp().branch.borrow().clone();
+    let current_branch_item =
+        current_item.downcast_ref::<BranchItem>().unwrap();
+    let current_branch_data =
+        current_branch_item.imp().branch.borrow().clone();
     (current_branch_data, selected_branch_data)
 }
 
@@ -880,9 +891,13 @@ pub fn show_branches_window(
                 }
                 Event::CherryPickRequest => {
                     info!("branches. cherry-pick request");
-                    let (current_branch, selected_branch) = branches_in_use(&list_view);
-                    debug!("==========================> {:?} {:?}", current_branch, selected_branch);
-                    let btns = vec!["Cancel", "Cherry-pick"];                    
+                    let (current_branch, selected_branch) =
+                        branches_in_use(&list_view);
+                    debug!(
+                        "==========================> {:?} {:?}",
+                        current_branch, selected_branch
+                    );
+                    let btns = vec!["Cancel", "Cherry-pick"];
                     let alert = AlertDialog::builder()
                         .buttons(btns)
                         .message("Cherry picking")
@@ -896,9 +911,8 @@ pub fn show_branches_window(
                         .downcast_ref::<SingleSelection>()
                         .unwrap();
                     let list_model = single_selection.model().unwrap();
-                    let branch_list = list_model
-                        .downcast_ref::<BranchList>()
-                        .unwrap();
+                    let branch_list =
+                        list_model.downcast_ref::<BranchList>().unwrap();
                     alert.choose(Some(&window), None::<&gio::Cancellable>, {
                         let path = repo_path.clone();
                         let window = window.clone();
@@ -906,7 +920,7 @@ pub fn show_branches_window(
                         clone!(@weak branch_list => move |result| {
                             debug!("meeeeeeeeeeeeeeeeee {:?}", result);
                             if let Ok(ind) = result {
-                                if ind == 1 {                                
+                                if ind == 1 {
                                     branch_list.cherry_pick(
                                         path,
                                         &window,
@@ -915,7 +929,7 @@ pub fn show_branches_window(
                                 }
                             }
                         })
-                    });                    
+                    });
                 }
             }
         }
