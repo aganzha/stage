@@ -1277,18 +1277,31 @@ impl Status {
             .build();
         let upstream = SwitchRow::builder()
             .title("Set upstream")
+            .css_classes(vec!["input_field"])
             .active(true)
             .build();
+        // let switch = upstream.child().unwrap();
+        // switch.connect_show(|sw| {
+        //     debug!("shooooooooooooooooooow switch");
+        //     sw.grab_focus();
+        // });
+        // switch.connect_move_focus(|sw, dir| {
+        //     debug!("focus switch");
+        //     sw.grab_focus();
+        // });
+        // debug!("----------------------> {:?}", switch);
         let input = EntryRow::builder()
-            .title("Push to:")
+            .title("Remote branch name:")
+            .css_classes(vec!["input_field"])
             .text(self.choose_remote())
             .build();
         lb.append(&input);
         lb.append(&upstream);
+
         crate::make_confirm_dialog(
             window,
             Some(&lb),
-            "Push to remote: Origin", // TODO here is harcode
+            "Push to remote/origin", // TODO here is harcode
             "Push",
         )
         .choose(None::<&gio::Cancellable>, {
