@@ -1,20 +1,20 @@
 use crate::common_tests::*;
 use crate::{
     commit_staged, get_current_repo_status, push, stage_via_apply,
-    ApplyFilter, Diff, File, Head, Hunk, Line, Related, View, State
+    ApplyFilter, Diff, File, Head, Hunk, Line, Related, State, View,
 };
 use async_channel::Sender;
 use git2::{DiffLineType, RepositoryState};
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, EventControllerKey, EventSequenceState,
-    GestureClick, MovementStep, TextBuffer, TextIter, TextTag, TextView,
-    TextWindowType, AlertDialog, Window as Gtk4Window
+    gdk, gio, glib, pango, AlertDialog, EventControllerKey,
+    EventSequenceState, GestureClick, ListBox, MovementStep, SelectionMode,
+    TextBuffer, TextIter, TextTag, TextView, TextWindowType,
+    Window as Gtk4Window,
 };
-use libadwaita::{
-    ApplicationWindow, Window,
-};
+use libadwaita::prelude::*;
+use libadwaita::{ApplicationWindow, EntryRow, SwitchRow, Window};
 use log::{debug, trace};
 use pango::Style;
 use std::cell::RefCell;
@@ -78,13 +78,12 @@ impl Tag {
                 let tt = self.new_tag();
                 tt.set_style(Style::Italic);
                 tt
-            }
-            // Self::Link => {
-            //     let tt = self.new_tag();
-            //     tt.set_background(Some("0000ff"));
-            //     tt.set_style(Style::Underlined);
-            //     tt
-            // }
+            } // Self::Link => {
+              //     let tt = self.new_tag();
+              //     tt.set_background(Some("0000ff"));
+              //     tt.set_style(Style::Underlined);
+              //     tt
+              // }
         }
     }
     fn new_tag(&self) -> TextTag {
@@ -134,15 +133,21 @@ impl Hunk {
     pub fn enrich_view(&mut self, other: &Hunk) {
         if self.lines.len() != other.lines.len() {
             // so :) what todo?
-            panic!(
-                "lines length are not the same {:?} {:?}",
-                self.lines.len(),
-                other.lines.len()
-            );
+            if self.lines.len() > other.lines.len() {
+                trace!("there are MORE NEW lines then old ones");
+                
+            } else {
+                trace!("there are MORE OLD lines then old ones");
+            }
+            // panic!(
+            //     "lines length are not the same {:?} {:?}",
+            //     self.lines.len(),
+            //     other.lines.len()
+            // );
         }
         for pair in zip(&mut self.lines, &other.lines) {
             pair.0.view = pair.1.transfer_view();
-        }
+        }        
     }
 }
 
@@ -159,6 +164,12 @@ impl File {
         // New hunks could break old ones:
         // lines become changed and headers will be changed also
         // case 1.
+        // this case could be related to Staged side also.
+        // when stage existing hunk by adding/removing lines to it.
+        // hunks count are the same, but some hunks could differ in
+        // lines count
+        trace!("enrich_view for file {:?} hunks {:?}, other {:?}, hunks {:?})",
+               self.path, self.hunks.len(), other.path, other.hunks.len());
         if self.hunks.len() == other.hunks.len() {
             for pair in zip(&mut self.hunks, &other.hunks) {
                 pair.0.view = pair.1.transfer_view();
@@ -346,8 +357,6 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                 (gdk::Key::c, _) => {
                     sndr.send_blocking(crate::Event::CommitRequest)
                         .expect("Could not send through channel");
-                    // txt.activate_action("win.commit", None)
-                    //     .expect("action does not exists");
                 }
                 (gdk::Key::p, _) => {
                     sndr.send_blocking(crate::Event::Push)
@@ -492,7 +501,7 @@ impl View {
             transfered: false,
             tags: Vec::new(),
             markup: false,
-            hidden: false
+            hidden: false,
         }
     }
     pub fn new_markup() -> Self {
@@ -1174,22 +1183,33 @@ impl ViewContainer for State {
             RepositoryState::Clean => "Clean",
             RepositoryState::Merge => "<span color=\"#ff0000\">Merge</span>",
             RepositoryState::Revert => "<span color=\"#ff0000\">Revert</span>",
-            RepositoryState::RevertSequence => "<span color=\"#ff0000\">RevertSequence</span>",
+            RepositoryState::RevertSequence => {
+                "<span color=\"#ff0000\">RevertSequence</span>"
+            }
             RepositoryState::CherryPick => {
                 "<span color=\"#ff0000\">CherryPick</span>"
-            },
-            RepositoryState::CherryPickSequence => "<span color=\"#ff0000\">CherryPickSequence</span>",
+            }
+            RepositoryState::CherryPickSequence => {
+                "<span color=\"#ff0000\">CherryPickSequence</span>"
+            }
             RepositoryState::Bisect => "<span color=\"#ff0000\">Bisect</span>",
             RepositoryState::Rebase => "<span color=\"#ff0000\">Rebase</span>",
-            RepositoryState::RebaseInteractive => "<span color=\"#ff0000\">RebaseInteractive</span>",
-            RepositoryState::RebaseMerge => "<span color=\"#ff0000\">RebaseMerge</span>",
-            RepositoryState::ApplyMailbox => "<span color=\"#ff0000\">ApplyMailbox</span>",
-            RepositoryState::ApplyMailboxOrRebase => "<span color=\"#ff0000\">ApplyMailboxOrRebase</span>"
+            RepositoryState::RebaseInteractive => {
+                "<span color=\"#ff0000\">RebaseInteractive</span>"
+            }
+            RepositoryState::RebaseMerge => {
+                "<span color=\"#ff0000\">RebaseMerge</span>"
+            }
+            RepositoryState::ApplyMailbox => {
+                "<span color=\"#ff0000\">ApplyMailbox</span>"
+            }
+            RepositoryState::ApplyMailboxOrRebase => {
+                "<span color=\"#ff0000\">ApplyMailboxOrRebase</span>"
+            }
         };
         format!("State:    {}", state)
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RenderSource {
@@ -1233,7 +1253,11 @@ impl Status {
         }
     }
 
-    pub fn get_status(&self, path: Option<OsString>, sender: Sender<crate::Event>) {
+    pub fn get_status(
+        &self,
+        path: Option<OsString>,
+        sender: Sender<crate::Event>,
+    ) {
         gio::spawn_blocking({
             move || {
                 get_current_repo_status(path, sender);
@@ -1247,33 +1271,62 @@ impl Status {
         window: &impl IsA<Gtk4Window>,
         sender: Sender<crate::Event>,
     ) {
-        let btns = vec!["Cancel", "Push"];                    
-        let alert = AlertDialog::builder()
-            .buttons(btns)
-            .message("Push")
-            .detail(format!(
-                "push dialog {}",
-                "remote info"
-            ))
+        let lb = ListBox::builder()
+            .selection_mode(SelectionMode::None)
+            .css_classes(vec![String::from("boxed-list")])
             .build();
-        alert.choose(Some(window), None::<&gio::Cancellable>, {
+        let upstream = SwitchRow::builder()
+            .title("Set upstream")
+            .active(true)
+            .build();
+        let input = EntryRow::builder()
+            .title("Push to:")
+            .text(self.choose_remote())
+            .build();
+        lb.append(&input);
+        lb.append(&upstream);
+        crate::make_confirm_dialog(
+            window,
+            Some(&lb),
+            "Push to remote: Origin", // TODO here is harcode
+            "Push",
+        )
+        .choose(None::<&gio::Cancellable>, {
             let path = path.clone();
-            let window = window.clone();
             let sender = sender.clone();
             move |result| {
-                debug!("push dialog result {:?}", result);
-                if let Ok(ind) = result {
-                    if ind == 1 {                                
-                        gio::spawn_blocking({
-                            let path = path.clone();
-                            move || {
-                                push(path, sender);
-                            }
-                        });
-                    }
+                if result == "confirm" {
+                    trace!(
+                        "confirm push dialog {:?} {:?}",
+                        input.text(),
+                        upstream.is_active()
+                    );
+                    let remote_branch_name = format!("{}", input.text());
+                    let track_remote = upstream.is_active();
+                    gio::spawn_blocking({
+                        let path = path.clone();
+                        move || {
+                            push(
+                                path,
+                                remote_branch_name,
+                                track_remote,
+                                sender,
+                            );
+                        }
+                    });
                 }
             }
         });
+    }
+
+    pub fn choose_remote(&self) -> String {
+        if let Some(upstream) = &self.upstream {
+            return upstream.branch.clone();
+        }
+        if let Some(head) = &self.head {
+            return head.branch.clone();
+        }
+        String::from("origin/master")
     }
 
     pub fn commit_staged(
