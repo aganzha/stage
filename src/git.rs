@@ -85,6 +85,7 @@ pub enum Related {
     After,
 }
 
+
 impl Hunk {
     pub fn new() -> Self {
         Self {
@@ -127,7 +128,6 @@ impl Hunk {
     pub fn delta_in_lines(&self) -> i32 {
         // returns how much lines this hunk
         // will add to file (could be negative when lines are deleted)
-        // self.new_start + self.new_lines - self.old_start - self.old_lines
         self.lines
             .iter()
             .map(|l| match l.origin {
@@ -141,8 +141,8 @@ impl Hunk {
     pub fn related_to_other(&self, other: &Hunk) -> Related {
         // returns how this hunk is related to other hunk (in file)
         debug!(
-            "related to other self.new_start {:?} self.new_lines {:?}
-                  other.new_start {:?} other.new_lines {:?}",
+            "related to other new_hunk.start {:?} new_hunk.lines {:?}
+                  old_hunk.start {:?} old_hunk.lines {:?}",
             self.new_start, self.new_lines, other.new_start, other.new_lines
         );
 
@@ -152,7 +152,7 @@ impl Hunk {
             debug!("before");
             return Related::Before;
         }
-        
+
         if self.new_start < other.new_start
             && self.new_start + self.new_lines >= other.new_start
         {
@@ -192,7 +192,9 @@ impl Hunk {
         Related::After
     }
 
-    pub fn adopt_and_match(&mut self, new_hunk: &mut Hunk) -> bool {
+    pub fn adopt(&mut self, new_hunk: &mut Hunk, sliding_delta: &mut Option<i32>) -> Related {
+        // IT NEED TO USE old_start when going backward to staged!
+        
         // go "insert" (no real insertion is required) every new hunk in old_hunks.
         // that new hunk which will be overlapped or before or after old_hunk - those will have
         // new view. (i believe overlapping is not possible)
@@ -203,44 +205,44 @@ impl Hunk {
 
         // self - is old_hunk. it lines possible will be changed
         // cause we are inserting new_hunk in file
-        trace!("inner cycle for self");
-        match new_hunk.related_to_other(self) {
+        debug!("inner cycle-------------delta {:?}", sliding_delta);
+        let related = new_hunk.related_to_other(self);
+        match related {
             // me relative to other hunks
             Related::Before => {
-                trace!("choose new hunk start");
-                trace!(
-                    "just shift old hunk by my lines {:?}",
-                    new_hunk.delta_in_lines()
-                );
+                debug!("adopt.before");
                 // my lines - means diff in lines between my self and my new hunk
-                self.new_start = ((self.new_start as i32)
-                    + new_hunk.delta_in_lines())
-                    as u32;
+                if sliding_delta.is_none() {
+                    let delta = new_hunk.delta_in_lines();
+                    sliding_delta.replace(delta);
+                }
+                self.new_start = (self.new_start as i32 + sliding_delta.unwrap()) as u32;
+                debug!("got new start in before {:?} {:?}", self.new_start, sliding_delta);
             }
             Related::OverlapBefore => {
-                // insert diff betweeen old and new view
-                debug!("overlap before");
-                //debug!(self.header, new_hunk.header);
+                debug!("adopt.overlap_before");
                 assert!(self.new_lines == new_hunk.new_lines);
-                self.new_start = new_hunk.new_start;                
-                // this is just a shift, maybe?
+                // this should be negative
+                sliding_delta.replace(self.new_start as i32 - new_hunk.new_start as i32);
+                self.new_start = new_hunk.new_start;
             }
             Related::Matched => {
-                trace!("enrich!");
-                return true;
+                debug!("adopt.match!");
+                // all good
             }
             Related::OverlapAfter => {
-                todo!("choose old hunk start");
-                // trace!("extend hunk by start diff");
-                // self.new_lines += hunk.new_start - other_hunk.new_start;
-                // hm. old lines are not present at all?
+                // this should be possitive
+                debug!("adopt.overlap_after");
+                assert!(self.new_lines == new_hunk.new_lines);
+                sliding_delta.replace(new_hunk.new_start as i32 - self.new_start as i32);
+                self.new_start = new_hunk.new_start;
             }
             Related::After => {
-                trace!("nothing todo!");
+                debug!("adopt. after");
                 // nothing to do
             }
         }
-        false
+        related
     }
 
     pub fn title(&self) -> String {
@@ -492,7 +494,7 @@ pub fn get_current_repo_status(
 #[derive(Debug, Clone, Default)]
 pub struct ApplyFilter {
     pub file_path: String,
-    pub hunk_header: String,
+    pub hunk_header: Option<String>,
 }
 
 pub fn make_diff(git_diff: GitDiff) -> Diff {
@@ -617,20 +619,19 @@ pub fn stage_via_apply(
     let mut options = ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
-        if filter.hunk_header.is_empty() {
-            return true;
+        if let Some(hunk_header) = &filter.hunk_header {
+            if let Some(dh) = odh {
+                let header = Hunk::get_header_from(&dh);
+                return {
+                    if is_staging {
+                        hunk_header == &header
+                    } else {
+                        hunk_header == &Hunk::reverse_header(header)
+                    }
+                };
+            }
         }
-        if let Some(dh) = odh {
-            let header = Hunk::get_header_from(&dh);
-            return {
-                if is_staging {
-                    filter.hunk_header == header
-                } else {
-                    filter.hunk_header == Hunk::reverse_header(header)
-                }
-            };
-        }
-        false
+        true
     });
     options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
@@ -756,7 +757,7 @@ pub fn push(
                 oid1,
                 oid2
             );
-            if tracking_remote {                
+            if tracking_remote {
                 let res = branch.set_upstream(Some(&remote_branch));
                 debug!("result on set upstream {:?}", res);
             }
@@ -785,7 +786,7 @@ pub fn push(
         }
         todo!("implement other types");
     });
-    opts.remote_callbacks(callbacks);    
+    opts.remote_callbacks(callbacks);
     remote
         .push(&[refspec], Some(&mut opts))
         .expect("cant push to remote");

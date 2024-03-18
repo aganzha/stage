@@ -134,29 +134,31 @@ impl Hunk {
     }
     // hunk
     pub fn enrich_view(&mut self, other: &Hunk) {
+        self.view = other.transfer_view();
         if self.lines.len() != other.lines.len() {
             // so :) what todo?
             if self.lines.len() > other.lines.len() {
                 trace!("there are MORE NEW lines then old ones");
-                
+
             } else {
                 trace!("there are MORE OLD lines then old ones");
             }
-            // panic!(
-            //     "lines length are not the same {:?} {:?}",
-            //     self.lines.len(),
-            //     other.lines.len()
-            // );
+            panic!(
+                "lines length are not the same {:?} {:?}",
+                self.lines.len(),
+                other.lines.len()
+            );
         }
         for pair in zip(&mut self.lines, &other.lines) {
             pair.0.view = pair.1.transfer_view();
-        }        
+        }
     }
 }
 
 impl File {
     // file
-    pub fn enrich_view(&mut self, other: &mut File) {
+    pub fn enrich_view(&mut self, other: &mut File, txt: &TextView) {
+        self.view = other.transfer_view();
         // used to maintain view state in existent hunks
         // there are 2 cases
         // 1. side from which hunks are moved out (eg unstaged during staging)
@@ -171,32 +173,97 @@ impl File {
         // when stage existing hunk by adding/removing lines to it.
         // hunks count are the same, but some hunks could differ in
         // lines count
-        trace!("enrich_view for file {:?} hunks {:?}, other {:?}, hunks {:?})",
+        trace!("-- enrich_view for file {:?} hunks {:?}, other {:?}, hunks {:?})",
                self.path, self.hunks.len(), other.path, other.hunks.len());
+
+        // self - is new file with hunks whithout views
+        // other - old file with already rendered hunks
+
         if self.hunks.len() == other.hunks.len() {
             for pair in zip(&mut self.hunks, &other.hunks) {
-                pair.0.view = pair.1.transfer_view();
                 pair.0.enrich_view(pair.1);
             }
             return;
         }
-        //case 2.
+        // UPDATED DESCRIPTION
+        // so. abount "insertion". the idea was insert new hunk
+        // in old "surface" and "adopt it" - adjust other old hunks
+        // new_start. BUT. possible there will be MORE old hunks
+        // and some of old hunks must be just destroyed!
+        // new 1  old 1    vs new 1   old 1
+        //     2      2           2       2
+        //     3                          3
+        // we can stage either all hunks, or just 1!
+        // NO. there could be case when you stage 3 hunks
+        // and later stage 4 hunks :(
+
+
         // all hunks are ordered
-        for hunk in self.hunks.iter_mut() {
-            trace!("outer cycle");
-            // go "insert" (no real insertion is required) every new hunk in old_hunks.
-            // that new hunk which will be overlapped or before or after old_hunk - those will have
-            // new view. (i believe overlapping is not possible)
-            // insertion means - shift all rest old hunks according to lines delta
-            // and only hunks which match exactly will be enriched by views of old
-            // hunks. line_no actually does not matter - they will be shifted.
-            // but props like rendered, expanded will be copied for smoother rendering
-            for other_hunk in other.hunks.iter_mut() {
-                if other_hunk.adopt_and_match(hunk) {
-                    hunk.view = other_hunk.transfer_view();
-                    hunk.enrich_view(other_hunk);
+        let mut matched_hunks: HashSet<i32> = HashSet::new();
+        for new_hunk in self.hunks.iter_mut() {
+            debug!("outer cycle hunks in file {:?}===============================", self.path);
+            // important! sliding delta is ok, 
+            let mut sliding_delta: Option<i32> = None;
+            let mut i: i32 = 0;
+            for old_hunk in other.hunks.iter_mut() {
+                match old_hunk.adopt(new_hunk, &mut sliding_delta) {
+                    Related::Before => {
+                        // new hunks is inserted.
+                        // old_hunk was modified
+                        // in adopt: his start was shifted
+                        // this means in this cycle all
+                        // further old hunks will be shifted
+                        // by sliding_delta
+                        // and there is nothing to do with new
+                        // hunk. it is realy "new"
+                    }
+                    Related::OverlapBefore => {
+                        // if we have a merge, looks
+                        // like new_hunk is shifted version of old one.
+                        // (there is ASSERT!)
+                        // view must be transfered
+                        new_hunk.enrich_view(old_hunk);
+                        // weird....
+                        matched_hunks.insert(i);
+                        // cleanup view
+                        old_hunk.erase(txt);
+                        // now it need to adjust all further hunks
+                        // by sliding_delta
+                    }
+                    Related::Matched => {
+                        new_hunk.enrich_view(old_hunk);
+                        // do not touch further old hunks
+                        matched_hunks.insert(i);
+                        break;
+                    }
+                    Related::OverlapAfter => {
+                        // if we have a merge, looks
+                        // like new_hunk is shifted version of old one.
+                        // (there is ASSERT!)
+                        // view must be transfered
+                        new_hunk.enrich_view(old_hunk);
+                        // cleanup view
+                        // weird....
+                        matched_hunks.insert(i);
+                        old_hunk.erase(txt);
+                        // now it need to adjust all further hunks
+                        // by sliding_delta
+                    }
+                    Related::After => {
+                        // old hunk is somewhere here
+                    }
                 }
+                i += 1;
             }
+        }
+        let mut i: i32 = 0;
+        for old_hunk in other.hunks.iter_mut() {
+            if !matched_hunks.contains(&i) {
+                debug!("erase unmatched view!");
+                dbg!(&old_hunk);
+                old_hunk.erase(txt);
+            }
+            i += 1;
         }
     }
 
@@ -216,14 +283,13 @@ impl Diff {
         for file in &mut self.files {
             for of in &mut other.files {
                 if file.path == of.path {
-                    file.view = of.transfer_view();
-                    file.enrich_view(of);
+                    file.enrich_view(of, txt);
                     replaces_by_new.insert(file.path.clone());
                 }
             }
         }
         // erase all stale views
-        debug!("erasing {:?} for all {:?}", replaces_by_new, other.files.len());
+        debug!("replaced by new {:?} for total files count: {:?}", replaces_by_new, other.files.len());
         other.files.iter_mut()
             .filter(|f| !replaces_by_new.contains(&f.path))
             .for_each(|f| f.erase(txt));
@@ -1539,13 +1605,14 @@ impl Status {
         is_staging: bool,
         sender: Sender<crate::Event>,
     ) {
+        // hm. this is very weird code
         if is_staging && self.unstaged.is_none() {
             return;
         }
         if !is_staging && self.staged.is_none() {
             return;
         }
-        let mut filter = ApplyFilter::default();
+
         let diff = {
             if is_staging {
                 self.unstaged.as_mut().unwrap()
@@ -1553,7 +1620,11 @@ impl Status {
                 self.staged.as_mut().unwrap()
             }
         };
+        let mut filter = ApplyFilter::default();
         let mut file_path_so_stage = String::new();
+        let mut hunks_staged = 0;
+        // there could be either file with all hunks
+        // or just 1 hunk
         diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let content = vc.get_content();
             let kind = vc.get_kind();
@@ -1572,54 +1643,63 @@ impl Status {
                     // if the cursor is on file, all
                     // hunks under it will be active
                     filter.file_path = file_path_so_stage.clone();
-                    filter.hunk_header = content;
-                    view.squashed = true;
+                    filter.hunk_header.replace(content);
+                    hunks_staged += 1;
+                    // mark hunk squashed to kill it some lines later
+                    // view.squashed = true;
                 }
-                ViewKind::Line => {
-                    if !view.active {
-                        return;
-                    }
-                    // lines are not supported.
-                    // just squash em
-                    view.squashed = true;
-                }
+                // ViewKind::Line => {
+                //     if !view.active {
+                //         return;
+                //     }
+                //     // lines are not supported.
+                //     // just squash em
+                //     // mark line squashed to kill it some lines later
+                //     // view.squashed = true;
+                // }
                 _ => (),
             }
         });
         debug!("stage. apply filter {:?}", filter);
         if !filter.file_path.is_empty() {
-            let buffer = txt.buffer();
+            // let buffer = txt.buffer();
             // CAUTION. ATTENTION. IMPORTANT
             // this do both: rendering and changing structure!
             // is it ok?
-            diff.files.retain_mut(|f| {
-                // it need to remove either whole file
-                // or just 1 hunk inside file
-                let mut remove_file = false;
-                if f.title() == filter.file_path {
-                    let hunk_index =
-                        f.hunks.iter().position(|h| h.view.squashed).unwrap();
-                    if f.hunks.len() == 1 || f.view.current {
-                        remove_file = true;
-                        f.view.squashed = true;
-                    }
-                    let mut iter =
-                        buffer.iter_at_line(f.view.line_no).unwrap();
-                    // CAUTION. ATTENTION. IMPORTANT
-                    // rendering just 1 file
-                    // but those are used by cursor and expand!
-                    f.render(&buffer, &mut iter, None);
+            // diff.files.retain_mut(|f| {
+            //     // it need to remove either whole file
+            //     // or just 1 hunk inside file
+            //     let mut remove_file = false;
+            //     if f.title() == filter.file_path {
+            //         let hunk_index =
+            //             f.hunks.iter().position(|h| h.view.squashed).unwrap();
+            //         if f.hunks.len() == 1 || f.view.current {
+            //             remove_file = true;
+            //             f.view.squashed = true;
+            //         }
+            //         let mut iter =
+            //             buffer.iter_at_line(f.view.line_no).unwrap();
+            //         // CAUTION. ATTENTION. IMPORTANT
+            //         // rendering just 1 file
+            //         // but those are used by cursor and expand!
+            //         f.render(&buffer, &mut iter, None);
 
-                    f.hunks.remove(hunk_index);
-                }
-                if remove_file {
-                    // kill hunk in filter to stage all hunks
-                    filter.hunk_header = String::new();
-                    false
-                } else {
-                    true
-                }
-            });
+            //         f.hunks.remove(hunk_index);
+            //     }
+            //     if remove_file {
+            //         // kill hunk in filter to stage all hunks
+            //         filter.hunk_header = String::new();
+            //         false
+            //     } else {
+            //         true
+            //     }
+            // });
+
+            if hunks_staged > 1 {
+                // stage all hunks in file
+                filter.hunk_header = None;
+            }
+            debug!("stage via apply {:?}", filter);
             gio::spawn_blocking({
                 let path = path.clone();
                 move || {
@@ -1628,7 +1708,7 @@ impl Status {
             });
         }
     }
-    
+
     pub fn choose_cursor_position(
         &mut self,
         txt: &TextView,

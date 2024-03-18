@@ -22,7 +22,6 @@ pub fn display_error(
     d.show(Some(w));
 }
 
-
 pub fn get_new_branch_name(
     window: &Window,
     current_branch: &crate::BranchData,
@@ -90,15 +89,6 @@ pub fn get_new_branch_name(
     dialog.present();
 }
 
-// pub trait ChildProducer {
-//     fn child_widget() -> Box<dyn IsA<Widget>>;
-// }
-// fn show_user_input(window: &impl IsA<Gtk4Window>) {
-//     let bx = TextView::new();
-//     get_user_input(window, Some(&bx), clone!(@weak bx => move || {
-//         debug!("------------------> {:?}", bx);
-//     }));
-// }
 
 pub fn make_confirm_dialog(
     window: &impl IsA<Gtk4Window>,
@@ -131,5 +121,4 @@ pub fn make_confirm_dialog(
         ResponseAppearance::Suggested,
     );
     dialog
-
 }
