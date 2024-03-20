@@ -15,7 +15,7 @@ use git::{
     checkout, cherry_pick, commit, create_branch,
     get_current_repo_status, get_refs, kill_branch, push, stage_via_apply,
     ApplyFilter, BranchData, Diff, File, Head, Hunk, Line, Related, State,
-    View,
+    View, DiffDirection
 };
 mod widgets;
 use widgets::{

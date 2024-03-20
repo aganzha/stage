@@ -77,6 +77,7 @@ pub struct Hunk {
     pub lines: Vec<Line>,
 }
 
+#[derive(Debug, Clone)]
 pub enum Related {
     Before,
     OverlapBefore,
@@ -85,6 +86,11 @@ pub enum Related {
     After,
 }
 
+#[derive(Debug, Clone)]
+pub enum DiffDirection {
+    Forward,
+    Backward
+}
 
 impl Hunk {
     pub fn new() -> Self {
@@ -138,43 +144,69 @@ impl Hunk {
             .sum()
     }
 
-    pub fn related_to_other(&self, other: &Hunk) -> Related {
+    pub fn related_to(&self, other: &Hunk, direction: &DiffDirection) -> Related {
         // returns how this hunk is related to other hunk (in file)
+        // debug!(
+        //     "related to other new_hunk.start {:?} new_hunk.lines {:?}
+        //           old_hunk.start {:?} old_hunk.lines {:?}",
+        //     self.new_start, self.new_lines, other.new_start, other.new_lines
+        // );
+        // debug!(
+        //     "... old lines btw new_hunk.old_start {:?} new_hunk.old_lines {:?}
+        //           old_hunk.start {:?} old_hunk.lines {:?}",
+        //     self.old_start, self.old_lines, other.old_start, other.old_lines
+        // );
+        let (start, lines, other_start, other_lines) = {
+            match direction {
+                DiffDirection::Forward => (
+                    self.new_start,
+                    self.new_lines,
+                    other.new_start,
+                    other.new_lines
+                ),
+                DiffDirection::Backward => (
+                    self.old_start,
+                    self.old_lines,
+                    other.old_start,
+                    other.old_lines
+                )
+            }
+        };
         debug!(
-            "related to other new_hunk.start {:?} new_hunk.lines {:?}
-                  old_hunk.start {:?} old_hunk.lines {:?}",
-            self.new_start, self.new_lines, other.new_start, other.new_lines
+            ">>> related_to_other NEW HUNK start {:?} lines {:?}
+                  OLD HUNK start {:?} {:?} direction {:?}",
+            start, lines, other_start, other_lines, direction
         );
 
-        if self.new_start < other.new_start
-            && self.new_start + self.new_lines < other.new_start
+        if start < other_start
+            && start + lines < other_start
         {
             debug!("before");
             return Related::Before;
         }
 
-        if self.new_start < other.new_start
-            && self.new_start + self.new_lines >= other.new_start
+        if start < other_start
+            && start + lines >= other_start
         {
             debug!("overlap");
             return Related::OverlapBefore;
         }
 
-        if self.new_start == other.new_start
-            && self.new_lines == other.new_lines
+        if start == other_start
+            && lines == other_lines
         {
             debug!("matched");
             return Related::Matched;
         }
-        if self.new_start > other.new_start
-            && self.new_start
-                <= other.new_start + other.new_lines
+        if start > other_start
+            && start
+                <= other_start + other_lines
         {
             debug!("overlap");
             return Related::OverlapAfter;
         }
-        if self.new_start > other.new_start
-            && self.new_start > other.new_start + other.new_lines
+        if start > other_start
+            && start > other_start + other_lines
         {
             debug!("after");
             return Related::After;
@@ -185,65 +217,77 @@ impl Hunk {
         // some files were staged. and 1 of them was unstaged also
         // staged it and got panic
         panic!(
-            "unknown case self.new_start {:?} self.new_lines {:?}
-                  other.new_start {:?} other.new_lines {:?}",
-            self.new_start, self.new_lines, other.new_start, other.new_lines
+            "unknown case start {:?} lines {:?}
+                  other_start {:?} other_lines {:?} direction {:?}",
+            start, lines, other_start, other_lines, direction
         );
         Related::After
     }
 
-    pub fn adopt(&mut self, new_hunk: &mut Hunk, sliding_delta: &mut Option<i32>) -> Related {
-        // IT NEED TO USE old_start when going backward to staged!
+    // pub fn adopt(&mut self, new_hunk: &mut Hunk, direction: &DiffDirection, sliding_delta: &mut Option<i32>) -> Related {
+    //     // IT NEED TO USE old_start when going backward to staged!
         
-        // go "insert" (no real insertion is required) every new hunk in old_hunks.
-        // that new hunk which will be overlapped or before or after old_hunk - those will have
-        // new view. (i believe overlapping is not possible)
-        // insertion means - shift all rest old hunks according to lines delta
-        // and only hunks which match exactly will be enriched by views of old
-        // hunks. line_no actually does not matter - they will be shifted.
-        // but props like rendered, expanded will be copied for smoother rendering
+    //     // go "insert" (no real insertion is required) every new hunk in old_hunks.
+    //     // that new hunk which will be overlapped or before or after old_hunk - those will have
+    //     // new view. (i believe overlapping is not possible)
+    //     // insertion means - shift all rest old hunks according to lines delta
+    //     // and only hunks which match exactly will be enriched by views of old
+    //     // hunks. line_no actually does not matter - they will be shifted.
+    //     // but props like rendered, expanded will be copied for smoother rendering
 
-        // self - is old_hunk. it lines possible will be changed
-        // cause we are inserting new_hunk in file
-        debug!("inner cycle-------------delta {:?}", sliding_delta);
-        let related = new_hunk.related_to_other(self);
-        match related {
-            // me relative to other hunks
-            Related::Before => {
-                debug!("adopt.before");
-                // my lines - means diff in lines between my self and my new hunk
-                if sliding_delta.is_none() {
-                    let delta = new_hunk.delta_in_lines();
-                    sliding_delta.replace(delta);
-                }
-                self.new_start = (self.new_start as i32 + sliding_delta.unwrap()) as u32;
-                debug!("got new start in before {:?} {:?}", self.new_start, sliding_delta);
-            }
-            Related::OverlapBefore => {
-                debug!("adopt.overlap_before");
-                assert!(self.new_lines == new_hunk.new_lines);
-                // this should be negative
-                sliding_delta.replace(self.new_start as i32 - new_hunk.new_start as i32);
-                self.new_start = new_hunk.new_start;
-            }
-            Related::Matched => {
-                debug!("adopt.match!");
-                // all good
-            }
-            Related::OverlapAfter => {
-                // this should be possitive
-                debug!("adopt.overlap_after");
-                assert!(self.new_lines == new_hunk.new_lines);
-                sliding_delta.replace(new_hunk.new_start as i32 - self.new_start as i32);
-                self.new_start = new_hunk.new_start;
-            }
-            Related::After => {
-                debug!("adopt. after");
-                // nothing to do
-            }
-        }
-        related
-    }
+    //     // self - is old_hunk. it lines possible will be changed
+    //     // cause we are inserting new_hunk in file
+    //     debug!("inner cycle-------------delta {:?}", sliding_delta);
+    //     let related = new_hunk.related_to_other(self, direction);
+    //     match related {
+    //         // me relative to other hunks
+    //         Related::Before => {
+    //             debug!("adopt.before");
+    //             // my lines - means diff in lines between my self and my new hunk
+    //             match direction {
+    //                 DiffDirection::Forward => {
+    //                     if sliding_delta.is_none() {
+    //                         sliding_delta.replace(new_hunk.delta_in_lines());
+    //                     }
+    //                     self.new_start = (self.new_start as i32 + sliding_delta.unwrap()) as u32;
+    //                     debug!("got new (new) start in before {:?} {:?}", self.new_start, sliding_delta);
+    //                 }
+    //                 DiffDirection::Backward => {
+    //                     if sliding_delta.is_none() {
+    //                         sliding_delta.replace(0 - new_hunk.delta_in_lines());
+    //                     }
+    //                     self.old_start = (self.old_start as i32 + sliding_delta.unwrap()) as u32;
+    //                     debug!("got new (old) start in before {:?} {:?}", self.new_start, sliding_delta);
+
+    //                 }
+    //             }
+                
+    //         }
+    //         Related::OverlapBefore => {
+    //             panic!("adopt.overlap_before");
+    //             // assert!(self.new_lines == new_hunk.new_lines);
+    //             // // this should be negative
+    //             // sliding_delta.replace(self.new_start as i32 - new_hunk.new_start as i32);
+    //             // self.new_start = new_hunk.new_start;
+    //         }
+    //         Related::Matched => {
+    //             debug!("adopt.match!");
+    //             // all good
+    //         }
+    //         Related::OverlapAfter => {
+    //             // this should be possitive
+    //             panic!("adopt.overlap_after");
+    //             // assert!(self.new_lines == new_hunk.new_lines);
+    //             // sliding_delta.replace(new_hunk.new_start as i32 - self.new_start as i32);
+    //             // self.new_start = new_hunk.new_start;
+    //         }
+    //         Related::After => {
+    //             debug!("adopt. after");
+    //             // nothing to do
+    //         }
+    //     }
+    //     related
+    // }
 
     pub fn title(&self) -> String {
         self.header.to_string()
