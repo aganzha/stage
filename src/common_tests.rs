@@ -1,4 +1,4 @@
-use crate::{Diff, File, Hunk, Line, View};
+use crate::{Diff, File, Hunk, Line, View, DiffKind};
 use git2::DiffLineType;
 
 pub fn create_line(name: String) -> Line {
@@ -32,7 +32,7 @@ pub fn create_file(name: String) -> File {
 }
 
 pub fn create_diff() -> Diff {
-    let mut diff = Diff::new();
+    let mut diff = Diff::new(DiffKind::Unstaged);
     for i in 0..3 {
         diff.files.push(create_file(format!("file{}.rs", i)));
     }
