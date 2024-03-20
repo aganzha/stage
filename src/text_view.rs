@@ -160,25 +160,8 @@ impl File {
     // file
     pub fn enrich_view(&mut self, rendered: &mut File, txt: &TextView, direction: &DiffDirection) {
         self.view = rendered.transfer_view();
-        // used to maintain view state in existent hunks
-        // there are 2 cases
-        // 1. side from which hunks are moved out (eg unstaged during staging)
-        // this one is simple, cause self.hunks and other.hunks are the same length.
-        // just transfer views between them in order.
-        // 2. side on which hunks are receiving new hunk (eg staged hunks during staging)
-        // Like stage some hunks in file and then stage some more hunks to the same file!
-        // New hunks could break old ones:
-        // lines become changed and headers will be changed also
-        // case 1.
-        // this case could be related to Staged side also.
-        // when stage existing hunk by adding/removing lines to it.
-        // hunks count are the same, but some hunks could differ in
-        // lines count        
-        trace!("-- enrich_view for file {:?} hunks {:?}, other {:?}, hunks {:?}, direction {:?}",
+        debug!("-- enrich_view for file {:?} hunks {:?}, other {:?}, hunks {:?}, direction {:?}",
                self.path, self.hunks.len(), rendered.path, rendered.hunks.len(), direction);
-
-        // self - is new file with hunks whithout views
-        // other - old file with already rendered hunks
 
         if self.hunks.len() == rendered.hunks.len() {
             for pair in zip(&mut self.hunks, &rendered.hunks) {
@@ -187,7 +170,7 @@ impl File {
             return;
         }
         // all hunks are ordered!!!
-        // either will be hunks removed in rendered
+        // either will be hunks removed from rendered
         // or added to rendered
         let (mut n_ind, mut r_ind) = (0, 0);
         let mut guard = 0;
@@ -218,7 +201,7 @@ impl File {
                     debug!("new hunk is before rendered one. new: {:?} old: {:?}", n_hunk.header, r_hunk.header);
                     match direction {
                         DiffDirection::Forward => {
-                            //unstaged to staged
+                            // unstaged to staged
                             // this is doubtfull...
                             for hunk in &mut rendered.hunks[r_ind..] {
                                 debug!("-> move forward hunk {:?} by {:?} lines",
@@ -226,7 +209,7 @@ impl File {
                                        n_hunk.delta_in_lines()
                                 );
                                 hunk.new_start = (
-                                    (hunk.new_start as i32)+
+                                    (hunk.new_start as i32) +
                                         n_hunk.delta_in_lines()
                                 ) as u32;
                             }
@@ -253,12 +236,28 @@ impl File {
                     // if new hunk is after rendered one, then rendered must be erased!
                     match direction {
                         DiffDirection::Forward => {
-                            todo!("after in forward direction");
+                            debug!("after in forward direction");
+                            // hunk was unstaged and must be erased. means all other rendered hunks
+                            // must increment their new lines cause in erased hunk its lines
+                            // are no longer new
+                            if r_ind < r_le {
+                                let ind = r_ind + 1;
+                                for hunk in &mut rendered.hunks[ind..] {
+                                    debug!("<- before erasing UNstaged hunk add delta to remaining hunks {:?} by {:?} lines",
+                                           hunk.header,
+                                           n_hunk.delta_in_lines()
+                                    );                                
+                                    hunk.new_start = (
+                                        (hunk.old_start as i32) + // + !
+                                            n_hunk.delta_in_lines()
+                                    ) as u32;
+                                }
+                            }
                         }
                         DiffDirection::Backward => {
                             debug!("after in backward direction. erasing hunk which was staged");
                             // hunk was staged and must be erased. means all other rendered hunks
-                            // must increment their old lines case in erased hunk hunk its lines are no                            
+                            // must increment their old lines cause in erased hunk hunk its lines are no                            
                             // longer old.
                             if r_ind < r_le {
                                 let ind = r_ind + 1;
@@ -306,99 +305,6 @@ impl File {
         }
 
     }        
-        
-        // UPDATED DESCRIPTION
-        // so. abount "insertion". the idea was insert new hunk
-        // in old "surface" and "adopt it" - adjust other old hunks
-        // new_start. BUT. possible there will be MORE old hunks
-        // and some of old hunks must be just destroyed!
-        // new 1  old 1    vs new 1   old 1
-        //     2      2           2       2
-        //     3                          3
-        // we can stage either all hunks, or just 1!
-        // NO. there could be case when you stage 3 hunks
-        // and later stage 4 hunks :(
-
-
-        
-    //     let mut matched_hunks: HashSet<i32> = HashSet::new();
-    //     // office. I NEED DIRECTION!
-    //     // what is direction:
-    //     // 1. move hunk from unstaged to staged
-    //     // - Unstaged we got less new hunks then old ones.
-    //     //   - hunks which are before deleted hunk are ok
-    //     //     match first hunk - ok.
-    //     //   - now second new hunk. compare with old one
-    //     //     which was deleted. relation is after and nothing to do
-    //     //     but last comparison is overlapped, because there is deleted hunk
-    //     //     and lines between 3rd old and 2nd new (which was third) differs.
-    //     //   
-    //     for new_hunk in self.hunks.iter_mut() {
-    //         debug!("outer cycle hunks in file {:?}===============================", self.path);
-    //         // important! sliding delta is ok, 
-    //         let mut sliding_delta: Option<i32> = None;
-    //         let mut i: i32 = 0;
-    //         for old_hunk in other.hunks.iter_mut() {
-    //             match old_hunk.adopt(new_hunk, direction, &mut sliding_delta) {
-    //                 Related::Before => {
-    //                     // new hunks is inserted.
-    //                     // old_hunk was modified
-    //                     // in adopt: his start was shifted
-    //                     // this means in this cycle all
-    //                     // further old hunks will be shifted
-    //                     // by sliding_delta
-    //                     // and there is nothing to do with new
-    //                     // hunk. it is realy "new"
-    //                 }
-    //                 Related::OverlapBefore => {
-    //                     // if we have a merge, looks
-    //                     // like new_hunk is shifted version of old one.
-    //                     // (there is ASSERT!)
-    //                     // view must be transfered
-    //                     new_hunk.enrich_view(old_hunk);
-    //                     // weird....
-    //                     matched_hunks.insert(i);
-    //                     // cleanup view
-    //                     old_hunk.erase(txt);
-    //                     // now it need to adjust all further hunks
-    //                     // by sliding_delta
-    //                 }
-    //                 Related::Matched => {
-    //                     new_hunk.enrich_view(old_hunk);
-    //                     // do not touch further old hunks
-    //                     matched_hunks.insert(i);
-    //                     break;
-    //                 }
-    //                 Related::OverlapAfter => {
-    //                     // if we have a merge, looks
-    //                     // like new_hunk is shifted version of old one.
-    //                     // (there is ASSERT!)
-    //                     // view must be transfered
-    //                     new_hunk.enrich_view(old_hunk);
-    //                     // cleanup view
-    //                     // weird....
-    //                     matched_hunks.insert(i);
-    //                     old_hunk.erase(txt);
-    //                     // now it need to adjust all further hunks
-    //                     // by sliding_delta
-    //                 }
-    //                 Related::After => {
-    //                     // old hunk is somewhere here
-    //                 }
-    //             }
-    //             i += 1;
-    //         }
-    //     }
-    //     let mut i: i32 = 0;
-    //     for old_hunk in other.hunks.iter_mut() {
-    //         if !matched_hunks.contains(&i) {
-    //             debug!("erase unmatched view!");
-    //             // dbg!(&old_hunk);
-    //             old_hunk.erase(txt);
-    //         }
-    //         i += 1;
-    //     }
-    // }
 
     // // File
     pub fn transfer_view(&self) -> View {
