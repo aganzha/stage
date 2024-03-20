@@ -2,7 +2,7 @@ use crate::common_tests::*;
 use crate::{
     commit, get_current_repo_status, push, stage_via_apply,
     ApplyFilter, Diff, File, Head, Hunk, Line, Related, State, View,
-    DiffDirection
+    DiffKind
 };
 // use alloc::rc::Rc;
 use std::rc::Rc;
@@ -158,10 +158,10 @@ impl Hunk {
 
 impl File {
     // file
-    pub fn enrich_view(&mut self, rendered: &mut File, txt: &TextView, direction: &DiffDirection) {
+    pub fn enrich_view(&mut self, rendered: &mut File, txt: &TextView, kind: &DiffKind) {
         self.view = rendered.transfer_view();
-        debug!("-- enrich_view for file {:?} hunks {:?}, other {:?}, hunks {:?}, direction {:?}",
-               self.path, self.hunks.len(), rendered.path, rendered.hunks.len(), direction);
+        debug!("-- enrich_view for file {:?} hunks {:?}, other {:?}, hunks {:?}, kind {:?}",
+               self.path, self.hunks.len(), rendered.path, rendered.hunks.len(), kind);
 
         if self.hunks.len() == rendered.hunks.len() {
             for pair in zip(&mut self.hunks, &rendered.hunks) {
@@ -185,7 +185,7 @@ impl File {
             let r_hunk = &rendered.hunks[r_ind];
 
             // relation of rendered hunk to new one
-            let relation = n_hunk.related_to(&r_hunk, direction);
+            let relation = n_hunk.related_to(&r_hunk, kind);
             match relation {
                 Related::Matched => {
                     debug!("MATCH new: {:?} old: {:?}", n_hunk.header, r_hunk.header);
@@ -199,8 +199,8 @@ impl File {
                     // it need to shift all old hunks
                     // by lines_co of new one
                     debug!("new hunk is before rendered one. new: {:?} old: {:?}", n_hunk.header, r_hunk.header);
-                    match direction {
-                        DiffDirection::Forward => {
+                    match kind {
+                        DiffKind::Staged => {
                             debug!("^^^^^^^^new hunk is before rendered hunk in STAGED");
                             // this is doubtfull...
                             for hunk in &mut rendered.hunks[r_ind..] {
@@ -214,7 +214,7 @@ impl File {
                                 ) as u32;
                             }
                         }
-                        DiffDirection::Backward => {
+                        DiffKind::Unstaged => {
                             //staged back to unstaged
                             debug!("^^^^^^^^new hunk is before rendered hunk in UNSTAGED");
                             for hunk in &mut rendered.hunks[r_ind..] {
@@ -241,8 +241,8 @@ impl File {
                 Related::After => {
                     debug!("new hunk is AFTER rendered one.  new: {:?} rendered: {:?}", n_hunk.header, r_hunk.header);
                     // if new hunk is after rendered one, then rendered must be erased!
-                    match direction {
-                        DiffDirection::Forward => {
+                    match kind {
+                        DiffKind::Staged => {
                             debug!("^^^^^^^^new hunk is AFTER rendered hunk in STAGED");
                             // hunk was unstaged and must be erased. means all other rendered hunks
                             // must increment their new lines cause in erased hunk its lines
@@ -261,7 +261,7 @@ impl File {
                                 }
                             }
                         }
-                        DiffDirection::Backward => {
+                        DiffKind::Unstaged => {
                             // debug!("after in backward direction. erasing hunk which was staged");
                             debug!("^^^^^^^^new hunk is AFTER rendered hunk in UNSTAGED (erasing hunk which was staged)");
                             // hunk was staged and must be erased. means all other rendered hunks
@@ -323,14 +323,14 @@ impl File {
 }
 
 impl Diff {
-    pub fn enrich_view(&mut self, other: &mut Diff, txt: &TextView, direction: &DiffDirection) {
+    pub fn enrich_view(&mut self, other: &mut Diff, txt: &TextView) {
         // here self is new diff, which coming from repo without views
         let mut replaces_by_new = HashSet::new();
         debug!("---------------enrich view in diff. my files {:?}, other files {:?}", self.files.len(), other.files.len());
         for file in &mut self.files {
             for of in &mut other.files {
                 if file.path == of.path {
-                    file.enrich_view(of, txt, direction);
+                    file.enrich_view(of, txt, &self.kind);
                     replaces_by_new.insert(file.path.clone());
                 }
             }
@@ -1539,7 +1539,7 @@ impl Status {
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(s, txt, &DiffDirection::Forward);
+            diff.enrich_view(s, txt);
         }
         self.staged.replace(diff);
         if self.staged.is_some() && self.unstaged.is_some() {
@@ -1553,7 +1553,7 @@ impl Status {
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(u, txt, &DiffDirection::Backward);
+            diff.enrich_view(u, txt);
         }
         self.unstaged.replace(diff);
         if self.staged.is_some() && self.unstaged.is_some() {

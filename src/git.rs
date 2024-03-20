@@ -86,11 +86,6 @@ pub enum Related {
     After,
 }
 
-#[derive(Debug, Clone)]
-pub enum DiffDirection {
-    Forward,
-    Backward
-}
 
 impl Hunk {
     pub fn new() -> Self {
@@ -144,27 +139,16 @@ impl Hunk {
             .sum()
     }
 
-    pub fn related_to(&self, other: &Hunk, direction: &DiffDirection) -> Related {
-        // returns how this hunk is related to other hunk (in file)
-        // debug!(
-        //     "related to other new_hunk.start {:?} new_hunk.lines {:?}
-        //           old_hunk.start {:?} old_hunk.lines {:?}",
-        //     self.new_start, self.new_lines, other.new_start, other.new_lines
-        // );
-        // debug!(
-        //     "... old lines btw new_hunk.old_start {:?} new_hunk.old_lines {:?}
-        //           old_hunk.start {:?} old_hunk.lines {:?}",
-        //     self.old_start, self.old_lines, other.old_start, other.old_lines
-        // );
+    pub fn related_to(&self, other: &Hunk, kind: &DiffKind) -> Related {
         let (start, lines, other_start, other_lines) = {
-            match direction {
-                DiffDirection::Forward => (
+            match kind {
+                DiffKind::Staged => (
                     self.new_start,
                     self.new_lines,
                     other.new_start,
                     other.new_lines
                 ),
-                DiffDirection::Backward => (
+                DiffKind::Unstaged => (
                     self.old_start,
                     self.old_lines,
                     other.old_start,
@@ -174,8 +158,8 @@ impl Hunk {
         };
         debug!(
             ">>> related_to_other NEW HUNK start {:?} lines {:?}
-                  OLD HUNK start {:?} {:?} direction {:?}",
-            start, lines, other_start, other_lines, direction
+                  OLD HUNK start {:?} {:?} kind {:?}",
+            start, lines, other_start, other_lines, kind
         );
 
         if start < other_start
@@ -218,8 +202,8 @@ impl Hunk {
         // staged it and got panic
         panic!(
             "unknown case start {:?} lines {:?}
-                  other_start {:?} other_lines {:?} direction {:?}",
-            start, lines, other_start, other_lines, direction
+                  other_start {:?} other_lines {:?} kind {:?}",
+            start, lines, other_start, other_lines, kind
         );
         Related::After
     }
@@ -286,19 +270,25 @@ impl Default for File {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
+pub enum DiffKind {
+    Staged,
+    Unstaged
+}
+
+#[derive(Debug, Clone)]
 pub struct Diff {
     pub files: Vec<File>,
     pub view: View,
-    pub dirty: bool,
+    pub kind: DiffKind
 }
 
 impl Diff {
-    pub fn new() -> Self {
+    pub fn new(kind: DiffKind) -> Self {
         Self {
             files: Vec::new(),
             view: View::new(),
-            dirty: false,
+            kind: kind
         }
     }
 
@@ -455,7 +445,7 @@ pub fn get_current_repo_status(
             let git_diff = repo
                 .diff_tree_to_index(Some(&current_tree), None, None)
                 .expect("can't get diff tree to index");
-            let diff = make_diff(git_diff);
+            let diff = make_diff(git_diff, DiffKind::Staged);
             sender
                 .send_blocking(crate::Event::Staged(diff))
                 .expect("Could not send through channel");
@@ -465,7 +455,7 @@ pub fn get_current_repo_status(
     let git_diff = repo
         .diff_index_to_workdir(None, None)
         .expect("cant' get diff index to workdir");
-    let diff = make_diff(git_diff);
+    let diff = make_diff(git_diff, DiffKind::Unstaged);
     sender
         .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
@@ -477,8 +467,8 @@ pub struct ApplyFilter {
     pub hunk_header: Option<String>,
 }
 
-pub fn make_diff(git_diff: GitDiff) -> Diff {
-    let mut diff = Diff::new();
+pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
+    let mut diff = Diff::new(kind);
     let mut current_file = File::new();
     let mut current_hunk = Hunk::new();
     let _res = git_diff.print(
@@ -640,7 +630,7 @@ pub fn stage_via_apply(
             let git_diff = repo
                 .diff_tree_to_index(Some(&current_tree), None, None)
                 .expect("can't get diff tree to index");
-            let diff = make_diff(git_diff);
+            let diff = make_diff(git_diff, DiffKind::Staged);
             sender
                 .send_blocking(crate::Event::Staged(diff))
                 .expect("Could not send through channel");
@@ -650,7 +640,7 @@ pub fn stage_via_apply(
     let git_diff = repo
         .diff_index_to_workdir(None, None)
         .expect("cant get diff_index_to_workdir");
-    let diff = make_diff(git_diff);
+    let diff = make_diff(git_diff, DiffKind::Unstaged);
     sender
         .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
@@ -689,7 +679,7 @@ pub fn commit(
         .diff_tree_to_index(Some(&current_tree), None, None)
         .expect("can't get diff tree to index");
     sender
-        .send_blocking(crate::Event::Staged(make_diff(git_diff)))
+        .send_blocking(crate::Event::Staged(make_diff(git_diff, DiffKind::Staged)))
         .expect("Could not send through channel");
 
     // get unstaged
@@ -701,7 +691,7 @@ pub fn commit(
             let git_diff = repo
                 .diff_index_to_workdir(None, None)
                 .expect("cant' get diff index to workdir");
-            let diff = make_diff(git_diff);
+            let diff = make_diff(git_diff, DiffKind::Unstaged);
             sender
                 .send_blocking(crate::Event::Unstaged(diff))
                 .expect("Could not send through channel");
