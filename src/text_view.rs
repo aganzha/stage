@@ -201,7 +201,7 @@ impl File {
                     debug!("new hunk is before rendered one. new: {:?} old: {:?}", n_hunk.header, r_hunk.header);
                     match direction {
                         DiffDirection::Forward => {
-                            // unstaged to staged
+                            debug!("^^^^^^^^new hunk is before rendered hunk in STAGED");
                             // this is doubtfull...
                             for hunk in &mut rendered.hunks[r_ind..] {
                                 debug!("-> move forward hunk {:?} by {:?} lines",
@@ -216,13 +216,20 @@ impl File {
                         }
                         DiffDirection::Backward => {
                             //staged back to unstaged
+                            debug!("^^^^^^^^new hunk is before rendered hunk in UNSTAGED");
                             for hunk in &mut rendered.hunks[r_ind..] {
                                 debug!("<- move backward hunk {:?} by {:?} lines",
                                        hunk.header,
                                        n_hunk.delta_in_lines()
-                                );                                
+                                );
+                                // the minus here in old_start
+                                // means when inserting hunk before
+                                // it need to REDUCE old lines in next hunks!
+                                // old_lines in each hunk are independent on each other.
+                                // so when unstage in previous position means LESS old_lines
+                                // (when staged there are more old lines - those are considered already added!
                                 hunk.old_start = (
-                                    (hunk.old_start as i32) - // + or - ????
+                                    (hunk.old_start as i32) - // !
                                         n_hunk.delta_in_lines()
                                 ) as u32;
                             }
@@ -236,36 +243,37 @@ impl File {
                     // if new hunk is after rendered one, then rendered must be erased!
                     match direction {
                         DiffDirection::Forward => {
-                            debug!("after in forward direction");
+                            debug!("^^^^^^^^new hunk is AFTER rendered hunk in STAGED");
                             // hunk was unstaged and must be erased. means all other rendered hunks
                             // must increment their new lines cause in erased hunk its lines
                             // are no longer new
                             if r_ind < r_le {
                                 let ind = r_ind + 1;
                                 for hunk in &mut rendered.hunks[ind..] {
-                                    debug!("<- before erasing UNstaged hunk add delta to remaining hunks {:?} by {:?} lines",
+                                    debug!("<- before erasing staged hunk add delta to remaining hunks {:?} by {:?} lines",
                                            hunk.header,
                                            n_hunk.delta_in_lines()
-                                    );                                
+                                    );
                                     hunk.new_start = (
-                                        (hunk.old_start as i32) + // + !
+                                        (hunk.new_start as i32) - // - !
                                             n_hunk.delta_in_lines()
                                     ) as u32;
                                 }
                             }
                         }
                         DiffDirection::Backward => {
-                            debug!("after in backward direction. erasing hunk which was staged");
+                            // debug!("after in backward direction. erasing hunk which was staged");
+                            debug!("^^^^^^^^new hunk is AFTER rendered hunk in UNSTAGED (erasing hunk which was staged)");
                             // hunk was staged and must be erased. means all other rendered hunks
-                            // must increment their old lines cause in erased hunk hunk its lines are no                            
+                            // must increment their old lines cause in erased hunk hunk its lines are no
                             // longer old.
                             if r_ind < r_le {
                                 let ind = r_ind + 1;
                                 for hunk in &mut rendered.hunks[ind..] {
-                                    debug!("<- before erasing staged hunk add delta to remaining hunks {:?} by {:?} lines",
+                                    debug!("<- before erasing UNstaged hunk add delta to remaining hunks {:?} by {:?} lines",
                                            hunk.header,
                                            n_hunk.delta_in_lines()
-                                    );                                
+                                    );
                                     hunk.old_start = (
                                         (hunk.old_start as i32) + // + !
                                             n_hunk.delta_in_lines()
@@ -284,7 +292,7 @@ impl File {
                 }
             }
 
-            
+
             // completed all new hunks
             // all remained rendered hunks must be erased
             if n_ind == self.hunks.len() {
@@ -304,7 +312,7 @@ impl File {
             }
         }
 
-    }        
+    }
 
     // // File
     pub fn transfer_view(&self) -> View {
@@ -1692,56 +1700,12 @@ impl Status {
                     filter.file_path = file_path_so_stage.clone();
                     filter.hunk_header.replace(content);
                     hunks_staged += 1;
-                    // mark hunk squashed to kill it some lines later
-                    // view.squashed = true;
                 }
-                // ViewKind::Line => {
-                //     if !view.active {
-                //         return;
-                //     }
-                //     // lines are not supported.
-                //     // just squash em
-                //     // mark line squashed to kill it some lines later
-                //     // view.squashed = true;
-                // }
                 _ => (),
             }
         });
         debug!("stage. apply filter {:?}", filter);
         if !filter.file_path.is_empty() {
-            // let buffer = txt.buffer();
-            // CAUTION. ATTENTION. IMPORTANT
-            // this do both: rendering and changing structure!
-            // is it ok?
-            // diff.files.retain_mut(|f| {
-            //     // it need to remove either whole file
-            //     // or just 1 hunk inside file
-            //     let mut remove_file = false;
-            //     if f.title() == filter.file_path {
-            //         let hunk_index =
-            //             f.hunks.iter().position(|h| h.view.squashed).unwrap();
-            //         if f.hunks.len() == 1 || f.view.current {
-            //             remove_file = true;
-            //             f.view.squashed = true;
-            //         }
-            //         let mut iter =
-            //             buffer.iter_at_line(f.view.line_no).unwrap();
-            //         // CAUTION. ATTENTION. IMPORTANT
-            //         // rendering just 1 file
-            //         // but those are used by cursor and expand!
-            //         f.render(&buffer, &mut iter, None);
-
-            //         f.hunks.remove(hunk_index);
-            //     }
-            //     if remove_file {
-            //         // kill hunk in filter to stage all hunks
-            //         filter.hunk_header = String::new();
-            //         false
-            //     } else {
-            //         true
-            //     }
-            // });
-
             if hunks_staged > 1 {
                 // stage all hunks in file
                 filter.hunk_header = None;
