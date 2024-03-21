@@ -11,7 +11,7 @@ use git2::{
     Commit, Cred, CredentialType, Delta, Diff as GitDiff, DiffDelta, DiffFile,
     DiffFormat, DiffHunk, DiffLine, DiffLineType, DiffOptions, Error,
     ErrorCode, ObjectType, Oid, PushOptions, Reference, RemoteCallbacks,
-    Repository, RepositoryState,
+    Repository, RepositoryState, CertificateCheckStatus
 };
 use log::{debug, trace};
 use regex::Regex;
@@ -721,7 +721,7 @@ pub fn push(
     let mut callbacks = RemoteCallbacks::new();
     callbacks.update_tips({
         move |updated_ref, oid1, oid2| {
-            trace!(
+            debug!(
                 "updated local references {:?} {:?} {:?}",
                 updated_ref,
                 oid1,
@@ -738,8 +738,8 @@ pub fn push(
     });
     callbacks.push_update_reference({
         move |ref_name, opt_status| {
-            trace!("push update ref {:?}", ref_name);
-            trace!("push status {:?}", opt_status);
+            debug!("push update ref {:?}", ref_name);
+            debug!("push status {:?}", opt_status);
             // TODO - if status is not None
             // it will need to interact with user
             assert!(opt_status.is_none());
@@ -749,12 +749,37 @@ pub fn push(
     callbacks.credentials(|url, username_from_url, allowed_types| {
         debug!("auth credentials url {:?}", url);
         // "git@github.com:aganzha/stage.git"
-        trace!("auth credentials username_from_url {:?}", username_from_url);
-        trace!("auth credentials allowed_types url {:?}", allowed_types);
+        debug!("auth credentials username_from_url {:?}", username_from_url);
+        debug!("auth credentials allowed_types url {:?}", allowed_types);
         if allowed_types.contains(CredentialType::SSH_KEY) {
-            return Cred::ssh_key_from_agent(username_from_url.unwrap());
+            let result = Cred::ssh_key_from_agent(username_from_url.unwrap());
+            debug!("got auth memory result. is it ok? {:?}", result.is_ok());
+            return result;
         }
         todo!("implement other types");
+    });
+    callbacks.transfer_progress(|progress| {
+        debug!("transfer progress {:?}", progress.received_bytes());
+        true
+    });
+    callbacks.sideband_progress(|response| {
+        debug!("bytes from remote {:?}", response);
+        true
+    });
+    callbacks. certificate_check(|cert, error| {
+        debug!("cert error? {:?}", error);
+        Ok(CertificateCheckStatus::CertificateOk)
+    });
+    callbacks.push_update_reference(|re, op| {
+        debug!("push_update_reference {:?} {:?}", re, op);
+        Ok(())
+    });
+    callbacks.push_transfer_progress(|s1, s2, s3| {
+        debug!("push_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
+    });
+    callbacks.push_negotiation(|update| {
+        debug!("push_negotiation {:?}", update.len());
+        Ok(())
     });
     opts.remote_callbacks(callbacks);
     remote
