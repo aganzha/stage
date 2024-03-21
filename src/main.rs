@@ -34,6 +34,7 @@ use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Box, CssProvider,
     Label, Orientation, ScrolledWindow, STYLE_PROVIDER_PRIORITY_APPLICATION,
+    Button, IconTheme
 };
 
 use log::{debug, error, info, log_enabled, trace};
@@ -72,15 +73,21 @@ fn main() -> glib::ExitCode {
 
 fn load_css() {
     // Load the CSS file and add it to the provider
+    // let adw_theme = IconTheme::builder()
+    //     .display()
+    //     .theme_name("Adwaita")
+    //     .build();
     let provider = CssProvider::new();
-    provider.load_from_data(include_str!("style.css"));
+    let display = Display::default().expect("Could not connect to a display.");
+    provider.load_from_string(include_str!("style.css"));
 
     // Add the provider to the default screen
     style_context_add_provider_for_display(
-        &Display::default().expect("Could not connect to a display."),
+        &display,
         &provider,
         STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
+
 }
 
 #[derive(Debug)]
@@ -120,6 +127,11 @@ fn run_without_args(app: &Application) {
 
 
 fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
+
+    let mut status = Status::new();
+    let mut current_repo_path = initial_path;
+    let (sender, receiver) = async_channel::unbounded();
+    
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
 
@@ -130,9 +142,25 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     window.add_action(&action_close);
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
+    // works
+    // media-playback-start
+    // /usr/share/icons/Adwaita/symbolic/actions/media-playback-start-symbolic.svg
+    let refresh_btn = Button::builder()
+        .label("Refresh")
+        .use_underline(true)
+        .tooltip_text("Refresh")
+        .icon_name("view-refresh")
+        .can_shrink(true)
+        .build();
+    refresh_btn.connect_clicked({
+        let p = current_repo_path.clone();
+        let s = sender.clone();
+        move |_| {
+            get_current_repo_status(p.clone(), s.clone());
+        }
+    });
     let hb = HeaderBar::new();
-
-    let (sender, receiver) = async_channel::unbounded();
+    hb.pack_start(&refresh_btn);    
 
     let txt = text_view_factory(sender.clone());
 
@@ -144,9 +172,8 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     window.set_content(Some(&tb));
 
-    env_logger::builder().format_timestamp(None).init();
-    let mut current_repo_path = initial_path;
-    let mut status = Status::new();
+    env_logger::builder().format_timestamp(None).init();    
+
     status.get_status(current_repo_path.clone(), sender.clone());
     window.present();
 
