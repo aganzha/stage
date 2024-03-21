@@ -1,3 +1,8 @@
+BUG: thread 'main' panicked at src/text_view.rs:147:13:
+lines length are not the same 13 12
+- open view and expand all. add 1 line. hit refresh - got panic
+- change 1 work in line. hit refresh - changes are not visible. but then put cursor on it - changes apeared
+
 40c0130 - last working old version of filter
 [DEBUG stage::git] overlap
 thread 'main' panicked at src/git.rs:213:17:
