@@ -148,6 +148,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     let refresh_btn = Button::builder()
         .label("Refresh")
         .use_underline(true)
+        .can_focus(false)
         .tooltip_text("Refresh")
         .icon_name("view-refresh")
         .can_shrink(true)
