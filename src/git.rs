@@ -52,6 +52,8 @@ pub struct Line {
     pub view: View,
     pub origin: DiffLineType,
     pub content: String,
+    pub new_line_no: Option<u32>,
+    pub old_line_no: Option<u32>
 }
 
 impl Line {
@@ -59,10 +61,17 @@ impl Line {
         return Self {
             view: View::new(),
             origin: l.origin_value(),
+            new_line_no: l.new_lineno(),
+            old_line_no: l.old_lineno(),
             content: String::from(str::from_utf8(l.content()).unwrap())
                 .replace("\r\n", "")
                 .replace('\n', ""),
         };
+    }
+    pub fn hash(&self) -> String {
+        // IT IS NOT ENOUGH! will be "Context" for
+        // empty grey line!
+        format!("{}{:?}", self.content, self.origin)
     }
 }
 
