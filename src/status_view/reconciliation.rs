@@ -1,6 +1,6 @@
 use log::{debug, trace};
 use std::iter::zip;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use crate::{
     Diff, File, Head, Hunk, Line, Related, State, View,
     DiffKind
@@ -10,6 +10,14 @@ use gtk4::{TextView};
 use git2::{DiffLineType, RepositoryState};
 
 impl Line {
+    // line
+    pub fn enrich_view(&mut self, rendered: &Line) {
+        self.view = rendered.transfer_view();
+        if self.content != rendered.content || self.origin != rendered.origin {
+            self.view.dirty = true;
+            debug!("*************dirst content in reconciliation {} {} {:?} {:?}", self.content, rendered.content, self.origin, rendered.origin)
+        }
+    }
     // line
     pub fn transfer_view(&self) -> View {
         let mut clone = self.view.clone();
@@ -29,25 +37,90 @@ impl Hunk {
         clone
     }
     // hunk
-    pub fn enrich_view(&mut self, other: &Hunk) {
-        self.view = other.transfer_view();
-        if self.lines.len() != other.lines.len() {
-            // so :) what todo?
-            if self.lines.len() > other.lines.len() {
-                trace!("there are MORE NEW lines then old ones");
-
-            } else {
-                trace!("there are MORE OLD lines then old ones");
+    pub fn enrich_view(&mut self, rendered: &mut Hunk, txt: &TextView) {
+        self.view = rendered.transfer_view();
+        if self.lines.len() == rendered.lines.len() {
+            for pair in zip(&mut self.lines, &rendered.lines) {
+                pair.0.enrich_view(pair.1);
             }
-            panic!(
-                "lines length are not the same {:?} {:?}",
-                self.lines.len(),
-                other.lines.len()
-            );
+            return;
         }
-        for pair in zip(&mut self.lines, &other.lines) {
-            pair.0.view = pair.1.transfer_view();
+        // all lines are ordered
+        let (mut r_ind, mut n_ind) = (0, 0);
+        let mut guard = 0;
+        loop {
+            guard += 1;
+            if guard > 20 {
+                debug!("guard");
+                break;
+            }
+            let r_line = &rendered.lines[r_ind];
+            let n_line = &self.lines[n_ind];
+            // hunks could be shifted
+            // and line_nos could differ a lot
+            // it need to find first matched line
+            // THIS IS ACTUAL ONLY FOR UNSTAGED
+            match (r_line.old_line_no, n_line.old_line_no) {
+                (Some(r_no), Some(n_no)) => {
+                    debug!("both lines are changed {:?} {:?}", r_line.hash(), n_line.hash());
+                    debug!("r_no n_no {:?} {:?}", r_no, n_no);
+                    let m_n_line = &mut self.lines[n_ind];
+                    m_n_line.enrich_view(r_line);
+                    r_ind += 1;
+                    n_ind += 1;
+                }
+                (Some(r_no), None) => {
+                    debug!("new line is added before old one {:} {:?}", r_line.hash(), n_line.hash());
+                    debug!("r_no n_no {:?} _", r_no);
+                    n_ind += 1;
+                    continue;
+                }
+                (None, Some(n_no)) => {
+                    debug!("rendered line is added before new one {:} {:?}", r_line.hash(), n_line.hash());
+                    debug!("r_no n_no _ {:?}", n_no);
+                    let m_r_line = &mut rendered.lines[r_ind];
+                    m_r_line.erase(txt);
+                    r_ind += 1;
+
+                }
+                (None, None) => {
+                    debug!("both lines are added {:} {:?}", r_line.hash(), n_line.hash());
+                    debug!("r_no n_no _ _");
+                    let m_n_line = &mut self.lines[n_ind];
+                    m_n_line.enrich_view(r_line);
+                    r_ind += 1;
+                    n_ind += 1;
+                }
+            }
+            debug!("");
+            if r_ind == rendered.lines.len() {
+                debug!("rendered lines are over");
+                break;
+            }
+            if n_ind == self.lines.len() {
+                debug!("new lines are over");
+                break;
+            }
+
         }
+        // // enrich only lines which are matched
+        // let mut map = HashMap::new();
+        // for line in &mut rendered.lines {
+        //     debug!("insert hash in maaaaaaaaaap {:?}", line.hash());
+        //     map.insert(line.hash(), line);
+        // }
+        // for line in &mut self.lines {
+        //     if let Some(rendered) = map.remove(&line.hash()) {
+        //         debug!("enriiiiiiiiiiiich {:?}", line.content);
+        //         line.enrich_view(&rendered);
+        //     } else {
+        //         debug!("nooooooooooooooooo way {:?}", line.hash());
+        //     }
+        // }
+        // for (_, line) in map.iter_mut() {
+        //     debug!("erase not matched line ===> {:?}", line.content);
+        //     (*line).erase(txt);
+        // }
     }
 }
 
@@ -59,8 +132,8 @@ impl File {
                self.path, self.hunks.len(), rendered.path, rendered.hunks.len(), kind);
 
         if self.hunks.len() == rendered.hunks.len() {
-            for pair in zip(&mut self.hunks, &rendered.hunks) {
-                pair.0.enrich_view(pair.1);
+            for pair in zip(&mut self.hunks, &mut rendered.hunks) {
+                pair.0.enrich_view(pair.1, txt);
             }
             return;
         }
@@ -73,7 +146,7 @@ impl File {
         loop {
             debug!("loop........................");
             guard += 1;
-            if guard >= 20 {
+            if guard >= 100000 {
                 break;
             }
             let n_hunk = &self.hunks[n_ind];
@@ -85,7 +158,8 @@ impl File {
                 Related::Matched => {
                     debug!("MATCH new: {:?} old: {:?}", n_hunk.header, r_hunk.header);
                     let m_n_hunk = &mut self.hunks[n_ind];
-                    m_n_hunk.enrich_view(&r_hunk);
+                    let m_r_hunk = &mut rendered.hunks[n_ind];
+                    m_n_hunk.enrich_view(m_r_hunk, txt);
                     n_ind += 1;
                     r_ind += 1;
                 }

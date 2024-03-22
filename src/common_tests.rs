@@ -6,6 +6,8 @@ pub fn create_line(name: String) -> Line {
         content: String::new(),
         origin: DiffLineType::Context,
         view: View::new(),
+        new_line_no: None,
+        old_line_no: None
     };
     line.content = name.to_string();
     line
