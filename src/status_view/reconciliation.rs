@@ -308,7 +308,7 @@ impl Diff {
             }
         }
         // erase all stale views
-        debug!("replaced by new {:?} for total files count: {:?}", replaces_by_new, rendered.files.len());
+        debug!("before erasing files. replaced by new {:?} for total files count: {:?}", replaces_by_new, rendered.files.len());
         rendered.files.iter_mut()
             .filter(|f| !replaces_by_new.contains(&f.path))
             .for_each(|f| f.erase(txt));
