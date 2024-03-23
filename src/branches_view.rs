@@ -205,7 +205,7 @@ impl BranchList {
             })
         });
     }
-
+    
     pub fn checkout(
         &self,
         repo_path: std::ffi::OsString,
@@ -217,6 +217,7 @@ impl BranchList {
         let branch_data = selected_item.imp().branch.borrow();
         let name = branch_data.refname.clone();
         let oid = branch_data.oid.clone();
+
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window, @weak selected_item, @weak current_item => async move {
                 let result = gio::spawn_blocking(move || {
@@ -230,7 +231,7 @@ impl BranchList {
                             selected_item.set_is_head(true);
                             selected_item.set_no_progress(true);
                             current_item.set_is_head(false);
-                            todo!("set current item on branch list");
+                            branch_list.set_current(branch_list.proxyselected());
                             return;
                         }
                         Err(err) => err_message = err

@@ -2,8 +2,10 @@ pub mod reconciliation;
 use crate::common_tests::*;
 use crate::{
     commit, get_current_repo_status, push, stage_via_apply,
-    ApplyFilter, ApplySubject, Diff, File, Head, Hunk, Line, State, View,
+    ApplyFilter, ApplySubject, Diff, File, Head, Hunk, Line, State, View, DiffKind
+
 };
+
 // use alloc::rc::Rc;
 use std::rc::Rc;
 use async_channel::Sender;
@@ -423,6 +425,7 @@ impl View {
         content: String,
         content_tags: Vec<Tag>,
         prev_line_len: Option<i32>,
+        context: &mut Option<StatusRenderContext>
     ) -> (&mut Self, Option<i32>) {
         // important. self.line_no is assigned only in 2 cases
         // below!!!!
@@ -488,6 +491,14 @@ impl View {
                 buffer.delete(iter, &mut nel_iter);
                 self.rendered = false;
                 self.tags = Vec::new();
+                if let Some(ctx) = context {
+                    let mut inc = 1;
+                    if let Some(ec) = ctx.erase_counter {
+                        inc += ec;
+                    }
+                    ctx.erase_counter.replace(inc);
+                    trace!(">>>>>>>>>>>>>>>>>>>> just erased line. context {:?}", ctx);
+                }
             }
             ViewState::RenderedDirtyNotInPlace(l) => {
                 trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
@@ -665,15 +676,16 @@ pub trait ViewContainer {
         buffer: &TextBuffer,
         iter: &mut TextIter,
         prev_line_len: Option<i32>,
+        context: &mut Option<StatusRenderContext>
     ) -> Option<i32> {
         let content = self.get_content();
         let tags = self.tags();
         let (view, mut line_len) =
             self.get_view()
-                .render(buffer, iter, content, tags, prev_line_len);
+                .render(buffer, iter, content, tags, prev_line_len, context);
         if view.expanded || view.child_dirty {
             for child in self.get_children() {
-                line_len = child.render(buffer, iter, line_len);
+                line_len = child.render(buffer, iter, line_len, context);
             }
         }
         self.get_view().child_dirty = false;
@@ -773,15 +785,37 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn erase(&mut self, txt: &TextView) {
+    fn erase(&mut self, txt: &TextView, context: &mut Option<StatusRenderContext>) {
         // CAUTION. ATTENTION. IMPORTANT
-        // this ONLY rendering
-        // the structure is still there. is it ok?
+        // this ONLY rendering. the data remains
+        // unchaged. means it used to be called just
+        // before replacing data in status struct.
+        // CAUTION. ATTENTION. IMPORTANT
+        // if 1 view is rendered - it is ok.
+        // next render on Status struct will shift all views.
+        // But when erease multiple view in loop, all rest views
+        // in loop must be shifted manually!
+        // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        // during render the cursor moves down or become
+        // unchanged in case of erasing (RenderedAndMarkedAsSquashed)
+        // here we have only erase loop. cursor will be always
+        // on same place, means it need to decrement view.line_no
+        // by amount of deleted lines. thats why i need erase_counter.
+        // but how to count, if erasing is recursive? it need to pass
+        // it to render itself! means each render must receives context.
+        // hm. how to avoid it? lets not avoid it. lets try to pass it,
+        // and also put there prev_line length!
         let view = self.get_view();
-        let line_no = view.line_no;
+        let mut line_no = view.line_no;
+        debug!("EEEEERRRRAISING! BEFORE {:?} {:?}", line_no, context);
+        if let Some(ctx) = context {
+            if let Some(ec) = ctx.erase_counter {
+                line_no -= ec;
+            }
+        }
         view.squashed = true;
         view.child_dirty = true;
-        debug!("erasing ......{:?}", &view);
+        // debug!("erasing ......{:?}", &view);
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let view = vc.get_view();
             view.squashed = true;
@@ -791,7 +825,13 @@ pub trait ViewContainer {
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
-        self.render(&buffer, &mut iter, None);
+        // debug!("erase one signgle view at line > {:?}", iter.line());
+        self.render(&buffer, &mut iter, None, context);
+        // debug!("erase iter line after erase_____ > {:?}", iter.line());
+
+        debug!("EEEEERRRRAISING! AFTER {:?} {:?}", line_no, context);
+        debug!("");
+        debug!("");
     }
 }
 
@@ -834,11 +874,12 @@ impl ViewContainer for Diff {
         buffer: &TextBuffer,
         iter: &mut TextIter,
         prev_line_len: Option<i32>,
+        context: &mut Option<StatusRenderContext>
     ) -> Option<i32> {
         self.view.line_no = iter.line();
         let mut prev_line_len: Option<i32> = None;
         for file in &mut self.files {
-            prev_line_len = file.render(buffer, iter, None);
+            prev_line_len = file.render(buffer, iter, None, context);
         }
         prev_line_len
     }
@@ -1083,6 +1124,30 @@ pub enum RenderSource {
     Erase,
 }
 
+#[derive(Debug, Clone)]
+pub struct StatusRenderContext {
+    pub erase_counter: Option<i32>,
+    pub diff_kind: Option<DiffKind>        
+}
+
+impl StatusRenderContext {
+    pub fn new() -> Self {
+        return {
+            Self {
+                erase_counter: None,
+                diff_kind: None
+            }
+        }
+    }
+    // pub fn erase(&mut self) {
+    //     let mut inc = 1;
+    //     if let Some(ec) = self.erase_counter {
+    //         inc += ec;
+    //     }
+    //     self.erase_counter.replace(inc);
+    // }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Status {
     pub head: Option<Head>,
@@ -1094,7 +1159,8 @@ pub struct Status {
     pub unstaged_spacer: Label,
     pub unstaged_label: Label,
     pub unstaged: Option<Diff>,
-    pub rendered: bool,
+    pub rendered: bool, // what it is for ????
+    pub context: Option<StatusRenderContext>
 }
 
 impl Status {
@@ -1114,6 +1180,7 @@ impl Status {
             ),
             unstaged: None,
             rendered: false,
+            context: None::<StatusRenderContext>
         }
     }
 
@@ -1189,11 +1256,14 @@ impl Status {
 
     pub fn choose_remote(&self) -> String {
         if let Some(upstream) = &self.upstream {
+            debug!("-------------------> upstream branch {:?}", upstream.branch.clone());            
             return upstream.branch.clone();
         }
         if let Some(head) = &self.head {
+            debug!("-------------------> head branch");
             return head.branch.clone();
         }
+        debug!("-------------------> Default");
         String::from("origin/master")
     }
 
@@ -1249,17 +1319,18 @@ impl Status {
         // refactor.enrich
         if let Some(current_head) = &self.head {
             head.enrich_view(&current_head);
-        }
+        }        
         self.head.replace(head);
         self.render(txt, RenderSource::Git);
     }
 
-    pub fn update_upstream(&mut self, mut upstream: Head, txt: &TextView) {
+    pub fn update_upstream(&mut self, mut upstream: Option<Head>, txt: &TextView) {
         // refactor.enrich
-        if let Some(current_upstream) = &self.upstream {
-            upstream.enrich_view(&current_upstream);
+        match (&self.upstream, upstream.as_mut()) {
+            (Some(current), Some(new)) => new.enrich_view(&current),            
+            _ => {}
         }
-        self.upstream.replace(upstream);
+        self.upstream = upstream;
         self.render(txt, RenderSource::Git);
     }
 
@@ -1277,7 +1348,7 @@ impl Status {
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(s, txt);
+            diff.enrich_view(s, txt, &mut self.context);
         }
         self.staged.replace(diff);
         if self.staged.is_some() && self.unstaged.is_some() {
@@ -1291,7 +1362,7 @@ impl Status {
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(u, txt);
+            diff.enrich_view(u, txt, &mut self.context);
         }
         self.unstaged.replace(diff);
         if self.staged.is_some() && self.unstaged.is_some() {
@@ -1342,15 +1413,15 @@ impl Status {
         let mut iter = buffer.iter_at_offset(0);
 
         if let Some(head) = &mut self.head {
-            head.render(&buffer, &mut iter, None);
+            head.render(&buffer, &mut iter, None, &mut self.context);
         }
 
         if let Some(upstream) = &mut self.upstream {
-            upstream.render(&buffer, &mut iter, None);
+            upstream.render(&buffer, &mut iter, None, &mut self.context);
         }
 
         if let Some(state) = &mut self.state {
-            state.render(&buffer, &mut iter, None);
+            state.render(&buffer, &mut iter, None, &mut self.context);
         }
 
         if let Some(unstaged) = &mut self.unstaged {
@@ -1358,9 +1429,9 @@ impl Status {
                 self.unstaged_spacer.view.squashed = true;
                 self.unstaged_label.view.squashed = true;
             }
-            self.unstaged_spacer.render(&buffer, &mut iter, None);
-            self.unstaged_label.render(&buffer, &mut iter, None);
-            unstaged.render(&buffer, &mut iter, None);
+            self.unstaged_spacer.render(&buffer, &mut iter, None, &mut self.context);
+            self.unstaged_label.render(&buffer, &mut iter, None, &mut self.context);
+            unstaged.render(&buffer, &mut iter, None, &mut self.context);
         }
 
         if let Some(staged) = &mut self.staged {
@@ -1368,9 +1439,9 @@ impl Status {
                 self.staged_spacer.view.squashed = true;
                 self.staged_label.view.squashed = true;
             }
-            self.staged_spacer.render(&buffer, &mut iter, None);
-            self.staged_label.render(&buffer, &mut iter, None);
-            staged.render(&buffer, &mut iter, None);
+            self.staged_spacer.render(&buffer, &mut iter, None, &mut self.context);
+            self.staged_label.render(&buffer, &mut iter, None, &mut self.context);
+            staged.render(&buffer, &mut iter, None, &mut self.context);
         }
         trace!("render source {:?}", source);
         match source {
@@ -1724,12 +1795,16 @@ mod tests {
         let mut view1 = View::new();
         let mut view2 = View::new();
         let mut view3 = View::new();
+
+        let ctx = &mut Some(StatusRenderContext::new());
+        
         view1.render(
             &buffer,
             &mut iter,
             "test1".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         view2.render(
             &buffer,
@@ -1737,6 +1812,7 @@ mod tests {
             "test2".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         view3.render(
             &buffer,
@@ -1744,6 +1820,7 @@ mod tests {
             "test3".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(view1.line_no == 1);
         assert!(view2.line_no == 2);
@@ -1760,6 +1837,7 @@ mod tests {
             "test1".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         view2.render(
             &buffer,
@@ -1767,6 +1845,7 @@ mod tests {
             "test2".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         view3.render(
             &buffer,
@@ -1774,6 +1853,7 @@ mod tests {
             "test3".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(iter.line() == 4);
 
@@ -1788,6 +1868,7 @@ mod tests {
             "test1".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(!view1.rendered);
         // its no longer squashed. is it ok?
@@ -1801,6 +1882,7 @@ mod tests {
             "test1".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(iter.line() == 2);
 
@@ -1812,6 +1894,7 @@ mod tests {
             "test2".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(!view2.dirty);
         assert!(iter.line() == 3);
@@ -1823,6 +1906,7 @@ mod tests {
             "test3".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(!view3.squashed);
         // iter remains on same kine, just squashing view in place
@@ -1837,6 +1921,7 @@ mod tests {
             "test3".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(view3.line_no == 3);
         assert!(view3.rendered);
@@ -1853,6 +1938,7 @@ mod tests {
             "test3".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(view3.line_no == 3);
         assert!(view3.rendered);
@@ -1867,16 +1953,16 @@ mod tests {
         let mut iter = buffer.iter_at_line(0).unwrap();
         buffer.insert(&mut iter, "begin\n");
         let mut diff = create_diff();
-
-        diff.render(&buffer, &mut iter, None);
+        let ctx = &mut Some(StatusRenderContext::new());
+        diff.render(&buffer, &mut iter, None, ctx);
         // if cursor returns true it need to rerender as in Status!
         if diff.cursor(1, false) {
-            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
+            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None, ctx);
         }
 
         // expand first file
         diff.files[0].expand(1);
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
+        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None, ctx);
 
         let content = buffer.slice(
             &mut buffer.start_iter(),
@@ -1901,11 +1987,11 @@ mod tests {
         // put cursor inside first hunk
         if diff.cursor(line_of_line, false) {
             // if comment out next line the line_of_line will be not sqashed
-            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
+            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None, ctx);
         }
         // expand on line inside first hunk
         diff.files[0].expand(line_of_line);
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
+        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None, ctx);
 
         let content = buffer.slice(
             &mut buffer.start_iter(),
