@@ -4,6 +4,7 @@ use crate::{
     commit, get_current_repo_status, push, stage_via_apply,
     ApplyFilter, Diff, File, Head, Hunk, Line, State, View, DiffKind
 };
+
 // use alloc::rc::Rc;
 use std::rc::Rc;
 use async_channel::Sender;
@@ -665,6 +666,7 @@ pub trait ViewContainer {
         buffer: &TextBuffer,
         iter: &mut TextIter,
         prev_line_len: Option<i32>,
+        context: &mut Option<StatusRenderContext>
     ) -> Option<i32> {
         let content = self.get_content();
         let tags = self.tags();
@@ -673,7 +675,7 @@ pub trait ViewContainer {
                 .render(buffer, iter, content, tags, prev_line_len);
         if view.expanded || view.child_dirty {
             for child in self.get_children() {
-                line_len = child.render(buffer, iter, line_len);
+                line_len = child.render(buffer, iter, line_len, context);
             }
         }
         self.get_view().child_dirty = false;
@@ -783,19 +785,16 @@ pub trait ViewContainer {
         // next render on Status struct will shift all views.
         // But when erease multiple view in loop, all rest views
         // in loop must be shifted manually!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // where is an erase_counter in context
-        // it need to count all erased views.
-        // method is called from reconcilation
-        // erasing means thos views are garbage.
-        // when delete, all views become shifted up
-        // in real TextView. but next view.line_no
-        // does not know about it. line_no is the same.
-        // at some point text view is so short
-        // that .iter_at_line(line_no) panics.
-        // thats bad. so it need to paintain
-        // cursor (this time it is real cursor)
-        // during render. where to count it???
+        // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        // during render the cursor moves down or become
+        // unchanged in case of erasing (RenderedAndMarkedAsSquashed)
+        // here we have only erase loop. cursor will be always
+        // on same place, means it need to decrement view.line_no
+        // by amount of deleted lines. thats why i need erase_counter.
+        // but how to count, if erasing is recursive? it need to pass
+        // it to render itself! means each render must receives context.
+        // hm. how to avoid it? lets not avoid it. lets try to pass it,
+        // and also put there prev_line length!
         let view = self.get_view();
         let line_no = view.line_no;
         debug!("EEEEERRRRAISING! BEFORE {:?}", line_no);
@@ -812,7 +811,7 @@ pub trait ViewContainer {
             .iter_at_line(line_no)
             .expect("can't get iter at line");
         // debug!("erase one signgle view at line > {:?}", iter.line());
-        self.render(&buffer, &mut iter, None);
+        self.render(&buffer, &mut iter, None, context);
         // debug!("erase iter line after erase_____ > {:?}", iter.line());
         debug!("EEEEERRRRAISING! AFTER {:?} {:?}", line_no, self.get_view().line_no);
     }
@@ -857,11 +856,12 @@ impl ViewContainer for Diff {
         buffer: &TextBuffer,
         iter: &mut TextIter,
         prev_line_len: Option<i32>,
+        context: &mut Option<StatusRenderContext>
     ) -> Option<i32> {
         self.view.line_no = iter.line();
         let mut prev_line_len: Option<i32> = None;
         for file in &mut self.files {
-            prev_line_len = file.render(buffer, iter, None);
+            prev_line_len = file.render(buffer, iter, None, context);
         }
         prev_line_len
     }
@@ -1301,7 +1301,7 @@ impl Status {
         // refactor.enrich
         if let Some(current_head) = &self.head {
             head.enrich_view(&current_head);
-        }
+        }        
         self.head.replace(head);
         self.render(txt, RenderSource::Git);
     }
@@ -1395,15 +1395,15 @@ impl Status {
         let mut iter = buffer.iter_at_offset(0);
 
         if let Some(head) = &mut self.head {
-            head.render(&buffer, &mut iter, None);
+            head.render(&buffer, &mut iter, None, &mut self.context);
         }
 
         if let Some(upstream) = &mut self.upstream {
-            upstream.render(&buffer, &mut iter, None);
+            upstream.render(&buffer, &mut iter, None, &mut self.context);
         }
 
         if let Some(state) = &mut self.state {
-            state.render(&buffer, &mut iter, None);
+            state.render(&buffer, &mut iter, None, &mut self.context);
         }
 
         if let Some(unstaged) = &mut self.unstaged {
@@ -1411,9 +1411,9 @@ impl Status {
                 self.unstaged_spacer.view.squashed = true;
                 self.unstaged_label.view.squashed = true;
             }
-            self.unstaged_spacer.render(&buffer, &mut iter, None);
-            self.unstaged_label.render(&buffer, &mut iter, None);
-            unstaged.render(&buffer, &mut iter, None);
+            self.unstaged_spacer.render(&buffer, &mut iter, None, &mut self.context);
+            self.unstaged_label.render(&buffer, &mut iter, None, &mut self.context);
+            unstaged.render(&buffer, &mut iter, None, &mut self.context);
         }
 
         if let Some(staged) = &mut self.staged {
@@ -1421,9 +1421,9 @@ impl Status {
                 self.staged_spacer.view.squashed = true;
                 self.staged_label.view.squashed = true;
             }
-            self.staged_spacer.render(&buffer, &mut iter, None);
-            self.staged_label.render(&buffer, &mut iter, None);
-            staged.render(&buffer, &mut iter, None);
+            self.staged_spacer.render(&buffer, &mut iter, None, &mut self.context);
+            self.staged_label.render(&buffer, &mut iter, None, &mut self.context);
+            staged.render(&buffer, &mut iter, None, &mut self.context);
         }
         trace!("render source {:?}", source);
         match source {
