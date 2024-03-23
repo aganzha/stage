@@ -773,7 +773,7 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn erase(&mut self, txt: &TextView) {
+    fn erase(&mut self, txt: &TextView, context: &mut Option<StatusRenderContext>) {
         // CAUTION. ATTENTION. IMPORTANT
         // this ONLY rendering. the data remains
         // unchaged. means it used to be called just
@@ -783,8 +783,22 @@ pub trait ViewContainer {
         // next render on Status struct will shift all views.
         // But when erease multiple view in loop, all rest views
         // in loop must be shifted manually!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // where is an erase_counter in context
+        // it need to count all erased views.
+        // method is called from reconcilation
+        // erasing means thos views are garbage.
+        // when delete, all views become shifted up
+        // in real TextView. but next view.line_no
+        // does not know about it. line_no is the same.
+        // at some point text view is so short
+        // that .iter_at_line(line_no) panics.
+        // thats bad. so it need to paintain
+        // cursor (this time it is real cursor)
+        // during render. where to count it???
         let view = self.get_view();
         let line_no = view.line_no;
+        debug!("EEEEERRRRAISING! BEFORE {:?}", line_no);
         view.squashed = true;
         view.child_dirty = true;
         debug!("erasing ......{:?}", &view);
@@ -797,9 +811,10 @@ pub trait ViewContainer {
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
-        debug!("erase one signgle view at line > {:?}", iter.line());
+        // debug!("erase one signgle view at line > {:?}", iter.line());
         self.render(&buffer, &mut iter, None);
-        debug!("erase iter line after erase_____ > {:?}", iter.line());
+        // debug!("erase iter line after erase_____ > {:?}", iter.line());
+        debug!("EEEEERRRRAISING! AFTER {:?} {:?}", line_no, self.get_view().line_no);
     }
 }
 
@@ -1095,8 +1110,7 @@ pub enum RenderSource {
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext {
     pub erase_counter: Option<i32>,
-    pub diff_kind: Option<DiffKind>
-        
+    pub diff_kind: Option<DiffKind>        
 }
 
 impl StatusRenderContext {
@@ -1108,6 +1122,13 @@ impl StatusRenderContext {
             }
         }
     }
+    // pub fn erase(&mut self) {
+    //     let mut inc = 1;
+    //     if let Some(ec) = self.erase_counter {
+    //         inc += ec;
+    //     }
+    //     self.erase_counter.replace(inc);
+    // }
 }
 
 #[derive(Debug, Clone, Default)]

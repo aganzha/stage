@@ -258,10 +258,10 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     );
                 }
             };            
-            debug!(
-                "-----------------------outer match ------------------- {:?}",
-                &status.context
-            );
+            // debug!(
+            //     "-----------------------outer match ------------------- {:?}",
+            //     &status.context
+            // );
             // status.context.take();
         }
     });
