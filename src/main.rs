@@ -14,7 +14,7 @@ mod git;
 use git::{
     checkout, cherry_pick, commit, create_branch,
     get_current_repo_status, get_refs, kill_branch, push, stage_via_apply,
-    ApplyFilter, BranchData, Diff, File, Head, Hunk, Line, Related, State,
+    ApplyFilter, ApplySubject, BranchData, Diff, File, Head, Hunk, Line, Related, State,
     View, DiffKind
 };
 mod widgets;
@@ -250,7 +250,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                         &txt,
                         line_no,
                         current_repo_path.as_ref().unwrap(),
-                        true,
+                        ApplySubject::Stage,
                         sender.clone(),
                     );
                 }
@@ -259,7 +259,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                         &txt,
                         line_no,
                         current_repo_path.as_ref().unwrap(),
-                        false,
+                        ApplySubject::Unstage,
                         sender.clone(),
                     );
                 }

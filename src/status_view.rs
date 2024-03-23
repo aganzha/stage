@@ -2,7 +2,7 @@ pub mod reconciliation;
 use crate::common_tests::*;
 use crate::{
     commit, get_current_repo_status, push, stage_via_apply,
-    ApplyFilter, Diff, File, Head, Hunk, Line, State, View,
+    ApplyFilter, ApplySubject, Diff, File, Head, Hunk, Line, State, View,
 };
 // use alloc::rc::Rc;
 use std::rc::Rc;
@@ -1395,25 +1395,30 @@ impl Status {
         txt: &TextView,
         line_no: i32,
         path: &OsString,
-        is_staging: bool,
+        subject: ApplySubject,
         sender: Sender<crate::Event>,
     ) {
         // hm. this is very weird code
-        if is_staging && self.unstaged.is_none() {
-            return;
+        match subject {
+            ApplySubject::Stage => {
+                if self.unstaged.is_none() {
+                    return;
+                }
+            }
+            ApplySubject::Unstage => {
+                if self.staged.is_none() {
+                    return;
+                }
+            }
         }
-        if !is_staging && self.staged.is_none() {
-            return;
-        }
-
+        
         let diff = {
-            if is_staging {
-                self.unstaged.as_mut().unwrap()
-            } else {
-                self.staged.as_mut().unwrap()
+            match subject {
+                ApplySubject::Stage => self.unstaged.as_mut().unwrap(),
+                ApplySubject::Unstage => self.staged.as_mut().unwrap()
             }
         };
-        let mut filter = ApplyFilter::default();
+        let mut filter = ApplyFilter::new(subject);
         let mut file_path_so_stage = String::new();
         let mut hunks_staged = 0;
         // there could be either file with all hunks
@@ -1452,7 +1457,7 @@ impl Status {
             gio::spawn_blocking({
                 let path = path.clone();
                 move || {
-                    stage_via_apply(is_staging, path, filter, sender);
+                    stage_via_apply(path, filter, sender);
                 }
             });
         }
