@@ -1,4 +1,4 @@
-use crate::{Diff, File, Hunk, Line, View, DiffKind};
+use crate::{Diff, DiffKind, File, Hunk, Line, View};
 use git2::DiffLineType;
 
 pub fn create_line(name: String) -> Line {
@@ -7,7 +7,7 @@ pub fn create_line(name: String) -> Line {
         origin: DiffLineType::Context,
         view: View::new(),
         new_line_no: None,
-        old_line_no: None
+        old_line_no: None,
     };
     line.content = name.to_string();
     line

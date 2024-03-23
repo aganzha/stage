@@ -89,7 +89,6 @@ pub fn get_new_branch_name(
     dialog.present();
 }
 
-
 pub fn make_confirm_dialog(
     window: &impl IsA<Gtk4Window>,
     child: Option<&impl IsA<Widget>>,

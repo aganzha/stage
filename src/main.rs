@@ -11,15 +11,12 @@ use async_channel::Sender;
 
 mod git;
 use git::{
-    checkout, cherry_pick, commit, create_branch,
-    get_current_repo_status, get_refs, kill_branch, push, stage_via_apply,
-    ApplyFilter, ApplySubject, BranchData, Diff, File, Head, Hunk, Line, Related, State,
-    View, DiffKind
+    checkout, cherry_pick, commit, create_branch, get_current_repo_status,
+    get_refs, kill_branch, push, stage_via_apply, ApplyFilter, ApplySubject,
+    BranchData, Diff, DiffKind, File, Head, Hunk, Line, Related, State, View,
 };
 mod widgets;
-use widgets::{
-    display_error, get_new_branch_name, make_confirm_dialog
-};
+use widgets::{display_error, get_new_branch_name, make_confirm_dialog};
 
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -31,9 +28,9 @@ use gdk::Display;
 use glib::{clone, MainContext, Priority};
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Box, CssProvider,
-    Label, Orientation, ScrolledWindow, STYLE_PROVIDER_PRIORITY_APPLICATION,
-    Button, IconTheme
+    gdk, gio, glib, style_context_add_provider_for_display, Box, Button,
+    CssProvider, IconTheme, Label, Orientation, ScrolledWindow,
+    STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
 use log::{debug, error, info, log_enabled, trace};
@@ -41,7 +38,6 @@ use log::{debug, error, info, log_enabled, trace};
 const APP_ID: &str = "com.github.aganzha.stage";
 
 fn main() -> glib::ExitCode {
-
     let mut app: Application;
     if let Some(path) = std::env::args().nth(1) {
         app = Application::builder()
@@ -78,7 +74,6 @@ fn load_css() {
         &provider,
         STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
-
 }
 
 #[derive(Debug)]
@@ -116,13 +111,11 @@ fn run_without_args(app: &Application) {
     run_app(app, None)
 }
 
-
 fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
-
     let mut status = Status::new();
     let mut current_repo_path = initial_path;
     let (sender, receiver) = async_channel::unbounded();
-    
+
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
 
@@ -152,7 +145,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
         }
     });
     let hb = HeaderBar::new();
-    hb.pack_start(&refresh_btn);    
+    hb.pack_start(&refresh_btn);
 
     let txt = text_view_factory(sender.clone());
 
@@ -164,16 +157,15 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     window.set_content(Some(&tb));
 
-    env_logger::builder().format_timestamp(None).init();    
+    env_logger::builder().format_timestamp(None).init();
 
     status.get_status(current_repo_path.clone(), sender.clone());
     window.present();
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
-
             status.context.replace(StatusRenderContext::new());
-            
+
             match event {
                 Event::CurrentRepo(path) => {
                     current_repo_path.replace(path);
@@ -199,7 +191,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                             &window,
                             sender.clone(),
                         );
-                    }                    
+                    }
                 }
                 Event::Push => {
                     info!("main.push");
@@ -223,7 +215,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Upstream(h) => {
                     info!("main. upstream");
-                    status.update_upstream(h, &txt);                    
+                    status.update_upstream(h, &txt);
                 }
                 Event::Staged(d) => {
                     info!("main. staged {:p}", &d);
@@ -258,7 +250,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     );
                 }
             };
-            
+
             // debug!(
             //     "-----------------------outer match ------------------- {:?}",
             //     &status.context

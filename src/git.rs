@@ -7,11 +7,11 @@ use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use ffi::OsString;
 use git2::build::CheckoutBuilder;
 use git2::{
-    ApplyLocation, ApplyOptions, Branch, BranchType, CherrypickOptions,
-    Commit, Cred, CredentialType, Delta, Diff as GitDiff, DiffDelta, DiffFile,
-    DiffFormat, DiffHunk, DiffLine, DiffLineType, DiffOptions, Error,
-    ErrorCode, ObjectType, Oid, PushOptions, Reference, RemoteCallbacks,
-    Repository, RepositoryState, CertificateCheckStatus
+    ApplyLocation, ApplyOptions, Branch, BranchType, CertificateCheckStatus,
+    CherrypickOptions, Commit, Cred, CredentialType, Delta, Diff as GitDiff,
+    DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
+    DiffOptions, Error, ErrorCode, ObjectType, Oid, PushOptions, Reference,
+    RemoteCallbacks, Repository, RepositoryState,
 };
 use log::{debug, trace};
 use regex::Regex;
@@ -53,7 +53,7 @@ pub struct Line {
     pub origin: DiffLineType,
     pub content: String,
     pub new_line_no: Option<u32>,
-    pub old_line_no: Option<u32>
+    pub old_line_no: Option<u32>,
 }
 
 impl Line {
@@ -94,7 +94,6 @@ pub enum Related {
     OverlapAfter,
     After,
 }
-
 
 impl Hunk {
     pub fn new() -> Self {
@@ -148,60 +147,57 @@ impl Hunk {
             .sum()
     }
 
-    pub fn related_to(&self, other: &Hunk, kind: Option<&DiffKind>) -> Related {
+    pub fn related_to(
+        &self,
+        other: &Hunk,
+        kind: Option<&DiffKind>,
+    ) -> Related {
         let (start, lines, other_start, other_lines) = {
             match kind {
                 Some(DiffKind::Staged) => (
                     self.new_start,
                     self.new_lines,
                     other.new_start,
-                    other.new_lines
+                    other.new_lines,
                 ),
                 Some(DiffKind::Unstaged) => (
                     self.old_start,
                     self.old_lines,
                     other.old_start,
-                    other.old_lines
+                    other.old_lines,
                 ),
-                _ => panic!("no kind in related to")
+                _ => panic!("no kind in related to"),
             }
         };
         trace!(
             ">>> related_to_other NEW HUNK start {:?} lines {:?}
                   OLD HUNK start {:?} {:?} kind {:?}",
-            start, lines, other_start, other_lines, kind
+            start,
+            lines,
+            other_start,
+            other_lines,
+            kind
         );
 
-        if start < other_start
-            && start + lines < other_start
-        {
+        if start < other_start && start + lines < other_start {
             trace!("before");
             return Related::Before;
         }
 
-        if start < other_start
-            && start + lines >= other_start
-        {
+        if start < other_start && start + lines >= other_start {
             trace!("overlap");
             return Related::OverlapBefore;
         }
 
-        if start == other_start
-            && lines == other_lines
-        {
+        if start == other_start && lines == other_lines {
             trace!("matched");
             return Related::Matched;
         }
-        if start > other_start
-            && start
-                <= other_start + other_lines
-        {
+        if start > other_start && start <= other_start + other_lines {
             trace!("overlap");
             return Related::OverlapAfter;
         }
-        if start > other_start
-            && start > other_start + other_lines
-        {
+        if start > other_start && start > other_start + other_lines {
             trace!("after");
             return Related::After;
         }
@@ -217,7 +213,6 @@ impl Hunk {
         );
         Related::After
     }
-
 
     pub fn title(&self) -> String {
         self.header.to_string()
@@ -283,14 +278,14 @@ impl Default for File {
 #[derive(Debug, Clone)]
 pub enum DiffKind {
     Staged,
-    Unstaged
+    Unstaged,
 }
 
 #[derive(Debug, Clone)]
 pub struct Diff {
     pub files: Vec<File>,
     pub view: View,
-    pub kind: DiffKind
+    pub kind: DiffKind,
 }
 
 impl Diff {
@@ -298,7 +293,7 @@ impl Diff {
         Self {
             files: Vec::new(),
             view: View::new(),
-            kind: kind
+            kind: kind,
         }
     }
 
@@ -486,7 +481,7 @@ pub enum ApplySubject {
 pub struct ApplyFilter {
     pub file_path: String,
     pub hunk_header: Option<String>,
-    pub subject: ApplySubject
+    pub subject: ApplySubject,
 }
 
 impl ApplyFilter {
@@ -494,7 +489,7 @@ impl ApplyFilter {
         Self {
             file_path: String::from(""),
             hunk_header: None,
-            subject: subject
+            subject: subject,
         }
     }
 }
@@ -600,10 +595,9 @@ pub fn stage_via_apply(
     let repo = Repository::open(path.clone()).expect("can't open repo");
     // get actual diff for repo
     let git_diff = match filter.subject {
-        ApplySubject::Stage => {
-            repo.diff_index_to_workdir(None, None)
-                .expect("can't get diff")
-        }
+        ApplySubject::Stage => repo
+            .diff_index_to_workdir(None, None)
+            .expect("can't get diff"),
         ApplySubject::Unstage => {
             let ob =
                 repo.revparse_single("HEAD^{tree}").expect("fail revparse");
@@ -614,12 +608,11 @@ pub fn stage_via_apply(
                 None,
                 Some(DiffOptions::new().reverse(true)),
             )
-                .expect("can't get diff")
-        }
-        // ApplySubject::Kill => {
-        //     debug!("kiiiiiiiiiiiiiiill");
-        // }
-    };    
+            .expect("can't get diff")
+        } // ApplySubject::Kill => {
+          //     debug!("kiiiiiiiiiiiiiiill");
+          // }
+    };
     // filter selected files and hunks
     let mut options = ApplyOptions::new();
 
@@ -629,7 +622,9 @@ pub fn stage_via_apply(
                 let header = Hunk::get_header_from(&dh);
                 return match filter.subject {
                     ApplySubject::Stage => hunk_header == &header,
-                    ApplySubject::Unstage => hunk_header == &Hunk::reverse_header(header)
+                    ApplySubject::Unstage => {
+                        hunk_header == &Hunk::reverse_header(header)
+                    }
                 };
             }
         }
@@ -678,11 +673,7 @@ pub fn stage_via_apply(
         .expect("Could not send through channel");
 }
 
-pub fn commit(
-    path: OsString,
-    message: String,
-    sender: Sender<crate::Event>,
-) {
+pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
     // update_ref: Option<&str>,
@@ -711,7 +702,10 @@ pub fn commit(
         .diff_tree_to_index(Some(&current_tree), None, None)
         .expect("can't get diff tree to index");
     sender
-        .send_blocking(crate::Event::Staged(make_diff(git_diff, DiffKind::Staged)))
+        .send_blocking(crate::Event::Staged(make_diff(
+            git_diff,
+            DiffKind::Staged,
+        )))
         .expect("Could not send through channel");
 
     // get unstaged
@@ -743,7 +737,11 @@ pub fn push(
     let head_ref = repo.head().expect("can't get head");
     trace!("push.head ref name {:?}", head_ref.name());
     assert!(head_ref.is_branch());
-    let refspec = format!("{}:refs/heads/{}", head_ref.name().unwrap(), remote_branch.replace("origin/", ""));
+    let refspec = format!(
+        "{}:refs/heads/{}",
+        head_ref.name().unwrap(),
+        remote_branch.replace("origin/", "")
+    );
     trace!("push. refspec {}", refspec);
     let mut branch = Branch::wrap(head_ref);
     let mut remote = repo
@@ -796,10 +794,13 @@ pub fn push(
         true
     });
     callbacks.sideband_progress(|response| {
-        trace!("push.sideband progress {:?}", String::from_utf8_lossy(response));
+        trace!(
+            "push.sideband progress {:?}",
+            String::from_utf8_lossy(response)
+        );
         true
     });
-    callbacks. certificate_check(|cert, error| {
+    callbacks.certificate_check(|cert, error| {
         trace!("cert error? {:?}", error);
         Ok(CertificateCheckStatus::CertificateOk)
     });
@@ -1016,7 +1017,6 @@ pub fn kill_branch(
     }
     Ok(())
 }
-
 
 pub fn cherry_pick(
     path: OsString,
