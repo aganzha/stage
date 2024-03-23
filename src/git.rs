@@ -84,6 +84,7 @@ pub struct Hunk {
     pub old_lines: u32,
     pub new_lines: u32,
     pub lines: Vec<Line>,
+    pub max_line_len: usize
 }
 
 #[derive(Debug, Clone)]
@@ -105,6 +106,7 @@ impl Hunk {
             new_start: 0,
             old_lines: 0,
             new_lines: 0,
+            max_line_len: 0
         }
     }
 
@@ -114,6 +116,17 @@ impl Hunk {
             .replace('\n', "")
     }
 
+    pub fn fill_from(&mut self, dh: &DiffHunk) {
+        self.header = Self::get_header_from(dh);
+        self.old_start = dh.old_start();
+        self.old_lines = dh.old_lines();
+        self.new_start = dh.new_start();
+        self.new_lines = dh.new_lines();
+        if self.header.len() > self.max_line_len {
+            self.max_line_len = self.header.len();
+        }
+    }
+    
     pub fn reverse_header(header: String) -> String {
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
         // "@@ -20,10 +24,11 @@ STAGING LINE..." -> "@@ -24,11 +20,10 @@ STAGING LINE..."
@@ -223,7 +236,12 @@ impl Hunk {
             DiffLineType::FileHeader
             | DiffLineType::HunkHeader
             | DiffLineType::Binary => {}
-            _ => self.lines.push(line),
+            _ => {
+                if line.content.len() > self.max_line_len {
+                    self.max_line_len = line.content.len();
+                }
+                self.lines.push(line)
+            }
         }
     }
 }
@@ -547,27 +565,29 @@ pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
             }
             if let Some(diff_hunk) = o_diff_hunk {
                 let hh = Hunk::get_header_from(&diff_hunk);
-                let old_start = diff_hunk.old_start();
-                let old_lines = diff_hunk.old_lines();
-                let new_start = diff_hunk.new_start();
-                let new_lines = diff_hunk.new_lines();
+                // let old_start = diff_hunk.old_start();
+                // let old_lines = diff_hunk.old_lines();
+                // let new_start = diff_hunk.new_start();
+                // let new_lines = diff_hunk.new_lines();
                 if current_hunk.header.is_empty() {
                     // init hunk
-                    current_hunk.header = hh.clone();
-                    current_hunk.old_start = old_start;
-                    current_hunk.old_lines = old_lines;
-                    current_hunk.new_start = new_start;
-                    current_hunk.new_lines = new_lines;
+                    current_hunk.fill_from(&diff_hunk)
+                    // current_hunk.header = hh.clone();
+                    // current_hunk.old_start = old_start;
+                    // current_hunk.old_lines = old_lines;
+                    // current_hunk.new_start = new_start;
+                    // current_hunk.new_lines = new_lines;
                 }
                 if current_hunk.header != hh {
                     // go to next hunk
                     current_file.push_hunk(current_hunk.clone());
                     current_hunk = Hunk::new();
-                    current_hunk.header = hh.clone();
-                    current_hunk.old_start = old_start;
-                    current_hunk.old_lines = old_lines;
-                    current_hunk.new_start = new_start;
-                    current_hunk.new_lines = new_lines;
+                    current_hunk.fill_from(&diff_hunk)
+                    // current_hunk.header = hh.clone();
+                    // current_hunk.old_start = old_start;
+                    // current_hunk.old_lines = old_lines;
+                    // current_hunk.new_start = new_start;
+                    // current_hunk.new_lines = new_lines;
                 }
                 current_hunk.push_line(Line::from_diff_line(&diff_line));
             } else {

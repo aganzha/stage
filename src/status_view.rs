@@ -404,16 +404,21 @@ impl View {
     fn build_up(
         &self,
         content: &String,
-        prev_line_len: Option<i32>,
+        context: &mut Option<StatusRenderContext>,
     ) -> String {
-        if content.is_empty() {
-            if let Some(len) = prev_line_len {
-                return " ".repeat(len as usize).to_string();
-            } else {
-                return String::from("");
+        let mut line_content = content.to_string();
+        if let Some(ctx) = context {
+            if let Some(max) = ctx.max_hunk_len {
+                debug!("build_up .............. {:?} {:?} ======= {:?}", max, line_content.len(), line_content);
+                let spaces = max as usize - line_content.len();
+                return format!(
+                    "{}{}",
+                    line_content,
+                    " ".repeat(spaces).to_string()
+                );
             }
-        }
-        content.to_string()
+        }        
+        line_content
     }
 
     // View
@@ -423,9 +428,8 @@ impl View {
         iter: &mut TextIter,
         content: String,
         content_tags: Vec<Tag>,
-        prev_line_len: Option<i32>,
         context: &mut Option<StatusRenderContext>,
-    ) -> (&mut Self, Option<i32>) {
+    ) -> &mut Self {
         // important. self.line_no is assigned only in 2 cases
         // below!!!!
         let line_no = iter.line();
@@ -440,7 +444,7 @@ impl View {
         match self.get_state_for(line_no) {
             ViewState::Hidden => {
                 trace!("skip hidden view");
-                return (self, prev_line_len);
+                return self
             }
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
@@ -453,7 +457,7 @@ impl View {
             }
             ViewState::NotRendered => {
                 trace!("..render MATCH insert {:?}", line_no);
-                let content = self.build_up(&content, prev_line_len);
+                let content = self.build_up(&content, context);
                 line_len = Some(content.len() as i32);
                 if self.markup {
                     // let mut encoded = String::new();
@@ -471,7 +475,7 @@ impl View {
             ViewState::RenderedDirtyInPlace => {
                 trace!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
                 if !content.is_empty() {
-                    let content = self.build_up(&content, prev_line_len);
+                    let content = self.build_up(&content, context);
                     line_len = Some(content.len() as i32);
                     self.replace_dirty_content(buffer, iter, &content);
                     self.apply_tags(buffer, &content_tags);
@@ -506,7 +510,7 @@ impl View {
                 trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
                 self.line_no = line_no;
                 if !content.is_empty() {
-                    let content = self.build_up(&content, prev_line_len);
+                    let content = self.build_up(&content, context);
                     line_len = Some(content.len() as i32);
                     self.replace_dirty_content(buffer, iter, &content);
                     self.apply_tags(buffer, &content_tags);
@@ -527,7 +531,7 @@ impl View {
         self.dirty = false;
         self.squashed = false;
         self.transfered = false;
-        (self, line_len)
+        self
     }
 
     fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
@@ -672,31 +676,33 @@ pub trait ViewContainer {
     fn tags(&self) -> Vec<Tag> {
         Vec::new()
     }
+
+    fn fill_context(&self, _: &mut Option<StatusRenderContext>) {
+    }
+
     // ViewContainer
     fn render(
         &mut self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
-        prev_line_len: Option<i32>,
         context: &mut Option<StatusRenderContext>,
-    ) -> Option<i32> {
+    ) {
+        self.fill_context(context);
         let content = self.get_content();
         let tags = self.tags();
-        let (view, mut line_len) = self.get_view().render(
+        let view = self.get_view().render(
             buffer,
             iter,
             content,
             tags,
-            prev_line_len,
             context,
         );
         if view.expanded || view.child_dirty {
             for child in self.get_children() {
-                line_len = child.render(buffer, iter, line_len, context);
+                child.render(buffer, iter, context);
             }
         }
         self.get_view().child_dirty = false;
-        line_len
     }
 
     // ViewContainer
@@ -837,7 +843,7 @@ pub trait ViewContainer {
             .iter_at_line(line_no)
             .expect("can't get iter at line");
         // debug!("erase one signgle view at line > {:?}", iter.line());
-        self.render(&buffer, &mut iter, None, context);
+        self.render(&buffer, &mut iter, context);
         // debug!("erase iter line after erase_____ > {:?}", iter.line());
 
         debug!("EEEEERRRRAISING! AFTER {:?} {:?}", line_no, context);
@@ -884,15 +890,13 @@ impl ViewContainer for Diff {
         &mut self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
-        prev_line_len: Option<i32>,
         context: &mut Option<StatusRenderContext>,
-    ) -> Option<i32> {
+    ) {
         self.view.line_no = iter.line();
         let mut prev_line_len: Option<i32> = None;
         for file in &mut self.files {
-            prev_line_len = file.render(buffer, iter, None, context);
+            file.render(buffer, iter, context);
         }
-        prev_line_len
     }
     // Diff
     fn expand(&mut self, line_no: i32) -> Option<i32> {
@@ -949,7 +953,7 @@ impl ViewContainer for Hunk {
         }
         &mut self.view
     }
-
+    
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
         self.lines
             .iter_mut()
@@ -980,6 +984,12 @@ impl ViewContainer for Hunk {
 
     fn is_expandable_by_child(&self) -> bool {
         true
+    }
+
+    fn fill_context(&self, context: &mut Option<StatusRenderContext>) {
+        if let Some(ctx) = context {
+            ctx.max_hunk_len.replace(self.max_line_len as i32);
+        }
     }
 }
 
@@ -1139,6 +1149,7 @@ pub enum RenderSource {
 pub struct StatusRenderContext {
     pub erase_counter: Option<i32>,
     pub diff_kind: Option<DiffKind>,
+    pub max_hunk_len: Option<i32>,
 }
 
 impl StatusRenderContext {
@@ -1147,16 +1158,10 @@ impl StatusRenderContext {
             Self {
                 erase_counter: None,
                 diff_kind: None,
+                max_hunk_len: None
             }
         };
     }
-    // pub fn erase(&mut self) {
-    //     let mut inc = 1;
-    //     if let Some(ec) = self.erase_counter {
-    //         inc += ec;
-    //     }
-    //     self.erase_counter.replace(inc);
-    // }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1422,15 +1427,15 @@ impl Status {
         let mut iter = buffer.iter_at_offset(0);
 
         if let Some(head) = &mut self.head {
-            head.render(&buffer, &mut iter, None, &mut self.context);
+            head.render(&buffer, &mut iter, &mut self.context);
         }
 
         if let Some(upstream) = &mut self.upstream {
-            upstream.render(&buffer, &mut iter, None, &mut self.context);
+            upstream.render(&buffer, &mut iter, &mut self.context);
         }
 
         if let Some(state) = &mut self.state {
-            state.render(&buffer, &mut iter, None, &mut self.context);
+            state.render(&buffer, &mut iter, &mut self.context);
         }
 
         if let Some(unstaged) = &mut self.unstaged {
@@ -1441,16 +1446,14 @@ impl Status {
             self.unstaged_spacer.render(
                 &buffer,
                 &mut iter,
-                None,
                 &mut self.context,
             );
             self.unstaged_label.render(
                 &buffer,
                 &mut iter,
-                None,
                 &mut self.context,
             );
-            unstaged.render(&buffer, &mut iter, None, &mut self.context);
+            unstaged.render(&buffer, &mut iter, &mut self.context);
         }
 
         if let Some(staged) = &mut self.staged {
@@ -1461,16 +1464,14 @@ impl Status {
             self.staged_spacer.render(
                 &buffer,
                 &mut iter,
-                None,
                 &mut self.context,
             );
             self.staged_label.render(
                 &buffer,
                 &mut iter,
-                None,
                 &mut self.context,
             );
-            staged.render(&buffer, &mut iter, None, &mut self.context);
+            staged.render(&buffer, &mut iter, &mut self.context);
         }
         trace!("render source {:?}", source);
         match source {
