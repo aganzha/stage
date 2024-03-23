@@ -799,7 +799,7 @@ pub trait ViewContainer {
             .expect("can't get iter at line");
         debug!("erase one signgle view at line > {:?}", iter.line());
         self.render(&buffer, &mut iter, None);
-        debug!("erase iter line after erase_____ > {:?}", iter.line());
+        debug!("erase iter line after erase______ > {:?}", iter.line());
     }
 }
 
