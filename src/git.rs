@@ -415,7 +415,6 @@ pub fn get_upstream(path: OsString, sender: Sender<crate::Event>) {
     };
 }
 
-
 pub fn get_current_repo_status(
     current_path: Option<OsString>,
     sender: Sender<crate::Event>,
