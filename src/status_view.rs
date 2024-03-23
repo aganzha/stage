@@ -1789,12 +1789,16 @@ mod tests {
         let mut view1 = View::new();
         let mut view2 = View::new();
         let mut view3 = View::new();
+
+        let ctx = &mut Some(StatusRenderContext::new());
+        
         view1.render(
             &buffer,
             &mut iter,
             "test1".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         view2.render(
             &buffer,
@@ -1802,6 +1806,7 @@ mod tests {
             "test2".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         view3.render(
             &buffer,
@@ -1809,6 +1814,7 @@ mod tests {
             "test3".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(view1.line_no == 1);
         assert!(view2.line_no == 2);
@@ -1825,6 +1831,7 @@ mod tests {
             "test1".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         view2.render(
             &buffer,
@@ -1832,6 +1839,7 @@ mod tests {
             "test2".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         view3.render(
             &buffer,
@@ -1839,6 +1847,7 @@ mod tests {
             "test3".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(iter.line() == 4);
 
@@ -1853,6 +1862,7 @@ mod tests {
             "test1".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(!view1.rendered);
         // its no longer squashed. is it ok?
@@ -1866,6 +1876,7 @@ mod tests {
             "test1".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(iter.line() == 2);
 
@@ -1877,6 +1888,7 @@ mod tests {
             "test2".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(!view2.dirty);
         assert!(iter.line() == 3);
@@ -1888,6 +1900,7 @@ mod tests {
             "test3".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(!view3.squashed);
         // iter remains on same kine, just squashing view in place
@@ -1902,6 +1915,7 @@ mod tests {
             "test3".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(view3.line_no == 3);
         assert!(view3.rendered);
@@ -1918,6 +1932,7 @@ mod tests {
             "test3".to_string(),
             Vec::new(),
             None,
+            ctx
         );
         assert!(view3.line_no == 3);
         assert!(view3.rendered);
