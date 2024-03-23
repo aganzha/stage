@@ -3,7 +3,6 @@ use status_view::{text_view_factory, Status};
 
 mod branches_view;
 use branches_view::{show_branches_window, Event as BranchesEvent};
-
 mod common_tests;
 
 //use std::sync::mpsc::channel;
