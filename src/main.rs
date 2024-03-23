@@ -257,7 +257,8 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                         sender.clone(),
                     );
                 }
-            };            
+            };
+            
             // debug!(
             //     "-----------------------outer match ------------------- {:?}",
             //     &status.context

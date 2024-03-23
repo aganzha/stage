@@ -999,6 +999,7 @@ pub fn kill_branch(
     Ok(())
 }
 
+
 pub fn cherry_pick(
     path: OsString,
     branch_data: BranchData,
