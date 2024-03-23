@@ -225,11 +225,11 @@ impl File {
                                 for hunk in &mut rendered.hunks[ind..] {
                                     debug!("<- before erasing staged hunk add delta to remaining hunks {:?} by {:?} lines",
                                            hunk.header,
-                                           n_hunk.delta_in_lines()
+                                           r_delta
                                     );
                                     hunk.new_start = (
                                         (hunk.new_start as i32) - // - !
-                                            n_hunk.delta_in_lines()
+                                            r_delta
                                     ) as u32;
                                 }
                             }
