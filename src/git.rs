@@ -470,10 +470,28 @@ pub fn get_current_repo_status(
         .expect("Could not send through channel");
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
+pub enum ApplySubject {
+    Stage,
+    Unstage,
+    //Kill
+}
+
+#[derive(Debug, Clone)]
 pub struct ApplyFilter {
     pub file_path: String,
     pub hunk_header: Option<String>,
+    pub subject: ApplySubject
+}
+
+impl ApplyFilter {
+    pub fn new(subject: ApplySubject) -> Self {
+        Self {
+            file_path: String::from(""),
+            hunk_header: None,
+            subject: subject
+        }
+    }
 }
 
 pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
@@ -570,18 +588,18 @@ pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
 }
 
 pub fn stage_via_apply(
-    is_staging: bool,
     path: OsString,
     filter: ApplyFilter,
     sender: Sender<crate::Event>,
 ) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     // get actual diff for repo
-    let git_diff = {
-        if is_staging {
+    let git_diff = match filter.subject {
+        ApplySubject::Stage => {
             repo.diff_index_to_workdir(None, None)
                 .expect("can't get diff")
-        } else {
+        }
+        ApplySubject::Unstage => {
             let ob =
                 repo.revparse_single("HEAD^{tree}").expect("fail revparse");
             let current_tree =
@@ -591,9 +609,12 @@ pub fn stage_via_apply(
                 None,
                 Some(DiffOptions::new().reverse(true)),
             )
-            .expect("can't get diff")
+                .expect("can't get diff")
         }
-    };
+        // ApplySubject::Kill => {
+        //     debug!("kiiiiiiiiiiiiiiill");
+        // }
+    };    
     // filter selected files and hunks
     let mut options = ApplyOptions::new();
 
@@ -601,12 +622,9 @@ pub fn stage_via_apply(
         if let Some(hunk_header) = &filter.hunk_header {
             if let Some(dh) = odh {
                 let header = Hunk::get_header_from(&dh);
-                return {
-                    if is_staging {
-                        hunk_header == &header
-                    } else {
-                        hunk_header == &Hunk::reverse_header(header)
-                    }
+                return match filter.subject {
+                    ApplySubject::Stage => hunk_header == &header,
+                    ApplySubject::Unstage => hunk_header == &Hunk::reverse_header(header)
                 };
             }
         }
