@@ -205,7 +205,7 @@ impl BranchList {
             })
         });
     }
-    
+
     pub fn checkout(
         &self,
         repo_path: std::ffi::OsString,
