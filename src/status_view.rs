@@ -795,6 +795,7 @@ pub trait ViewContainer {
     }
 }
 
+
 impl ViewContainer for Diff {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Diff
