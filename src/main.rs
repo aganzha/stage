@@ -97,7 +97,7 @@ pub enum Event {
     Unstaged(Diff),
     Staged(Diff),
     Head(Head),
-    Upstream(Head),
+    Upstream(Option<Head>),
     State(State),
     Expand(i32, i32),
     Cursor(i32, i32),
@@ -229,7 +229,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Upstream(h) => {
                     info!("main. upstream");
-                    status.update_upstream(h, &txt);
+                    status.update_upstream(h, &txt);                    
                 }
                 Event::Staged(d) => {
                     info!("main. staged {:p}", &d);
