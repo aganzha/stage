@@ -389,6 +389,7 @@ pub fn get_head(path: OsString, sender: Sender<crate::Event>) {
 }
 
 pub fn get_upstream(path: OsString, sender: Sender<crate::Event>) {
+    debug!("get upstream");
     let repo = Repository::open(path).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
@@ -402,9 +403,12 @@ pub fn get_upstream(path: OsString, sender: Sender<crate::Event>) {
         let mut new_upstream = Head::new(&upstream, &commit);
         new_upstream.remote = true;
         sender
-            .send_blocking(crate::Event::Upstream(new_upstream))
+            .send_blocking(crate::Event::Upstream(Some(new_upstream)))
             .expect("Could not send through channel");
     } else {
+        sender
+            .send_blocking(crate::Event::Upstream(None))
+            .expect("Could not send through channel");
         // todo!("some branches could contain only pushRemote, but no
         //       origin. There will be no upstream then. It need to lookup
         //       pushRemote in config and check refs/remotes/<origin>/")

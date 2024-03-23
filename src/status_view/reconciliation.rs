@@ -130,7 +130,7 @@ impl File {
     // file
     pub fn enrich_view(&mut self, rendered: &mut File, txt: &TextView, kind: &DiffKind) {
         self.view = rendered.transfer_view();
-        debug!("-- enrich_view for file {:?} hunks {:?}, other {:?}, hunks {:?}, kind {:?}",
+        debug!("-- enrich_view for file {:?} hunks {:?}, rendered {:?}, hunks {:?}, kind {:?}",
                self.path, self.hunks.len(), rendered.path, rendered.hunks.len(), kind);
 
         if self.hunks.len() == rendered.hunks.len() {
@@ -295,12 +295,12 @@ impl File {
 }
 
 impl Diff {
-    pub fn enrich_view(&mut self, other: &mut Diff, txt: &TextView) {
+    pub fn enrich_view(&mut self, rendered: &mut Diff, txt: &TextView) {
         // here self is new diff, which coming from repo without views
         let mut replaces_by_new = HashSet::new();
-        debug!("---------------enrich view in diff. my files {:?}, other files {:?}", self.files.len(), other.files.len());
+        debug!("---------------enrich view in diff. my files {:?}, rendered files {:?}", self.files.len(), rendered.files.len());
         for file in &mut self.files {
-            for of in &mut other.files {
+            for of in &mut rendered.files {
                 if file.path == of.path {
                     file.enrich_view(of, txt, &self.kind);
                     replaces_by_new.insert(file.path.clone());
@@ -308,8 +308,8 @@ impl Diff {
             }
         }
         // erase all stale views
-        debug!("replaced by new {:?} for total files count: {:?}", replaces_by_new, other.files.len());
-        other.files.iter_mut()
+        debug!("replaced by new {:?} for total files count: {:?}", replaces_by_new, rendered.files.len());
+        rendered.files.iter_mut()
             .filter(|f| !replaces_by_new.contains(&f.path))
             .for_each(|f| f.erase(txt));
     }
@@ -317,8 +317,8 @@ impl Diff {
 
 impl Head {
     // head
-    pub fn enrich_view(&mut self, other: &Head) {
-        self.view = other.transfer_view();
+    pub fn enrich_view(&mut self, rendered: &Head) {
+        self.view = rendered.transfer_view();
     }
     // head
     pub fn transfer_view(&self) -> View {
@@ -331,8 +331,8 @@ impl Head {
 
 impl State {
     // state
-    pub fn enrich_view(&mut self, other: &Self) {
-        self.view = other.transfer_view();
+    pub fn enrich_view(&mut self, rendered: &Self) {
+        self.view = rendered.transfer_view();
     }
     // state
     pub fn transfer_view(&self) -> View {

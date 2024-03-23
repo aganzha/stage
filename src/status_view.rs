@@ -1257,12 +1257,13 @@ impl Status {
         self.render(txt, RenderSource::Git);
     }
 
-    pub fn update_upstream(&mut self, mut upstream: Head, txt: &TextView) {
+    pub fn update_upstream(&mut self, mut upstream: Option<Head>, txt: &TextView) {
         // refactor.enrich
-        if let Some(current_upstream) = &self.upstream {
-            upstream.enrich_view(&current_upstream);
+        match (&self.upstream, upstream.as_mut()) {
+            (Some(current), Some(new)) => new.enrich_view(&current),            
+            _ => {}
         }
-        self.upstream.replace(upstream);
+        self.upstream = upstream;
         self.render(txt, RenderSource::Git);
     }
 
