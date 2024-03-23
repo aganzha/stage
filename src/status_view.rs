@@ -424,6 +424,7 @@ impl View {
         content: String,
         content_tags: Vec<Tag>,
         prev_line_len: Option<i32>,
+        context: &mut Option<StatusRenderContext>
     ) -> (&mut Self, Option<i32>) {
         // important. self.line_no is assigned only in 2 cases
         // below!!!!
@@ -489,6 +490,14 @@ impl View {
                 buffer.delete(iter, &mut nel_iter);
                 self.rendered = false;
                 self.tags = Vec::new();
+                if let Some(ctx) = context {
+                    let mut inc = 1;
+                    if let Some(ec) = ctx.erase_counter {
+                        inc += ec;
+                    }
+                    ctx.erase_counter.replace(inc);
+                    trace!(">>>>>>>>>>>>>>>>>>>> just erased line. context {:?}", ctx);
+                }
             }
             ViewState::RenderedDirtyNotInPlace(l) => {
                 trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
@@ -672,7 +681,7 @@ pub trait ViewContainer {
         let tags = self.tags();
         let (view, mut line_len) =
             self.get_view()
-                .render(buffer, iter, content, tags, prev_line_len);
+                .render(buffer, iter, content, tags, prev_line_len, context);
         if view.expanded || view.child_dirty {
             for child in self.get_children() {
                 line_len = child.render(buffer, iter, line_len, context);
@@ -797,10 +806,10 @@ pub trait ViewContainer {
         // and also put there prev_line length!
         let view = self.get_view();
         let line_no = view.line_no;
-        debug!("EEEEERRRRAISING! BEFORE {:?}", line_no);
+        debug!("EEEEERRRRAISING! BEFORE {:?} {:?}", line_no, context);
         view.squashed = true;
         view.child_dirty = true;
-        debug!("erasing ......{:?}", &view);
+        // debug!("erasing ......{:?}", &view);
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let view = vc.get_view();
             view.squashed = true;
@@ -813,7 +822,10 @@ pub trait ViewContainer {
         // debug!("erase one signgle view at line > {:?}", iter.line());
         self.render(&buffer, &mut iter, None, context);
         // debug!("erase iter line after erase_____ > {:?}", iter.line());
-        debug!("EEEEERRRRAISING! AFTER {:?} {:?}", line_no, self.get_view().line_no);
+
+        debug!("EEEEERRRRAISING! AFTER {:?} {:?}", line_no, context);
+        debug!("");
+        debug!("");
     }
 }
 
