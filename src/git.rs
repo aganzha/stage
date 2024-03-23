@@ -148,24 +148,25 @@ impl Hunk {
             .sum()
     }
 
-    pub fn related_to(&self, other: &Hunk, kind: &DiffKind) -> Related {
+    pub fn related_to(&self, other: &Hunk, kind: Option<&DiffKind>) -> Related {
         let (start, lines, other_start, other_lines) = {
             match kind {
-                DiffKind::Staged => (
+                Some(DiffKind::Staged) => (
                     self.new_start,
                     self.new_lines,
                     other.new_start,
                     other.new_lines
                 ),
-                DiffKind::Unstaged => (
+                Some(DiffKind::Unstaged) => (
                     self.old_start,
                     self.old_lines,
                     other.old_start,
                     other.old_lines
-                )
+                ),
+                _ => panic!("no kind in related to")
             }
         };
-        debug!(
+        trace!(
             ">>> related_to_other NEW HUNK start {:?} lines {:?}
                   OLD HUNK start {:?} {:?} kind {:?}",
             start, lines, other_start, other_lines, kind
@@ -174,34 +175,34 @@ impl Hunk {
         if start < other_start
             && start + lines < other_start
         {
-            debug!("before");
+            trace!("before");
             return Related::Before;
         }
 
         if start < other_start
             && start + lines >= other_start
         {
-            debug!("overlap");
+            trace!("overlap");
             return Related::OverlapBefore;
         }
 
         if start == other_start
             && lines == other_lines
         {
-            debug!("matched");
+            trace!("matched");
             return Related::Matched;
         }
         if start > other_start
             && start
                 <= other_start + other_lines
         {
-            debug!("overlap");
+            trace!("overlap");
             return Related::OverlapAfter;
         }
         if start > other_start
             && start > other_start + other_lines
         {
-            debug!("after");
+            trace!("after");
             return Related::After;
         }
         // GOT PANIC HERE
@@ -389,6 +390,7 @@ pub fn get_head(path: OsString, sender: Sender<crate::Event>) {
 }
 
 pub fn get_upstream(path: OsString, sender: Sender<crate::Event>) {
+    trace!("get upstream");
     let repo = Repository::open(path).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
@@ -402,9 +404,12 @@ pub fn get_upstream(path: OsString, sender: Sender<crate::Event>) {
         let mut new_upstream = Head::new(&upstream, &commit);
         new_upstream.remote = true;
         sender
-            .send_blocking(crate::Event::Upstream(new_upstream))
+            .send_blocking(crate::Event::Upstream(Some(new_upstream)))
             .expect("Could not send through channel");
     } else {
+        sender
+            .send_blocking(crate::Event::Upstream(None))
+            .expect("Could not send through channel");
         // todo!("some branches could contain only pushRemote, but no
         //       origin. There will be no upstream then. It need to lookup
         //       pushRemote in config and check refs/remotes/<origin>/")
@@ -415,7 +420,7 @@ pub fn get_current_repo_status(
     current_path: Option<OsString>,
     sender: Sender<crate::Event>,
 ) {
-    debug!("get_current_repo_status {:?}", current_path);
+    trace!("get_current_repo_status {:?}", current_path);
     let (repo, path) = {
         if let Some(path) = current_path {
             let repo =
@@ -633,7 +638,7 @@ pub fn stage_via_apply(
     options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
             let status = dd.status();
-            debug!("delta_callback in stage_via_apply status {:?}", status);
+            trace!("delta_callback in stage_via_apply status {:?}", status);
             let new_file = dd.new_file();
             let file = File::from_diff_file(&new_file);
             let path = file.path.into_string().unwrap();
@@ -733,11 +738,12 @@ pub fn push(
     tracking_remote: bool,
     sender: Sender<crate::Event>,
 ) {
+    trace!("remote branch {:?}", remote_branch);
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
     trace!("push.head ref name {:?}", head_ref.name());
     assert!(head_ref.is_branch());
-    let refspec = format!("{}:refs/heads/{}", head_ref.name().unwrap(), remote_branch);
+    let refspec = format!("{}:refs/heads/{}", head_ref.name().unwrap(), remote_branch.replace("origin/", ""));
     trace!("push. refspec {}", refspec);
     let mut branch = Branch::wrap(head_ref);
     let mut remote = repo
@@ -748,7 +754,7 @@ pub fn push(
     let mut callbacks = RemoteCallbacks::new();
     callbacks.update_tips({
         move |updated_ref, oid1, oid2| {
-            debug!(
+            trace!(
                 "updated local references {:?} {:?} {:?}",
                 updated_ref,
                 oid1,
@@ -756,7 +762,7 @@ pub fn push(
             );
             if tracking_remote {
                 let res = branch.set_upstream(Some(&remote_branch));
-                debug!("result on set upstream {:?}", res);
+                trace!("result on set upstream {:?}", res);
             }
             get_upstream(path.clone(), sender.clone());
             // todo what is this?
@@ -765,8 +771,8 @@ pub fn push(
     });
     callbacks.push_update_reference({
         move |ref_name, opt_status| {
-            debug!("push update ref {:?}", ref_name);
-            debug!("push status {:?}", opt_status);
+            trace!("push update ref {:?}", ref_name);
+            trace!("push status {:?}", opt_status);
             // TODO - if status is not None
             // it will need to interact with user
             assert!(opt_status.is_none());
@@ -774,38 +780,38 @@ pub fn push(
         }
     });
     callbacks.credentials(|url, username_from_url, allowed_types| {
-        debug!("auth credentials url {:?}", url);
+        trace!("auth credentials url {:?}", url);
         // "git@github.com:aganzha/stage.git"
-        debug!("auth credentials username_from_url {:?}", username_from_url);
-        debug!("auth credentials allowed_types url {:?}", allowed_types);
+        trace!("auth credentials username_from_url {:?}", username_from_url);
+        trace!("auth credentials allowed_types url {:?}", allowed_types);
         if allowed_types.contains(CredentialType::SSH_KEY) {
             let result = Cred::ssh_key_from_agent(username_from_url.unwrap());
-            debug!("got auth memory result. is it ok? {:?}", result.is_ok());
+            trace!("got auth memory result. is it ok? {:?}", result.is_ok());
             return result;
         }
         todo!("implement other types");
     });
     callbacks.transfer_progress(|progress| {
-        debug!("transfer progress {:?}", progress.received_bytes());
+        trace!("transfer progress {:?}", progress.received_bytes());
         true
     });
     callbacks.sideband_progress(|response| {
-        debug!("bytes from remote {:?}", response);
+        trace!("push.sideband progress {:?}", String::from_utf8_lossy(response));
         true
     });
     callbacks. certificate_check(|cert, error| {
-        debug!("cert error? {:?}", error);
+        trace!("cert error? {:?}", error);
         Ok(CertificateCheckStatus::CertificateOk)
     });
     callbacks.push_update_reference(|re, op| {
-        debug!("push_update_reference {:?} {:?}", re, op);
+        trace!("push_update_reference {:?} {:?}", re, op);
         Ok(())
     });
     callbacks.push_transfer_progress(|s1, s2, s3| {
-        debug!("push_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
+        trace!("push_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
     });
     callbacks.push_negotiation(|update| {
-        debug!("push_negotiation {:?}", update.len());
+        trace!("push_negotiation {:?}", update.len());
         Ok(())
     });
     opts.remote_callbacks(callbacks);
@@ -864,7 +870,7 @@ impl BranchData {
             // name: "origin/HEAD" refname: "refs/remotes/origin/HEAD"
             oid = t;
         } else {
-            debug!(
+            trace!(
                 "ZERO OID -----------------------------> {:?} {:?} {:?} {:?}",
                 target,
                 name,
@@ -921,10 +927,10 @@ pub fn get_refs(path: OsString) -> Vec<BranchData> {
 }
 
 pub fn set_head(path: OsString, refname: &str) -> Result<(), String> {
-    debug!("set head.......{:?}", refname);
+    trace!("set head.......{:?}", refname);
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let result = repo.set_head(refname);
-    debug!("!======================> {:?}", result);
+    trace!("!======================> {:?}", result);
     Ok(())
 }
 
@@ -951,7 +957,7 @@ pub fn checkout(
 ) -> Result<(), String> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     if let Err(err) = git_checkout(repo, oid, refname) {
-        debug!(
+        trace!(
             "err on checkout {:?} {:?} {:?}",
             err.code(),
             err.class(),
@@ -995,7 +1001,7 @@ pub fn kill_branch(
     let mut branch = repo.find_branch(name, kind).expect("can't find branch");
     let result = branch.delete();
     if let Err(err) = result {
-        debug!(
+        trace!(
             "err on checkout {:?} {:?} {:?}",
             err.code(),
             err.class(),
@@ -1011,6 +1017,7 @@ pub fn kill_branch(
     Ok(())
 }
 
+
 pub fn cherry_pick(
     path: OsString,
     branch_data: BranchData,
@@ -1020,7 +1027,7 @@ pub fn cherry_pick(
     let commit = repo.find_commit(branch_data.oid).expect("cant find commit");
     let result = repo.cherrypick(&commit, Some(&mut CherrypickOptions::new()));
     if let Err(err) = result {
-        debug!(
+        trace!(
             "err on checkout {:?} {:?} {:?}",
             err.code(),
             err.class(),

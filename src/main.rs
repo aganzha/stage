@@ -1,9 +1,8 @@
 mod status_view;
-use status_view::{text_view_factory, Status};
+use status_view::{text_view_factory, Status, StatusRenderContext};
 
 mod branches_view;
 use branches_view::{show_branches_window, Event as BranchesEvent};
-
 mod common_tests;
 
 //use std::sync::mpsc::channel;
@@ -42,15 +41,7 @@ use log::{debug, error, info, log_enabled, trace};
 const APP_ID: &str = "com.github.aganzha.stage";
 
 fn main() -> glib::ExitCode {
-    // let pattern = std::env::args().nth(1).expect("no pattern given");
-    // let path = std::env::args().nth(2).expect("no path given");
-    // println!("-------- {:?} -----------------> {:?}", pattern, path);
-    // let arg = std::env::args().nth(1);
-    // let mut path_arg: Option<String> = None;
-    // if let Some(path) = arg {
-    //     path_arg.replace(format!("{}", path));
-    //     println!("----------> {:?}", path);
-    // }
+
     let mut app: Application;
     if let Some(path) = std::env::args().nth(1) {
         app = Application::builder()
@@ -97,7 +88,7 @@ pub enum Event {
     Unstaged(Diff),
     Staged(Diff),
     Head(Head),
-    Upstream(Head),
+    Upstream(Option<Head>),
     State(State),
     Expand(i32, i32),
     Cursor(i32, i32),
@@ -180,6 +171,9 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
+
+            status.context.replace(StatusRenderContext::new());
+            
             match event {
                 Event::CurrentRepo(path) => {
                     current_repo_path.replace(path);
@@ -229,7 +223,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Upstream(h) => {
                     info!("main. upstream");
-                    status.update_upstream(h, &txt);
+                    status.update_upstream(h, &txt);                    
                 }
                 Event::Staged(d) => {
                     info!("main. staged {:p}", &d);
@@ -264,6 +258,12 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     );
                 }
             };
+            
+            // debug!(
+            //     "-----------------------outer match ------------------- {:?}",
+            //     &status.context
+            // );
+            // status.context.take();
         }
     });
 }
