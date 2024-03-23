@@ -148,21 +148,22 @@ impl Hunk {
             .sum()
     }
 
-    pub fn related_to(&self, other: &Hunk, kind: &DiffKind) -> Related {
+    pub fn related_to(&self, other: &Hunk, kind: Option<&DiffKind>) -> Related {
         let (start, lines, other_start, other_lines) = {
             match kind {
-                DiffKind::Staged => (
+                Some(DiffKind::Staged) => (
                     self.new_start,
                     self.new_lines,
                     other.new_start,
                     other.new_lines
                 ),
-                DiffKind::Unstaged => (
+                Some(DiffKind::Unstaged) => (
                     self.old_start,
                     self.old_lines,
                     other.old_start,
                     other.old_lines
-                )
+                ),
+                _ => panic!("no kind in related to")
             }
         };
         debug!(

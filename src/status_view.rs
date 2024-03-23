@@ -2,7 +2,7 @@ pub mod reconciliation;
 use crate::common_tests::*;
 use crate::{
     commit, get_current_repo_status, push, stage_via_apply,
-    ApplyFilter, Diff, File, Head, Hunk, Line, State, View,
+    ApplyFilter, Diff, File, Head, Hunk, Line, State, View, DiffKind
 };
 // use alloc::rc::Rc;
 use std::rc::Rc;
@@ -1094,14 +1094,17 @@ pub enum RenderSource {
 
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext {
-    pub erase_counter: Option<i32>
+    pub erase_counter: Option<i32>,
+    pub diff_kind: Option<DiffKind>
+        
 }
 
 impl StatusRenderContext {
     pub fn new() -> Self {
         return {
             Self {
-                erase_counter: Some(0)
+                erase_counter: None,
+                diff_kind: None
             }
         }
     }
