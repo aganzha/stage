@@ -365,6 +365,7 @@ impl Diff {
     }
 }
 
+
 impl Head {
     // head
     pub fn enrich_view(&mut self, rendered: &Head) {
