@@ -1915,16 +1915,16 @@ mod tests {
         let mut iter = buffer.iter_at_line(0).unwrap();
         buffer.insert(&mut iter, "begin\n");
         let mut diff = create_diff();
-
-        diff.render(&buffer, &mut iter, None);
+        let ctx = &mut Some(StatusRenderContext::new());
+        diff.render(&buffer, &mut iter, None, ctx);
         // if cursor returns true it need to rerender as in Status!
         if diff.cursor(1, false) {
-            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
+            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None, ctx);
         }
 
         // expand first file
         diff.files[0].expand(1);
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
+        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None, ctx);
 
         let content = buffer.slice(
             &mut buffer.start_iter(),
@@ -1949,11 +1949,11 @@ mod tests {
         // put cursor inside first hunk
         if diff.cursor(line_of_line, false) {
             // if comment out next line the line_of_line will be not sqashed
-            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
+            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None, ctx);
         }
         // expand on line inside first hunk
         diff.files[0].expand(line_of_line);
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None);
+        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None, ctx);
 
         let content = buffer.slice(
             &mut buffer.start_iter(),
