@@ -15,7 +15,7 @@ impl Line {
         self.view = rendered.transfer_view();
         if self.content != rendered.content || self.origin != rendered.origin {
             self.view.dirty = true;
-            debug!("*************dirst content in reconciliation {} {} {:?} {:?}", self.content, rendered.content, self.origin, rendered.origin)
+            debug!("*************dirty content in reconciliation: {} <> {} origins: {:?} {:?}", self.content, rendered.content, self.origin, rendered.origin)
         }
     }
     // line
@@ -48,7 +48,9 @@ impl Hunk {
         // all lines are ordered
         let (mut r_ind, mut n_ind) = (0, 0);
         let mut guard = 0;
+        debug!("++++++++++++++++ line roconciliation");
         loop {
+            debug!("++++++loop");
             guard += 1;
             if guard > 20 {
                 debug!("guard");
@@ -150,15 +152,17 @@ impl File {
                 break;
             }
             let n_hunk = &self.hunks[n_ind];
-            let r_hunk = &rendered.hunks[r_ind];
 
+            let r_hunk = &rendered.hunks[r_ind];
+            let r_delta = r_hunk.delta_in_lines();
+            
             // relation of rendered hunk to new one
             let relation = n_hunk.related_to(&r_hunk, kind);
             match relation {
                 Related::Matched => {
-                    debug!("MATCH new: {:?} old: {:?}", n_hunk.header, r_hunk.header);
+                    debug!("HUNKS MATCHED new: {:?} old: {:?}", n_hunk.header, r_hunk.header);
                     let m_n_hunk = &mut self.hunks[n_ind];
-                    let m_r_hunk = &mut rendered.hunks[n_ind];
+                    let m_r_hunk = &mut rendered.hunks[r_ind];
                     m_n_hunk.enrich_view(m_r_hunk, txt);
                     n_ind += 1;
                     r_ind += 1;
@@ -231,21 +235,20 @@ impl File {
                             }
                         }
                         DiffKind::Unstaged => {
-                            // debug!("after in backward direction. erasing hunk which was staged");
                             debug!("^^^^^^^^new hunk is AFTER rendered hunk in UNSTAGED (erasing hunk which was staged)");
                             // hunk was staged and must be erased. means all other rendered hunks
-                            // must increment their old lines cause in erased hunk hunk its lines are no
+                            // must increment their old lines cause in erased hunk its lines are no
                             // longer old.
                             if r_ind < r_le {
                                 let ind = r_ind + 1;
                                 for hunk in &mut rendered.hunks[ind..] {
                                     debug!("<- before erasing UNstaged hunk add delta to remaining hunks {:?} by {:?} lines",
                                            hunk.header,
-                                           n_hunk.delta_in_lines()
+                                           r_delta
                                     );
                                     hunk.old_start = (
                                         (hunk.old_start as i32) + // + !
-                                            n_hunk.delta_in_lines()
+                                            r_delta
                                     ) as u32;
                                 }
                             }
