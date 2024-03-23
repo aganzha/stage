@@ -205,7 +205,6 @@ impl BranchList {
             })
         });
     }
-
     
     pub fn checkout(
         &self,

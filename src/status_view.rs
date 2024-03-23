@@ -805,8 +805,13 @@ pub trait ViewContainer {
         // hm. how to avoid it? lets not avoid it. lets try to pass it,
         // and also put there prev_line length!
         let view = self.get_view();
-        let line_no = view.line_no;
+        let mut line_no = view.line_no;
         debug!("EEEEERRRRAISING! BEFORE {:?} {:?}", line_no, context);
+        if let Some(ctx) = context {
+            if let Some(ec) = ctx.erase_counter {
+                line_no -= ec;
+            }
+        }
         view.squashed = true;
         view.child_dirty = true;
         // debug!("erasing ......{:?}", &view);
