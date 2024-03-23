@@ -157,20 +157,19 @@ impl File {
     pub fn enrich_view(&mut self,
                        rendered: &mut File,
                        txt: &TextView,
-                       kind: &DiffKind,
                        context: &mut Option<crate::StatusRenderContext>) {
+        // if let Some(ctx) = context {
+        //     let mut inc = 1;
+        //     if let Some(ec) = ctx.erase_counter {
+        //         inc += ec;
+        //     }
+        //     ctx.erase_counter.replace(inc);
+        //     debug!("context in file enrich_view +++++++++++++ {:?}", ctx);
+        // }
         self.view = rendered.transfer_view();
-        if let Some(ctx) = context {
-            let mut inc = 1;
-            if let Some(ec) = ctx.erase_counter {
-                inc += ec;
-            }
-            ctx.erase_counter.replace(inc);
-            debug!("context in file enrich_view +++++++++++++ {:?}", ctx);
-        }
 
-        debug!("-- enrich_view for file {:?} hunks {:?}, rendered {:?}, hunks {:?}, kind {:?}",
-               self.path, self.hunks.len(), rendered.path, rendered.hunks.len(), kind);
+        debug!("-- enrich_view for file {:?} hunks {:?}, rendered {:?}, hunks {:?}, context {:?}",
+               self.path, self.hunks.len(), rendered.path, rendered.hunks.len(), context);
 
         if self.hunks.len() == rendered.hunks.len() {
             for pair in zip(&mut self.hunks, &mut rendered.hunks) {
@@ -196,6 +195,13 @@ impl File {
             let r_delta = r_hunk.delta_in_lines();
             
             // relation of rendered hunk to new one
+            let mut kind: Option<&DiffKind> = None;
+            if let Some(ctx) = context {
+                if let Some(knd) = &ctx.diff_kind {
+                    kind.replace(knd);
+                }
+            }
+
             let relation = n_hunk.related_to(&r_hunk, kind);
             match relation {
                 Related::Matched => {
@@ -212,7 +218,7 @@ impl File {
                     // by lines_co of new one
                     debug!("new hunk is before rendered one. new: {:?} old: {:?}", n_hunk.header, r_hunk.header);
                     match kind {
-                        DiffKind::Staged => {
+                        Some(DiffKind::Staged) => {
                             debug!("^^^^^^^^new hunk is before rendered hunk in STAGED");
                             // this is doubtfull...
                             for hunk in &mut rendered.hunks[r_ind..] {
@@ -226,7 +232,7 @@ impl File {
                                 ) as u32;
                             }
                         }
-                        DiffKind::Unstaged => {
+                        Some(DiffKind::Unstaged) => {
                             //staged back to unstaged
                             debug!("^^^^^^^^new hunk is before rendered hunk in UNSTAGED");
                             for hunk in &mut rendered.hunks[r_ind..] {
@@ -246,6 +252,7 @@ impl File {
                                 ) as u32;
                             }
                         }
+                        _ => panic!("no kind in file enrich_view1")
                     }
                     debug!("proceed to next new hunk, but do not touch old_ones");
                     n_ind += 1;
@@ -254,7 +261,7 @@ impl File {
                     debug!("new hunk is AFTER rendered one.  new: {:?} rendered: {:?}", n_hunk.header, r_hunk.header);
                     // if new hunk is after rendered one, then rendered must be erased!
                     match kind {
-                        DiffKind::Staged => {
+                        Some(DiffKind::Staged) => {
                             debug!("^^^^^^^^new hunk is AFTER rendered hunk in STAGED");
                             // hunk was unstaged and must be erased. means all other rendered hunks
                             // must increment their new lines cause in erased hunk its lines
@@ -273,7 +280,7 @@ impl File {
                                 }
                             }
                         }
-                        DiffKind::Unstaged => {
+                        Some(DiffKind::Unstaged) => {
                             debug!("^^^^^^^^new hunk is AFTER rendered hunk in UNSTAGED (erasing hunk which was staged)");
                             // hunk was staged and must be erased. means all other rendered hunks
                             // must increment their old lines cause in erased hunk its lines are no
@@ -292,6 +299,7 @@ impl File {
                                 }
                             }
                         }
+                        _ => panic!("no kind in file enrich_view2")
                     }
                     let m_r_hunk = &mut rendered.hunks[r_ind];
                     debug!("erase AFTER rendered hunk {:?}", m_r_hunk.header);
@@ -339,14 +347,17 @@ impl Diff {
                        txt: &TextView,
                        context: &mut Option<crate::StatusRenderContext>) {
         // here self is new diff, which coming from repo without views
-        if let Some(ctx) = context {
-            let mut inc = 1;
-            if let Some(ec) = ctx.erase_counter {
-                inc += ec;
-            }
-            ctx.erase_counter.replace(inc);
-            debug!("context in diff enrich_view +++++++++++++ {:?}", ctx);
-            // ctx.erase_counter += 1;
+        // if let Some(ctx) = context {
+        //     let mut inc = 1;
+        //     if let Some(ec) = ctx.erase_counter {
+        //         inc += ec;
+        //     }
+        //     ctx.erase_counter.replace(inc);
+        //     debug!("context in diff enrich_view +++++++++++++ {:?}", ctx);
+        //     // ctx.erase_counter += 1;
+        // }
+        if let Some(ctx) = context {            
+            ctx.diff_kind.replace(self.kind.clone());
         }
         debug!("---------------enrich {:?} view in diff. my files {:?}, rendered files {:?}",
                &self.kind,
@@ -357,7 +368,7 @@ impl Diff {
         for file in &mut self.files {
             for of in &mut rendered.files {
                 if file.path == of.path {
-                    file.enrich_view(of, txt, &self.kind, context);
+                    file.enrich_view(of, txt, context);
                     replaces_by_new.insert(file.path.clone());
                 }
             }
