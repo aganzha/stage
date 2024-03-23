@@ -715,12 +715,13 @@ pub fn push(
     tracking_remote: bool,
     sender: Sender<crate::Event>,
 ) {
+    debug!("remote branch {:?}", remote_branch);
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
     trace!("push.head ref name {:?}", head_ref.name());
     assert!(head_ref.is_branch());
-    let refspec = format!("{}:refs/heads/{}", head_ref.name().unwrap(), remote_branch);
-    trace!("push. refspec {}", refspec);
+    let refspec = format!("{}:refs/heads/{}", head_ref.name().unwrap(), remote_branch.replace("origin/", ""));
+    debug!("push. refspec {}", refspec);
     let mut branch = Branch::wrap(head_ref);
     let mut remote = repo
         .find_remote("origin") // TODO here is hardcode
@@ -772,7 +773,7 @@ pub fn push(
         true
     });
     callbacks.sideband_progress(|response| {
-        debug!("bytes from remote {:?}", response);
+        debug!("push.sideband progress {:?}", String::from_utf8_lossy(response));
         true
     });
     callbacks. certificate_check(|cert, error| {
