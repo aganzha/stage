@@ -1092,6 +1092,21 @@ pub enum RenderSource {
     Erase,
 }
 
+#[derive(Debug, Clone)]
+pub struct StatusRenderContext {
+    pub erase_counter: Option<i32>
+}
+
+impl StatusRenderContext {
+    pub fn new() -> Self {
+        return {
+            Self {
+                erase_counter: Some(0)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Status {
     pub head: Option<Head>,
@@ -1103,7 +1118,8 @@ pub struct Status {
     pub unstaged_spacer: Label,
     pub unstaged_label: Label,
     pub unstaged: Option<Diff>,
-    pub rendered: bool,
+    pub rendered: bool, // what it is for ????
+    pub context: Option<StatusRenderContext>
 }
 
 impl Status {
@@ -1123,6 +1139,7 @@ impl Status {
             ),
             unstaged: None,
             rendered: false,
+            context: None::<StatusRenderContext>
         }
     }
 
@@ -1290,7 +1307,7 @@ impl Status {
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(s, txt);
+            diff.enrich_view(s, txt, &mut self.context);
         }
         self.staged.replace(diff);
         if self.staged.is_some() && self.unstaged.is_some() {
@@ -1304,7 +1321,7 @@ impl Status {
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(u, txt);
+            diff.enrich_view(u, txt, &mut self.context);
         }
         self.unstaged.replace(diff);
         if self.staged.is_some() && self.unstaged.is_some() {

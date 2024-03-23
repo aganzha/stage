@@ -11,7 +11,19 @@ use git2::{DiffLineType, RepositoryState};
 
 impl Line {
     // line
-    pub fn enrich_view(&mut self, rendered: &Line) {
+    pub fn enrich_view(&mut self,
+                       rendered: &Line,
+                       context: &mut Option<crate::StatusRenderContext>) {
+        if let Some(ctx) = context {
+            let mut inc = 1;
+            if let Some(ec) = ctx.erase_counter {
+                inc += ec;
+            }
+            ctx.erase_counter.replace(inc);
+            debug!("context in line enrich_view +++++++++++++ {:?}", ctx);
+            // ctx.erase_counter += 1;
+        }
+
         self.view = rendered.transfer_view();
         if self.content != rendered.content || self.origin != rendered.origin {
             self.view.dirty = true;
@@ -37,11 +49,25 @@ impl Hunk {
         clone
     }
     // hunk
-    pub fn enrich_view(&mut self, rendered: &mut Hunk, txt: &TextView) {
+    pub fn enrich_view(&mut
+                       self,
+                       rendered: &mut Hunk,
+                       txt: &TextView,
+                       context: &mut Option<crate::StatusRenderContext>) {
+        if let Some(ctx) = context {
+            let mut inc = 1;
+            if let Some(ec) = ctx.erase_counter {
+                inc += ec;
+            }
+            ctx.erase_counter.replace(inc);
+            debug!("context in hunk enrich view +++++++++++++ {:?}", ctx);
+            // ctx.erase_counter += 1;
+        }
+
         self.view = rendered.transfer_view();
         if self.lines.len() == rendered.lines.len() {
             for pair in zip(&mut self.lines, &rendered.lines) {
-                pair.0.enrich_view(pair.1);
+                pair.0.enrich_view(pair.1, context);
             }
             return;
         }
@@ -67,7 +93,7 @@ impl Hunk {
                     debug!("both lines are changed {:?} {:?}", r_line.hash(), n_line.hash());
                     debug!("r_no n_no {:?} {:?}", r_no, n_no);
                     let m_n_line = &mut self.lines[n_ind];
-                    m_n_line.enrich_view(r_line);
+                    m_n_line.enrich_view(r_line, context);
                     r_ind += 1;
                     n_ind += 1;
                 }
@@ -89,7 +115,7 @@ impl Hunk {
                     debug!("both lines are added {:} {:?}", r_line.hash(), n_line.hash());
                     debug!("r_no n_no _ _");
                     let m_n_line = &mut self.lines[n_ind];
-                    m_n_line.enrich_view(r_line);
+                    m_n_line.enrich_view(r_line, context);
                     r_ind += 1;
                     n_ind += 1;
                 }
@@ -128,14 +154,27 @@ impl Hunk {
 
 impl File {
     // file
-    pub fn enrich_view(&mut self, rendered: &mut File, txt: &TextView, kind: &DiffKind) {
+    pub fn enrich_view(&mut self,
+                       rendered: &mut File,
+                       txt: &TextView,
+                       kind: &DiffKind,
+                       context: &mut Option<crate::StatusRenderContext>) {
         self.view = rendered.transfer_view();
+        if let Some(ctx) = context {
+            let mut inc = 1;
+            if let Some(ec) = ctx.erase_counter {
+                inc += ec;
+            }
+            ctx.erase_counter.replace(inc);
+            debug!("context in file enrich_view +++++++++++++ {:?}", ctx);
+        }
+
         debug!("-- enrich_view for file {:?} hunks {:?}, rendered {:?}, hunks {:?}, kind {:?}",
                self.path, self.hunks.len(), rendered.path, rendered.hunks.len(), kind);
 
         if self.hunks.len() == rendered.hunks.len() {
             for pair in zip(&mut self.hunks, &mut rendered.hunks) {
-                pair.0.enrich_view(pair.1, txt);
+                pair.0.enrich_view(pair.1, txt, context);
             }
             return;
         }
@@ -163,7 +202,7 @@ impl File {
                     debug!("HUNKS MATCHED new: {:?} old: {:?}", n_hunk.header, r_hunk.header);
                     let m_n_hunk = &mut self.hunks[n_ind];
                     let m_r_hunk = &mut rendered.hunks[r_ind];
-                    m_n_hunk.enrich_view(m_r_hunk, txt);
+                    m_n_hunk.enrich_view(m_r_hunk, txt, context);
                     n_ind += 1;
                     r_ind += 1;
                 }
@@ -295,14 +334,30 @@ impl File {
 }
 
 impl Diff {
-    pub fn enrich_view(&mut self, rendered: &mut Diff, txt: &TextView) {
+    pub fn enrich_view(&mut self,
+                       rendered: &mut Diff,
+                       txt: &TextView,
+                       context: &mut Option<crate::StatusRenderContext>) {
         // here self is new diff, which coming from repo without views
-        let mut replaces_by_new = HashSet::new();
-        debug!("---------------enrich view in diff. my files {:?}, rendered files {:?}", self.files.len(), rendered.files.len());
+        if let Some(ctx) = context {
+            let mut inc = 1;
+            if let Some(ec) = ctx.erase_counter {
+                inc += ec;
+            }
+            ctx.erase_counter.replace(inc);
+            debug!("context in diff enrich_view +++++++++++++ {:?}", ctx);
+            // ctx.erase_counter += 1;
+        }
+        debug!("---------------enrich {:?} view in diff. my files {:?}, rendered files {:?}",
+               &self.kind,
+               self.files.len(),
+               rendered.files.len(),
+        );
+        let mut replaces_by_new = HashSet::new();        
         for file in &mut self.files {
             for of in &mut rendered.files {
                 if file.path == of.path {
-                    file.enrich_view(of, txt, &self.kind);
+                    file.enrich_view(of, txt, &self.kind, context);
                     replaces_by_new.insert(file.path.clone());
                 }
             }
@@ -311,7 +366,10 @@ impl Diff {
         debug!("before erasing files. replaced by new {:?} for total files count: {:?}", replaces_by_new, rendered.files.len());
         rendered.files.iter_mut()
             .filter(|f| !replaces_by_new.contains(&f.path))
-            .for_each(|f| f.erase(txt));
+            .for_each(|f| {
+                debug!("context on final lines of diff render view {:?}", context);
+                f.erase(txt)
+            });
     }
 }
 
