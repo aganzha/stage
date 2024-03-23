@@ -1189,11 +1189,14 @@ impl Status {
 
     pub fn choose_remote(&self) -> String {
         if let Some(upstream) = &self.upstream {
+            debug!("-------------------> upstream branch {:?}", upstream.branch.clone());            
             return upstream.branch.clone();
         }
         if let Some(head) = &self.head {
+            debug!("-------------------> head branch");
             return head.branch.clone();
         }
+        debug!("-------------------> Default");
         String::from("origin/master")
     }
 
