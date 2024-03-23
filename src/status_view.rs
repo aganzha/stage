@@ -775,8 +775,14 @@ pub trait ViewContainer {
     // ViewContainer
     fn erase(&mut self, txt: &TextView) {
         // CAUTION. ATTENTION. IMPORTANT
-        // this ONLY rendering
-        // the structure is still there. is it ok?
+        // this ONLY rendering. the data remains
+        // unchaged. means it used to be called just
+        // before replacing data in status struct.
+        // CAUTION. ATTENTION. IMPORTANT
+        // if 1 view is rendered - it is ok.
+        // next render on Status struct will shift all views.
+        // But when erease multiple view in loop, all rest views
+        // in loop must be shifted manually!
         let view = self.get_view();
         let line_no = view.line_no;
         view.squashed = true;
@@ -791,7 +797,9 @@ pub trait ViewContainer {
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
+        debug!("erase one signgle view at line > {:?}", iter.line());
         self.render(&buffer, &mut iter, None);
+        debug!("erase iter line after erase_____ > {:?}", iter.line());
     }
 }
 
