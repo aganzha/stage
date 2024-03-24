@@ -116,15 +116,21 @@ impl Hunk {
             .replace('\n', "")
     }
 
+    pub fn handle_max(&mut self, line: &String) {
+        let le = line.len();
+        if le > self.max_line_len {
+            self.max_line_len = le;
+        }
+    }
+    
     pub fn fill_from(&mut self, dh: &DiffHunk) {
-        self.header = Self::get_header_from(dh);
+        let header = Self::get_header_from(dh);
+        self.handle_max(&header);
+        self.header = header;
         self.old_start = dh.old_start();
         self.old_lines = dh.old_lines();
         self.new_start = dh.new_start();
         self.new_lines = dh.new_lines();
-        if self.header.len() > self.max_line_len {
-            self.max_line_len = self.header.len();
-        }
     }
     
     pub fn reverse_header(header: String) -> String {
@@ -237,9 +243,7 @@ impl Hunk {
             | DiffLineType::HunkHeader
             | DiffLineType::Binary => {}
             _ => {
-                if line.content.len() > self.max_line_len {
-                    self.max_line_len = line.content.len();
-                }
+                self.handle_max(&line.content);
                 self.lines.push(line)
             }
         }

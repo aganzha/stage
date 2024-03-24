@@ -1833,7 +1833,6 @@ mod tests {
             &mut iter,
             "test1".to_string(),
             Vec::new(),
-            None,
             ctx,
         );
         view2.render(
@@ -1841,7 +1840,6 @@ mod tests {
             &mut iter,
             "test2".to_string(),
             Vec::new(),
-            None,
             ctx,
         );
         view3.render(
@@ -1849,7 +1847,6 @@ mod tests {
             &mut iter,
             "test3".to_string(),
             Vec::new(),
-            None,
             ctx,
         );
         assert!(view1.line_no == 1);
@@ -1866,7 +1863,6 @@ mod tests {
             &mut iter,
             "test1".to_string(),
             Vec::new(),
-            None,
             ctx,
         );
         view2.render(
@@ -1874,7 +1870,6 @@ mod tests {
             &mut iter,
             "test2".to_string(),
             Vec::new(),
-            None,
             ctx,
         );
         view3.render(
@@ -1882,7 +1877,6 @@ mod tests {
             &mut iter,
             "test3".to_string(),
             Vec::new(),
-            None,
             ctx,
         );
         assert!(iter.line() == 4);
@@ -1897,7 +1891,6 @@ mod tests {
             &mut iter,
             "test1".to_string(),
             Vec::new(),
-            None,
             ctx,
         );
         assert!(!view1.rendered);
@@ -1911,7 +1904,6 @@ mod tests {
             &mut iter,
             "test1".to_string(),
             Vec::new(),
-            None,
             ctx,
         );
         assert!(iter.line() == 2);
@@ -1923,7 +1915,6 @@ mod tests {
             &mut iter,
             "test2".to_string(),
             Vec::new(),
-            None,
             ctx,
         );
         assert!(!view2.dirty);
@@ -1935,7 +1926,6 @@ mod tests {
             &mut iter,
             "test3".to_string(),
             Vec::new(),
-            None,
             ctx,
         );
         assert!(!view3.squashed);
@@ -1950,7 +1940,6 @@ mod tests {
             &mut iter,
             "test3".to_string(),
             Vec::new(),
-            None,
             ctx,
         );
         assert!(view3.line_no == 3);
@@ -1967,7 +1956,6 @@ mod tests {
             &mut iter,
             "test3".to_string(),
             Vec::new(),
-            None,
             ctx,
         );
         assert!(view3.line_no == 3);
@@ -1984,20 +1972,19 @@ mod tests {
         buffer.insert(&mut iter, "begin\n");
         let mut diff = create_diff();
         let ctx = &mut Some(StatusRenderContext::new());
-        diff.render(&buffer, &mut iter, None, ctx);
+        diff.render(&buffer, &mut iter, ctx);
         // if cursor returns true it need to rerender as in Status!
         if diff.cursor(1, false) {
             diff.render(
                 &buffer,
                 &mut buffer.iter_at_line(1).unwrap(),
-                None,
                 ctx,
             );
         }
 
         // expand first file
         diff.files[0].expand(1);
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None, ctx);
+        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
 
         let content = buffer.slice(
             &mut buffer.start_iter(),
@@ -2013,7 +2000,7 @@ mod tests {
             diff.walk_down(&mut move |vc: &mut dyn ViewContainer| {
                 if vc.get_view().line_no == i as i32 {
                     debug!("{:?} - {:?} = {:?}", i, cl, vc.get_content());
-                    assert!(cl == vc.get_content());
+                    assert!(cl.trim() == vc.get_content());
                 }
             });
         }
@@ -2025,13 +2012,12 @@ mod tests {
             diff.render(
                 &buffer,
                 &mut buffer.iter_at_line(1).unwrap(),
-                None,
                 ctx,
             );
         }
         // expand on line inside first hunk
         diff.files[0].expand(line_of_line);
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), None, ctx);
+        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
 
         let content = buffer.slice(
             &mut buffer.start_iter(),
