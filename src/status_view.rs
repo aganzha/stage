@@ -50,7 +50,7 @@ pub struct StatusRenderContext {
     pub erase_counter: Option<i32>,
     pub diff_kind: Option<DiffKind>,
     pub max_len: Option<i32>,
-    pub screen_width: Option<i32>,
+    pub screen_width: Option<(i32, i32)>,
     pub screen_bounds: Option<(i32, i32, i32, i32)>
 }
 
