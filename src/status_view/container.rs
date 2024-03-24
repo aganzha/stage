@@ -66,7 +66,6 @@ impl ViewContainer for Diff {
     // Diff
     fn expand(&mut self, _line_no: i32) -> Option<i32> {
         todo!("no one calls expand on diff");
-        None
     }
 }
 

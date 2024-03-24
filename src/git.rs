@@ -150,7 +150,6 @@ impl Hunk {
             return header.replace(whole, &result);
         }
         panic!("cant reverse header {}", header);
-        String::from("fail")
     }
     pub fn delta_in_lines(&self) -> i32 {
         // returns how much lines this hunk
@@ -229,7 +228,6 @@ impl Hunk {
                   other_start {:?} other_lines {:?} kind {:?}",
             start, lines, other_start, other_lines, kind
         );
-        Related::After
     }
 
     pub fn title(&self) -> String {
@@ -668,7 +666,6 @@ pub fn stage_via_apply(
             return filter.file_path == path;
         }
         todo!("diff without delta");
-        true
     });
     repo.apply(&git_diff, ApplyLocation::Index, Some(&mut options))
         .expect("can't apply patch");
@@ -955,13 +952,13 @@ pub fn get_refs(path: OsString) -> Vec<BranchData> {
     result
 }
 
-pub fn set_head(path: OsString, refname: &str) -> Result<(), String> {
-    trace!("set head.......{:?}", refname);
-    let repo = Repository::open(path.clone()).expect("can't open repo");
-    let result = repo.set_head(refname);
-    trace!("!======================> {:?}", result);
-    Ok(())
-}
+// pub fn set_head(path: OsString, refname: &str) -> Result<(), String> {
+//     trace!("set head.......{:?}", refname);
+//     let repo = Repository::open(path.clone()).expect("can't open repo");
+//     let result = repo.set_head(refname);
+//     trace!("!======================> {:?}", result);
+//     Ok(())
+// }
 
 fn git_checkout(
     // path: OsString,

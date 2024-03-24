@@ -196,8 +196,6 @@ impl crate::View {
             content,
             self.line_no
         );
-        let mut line_len: Option<i32> = None;
-        // dbg!(&self);
         match self.get_state_for(line_no) {
             ViewState::Hidden => {
                 trace!("skip hidden view");
@@ -215,7 +213,6 @@ impl crate::View {
             ViewState::NotRendered => {
                 trace!("..render MATCH insert {:?}", line_no);
                 let content = self.build_up(&content, context);
-                line_len = Some(content.len() as i32);
                 if self.markup {
                     // let mut encoded = String::new();
                     // html_escape::encode_safe_to_string(&content, &mut encoded);
@@ -233,7 +230,6 @@ impl crate::View {
                 trace!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
                 if !content.is_empty() {
                     let content = self.build_up(&content, context);
-                    line_len = Some(content.len() as i32);
                     self.replace_dirty_content(buffer, iter, &content);
                     self.apply_tags(buffer, &content_tags);
                 } else {
@@ -268,7 +264,6 @@ impl crate::View {
                 self.line_no = line_no;
                 if !content.is_empty() {
                     let content = self.build_up(&content, context);
-                    line_len = Some(content.len() as i32);
                     self.replace_dirty_content(buffer, iter, &content);
                     self.apply_tags(buffer, &content_tags);
                 } else if self.tags.contains(&String::from(CURSOR_TAG)) {
