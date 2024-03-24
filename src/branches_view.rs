@@ -183,25 +183,23 @@ impl BranchList {
                     .collect();
 
                 let le = items.len() as u32;
-                let mut pos = 0;
                 let mut remote_start_pos: Option<u32> = None;
                 let mut selected = 0;
-                for item in items {
+                for (pos, item) in items.into_iter().enumerate() {
                     if remote_start_pos.is_none() && item.imp().branch.borrow().branch_type == BranchType::Remote {
-                        remote_start_pos.replace(pos);
+                        remote_start_pos.replace(pos as u32);
                     }
                     if item.imp().branch.borrow().is_head {
                         selected = pos;
                         item.set_initial_focus(true)
                     }
                     branch_list.imp().list.borrow_mut().push(item);
-                    pos += 1;
                 }
                 branch_list.imp().remote_start_pos.replace(remote_start_pos);
                 branch_list.items_changed(0, 0, le);
                 // works via bind to single_selection selected
-                branch_list.set_proxyselected(selected);
-                branch_list.set_current(selected);
+                branch_list.set_proxyselected(selected as u32);
+                branch_list.set_current(selected as u32);
             })
         });
     }
