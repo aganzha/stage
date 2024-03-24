@@ -48,7 +48,6 @@ pub enum RenderSource {
     Git,
     Cursor(i32),
     Expand(i32),
-    Erase,
 }
 
 #[derive(Debug, Clone)]
@@ -387,7 +386,6 @@ impl Status {
                 // avoid loops on cursor renders
                 self.choose_cursor_position(txt, &buffer, None);
             }
-            _src => {}
         };
     }
 
