@@ -407,10 +407,15 @@ impl View {
         content: &String,
         context: &mut Option<StatusRenderContext>,
     ) -> String {
-        let mut line_content = content.to_string();
+        let line_content = content.to_string();
         if let Some(ctx) = context {
             if let Some(max) = ctx.max_hunk_len {
-                trace!("build_up .............. {:?} {:?} ======= {:?}", max, line_content.len(), line_content);
+                trace!(
+                    "build_up .............. {:?} {:?} ======= {:?}",
+                    max,
+                    line_content.len(),
+                    line_content
+                );
                 let spaces = max as usize - line_content.len();
                 return format!(
                     "{}{}",
@@ -418,7 +423,7 @@ impl View {
                     " ".repeat(spaces).to_string()
                 );
             }
-        }        
+        }
         line_content
     }
 
@@ -445,7 +450,7 @@ impl View {
         match self.get_state_for(line_no) {
             ViewState::Hidden => {
                 trace!("skip hidden view");
-                return self
+                return self;
             }
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
@@ -678,8 +683,7 @@ pub trait ViewContainer {
         Vec::new()
     }
 
-    fn fill_context(&self, _: &mut Option<StatusRenderContext>) {
-    }
+    fn fill_context(&self, _: &mut Option<StatusRenderContext>) {}
 
     // ViewContainer
     fn render(
@@ -691,13 +695,8 @@ pub trait ViewContainer {
         self.fill_context(context);
         let content = self.get_content();
         let tags = self.tags();
-        let view = self.get_view().render(
-            buffer,
-            iter,
-            content,
-            tags,
-            context,
-        );
+        let view =
+            self.get_view().render(buffer, iter, content, tags, context);
         if view.expanded || view.child_dirty {
             for child in self.get_children() {
                 child.render(buffer, iter, context);
@@ -954,7 +953,7 @@ impl ViewContainer for Hunk {
         }
         &mut self.view
     }
-    
+
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
         self.lines
             .iter_mut()
@@ -1159,7 +1158,7 @@ impl StatusRenderContext {
             Self {
                 erase_counter: None,
                 diff_kind: None,
-                max_hunk_len: None
+                max_hunk_len: None,
             }
         };
     }
@@ -1444,16 +1443,10 @@ impl Status {
                 self.unstaged_spacer.view.squashed = true;
                 self.unstaged_label.view.squashed = true;
             }
-            self.unstaged_spacer.render(
-                &buffer,
-                &mut iter,
-                &mut self.context,
-            );
-            self.unstaged_label.render(
-                &buffer,
-                &mut iter,
-                &mut self.context,
-            );
+            self.unstaged_spacer
+                .render(&buffer, &mut iter, &mut self.context);
+            self.unstaged_label
+                .render(&buffer, &mut iter, &mut self.context);
             unstaged.render(&buffer, &mut iter, &mut self.context);
         }
 
@@ -1462,16 +1455,10 @@ impl Status {
                 self.staged_spacer.view.squashed = true;
                 self.staged_label.view.squashed = true;
             }
-            self.staged_spacer.render(
-                &buffer,
-                &mut iter,
-                &mut self.context,
-            );
-            self.staged_label.render(
-                &buffer,
-                &mut iter,
-                &mut self.context,
-            );
+            self.staged_spacer
+                .render(&buffer, &mut iter, &mut self.context);
+            self.staged_label
+                .render(&buffer, &mut iter, &mut self.context);
             staged.render(&buffer, &mut iter, &mut self.context);
         }
         trace!("render source {:?}", source);

@@ -1,9 +1,9 @@
+use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::{Diff, DiffKind, File, Hunk, Line, View};
-use crate::status_view::{ViewContainer, StatusRenderContext};
+use git2::DiffLineType;
 use gtk4::prelude::*;
 use gtk4::TextBuffer;
-use log::{debug};
-use git2::DiffLineType;
+use log::debug;
 
 pub fn create_line(name: String) -> Line {
     let mut line = Line {
@@ -24,8 +24,7 @@ pub fn create_hunk(name: String) -> Hunk {
     for i in 0..3 {
         let content = format!("{} -> line {}", hunk.header, i);
         hunk.handle_max(&content);
-        hunk.lines
-            .push(create_line(content));
+        hunk.lines.push(create_line(content));
     }
     hunk
 }
@@ -241,27 +240,9 @@ mod tests {
 
         let ctx = &mut Some(StatusRenderContext::new());
 
-        view1.render(
-            &buffer,
-            &mut iter,
-            "test1".to_string(),
-            Vec::new(),
-            ctx,
-        );
-        view2.render(
-            &buffer,
-            &mut iter,
-            "test2".to_string(),
-            Vec::new(),
-            ctx,
-        );
-        view3.render(
-            &buffer,
-            &mut iter,
-            "test3".to_string(),
-            Vec::new(),
-            ctx,
-        );
+        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), ctx);
+        view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), ctx);
+        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), ctx);
         assert!(view1.line_no == 1);
         assert!(view2.line_no == 2);
         assert!(view3.line_no == 3);
@@ -271,27 +252,9 @@ mod tests {
         assert!(iter.line() == 4);
         // ------------------ test rendered in line
         iter = buffer.iter_at_line(1).unwrap();
-        view1.render(
-            &buffer,
-            &mut iter,
-            "test1".to_string(),
-            Vec::new(),
-            ctx,
-        );
-        view2.render(
-            &buffer,
-            &mut iter,
-            "test2".to_string(),
-            Vec::new(),
-            ctx,
-        );
-        view3.render(
-            &buffer,
-            &mut iter,
-            "test3".to_string(),
-            Vec::new(),
-            ctx,
-        );
+        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), ctx);
+        view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), ctx);
+        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), ctx);
         assert!(iter.line() == 4);
 
         // ------------------ test deleted
@@ -299,48 +262,24 @@ mod tests {
         view1.squashed = true;
         view1.rendered = false;
 
-        view1.render(
-            &buffer,
-            &mut iter,
-            "test1".to_string(),
-            Vec::new(),
-            ctx,
-        );
+        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), ctx);
         assert!(!view1.rendered);
         // its no longer squashed. is it ok?
         assert!(!view1.squashed);
         // iter was not moved (nothing to delete, view was not rendered)
         assert!(iter.line() == 1);
         // rerender it
-        view1.render(
-            &buffer,
-            &mut iter,
-            "test1".to_string(),
-            Vec::new(),
-            ctx,
-        );
+        view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), ctx);
         assert!(iter.line() == 2);
 
         // -------------------- test dirty
         view2.dirty = true;
-        view2.render(
-            &buffer,
-            &mut iter,
-            "test2".to_string(),
-            Vec::new(),
-            ctx,
-        );
+        view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), ctx);
         assert!(!view2.dirty);
         assert!(iter.line() == 3);
         // -------------------- test squashed
         view3.squashed = true;
-        view3.render(
-            &buffer,
-            &mut iter,
-            "test3".to_string(),
-            Vec::new(),
-            ctx,
-        );
+        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), ctx);
         assert!(!view3.squashed);
         // iter remains on same kine, just squashing view in place
         assert!(iter.line() == 3);
@@ -348,13 +287,7 @@ mod tests {
         view3.line_no = 0;
         view3.dirty = true;
         view3.transfered = true;
-        view3.render(
-            &buffer,
-            &mut iter,
-            "test3".to_string(),
-            Vec::new(),
-            ctx,
-        );
+        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), ctx);
         assert!(view3.line_no == 3);
         assert!(view3.rendered);
         assert!(!view3.dirty);
@@ -364,13 +297,7 @@ mod tests {
         // --------------------- test not in place
         iter = buffer.iter_at_line(3).unwrap();
         view3.line_no = 0;
-        view3.render(
-            &buffer,
-            &mut iter,
-            "test3".to_string(),
-            Vec::new(),
-            ctx,
-        );
+        view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), ctx);
         assert!(view3.line_no == 3);
         assert!(view3.rendered);
         assert!(iter.line() == 4);
@@ -388,11 +315,7 @@ mod tests {
         diff.render(&buffer, &mut iter, ctx);
         // if cursor returns true it need to rerender as in Status!
         if diff.cursor(1, false) {
-            diff.render(
-                &buffer,
-                &mut buffer.iter_at_line(1).unwrap(),
-                ctx,
-            );
+            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
         }
 
         // expand first file
@@ -422,11 +345,7 @@ mod tests {
         // put cursor inside first hunk
         if diff.cursor(line_of_line, false) {
             // if comment out next line the line_of_line will be not sqashed
-            diff.render(
-                &buffer,
-                &mut buffer.iter_at_line(1).unwrap(),
-                ctx,
-            );
+            diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
         }
         // expand on line inside first hunk
         diff.files[0].expand(line_of_line);
