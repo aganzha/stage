@@ -154,6 +154,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
                 wy as i32,
             );
             if let Some(iter) = txt.iter_at_location(x, y) {
+                debug!("--------------> click x and y. iter line and offset {:?} {:?} {:?} {:?}", wx, wy, iter.line(), iter.offset());
                 sndr.send_blocking(crate::Event::Cursor(
                     iter.offset(),
                     iter.line(),

@@ -26,6 +26,7 @@ use glib::{clone, ControlFlow};
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Button,
     CssProvider, ScrolledWindow, STYLE_PROVIDER_PRIORITY_APPLICATION,
+    TextWindowType
 };
 
 use log::{debug, info};
@@ -144,7 +145,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     let txt = text_view_factory(sender.clone());
 
-    let text_view_width = Rc::new(RefCell::<i32>::new(0));
+    let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt_bounds =
         Rc::new(RefCell::<(i32, i32, i32, i32)>::new((0, 0, 0, 0)));
     txt.add_tick_callback({
@@ -152,25 +153,67 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
         let txt_bounds = txt_bounds.clone();
         move |view, _clock| {
             // debug!("add tick callback -------------> {:?}", view.bounds());
-            if view.width() > *text_view_width.borrow() {
-                text_view_width.replace(view.width());
+            let width = view.width();
+            if width > (*text_view_width.borrow()).0 {
+                text_view_width.replace((width, 0));
                 info!(".. {:?}", text_view_width);
-            }
-            let bounds = *txt_bounds.borrow();
-            // debug!("bbbbbbbbbbbbounds before match {:p} {:?}", &txt_bounds, txt_bounds);
-            match (bounds, view.bounds()) {
-                ((0, 0, 0, 0), None) => (),
-                ((0, 0, 0, 0), Some((x, y, width, height))) =>{
-                    debug!("got bounds first time ............{:?} {:?} {:?} {:?}", x, y, width, height);
-                    if x > 0 && y > 0 && width > 0 && height > 0 {
-                        txt_bounds.replace((x, y, width, height));
-                        debug!("hey inside ---- {:p} {:?}", &txt_bounds, txt_bounds);
+                if let Some((mut iter, _over_text)) = view.iter_at_position(1, 1) {
+                    let buff = iter.buffer();
+                    iter.forward_to_line_end();
+                    let mut pos = view.cursor_locations(Some(&iter)).0.x();
+                    while pos < width {
+                        info!("add chars one by one and pos is {:?}", pos);
+                        buff.insert(&mut iter, " ");
+                        pos = view.cursor_locations(Some(&iter)).0.x();
                     }
-                    // bounds.replace((x, y, width, height));
-                   debug!("????????????????? bounds after ---- {:p} {:?}", &bounds, &bounds);
+                    debug!("GOT MAX POS {:?} and iter offset {:?}", pos, iter.offset());
+                    text_view_width.replace((width, iter.offset()));
                 }
-                _ => {}
             }
+            // let bounds = *txt_bounds.borrow();
+            // // debug!("bbbbbbbbbbbbounds before match {:p} {:?}", &txt_bounds, txt_bounds);
+            // match (bounds, view.bounds()) {
+            //     ((0, 0, 0, 0), None) => (),
+            //     ((0, 0, 0, 0), Some((x, y, width, height))) =>{
+            //         debug!("got bounds first time ............{:?} {:?} {:?} {:?}", x, y, width, height);
+            //         if x > 0 && y > 0 && width > 0 && height > 0 {
+            //             txt_bounds.replace((x, y, width, height));
+            //             if let Some((mut iter, over_text)) = view.iter_at_position(1, 1) {
+            //                 let buff = iter.buffer();
+            //                 iter.forward_to_line_end();
+            //                 let mut pos = view.cursor_locations(Some(&iter)).0.x();
+            //                 debug!("iter at 0,0  ------.--=>>>> {:?}. over over_text {:?}", iter.offset(), over_text);
+            //                 debug!("cursor locations 1 {:}", view.cursor_locations(Some(&iter)).0.x());
+            //                 buff.insert(&mut iter, "A");
+            //                 debug!("cursor locations 2 {:}", view.cursor_locations(Some(&iter)).0.x());
+            //                 buff.insert(&mut iter, "B");
+            //                 debug!("cursor locations 3 {:}", view.cursor_locations(Some(&iter)).0.x());
+            //                 buff.insert(&mut iter, "C");
+            //                 debug!("cursor locations 4 {:}", view.cursor_locations(Some(&iter)).0.x());
+
+            //             } else {
+            //                 debug!("NOOOOOOOOOOOOOOOOOOOOO WAY!");
+            //             }
+            //             // i have a screen size here in txt_bounds. but cant got any iter
+            //             // because iter Could be only inside rendered text, not whute space.
+            //             // let (buff_x, buff_y) = view. window_to_buffer_coords(
+            //             //     TextWindowType::Text,
+            //             //     width,
+            //             //     height
+            //             // );
+            //             // let iter = view.iter_at_location(1207, 140);// 1207, 157 works!
+            //             // debug!("hey inside ---- {:p} {:?}. buff x and y {:?} {:?} iter======================={:?}",
+            //             //        &txt_bounds,
+            //             //        txt_bounds,
+            //             //        buff_x,
+            //             //        buff_y,
+            //             //        iter);
+            //         }
+            //         // bounds.replace((x, y, width, height));
+            //        // debug!("????????????????? bounds after ---- {:p} {:?}", &bounds, &bounds);
+            //     }
+            //     _ => {}
+            // }
             ControlFlow::Continue
         }
     });
