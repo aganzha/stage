@@ -1,6 +1,6 @@
 use gtk4::prelude::*;
 use gtk4::{pango, TextBuffer, TextIter, TextTag};
-use log::{trace};
+use log::trace;
 use pango::Style;
 use std::collections::HashSet;
 
@@ -168,11 +168,7 @@ impl crate::View {
                     line_content
                 );
                 let spaces = max as usize - line_content.len();
-                return format!(
-                    "{}{}",
-                    line_content,
-                    " ".repeat(spaces)
-                );
+                return format!("{}{}", line_content, " ".repeat(spaces));
             }
         }
         line_content

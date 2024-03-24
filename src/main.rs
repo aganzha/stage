@@ -7,7 +7,6 @@ use branches_view::{show_branches_window, Event as BranchesEvent};
 //use std::sync::mpsc::channel;
 //use std::sync::mpsc::Sender;
 
-
 mod git;
 use git::{
     checkout, cherry_pick, commit, create_branch, get_current_repo_status,
@@ -18,21 +17,18 @@ mod widgets;
 use widgets::{display_error, get_new_branch_name, make_confirm_dialog};
 
 use libadwaita::prelude::*;
-use libadwaita::{
-    Application, ApplicationWindow, HeaderBar, ToolbarView,
-};
+use libadwaita::{Application, ApplicationWindow, HeaderBar, ToolbarView};
 
 use gdk::Display;
 
-use glib::{clone};
+use glib::clone;
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Button,
-    CssProvider, ScrolledWindow,
-    STYLE_PROVIDER_PRIORITY_APPLICATION,
+    CssProvider, ScrolledWindow, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
-use log::{info};
+use log::info;
 
 const APP_ID: &str = "com.github.aganzha.stage";
 

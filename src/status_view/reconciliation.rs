@@ -2,8 +2,8 @@ use crate::status_view::ViewContainer;
 use crate::{Diff, DiffKind, File, Head, Hunk, Line, Related, State, View};
 use git2::RepositoryState;
 use gtk4::TextView;
-use log::{trace};
-use std::collections::{HashSet};
+use log::trace;
+use std::collections::HashSet;
 use std::iter::zip;
 
 impl Line {

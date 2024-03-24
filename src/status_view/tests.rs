@@ -1,14 +1,12 @@
-
 #[cfg(test)]
 mod tests {
-    use gtk4::prelude::*;
-    use log::{debug};
-    use gtk4::TextBuffer;
+    use crate::status_view::{StatusRenderContext, ViewContainer};
+    use crate::{Diff, DiffKind, File, Hunk, Line, View};
     use git2::DiffLineType;
-    use crate::{Diff, View, Line, File, Hunk, DiffKind};
-    use crate::status_view::{ViewContainer, StatusRenderContext};
+    use gtk4::prelude::*;
+    use gtk4::TextBuffer;
+    use log::debug;
 
-    
     fn create_line(name: String) -> Line {
         let mut line = Line {
             content: String::new(),
