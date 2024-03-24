@@ -6,6 +6,7 @@ use gtk4::{
     gdk, glib, EventControllerKey, EventSequenceState, GestureClick,
     MovementStep, TextIter, TextView, TextWindowType,
 };
+use log::debug;
 
 use crate::status_view::Tag;
 
@@ -82,7 +83,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
     event_controller.connect_key_pressed({
         let buffer = buffer.clone();
         let sndr = sndr.clone();
-        // let txt = txt.clone();
+        let txt = txt.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::Tab, _) => {

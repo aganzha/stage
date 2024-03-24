@@ -49,7 +49,9 @@ pub enum RenderSource {
 pub struct StatusRenderContext {
     pub erase_counter: Option<i32>,
     pub diff_kind: Option<DiffKind>,
-    pub max_hunk_len: Option<i32>,
+    pub max_len: Option<i32>,
+    pub screen_width: Option<i32>,
+    pub screen_bounds: Option<(i32, i32, i32, i32)>
 }
 
 impl Default for StatusRenderContext {
@@ -64,7 +66,9 @@ impl StatusRenderContext {
             Self {
                 erase_counter: None,
                 diff_kind: None,
-                max_hunk_len: None,
+                max_len: None,
+                screen_width: None,
+                screen_bounds: None
             }
         }
     }

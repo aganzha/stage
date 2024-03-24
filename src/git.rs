@@ -260,6 +260,7 @@ pub struct File {
     pub path: OsString,
     pub id: Oid,
     pub hunks: Vec<Hunk>,
+    pub max_line_len: usize,
 }
 
 impl File {
@@ -269,18 +270,25 @@ impl File {
             path: OsString::new(),
             id: Oid::zero(),
             hunks: Vec::new(),
+            max_line_len: 0,
         }
     }
     pub fn from_diff_file(f: &DiffFile) -> Self {
+        let path: OsString = f.path().unwrap().into();
+        let len = path.len();
         return File {
             view: View::new(),
-            path: f.path().unwrap().into(),
+            path: path,
             id: f.id(),
             hunks: Vec::new(),
+            max_line_len: len,
         };
     }
 
     pub fn push_hunk(&mut self, h: Hunk) {
+        if h.max_line_len > self.max_line_len {
+            self.max_line_len = h.max_line_len;
+        }
         self.hunks.push(h);
     }
 
