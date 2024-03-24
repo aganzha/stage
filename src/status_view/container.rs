@@ -400,7 +400,8 @@ pub trait ViewContainer {
     // ViewContainer
     fn expand(&mut self, line_no: i32) -> Option<i32> {
         let mut found_line: Option<i32> = None;
-        if self.get_view().is_rendered_in(line_no) {
+        let v = self.get_view();
+        if v.is_rendered_in(line_no) {
             let view = self.get_view();
             found_line = Some(line_no);
             view.expanded = !view.expanded;
@@ -415,10 +416,7 @@ pub trait ViewContainer {
                     view.squashed = true;
                 }
             });
-        } else if {
-            let view = self.get_view();
-            view.expanded && view.rendered
-        } {
+        } else if v.expanded && v.rendered {
             // go deeper for self.children
             for child in self.get_children() {
                 found_line = child.expand(line_no);
