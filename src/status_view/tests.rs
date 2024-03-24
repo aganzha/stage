@@ -50,7 +50,10 @@ pub fn create_diff() -> Diff {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use log::{debug};
+    use gtk4::TextBuffer;
+    use crate::status_view::{ViewContainer, StatusRenderContext};
+    
     pub fn mock_render_view(
         vc: &mut dyn ViewContainer,
         mut line_no: i32,
