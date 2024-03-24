@@ -145,8 +145,6 @@ impl crate::View {
         self.tags = Vec::new();
         buffer.delete(iter, &mut eol_iter);
         if self.markup {
-            // let mut encoded = String::new();
-            // html_escape::encode_safe_to_string(&content, &mut encoded);
             buffer.insert_markup(iter, content);
         } else {
             buffer.insert(iter, content);

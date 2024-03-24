@@ -13,15 +13,6 @@ impl Line {
         rendered: &Line,
         _context: &mut Option<crate::StatusRenderContext>,
     ) {
-        // if let Some(ctx) = context {
-        //     let mut inc = 1;
-        //     if let Some(ec) = ctx.erase_counter {
-        //         inc += ec;
-        //     }
-        //     ctx.erase_counter.replace(inc);
-        //     trace!("context in line enrich_view +++++++++++++ {:?}", ctx);
-        //     // ctx.erase_counter += 1;
-        // }
 
         self.view = rendered.transfer_view();
         if self.content != rendered.content || self.origin != rendered.origin {
@@ -54,15 +45,6 @@ impl Hunk {
         txt: &TextView,
         context: &mut Option<crate::StatusRenderContext>,
     ) {
-        // if let Some(ctx) = context {
-        //     let mut inc = 1;
-        //     if let Some(ec) = ctx.erase_counter {
-        //         inc += ec;
-        //     }
-        //     ctx.erase_counter.replace(inc);
-        //     trace!("context in hunk enrich view +++++++++++++ {:?}", ctx);
-        //     // ctx.erase_counter += 1;
-        // }
 
         self.view = rendered.transfer_view();
         if self.lines.len() == rendered.lines.len() {
@@ -156,14 +138,6 @@ impl File {
         txt: &TextView,
         context: &mut Option<crate::StatusRenderContext>,
     ) {
-        // if let Some(ctx) = context {
-        //     let mut inc = 1;
-        //     if let Some(ec) = ctx.erase_counter {
-        //         inc += ec;
-        //     }
-        //     ctx.erase_counter.replace(inc);
-        //     trace!("context in file enrich_view +++++++++++++ {:?}", ctx);
-        // }
         self.view = rendered.transfer_view();
 
         trace!("-- enrich_view for file {:?} hunks {:?}, rendered {:?}, hunks {:?}, context {:?}",
@@ -358,16 +332,6 @@ impl Diff {
         txt: &TextView,
         context: &mut Option<crate::StatusRenderContext>,
     ) {
-        // here self is new diff, which coming from repo without views
-        // if let Some(ctx) = context {
-        //     let mut inc = 1;
-        //     if let Some(ec) = ctx.erase_counter {
-        //         inc += ec;
-        //     }
-        //     ctx.erase_counter.replace(inc);
-        //     trace!("context in diff enrich_view +++++++++++++ {:?}", ctx);
-        //     // ctx.erase_counter += 1;
-        // }
         if let Some(ctx) = context {
             ctx.diff_kind.replace(self.kind.clone());
         }
