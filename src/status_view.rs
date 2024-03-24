@@ -16,7 +16,7 @@ use async_channel::Sender;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib,
+    gio,
     ListBox, SelectionMode, TextBuffer, TextView, Window as Gtk4Window,
 };
 
