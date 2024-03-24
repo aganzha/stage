@@ -6,15 +6,12 @@ use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, AlertDialog, Box, Button, CheckButton,
     EventControllerKey, Label, ListHeader, ListItem, ListScrollFlags,
-    ListView, Orientation, ScrolledWindow,
-    SectionModel, SignalListItemFactory, SingleSelection,
-    Spinner, Widget,
+    ListView, Orientation, ScrolledWindow, SectionModel,
+    SignalListItemFactory, SingleSelection, Spinner, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
 use log::{debug, info, trace};
-
-
 
 glib::wrapper! {
     pub struct BranchItem(ObjectSubclass<branch_item::BranchItem>);
@@ -98,7 +95,7 @@ glib::wrapper! {
 }
 
 mod branch_list {
-    
+
     use glib::Properties;
     use gtk4::gio;
     use gtk4::glib;

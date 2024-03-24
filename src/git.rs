@@ -8,9 +8,10 @@ use ffi::OsString;
 use git2::build::CheckoutBuilder;
 use git2::{
     ApplyLocation, ApplyOptions, Branch, BranchType, CertificateCheckStatus,
-    CherrypickOptions, Commit, Cred, CredentialType, Delta, Diff as GitDiff, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
-    DiffOptions, Error, ObjectType, Oid, PushOptions,
-    RemoteCallbacks, Repository, RepositoryState,
+    CherrypickOptions, Commit, Cred, CredentialType, Delta, Diff as GitDiff,
+    DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType, DiffOptions,
+    Error, ObjectType, Oid, PushOptions, RemoteCallbacks, Repository,
+    RepositoryState,
 };
 use log::{debug, trace};
 use regex::Regex;
@@ -346,10 +347,7 @@ impl State {
         if state == RepositoryState::Clean {
             view.hidden = true;
         }
-        Self {
-            state,
-            view,
-        }
+        Self { state, view }
     }
 }
 

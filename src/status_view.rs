@@ -13,21 +13,16 @@ use crate::{
 
 use async_channel::Sender;
 
-
 use gtk4::prelude::*;
 use gtk4::{
-    gio,
-    ListBox, SelectionMode, TextBuffer, TextView, Window as Gtk4Window,
+    gio, ListBox, SelectionMode, TextBuffer, TextView, Window as Gtk4Window,
 };
-
 
 use libadwaita::prelude::*;
 use libadwaita::{EntryRow, SwitchRow};
 use log::{debug, trace};
 
-
 use std::ffi::OsString;
-
 
 #[derive(Debug, Clone, Default)]
 pub struct Label {
@@ -250,7 +245,8 @@ impl Status {
         mut upstream: Option<Head>,
         txt: &TextView,
     ) {
-        if let (Some(current), Some(new)) = (&self.upstream, upstream.as_mut()) {
+        if let (Some(current), Some(new)) = (&self.upstream, upstream.as_mut())
+        {
             new.enrich_view(current);
         }
         self.upstream = upstream;

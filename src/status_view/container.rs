@@ -1,12 +1,8 @@
 use crate::status_view::{Label, Tag};
-use crate::{
-    Diff, File, Head, Hunk, Line, State,
-    StatusRenderContext, View,
-};
+use crate::{Diff, File, Head, Hunk, Line, State, StatusRenderContext, View};
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter, TextView};
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {

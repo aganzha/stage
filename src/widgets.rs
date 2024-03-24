@@ -1,18 +1,13 @@
-
 use libadwaita::prelude::*;
-use libadwaita::{
-    MessageDialog, ResponseAppearance, Window,
-};
+use libadwaita::{MessageDialog, ResponseAppearance, Window};
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
-
 
 use gtk4::{
     glib, AlertDialog, EventControllerKey, TextView, Widget,
     Window as Gtk4Window,
 };
-
 
 pub fn display_error(
     w: &impl IsA<Gtk4Window>, // Application
