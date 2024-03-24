@@ -15,10 +15,13 @@ pub fn create_line(name: String) -> Line {
 
 pub fn create_hunk(name: String) -> Hunk {
     let mut hunk = Hunk::new();
+    hunk.handle_max(&name);
     hunk.header = name.to_string();
     for i in 0..3 {
+        let content = format!("{} -> line {}", hunk.header, i);
+        hunk.handle_max(&content);
         hunk.lines
-            .push(create_line(format!("{} -> line {}", hunk.header, i)))
+            .push(create_line(content));
     }
     hunk
 }
