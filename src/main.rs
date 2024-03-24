@@ -32,7 +32,7 @@ use gtk4::{
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
-use log::{debug, info};
+use log::{info};
 
 const APP_ID: &str = "com.github.aganzha.stage";
 
