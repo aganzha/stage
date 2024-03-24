@@ -1,12 +1,12 @@
 use crate::status_view::{Label, Tag};
 use crate::{
-    Diff, DiffKind, File, Head, Hunk, Line, Related, State,
+    Diff, File, Head, Hunk, Line, State,
     StatusRenderContext, View,
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
-use gtk4::{pango, TextBuffer, TextIter, TextView};
-use log::{debug, trace};
+use gtk4::{TextBuffer, TextIter, TextView};
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
@@ -58,13 +58,13 @@ impl ViewContainer for Diff {
         context: &mut Option<StatusRenderContext>,
     ) {
         self.view.line_no = iter.line();
-        let mut prev_line_len: Option<i32> = None;
+        let _prev_line_len: Option<i32> = None;
         for file in &mut self.files {
             file.render(buffer, iter, context);
         }
     }
     // Diff
-    fn expand(&mut self, line_no: i32) -> Option<i32> {
+    fn expand(&mut self, _line_no: i32) -> Option<i32> {
         todo!("no one calls expand on diff");
         None
     }
@@ -424,11 +424,9 @@ pub trait ViewContainer {
                     break;
                 }
             }
-            if found_line.is_some() {
-                if self.is_expandable_by_child() {
-                    let my_line = self.get_view().line_no;
-                    return self.expand(my_line);
-                }
+            if found_line.is_some() && self.is_expandable_by_child() {
+                let my_line = self.get_view().line_no;
+                return self.expand(my_line);
             }
         }
         found_line

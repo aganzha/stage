@@ -6,7 +6,7 @@ use branches_view::{show_branches_window, Event as BranchesEvent};
 
 //use std::sync::mpsc::channel;
 //use std::sync::mpsc::Sender;
-use async_channel::Sender;
+
 
 mod git;
 use git::{
@@ -19,26 +19,26 @@ use widgets::{display_error, get_new_branch_name, make_confirm_dialog};
 
 use libadwaita::prelude::*;
 use libadwaita::{
-    Application, ApplicationWindow, HeaderBar, ToolbarView, Window,
+    Application, ApplicationWindow, HeaderBar, ToolbarView,
 };
 
 use gdk::Display;
 
-use glib::{clone, MainContext, Priority};
-use gtk4::prelude::*;
+use glib::{clone};
+
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Box, Button,
-    CssProvider, IconTheme, Label, Orientation, ScrolledWindow,
+    gdk, gio, glib, style_context_add_provider_for_display, Button,
+    CssProvider, ScrolledWindow,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
-use log::{debug, error, info, log_enabled, trace};
+use log::{debug, info};
 
 const APP_ID: &str = "com.github.aganzha.stage";
 
 fn main() -> glib::ExitCode {
-    let mut app: Application;
-    if let Some(path) = std::env::args().nth(1) {
+    let app: Application;
+    if let Some(_path) = std::env::args().nth(1) {
         app = Application::builder()
             .application_id(APP_ID)
             .flags(gio::ApplicationFlags::HANDLES_OPEN)
@@ -94,7 +94,7 @@ pub enum Event {
     Branches,
 }
 
-fn run_with_args(app: &Application, files: &[gio::File], blah: &str) {
+fn run_with_args(app: &Application, files: &[gio::File], _blah: &str) {
     let le = files.len();
     if le > 0 {
         if let Some(path) = files[0].path() {

@@ -1,18 +1,18 @@
-use glib::clone;
+
 use libadwaita::prelude::*;
 use libadwaita::{
-    builders, ApplicationWindow, MessageDialog, ResponseAppearance, Window,
+    MessageDialog, ResponseAppearance, Window,
 };
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
 
-use gtk4::prelude::*;
+
 use gtk4::{
     glib, AlertDialog, EventControllerKey, TextView, Widget,
     Window as Gtk4Window,
 };
-use log::{debug, trace};
+
 
 pub fn display_error(
     w: &impl IsA<Gtk4Window>, // Application
@@ -24,7 +24,7 @@ pub fn display_error(
 
 pub fn get_new_branch_name(
     window: &Window,
-    current_branch: &crate::BranchData,
+    _current_branch: &crate::BranchData,
     sndr: Sender<crate::BranchesEvent>,
 ) {
     let txt = TextView::builder()

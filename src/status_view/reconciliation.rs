@@ -2,8 +2,8 @@ use crate::status_view::ViewContainer;
 use crate::{Diff, DiffKind, File, Head, Hunk, Line, Related, State, View};
 use git2::RepositoryState;
 use gtk4::TextView;
-use log::{debug, trace};
-use std::collections::{HashMap, HashSet};
+use log::{trace};
+use std::collections::{HashSet};
 use std::iter::zip;
 
 impl Line {
@@ -11,7 +11,7 @@ impl Line {
     pub fn enrich_view(
         &mut self,
         rendered: &Line,
-        context: &mut Option<crate::StatusRenderContext>,
+        _context: &mut Option<crate::StatusRenderContext>,
     ) {
         // if let Some(ctx) = context {
         //     let mut inc = 1;
@@ -200,7 +200,7 @@ impl File {
                 }
             }
 
-            let relation = n_hunk.related_to(&r_hunk, kind);
+            let relation = n_hunk.related_to(r_hunk, kind);
             match relation {
                 Related::Matched => {
                     trace!(

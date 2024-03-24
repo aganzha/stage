@@ -8,27 +8,26 @@ pub mod tests;
 
 use crate::{
     commit, get_current_repo_status, push, stage_via_apply, ApplyFilter,
-    ApplySubject, Diff, DiffKind, File, Head, Hunk, Line, State, View,
+    ApplySubject, Diff, DiffKind, Head, State, View,
 };
 
 use async_channel::Sender;
-use git2::{DiffLineType, RepositoryState};
-use glib::clone;
+
+
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, EventControllerKey, EventSequenceState, GestureClick,
-    ListBox, MovementStep, SelectionMode, TextBuffer, TextIter, TextView,
-    TextWindowType, Window as Gtk4Window,
+    gio, glib,
+    ListBox, SelectionMode, TextBuffer, TextView, Window as Gtk4Window,
 };
-use std::rc::Rc;
+
 
 use libadwaita::prelude::*;
-use libadwaita::{ApplicationWindow, EntryRow, SwitchRow, Window};
+use libadwaita::{EntryRow, SwitchRow};
 use log::{debug, trace};
-use std::cell::RefCell;
-use std::collections::HashSet;
+
+
 use std::ffi::OsString;
-use std::iter::zip;
+
 
 #[derive(Debug, Clone, Default)]
 pub struct Label {
@@ -59,15 +58,21 @@ pub struct StatusRenderContext {
     pub max_hunk_len: Option<i32>,
 }
 
+impl Default for StatusRenderContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StatusRenderContext {
     pub fn new() -> Self {
-        return {
+        {
             Self {
                 erase_counter: None,
                 diff_kind: None,
                 max_hunk_len: None,
             }
-        };
+        }
     }
 }
 
@@ -196,11 +201,11 @@ impl Status {
     pub fn commit(
         &mut self,
         path: &OsString,
-        txt: &TextView,
+        _txt: &TextView,
         window: &impl IsA<Gtk4Window>,
         sender: Sender<crate::Event>,
     ) {
-        if let Some(_) = &mut self.staged {
+        if self.staged.is_some() {
             let lb = ListBox::builder()
                 .selection_mode(SelectionMode::None)
                 .css_classes(vec![String::from("boxed-list")])
@@ -235,7 +240,7 @@ impl Status {
     pub fn update_head(&mut self, mut head: Head, txt: &TextView) {
         // refactor.enrich
         if let Some(current_head) = &self.head {
-            head.enrich_view(&current_head);
+            head.enrich_view(current_head);
         }
         self.head.replace(head);
         self.render(txt, RenderSource::Git);
@@ -248,7 +253,7 @@ impl Status {
     ) {
         // refactor.enrich
         match (&self.upstream, upstream.as_mut()) {
-            (Some(current), Some(new)) => new.enrich_view(&current),
+            (Some(current), Some(new)) => new.enrich_view(current),
             _ => {}
         }
         self.upstream = upstream;
@@ -308,7 +313,7 @@ impl Status {
     }
 
     // Status
-    pub fn expand(&mut self, txt: &TextView, line_no: i32, offset: i32) {
+    pub fn expand(&mut self, txt: &TextView, line_no: i32, _offset: i32) {
         // let mut changed = false;
         if let Some(unstaged) = &mut self.unstaged {
             for file in &mut unstaged.files {
@@ -382,14 +387,14 @@ impl Status {
                 // avoid loops on cursor renders
                 self.choose_cursor_position(txt, &buffer, None);
             }
-            src => {}
+            _src => {}
         };
     }
 
     pub fn stage(
         &mut self,
-        txt: &TextView,
-        line_no: i32,
+        _txt: &TextView,
+        _line_no: i32,
         path: &OsString,
         subject: ApplySubject,
         sender: Sender<crate::Event>,
