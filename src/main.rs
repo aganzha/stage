@@ -1,5 +1,5 @@
 mod status_view;
-use status_view::{text_view_factory, Status, StatusRenderContext};
+use status_view::{factory::text_view_factory, Status, StatusRenderContext};
 
 mod branches_view;
 use branches_view::{show_branches_window, Event as BranchesEvent};
