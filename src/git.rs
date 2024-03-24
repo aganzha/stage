@@ -533,16 +533,16 @@ pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
             // and we will use old_file instead
             let status = diff_delta.status();
             let file: DiffFile = match status {
-                Delta::Modified => {
-                    // all ok. code below will works
-                    diff_delta.new_file()
-                }
-                Delta::Deleted => {
-                    // all ok. code below will works
-                    diff_delta.old_file()
+                Delta::Modified => diff_delta.new_file(),
+                Delta::Deleted => diff_delta.old_file(),
+                Delta::Added => {
+                    match diff.kind {
+                        DiffKind::Staged => diff_delta.new_file(),
+                        DiffKind::Unstaged => todo!("delta added in unstaged {:?}", diff_delta)
+                    }
                 }
                 _ => {
-                    todo!()
+                    todo!("unhandled status ---> {:?} === {:?}, kind === {:?}", status, diff_delta, diff.kind)
                 }
             };
             let oid = file.id();
