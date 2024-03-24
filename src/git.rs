@@ -84,7 +84,7 @@ pub struct Hunk {
     pub old_lines: u32,
     pub new_lines: u32,
     pub lines: Vec<Line>,
-    pub max_line_len: usize
+    pub max_line_len: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -106,7 +106,7 @@ impl Hunk {
             new_start: 0,
             old_lines: 0,
             new_lines: 0,
-            max_line_len: 0
+            max_line_len: 0,
         }
     }
 
@@ -122,7 +122,7 @@ impl Hunk {
             self.max_line_len = le;
         }
     }
-    
+
     pub fn fill_from(&mut self, dh: &DiffHunk) {
         let header = Self::get_header_from(dh);
         self.handle_max(&header);
@@ -132,7 +132,7 @@ impl Hunk {
         self.new_start = dh.new_start();
         self.new_lines = dh.new_lines();
     }
-    
+
     pub fn reverse_header(header: String) -> String {
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
         // "@@ -20,10 +24,11 @@ STAGING LINE..." -> "@@ -24,11 +20,10 @@ STAGING LINE..."
@@ -535,14 +535,19 @@ pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
             let file: DiffFile = match status {
                 Delta::Modified => diff_delta.new_file(),
                 Delta::Deleted => diff_delta.old_file(),
-                Delta::Added => {
-                    match diff.kind {
-                        DiffKind::Staged => diff_delta.new_file(),
-                        DiffKind::Unstaged => todo!("delta added in unstaged {:?}", diff_delta)
+                Delta::Added => match diff.kind {
+                    DiffKind::Staged => diff_delta.new_file(),
+                    DiffKind::Unstaged => {
+                        todo!("delta added in unstaged {:?}", diff_delta)
                     }
-                }
+                },
                 _ => {
-                    todo!("unhandled status ---> {:?} === {:?}, kind === {:?}", status, diff_delta, diff.kind)
+                    todo!(
+                        "unhandled status ---> {:?} === {:?}, kind === {:?}",
+                        status,
+                        diff_delta,
+                        diff.kind
+                    )
                 }
             };
             let oid = file.id();
