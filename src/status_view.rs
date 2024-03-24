@@ -250,10 +250,8 @@ impl Status {
         mut upstream: Option<Head>,
         txt: &TextView,
     ) {
-        // refactor.enrich
-        match (&self.upstream, upstream.as_mut()) {
-            (Some(current), Some(new)) => new.enrich_view(current),
-            _ => {}
+        if let (Some(current), Some(new)) = (&self.upstream, upstream.as_mut()) {
+            new.enrich_view(current);
         }
         self.upstream = upstream;
         self.render(txt, RenderSource::Git);
