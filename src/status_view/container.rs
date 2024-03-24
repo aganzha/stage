@@ -91,6 +91,18 @@ impl ViewContainer for File {
     fn tags(&self) -> Vec<Tag> {
         vec![Tag::Bold]
     }
+
+    fn fill_context(&self, context: &mut Option<StatusRenderContext>) {
+        if let Some(ctx) = context {
+            if let Some(len) = ctx.max_len {
+                if len < self.max_line_len as i32 {
+                    ctx.max_len.replace(self.max_line_len as i32);
+                }
+            } else {
+                ctx.max_len.replace(self.max_line_len as i32);
+            }
+        }
+    }
 }
 
 impl ViewContainer for Hunk {
@@ -144,12 +156,6 @@ impl ViewContainer for Hunk {
 
     fn is_expandable_by_child(&self) -> bool {
         true
-    }
-
-    fn fill_context(&self, context: &mut Option<StatusRenderContext>) {
-        if let Some(ctx) = context {
-            ctx.max_hunk_len.replace(self.max_line_len as i32);
-        }
     }
 }
 

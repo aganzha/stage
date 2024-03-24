@@ -13,7 +13,6 @@ impl Line {
         rendered: &Line,
         _context: &mut Option<crate::StatusRenderContext>,
     ) {
-
         self.view = rendered.transfer_view();
         if self.content != rendered.content || self.origin != rendered.origin {
             self.view.dirty = true;
@@ -45,7 +44,6 @@ impl Hunk {
         txt: &TextView,
         context: &mut Option<crate::StatusRenderContext>,
     ) {
-
         self.view = rendered.transfer_view();
         if self.lines.len() == rendered.lines.len() {
             for pair in zip(&mut self.lines, &rendered.lines) {

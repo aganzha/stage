@@ -4,8 +4,8 @@ use status_view::{factory::text_view_factory, Status, StatusRenderContext};
 mod branches_view;
 use branches_view::{show_branches_window, Event as BranchesEvent};
 
-//use std::sync::mpsc::channel;
-//use std::sync::mpsc::Sender;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 mod git;
 use git::{
@@ -21,14 +21,14 @@ use libadwaita::{Application, ApplicationWindow, HeaderBar, ToolbarView};
 
 use gdk::Display;
 
-use glib::clone;
+use glib::{clone, ControlFlow};
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Button,
     CssProvider, ScrolledWindow, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
-use log::info;
+use log::{debug, info};
 
 const APP_ID: &str = "com.github.aganzha.stage";
 
@@ -144,6 +144,37 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     let txt = text_view_factory(sender.clone());
 
+    let text_view_width = Rc::new(RefCell::<i32>::new(0));
+    let txt_bounds =
+        Rc::new(RefCell::<Option<(i32, i32, i32, i32)>>::new(None));
+    txt.add_tick_callback({
+        let text_view_width = text_view_width.clone();
+        let txt_bounds = txt_bounds.clone();
+        move |view, _clock| {
+            // debug!("add tick callback -------------> {:?}", view.bounds());
+            if view.width() > *text_view_width.borrow() {
+                text_view_width.replace(view.width());
+                info!(".. {:?}", text_view_width);
+            }
+            let bounds = *txt_bounds.borrow();
+            // debug!("bbbbbbbbbbbbounds before match {:p} {:?}", &txt_bounds, txt_bounds);
+            match (bounds, view.bounds()) {
+                (None, None) => (),
+                (None, Some((x, y, width, height))) =>{
+                    debug!("got bounds first time ............{:?} {:?} {:?} {:?}", x, y, width, height);
+                    if x > 0 && y > 0 && width > 0 && height > 0 {
+                        txt_bounds.replace(Some((x, y, width, height)));
+                        debug!("hey inside ---- {:p} {:?}", &txt_bounds, txt_bounds);
+                    }
+                    // bounds.replace((x, y, width, height));
+                   debug!("????????????????? bounds after ---- {:p} {:?}", &bounds, &bounds);
+                }
+                _ => {}
+            }
+            ControlFlow::Continue
+        }
+    });
+
     let scroll = ScrolledWindow::new();
     scroll.set_child(Some(&txt));
 
@@ -159,8 +190,15 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
-            status.context.replace(StatusRenderContext::new());
-
+            let mut ctx = StatusRenderContext::new();
+            ctx.screen_width.replace(*text_view_width.borrow());
+            //ctx.screen_bounds.replace(*txt_bounds.borrow());
+            status.context.replace(ctx);
+            debug!(
+                "main loop >>>>>>>>>>> {:?} {:?}",
+                status.context, text_view_width
+            );
+            debug!("");
             match event {
                 Event::CurrentRepo(path) => {
                     current_repo_path.replace(path);

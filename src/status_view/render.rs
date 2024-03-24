@@ -1,6 +1,6 @@
 use gtk4::prelude::*;
 use gtk4::{pango, TextBuffer, TextIter, TextTag};
-use log::trace;
+use log::{debug, trace};
 use pango::Style;
 use std::collections::HashSet;
 
@@ -157,14 +157,9 @@ impl crate::View {
         context: &mut Option<crate::StatusRenderContext>,
     ) -> String {
         let line_content = content.to_string();
+        debug!("build_up .............. context {:?}", context);
         if let Some(ctx) = context {
-            if let Some(max) = ctx.max_hunk_len {
-                trace!(
-                    "build_up .............. {:?} {:?} ======= {:?}",
-                    max,
-                    line_content.len(),
-                    line_content
-                );
+            if let Some(max) = ctx.max_len {
                 let spaces = max as usize - line_content.len();
                 return format!("{}{}", line_content, " ".repeat(spaces));
             }
@@ -183,6 +178,7 @@ impl crate::View {
     ) -> &mut Self {
         // important. self.line_no is assigned only in 2 cases
         // below!!!!
+
         let line_no = iter.line();
         trace!(
             "======= line {:?} render view {:?} which is at line {:?}",
