@@ -146,7 +146,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     let text_view_width = Rc::new(RefCell::<i32>::new(0));
     let txt_bounds =
-        Rc::new(RefCell::<Option<(i32, i32, i32, i32)>>::new(None));
+        Rc::new(RefCell::<(i32, i32, i32, i32)>::new((0, 0, 0, 0)));
     txt.add_tick_callback({
         let text_view_width = text_view_width.clone();
         let txt_bounds = txt_bounds.clone();
@@ -159,11 +159,11 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
             let bounds = *txt_bounds.borrow();
             // debug!("bbbbbbbbbbbbounds before match {:p} {:?}", &txt_bounds, txt_bounds);
             match (bounds, view.bounds()) {
-                (None, None) => (),
-                (None, Some((x, y, width, height))) =>{
+                ((0, 0, 0, 0), None) => (),
+                ((0, 0, 0, 0), Some((x, y, width, height))) =>{
                     debug!("got bounds first time ............{:?} {:?} {:?} {:?}", x, y, width, height);
                     if x > 0 && y > 0 && width > 0 && height > 0 {
-                        txt_bounds.replace(Some((x, y, width, height)));
+                        txt_bounds.replace((x, y, width, height));
                         debug!("hey inside ---- {:p} {:?}", &txt_bounds, txt_bounds);
                     }
                     // bounds.replace((x, y, width, height));
@@ -192,7 +192,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
         while let Ok(event) = receiver.recv().await {
             let mut ctx = StatusRenderContext::new();
             ctx.screen_width.replace(*text_view_width.borrow());
-            //ctx.screen_bounds.replace(*txt_bounds.borrow());
+            ctx.screen_bounds.replace(*txt_bounds.borrow());
             status.context.replace(ctx);
             debug!(
                 "main loop >>>>>>>>>>> {:?} {:?}",
