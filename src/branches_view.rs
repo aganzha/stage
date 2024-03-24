@@ -1,20 +1,20 @@
 use async_channel::Sender;
 use git2::BranchType;
-use glib::{clone, closure, types, Object};
+use glib::{clone, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, AlertDialog, Box, Button, CheckButton,
     EventControllerKey, Label, ListHeader, ListItem, ListScrollFlags,
-    ListView, NoSelection, Orientation, PropertyExpression, ScrolledWindow,
-    SectionModel, SelectionModel, SignalListItemFactory, SingleSelection,
-    Spinner, StringList, StringObject, Widget,
+    ListView, Orientation, ScrolledWindow,
+    SectionModel, SignalListItemFactory, SingleSelection,
+    Spinner, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
-use log::{debug, error, info, log_enabled, trace};
-use std::thread;
-use std::time::Duration;
+use log::{debug, info, trace};
+
+
 
 glib::wrapper! {
     pub struct BranchItem(ObjectSubclass<branch_item::BranchItem>);
@@ -98,7 +98,7 @@ glib::wrapper! {
 }
 
 mod branch_list {
-    use crate::debug;
+    
     use glib::Properties;
     use gtk4::gio;
     use gtk4::glib;
@@ -148,7 +148,7 @@ mod branch_list {
                 return None;
             }
             // ??? clone ???
-            return Some(list[position as usize].clone().into());
+            Some(list[position as usize].clone().into())
         }
     }
 
@@ -167,7 +167,7 @@ mod branch_list {
 }
 
 impl BranchList {
-    pub fn new(sender: Sender<crate::Event>) -> Self {
+    pub fn new(_sender: Sender<crate::Event>) -> Self {
         Object::builder().build()
     }
 
@@ -179,7 +179,7 @@ impl BranchList {
                 }).await.expect("Task needs to finish successfully.");
 
                 let items: Vec<BranchItem> = branches.into_iter()
-                    .map(|branch| BranchItem::new(branch))
+                    .map(BranchItem::new)
                     .collect();
 
                 let le = items.len() as u32;
@@ -188,7 +188,7 @@ impl BranchList {
                 let mut selected = 0;
                 for item in items {
                     if remote_start_pos.is_none() && item.imp().branch.borrow().branch_type == BranchType::Remote {
-                        remote_start_pos.replace(pos as u32);
+                        remote_start_pos.replace(pos);
                     }
                     if item.imp().branch.borrow().is_head {
                         selected = pos;
@@ -216,7 +216,7 @@ impl BranchList {
     ) {
         let branch_data = selected_item.imp().branch.borrow();
         let name = branch_data.refname.clone();
-        let oid = branch_data.oid.clone();
+        let oid = branch_data.oid;
 
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window, @weak selected_item, @weak current_item => async move {
@@ -263,7 +263,7 @@ impl BranchList {
                     match git_result {
                         Ok(branch_data) => {
                             debug!("oooooooooooooooooou {:?}", branch_data);
-                            let current_item = branch_list.item(branch_list.current()).unwrap();
+                            let _current_item = branch_list.item(branch_list.current()).unwrap();
                             let branch_item = item.downcast_ref::<BranchItem>().unwrap();
                             branch_item.imp().branch.replace(branch_data);
                             return;
@@ -638,10 +638,10 @@ pub fn make_list_view(
             );
             branch_list.checkout(
                 repo_path.clone(),
-                &activated_branch_item,
+                activated_branch_item,
                 // got panic here!
                 current_item.unwrap(),
-                &window,
+                window,
                 sender.clone(),
             );
         }
@@ -651,7 +651,7 @@ pub fn make_list_view(
 }
 
 pub fn make_headerbar(
-    repo_path: std::ffi::OsString,
+    _repo_path: std::ffi::OsString,
     list_view: &ListView,
     sender: Sender<Event>,
 ) -> HeaderBar {

@@ -1,6 +1,6 @@
 use gtk4::prelude::*;
 use gtk4::{pango, TextBuffer, TextIter, TextTag};
-use log::{debug, trace};
+use log::{trace};
 use pango::Style;
 use std::collections::HashSet;
 
@@ -147,7 +147,7 @@ impl crate::View {
         if self.markup {
             // let mut encoded = String::new();
             // html_escape::encode_safe_to_string(&content, &mut encoded);
-            buffer.insert_markup(iter, &content);
+            buffer.insert_markup(iter, content);
         } else {
             buffer.insert(iter, content);
         }
@@ -171,7 +171,7 @@ impl crate::View {
                 return format!(
                     "{}{}",
                     line_content,
-                    " ".repeat(spaces).to_string()
+                    " ".repeat(spaces)
                 );
             }
         }

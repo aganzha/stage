@@ -1,9 +1,9 @@
-use crate::status_view::{StatusRenderContext, ViewContainer};
+
 use crate::{Diff, DiffKind, File, Hunk, Line, View};
 use git2::DiffLineType;
 use gtk4::prelude::*;
-use gtk4::TextBuffer;
-use log::debug;
+
+
 
 pub fn create_line(name: String) -> Line {
     let mut line = Line {

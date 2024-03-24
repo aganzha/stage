@@ -2,21 +2,20 @@ use crate::gio;
 // use crate::glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
-use chrono::prelude::*;
+
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use ffi::OsString;
 use git2::build::CheckoutBuilder;
 use git2::{
     ApplyLocation, ApplyOptions, Branch, BranchType, CertificateCheckStatus,
-    CherrypickOptions, Commit, Cred, CredentialType, Delta, Diff as GitDiff,
-    DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
-    DiffOptions, Error, ErrorCode, ObjectType, Oid, PushOptions, Reference,
+    CherrypickOptions, Commit, Cred, CredentialType, Delta, Diff as GitDiff, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
+    DiffOptions, Error, ObjectType, Oid, PushOptions,
     RemoteCallbacks, Repository, RepositoryState,
 };
 use log::{debug, trace};
 use regex::Regex;
 use std::cmp::Ordering;
-use std::{env, ffi, iter::zip, path, str};
+use std::{env, ffi, path, str};
 
 fn get_current_repo(
     mut path_buff: path::PathBuf,
@@ -315,7 +314,7 @@ impl Diff {
         Self {
             files: Vec::new(),
             view: View::new(),
-            kind: kind,
+            kind,
         }
     }
 
@@ -350,8 +349,8 @@ impl State {
             view.hidden = true;
         }
         Self {
-            state: state,
-            view: view,
+            state,
+            view,
         }
     }
 }
@@ -376,7 +375,7 @@ impl Head {
 }
 
 pub fn commit_string(c: &Commit) -> String {
-    let message = c.message().unwrap_or("").replace("\n", "");
+    let message = c.message().unwrap_or("").replace('\n', "");
     let mut encoded = String::new();
     html_escape::encode_safe_to_string(&message, &mut encoded);
     format!("{} {}", &c.id().to_string()[..7], encoded)
@@ -511,7 +510,7 @@ impl ApplyFilter {
         Self {
             file_path: String::from(""),
             hunk_header: None,
-            subject: subject,
+            subject,
         }
     }
 }
@@ -829,7 +828,7 @@ pub fn push(
         );
         true
     });
-    callbacks.certificate_check(|cert, error| {
+    callbacks.certificate_check(|_cert, error| {
         trace!("cert error? {:?}", error);
         Ok(CertificateCheckStatus::CertificateOk)
     });
@@ -951,7 +950,7 @@ pub fn get_refs(path: OsString) -> Vec<BranchData> {
         {
             return Ordering::Greater;
         }
-        return b.commit_dt.cmp(&a.commit_dt);
+        b.commit_dt.cmp(&a.commit_dt)
     });
     result
 }
@@ -975,7 +974,7 @@ fn git_checkout(
     let opts = builder.safe();
     let commit = repo.find_commit(oid)?;
     repo.checkout_tree(commit.as_object(), Some(opts))?;
-    repo.set_head(&refname)?;
+    repo.set_head(refname)?;
     Ok(())
 }
 
@@ -1009,7 +1008,7 @@ pub fn create_branch(
     path: OsString,
     new_branch_name: String,
     branch_data: BranchData,
-    sender: Sender<crate::Event>,
+    _sender: Sender<crate::Event>,
 ) -> Result<BranchData, String> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let commit = repo.find_commit(branch_data.oid).expect("cant find commit");
@@ -1023,7 +1022,7 @@ pub fn create_branch(
 pub fn kill_branch(
     path: OsString,
     branch_data: BranchData,
-    sender: Sender<crate::Event>,
+    _sender: Sender<crate::Event>,
 ) -> Result<(), String> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let name = &branch_data.name;
@@ -1069,7 +1068,7 @@ pub fn cherry_pick(
         // }
         return Err(String::from(err.message()));
     }
-    todo!("cherry pick could not change the current branch, cause of merge conflict.
+    debug!("cherry pick could not change the current branch, cause of merge conflict.
           So it need also update status.");
     let state = repo.state();
     let head_ref = repo.head().expect("can't get head");
