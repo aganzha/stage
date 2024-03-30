@@ -250,7 +250,7 @@ pub fn text_view_factory(
                     // resizing window by user action
                     // do need to calc char width every time (perhaps changing window by dragging)
                     // only do it once after 200 mills of LAST resize signal
-                    glib::source::timeout_add_local(Duration::from_millis(200), {
+                    glib::source::timeout_add_local(Duration::from_millis(10), {
                         let text_view_width = text_view_width.clone();
                         let view = view.clone();
                         let sndr = sndr.clone();
