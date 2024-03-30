@@ -3,6 +3,7 @@ use crate::{Diff, File, Head, Hunk, Line, State, StatusRenderContext, View};
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter, TextView};
+use log::{debug, trace};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
@@ -484,5 +485,30 @@ pub trait ViewContainer {
         // debug!("erase one signgle view at line > {:?}", iter.line());
         self.render(&buffer, &mut iter, context);
         // debug!("erase iter line after erase_____ > {:?}", iter.line());
+    }
+
+    fn resize(&mut self,
+              txt: &TextView,
+              context: &mut Option<StatusRenderContext>) {
+        
+        debug!("+++++++++++++++++++++ resize {:?}", context);
+        let view = self.get_view();
+        let line_no = view.line_no;
+        if view.rendered {
+            view.dirty = true;
+            view.child_dirty = true;
+        }
+        self.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            let view = vc.get_view();
+            view.squashed = true;
+            view.dirty = true;
+            view.child_dirty = true;
+        });
+        let buffer = txt.buffer();
+        let mut iter = buffer
+            .iter_at_line(line_no)
+            .expect("can't get iter at line");
+        // debug!("erase one signgle view at line > {:?}", iter.line());
+        self.render(&buffer, &mut iter, context);
     }
 }

@@ -46,6 +46,7 @@ pub enum RenderSource {
     Git,
     Cursor(i32),
     Expand(i32),
+    Resize
 }
 
 #[derive(Debug, Clone)]
@@ -414,10 +415,23 @@ impl Status {
             RenderSource::Git => {
                 // avoid loops on cursor renders
                 self.choose_cursor_position(txt, &buffer, None);
-            }
+            },
+            RenderSource::Resize => {}
         };
     }
 
+    pub fn resize(&mut self, txt: &TextView) {
+        // it need to rerender all highlights and
+        // background to match new window size
+        if let Some(diff) = &mut self.staged {
+            diff.resize(txt, &mut self.context)
+        }
+        if let Some(diff) = &mut self.unstaged {
+            diff.resize(txt, &mut self.context)
+        }
+        self.render(txt, RenderSource::Resize);
+    }
+    
     pub fn stage(
         &mut self,
         _txt: &TextView,
