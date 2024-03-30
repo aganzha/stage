@@ -162,8 +162,12 @@ impl crate::View {
                 if chars > 0 {
                     if chars as usize > line_content.len() {
                         let spaces = chars as usize - line_content.len();
-                        return format!("{}{}", line_content, " ".repeat(spaces));
-                    }                    
+                        return format!(
+                            "{}{}",
+                            line_content,
+                            " ".repeat(spaces)
+                        );
+                    }
                 }
             }
         }

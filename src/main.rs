@@ -25,8 +25,8 @@ use glib::{clone, ControlFlow};
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Button,
-    CssProvider, ScrolledWindow, STYLE_PROVIDER_PRIORITY_APPLICATION,
-    TextWindowType
+    CssProvider, ScrolledWindow, TextWindowType,
+    STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
 use log::{debug, info};
@@ -89,6 +89,7 @@ pub enum Event {
     Commit,
     Push,
     Branches,
+    TextViewResize,
 }
 
 fn run_with_args(app: &Application, files: &[gio::File], _blah: &str) {
@@ -161,10 +162,9 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
-
-            // context is updated on every render 
+            // context is updated on every render
             status.make_context(text_view_width.clone());
-            
+
             match event {
                 Event::CurrentRepo(path) => {
                     current_repo_path.replace(path);
@@ -246,6 +246,12 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                         current_repo_path.as_ref().unwrap(),
                         ApplySubject::Unstage,
                         sender.clone(),
+                    );
+                }
+                Event::TextViewResize => {
+                    debug!(
+                        "rrrrrresize window ----------------_______ {:?}",
+                        status.context
                     );
                 }
             };

@@ -69,7 +69,7 @@ impl StatusRenderContext {
                 erase_counter: None,
                 diff_kind: None,
                 max_len: None,
-                screen_width: None
+                screen_width: None,
             }
         }
     }
@@ -198,14 +198,17 @@ impl Status {
     pub fn update_screen_line_width(&mut self, max_line_len: i32) {
         if let Some(ctx) = &mut self.context {
             if let Some(sw) = ctx.screen_width {
-                debug!("update context by line len {:?} {:?}", sw, max_line_len);
+                debug!(
+                    "update context by line len {:?} {:?}",
+                    sw, max_line_len
+                );
                 if sw.1 < max_line_len {
                     ctx.screen_width.replace((sw.0, max_line_len));
                 }
             }
         }
     }
-    
+
     pub fn choose_remote(&self) -> String {
         if let Some(upstream) = &self.upstream {
             debug!(

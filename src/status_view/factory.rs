@@ -1,16 +1,16 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::status_view::Tag;
 use async_channel::Sender;
+use core::time::Duration;
+use glib::ControlFlow;
 use gtk4::prelude::*;
 use gtk4::{
     gdk, glib, EventControllerKey, EventSequenceState, GestureClick,
     MovementStep, TextIter, TextView, TextWindowType,
 };
-use glib::{ControlFlow};
 use log::debug;
-use crate::status_view::Tag;
-use core::time::Duration;
 
 fn handle_line_offset(
     iter: &mut TextIter,
@@ -63,7 +63,10 @@ fn handle_line_offset(
     }
 }
 
-pub fn text_view_factory(sndr: Sender<crate::Event>, text_view_width: Rc<RefCell<(i32, i32)>>) -> TextView {
+pub fn text_view_factory(
+    sndr: Sender<crate::Event>,
+    text_view_width: Rc<RefCell<(i32, i32)>>,
+) -> TextView {
     let txt = TextView::builder()
         .margin_start(12)
         .margin_end(12)
@@ -85,7 +88,7 @@ pub fn text_view_factory(sndr: Sender<crate::Event>, text_view_width: Rc<RefCell
     event_controller.connect_key_pressed({
         let buffer = buffer.clone();
         let sndr = sndr.clone();
-        let txt = txt.clone();
+        // let txt = txt.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::Tab, _) => {
@@ -216,6 +219,20 @@ pub fn text_view_factory(sndr: Sender<crate::Event>, text_view_width: Rc<RefCell
         }
     });
 
+    let calc_max_char_width = |view: &TextView, width: i32| -> Option<i32> {
+        if let Some((mut iter, _over_text)) = view.iter_at_position(1, 1) {
+            let buff = iter.buffer();
+            iter.forward_to_line_end();
+            let mut pos = view.cursor_locations(Some(&iter)).0.x();
+            while pos < width {
+                buff.insert(&mut iter, " ");
+                pos = view.cursor_locations(Some(&iter)).0.x();
+            }
+            return Some(iter.offset());
+        }
+        None
+    };
+
     txt.add_tick_callback({
         move |view, _clock| {
             let width = view.width();
@@ -223,32 +240,37 @@ pub fn text_view_factory(sndr: Sender<crate::Event>, text_view_width: Rc<RefCell
             if width > 0 && width != stored_width {
                 // resizing window. handle both cases: initial render and further resizing
                 text_view_width.replace((width, 0));
-                if let Some((mut iter, _over_text)) = view.iter_at_position(1, 1) {
-                    let buff = iter.buffer();
-                    iter.forward_to_line_end();
-                    let mut pos = view.cursor_locations(Some(&iter)).0.x();
-                    while pos < width {
-                        buff.insert(&mut iter, " ");
-                        pos = view.cursor_locations(Some(&iter)).0.x();
+                if stored_width == 0 {
+                    // initial render
+                    if let Some(char_width) = calc_max_char_width(&view, width) {
+                        debug!("text view char width {:?}", char_width);
+                        text_view_width.replace((width, char_width));
                     }
-                    text_view_width.replace((width, iter.offset()));
-                    if stored_width > 0 {
-                        // this means resizing window (first render stored_width = 0)
-                        glib::source::timeout_add_local(Duration::from_millis(200), {
-                            let text_view_width = text_view_width.clone();
-                            move || {
-                                if width == text_view_width.borrow().0 {
-                                    debug!("WANDOW WAS RESIZED LETS RERENDER EVERYTHING..............");
+                } else {
+                    // resizing window by user action
+                    // do need to calc char width every time (perhaps changing window by dragging)
+                    // only do it once after 200 mills of LAST resize signal
+                    glib::source::timeout_add_local(Duration::from_millis(200), {
+                        let text_view_width = text_view_width.clone();
+                        let view = view.clone();
+                        let sndr = sndr.clone();
+                        move || {
+                            if width == text_view_width.borrow().0 {
+                                debug!("WANDOW WAS RESIZED LETS RERENDER EVERYTHING..............");
+                                if let Some(char_width) = calc_max_char_width(&view, width) {
+                                    debug!("text view char width IN RESIZE {:?} {:?}", text_view_width, char_width);
+                                    text_view_width.replace((width, char_width));
+                                    sndr.send_blocking(crate::Event::TextViewResize).expect("could not sent through channel");
                                 }
-                                ControlFlow::Break
-                            }});
-                    }
+                            }
+                            ControlFlow::Break
+                        }});
                 }
             }
             ControlFlow::Continue
         }
     });
-    
+
     txt.add_css_class("stage");
     txt.set_monospace(true);
     txt.set_editable(false);
