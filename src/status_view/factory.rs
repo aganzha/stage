@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use async_channel::Sender;
 use gtk4::prelude::*;
@@ -6,6 +7,7 @@ use gtk4::{
     gdk, glib, EventControllerKey, EventSequenceState, GestureClick,
     MovementStep, TextIter, TextView, TextWindowType,
 };
+use glib::{ControlFlow};
 use log::debug;
 
 use crate::status_view::Tag;
@@ -61,7 +63,7 @@ fn handle_line_offset(
     }
 }
 
-pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
+pub fn text_view_factory(sndr: Sender<crate::Event>, text_view_width: Rc<RefCell<(i32, i32)>>) -> TextView {
     let txt = TextView::builder()
         .margin_start(12)
         .margin_end(12)
@@ -213,6 +215,29 @@ pub fn text_view_factory(sndr: Sender<crate::Event>) -> TextView {
             }
         }
     });
+
+    txt.add_tick_callback({
+        move |view, _clock| {
+            let width = view.width();
+            if width > (*text_view_width.borrow()).0 {
+                debug!("tiiiiiiiiiiiiiiiiiiiiick {:?}", view.width());
+                text_view_width.replace((width, 0));
+                if let Some((mut iter, _over_text)) = view.iter_at_position(1, 1) {
+                    let buff = iter.buffer();
+                    iter.forward_to_line_end();
+                    let mut pos = view.cursor_locations(Some(&iter)).0.x();
+                    while pos < width {
+                        buff.insert(&mut iter, " ");
+                        pos = view.cursor_locations(Some(&iter)).0.x();
+                    }
+                    text_view_width.replace((width, iter.offset()));
+                    debug!("replaceeeeeeeeeeeeeeeeeeeeed {:?} {:p}", text_view_width, &text_view_width);
+                }
+            }
+            ControlFlow::Continue
+        }
+    });
+    
     txt.add_css_class("stage");
     txt.set_monospace(true);
     txt.set_editable(false);

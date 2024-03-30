@@ -143,29 +143,8 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     let hb = HeaderBar::new();
     hb.pack_start(&refresh_btn);
 
-    let txt = text_view_factory(sender.clone());
-
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
-    txt.add_tick_callback({
-        let text_view_width = text_view_width.clone();
-        move |view, _clock| {
-            let width = view.width();
-            if width > (*text_view_width.borrow()).0 {
-                text_view_width.replace((width, 0));
-                if let Some((mut iter, _over_text)) = view.iter_at_position(1, 1) {
-                    let buff = iter.buffer();
-                    iter.forward_to_line_end();
-                    let mut pos = view.cursor_locations(Some(&iter)).0.x();
-                    while pos < width {
-                        buff.insert(&mut iter, " ");
-                        pos = view.cursor_locations(Some(&iter)).0.x();
-                    }
-                    text_view_width.replace((width, iter.offset()));
-                }
-            }
-            ControlFlow::Continue
-        }
-    });
+    let txt = text_view_factory(sender.clone(), text_view_width.clone());
 
     let scroll = ScrolledWindow::new();
     scroll.set_child(Some(&txt));
@@ -183,6 +162,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             // context is new on each render cycle
+            debug!("updaaaaaaaaaaaaaaaaaaaaaaaaate {:?} {:p}", text_view_width, &text_view_width);
             status.update_context(*text_view_width.borrow());
             match event {
                 Event::CurrentRepo(path) => {
