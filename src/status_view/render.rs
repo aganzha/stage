@@ -154,14 +154,12 @@ impl crate::View {
     fn build_up(
         &self,
         content: &String,
-        iter: &mut TextIter,
         context: &mut Option<crate::StatusRenderContext>,
     ) -> String {
         let line_content = content.to_string();
         if let Some(ctx) = context {
             if let Some((_pixels, chars)) = ctx.screen_width {
                 if chars > 0 {
-                    debug!("substruct chars {:?} line_content.len {:?}", chars, line_content.len());
                     if chars as usize > line_content.len() {
                         let spaces = chars as usize - line_content.len();
                         return format!("{}{}", line_content, " ".repeat(spaces));
@@ -207,7 +205,7 @@ impl crate::View {
             }
             ViewState::NotRendered => {
                 trace!("..render MATCH insert {:?}", line_no);
-                let content = self.build_up(&content, iter, context);
+                let content = self.build_up(&content, context);
                 if self.markup {
                     // let mut encoded = String::new();
                     // html_escape::encode_safe_to_string(&content, &mut encoded);
@@ -224,7 +222,7 @@ impl crate::View {
             ViewState::RenderedDirtyInPlace => {
                 trace!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
                 if !content.is_empty() {
-                    let content = self.build_up(&content, iter, context);
+                    let content = self.build_up(&content, context);
                     self.replace_dirty_content(buffer, iter, &content);
                     self.apply_tags(buffer, &content_tags);
                 } else {
@@ -258,7 +256,7 @@ impl crate::View {
                 trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
                 self.line_no = line_no;
                 if !content.is_empty() {
-                    let content = self.build_up(&content, iter, context);
+                    let content = self.build_up(&content, context);
                     self.replace_dirty_content(buffer, iter, &content);
                     self.apply_tags(buffer, &content_tags);
                 } else if self.tags.contains(&String::from(CURSOR_TAG)) {

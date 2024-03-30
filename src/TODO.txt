@@ -1,4 +1,4 @@
-BUG: expand first line in unstage. move cursor down - it moves to line end
+BUG: expand first line in unstage. move cursor down - it moves to line end ------------ 22222222222222
 
 BUG: thread 'main' panicked at src/text_view.rs:147:13:
 lines length are not the same 13 12
