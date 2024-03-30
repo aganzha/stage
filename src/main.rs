@@ -161,9 +161,10 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
-            // context is new on each render cycle
-            debug!("updaaaaaaaaaaaaaaaaaaaaaaaaate {:?} {:p}", text_view_width, &text_view_width);
-            status.update_context(*text_view_width.borrow());
+
+            // context is updated on every render 
+            status.update_context(text_view_width.clone());
+            
             match event {
                 Event::CurrentRepo(path) => {
                     current_repo_path.replace(path);
