@@ -323,7 +323,7 @@ impl Diff {
             files: Vec::new(),
             view: View::new(),
             kind,
-            max_line_len: 0
+            max_line_len: 0,
         }
     }
 
