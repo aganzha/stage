@@ -163,7 +163,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
         while let Ok(event) = receiver.recv().await {
 
             // context is updated on every render 
-            status.update_context(text_view_width.clone());
+            status.make_context(text_view_width.clone());
             
             match event {
                 Event::CurrentRepo(path) => {

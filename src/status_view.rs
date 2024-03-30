@@ -180,13 +180,32 @@ impl Status {
             }
         });
     }
-    
-    pub fn update_context(&mut self, text_view_width: Rc<RefCell<(i32, i32)>>) {
+
+    pub fn make_context(&mut self, text_view_width: Rc<RefCell<(i32, i32)>>) {
         let mut ctx = StatusRenderContext::new();
         ctx.screen_width.replace(*text_view_width.borrow());
         self.context.replace(ctx);
+        // lines in diffs could be wider then screen
+        if let Some(diff) = &self.staged {
+            self.update_context(diff.max_line_len);
+        }
+        if let Some(diff) = &self.unstaged {
+            self.update_context(diff.max_line_len);
+        }
+        debug!("just make ctx ........... {:?}", self.context);
     }
 
+    pub fn update_context(&mut self, max_line_len: i32) {
+        if let Some(ctx) = &mut self.context {
+            if let Some(sw) = ctx.screen_width {
+                debug!("update context by line len {:?} {:?}", sw, max_line_len);
+                if sw.1 < max_line_len {
+                    ctx.screen_width.replace((sw.0, max_line_len));
+                }
+            }
+        }
+    }
+    
     pub fn choose_remote(&self) -> String {
         if let Some(upstream) = &self.upstream {
             debug!(
@@ -273,6 +292,7 @@ impl Status {
     }
 
     pub fn update_staged(&mut self, mut diff: Diff, txt: &TextView) {
+        self.update_context(diff.max_line_len);
         if let Some(s) = &mut self.staged {
             // DiffDirection is required here to choose which lines to
             // compare - new_ or old_
@@ -287,6 +307,7 @@ impl Status {
     }
 
     pub fn update_unstaged(&mut self, mut diff: Diff, txt: &TextView) {
+        self.update_context(diff.max_line_len);
         if let Some(u) = &mut self.unstaged {
             // DiffDirection is required here to choose which lines to
             // compare - new_ or old_

@@ -1,5 +1,4 @@
-so. now it just need to compare each build up line length in EITHER content or iter and if it is less than max chars - buildup
-content with spaces. then spces will be inserted to txt and next compare (by iter!) will not add additional spaces!
+BUG: expand first line in unstage. move cursor down - it moves to line end
 
 BUG: thread 'main' panicked at src/text_view.rs:147:13:
 lines length are not the same 13 12
