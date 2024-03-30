@@ -158,22 +158,14 @@ impl crate::View {
         context: &mut Option<crate::StatusRenderContext>,
     ) -> String {
         let line_content = content.to_string();
-        // debug!("build_up .............. context {:?}", context);
-        // match context.screen_width {
-        // }
         if let Some(ctx) = context {
             if let Some((pixels, chars)) = ctx.screen_width {
-                if pixels > 0 {
-                    debug!("build_up ............ -> {:?} {:?}", pixels, chars);
-                }                
+                if chars > 0 {
+                    let spaces = chars as usize - line_content.len();                    
+                    return format!("{}{}", line_content, " ".repeat(spaces));
+                }
             }
         }
-        //     if let Some(width) = context.screen_
-        //     // if let Some(max) = ctx.max_len {
-        //     //     let spaces = max as usize - line_content.len();
-        //     //     return format!("{}{}", line_content, " ".repeat(spaces));
-        //     // }
-        // }
         line_content
     }
 
