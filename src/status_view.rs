@@ -46,7 +46,7 @@ pub enum RenderSource {
     Git,
     Cursor(i32),
     Expand(i32),
-    Resize
+    Resize,
 }
 
 #[derive(Debug, Clone)]
@@ -415,7 +415,7 @@ impl Status {
             RenderSource::Git => {
                 // avoid loops on cursor renders
                 self.choose_cursor_position(txt, &buffer, None);
-            },
+            }
             RenderSource::Resize => {}
         };
     }
@@ -431,7 +431,7 @@ impl Status {
         }
         self.render(txt, RenderSource::Resize);
     }
-    
+
     pub fn stage(
         &mut self,
         _txt: &TextView,

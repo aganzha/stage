@@ -10,7 +10,7 @@ use gtk4::{
     gdk, glib, EventControllerKey, EventSequenceState, GestureClick,
     MovementStep, TextIter, TextView, TextWindowType,
 };
-use log::debug;
+use log::{debug, trace};
 
 fn handle_line_offset(
     iter: &mut TextIter,
@@ -256,9 +256,8 @@ pub fn text_view_factory(
                         let sndr = sndr.clone();
                         move || {
                             if width == text_view_width.borrow().0 {
-                                debug!("WANDOW WAS RESIZED LETS RERENDER EVERYTHING..............");
                                 if let Some(char_width) = calc_max_char_width(&view, width) {
-                                    debug!("text view char width IN RESIZE {:?} {:?}", text_view_width, char_width);
+                                    trace!("text view char width IN resize {:?} {:?}", text_view_width, char_width);
                                     text_view_width.replace((width, char_width));
                                     sndr.send_blocking(crate::Event::TextViewResize).expect("could not sent through channel");
                                 }
