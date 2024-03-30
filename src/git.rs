@@ -84,7 +84,7 @@ pub struct Hunk {
     pub old_lines: u32,
     pub new_lines: u32,
     pub lines: Vec<Line>,
-    pub max_line_len: usize,
+    pub max_line_len: i32,
 }
 
 #[derive(Debug, Clone)]
@@ -117,7 +117,7 @@ impl Hunk {
     }
 
     pub fn handle_max(&mut self, line: &String) {
-        let le = line.len();
+        let le = line.len() as i32;
         if le > self.max_line_len {
             self.max_line_len = le;
         }
@@ -260,7 +260,7 @@ pub struct File {
     pub path: OsString,
     pub id: Oid,
     pub hunks: Vec<Hunk>,
-    pub max_line_len: usize,
+    pub max_line_len: i32,
 }
 
 impl File {
@@ -281,7 +281,7 @@ impl File {
             path: path,
             id: f.id(),
             hunks: Vec::new(),
-            max_line_len: len,
+            max_line_len: len as i32,
         };
     }
 
@@ -314,6 +314,7 @@ pub struct Diff {
     pub files: Vec<File>,
     pub view: View,
     pub kind: DiffKind,
+    pub max_line_len: i32,
 }
 
 impl Diff {
@@ -322,9 +323,18 @@ impl Diff {
             files: Vec::new(),
             view: View::new(),
             kind,
+            max_line_len: 0
         }
     }
 
+    pub fn push_file(&mut self, f: File) {
+        if f.max_line_len > self.max_line_len {
+            self.max_line_len = f.max_line_len;
+        }
+        self.files.push(f);
+    }
+
+    // is it used???
     pub fn add(&mut self, other: Diff) {
         for file in other.files {
             self.files.push(file);
@@ -572,7 +582,7 @@ pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
                 current_file.push_hunk(current_hunk.clone());
                 current_hunk = Hunk::new();
                 // push current_file to diff and change to new file
-                diff.files.push(current_file.clone());
+                diff.push_file(current_file.clone());
                 current_file = File::from_diff_file(&file);
             }
             if let Some(diff_hunk) = o_diff_hunk {
@@ -614,7 +624,7 @@ pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
         current_file.push_hunk(current_hunk);
     }
     if !current_file.path.is_empty() {
-        diff.files.push(current_file);
+        diff.push_file(current_file);
     }
     diff
 }
