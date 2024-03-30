@@ -487,10 +487,11 @@ pub trait ViewContainer {
         // debug!("erase iter line after erase_____ > {:?}", iter.line());
     }
 
-    fn resize(&mut self,
-              txt: &TextView,
-              context: &mut Option<StatusRenderContext>) {
-        
+    fn resize(
+        &mut self,
+        txt: &TextView,
+        context: &mut Option<StatusRenderContext>,
+    ) {
         debug!("+++++++++++++++++++++ resize {:?}", context);
         let view = self.get_view();
         let line_no = view.line_no;
