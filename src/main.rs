@@ -146,74 +146,23 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     let txt = text_view_factory(sender.clone());
 
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
-    let txt_bounds =
-        Rc::new(RefCell::<(i32, i32, i32, i32)>::new((0, 0, 0, 0)));
     txt.add_tick_callback({
         let text_view_width = text_view_width.clone();
-        let txt_bounds = txt_bounds.clone();
         move |view, _clock| {
-            // debug!("add tick callback -------------> {:?}", view.bounds());
             let width = view.width();
             if width > (*text_view_width.borrow()).0 {
                 text_view_width.replace((width, 0));
-                info!(".. {:?}", text_view_width);
                 if let Some((mut iter, _over_text)) = view.iter_at_position(1, 1) {
                     let buff = iter.buffer();
                     iter.forward_to_line_end();
                     let mut pos = view.cursor_locations(Some(&iter)).0.x();
                     while pos < width {
-                        info!("add chars one by one and pos is {:?}", pos);
                         buff.insert(&mut iter, " ");
                         pos = view.cursor_locations(Some(&iter)).0.x();
                     }
-                    debug!("GOT MAX POS {:?} and iter offset {:?}", pos, iter.offset());
                     text_view_width.replace((width, iter.offset()));
                 }
             }
-            // let bounds = *txt_bounds.borrow();
-            // // debug!("bbbbbbbbbbbbounds before match {:p} {:?}", &txt_bounds, txt_bounds);
-            // match (bounds, view.bounds()) {
-            //     ((0, 0, 0, 0), None) => (),
-            //     ((0, 0, 0, 0), Some((x, y, width, height))) =>{
-            //         debug!("got bounds first time ............{:?} {:?} {:?} {:?}", x, y, width, height);
-            //         if x > 0 && y > 0 && width > 0 && height > 0 {
-            //             txt_bounds.replace((x, y, width, height));
-            //             if let Some((mut iter, over_text)) = view.iter_at_position(1, 1) {
-            //                 let buff = iter.buffer();
-            //                 iter.forward_to_line_end();
-            //                 let mut pos = view.cursor_locations(Some(&iter)).0.x();
-            //                 debug!("iter at 0,0  ------.--=>>>> {:?}. over over_text {:?}", iter.offset(), over_text);
-            //                 debug!("cursor locations 1 {:}", view.cursor_locations(Some(&iter)).0.x());
-            //                 buff.insert(&mut iter, "A");
-            //                 debug!("cursor locations 2 {:}", view.cursor_locations(Some(&iter)).0.x());
-            //                 buff.insert(&mut iter, "B");
-            //                 debug!("cursor locations 3 {:}", view.cursor_locations(Some(&iter)).0.x());
-            //                 buff.insert(&mut iter, "C");
-            //                 debug!("cursor locations 4 {:}", view.cursor_locations(Some(&iter)).0.x());
-
-            //             } else {
-            //                 debug!("NOOOOOOOOOOOOOOOOOOOOO WAY!");
-            //             }
-            //             // i have a screen size here in txt_bounds. but cant got any iter
-            //             // because iter Could be only inside rendered text, not whute space.
-            //             // let (buff_x, buff_y) = view. window_to_buffer_coords(
-            //             //     TextWindowType::Text,
-            //             //     width,
-            //             //     height
-            //             // );
-            //             // let iter = view.iter_at_location(1207, 140);// 1207, 157 works!
-            //             // debug!("hey inside ---- {:p} {:?}. buff x and y {:?} {:?} iter======================={:?}",
-            //             //        &txt_bounds,
-            //             //        txt_bounds,
-            //             //        buff_x,
-            //             //        buff_y,
-            //             //        iter);
-            //         }
-            //         // bounds.replace((x, y, width, height));
-            //        // debug!("????????????????? bounds after ---- {:p} {:?}", &bounds, &bounds);
-            //     }
-            //     _ => {}
-            // }
             ControlFlow::Continue
         }
     });
@@ -233,15 +182,8 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
-            let mut ctx = StatusRenderContext::new();
-            ctx.screen_width.replace(*text_view_width.borrow());
-            ctx.screen_bounds.replace(*txt_bounds.borrow());
-            status.context.replace(ctx);
-            debug!(
-                "main loop >>>>>>>>>>> {:?} {:?}",
-                status.context, text_view_width
-            );
-            debug!("");
+            // context is new on each render cycle
+            status.update_context(*text_view_width.borrow());
             match event {
                 Event::CurrentRepo(path) => {
                     current_repo_path.replace(path);

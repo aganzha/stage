@@ -51,7 +51,6 @@ pub struct StatusRenderContext {
     pub diff_kind: Option<DiffKind>,
     pub max_len: Option<i32>,
     pub screen_width: Option<(i32, i32)>,
-    pub screen_bounds: Option<(i32, i32, i32, i32)>
 }
 
 impl Default for StatusRenderContext {
@@ -67,8 +66,7 @@ impl StatusRenderContext {
                 erase_counter: None,
                 diff_kind: None,
                 max_len: None,
-                screen_width: None,
-                screen_bounds: None
+                screen_width: None
             }
         }
     }
@@ -178,6 +176,13 @@ impl Status {
                 }
             }
         });
+    }
+    
+    pub fn update_context(&mut self, text_view_width: (i32, i32)) {
+        debug!("update context with text_view_width {:?}", text_view_width);
+        let mut ctx = StatusRenderContext::new();
+        ctx.screen_width.replace(text_view_width);
+        self.context.replace(ctx);
     }
 
     pub fn choose_remote(&self) -> String {
