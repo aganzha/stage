@@ -249,18 +249,13 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     );
                 }
                 Event::TextViewResize => {
-                    debug!(
-                        "rrrrrresize window ----------------_______ {:?}",
-                        status.context
-                    );
+                    // debug!(
+                    //     "rrrrrresize window ----------------_______ {:?}",
+                    //     status.context
+                    // );
+                    status.resize(&txt);
                 }
             };
-
-            // debug!(
-            //     "-----------------------outer match ------------------- {:?}",
-            //     &status.context
-            // );
-            // status.context.take();
         }
     });
 }
