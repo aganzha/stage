@@ -6,6 +6,9 @@ use render::Tag;
 pub mod reconciliation;
 pub mod tests;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::{
     commit, get_current_repo_status, push, stage_via_apply, ApplyFilter,
     ApplySubject, Diff, DiffKind, Head, State, View,
@@ -178,10 +181,9 @@ impl Status {
         });
     }
     
-    pub fn update_context(&mut self, text_view_width: (i32, i32)) {
-        debug!("update context with text_view_width {:?}", text_view_width);
+    pub fn update_context(&mut self, text_view_width: Rc<RefCell<(i32, i32)>>) {
         let mut ctx = StatusRenderContext::new();
-        ctx.screen_width.replace(text_view_width);
+        ctx.screen_width.replace(*text_view_width.borrow());
         self.context.replace(ctx);
     }
 
