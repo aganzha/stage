@@ -115,6 +115,13 @@ pub fn text_view_factory(
                     ))
                     .expect("Could not send through channel");
                 }
+                (gdk::Key::k, _) => {
+                    let iter = buffer.iter_at_offset(buffer.cursor_position());
+                    sndr.send_blocking(crate::Event::Kill(
+                        iter.offset(),
+                        iter.line(),
+                    )).expect("Could not send through channel");
+                }
                 (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
                     // for ctrl-c
                 }
@@ -129,7 +136,7 @@ pub fn text_view_factory(
                 (gdk::Key::b, _) => {
                     sndr.send_blocking(crate::Event::Branches)
                         .expect("Could not send through channel");
-                }
+                }                
                 (gdk::Key::d, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     println!(
@@ -158,8 +165,7 @@ pub fn text_view_factory(
                 wx as i32,
                 wy as i32,
             );
-            if let Some(iter) = txt.iter_at_location(x, y) {
-                debug!("--------------> click x and y. iter line and offset {:?} {:?} {:?} {:?}", wx, wy, iter.line(), iter.offset());
+            if let Some(iter) = txt.iter_at_location(x, y) {                
                 sndr.send_blocking(crate::Event::Cursor(
                     iter.offset(),
                     iter.line(),
@@ -243,7 +249,6 @@ pub fn text_view_factory(
                 if stored_width == 0 {
                     // initial render
                     if let Some(char_width) = calc_max_char_width(&view, width) {
-                        debug!("text view char width {:?}", char_width);
                         text_view_width.replace((width, char_width));
                     }
                 } else {
