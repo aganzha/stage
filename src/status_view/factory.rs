@@ -9,8 +9,8 @@ use gtk4::{
 };
 use glib::{ControlFlow};
 use log::debug;
-
 use crate::status_view::Tag;
+use core::time::Duration;
 
 fn handle_line_offset(
     iter: &mut TextIter,
@@ -219,8 +219,9 @@ pub fn text_view_factory(sndr: Sender<crate::Event>, text_view_width: Rc<RefCell
     txt.add_tick_callback({
         move |view, _clock| {
             let width = view.width();
-            if width > (*text_view_width.borrow()).0 {
-                debug!("tiiiiiiiiiiiiiiiiiiiiick {:?}", view.width());
+            let stored_width = (*text_view_width.borrow()).0;
+            if width > 0 && width != stored_width {
+                // resizing window. handle both cases: initial render and further resizing
                 text_view_width.replace((width, 0));
                 if let Some((mut iter, _over_text)) = view.iter_at_position(1, 1) {
                     let buff = iter.buffer();
@@ -231,7 +232,17 @@ pub fn text_view_factory(sndr: Sender<crate::Event>, text_view_width: Rc<RefCell
                         pos = view.cursor_locations(Some(&iter)).0.x();
                     }
                     text_view_width.replace((width, iter.offset()));
-                    debug!("replaceeeeeeeeeeeeeeeeeeeeed {:?} {:p}", text_view_width, &text_view_width);
+                    if stored_width > 0 {
+                        // this means resizing window (first render stored_width = 0)
+                        glib::source::timeout_add_local(Duration::from_millis(200), {
+                            let text_view_width = text_view_width.clone();
+                            move || {
+                                if width == text_view_width.borrow().0 {
+                                    debug!("WANDOW WAS RESIZED LETS RERENDER EVERYTHING..............");
+                                }
+                                ControlFlow::Break
+                            }});
+                    }
                 }
             }
             ControlFlow::Continue
