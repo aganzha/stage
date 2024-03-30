@@ -193,16 +193,11 @@ impl Status {
         if let Some(diff) = &self.unstaged {
             self.update_screen_line_width(diff.max_line_len);
         }
-        debug!("just make ctx ........... {:?}", self.context);
     }
 
     pub fn update_screen_line_width(&mut self, max_line_len: i32) {
         if let Some(ctx) = &mut self.context {
-            if let Some(sw) = ctx.screen_width {
-                debug!(
-                    "update context by line len {:?} {:?}",
-                    sw, max_line_len
-                );
+            if let Some(sw) = ctx.screen_width {                
                 if sw.1 < max_line_len {
                     ctx.screen_width.replace((sw.0, max_line_len));
                 }
@@ -442,7 +437,7 @@ impl Status {
     ) {
         // hm. this is very weird code
         match subject {
-            ApplySubject::Stage => {
+            ApplySubject::Stage | ApplySubject::Kill => {
                 if self.unstaged.is_none() {
                     return;
                 }
@@ -456,7 +451,7 @@ impl Status {
 
         let diff = {
             match subject {
-                ApplySubject::Stage => self.unstaged.as_mut().unwrap(),
+                ApplySubject::Stage | ApplySubject::Kill => self.unstaged.as_mut().unwrap(),
                 ApplySubject::Unstage => self.staged.as_mut().unwrap(),
             }
         };

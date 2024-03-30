@@ -509,7 +509,7 @@ pub fn get_current_repo_status(
 pub enum ApplySubject {
     Stage,
     Unstage,
-    //Kill
+    Kill
 }
 
 #[derive(Debug, Clone)]
@@ -637,9 +637,16 @@ pub fn stage_via_apply(
     let repo = Repository::open(path.clone()).expect("can't open repo");
     // get actual diff for repo
     let git_diff = match filter.subject {
-        ApplySubject::Stage => repo
-            .diff_index_to_workdir(None, None)
+        // The index will be used for the “old_file” side of the delta,
+        // and the working directory will be used
+        // for the “new_file” side of the delta.
+        ApplySubject::Stage => repo.diff_index_to_workdir(None, None)
             .expect("can't get diff"),
+        // The tree you pass will be used for the “old_file”
+        // side of the delta, and the index
+        // will be used for the “new_file” side of the delta.
+        // !!!!! SEE reverse below. Means tree will be new side
+        // and index will be old side. Means changes from tree come to index!
         ApplySubject::Unstage => {
             let ob =
                 repo.revparse_single("HEAD^{tree}").expect("fail revparse");
@@ -648,14 +655,27 @@ pub fn stage_via_apply(
             repo.diff_tree_to_index(
                 Some(&current_tree),
                 None,
-                Some(DiffOptions::new().reverse(true)),
+                Some(DiffOptions::new().reverse(true)), // reverse!!!
             )
             .expect("can't get diff")
-        } // ApplySubject::Kill => {
-          //     debug!("kiiiiiiiiiiiiiiill");
-          // }
+        }
+        // The tree you provide will be used for the “old_file”
+        // side of the delta, and the working directory
+        // will be used for the “new_file” side.
+        // !!!!! SEE reverse below. Means tree will be new side
+        // and workdir will be old side. Means changes from tree come to index!
+        ApplySubject::Kill => {
+            let ob =
+                repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+            let current_tree =
+                repo.find_tree(ob.id()).expect("no working tree");
+            repo.diff_tree_to_workdir(
+                Some(&current_tree),
+                Some(DiffOptions::new().reverse(true)), // reverse!!!
+            ).expect("can't get diff in kill")
+        }
     };
-    // filter selected files and hunks
+
     let mut options = ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
@@ -665,7 +685,10 @@ pub fn stage_via_apply(
                 return match filter.subject {
                     ApplySubject::Stage => hunk_header == &header,
                     ApplySubject::Unstage => {
-                        hunk_header == &Hunk::reverse_header(header)
+                        hunk_header == &Hunk::reverse_header(header) // reverse!!!
+                    }
+                    ApplySubject::Kill => {
+                        hunk_header == &Hunk::reverse_header(header) // reverse!!!
                     }
                 };
             }
@@ -683,10 +706,15 @@ pub fn stage_via_apply(
         }
         todo!("diff without delta");
     });
-    repo.apply(&git_diff, ApplyLocation::Index, Some(&mut options))
+    let apply_location = match filter.subject {
+        ApplySubject::Stage | ApplySubject::Unstage => ApplyLocation::Index,
+        ApplySubject::Kill => ApplyLocation::WorkDir
+    };
+
+    repo.apply(&git_diff, apply_location, Some(&mut options))
         .expect("can't apply patch");
 
-    // staged changes
+    // staged changes. not needed in kill, btw.
     gio::spawn_blocking({
         let sender = sender.clone();
         move || {
