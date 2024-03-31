@@ -244,8 +244,16 @@ impl BranchList {
         branch_item.imp().branch.replace(branch_data);
     }
 
-    pub fn get_selected_data(&self) -> crate::BranchData {
+    pub fn get_selected_branch(&self) -> crate::BranchData {
         let pos = self.proxyselected();
+        let item = self.item(pos).unwrap();
+        let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+        let data = branch_item.imp().branch.borrow().clone();
+        data
+    }
+    
+    pub fn get_current_branch(&self) -> crate::BranchData {
+        let pos = self.current();
         let item = self.item(pos).unwrap();
         let branch_item = item.downcast_ref::<BranchItem>().unwrap();
         let data = branch_item.imp().branch.borrow().clone();
@@ -260,7 +268,7 @@ impl BranchList {
     ) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window => async move {
-                let branch_data = branch_list.get_selected_data();
+                let branch_data = branch_list.get_selected_branch();
                 let result = gio::spawn_blocking(move || {
                     crate::cherry_pick(repo_path, branch_data, sender)
                 }).await;
@@ -286,28 +294,41 @@ impl BranchList {
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
+
+        // let btns = vec!["Cancel", "Merge"];        
+        let current_branch = self.get_current_branch();
+        let selected_branch = self.get_selected_branch();
+        let title = format!("branch {} into {}", selected_branch.name, current_branch.name);
+
         glib::spawn_future_local({
-            clone!(@weak self as branch_list, @weak window as window => async move {
-                let branch_data = branch_list.get_selected_data();
-                let result = gio::spawn_blocking(move || {
-                    crate::cherry_pick(repo_path, branch_data, sender)
-                }).await;
-                let mut err_message = String::from("git error");
-                debug!("mmmmmmmmmmmmerge 1 {:?}", result);
-                if let Ok(git_result) = result {
-                    match git_result {
-                        Ok(branch_data) => {
-                            debug!("just merged and this is branch data {:?}", branch_data);
-                            branch_list.update_current_item(branch_data);
-                            return;
+            clone!(@weak self as branch_list, @weak window as window, @strong selected_branch as branch_data => async move {
+                let dialog = crate::make_confirm_dialog(
+                    &window,
+                    Some(&Label::new(Some(&title))),
+                    "Merge",
+                    "Merge"
+                );
+                let result = dialog.choose_future().await;
+                if result == "confirm" {
+                    debug!("thaaaaaaaaaaaaaaaaats result of awaiting dialog {:?}", result);
+                    let result = gio::spawn_blocking(move || {
+                        crate::cherry_pick(repo_path, branch_data, sender)
+                    }).await;
+                    let mut err_message = String::from("git error");
+                    if let Ok(git_result) = result {
+                        match git_result {
+                            Ok(branch_data) => {
+                                debug!("just merged and this is branch data {:?}", branch_data);
+                                branch_list.update_current_item(branch_data);
+                                return;
+                            }
+                            Err(err) => err_message = err
                         }
-                        Err(err) => err_message = err
                     }
-                }
-                debug!("display errorrrrrrrrrrrrrrrrrror! {:?}", err_message);
-                crate::display_error(&window, &err_message);
+                    crate::display_error(&window, &err_message);
+                }                
             })
-        });        
+        });
     }
 
     pub fn kill_branch(
@@ -319,9 +340,7 @@ impl BranchList {
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window => async move {
                 let pos = branch_list.proxyselected();
-                let item = branch_list.item(pos).unwrap();
-                let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                let branch_data = branch_item.imp().branch.borrow().clone();
+                let branch_data = branch_list.get_selected_branch();
                 let kind = branch_data.branch_type;
                 let result = gio::spawn_blocking(move || {
                     crate::kill_branch(repo_path, branch_data, sender)
@@ -791,19 +810,20 @@ pub fn branches_in_use(
         selection_model.downcast_ref::<SingleSelection>().unwrap();
     let list_model = single_selection.model().unwrap();
     let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
+    (branch_list.get_current_branch(),
+     branch_list.get_selected_branch())
+    // let selected_item = branch_list.item(branch_list.proxyselected()).unwrap();
+    // let selected_branch_item =
+    //     selected_item.downcast_ref::<BranchItem>().unwrap();
+    // let selected_branch_data =
+    //     selected_branch_item.imp().branch.borrow().clone();
 
-    let selected_item = branch_list.item(branch_list.proxyselected()).unwrap();
-    let selected_branch_item =
-        selected_item.downcast_ref::<BranchItem>().unwrap();
-    let selected_branch_data =
-        selected_branch_item.imp().branch.borrow().clone();
-
-    let current_item = branch_list.item(branch_list.current()).unwrap();
-    let current_branch_item =
-        current_item.downcast_ref::<BranchItem>().unwrap();
-    let current_branch_data =
-        current_branch_item.imp().branch.borrow().clone();
-    (current_branch_data, selected_branch_data)
+    // let current_item = branch_list.item(branch_list.current()).unwrap();
+    // let current_branch_item =
+    //     current_item.downcast_ref::<BranchItem>().unwrap();
+    // let current_branch_data =
+    //     current_branch_item.imp().branch.borrow().clone();
+    // (current_branch_data, selected_branch_data)
 }
 
 pub fn show_branches_window(
@@ -915,36 +935,10 @@ pub fn show_branches_window(
                         &window,
                         main_sender.clone(),
                     );
-                    // let selection_model = list_view.model().unwrap();
-                    // let single_selection = selection_model
-                    //     .downcast_ref::<SingleSelection>()
-                    //     .unwrap();
-                    // let item = single_selection.selected_item();
-                    // if let Some(item) = item {
-                    //     if !item
-                    //         .downcast_ref::<BranchItem>()
-                    //         .unwrap()
-                    //         .is_head()
-                    //     {
-                    //         let list_model = single_selection.model().unwrap();
-                    //         let branch_list = list_model
-                    //             .downcast_ref::<BranchList>()
-                    //             .unwrap();
-                    //         branch_list.kill_branch(
-                    //             repo_path.clone(),
-                    //             &window,
-                    //             main_sender.clone(),
-                    //         );
-                    //     }
-                    // }
+
                 }
                 Event::MergeRequest => {
                     info!("branches. merge request");
-                    // let (current_branch, selected_branch) = branches_in_use(&list_view);
-                    // debug!(
-                    //     "==========================> {:?} {:?}",
-                    //     current_branch, selected_branch
-                    // );
                     let branch_list = get_branch_list(&list_view);
                     branch_list.merge(
                         repo_path.clone(),
@@ -969,13 +963,6 @@ pub fn show_branches_window(
                         ))
                         .build();
                     let branch_list = get_branch_list(&list_view);
-                    // let selection_model = list_view.model().unwrap();
-                    // let single_selection = selection_model
-                    //     .downcast_ref::<SingleSelection>()
-                    //     .unwrap();
-                    // let list_model = single_selection.model().unwrap();
-                    // let branch_list =
-                    //     list_model.downcast_ref::<BranchList>().unwrap();
                     alert.choose(Some(&window), None::<&gio::Cancellable>, {
                         let path = repo_path.clone();
                         let window = window.clone();
