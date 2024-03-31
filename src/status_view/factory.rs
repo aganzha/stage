@@ -120,7 +120,8 @@ pub fn text_view_factory(
                     sndr.send_blocking(crate::Event::Kill(
                         iter.offset(),
                         iter.line(),
-                    )).expect("Could not send through channel");
+                    ))
+                    .expect("Could not send through channel");
                 }
                 (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
                     // for ctrl-c
@@ -136,7 +137,7 @@ pub fn text_view_factory(
                 (gdk::Key::b, _) => {
                     sndr.send_blocking(crate::Event::Branches)
                         .expect("Could not send through channel");
-                }                
+                }
                 (gdk::Key::d, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     println!(
@@ -165,7 +166,7 @@ pub fn text_view_factory(
                 wx as i32,
                 wy as i32,
             );
-            if let Some(iter) = txt.iter_at_location(x, y) {                
+            if let Some(iter) = txt.iter_at_location(x, y) {
                 sndr.send_blocking(crate::Event::Cursor(
                     iter.offset(),
                     iter.line(),
@@ -195,13 +196,13 @@ pub fn text_view_factory(
                     start_iter.forward_word_end();
                 }
                 MovementStep::DisplayLines => {
-                    let loffset = start_iter.line_offset();
+                    // let loffset = start_iter.line_offset();
                     start_iter.forward_lines(count);
-                    handle_line_offset(
-                        &mut start_iter,
-                        loffset,
-                        &latest_char_offset,
-                    );
+                    // handle_line_offset(
+                    //     &mut start_iter,
+                    //     loffset,
+                    //     &latest_char_offset,
+                    // );
                 }
                 MovementStep::DisplayLineEnds
                 | MovementStep::Paragraphs

@@ -251,7 +251,7 @@ impl BranchList {
         let data = branch_item.imp().branch.borrow().clone();
         data
     }
-    
+
     pub fn get_current_branch(&self) -> crate::BranchData {
         let pos = self.current();
         let item = self.item(pos).unwrap();
@@ -287,21 +287,25 @@ impl BranchList {
             })
         });
     }
-    
+
     pub fn merge(
         &self,
         repo_path: std::ffi::OsString,
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
-
-        // let btns = vec!["Cancel", "Merge"];        
+        // let btns = vec!["Cancel", "Merge"];
         let current_branch = self.get_current_branch();
         let selected_branch = self.get_selected_branch();
-        let title = format!("branch {} into {}", selected_branch.name, current_branch.name);
+        let title = format!(
+            "branch {} into {}",
+            selected_branch.name, current_branch.name
+        );
 
         glib::spawn_future_local({
-            clone!(@weak self as branch_list, @weak window as window, @strong selected_branch as branch_data => async move {
+            clone!(@weak self as branch_list,
+                   @weak window as window,
+                   @strong selected_branch as branch_data => async move {
                 let dialog = crate::make_confirm_dialog(
                     &window,
                     Some(&Label::new(Some(&title))),
@@ -326,7 +330,7 @@ impl BranchList {
                         }
                     }
                     crate::display_error(&window, &err_message);
-                }                
+                }
             })
         });
     }
@@ -794,9 +798,8 @@ pub enum Event {
 
 pub fn get_branch_list(list_view: &ListView) -> BranchList {
     let selection_model = list_view.model().unwrap();
-    let single_selection = selection_model
-        .downcast_ref::<SingleSelection>()
-        .unwrap();
+    let single_selection =
+        selection_model.downcast_ref::<SingleSelection>().unwrap();
     let list_model = single_selection.model().unwrap();
     let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
     branch_list.to_owned()
@@ -810,8 +813,10 @@ pub fn branches_in_use(
         selection_model.downcast_ref::<SingleSelection>().unwrap();
     let list_model = single_selection.model().unwrap();
     let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
-    (branch_list.get_current_branch(),
-     branch_list.get_selected_branch())
+    (
+        branch_list.get_current_branch(),
+        branch_list.get_selected_branch(),
+    )
     // let selected_item = branch_list.item(branch_list.proxyselected()).unwrap();
     // let selected_branch_item =
     //     selected_item.downcast_ref::<BranchItem>().unwrap();
@@ -935,7 +940,6 @@ pub fn show_branches_window(
                         &window,
                         main_sender.clone(),
                     );
-
                 }
                 Event::MergeRequest => {
                     info!("branches. merge request");
@@ -948,7 +952,8 @@ pub fn show_branches_window(
                 }
                 Event::CherryPickRequest => {
                     info!("branches. cherry-pick request");
-                    let (current_branch, selected_branch) = branches_in_use(&list_view);
+                    let (current_branch, selected_branch) =
+                        branches_in_use(&list_view);
                     debug!(
                         "==========================> {:?} {:?}",
                         current_branch, selected_branch

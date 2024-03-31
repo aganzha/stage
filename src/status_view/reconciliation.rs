@@ -2,7 +2,7 @@ use crate::status_view::ViewContainer;
 use crate::{Diff, DiffKind, File, Head, Hunk, Line, Related, State, View};
 use git2::RepositoryState;
 use gtk4::TextView;
-use log::{trace, debug};
+use log::{debug, trace};
 use std::collections::HashSet;
 use std::iter::zip;
 
@@ -168,21 +168,21 @@ impl File {
                 if let Some(knd) = &ctx.diff_kind {
                     if (n_hunk.new_start == r_hunk.new_start
                         && knd == &DiffKind::Staged)
-                        ||
-                        (n_hunk.old_start == r_hunk.old_start
-                         && knd == &DiffKind::Unstaged) {
-                            debug!(
-                                "HUNKS MATCHED new: {:?} old: {:?}",
-                                n_hunk.header,
-                                r_hunk.header
-                            );
-                            let m_n_hunk = &mut self.hunks[n_ind];
-                            let m_r_hunk = &mut rendered.hunks[r_ind];
-                            m_n_hunk.enrich_view(m_r_hunk, txt, context);
-                            n_ind += 1;
-                            r_ind += 1;
-                        }
-                    else if knd == &DiffKind::Staged && n_hunk.new_start < r_hunk.new_start {
+                        || (n_hunk.old_start == r_hunk.old_start
+                            && knd == &DiffKind::Unstaged)
+                    {
+                        debug!(
+                            "HUNKS MATCHED new: {:?} old: {:?}",
+                            n_hunk.header, r_hunk.header
+                        );
+                        let m_n_hunk = &mut self.hunks[n_ind];
+                        let m_r_hunk = &mut rendered.hunks[r_ind];
+                        m_n_hunk.enrich_view(m_r_hunk, txt, context);
+                        n_ind += 1;
+                        r_ind += 1;
+                    } else if knd == &DiffKind::Staged
+                        && n_hunk.new_start < r_hunk.new_start
+                    {
                         debug!("^^^^^^^^new hunk is BEFORE rendered hunk in STAGED");
                         for hunk in &mut rendered.hunks[r_ind..] {
                             debug!(
@@ -191,12 +191,13 @@ impl File {
                                 n_hunk.delta_in_lines()
                             );
                             hunk.new_start = ((hunk.new_start as i32)
-                                              + n_hunk.delta_in_lines())
+                                + n_hunk.delta_in_lines())
                                 as u32;
                         }
                         n_ind += 1;
-                    }
-                    else if knd == &DiffKind::Staged && n_hunk.new_start > r_hunk.new_start {
+                    } else if knd == &DiffKind::Staged
+                        && n_hunk.new_start > r_hunk.new_start
+                    {
                         debug!("^^^^^^^^new hunk is AFTER rendered hunk in STAGED");
                         // hunk was unstaged and must be erased. means all other rendered hunks
                         // must increment their new lines cause in erased hunk its lines
@@ -214,32 +215,36 @@ impl File {
                             }
                         }
                         let m_r_hunk = &mut rendered.hunks[r_ind];
-                        debug!("erase AFTER rendered hunk {:?}", m_r_hunk.header);
+                        debug!(
+                            "erase AFTER rendered hunk {:?}",
+                            m_r_hunk.header
+                        );
                         m_r_hunk.erase(txt, context);
                         r_ind += 1;
-                    }
-                    else if knd == &DiffKind::Unstaged && n_hunk.old_start < r_hunk.old_start {
+                    } else if knd == &DiffKind::Unstaged
+                        && n_hunk.old_start < r_hunk.old_start
+                    {
                         debug!("^^^^^^^^new hunk is BEFORE rendered hunk in UNSTAGED");
-                            for hunk in &mut rendered.hunks[r_ind..] {
-                                debug!(
-                                    "<- move backward hunk {:?} by {:?} lines",
-                                    hunk.header,
-                                    n_hunk.delta_in_lines()
-                                );
-                                // the minus here in old_start
-                                // means when inserting hunk before
-                                // it need to REDUCE old lines in next hunks!
-                                // old_lines in each hunk are independent on each other.
-                                // so when unstage in previous position means LESS old_lines
-                                // (when staged there are more old lines - those are considered already added!
-                                hunk.old_start = ((hunk.old_start as i32) - // !
+                        for hunk in &mut rendered.hunks[r_ind..] {
+                            debug!(
+                                "<- move backward hunk {:?} by {:?} lines",
+                                hunk.header,
+                                n_hunk.delta_in_lines()
+                            );
+                            // the minus here in old_start
+                            // means when inserting hunk before
+                            // it need to REDUCE old lines in next hunks!
+                            // old_lines in each hunk are independent on each other.
+                            // so when unstage in previous position means LESS old_lines
+                            // (when staged there are more old lines - those are considered already added!
+                            hunk.old_start = ((hunk.old_start as i32) - // !
                                         n_hunk.delta_in_lines())
-                                    as u32;
-                            }
+                                as u32;
+                        }
                         n_ind += 1;
-
-                    }
-                    else if knd == &DiffKind::Unstaged && n_hunk.old_start > r_hunk.old_start  {
+                    } else if knd == &DiffKind::Unstaged
+                        && n_hunk.old_start > r_hunk.old_start
+                    {
                         debug!("^^^^^^^^new hunk is AFTER rendered hunk in UNSTAGED (erasing hunk which was staged)");
                         // hunk was staged and must be erased. means all other rendered hunks
                         // must increment their old lines cause in erased hunk its lines are no
@@ -257,12 +262,17 @@ impl File {
                             }
                         }
                         let m_r_hunk = &mut rendered.hunks[r_ind];
-                        debug!("erase AFTER rendered hunk {:?}", m_r_hunk.header);
+                        debug!(
+                            "erase AFTER rendered hunk {:?}",
+                            m_r_hunk.header
+                        );
                         m_r_hunk.erase(txt, context);
                         r_ind += 1;
-                    }
-                    else {
-                        panic!("whats the case here? {:?} {:?} {:?}", knd, r_hunk.header, n_hunk.header);
+                    } else {
+                        panic!(
+                            "whats the case here? {:?} {:?} {:?}",
+                            knd, r_hunk.header, n_hunk.header
+                        );
                     }
                 }
             }
@@ -488,7 +498,7 @@ impl Head {
 impl State {
     // state
     pub fn enrich_view(&mut self, rendered: &Self) {
-        self.view = rendered.transfer_view();        
+        self.view = rendered.transfer_view();
         if self.state == RepositoryState::Clean {
             self.view.hidden = true;
         } else {
