@@ -1,3 +1,15 @@
+[DEBUG stage::status_view::reconciliation] loop........................
+thread 'main' panicked at src/status_view/reconciliation.rs:288:21:
+no way! OverlapBefore "@@ -648,14 +648,27 @@ pub fn stage_via_apply(" "@@ -665,7 +665,10 @@ pub fn stage_via_apply("
+
+
+so. to reproduce it:
+- unstage all
+- expand git.rs
+- collapse all hunks
+- go down and begin staging from bottom.
+- third stage is crash
+
 BUG: expand first line in unstage. move cursor down -
      it moves to line end ------------ 22222222222222
 

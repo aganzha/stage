@@ -86,7 +86,6 @@ mod tests {
     #[test]
     pub fn test_single_diff() {
         let mut diff = create_diff();
-
         mock_render(&mut diff);
 
         for cursor_line in 0..3 {
@@ -302,6 +301,7 @@ mod tests {
         // call it here, cause rust creates threads event with --test-threads=1
         // and gtk should be called only from main thread
         test_expand_line();
+        test_reconciliation();
     }
 
     fn test_expand_line() {
@@ -370,5 +370,9 @@ mod tests {
                 }
             }
         }
+    }
+    
+    fn test_reconciliation() {
+        debug!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");        
     }
 }
