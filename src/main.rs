@@ -86,6 +86,7 @@ pub enum Event {
     // does not used for now
     Stage(i32, i32),
     UnStage(i32, i32),
+    Kill(i32, i32),
     Commit,
     Push,
     Branches,
@@ -245,6 +246,15 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                         line_no,
                         current_repo_path.as_ref().unwrap(),
                         ApplySubject::Unstage,
+                        sender.clone(),
+                    );
+                }
+                Event::Kill(_offset, line_no) => {
+                    status.stage(
+                        &txt,
+                        line_no,
+                        current_repo_path.as_ref().unwrap(),
+                        ApplySubject::Kill,
                         sender.clone(),
                     );
                 }
