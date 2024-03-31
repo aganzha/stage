@@ -190,11 +190,7 @@ impl Hunk {
         debug!(
             ">>> related_to_other NEW HUNK start {:?} lines {:?}
                   OLD HUNK start {:?} {:?} kind {:?}",
-            start,
-            lines,
-            other_start,
-            other_lines,
-            kind
+            start, lines, other_start, other_lines, kind
         );
 
         if start < other_start && start + lines < other_start {
@@ -509,7 +505,7 @@ pub fn get_current_repo_status(
 pub enum ApplySubject {
     Stage,
     Unstage,
-    Kill
+    Kill,
 }
 
 #[derive(Debug, Clone)]
@@ -640,7 +636,8 @@ pub fn stage_via_apply(
         // The index will be used for the “old_file” side of the delta,
         // and the working directory will be used
         // for the “new_file” side of the delta.
-        ApplySubject::Stage => repo.diff_index_to_workdir(None, None)
+        ApplySubject::Stage => repo
+            .diff_index_to_workdir(None, None)
             .expect("can't get diff"),
         // The tree you pass will be used for the “old_file”
         // side of the delta, and the index
@@ -672,7 +669,8 @@ pub fn stage_via_apply(
             repo.diff_tree_to_workdir(
                 Some(&current_tree),
                 Some(DiffOptions::new().reverse(true)), // reverse!!!
-            ).expect("can't get diff in kill")
+            )
+            .expect("can't get diff in kill")
         }
     };
 
@@ -708,7 +706,7 @@ pub fn stage_via_apply(
     });
     let apply_location = match filter.subject {
         ApplySubject::Stage | ApplySubject::Unstage => ApplyLocation::Index,
-        ApplySubject::Kill => ApplyLocation::WorkDir
+        ApplySubject::Kill => ApplyLocation::WorkDir,
     };
 
     repo.apply(&git_diff, apply_location, Some(&mut options))

@@ -197,7 +197,7 @@ impl Status {
 
     pub fn update_screen_line_width(&mut self, max_line_len: i32) {
         if let Some(ctx) = &mut self.context {
-            if let Some(sw) = ctx.screen_width {                
+            if let Some(sw) = ctx.screen_width {
                 if sw.1 < max_line_len {
                     ctx.screen_width.replace((sw.0, max_line_len));
                 }
@@ -238,12 +238,10 @@ impl Status {
                 .css_classes(vec!["input_field"])
                 .build();
             lb.append(&input);
-            // let me = Rc::new(RefCell::new(self));
             crate::make_confirm_dialog(window, Some(&lb), "Commit", "Commit")
                 .choose(None::<&gio::Cancellable>, {
                     let path = path.clone();
                     let sender = sender.clone();
-                    // let me = Rc::clone(&me);
                     move |result| {
                         if result == "confirm" {
                             trace!("confirm commit dialog {:?}", input.text());
@@ -451,7 +449,9 @@ impl Status {
 
         let diff = {
             match subject {
-                ApplySubject::Stage | ApplySubject::Kill => self.unstaged.as_mut().unwrap(),
+                ApplySubject::Stage | ApplySubject::Kill => {
+                    self.unstaged.as_mut().unwrap()
+                }
                 ApplySubject::Unstage => self.staged.as_mut().unwrap(),
             }
         };

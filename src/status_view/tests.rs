@@ -371,8 +371,8 @@ mod tests {
             }
         }
     }
-    
+
     fn test_reconciliation() {
-        debug!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");        
+        debug!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
     }
 }
