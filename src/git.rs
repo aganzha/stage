@@ -187,7 +187,7 @@ impl Hunk {
                 _ => panic!("no kind in related to"),
             }
         };
-        trace!(
+        debug!(
             ">>> related_to_other NEW HUNK start {:?} lines {:?}
                   OLD HUNK start {:?} {:?} kind {:?}",
             start,
@@ -198,25 +198,25 @@ impl Hunk {
         );
 
         if start < other_start && start + lines < other_start {
-            trace!("before");
+            debug!("before");
             return Related::Before;
         }
 
         if start < other_start && start + lines >= other_start {
-            trace!("overlap");
+            debug!("overlap");
             return Related::OverlapBefore;
         }
 
         if start == other_start && lines == other_lines {
-            trace!("matched");
+            debug!("matched");
             return Related::Matched;
         }
         if start > other_start && start <= other_start + other_lines {
-            trace!("overlap");
+            debug!("overlap");
             return Related::OverlapAfter;
         }
         if start > other_start && start > other_start + other_lines {
-            trace!("after");
+            debug!("after");
             return Related::After;
         }
         // GOT PANIC HERE
@@ -303,7 +303,7 @@ impl Default for File {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DiffKind {
     Staged,
     Unstaged,
