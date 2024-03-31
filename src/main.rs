@@ -171,6 +171,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     current_repo_path.replace(path);
                 }
                 Event::State(state) => {
+                    info!("main. state {:?}", &state);
                     status.update_state(state, &txt);
                 }
                 Event::Debug => {

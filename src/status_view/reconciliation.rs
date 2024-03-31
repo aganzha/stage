@@ -380,18 +380,18 @@ impl Head {
 impl State {
     // state
     pub fn enrich_view(&mut self, rendered: &Self) {
-        self.view = rendered.transfer_view();
+        self.view = rendered.transfer_view();        
+        if self.state == RepositoryState::Clean {
+            self.view.hidden = true;
+        } else {
+            self.view.hidden = false;
+        }
     }
     // state
     pub fn transfer_view(&self) -> View {
         let mut clone = self.view.clone();
-        if self.state == RepositoryState::Clean {
-            clone.hidden = true;
-        } else {
-            clone.hidden = false;
-            clone.transfered = true;
-            clone.dirty = true;
-        }
+        clone.transfered = true;
+        clone.dirty = true;
         clone
     }
 }
