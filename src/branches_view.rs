@@ -238,6 +238,20 @@ impl BranchList {
         });
     }
 
+    pub fn update_current_item(&self, branch_data: crate::BranchData) {
+        let current_item = self.item(self.current()).unwrap();
+        let branch_item = current_item.downcast_ref::<BranchItem>().unwrap();
+        branch_item.imp().branch.replace(branch_data);
+    }
+
+    pub fn get_selected_data(&self) -> crate::BranchData {
+        let pos = self.proxyselected();
+        let item = self.item(pos).unwrap();
+        let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+        let data = branch_item.imp().branch.borrow().clone();
+        data
+    }
+
     pub fn cherry_pick(
         &self,
         repo_path: std::ffi::OsString,
@@ -246,10 +260,7 @@ impl BranchList {
     ) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window => async move {
-                let pos = branch_list.proxyselected();
-                let item = branch_list.item(pos).unwrap();
-                let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                let branch_data = branch_item.imp().branch.borrow().clone();
+                let branch_data = branch_list.get_selected_data();
                 let result = gio::spawn_blocking(move || {
                     crate::cherry_pick(repo_path, branch_data, sender)
                 }).await;
@@ -257,10 +268,8 @@ impl BranchList {
                 if let Ok(git_result) = result {
                     match git_result {
                         Ok(branch_data) => {
-                            debug!("oooooooooooooooooou {:?}", branch_data);
-                            let _current_item = branch_list.item(branch_list.current()).unwrap();
-                            let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                            branch_item.imp().branch.replace(branch_data);
+                            debug!("just cherry picked and this is branch data {:?}", branch_data);
+                            branch_list.update_current_item(branch_data);
                             return;
                         }
                         Err(err) => err_message = err
@@ -269,6 +278,36 @@ impl BranchList {
                 crate::display_error(&window, &err_message);
             })
         });
+    }
+    
+    pub fn merge(
+        &self,
+        repo_path: std::ffi::OsString,
+        window: &Window,
+        sender: Sender<crate::Event>,
+    ) {
+        glib::spawn_future_local({
+            clone!(@weak self as branch_list, @weak window as window => async move {
+                let branch_data = branch_list.get_selected_data();
+                let result = gio::spawn_blocking(move || {
+                    crate::cherry_pick(repo_path, branch_data, sender)
+                }).await;
+                let mut err_message = String::from("git error");
+                debug!("mmmmmmmmmmmmerge 1 {:?}", result);
+                if let Ok(git_result) = result {
+                    match git_result {
+                        Ok(branch_data) => {
+                            debug!("just merged and this is branch data {:?}", branch_data);
+                            branch_list.update_current_item(branch_data);
+                            return;
+                        }
+                        Err(err) => err_message = err
+                    }
+                }
+                debug!("display errorrrrrrrrrrrrrrrrrror! {:?}", err_message);
+                crate::display_error(&window, &err_message);
+            })
+        });        
     }
 
     pub fn kill_branch(
@@ -734,6 +773,16 @@ pub enum Event {
     CherryPickRequest,
 }
 
+pub fn get_branch_list(list_view: &ListView) -> BranchList {
+    let selection_model = list_view.model().unwrap();
+    let single_selection = selection_model
+        .downcast_ref::<SingleSelection>()
+        .unwrap();
+    let list_model = single_selection.model().unwrap();
+    let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
+    branch_list.to_owned()
+}
+
 pub fn branches_in_use(
     list_view: &ListView,
 ) -> (crate::BranchData, crate::BranchData) {
@@ -838,13 +887,14 @@ pub fn show_branches_window(
                 }
                 Event::NewBranch(new_branch_name) => {
                     info!("branches. got new branch name");
-                    let selection_model = list_view.model().unwrap();
-                    let single_selection = selection_model
-                        .downcast_ref::<SingleSelection>()
-                        .unwrap();
-                    let list_model = single_selection.model().unwrap();
-                    let branch_list =
-                        list_model.downcast_ref::<BranchList>().unwrap();
+                    // let selection_model = list_view.model().unwrap();
+                    // let single_selection = selection_model
+                    //     .downcast_ref::<SingleSelection>()
+                    //     .unwrap();
+                    // let list_model = single_selection.model().unwrap();
+                    // let branch_list =
+                    //     list_model.downcast_ref::<BranchList>().unwrap();
+                    let branch_list = get_branch_list(&list_view);
                     branch_list.create_branch(
                         repo_path.clone(),
                         new_branch_name,
@@ -859,36 +909,52 @@ pub fn show_branches_window(
                 }
                 Event::KillRequest => {
                     info!("branches. kill request");
-                    let selection_model = list_view.model().unwrap();
-                    let single_selection = selection_model
-                        .downcast_ref::<SingleSelection>()
-                        .unwrap();
-                    let item = single_selection.selected_item();
-                    if let Some(item) = item {
-                        if !item
-                            .downcast_ref::<BranchItem>()
-                            .unwrap()
-                            .is_head()
-                        {
-                            let list_model = single_selection.model().unwrap();
-                            let branch_list = list_model
-                                .downcast_ref::<BranchList>()
-                                .unwrap();
-                            branch_list.kill_branch(
-                                repo_path.clone(),
-                                &window,
-                                main_sender.clone(),
-                            );
-                        }
-                    }
+                    let branch_list = get_branch_list(&list_view);
+                    branch_list.kill_branch(
+                        repo_path.clone(),
+                        &window,
+                        main_sender.clone(),
+                    );
+                    // let selection_model = list_view.model().unwrap();
+                    // let single_selection = selection_model
+                    //     .downcast_ref::<SingleSelection>()
+                    //     .unwrap();
+                    // let item = single_selection.selected_item();
+                    // if let Some(item) = item {
+                    //     if !item
+                    //         .downcast_ref::<BranchItem>()
+                    //         .unwrap()
+                    //         .is_head()
+                    //     {
+                    //         let list_model = single_selection.model().unwrap();
+                    //         let branch_list = list_model
+                    //             .downcast_ref::<BranchList>()
+                    //             .unwrap();
+                    //         branch_list.kill_branch(
+                    //             repo_path.clone(),
+                    //             &window,
+                    //             main_sender.clone(),
+                    //         );
+                    //     }
+                    // }
                 }
                 Event::MergeRequest => {
                     info!("branches. merge request");
+                    // let (current_branch, selected_branch) = branches_in_use(&list_view);
+                    // debug!(
+                    //     "==========================> {:?} {:?}",
+                    //     current_branch, selected_branch
+                    // );
+                    let branch_list = get_branch_list(&list_view);
+                    branch_list.merge(
+                        repo_path.clone(),
+                        &window,
+                        main_sender.clone(),
+                    )
                 }
                 Event::CherryPickRequest => {
                     info!("branches. cherry-pick request");
-                    let (current_branch, selected_branch) =
-                        branches_in_use(&list_view);
+                    let (current_branch, selected_branch) = branches_in_use(&list_view);
                     debug!(
                         "==========================> {:?} {:?}",
                         current_branch, selected_branch
@@ -902,13 +968,14 @@ pub fn show_branches_window(
                             selected_branch.commit_string, selected_branch.name, current_branch.name
                         ))
                         .build();
-                    let selection_model = list_view.model().unwrap();
-                    let single_selection = selection_model
-                        .downcast_ref::<SingleSelection>()
-                        .unwrap();
-                    let list_model = single_selection.model().unwrap();
-                    let branch_list =
-                        list_model.downcast_ref::<BranchList>().unwrap();
+                    let branch_list = get_branch_list(&list_view);
+                    // let selection_model = list_view.model().unwrap();
+                    // let single_selection = selection_model
+                    //     .downcast_ref::<SingleSelection>()
+                    //     .unwrap();
+                    // let list_model = single_selection.model().unwrap();
+                    // let branch_list =
+                    //     list_model.downcast_ref::<BranchList>().unwrap();
                     alert.choose(Some(&window), None::<&gio::Cancellable>, {
                         let path = repo_path.clone();
                         let window = window.clone();
