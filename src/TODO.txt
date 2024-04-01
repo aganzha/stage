@@ -1,4 +1,3 @@
-blank
 [DEBUG stage::status_view::reconciliation] loop........................
 thread 'main' panicked at src/status_view/reconciliation.rs:288:21:
 no way! OverlapBefore "@@ -648,14 +648,27 @@ pub fn stage_via_apply(" "@@ -665,7 +665,10 @@ pub fn stage_via_apply("
