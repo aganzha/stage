@@ -1177,7 +1177,6 @@ pub fn merge(
             );
             commit(path, message, sender.clone());
             repo.cleanup_state().unwrap();
-            // git_repository_state_cleanup(repo);
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
