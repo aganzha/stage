@@ -314,9 +314,8 @@ impl BranchList {
                 );
                 let result = dialog.choose_future().await;
                 if result == "confirm" {
-                    debug!("thaaaaaaaaaaaaaaaaats result of awaiting dialog {:?}", result);
                     let result = gio::spawn_blocking(move || {
-                        crate::cherry_pick(repo_path, branch_data, sender)
+                        crate::merge(repo_path, branch_data, sender)
                     }).await;
                     let mut err_message = String::from("git error");
                     if let Ok(git_result) = result {
@@ -324,6 +323,7 @@ impl BranchList {
                             Ok(branch_data) => {
                                 debug!("just merged and this is branch data {:?}", branch_data);
                                 branch_list.update_current_item(branch_data);
+                                window.close();
                                 return;
                             }
                             Err(err) => err_message = err

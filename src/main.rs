@@ -10,8 +10,9 @@ use std::rc::Rc;
 mod git;
 use git::{
     checkout, cherry_pick, commit, create_branch, get_current_repo_status,
-    get_refs, kill_branch, push, stage_via_apply, ApplyFilter, ApplySubject,
-    BranchData, Diff, DiffKind, File, Head, Hunk, Line, Related, State, View,
+    get_refs, kill_branch, merge, push, stage_via_apply, ApplyFilter,
+    ApplySubject, BranchData, Diff, DiffKind, File, Head, Hunk, Line, Related,
+    State, View,
 };
 mod widgets;
 use widgets::{display_error, get_new_branch_name, make_confirm_dialog};

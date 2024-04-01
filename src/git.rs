@@ -13,7 +13,7 @@ use git2::{
     Error, ObjectType, Oid, PushOptions, RemoteCallbacks, Repository,
     RepositoryState,
 };
-use log::{debug, trace};
+use log::{debug, info, trace};
 use regex::Regex;
 use std::cmp::Ordering;
 use std::{env, ffi, path, str};
@@ -1123,6 +1123,83 @@ pub fn cherry_pick(
         .expect("Could not send through channel");
     sender
         .send_blocking(crate::Event::Head(new_head))
+        .expect("Could not send through channel");
+
+    Ok(BranchData::new(branch, BranchType::Local))
+}
+
+pub fn merge(
+    path: OsString,
+    branch_data: BranchData,
+    sender: Sender<crate::Event>,
+) -> Result<BranchData, String> {
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let annotated_commit = repo
+        .find_annotated_commit(branch_data.oid)
+        .expect("cant find commit");
+    // let result = repo.merge(&[&annotated_commit], None, None);
+
+    match repo.merge_analysis(&[&annotated_commit]) {
+        Ok((analysis, _)) if analysis.is_up_to_date() => {
+            info!("merge.uptodate");
+        }
+
+        Ok((analysis, preference))
+            if analysis.is_fast_forward()
+                && !preference.is_no_fast_forward() =>
+        {
+            info!("merge.fastforward");
+        }
+        Ok((analysis, preference)) => {
+            todo!("not implemented case {:?} {:?}", analysis, preference);
+        }
+        Err(err) => {
+            panic!("error in merge_analysis {:?}", err.message());
+        }
+    }
+    // let result = repo.merge_analysis(&[&annotated_commit]);
+    // if let Ok((analysis, preference)) = result {
+    // }
+
+    // debug!("analysis ------------> {:?}", result);
+    // if let Err(err) = result {
+    //     trace!(
+    //         "err on merge {:?} {:?} {:?}",
+    //         err.code(),
+    //         err.class(),
+    //         err.message()
+    //     );
+    //     return Err(String::from(err.message()));
+    // }
+
+    let state = repo.state();
+    let head_ref = repo.head().expect("can't get head");
+    assert!(head_ref.is_branch());
+    let ob = head_ref
+        .peel(ObjectType::Commit)
+        .expect("can't get commit from ref!");
+    let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+    let branch = Branch::wrap(head_ref);
+    let new_head = Head::new(&branch, &commit);
+    sender
+        .send_blocking(crate::Event::State(State::new(state)))
+        .expect("Could not send through channel");
+    sender
+        .send_blocking(crate::Event::Head(new_head))
+        .expect("Could not send through channel");
+
+    // update staged changes
+    let tree_ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    debug!("lets find treeeeeeeeeeeeeeeeeeee {:?}", tree_ob.id());
+    let current_tree = repo.find_tree(tree_ob.id()).expect("no working tree");
+    let git_diff = repo
+        .diff_tree_to_index(Some(&current_tree), None, None)
+        .expect("can't get diff tree to index");
+    sender
+        .send_blocking(crate::Event::Staged(make_diff(
+            git_diff,
+            DiffKind::Staged,
+        )))
         .expect("Could not send through channel");
 
     Ok(BranchData::new(branch, BranchType::Local))
