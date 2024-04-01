@@ -1148,7 +1148,36 @@ pub fn merge(
             if analysis.is_fast_forward()
                 && !preference.is_no_fast_forward() =>
         {
+            debug!("-----------------------------------> {:?}", analysis);
             info!("merge.fastforward");
+        }
+        Ok((analysis, preference))
+            if analysis.is_normal() && !preference.is_fastforward_only() =>
+        {
+            debug!("-----------------------------------> {:?}", analysis);
+            info!("merge.normal");
+            let result = repo.merge(&[&annotated_commit], None, None);
+            if let Err(err) = result {
+                debug!(
+                    "err on merge {:?} {:?} {:?}",
+                    err.code(),
+                    err.class(),
+                    err.message()
+                );
+                return Err(String::from(err.message()));
+            }
+            // all changes are in index now
+            let head_ref = repo.head().expect("can't get head");
+            assert!(head_ref.is_branch());
+            let current_branch = Branch::wrap(head_ref);
+            let message = format!(
+                "merge branch {} into {}",
+                branch_data.name,
+                current_branch.name().unwrap().unwrap().to_string()
+            );
+            commit(path, message, sender.clone());
+            repo.cleanup_state().unwrap();
+            // git_repository_state_cleanup(repo);
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
@@ -1157,20 +1186,6 @@ pub fn merge(
             panic!("error in merge_analysis {:?}", err.message());
         }
     }
-    // let result = repo.merge_analysis(&[&annotated_commit]);
-    // if let Ok((analysis, preference)) = result {
-    // }
-
-    // debug!("analysis ------------> {:?}", result);
-    // if let Err(err) = result {
-    //     trace!(
-    //         "err on merge {:?} {:?} {:?}",
-    //         err.code(),
-    //         err.class(),
-    //         err.message()
-    //     );
-    //     return Err(String::from(err.message()));
-    // }
 
     let state = repo.state();
     let head_ref = repo.head().expect("can't get head");
@@ -1189,18 +1204,18 @@ pub fn merge(
         .expect("Could not send through channel");
 
     // update staged changes
-    let tree_ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    debug!("lets find treeeeeeeeeeeeeeeeeeee {:?}", tree_ob.id());
-    let current_tree = repo.find_tree(tree_ob.id()).expect("no working tree");
-    let git_diff = repo
-        .diff_tree_to_index(Some(&current_tree), None, None)
-        .expect("can't get diff tree to index");
-    sender
-        .send_blocking(crate::Event::Staged(make_diff(
-            git_diff,
-            DiffKind::Staged,
-        )))
-        .expect("Could not send through channel");
+    // let tree_ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    // debug!("lets find treeeeeeeeeeeeeeeeeeee {:?}", tree_ob.id());
+    // let current_tree = repo.find_tree(tree_ob.id()).expect("no working tree");
+    // let git_diff = repo
+    //     .diff_tree_to_index(Some(&current_tree), None, None)
+    //     .expect("can't get diff tree to index");
+    // sender
+    //     .send_blocking(crate::Event::Staged(make_diff(
+    //         git_diff,
+    //         DiffKind::Staged,
+    //     )))
+    //     .expect("Could not send through channel");
 
     Ok(BranchData::new(branch, BranchType::Local))
 }
