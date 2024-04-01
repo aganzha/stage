@@ -1,4 +1,5 @@
-[DEBUG stage::status_view::reconciliation] loop........................
+TODO: super slow kill in old_docs. just couple of files and couple of lines and kill is suuuuuuuuuuuuuuuper slow
+
 thread 'main' panicked at src/status_view/reconciliation.rs:288:21:
 no way! OverlapBefore "@@ -648,14 +648,27 @@ pub fn stage_via_apply(" "@@ -665,7 +665,10 @@ pub fn stage_via_apply("
 
