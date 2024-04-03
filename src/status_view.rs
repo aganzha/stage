@@ -272,10 +272,14 @@ impl Status {
         mut upstream: Option<Head>,
         txt: &TextView,
     ) {
-        if let (Some(current), Some(new)) = (&self.upstream, upstream.as_mut())
-        {
-            new.enrich_view(current);
+        if let Some(rendered) = &mut self.upstream {
+            if let Some(new) = upstream.as_mut() {
+                new.enrich_view(rendered);
+            } else {
+                rendered.erase(txt, &mut self.context);
+            }
         }
+        
         self.upstream = upstream;
         self.render(txt, RenderSource::Git);
     }
