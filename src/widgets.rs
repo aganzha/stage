@@ -100,7 +100,7 @@ pub fn make_confirm_dialog(
         .destroy_with_parent(true)
         .close_response(cancel_response)
         .default_response(confirm_response)
-        .default_width(640)
+        .default_width(720)
         .default_height(120)
         .build();
 
