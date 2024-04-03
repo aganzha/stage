@@ -1,3 +1,6 @@
+TODO: [TRACE stage::git] push_update_reference "refs/heads/24.2100/bugfix/au.ganzha/prevent_tobacco" Some("pre-receive hook declined")
+TODO: choose branch to create from (in list!)
+TODO: checkout branch after create
 TODO: super slow kill in old_docs. just couple of files and couple of lines and kill is suuuuuuuuuuuuuuuper slow
 
 thread 'main' panicked at src/status_view/reconciliation.rs:288:21:
