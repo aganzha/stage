@@ -17,6 +17,7 @@ use log::{debug, info, trace};
 use regex::Regex;
 use std::cmp::Ordering;
 use std::{env, ffi, path, str};
+use std::time::SystemTime;
 
 fn get_current_repo(
     mut path_buff: path::PathBuf,
@@ -630,6 +631,7 @@ pub fn stage_via_apply(
     filter: ApplyFilter,
     sender: Sender<crate::Event>,
 ) {
+    debug!("begin git kill {:?}", SystemTime::now());
     let repo = Repository::open(path.clone()).expect("can't open repo");
     // get actual diff for repo
     let git_diff = match filter.subject {
@@ -711,7 +713,7 @@ pub fn stage_via_apply(
 
     repo.apply(&git_diff, apply_location, Some(&mut options))
         .expect("can't apply patch");
-
+    debug!("completed git kill {:?}", SystemTime::now());
     // staged changes. not needed in kill, btw.
     gio::spawn_blocking({
         let sender = sender.clone();

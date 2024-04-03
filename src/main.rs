@@ -6,6 +6,7 @@ use branches_view::{show_branches_window, Event as BranchesEvent};
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::SystemTime;
 
 mod git;
 use git::{
@@ -252,6 +253,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     );
                 }
                 Event::Kill(_offset, line_no) => {
+                    info!("main.kill {:?}", SystemTime::now());
                     status.stage(
                         &txt,
                         line_no,
@@ -259,6 +261,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                         ApplySubject::Kill,
                         sender.clone(),
                     );
+                    info!("main.completed kill {:?}", SystemTime::now());
                 }
                 Event::TextViewResize => {
                     // debug!(
