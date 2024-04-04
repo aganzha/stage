@@ -259,14 +259,9 @@ impl crate::View {
             ViewState::RenderedDirtyNotInPlace(l) => {
                 trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
                 self.line_no = line_no;
-                if !content.is_empty() {
-                    let content = self.build_up(&content, context);
-                    self.replace_dirty_content(buffer, iter, &content);
-                    self.apply_tags(buffer, &content_tags);
-                } else if self.tags.contains(&String::from(CURSOR_TAG)) {
-                    // special case for cleanup cursor highlight
-                    self.apply_tags(buffer, &content_tags);
-                }
+                let content = self.build_up(&content, context);
+                self.replace_dirty_content(buffer, iter, &content);
+                self.apply_tags(buffer, &content_tags);                
                 self.force_forward(buffer, iter);
             }
             ViewState::RenderedNotInPlace(l) => {
@@ -377,6 +372,7 @@ impl crate::View {
             return ViewState::RenderedDirtyInPlace;
         }
         if self.dirty && self.transfered {
+            // why not in place? it is in place, just transfered!
             return ViewState::RenderedDirtyNotInPlace(self.line_no);
         }
         if self.squashed {
