@@ -1,3 +1,7 @@
+TODO: whyle branch list is loaded it need to show empty repr
+BUG: expand hunk. delete last line in hunk. then hit renew - garbage is there!
+FEATURE: add expand rows to hunks as in gitlab!
+make it in HUNK row! expand before and expand after!
 TODO: [TRACE stage::git] push_update_reference "refs/heads/24.2100/bugfix/au.ganzha/prevent_tobacco" Some("pre-receive hook declined")
 TODO: choose branch to create from (in list!)
 TODO: checkout branch after create
