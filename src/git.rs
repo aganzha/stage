@@ -996,54 +996,24 @@ pub fn get_refs(path: OsString) -> Vec<BranchData> {
     result
 }
 
-// pub fn set_head(path: OsString, refname: &str) -> Result<(), String> {
-//     trace!("set head.......{:?}", refname);
-//     let repo = Repository::open(path.clone()).expect("can't open repo");
-//     let result = repo.set_head(refname);
-//     trace!("!======================> {:?}", result);
-//     Ok(())
-// }
-
-fn git_checkout(
-    // path: OsString,
-    // branch_data: BranchData,
-    repo: Repository,
-    oid: Oid,
-    refname: &str,
-) -> Result<(), Error> {
-    let mut builder = CheckoutBuilder::new();
-    let opts = builder.safe();
-    let commit = repo.find_commit(oid)?;
-    repo.checkout_tree(commit.as_object(), Some(opts))?;
-    repo.set_head(refname)?;
-    Ok(())
-}
-
-// TODO instead of oid use BranchData!
 pub fn checkout(
     path: OsString,
-    oid: Oid,
-    refname: &str,
+    mut branch_data: BranchData,
     sender: Sender<crate::Event>,
-) -> Result<(), String> {
+) -> BranchData {
     let repo = Repository::open(path.clone()).expect("can't open repo");
-    if let Err(err) = git_checkout(repo, oid, refname) {
-        trace!(
-            "err on checkout {:?} {:?} {:?}",
-            err.code(),
-            err.class(),
-            err.message()
-        );
-        // match err.code() {
-        //     ErrorCode::Conflict => {
-        //         return Err(String::from(""));
-        //     }
-        // }
-        return Err(String::from(err.message()));
-    }
-    // todo -> message to update text_view
-    get_current_repo_status(Some(path), sender);
-    Ok(())
+    let mut builder = CheckoutBuilder::new();
+    let opts = builder.safe();
+    let commit = repo.find_commit(branch_data.oid).expect("can't find commit");
+    repo.checkout_tree(commit.as_object(), Some(opts)).expect("can't checkout tree");
+    repo.set_head(&branch_data.refname).expect("can't set head");
+    gio::spawn_blocking({
+        move || {
+            get_current_repo_status(Some(path), sender);
+        }
+    });
+    branch_data.is_head = true;
+    branch_data
 }
 
 pub fn create_branch(
@@ -1059,13 +1029,10 @@ pub fn create_branch(
     match result {
         Ok(branch) => {
             let branch_data = BranchData::new(branch, BranchType::Local);
-            if need_checkout {
-                match checkout(path, branch_data.oid, &branch_data.refname.clone(), sender) {
-                    Ok(_) => {},
-                    Err(error) => {return Err(error);}
-                }
+            if !need_checkout {
+                return Ok(branch_data);
             }
-            Ok(branch_data)
+            Ok(checkout(path, branch_data, sender))
         }
         Err(error) => Err(String::from(error.message())),
     }
