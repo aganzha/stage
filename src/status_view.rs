@@ -279,7 +279,7 @@ impl Status {
                 rendered.erase(txt, &mut self.context);
             }
         }
-        
+
         self.upstream = upstream;
         self.render(txt, RenderSource::Git);
     }

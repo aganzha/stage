@@ -16,7 +16,7 @@ use git::{
     State, View,
 };
 mod widgets;
-use widgets::{display_error, get_new_branch_name, make_confirm_dialog};
+use widgets::{display_error, make_confirm_dialog};
 
 use libadwaita::prelude::*;
 use libadwaita::{Application, ApplicationWindow, HeaderBar, ToolbarView};

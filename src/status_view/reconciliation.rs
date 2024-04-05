@@ -121,7 +121,7 @@ impl Hunk {
                 break;
             }
             if n_ind == self.lines.len() {
-                trace!("new lines are over");                
+                trace!("new lines are over");
                 for r_line in &mut rendered.lines[r_ind..] {
                     trace!("erase remainign rendered lines!");
                     r_line.erase(txt, context);

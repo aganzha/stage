@@ -261,7 +261,7 @@ impl crate::View {
                 self.line_no = line_no;
                 let content = self.build_up(&content, context);
                 self.replace_dirty_content(buffer, iter, &content);
-                self.apply_tags(buffer, &content_tags);                
+                self.apply_tags(buffer, &content_tags);
                 self.force_forward(buffer, iter);
             }
             ViewState::RenderedNotInPlace(l) => {

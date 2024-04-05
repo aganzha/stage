@@ -16,8 +16,8 @@ use git2::{
 use log::{debug, info, trace};
 use regex::Regex;
 use std::cmp::Ordering;
-use std::{env, ffi, path, str};
 use std::time::SystemTime;
+use std::{env, ffi, path, str};
 
 fn get_current_repo(
     mut path_buff: path::PathBuf,
@@ -1019,6 +1019,7 @@ fn git_checkout(
     Ok(())
 }
 
+// TODO instead of oid use BranchData!
 pub fn checkout(
     path: OsString,
     oid: Oid,
@@ -1048,14 +1049,24 @@ pub fn checkout(
 pub fn create_branch(
     path: OsString,
     new_branch_name: String,
+    need_checkout: bool,
     branch_data: BranchData,
-    _sender: Sender<crate::Event>,
+    sender: Sender<crate::Event>,
 ) -> Result<BranchData, String> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let commit = repo.find_commit(branch_data.oid).expect("cant find commit");
     let result = repo.branch(&new_branch_name, &commit, false);
     match result {
-        Ok(branch) => Ok(BranchData::new(branch, BranchType::Local)),
+        Ok(branch) => {
+            let branch_data = BranchData::new(branch, BranchType::Local);
+            if need_checkout {
+                match checkout(path, branch_data.oid, &branch_data.refname.clone(), sender) {
+                    Ok(_) => {},
+                    Err(error) => {return Err(error);}
+                }
+            }
+            Ok(branch_data)
+        }
         Err(error) => Err(String::from(error.message())),
     }
 }
