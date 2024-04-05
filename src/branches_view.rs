@@ -5,12 +5,16 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, AlertDialog, Box, Button, CheckButton,
-    EventControllerKey, Label, ListHeader, ListItem, ListScrollFlags,
-    ListView, Orientation, ScrolledWindow, SectionModel,
+    EventControllerKey, Label, ListBox, ListHeader, ListItem, ListScrollFlags,
+    ListView, Orientation, ScrolledWindow, SectionModel, SelectionMode,
     SignalListItemFactory, SingleSelection, Spinner, Widget,
 };
 use libadwaita::prelude::*;
-use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
+use libadwaita::{
+    ActionRow, ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView,
+    Window,
+};
+
 use log::{debug, info, trace};
 
 glib::wrapper! {
@@ -413,18 +417,52 @@ impl BranchList {
     pub fn create_branch(
         &self,
         repo_path: std::ffi::OsString,
-        new_branch_name: String,
         window: &Window,
         branch_sender: Sender<Event>,
         sender: Sender<crate::Event>,
     ) {
+        let selected_branch = self.get_selected_branch();
+        let title =
+            format!("create new branch starting at {}", selected_branch.name);
+
         glib::spawn_future_local({
-            clone!(@weak self as branch_list, @weak window as window => async move {
-                let item = branch_list.item(branch_list.proxyselected()).unwrap();
-                let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                let branch_data = branch_item.imp().branch.borrow().clone();
+            clone!(@weak self as branch_list,
+            @strong selected_branch as branch_data,
+            @weak window as window => async move {
+
+                let lb = ListBox::builder()
+                    .selection_mode(SelectionMode::None)
+                    .css_classes(vec![String::from("boxed-list")])
+                    .build();
+                let title = ActionRow::builder()
+                    .activatable(false)
+                    .selectable(false)
+                    .title(title)
+                    .build();
+                let input = EntryRow::builder()
+                    .title("New branch name:")
+                    .css_classes(vec!["input_field"])
+                    .build();
+                let checkout = SwitchRow::builder()
+                    .title("Checkout")
+                    .css_classes(vec!["input_field"])
+                    .active(true)
+                    .build();
+                lb.append(&title);
+                lb.append(&checkout);
+                let dialog = crate::make_confirm_dialog(
+                    &window,
+                    Some(&lb),
+                    "Creating new branch",
+                    "Create"
+                );
+                if "confirm" != dialog.choose_future().await {
+                    return;
+                }
+                let new_branch_name = format!("{}", input.text());
+                let need_checkout = checkout.is_active();
                 let result = gio::spawn_blocking(move || {
-                    crate::create_branch(repo_path, new_branch_name, branch_data, sender)
+                    crate::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
                 }).await;
                 let mut err_message = String::from("git error");
                 if let Ok(git_result) = result {
@@ -444,10 +482,23 @@ impl BranchList {
                                 }
                             }
                             branch_list.items_changed(0, 0, 1);
-                            branch_list.set_proxyselected(0);
-                            branch_sender.send_blocking(Event::Scroll(0))
-                                .expect("Could not send through channel");
-                            // TODO! it must be activated, not only selected!
+                            if need_checkout {
+                                let old_pos = branch_list.current();
+                                let old_item = branch_list.item(old_pos).unwrap();
+                                let old_branch_item = old_item.downcast_ref::<BranchItem>().unwrap();
+                                old_branch_item.set_is_head(false);
+                                debug!("old_branch===============================>>> {:?}", old_branch_item.imp().branch);
+                                let new_item = branch_list.item(0).unwrap();
+                                let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();                                
+                                // works via bind to single_selection selected
+                                new_branch_item.set_initial_focus(true);
+                                new_branch_item.set_is_head(true);                                
+                                branch_list.set_proxyselected(0);
+                                branch_list.set_current(0);
+                                debug!("new_branch===============================>>> {:?}", new_branch_item.imp().branch);
+                                branch_sender.send_blocking(Event::Scroll(0))
+                                    .expect("Could not send through channel");
+                            }
                             return;
                         }
                         Err(err) => err_message = err
@@ -729,7 +780,7 @@ pub fn make_headerbar(
         let sender = sender.clone();
         move |_| {
             sender
-                .send_blocking(Event::NewBranchRequest)
+                .send_blocking(Event::Create)
                 .expect("Could not send through channel");
         }
     });
@@ -739,21 +790,20 @@ pub fn make_headerbar(
         .tooltip_text("Kill")
         .sensitive(false)
         .can_shrink(true)
-        //.action_name("branches.kill")
         .build();
-    let selection_model = list_view.model().unwrap();
-    let single_selection =
-        selection_model.downcast_ref::<SingleSelection>().unwrap();
+    // let selection_model = list_view.model().unwrap();
+    // let single_selection =
+    //     selection_model.downcast_ref::<SingleSelection>().unwrap();
 
-    let _ = single_selection
-        .bind_property("selected-item", &kill_btn, "sensitive")
-        .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
-        .build();
+    // let _ = single_selection
+    //     .bind_property("selected-item", &kill_btn, "sensitive")
+    //     .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
+    //     .build();
     kill_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
             sender
-                .send_blocking(Event::KillRequest)
+                .send_blocking(Event::Kill)
                 .expect("Could not send through channel");
         }
     });
@@ -763,17 +813,16 @@ pub fn make_headerbar(
         .tooltip_text("Merge")
         .sensitive(false)
         .can_shrink(true)
-        //.action_name("branches.merge")
         .build();
-    let _ = single_selection
-        .bind_property("selected-item", &merge_btn, "sensitive")
-        .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
-        .build();
+    // let _ = single_selection
+    //     .bind_property("selected-item", &merge_btn, "sensitive")
+    //     .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
+    //     .build();
     merge_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
             sender
-                .send_blocking(Event::MergeRequest)
+                .send_blocking(Event::Merge)
                 .expect("Could not send through channel");
         }
     });
@@ -788,11 +837,10 @@ pub fn make_headerbar(
 }
 
 pub enum Event {
-    NewBranchRequest,
-    NewBranch(String),
+    Create,
     Scroll(u32),
-    KillRequest,
-    MergeRequest,
+    Kill,
+    Merge,
     CherryPickRequest,
 }
 
@@ -817,18 +865,6 @@ pub fn branches_in_use(
         branch_list.get_current_branch(),
         branch_list.get_selected_branch(),
     )
-    // let selected_item = branch_list.item(branch_list.proxyselected()).unwrap();
-    // let selected_branch_item =
-    //     selected_item.downcast_ref::<BranchItem>().unwrap();
-    // let selected_branch_data =
-    //     selected_branch_item.imp().branch.borrow().clone();
-
-    // let current_item = branch_list.item(branch_list.current()).unwrap();
-    // let current_branch_item =
-    //     current_item.downcast_ref::<BranchItem>().unwrap();
-    // let current_branch_data =
-    //     current_branch_item.imp().branch.borrow().clone();
-    // (current_branch_data, selected_branch_data)
 }
 
 pub fn show_branches_window(
@@ -870,17 +906,17 @@ pub fn show_branches_window(
                 }
                 (gdk::Key::n, _) => {
                     sender
-                        .send_blocking(Event::NewBranchRequest)
+                        .send_blocking(Event::Create)
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::k, _) => {
                     sender
-                        .send_blocking(Event::KillRequest)
+                        .send_blocking(Event::Kill)
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::m, _) => {
                     sender
-                        .send_blocking(Event::MergeRequest)
+                        .send_blocking(Event::Merge)
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::a, _) => {
@@ -901,39 +937,22 @@ pub fn show_branches_window(
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             match event {
-                Event::NewBranchRequest => {
-                    let (current_branch, _) = branches_in_use(&list_view);
-                    info!("branches. new branch request");
-                    crate::get_new_branch_name(
-                        &window,
-                        &current_branch,
-                        sender.clone(),
-                    );
-                }
-                Event::NewBranch(new_branch_name) => {
-                    info!("branches. got new branch name");
-                    // let selection_model = list_view.model().unwrap();
-                    // let single_selection = selection_model
-                    //     .downcast_ref::<SingleSelection>()
-                    //     .unwrap();
-                    // let list_model = single_selection.model().unwrap();
-                    // let branch_list =
-                    //     list_model.downcast_ref::<BranchList>().unwrap();
+                Event::Create => {
+                    trace!("branches. got new branch name");
                     let branch_list = get_branch_list(&list_view);
                     branch_list.create_branch(
                         repo_path.clone(),
-                        new_branch_name,
                         &window,
                         sender.clone(),
                         main_sender.clone(),
                     );
                 }
                 Event::Scroll(pos) => {
-                    info!("branches. scroll {:?}", pos);
+                    trace!("branches. scroll {:?}", pos);
                     list_view.scroll_to(pos, ListScrollFlags::empty(), None);
                 }
-                Event::KillRequest => {
-                    info!("branches. kill request");
+                Event::Kill => {
+                    trace!("branches. kill request");
                     let branch_list = get_branch_list(&list_view);
                     branch_list.kill_branch(
                         repo_path.clone(),
@@ -941,8 +960,8 @@ pub fn show_branches_window(
                         main_sender.clone(),
                     );
                 }
-                Event::MergeRequest => {
-                    info!("branches. merge request");
+                Event::Merge => {
+                    trace!("branches. merge");
                     let branch_list = get_branch_list(&list_view);
                     branch_list.merge(
                         repo_path.clone(),
@@ -951,13 +970,9 @@ pub fn show_branches_window(
                     )
                 }
                 Event::CherryPickRequest => {
-                    info!("branches. cherry-pick request");
+                    trace!("branches. cherry-pick request");
                     let (current_branch, selected_branch) =
                         branches_in_use(&list_view);
-                    debug!(
-                        "==========================> {:?} {:?}",
-                        current_branch, selected_branch
-                    );
                     let btns = vec!["Cancel", "Cherry-pick"];
                     let alert = AlertDialog::builder()
                         .buttons(btns)
@@ -973,7 +988,6 @@ pub fn show_branches_window(
                         let window = window.clone();
                         let sender = main_sender.clone();
                         clone!(@weak branch_list => move |result| {
-                            debug!("meeeeeeeeeeeeeeeeee {:?}", result);
                             if let Ok(ind) = result {
                                 if ind == 1 {
                                     branch_list.cherry_pick(
