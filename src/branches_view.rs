@@ -213,31 +213,23 @@ impl BranchList {
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
-        let branch_data = selected_item.imp().branch.borrow();
-        let name = branch_data.refname.clone();
-        let oid = branch_data.oid;
 
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window, @weak selected_item, @weak current_item => async move {
-                let result = gio::spawn_blocking(move || {
-                    crate::checkout(repo_path, oid, &name, sender)
+                let branch_data = selected_item.imp().branch.borrow().clone();
+                let maybe_new_branch_data = gio::spawn_blocking(move || {
+                    crate::checkout(repo_path, branch_data, sender)
                 }).await;
-                let mut err_message = String::from("git error");
-                if let Ok(git_result) = result {
-                    selected_item.set_progress(false);
-                    match git_result {
-                        Ok(_) => {
-                            selected_item.set_is_head(true);
-                            selected_item.set_no_progress(true);
-                            current_item.set_is_head(false);
-                            branch_list.set_current(branch_list.proxyselected());
-                            return;
-                        }
-                        Err(err) => err_message = err
-                    }
+                selected_item.set_progress(false);
+                if let Ok(new_branch_data) = maybe_new_branch_data {
+                    selected_item.imp().branch.replace(new_branch_data);
+                    selected_item.set_is_head(true);
+                    selected_item.set_no_progress(true);
+                    current_item.set_is_head(false);
+                    branch_list.set_current(branch_list.proxyselected());
+                } else {
+                    crate::display_error(&window, "can't checkout branch");
                 }
-                selected_item.set_no_progress(true);
-                crate::display_error(&window, &err_message);
             })
         });
     }
@@ -449,6 +441,7 @@ impl BranchList {
                     .active(true)
                     .build();
                 lb.append(&title);
+                lb.append(&input);
                 lb.append(&checkout);
                 let dialog = crate::make_confirm_dialog(
                     &window,
@@ -489,10 +482,10 @@ impl BranchList {
                                 old_branch_item.set_is_head(false);
                                 debug!("old_branch===============================>>> {:?}", old_branch_item.imp().branch);
                                 let new_item = branch_list.item(0).unwrap();
-                                let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();                                
+                                let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
                                 // works via bind to single_selection selected
                                 new_branch_item.set_initial_focus(true);
-                                new_branch_item.set_is_head(true);                                
+                                new_branch_item.set_is_head(true);
                                 branch_list.set_proxyselected(0);
                                 branch_list.set_current(0);
                                 debug!("new_branch===============================>>> {:?}", new_branch_item.imp().branch);
