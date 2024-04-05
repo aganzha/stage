@@ -457,47 +457,38 @@ impl BranchList {
                 let result = gio::spawn_blocking(move || {
                     crate::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
                 }).await;
-                let mut err_message = String::from("git error");
-                if let Ok(git_result) = result {
-                    match git_result {
-                        Ok(branch_data) => {
-                            // branch_item.set_is_head(false);
-                            let new_item = BranchItem::new(branch_data);
-                            trace!("branches.just created new item {:?}", new_item.is_head());
-                            {
-                                // put borrow in block
-                                branch_list.imp().list.borrow_mut().insert(0, new_item);
-                                let mut pos = branch_list.imp().remote_start_pos.borrow_mut();
-                                if let Some(mut rem_pos) = *pos {
-                                    rem_pos += 1;
-                                    pos.replace(rem_pos);
-                                    trace!("branches. replace rem pos {:?} {:?}", rem_pos, pos);
-                                }
-                            }
-                            branch_list.items_changed(0, 0, 1);
-                            if need_checkout {
-                                let old_pos = branch_list.current();
-                                let old_item = branch_list.item(old_pos).unwrap();
-                                let old_branch_item = old_item.downcast_ref::<BranchItem>().unwrap();
-                                old_branch_item.set_is_head(false);
-                                debug!("old_branch===============================>>> {:?}", old_branch_item.imp().branch);
-                                let new_item = branch_list.item(0).unwrap();
-                                let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
-                                // works via bind to single_selection selected
-                                new_branch_item.set_initial_focus(true);
-                                new_branch_item.set_is_head(true);
-                                branch_list.set_proxyselected(0);
-                                branch_list.set_current(0);
-                                debug!("new_branch===============================>>> {:?}", new_branch_item.imp().branch);
-                                branch_sender.send_blocking(Event::Scroll(0))
-                                    .expect("Could not send through channel");
-                            }
-                            return;
-                        }
-                        Err(err) => err_message = err
+                if let Ok(branch_data) = result {
+                    let new_head = branch_data.is_head;
+                    if  new_head {
+                        let old_item = branch_list.item(branch_list.current()).unwrap();
+                        let old_branch_item = old_item.downcast_ref::<BranchItem>().unwrap();
+                        let mut old_data = old_branch_item.imp().branch.borrow_mut();
+                        old_data.is_head = false;
+                        old_branch_item.set_is_head(false);
                     }
+                    let new_item = BranchItem::new(branch_data);
+                    if new_head {
+                        let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
+                        new_branch_item.set_initial_focus(true);
+                        new_branch_item.set_is_head(true);
+                    }
+                    {
+                        // put borrow in block
+                        branch_list.imp().list.borrow_mut().insert(0, new_item);
+                        let mut pos = branch_list.imp().remote_start_pos.borrow_mut();
+                        if let Some(mut rem_pos) = *pos {
+                            rem_pos += 1;
+                            pos.replace(rem_pos);
+                            trace!("branches. replace rem pos {:?} {:?}", rem_pos, pos);
+                        }
+                    }
+                    branch_list.items_changed(0, 0, 1);
+                    branch_list.set_proxyselected(0);
+                    branch_list.set_current(0);
+
+                } else {
+                    crate::display_error(&window, "cant create branch");
                 }
-                crate::display_error(&window, &err_message);
             })
         });
     }
