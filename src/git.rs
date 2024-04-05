@@ -1022,19 +1022,15 @@ pub fn create_branch(
     need_checkout: bool,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
-) -> Result<BranchData, String> {
+) -> BranchData {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let commit = repo.find_commit(branch_data.oid).expect("cant find commit");
-    let result = repo.branch(&new_branch_name, &commit, false);
-    match result {
-        Ok(branch) => {
-            let branch_data = BranchData::new(branch, BranchType::Local);
-            if !need_checkout {
-                return Ok(branch_data);
-            }
-            Ok(checkout(path, branch_data, sender))
-        }
-        Err(error) => Err(String::from(error.message())),
+    let branch = repo.branch(&new_branch_name, &commit, false).expect("cant create branch");
+    let branch_data = BranchData::new(branch, BranchType::Local);
+    if need_checkout {
+        checkout(path, branch_data, sender)
+    } else {
+        branch_data
     }
 }
 
