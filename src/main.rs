@@ -27,7 +27,7 @@ use glib::{clone, ControlFlow};
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Button,
-    CssProvider, ScrolledWindow, TextWindowType,
+    CssProvider, ScrolledWindow, TextWindowType, Settings,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
@@ -57,21 +57,17 @@ fn main() -> glib::ExitCode {
 }
 
 fn load_css() {
-    // Load the CSS file and add it to the provider
-    // let adw_theme = IconTheme::builder()
-    //     .display()
-    //     .theme_name("Adwaita")
-    //     .build();
-    let provider = CssProvider::new();
-    let display = Display::default().expect("Could not connect to a display.");
-    provider.load_from_string(include_str!("style.css"));
 
-    // Add the provider to the default screen
-    style_context_add_provider_for_display(
-        &display,
-        &provider,
-        STYLE_PROVIDER_PRIORITY_APPLICATION,
-    );
+    let display = Display::default().expect("Could not connect to a display.");
+    let settings = Settings::for_display(&display);
+    settings.set_gtk_font_name(Some("Cantarell 21"));
+    // let provider = CssProvider::new();
+    // provider.load_from_string(include_str!("style.css"));
+    // style_context_add_provider_for_display(
+    //     &display,
+    //     &provider,
+    //     STYLE_PROVIDER_PRIORITY_APPLICATION,
+    // );
 }
 
 #[derive(Debug)]
