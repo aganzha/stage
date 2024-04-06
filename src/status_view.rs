@@ -144,8 +144,10 @@ impl Status {
                     .active(true)
                     .build();
 
+
                 let input = EntryRow::builder()
                     .title("Remote branch name:")
+                    .show_apply_button(true)
                     .css_classes(vec!["input_field"])
                     .text(remote)
                     .build();
@@ -158,6 +160,10 @@ impl Status {
                     "Push to remote/origin", // TODO here is harcode
                     "Push",
                 );
+                // does not work :(
+                // apply button does not shown because of default text
+                // press enter will not work - there is nothing to apply
+                // without apply button
                 input.connect_apply(clone!(@strong dialog as dialog => move |entry| {
                     dialog.response("confirm");
                     dialog.close();
