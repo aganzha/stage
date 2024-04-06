@@ -128,59 +128,85 @@ impl Status {
     pub fn push(
         &mut self,
         path: &OsString,
-        window: &impl IsA<Gtk4Window>,
+        window: &ApplicationWindow,
         sender: Sender<crate::Event>,
     ) {
-        let lb = ListBox::builder()
-            .selection_mode(SelectionMode::None)
-            .css_classes(vec![String::from("boxed-list")])
-            .build();
-        let upstream = SwitchRow::builder()
-            .title("Set upstream")
-            .css_classes(vec!["input_field"])
-            .active(true)
-            .build();
+        let remote = self.choose_remote();
+        glib::spawn_future_local({
+            clone!(@weak window as window, @strong path as path => async move {
+                let lb = ListBox::builder()
+                    .selection_mode(SelectionMode::None)
+                    .css_classes(vec![String::from("boxed-list")])
+                    .build();
+                let upstream = SwitchRow::builder()
+                    .title("Set upstream")
+                    .css_classes(vec!["input_field"])
+                    .active(true)
+                    .build();
 
-        let input = EntryRow::builder()
-            .title("Remote branch name:")
-            .css_classes(vec!["input_field"])
-            .text(self.choose_remote())
-            .build();
-        lb.append(&input);
-        lb.append(&upstream);
-
-        crate::make_confirm_dialog(
-            window,
-            Some(&lb),
-            "Push to remote/origin", // TODO here is harcode
-            "Push",
-        )
-        .choose(None::<&gio::Cancellable>, {
-            let path = path.clone();
-            let sender = sender.clone();
-            move |result| {
-                if result == "confirm" {
-                    trace!(
-                        "confirm push dialog {:?} {:?}",
-                        input.text(),
-                        upstream.is_active()
-                    );
-                    let remote_branch_name = format!("{}", input.text());
-                    let track_remote = upstream.is_active();
-                    gio::spawn_blocking({
-                        let path = path.clone();
-                        move || {
-                            push(
-                                path,
-                                remote_branch_name,
-                                track_remote,
-                                sender,
-                            );
-                        }
-                    });
+                let input = EntryRow::builder()
+                    .title("Remote branch name:")
+                    .css_classes(vec!["input_field"])
+                    .text(remote)
+                    .build();
+                lb.append(&input);
+                lb.append(&upstream);
+                
+                let dialog = crate::make_confirm_dialog(
+                    &window,
+                    Some(&lb),
+                    "Push to remote/origin", // TODO here is harcode
+                    "Push",
+                );
+                input.connect_apply(clone!(@strong dialog as dialog => move |entry| {
+                    dialog.response("confirm");
+                    dialog.close();
+                }));
+                let response = dialog.choose_future().await;
+                if "confirm" != response {                        
+                    return;
                 }
-            }
+                let remote_branch_name = format!("{}", input.text());
+                let track_remote = upstream.is_active();
+                gio::spawn_blocking({
+                    let path = path.clone();
+                    move || {
+                        push(
+                            path,
+                            remote_branch_name,
+                            track_remote,
+                            sender,
+                        );
+                    }
+                });
+            })
         });
+        // .choose(None::<&gio::Cancellable>, {
+        //     let path = path.clone();
+        //     let sender = sender.clone();
+        //     move |result| {
+        //         if result == "confirm" {
+        //             trace!(
+        //                 "confirm push dialog {:?} {:?}",
+        //                 input.text(),
+        //                 upstream.is_active()
+        //             );
+        //             let remote_branch_name = format!("{}", input.text());
+        //             let track_remote = upstream.is_active();
+        //             gio::spawn_blocking({
+        //                 let path = path.clone();
+        //                 move || {
+        //                     push(
+        //                         path,
+        //                         remote_branch_name,
+        //                         track_remote,
+        //                         sender,
+        //                     );
+        //                 }
+        //             });
+        //         }
+        //     }
+        // });
     }
 
     pub fn make_context(&mut self, text_view_width: Rc<RefCell<(i32, i32)>>) {
@@ -244,7 +270,6 @@ impl Status {
                     lb.append(&input);
                     let dialog = crate::make_confirm_dialog(&window, Some(&lb), "Commit", "Commit");
                     input.connect_apply(clone!(@strong dialog as dialog => move |entry| {
-                        debug!("----------------->apply entry row {:?} {:?}", entry, dialog);
                         dialog.response("confirm");
                         dialog.close();
                     }));
@@ -262,36 +287,6 @@ impl Status {
                     });
                 })
             });
-            // let lb = ListBox::builder()
-            //     .selection_mode(SelectionMode::None)
-            //     .css_classes(vec![String::from("boxed-list")])
-            //     .build();
-            // let input = EntryRow::builder()
-            //     .title("Commit message:")
-            //     .show_apply_button(true)
-            //     .css_classes(vec!["input_field"])
-            //     .build();
-            // input.connect_apply(|entry| {
-            //     debug!("----------------->apply entry row {:?}", entry);
-            // });
-            // lb.append(&input);
-            // crate::make_confirm_dialog(window, Some(&lb), "Commit", "Commit")
-            //     .choose(None::<&gio::Cancellable>, {
-            //         let path = path.clone();
-            //         let sender = sender.clone();
-            //         move |result| {
-            //             if result == "confirm" {
-            //                 trace!("confirm commit dialog {:?}", input.text());
-            //                 let message = format!("{}", input.text());
-            //                 gio::spawn_blocking({
-            //                     let path = path.clone();
-            //                     move || {
-            //                         commit(path, message, sender);
-            //                     }
-            //                 });
-            //             }
-            //         }
-            //     });
         }
     }
 
