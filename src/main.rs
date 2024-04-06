@@ -61,13 +61,13 @@ fn load_css() {
     let display = Display::default().expect("Could not connect to a display.");
     let settings = Settings::for_display(&display);
     settings.set_gtk_font_name(Some("Cantarell 21"));
-    // let provider = CssProvider::new();
-    // provider.load_from_string(include_str!("style.css"));
-    // style_context_add_provider_for_display(
-    //     &display,
-    //     &provider,
-    //     STYLE_PROVIDER_PRIORITY_APPLICATION,
-    // );
+    let provider = CssProvider::new();
+    provider.load_from_string(include_str!("style.css"));
+    style_context_add_provider_for_display(
+        &display,
+        &provider,
+        STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
 }
 
 #[derive(Debug)]
@@ -130,7 +130,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
         .use_underline(true)
         .can_focus(false)
         .tooltip_text("Refresh")
-        .icon_name("view-refresh")
+        .icon_name("view-refresh-symbolic")
         .can_shrink(true)
         .build();
     refresh_btn.connect_clicked({

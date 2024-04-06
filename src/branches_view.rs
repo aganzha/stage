@@ -1,13 +1,13 @@
 use async_channel::Sender;
 use git2::BranchType;
-use glib::{clone, Object};
+use glib::{clone, Object, closure};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, AlertDialog, Box, Button, CheckButton,
     EventControllerKey, Label, ListBox, ListHeader, ListItem, ListScrollFlags,
     ListView, Orientation, ScrolledWindow, SectionModel, SelectionMode,
-    SignalListItemFactory, SingleSelection, Spinner, Widget,
+    SignalListItemFactory, SingleSelection, Spinner, Widget, Image
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -114,10 +114,10 @@ mod branch_list {
         pub remote_start_pos: RefCell<Option<u32>>,
 
         #[property(get, set)]
-        pub proxyselected: RefCell<u32>,
+        pub selected_pos: RefCell<u32>,
 
         #[property(get, set)]
-        pub current: RefCell<u32>,
+        pub current_pos: RefCell<u32>,
     }
 
     #[glib::object_subclass]
@@ -199,8 +199,8 @@ impl BranchList {
                 branch_list.imp().remote_start_pos.replace(remote_start_pos);
                 branch_list.items_changed(0, 0, le);
                 // works via bind to single_selection selected
-                branch_list.set_proxyselected(selected as u32);
-                branch_list.set_current(selected as u32);
+                branch_list.set_selected_pos(selected as u32);
+                branch_list.set_current_pos(selected as u32);
             })
         });
     }
@@ -226,7 +226,7 @@ impl BranchList {
                     selected_item.set_is_head(true);
                     selected_item.set_no_progress(true);
                     current_item.set_is_head(false);
-                    branch_list.set_current(branch_list.proxyselected());
+                    branch_list.set_current_pos(branch_list.selected_pos());
                 } else {
                     crate::display_error(&window, "can't checkout branch");
                 }
@@ -235,13 +235,13 @@ impl BranchList {
     }
 
     pub fn update_current_item(&self, branch_data: crate::BranchData) {
-        let current_item = self.item(self.current()).unwrap();
+        let current_item = self.item(self.current_pos()).unwrap();
         let branch_item = current_item.downcast_ref::<BranchItem>().unwrap();
         branch_item.imp().branch.replace(branch_data);
     }
 
     pub fn get_selected_branch(&self) -> crate::BranchData {
-        let pos = self.proxyselected();
+        let pos = self.selected_pos();
         let item = self.item(pos).unwrap();
         let branch_item = item.downcast_ref::<BranchItem>().unwrap();
         let data = branch_item.imp().branch.borrow().clone();
@@ -249,7 +249,7 @@ impl BranchList {
     }
 
     pub fn get_current_branch(&self) -> crate::BranchData {
-        let pos = self.current();
+        let pos = self.current_pos();
         let item = self.item(pos).unwrap();
         let branch_item = item.downcast_ref::<BranchItem>().unwrap();
         let data = branch_item.imp().branch.borrow().clone();
@@ -335,7 +335,7 @@ impl BranchList {
     ) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window => async move {
-                let pos = branch_list.proxyselected();
+                let pos = branch_list.selected_pos();
                 let branch_data = branch_list.get_selected_branch();
                 let kind = branch_data.branch_type;
                 let result = gio::spawn_blocking(move || {
@@ -369,7 +369,7 @@ impl BranchList {
                                 // if not select new_pos there will be panic in transform_to
                                 // there will be no value (no item) in selected-item
                                 // during items_changed
-                                branch_list.set_proxyselected(0);
+                                branch_list.set_selected_pos(0);
                             } else {
                                 new_pos = {
                                     if pos > 1 {
@@ -382,7 +382,7 @@ impl BranchList {
                                 let prev_item = branch_list.item(new_pos).unwrap();
                                 let branch_item = prev_item.downcast_ref::<BranchItem>().unwrap();
                                 branch_item.set_initial_focus(true);
-                                branch_list.set_proxyselected(new_pos);
+                                branch_list.set_selected_pos(new_pos);
                             }
                             branch_list.items_changed(pos, 1, 0);
                             // restore selected position to next one
@@ -391,7 +391,7 @@ impl BranchList {
                             // there will be item with overflown position
                             // connect_selected_notify and cursor will jump
                             // to first position
-                            branch_list.set_proxyselected(new_pos);
+                            branch_list.set_selected_pos(new_pos);
                             return;
                         }
                         Err(err) => err_message = err
@@ -456,7 +456,7 @@ impl BranchList {
                 if let Ok(branch_data) = result {
                     let new_head = branch_data.is_head;
                     if  new_head {
-                        let old_item = branch_list.item(branch_list.current()).unwrap();
+                        let old_item = branch_list.item(branch_list.current_pos()).unwrap();
                         let old_branch_item = old_item.downcast_ref::<BranchItem>().unwrap();
                         let mut old_data = old_branch_item.imp().branch.borrow_mut();
                         old_data.is_head = false;
@@ -479,8 +479,8 @@ impl BranchList {
                         }
                     }
                     branch_list.items_changed(0, 0, 1);
-                    branch_list.set_proxyselected(0);
-                    branch_list.set_current(0);
+                    branch_list.set_selected_pos(0);
+                    branch_list.set_current_pos(0);
 
                 } else {
                     crate::display_error(&window, "cant create branch");
@@ -525,10 +525,9 @@ pub fn make_header_factory() -> SignalListItemFactory {
 pub fn make_item_factory() -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
-        let fake_btn = CheckButton::new();
-        let btn = CheckButton::new();
-        btn.set_group(Some(&fake_btn));
-        btn.set_sensitive(false);
+
+        let image = Image::new();
+        image.set_margin_top(4);
         let spinner = Spinner::new();
         spinner.set_visible(false);
         // spinner.set_spinning(true);
@@ -537,8 +536,8 @@ pub fn make_item_factory() -> SignalListItemFactory {
             .lines(1)
             .single_line_mode(true)
             .xalign(0.0)
-            .width_chars(24)
-            .max_width_chars(24)
+            .width_chars(36)
+            .max_width_chars(36)
             .ellipsize(pango::EllipsizeMode::End)
             //.selectable(true)
             .use_markup(true)
@@ -574,6 +573,7 @@ pub fn make_item_factory() -> SignalListItemFactory {
 
         let bx = Box::builder()
             .orientation(Orientation::Horizontal)
+            // .css_classes(vec![String::from("branch_row")])
             .margin_top(2)
             .margin_bottom(2)
             .margin_start(2)
@@ -582,7 +582,7 @@ pub fn make_item_factory() -> SignalListItemFactory {
             .can_focus(true)
             .focusable(true)
             .build();
-        bx.append(&btn);
+        bx.append(&image);
         bx.append(&spinner);
         bx.append(&label_title);
         bx.append(&label_commit);
@@ -595,9 +595,21 @@ pub fn make_item_factory() -> SignalListItemFactory {
         list_item.set_selectable(true);
         list_item.set_activatable(true);
         list_item.set_focusable(true);
+
+        // list_item.bind_property("selected", &bx, "css_classes")
+        //     .transform_to(move |_, is_selected: bool| {
+        //         if is_selected {
+        //             Some(vec![String::from("branch_row")])
+        //         } else {
+        //             Some(vec![])
+        //         }
+        //     })
+        //     .build();
+        
         list_item.connect_selected_notify(|li: &ListItem| {
             // grab focus only once on list init
             if let Some(item) = li.item() {
+                // li.child().expect("no child").set_css_classes(&vec!["branch_row"]);
                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
                 trace!(
                     "item in connect selected {:?} {:?} {:?}",
@@ -618,17 +630,14 @@ pub fn make_item_factory() -> SignalListItemFactory {
         });
 
         let item = list_item.property_expression("item");
-
-        item.chain_property::<BranchItem>("is_head").bind(
-            &btn,
-            "active",
-            Widget::NONE,
-        );
-        item.chain_property::<BranchItem>("no-progress").bind(
-            &btn,
-            "visible",
-            Widget::NONE,
-        );
+        item.chain_property::<BranchItem>("is_head")
+            .chain_closure::<String>(closure!(|_: Option<Object>, is_head: bool| {
+                if is_head {
+                    String::from("avatar-default-symbolic")
+                } else {
+                    String::from("")
+                }
+            })).bind(&image, "icon-name", Widget::NONE);
         item.chain_property::<BranchItem>("progress").bind(
             &spinner,
             "visible",
@@ -673,10 +682,19 @@ pub fn make_list_view(
     let selection_model = SingleSelection::new(Some(branch_list));
     selection_model.set_autoselect(false);
 
+    
     let model = selection_model.model().unwrap();
     let bind =
-        selection_model.bind_property("selected", &model, "proxyselected");
+        selection_model.bind_property("selected", &model, "selected_pos");
     let _ = bind.bidirectional().build();
+    // selection_model.connect_selected_item_notify(|single_selection| {
+    //     // let ss_pos = single_selection.selected();
+    //     // debug!("selected_item_notify............. {:?}", ss_pos);
+    //     // if let Some(item) = single_selection.selected_item() {
+    //     //     let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+    //     //     branch_item.imp().add_css_class("selected");
+    //     // }
+    // });
 
     let branch_list = model.downcast_ref::<BranchList>().unwrap();
     branch_list.make_list(repo_path.clone());
@@ -722,7 +740,7 @@ pub fn make_list_view(
             trace!(
                 "branches checkout! {:?} {:?}",
                 single_selection.selected(),
-                branch_list.proxyselected()
+                branch_list.selected_pos()
             );
             branch_list.checkout(
                 repo_path.clone(),
@@ -749,9 +767,10 @@ pub fn make_headerbar(
         .single_line_mode(true)
         .build();
     let new_btn = Button::builder()
-        .label("N")
+        // .label("N")
+        .icon_name("list-add-symbolic")
         .can_shrink(true)
-        .tooltip_text("New")
+        .tooltip_text("Create branch (N)")
         .sensitive(true)
         .use_underline(true)
         // .action_name("branches.new")
@@ -765,20 +784,22 @@ pub fn make_headerbar(
         }
     });
     let kill_btn = Button::builder()
-        .label("K")
+        // .label("K")
+        .icon_name("edit-delete-symbolic")
         .use_underline(true)
-        .tooltip_text("Kill")
+        .tooltip_text("Delete branch (K)")
         .sensitive(false)
         .can_shrink(true)
         .build();
-    // let selection_model = list_view.model().unwrap();
-    // let single_selection =
-    //     selection_model.downcast_ref::<SingleSelection>().unwrap();
 
-    // let _ = single_selection
-    //     .bind_property("selected-item", &kill_btn, "sensitive")
-    //     .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
-    //     .build();
+    let selection_model = list_view.model().unwrap();
+    let single_selection =
+        selection_model.downcast_ref::<SingleSelection>().unwrap();
+
+    let _ = single_selection
+        .bind_property("selected-item", &kill_btn, "sensitive")
+        .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
+        .build();
     kill_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
@@ -788,16 +809,17 @@ pub fn make_headerbar(
         }
     });
     let merge_btn = Button::builder()
-        .label("M")
+        // .label("M")
+        .icon_name("org.gtk.gtk4.NodeEditor-symbolic")
         .use_underline(true)
-        .tooltip_text("Merge")
+        .tooltip_text("Merge branch (M)")
         .sensitive(false)
         .can_shrink(true)
         .build();
-    // let _ = single_selection
-    //     .bind_property("selected-item", &merge_btn, "sensitive")
-    //     .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
-    //     .build();
+    let _ = single_selection
+        .bind_property("selected-item", &merge_btn, "sensitive")
+        .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
+        .build();
     merge_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
@@ -809,8 +831,8 @@ pub fn make_headerbar(
 
     hb.set_title_widget(Some(&lbl));
     hb.pack_end(&new_btn);
-    hb.pack_end(&kill_btn);
     hb.pack_end(&merge_btn);
+    hb.pack_end(&kill_btn);
     hb.set_show_end_title_buttons(true);
     hb.set_show_back_button(true);
     hb
