@@ -1108,13 +1108,28 @@ pub fn merge(
     path: OsString,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
-) -> Result<BranchData, String> {
+) -> BranchData {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let annotated_commit = repo
         .find_annotated_commit(branch_data.oid)
         .expect("cant find commit");
     // let result = repo.merge(&[&annotated_commit], None, None);
 
+    let do_merge = || {
+        let result = repo.merge(&[&annotated_commit], None, None).expect("cant merge");
+        // all changes are in index now
+        let head_ref = repo.head().expect("can't get head");
+        assert!(head_ref.is_branch());
+        let current_branch = Branch::wrap(head_ref);
+        let message = format!(
+            "merge branch {} into {}",
+            branch_data.name,
+            current_branch.name().unwrap().unwrap().to_string()
+        );
+        commit(path, message, sender.clone());
+        repo.cleanup_state().unwrap();
+    };
+    
     match repo.merge_analysis(&[&annotated_commit]) {
         Ok((analysis, _)) if analysis.is_up_to_date() => {
             info!("merge.uptodate");
@@ -1126,33 +1141,14 @@ pub fn merge(
         {
             debug!("-----------------------------------> {:?}", analysis);
             info!("merge.fastforward");
+            do_merge();
         }
         Ok((analysis, preference))
             if analysis.is_normal() && !preference.is_fastforward_only() =>
         {
             debug!("-----------------------------------> {:?}", analysis);
             info!("merge.normal");
-            let result = repo.merge(&[&annotated_commit], None, None);
-            if let Err(err) = result {
-                debug!(
-                    "err on merge {:?} {:?} {:?}",
-                    err.code(),
-                    err.class(),
-                    err.message()
-                );
-                return Err(String::from(err.message()));
-            }
-            // all changes are in index now
-            let head_ref = repo.head().expect("can't get head");
-            assert!(head_ref.is_branch());
-            let current_branch = Branch::wrap(head_ref);
-            let message = format!(
-                "merge branch {} into {}",
-                branch_data.name,
-                current_branch.name().unwrap().unwrap().to_string()
-            );
-            commit(path, message, sender.clone());
-            repo.cleanup_state().unwrap();
+            do_merge();
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
@@ -1192,5 +1188,5 @@ pub fn merge(
     //     )))
     //     .expect("Could not send through channel");
 
-    Ok(BranchData::new(branch, BranchType::Local))
+    BranchData::new(branch, BranchType::Local)
 }
