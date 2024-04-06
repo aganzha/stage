@@ -245,7 +245,8 @@ impl Status {
                     let dialog = crate::make_confirm_dialog(&window, Some(&lb), "Commit", "Commit");
                     input.connect_apply(clone!(@strong dialog as dialog => move |entry| {
                         debug!("----------------->apply entry row {:?} {:?}", entry, dialog);
-                        dialog.response("confirm");                        
+                        dialog.response("confirm");
+                        dialog.close();
                     }));
                     let response = dialog.choose_future().await;
                     debug!("got response from dialog! {:?}", response);
