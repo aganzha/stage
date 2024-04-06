@@ -1,6 +1,7 @@
 pub mod container;
 pub mod factory;
 use container::{ViewContainer, ViewKind};
+
 pub mod render;
 use render::Tag;
 pub mod reconciliation;
@@ -18,11 +19,11 @@ use async_channel::Sender;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gio, ListBox, SelectionMode, TextBuffer, TextView, Window as Gtk4Window,
+    gio, glib, ListBox, SelectionMode, TextBuffer, TextView, Window as Gtk4Window,
 };
-
+use glib::{clone};
 use libadwaita::prelude::*;
-use libadwaita::{EntryRow, SwitchRow};
+use libadwaita::{EntryRow, SwitchRow, ApplicationWindow}; // _Window,
 use log::{debug, trace};
 
 use std::ffi::OsString;
@@ -225,36 +226,72 @@ impl Status {
         &mut self,
         path: &OsString,
         _txt: &TextView,
-        window: &impl IsA<Gtk4Window>,
+        window: &ApplicationWindow,// &impl IsA<Gtk4Window>,
         sender: Sender<crate::Event>,
     ) {
         if self.staged.is_some() {
-            let lb = ListBox::builder()
-                .selection_mode(SelectionMode::None)
-                .css_classes(vec![String::from("boxed-list")])
-                .build();
-            let input = EntryRow::builder()
-                .title("Commit message:")
-                .css_classes(vec!["input_field"])
-                .build();
-            lb.append(&input);
-            crate::make_confirm_dialog(window, Some(&lb), "Commit", "Commit")
-                .choose(None::<&gio::Cancellable>, {
-                    let path = path.clone();
-                    let sender = sender.clone();
-                    move |result| {
-                        if result == "confirm" {
-                            trace!("confirm commit dialog {:?}", input.text());
-                            let message = format!("{}", input.text());
-                            gio::spawn_blocking({
-                                let path = path.clone();
-                                move || {
-                                    commit(path, message, sender);
-                                }
-                            });
-                        }
+            glib::spawn_future_local({
+                clone!(@weak window as window, @strong path as path => async move {
+                    let lb = ListBox::builder()
+                        .selection_mode(SelectionMode::None)
+                        .css_classes(vec![String::from("boxed-list")])
+                        .build();
+                    let input = EntryRow::builder()
+                        .title("Commit message:")
+                        .show_apply_button(true)
+                        .css_classes(vec!["input_field"])
+                        .build();
+                    lb.append(&input);
+                    let dialog = crate::make_confirm_dialog(&window, Some(&lb), "Commit", "Commit");
+                    input.connect_apply(clone!(@weak dialog as dialog => move |entry| {
+                        debug!("----------------->apply entry row {:?} {:?}", entry, dialog);
+                        dialog.set_close_response("confirm");
+                        debug!("wtf???????????????? {:?}", dialog.close_response());
+                    }));
+                    let response = dialog.choose_future().await;
+                    debug!("got response from dialog! {:?}", response);
+                    if "confirm" != response {                        
+                        return;
                     }
-                });
+                    gio::spawn_blocking({
+                        let path = path.clone();
+                        let message = format!("{}", input.text());
+                        move || {
+                            commit(path, message, sender);
+                        }
+                    });
+                })
+            });
+            // let lb = ListBox::builder()
+            //     .selection_mode(SelectionMode::None)
+            //     .css_classes(vec![String::from("boxed-list")])
+            //     .build();
+            // let input = EntryRow::builder()
+            //     .title("Commit message:")
+            //     .show_apply_button(true)
+            //     .css_classes(vec!["input_field"])
+            //     .build();
+            // input.connect_apply(|entry| {
+            //     debug!("----------------->apply entry row {:?}", entry);
+            // });
+            // lb.append(&input);
+            // crate::make_confirm_dialog(window, Some(&lb), "Commit", "Commit")
+            //     .choose(None::<&gio::Cancellable>, {
+            //         let path = path.clone();
+            //         let sender = sender.clone();
+            //         move |result| {
+            //             if result == "confirm" {
+            //                 trace!("confirm commit dialog {:?}", input.text());
+            //                 let message = format!("{}", input.text());
+            //                 gio::spawn_blocking({
+            //                     let path = path.clone();
+            //                     move || {
+            //                         commit(path, message, sender);
+            //                     }
+            //                 });
+            //             }
+            //         }
+            //     });
         }
     }
 
