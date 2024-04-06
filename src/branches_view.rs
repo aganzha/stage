@@ -302,32 +302,28 @@ impl BranchList {
             clone!(@weak self as branch_list,
                    @weak window as window,
                    @strong selected_branch as branch_data => async move {
-                let dialog = crate::make_confirm_dialog(
-                    &window,
-                    Some(&Label::new(Some(&title))),
-                    "Merge",
-                    "Merge"
-                );
-                let result = dialog.choose_future().await;
-                if result == "confirm" {
-                    let result = gio::spawn_blocking(move || {
-                        crate::merge(repo_path, branch_data, sender)
-                    }).await;
-                    let mut err_message = String::from("git error");
-                    if let Ok(git_result) = result {
-                        match git_result {
-                            Ok(branch_data) => {
-                                debug!("just merged and this is branch data {:?}", branch_data);
-                                branch_list.update_current_item(branch_data);
-                                window.close();
-                                return;
-                            }
-                            Err(err) => err_message = err
-                        }
-                    }
-                    crate::display_error(&window, &err_message);
-                }
-            })
+                       let dialog = crate::make_confirm_dialog(
+                           &window,
+                           Some(&Label::new(Some(&title))),
+                           "Merge",
+                           "Merge"
+                       );
+                       let result = dialog.choose_future().await;
+                       if "confirm" != result {
+                           return;
+                       }                       
+                       let result = gio::spawn_blocking(move || {
+                           crate::merge(repo_path, branch_data, sender)
+                       }).await;
+                       
+                       if let Ok(branch_data) = result {
+                           debug!("just merged and this is branch data {:?}", branch_data);
+                           branch_list.update_current_item(branch_data);
+                           window.close();
+                       } else {
+                           crate::display_error(&window, "error in merge");
+                       }                       
+                   })
         });
     }
 
