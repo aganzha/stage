@@ -16,7 +16,7 @@ use git::{
     View,
 };
 mod widgets;
-use widgets::{display_error, make_confirm_dialog};
+use widgets::{display_error, make_confirm_dialog, make_header_bar};
 
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -125,27 +125,8 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     window.add_action(&action_close);
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    // works
-    // media-playback-start
-    // /usr/share/icons/Adwaita/symbolic/actions/media-playback-start-symbolic.svg
-    let refresh_btn = Button::builder()
-        .label("Refresh")
-        .use_underline(true)
-        .can_focus(false)
-        .tooltip_text("Refresh")
-        .icon_name("view-refresh-symbolic")
-        .can_shrink(true)
-        .build();
-    refresh_btn.connect_clicked({
-        let p = current_repo_path.clone();
-        let s = sender.clone();
-        move |_| {
-            get_current_repo_status(p.clone(), s.clone());
-        }
-    });
-    let hb = HeaderBar::new();
-    hb.pack_start(&refresh_btn);
-
+    let hb = make_header_bar(current_repo_path.clone(), sender.clone());
+    
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt = text_view_factory(sender.clone(), text_view_width.clone());
 
@@ -156,7 +137,6 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     toast_overlay.set_child(Some(&scroll));
 
     let tb = ToolbarView::builder()
-        // .content(&scroll)
         .content(&toast_overlay)
         .build();
     tb.add_top_bar(&hb);
