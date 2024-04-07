@@ -82,8 +82,8 @@ pub fn text_view_factory(
     buffer.tag_table().add(&Tag::EnhancedAdded.create());
     buffer.tag_table().add(&Tag::Removed.create());
     buffer.tag_table().add(&Tag::EnhancedRemoved.create());
-    buffer.tag_table().add(&Tag::Italic.create());
-
+    buffer.tag_table().add(&Tag::Hunk.create());
+    
     let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
         let buffer = buffer.clone();
@@ -255,9 +255,9 @@ pub fn text_view_factory(
                 } else {
                     // resizing window by user action
                     // do need to calc char width every time (perhaps changing window by dragging)
-                    // only do it once after 200 mills of LAST resize signal
-                    // 20 - magic number. 10 is not enough.
-                    glib::source::timeout_add_local(Duration::from_millis(20), {
+                    // only do it once after 30 mills of LAST resize signal
+                    // 30 - magic number. 20 is not enough.
+                    glib::source::timeout_add_local(Duration::from_millis(30), {
                         let text_view_width = text_view_width.clone();
                         let view = view.clone();
                         let sndr = sndr.clone();

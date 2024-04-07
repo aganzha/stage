@@ -1,13 +1,13 @@
 use async_channel::Sender;
 use git2::BranchType;
-use glib::{clone, Object, closure};
+use glib::{clone, closure, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, AlertDialog, Box, Button, CheckButton,
-    EventControllerKey, Label, ListBox, ListHeader, ListItem, ListScrollFlags,
-    ListView, Orientation, ScrolledWindow, SectionModel, SelectionMode,
-    SignalListItemFactory, SingleSelection, Spinner, Widget, Image
+    EventControllerKey, Image, Label, ListBox, ListHeader, ListItem,
+    ListScrollFlags, ListView, Orientation, ScrolledWindow, SectionModel,
+    SelectionMode, SignalListItemFactory, SingleSelection, Spinner, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -213,7 +213,6 @@ impl BranchList {
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
-
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window, @weak selected_item, @weak current_item => async move {
                 let branch_data = selected_item.imp().branch.borrow().clone();
@@ -300,30 +299,30 @@ impl BranchList {
 
         glib::spawn_future_local({
             clone!(@weak self as branch_list,
-                   @weak window as window,
-                   @strong selected_branch as branch_data => async move {
-                       let dialog = crate::make_confirm_dialog(
-                           &window,
-                           Some(&Label::new(Some(&title))),
-                           "Merge",
-                           "Merge"
-                       );
-                       let result = dialog.choose_future().await;
-                       if "confirm" != result {
-                           return;
-                       }                       
-                       let result = gio::spawn_blocking(move || {
-                           crate::merge(repo_path, branch_data, sender)
-                       }).await;
-                       
-                       if let Ok(branch_data) = result {
-                           debug!("just merged and this is branch data {:?}", branch_data);
-                           branch_list.update_current_item(branch_data);
-                           window.close();
-                       } else {
-                           crate::display_error(&window, "error in merge");
-                       }                       
-                   })
+            @weak window as window,
+            @strong selected_branch as branch_data => async move {
+                let dialog = crate::make_confirm_dialog(
+                    &window,
+                    Some(&Label::new(Some(&title))),
+                    "Merge",
+                    "Merge"
+                );
+                let result = dialog.choose_future().await;
+                if "confirm" != result {
+                    return;
+                }
+                let result = gio::spawn_blocking(move || {
+                    crate::merge(repo_path, branch_data, sender)
+                }).await;
+
+                if let Ok(branch_data) = result {
+                    debug!("just merged and this is branch data {:?}", branch_data);
+                    branch_list.update_current_item(branch_data);
+                    window.close();
+                } else {
+                    crate::display_error(&window, "error in merge");
+                }
+            })
         });
     }
 
@@ -445,6 +444,17 @@ impl BranchList {
                     "Creating new branch",
                     "Create"
                 );
+                input.connect_apply(clone!(@strong dialog as dialog => move |entry| {
+                    // someone pressed enter
+                    dialog.response("confirm");
+                    dialog.close();
+                }));
+                input.connect_entry_activated(clone!(@strong dialog as dialog => move |entry| {
+                    // someone pressed enter
+                    dialog.response("confirm");
+                    dialog.close();
+                }));
+
                 if "confirm" != dialog.choose_future().await {
                     return;
                 }
@@ -525,7 +535,6 @@ pub fn make_header_factory() -> SignalListItemFactory {
 pub fn make_item_factory() -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
-
         let image = Image::new();
         image.set_margin_top(4);
         let spinner = Spinner::new();
@@ -605,7 +614,7 @@ pub fn make_item_factory() -> SignalListItemFactory {
         //         }
         //     })
         //     .build();
-        
+
         list_item.connect_selected_notify(|li: &ListItem| {
             // grab focus only once on list init
             if let Some(item) = li.item() {
@@ -631,13 +640,16 @@ pub fn make_item_factory() -> SignalListItemFactory {
 
         let item = list_item.property_expression("item");
         item.chain_property::<BranchItem>("is_head")
-            .chain_closure::<String>(closure!(|_: Option<Object>, is_head: bool| {
-                if is_head {
-                    String::from("avatar-default-symbolic")
-                } else {
-                    String::from("")
+            .chain_closure::<String>(closure!(
+                |_: Option<Object>, is_head: bool| {
+                    if is_head {
+                        String::from("avatar-default-symbolic")
+                    } else {
+                        String::from("")
+                    }
                 }
-            })).bind(&image, "icon-name", Widget::NONE);
+            ))
+            .bind(&image, "icon-name", Widget::NONE);
         item.chain_property::<BranchItem>("progress").bind(
             &spinner,
             "visible",
@@ -682,7 +694,6 @@ pub fn make_list_view(
     let selection_model = SingleSelection::new(Some(branch_list));
     selection_model.set_autoselect(false);
 
-    
     let model = selection_model.model().unwrap();
     let bind =
         selection_model.bind_property("selected", &model, "selected_pos");
