@@ -421,11 +421,11 @@ impl BranchList {
                     .selection_mode(SelectionMode::None)
                     .css_classes(vec![String::from("boxed-list")])
                     .build();
-                let title = ActionRow::builder()
-                    .activatable(false)
-                    .selectable(false)
-                    .title(title)
-                    .build();
+                // let title = ActionRow::builder()
+                //     .activatable(false)
+                //     .selectable(false)
+                //     .title(title)
+                //     .build();
                 let input = EntryRow::builder()
                     .title("New branch name:")
                     .css_classes(vec!["input_field"])
@@ -435,13 +435,12 @@ impl BranchList {
                     .css_classes(vec!["input_field"])
                     .active(true)
                     .build();
-                lb.append(&title);
                 lb.append(&input);
                 lb.append(&checkout);
                 let dialog = crate::make_confirm_dialog(
                     &window,
                     Some(&lb),
-                    "Creating new branch",
+                    &title,
                     "Create"
                 );
                 input.connect_apply(clone!(@strong dialog as dialog => move |entry| {

@@ -166,10 +166,13 @@ impl crate::View {
     ) -> String {
         let line_content = content.to_string();
         if let Some(ctx) = context {
-            if let Some((_pixels, chars)) = ctx.screen_width {
+            if let Some((pixels, chars)) = ctx.screen_width {
+                trace!("build_up. context width in pixels and chars{:?} {:?}", pixels, chars);
                 if chars > 0 {
+                    trace!("build_up. line and line length {:?} {:?}", line_content, line_content.len());
                     if chars as usize > line_content.len() {
                         let spaces = chars as usize - line_content.len();
+                        trace!("build_up. spaces {:?}", spaces);
                         return format!(
                             "{}{}",
                             line_content,
