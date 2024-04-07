@@ -86,19 +86,11 @@ pub struct Hunk {
     pub new_lines: u32,
     pub lines: Vec<Line>,
     pub max_line_len: i32,
-}
-
-#[derive(Debug, Clone)]
-pub enum Related {
-    Before,
-    OverlapBefore,
-    Matched,
-    OverlapAfter,
-    After,
+    pub kind: DiffKind,
 }
 
 impl Hunk {
-    pub fn new() -> Self {
+    pub fn new(kind: DiffKind) -> Self {
         Self {
             view: View::new(),
             header: String::new(),
@@ -108,6 +100,7 @@ impl Hunk {
             old_lines: 0,
             new_lines: 0,
             max_line_len: 0,
+            kind: kind,
         }
     }
 
@@ -166,70 +159,18 @@ impl Hunk {
             .sum()
     }
 
-    pub fn related_to(
-        &self,
-        other: &Hunk,
-        kind: Option<&DiffKind>,
-    ) -> Related {
-        let (start, lines, other_start, other_lines) = {
-            match kind {
-                Some(DiffKind::Staged) => (
-                    self.new_start,
-                    self.new_lines,
-                    other.new_start,
-                    other.new_lines,
-                ),
-                Some(DiffKind::Unstaged) => (
-                    self.old_start,
-                    self.old_lines,
-                    other.old_start,
-                    other.old_lines,
-                ),
-                _ => panic!("no kind in related to"),
-            }
-        };
-        debug!(
-            ">>> related_to_other NEW HUNK start {:?} lines {:?}
-                  OLD HUNK start {:?} {:?} kind {:?}",
-            start, lines, other_start, other_lines, kind
-        );
-
-        if start < other_start && start + lines < other_start {
-            debug!("before");
-            return Related::Before;
-        }
-
-        if start < other_start && start + lines >= other_start {
-            debug!("overlap");
-            return Related::OverlapBefore;
-        }
-
-        if start == other_start && lines == other_lines {
-            debug!("matched");
-            return Related::Matched;
-        }
-        if start > other_start && start <= other_start + other_lines {
-            debug!("overlap");
-            return Related::OverlapAfter;
-        }
-        if start > other_start && start > other_start + other_lines {
-            debug!("after");
-            return Related::After;
-        }
-        // GOT PANIC HERE
-        // unknown case self.new_start 489 self.new_lines 7
-        //          other.new_start 488 other.new_lines 7
-        // some files were staged. and 1 of them was unstaged also
-        // staged it and got panic
-        panic!(
-            "unknown case start {:?} lines {:?}
-                  other_start {:?} other_lines {:?} kind {:?}",
-            start, lines, other_start, other_lines, kind
-        );
-    }
-
     pub fn title(&self) -> String {
-        self.header.to_string()
+        let parts: Vec<&str> = self.header.split("@@").collect();
+        let line_no = match self.kind {
+            DiffKind::Unstaged => self.old_start,
+            DiffKind::Staged => self.new_start
+        };
+        let scope = parts.get(parts.len() - 1).unwrap();
+        if scope.len() > 0 {
+            format!("Line {:} in{:}", line_no, scope)
+        } else {
+            format!("Line {:?}", line_no)
+        }
     }
 
     pub fn push_line(&mut self, line: Line) {
@@ -245,12 +186,6 @@ impl Hunk {
     }
 }
 
-impl Default for Hunk {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct File {
     pub view: View,
@@ -258,19 +193,21 @@ pub struct File {
     pub id: Oid,
     pub hunks: Vec<Hunk>,
     pub max_line_len: i32,
+    pub kind: DiffKind,
 }
 
 impl File {
-    pub fn new() -> Self {
+    pub fn new(kind: DiffKind) -> Self {
         Self {
             view: View::new(),
             path: OsString::new(),
             id: Oid::zero(),
             hunks: Vec::new(),
             max_line_len: 0,
+            kind: kind,
         }
     }
-    pub fn from_diff_file(f: &DiffFile) -> Self {
+    pub fn from_diff_file(f: &DiffFile, kind: DiffKind) -> Self {
         let path: OsString = f.path().unwrap().into();
         let len = path.len();
         return File {
@@ -279,6 +216,7 @@ impl File {
             id: f.id(),
             hunks: Vec::new(),
             max_line_len: len as i32,
+            kind: kind,
         };
     }
 
@@ -291,12 +229,6 @@ impl File {
 
     pub fn title(&self) -> String {
         self.path.to_str().unwrap().to_string()
-    }
-}
-
-impl Default for File {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -511,25 +443,25 @@ pub enum ApplySubject {
 
 #[derive(Debug, Clone)]
 pub struct ApplyFilter {
-    pub file_path: String,
-    pub hunk_header: Option<String>,
+    pub file_id: String,
+    pub hunk_id: Option<String>,
     pub subject: ApplySubject,
 }
 
 impl ApplyFilter {
     pub fn new(subject: ApplySubject) -> Self {
         Self {
-            file_path: String::from(""),
-            hunk_header: None,
+            file_id: String::from(""),
+            hunk_id: None,
             subject,
         }
     }
 }
 
 pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
-    let mut diff = Diff::new(kind);
-    let mut current_file = File::new();
-    let mut current_hunk = Hunk::new();
+    let mut diff = Diff::new(kind.clone());
+    let mut current_file = File::new(kind.clone());
+    let mut current_hunk = Hunk::new(kind.clone());
     let _res = git_diff.print(
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
@@ -571,16 +503,16 @@ pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
             // build up diff structure
             if current_file.id.is_zero() {
                 // init new file
-                current_file = File::from_diff_file(&file);
+                current_file = File::from_diff_file(&file, kind.clone());
             }
             if current_file.id != oid {
                 // go to next file
                 // push current_hunk to file and init new empty hunk
                 current_file.push_hunk(current_hunk.clone());
-                current_hunk = Hunk::new();
+                current_hunk = Hunk::new(kind.clone());
                 // push current_file to diff and change to new file
                 diff.push_file(current_file.clone());
-                current_file = File::from_diff_file(&file);
+                current_file = File::from_diff_file(&file, kind.clone());
             }
             if let Some(diff_hunk) = o_diff_hunk {
                 let hh = Hunk::get_header_from(&diff_hunk);
@@ -600,7 +532,7 @@ pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
                 if current_hunk.header != hh {
                     // go to next hunk
                     current_file.push_hunk(current_hunk.clone());
-                    current_hunk = Hunk::new();
+                    current_hunk = Hunk::new(kind.clone());
                     current_hunk.fill_from(&diff_hunk)
                     // current_hunk.header = hh.clone();
                     // current_hunk.old_start = old_start;
@@ -631,7 +563,7 @@ pub fn stage_via_apply(
     filter: ApplyFilter,
     sender: Sender<crate::Event>,
 ) {
-    debug!("begin git kill {:?}", SystemTime::now());
+
     let repo = Repository::open(path.clone()).expect("can't open repo");
     // get actual diff for repo
     let git_diff = match filter.subject {
@@ -679,7 +611,7 @@ pub fn stage_via_apply(
     let mut options = ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
-        if let Some(hunk_header) = &filter.hunk_header {
+        if let Some(hunk_header) = &filter.hunk_id {
             if let Some(dh) = odh {
                 let header = Hunk::get_header_from(&dh);
                 return match filter.subject {
@@ -697,12 +629,13 @@ pub fn stage_via_apply(
     });
     options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
-            let status = dd.status();
-            trace!("delta_callback in stage_via_apply status {:?}", status);
-            let new_file = dd.new_file();
-            let file = File::from_diff_file(&new_file);
-            let path = file.path.into_string().unwrap();
-            return filter.file_path == path;
+            // let status = dd.status();
+            // trace!("delta_callback in stage_via_apply status {:?}", status);
+            // let new_file = dd.new_file();
+            // let file = File::from_diff_file(&new_file, kind);
+            // let path = file.path.into_string().unwrap();
+            let path: OsString = dd.new_file().path().unwrap().into();
+            return filter.file_id == path.into_string().unwrap();
         }
         todo!("diff without delta");
     });
@@ -713,7 +646,7 @@ pub fn stage_via_apply(
 
     repo.apply(&git_diff, apply_location, Some(&mut options))
         .expect("can't apply patch");
-    debug!("completed git kill {:?}", SystemTime::now());
+
     // staged changes. not needed in kill, btw.
     gio::spawn_blocking({
         let sender = sender.clone();
@@ -831,6 +764,9 @@ pub fn push(
                 let res = branch.set_upstream(Some(&remote_branch));
                 trace!("result on set upstream {:?}", res);
             }
+            sender
+                .send_blocking(crate::Event::Toast(String::from(updated_ref)))
+                .expect("cant send through channel");
             get_upstream(path.clone(), sender.clone());
             // todo what is this?
             true
@@ -1004,8 +940,11 @@ pub fn checkout(
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut builder = CheckoutBuilder::new();
     let opts = builder.safe();
-    let commit = repo.find_commit(branch_data.oid).expect("can't find commit");
-    repo.checkout_tree(commit.as_object(), Some(opts)).expect("can't checkout tree");
+    let commit = repo
+        .find_commit(branch_data.oid)
+        .expect("can't find commit");
+    repo.checkout_tree(commit.as_object(), Some(opts))
+        .expect("can't checkout tree");
     repo.set_head(&branch_data.refname).expect("can't set head");
     gio::spawn_blocking({
         move || {
@@ -1025,7 +964,9 @@ pub fn create_branch(
 ) -> BranchData {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let commit = repo.find_commit(branch_data.oid).expect("cant find commit");
-    let branch = repo.branch(&new_branch_name, &commit, false).expect("cant create branch");
+    let branch = repo
+        .branch(&new_branch_name, &commit, false)
+        .expect("cant create branch");
     let branch_data = BranchData::new(branch, BranchType::Local);
     if need_checkout {
         checkout(path, branch_data, sender)
@@ -1116,7 +1057,9 @@ pub fn merge(
     // let result = repo.merge(&[&annotated_commit], None, None);
 
     let do_merge = || {
-        let result = repo.merge(&[&annotated_commit], None, None).expect("cant merge");
+        let result = repo
+            .merge(&[&annotated_commit], None, None)
+            .expect("cant merge");
         // all changes are in index now
         let head_ref = repo.head().expect("can't get head");
         assert!(head_ref.is_branch());
@@ -1129,7 +1072,7 @@ pub fn merge(
         commit(path, message, sender.clone());
         repo.cleanup_state().unwrap();
     };
-    
+
     match repo.merge_analysis(&[&annotated_commit]) {
         Ok((analysis, _)) if analysis.is_up_to_date() => {
             info!("merge.uptodate");

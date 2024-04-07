@@ -6,6 +6,7 @@ use std::collections::HashSet;
 
 const CURSOR_TAG: &str = "CursorTag";
 
+// gnome colors https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/named-colors.html
 #[derive(Eq, Hash, PartialEq)]
 pub enum Tag {
     Bold,
@@ -15,6 +16,7 @@ pub enum Tag {
     EnhancedRemoved,
     Cursor,
     Region,
+    Hunk,
     Italic,
     // Link
 }
@@ -48,12 +50,17 @@ impl Tag {
             }
             Self::Cursor => {
                 let tt = self.new_tag();
-                tt.set_background(Some("#f6fecd"));
+                tt.set_background(Some("#f6fecd"));// f6fecd mine original. f9f06b - gnome
                 tt
             }
             Self::Region => {
                 let tt = self.new_tag();
-                tt.set_background(Some("#f2f2f2"));
+                tt.set_background(Some("#f6f5f4"));// f2f2f2 mine original
+                tt
+            }
+            Self::Hunk => {
+                let tt = self.new_tag();
+                tt.set_background(Some("#deddda"));
                 tt
             }
             Self::Italic => {
@@ -80,6 +87,7 @@ impl Tag {
             Self::EnhancedRemoved => "enhancedRemoved",
             Self::Cursor => CURSOR_TAG,
             Self::Region => "region",
+            Self::Hunk => "hunk",
             Self::Italic => "italic",
         }
     }

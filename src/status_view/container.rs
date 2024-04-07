@@ -14,296 +14,6 @@ pub enum ViewKind {
     Label,
 }
 
-impl ViewContainer for Diff {
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Diff
-    }
-
-    fn child_count(&self) -> usize {
-        self.files.len()
-    }
-
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
-    }
-
-    fn get_content(&self) -> String {
-        String::from("")
-    }
-
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
-        self.files
-            .iter_mut()
-            .map(|vh| vh as &mut dyn ViewContainer)
-            .collect()
-    }
-
-    // diff
-    fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
-        let mut result = false;
-        for file in &mut self.files {
-            result = file.cursor(line_no, parent_active) || result;
-        }
-        result
-    }
-
-    // Diff
-    fn render(
-        &mut self,
-        buffer: &TextBuffer,
-        iter: &mut TextIter,
-        context: &mut Option<StatusRenderContext>,
-    ) {
-        self.view.line_no = iter.line();
-        let _prev_line_len: Option<i32> = None;
-        for file in &mut self.files {
-            file.render(buffer, iter, context);
-        }
-    }
-    // Diff
-    fn expand(&mut self, _line_no: i32) -> Option<i32> {
-        todo!("no one calls expand on diff");
-    }
-}
-
-impl ViewContainer for File {
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::File
-    }
-
-    fn child_count(&self) -> usize {
-        self.hunks.len()
-    }
-
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
-    }
-
-    fn get_content(&self) -> String {
-        self.title()
-    }
-
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
-        self.hunks
-            .iter_mut()
-            .map(|vh| vh as &mut dyn ViewContainer)
-            .collect()
-    }
-    fn tags(&self) -> Vec<Tag> {
-        vec![Tag::Bold]
-    }
-
-    fn fill_context(&self, context: &mut Option<StatusRenderContext>) {
-        if let Some(ctx) = context {
-            if let Some(len) = ctx.max_len {
-                if len < self.max_line_len as i32 {
-                    ctx.max_len.replace(self.max_line_len as i32);
-                }
-            } else {
-                ctx.max_len.replace(self.max_line_len as i32);
-            }
-        }
-    }
-}
-
-impl ViewContainer for Hunk {
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Hunk
-    }
-
-    fn child_count(&self) -> usize {
-        self.lines.len()
-    }
-
-    fn get_content(&self) -> String {
-        self.title()
-    }
-
-    fn get_view(&mut self) -> &mut View {
-        if self.view.line_no == 0 && !self.view.expanded {
-            // hunks are expanded by default
-            self.view.expanded = true
-        }
-        &mut self.view
-    }
-
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
-        self.lines
-            .iter_mut()
-            .filter(|l| {
-                !matches!(
-                    l.origin,
-                    DiffLineType::FileHeader | DiffLineType::HunkHeader
-                )
-            })
-            .map(|vh| vh as &mut dyn ViewContainer)
-            .collect()
-    }
-
-    fn is_active_by_parent(&self, active: bool) -> bool {
-        // if file is active (cursor on it)
-        // whole hunk is active
-        active
-    }
-
-    fn is_active_by_child(&self, active: bool) -> bool {
-        // if line is active (cursor on it)
-        // whole hunk is active
-        active
-    }
-    fn tags(&self) -> Vec<Tag> {
-        vec![Tag::Italic]
-    }
-
-    fn is_expandable_by_child(&self) -> bool {
-        true
-    }
-}
-
-impl ViewContainer for Line {
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Line
-    }
-    fn child_count(&self) -> usize {
-        0
-    }
-
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
-    }
-
-    fn get_content(&self) -> String {
-        self.content.to_string()
-    }
-
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
-        Vec::new()
-    }
-
-    // line
-    fn expand(&mut self, line_no: i32) -> Option<i32> {
-        // here we want to expand hunk
-        if self.get_view().line_no == line_no {
-            return Some(line_no);
-        }
-        None
-    }
-
-    fn is_active_by_parent(&self, active: bool) -> bool {
-        // if HUNK is active (cursor on some line in it or on it)
-        // this line is active
-        active
-    }
-    fn tags(&self) -> Vec<Tag> {
-        match self.origin {
-            DiffLineType::Addition => {
-                vec![Tag::Added]
-            }
-            DiffLineType::Deletion => {
-                vec![Tag::Removed]
-            }
-            _ => Vec::new(),
-        }
-    }
-}
-
-impl ViewContainer for Label {
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Label
-    }
-    fn child_count(&self) -> usize {
-        0
-    }
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
-    }
-
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
-        Vec::new()
-    }
-
-    fn get_content(&self) -> String {
-        self.content.to_string()
-    }
-}
-
-impl ViewContainer for Head {
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Label
-    }
-    fn child_count(&self) -> usize {
-        0
-    }
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
-    }
-
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
-        Vec::new()
-    }
-
-    fn get_content(&self) -> String {
-        format!(
-            "{}<span color=\"#4a708b\">{}</span> {}",
-            if !self.remote {
-                "Head:     "
-            } else {
-                "Upstream: "
-            },
-            &self.branch,
-            self.commit
-        )
-    }
-}
-
-impl ViewContainer for State {
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Label
-    }
-    fn child_count(&self) -> usize {
-        0
-    }
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
-    }
-
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
-        Vec::new()
-    }
-
-    fn get_content(&self) -> String {
-        let state = match self.state {
-            RepositoryState::Clean => "Clean",
-            RepositoryState::Merge => "<span color=\"#ff0000\">Merge</span>",
-            RepositoryState::Revert => "<span color=\"#ff0000\">Revert</span>",
-            RepositoryState::RevertSequence => {
-                "<span color=\"#ff0000\">RevertSequence</span>"
-            }
-            RepositoryState::CherryPick => {
-                "<span color=\"#ff0000\">CherryPick</span>"
-            }
-            RepositoryState::CherryPickSequence => {
-                "<span color=\"#ff0000\">CherryPickSequence</span>"
-            }
-            RepositoryState::Bisect => "<span color=\"#ff0000\">Bisect</span>",
-            RepositoryState::Rebase => "<span color=\"#ff0000\">Rebase</span>",
-            RepositoryState::RebaseInteractive => {
-                "<span color=\"#ff0000\">RebaseInteractive</span>"
-            }
-            RepositoryState::RebaseMerge => {
-                "<span color=\"#ff0000\">RebaseMerge</span>"
-            }
-            RepositoryState::ApplyMailbox => {
-                "<span color=\"#ff0000\">ApplyMailbox</span>"
-            }
-            RepositoryState::ApplyMailboxOrRebase => {
-                "<span color=\"#ff0000\">ApplyMailboxOrRebase</span>"
-            }
-        };
-        format!("State:    {}", state)
-    }
-}
-
 pub trait ViewContainer {
     fn get_kind(&self) -> ViewKind;
 
@@ -512,4 +222,314 @@ pub trait ViewContainer {
         // debug!("erase one signgle view at line > {:?}", iter.line());
         self.render(&buffer, &mut iter, context);
     }
+
+    fn get_id(&self) -> String {
+        // unique id used in staging filter.
+        // it is used in comparing files and hunks
+        self.get_content()
+    }
+        
 }
+
+impl ViewContainer for Diff {
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Diff
+    }
+
+    fn child_count(&self) -> usize {
+        self.files.len()
+    }
+
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
+    }
+
+    fn get_content(&self) -> String {
+        String::from("")
+    }
+
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        self.files
+            .iter_mut()
+            .map(|vh| vh as &mut dyn ViewContainer)
+            .collect()
+    }
+
+    // diff
+    fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
+        let mut result = false;
+        for file in &mut self.files {
+            result = file.cursor(line_no, parent_active) || result;
+        }
+        result
+    }
+
+    // Diff
+    fn render(
+        &mut self,
+        buffer: &TextBuffer,
+        iter: &mut TextIter,
+        context: &mut Option<StatusRenderContext>,
+    ) {
+        self.view.line_no = iter.line();
+        let _prev_line_len: Option<i32> = None;
+        for file in &mut self.files {
+            file.render(buffer, iter, context);
+        }
+    }
+    // Diff
+    fn expand(&mut self, _line_no: i32) -> Option<i32> {
+        todo!("no one calls expand on diff");
+    }
+}
+
+impl ViewContainer for File {
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::File
+    }
+
+    fn child_count(&self) -> usize {
+        self.hunks.len()
+    }
+
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
+    }
+
+    fn get_content(&self) -> String {
+        self.title()
+    }
+
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        self.hunks
+            .iter_mut()
+            .map(|vh| vh as &mut dyn ViewContainer)
+            .collect()
+    }
+    fn tags(&self) -> Vec<Tag> {
+        vec![Tag::Bold]
+    }
+
+    fn fill_context(&self, context: &mut Option<StatusRenderContext>) {
+        if let Some(ctx) = context {
+            if let Some(len) = ctx.max_len {
+                if len < self.max_line_len as i32 {
+                    ctx.max_len.replace(self.max_line_len as i32);
+                }
+            } else {
+                ctx.max_len.replace(self.max_line_len as i32);
+            }
+        }
+    }
+
+    fn get_id(&self) -> String {
+        // unique id used in staging filter.
+        // it is used in comparing files and hunks
+        self.path.to_str().unwrap().to_string()
+    }
+}
+
+impl ViewContainer for Hunk {
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Hunk
+    }
+
+    fn child_count(&self) -> usize {
+        self.lines.len()
+    }
+
+    fn get_content(&self) -> String {
+        self.title()
+    }
+
+    fn get_view(&mut self) -> &mut View {
+        if self.view.line_no == 0 && !self.view.expanded {
+            // hunks are expanded by default
+            self.view.expanded = true
+        }
+        &mut self.view
+    }
+
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        self.lines
+            .iter_mut()
+            .filter(|l| {
+                !matches!(
+                    l.origin,
+                    DiffLineType::FileHeader | DiffLineType::HunkHeader
+                )
+            })
+            .map(|vh| vh as &mut dyn ViewContainer)
+            .collect()
+    }
+
+    fn is_active_by_parent(&self, active: bool) -> bool {
+        // if file is active (cursor on it)
+        // whole hunk is active
+        active
+    }
+
+    fn is_active_by_child(&self, active: bool) -> bool {
+        // if line is active (cursor on it)
+        // whole hunk is active
+        active
+    }
+    fn tags(&self) -> Vec<Tag> {
+        vec![Tag::Hunk]
+    }
+
+    fn is_expandable_by_child(&self) -> bool {
+        true
+    }
+
+    fn get_id(&self) -> String {
+        // unique id used in staging filter.
+        // it is used in comparing files and hunks
+        self.header.clone()
+    }
+}
+
+impl ViewContainer for Line {
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Line
+    }
+    fn child_count(&self) -> usize {
+        0
+    }
+
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
+    }
+
+    fn get_content(&self) -> String {
+        self.content.to_string()
+    }
+
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        Vec::new()
+    }
+
+    // line
+    fn expand(&mut self, line_no: i32) -> Option<i32> {
+        // here we want to expand hunk
+        if self.get_view().line_no == line_no {
+            return Some(line_no);
+        }
+        None
+    }
+
+    fn is_active_by_parent(&self, active: bool) -> bool {
+        // if HUNK is active (cursor on some line in it or on it)
+        // this line is active
+        active
+    }
+    fn tags(&self) -> Vec<Tag> {
+        match self.origin {
+            DiffLineType::Addition => {
+                vec![Tag::Added]
+            }
+            DiffLineType::Deletion => {
+                vec![Tag::Removed]
+            }
+            _ => Vec::new(),
+        }
+    }
+}
+
+impl ViewContainer for Label {
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Label
+    }
+    fn child_count(&self) -> usize {
+        0
+    }
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
+    }
+
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        Vec::new()
+    }
+
+    fn get_content(&self) -> String {
+        self.content.to_string()
+    }
+}
+
+impl ViewContainer for Head {
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Label
+    }
+    fn child_count(&self) -> usize {
+        0
+    }
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
+    }
+
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        Vec::new()
+    }
+
+    fn get_content(&self) -> String {
+        format!(
+            "{}<span color=\"#4a708b\">{}</span> {}",
+            if !self.remote {
+                "Head:     "
+            } else {
+                "Upstream: "
+            },
+            &self.branch,
+            self.commit
+        )
+    }
+}
+
+impl ViewContainer for State {
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Label
+    }
+    fn child_count(&self) -> usize {
+        0
+    }
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
+    }
+
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        Vec::new()
+    }
+
+    fn get_content(&self) -> String {
+        let state = match self.state {
+            RepositoryState::Clean => "Clean",
+            RepositoryState::Merge => "<span color=\"#ff0000\">Merge</span>",
+            RepositoryState::Revert => "<span color=\"#ff0000\">Revert</span>",
+            RepositoryState::RevertSequence => {
+                "<span color=\"#ff0000\">RevertSequence</span>"
+            }
+            RepositoryState::CherryPick => {
+                "<span color=\"#ff0000\">CherryPick</span>"
+            }
+            RepositoryState::CherryPickSequence => {
+                "<span color=\"#ff0000\">CherryPickSequence</span>"
+            }
+            RepositoryState::Bisect => "<span color=\"#ff0000\">Bisect</span>",
+            RepositoryState::Rebase => "<span color=\"#ff0000\">Rebase</span>",
+            RepositoryState::RebaseInteractive => {
+                "<span color=\"#ff0000\">RebaseInteractive</span>"
+            }
+            RepositoryState::RebaseMerge => {
+                "<span color=\"#ff0000\">RebaseMerge</span>"
+            }
+            RepositoryState::ApplyMailbox => {
+                "<span color=\"#ff0000\">ApplyMailbox</span>"
+            }
+            RepositoryState::ApplyMailboxOrRebase => {
+                "<span color=\"#ff0000\">ApplyMailboxOrRebase</span>"
+            }
+        };
+        format!("State:    {}", state)
+    }
+}
+

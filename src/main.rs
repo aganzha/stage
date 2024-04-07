@@ -12,14 +12,17 @@ mod git;
 use git::{
     checkout, cherry_pick, commit, create_branch, get_current_repo_status,
     get_refs, kill_branch, merge, push, stage_via_apply, ApplyFilter,
-    ApplySubject, BranchData, Diff, DiffKind, File, Head, Hunk, Line, Related,
-    State, View,
+    ApplySubject, BranchData, Diff, DiffKind, File, Head, Hunk, Line, State,
+    View,
 };
 mod widgets;
 use widgets::{display_error, make_confirm_dialog};
 
 use libadwaita::prelude::*;
-use libadwaita::{Application, ApplicationWindow, HeaderBar, ToolbarView};
+use libadwaita::{
+    Application, ApplicationWindow, HeaderBar, Toast, ToastOverlay,
+    ToolbarView,
+};
 
 use gdk::Display;
 
@@ -27,7 +30,7 @@ use glib::{clone, ControlFlow};
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Button,
-    CssProvider, ScrolledWindow, TextWindowType, Settings,
+    CssProvider, ScrolledWindow, Settings, TextWindowType,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
@@ -57,7 +60,6 @@ fn main() -> glib::ExitCode {
 }
 
 fn load_css() {
-
     let display = Display::default().expect("Could not connect to a display.");
     let settings = Settings::for_display(&display);
     settings.set_gtk_font_name(Some("Cantarell 21"));
@@ -89,6 +91,7 @@ pub enum Event {
     Push,
     Branches,
     TextViewResize,
+    Toast(String),
 }
 
 fn run_with_args(app: &Application, files: &[gio::File], _blah: &str) {
@@ -149,7 +152,13 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     let scroll = ScrolledWindow::new();
     scroll.set_child(Some(&txt));
 
-    let tb = ToolbarView::builder().content(&scroll).build();
+    let toast_overlay = ToastOverlay::new();
+    toast_overlay.set_child(Some(&scroll));
+
+    let tb = ToolbarView::builder()
+        // .content(&scroll)
+        .content(&toast_overlay)
+        .build();
     tb.add_top_bar(&hb);
 
     window.set_content(Some(&tb));
@@ -265,6 +274,11 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     //     status.context
                     // );
                     status.resize(&txt);
+                }
+                Event::Toast(title) => {
+                    let toast =
+                        Toast::builder().title(title).timeout(2).build();
+                    toast_overlay.add_toast(toast);
                 }
             };
         }

@@ -17,13 +17,14 @@ use crate::{
 
 use async_channel::Sender;
 
+use glib::clone;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, ListBox, SelectionMode, TextBuffer, TextView, Window as Gtk4Window,
+    gio, glib, ListBox, SelectionMode, TextBuffer, TextView,
+    Window as Gtk4Window,
 };
-use glib::{clone};
 use libadwaita::prelude::*;
-use libadwaita::{EntryRow, SwitchRow, ApplicationWindow}; // _Window,
+use libadwaita::{ApplicationWindow, EntryRow, SwitchRow}; // _Window,
 use log::{debug, trace};
 
 use std::ffi::OsString;
@@ -153,23 +154,25 @@ impl Status {
                     .build();
                 lb.append(&input);
                 lb.append(&upstream);
-                
+
                 let dialog = crate::make_confirm_dialog(
                     &window,
                     Some(&lb),
                     "Push to remote/origin", // TODO here is harcode
                     "Push",
                 );
-                // does not work :(
-                // apply button does not shown because of default text
-                // press enter will not work - there is nothing to apply
-                // without apply button
                 input.connect_apply(clone!(@strong dialog as dialog => move |entry| {
+                    // someone pressed enter
+                    dialog.response("confirm");
+                    dialog.close();
+                }));
+                input.connect_entry_activated(clone!(@strong dialog as dialog => move |entry| {
+                    // someone pressed enter
                     dialog.response("confirm");
                     dialog.close();
                 }));
                 let response = dialog.choose_future().await;
-                if "confirm" != response {                        
+                if "confirm" != response {
                     return;
                 }
                 let remote_branch_name = format!("{}", input.text());
@@ -187,32 +190,6 @@ impl Status {
                 });
             })
         });
-        // .choose(None::<&gio::Cancellable>, {
-        //     let path = path.clone();
-        //     let sender = sender.clone();
-        //     move |result| {
-        //         if result == "confirm" {
-        //             trace!(
-        //                 "confirm push dialog {:?} {:?}",
-        //                 input.text(),
-        //                 upstream.is_active()
-        //             );
-        //             let remote_branch_name = format!("{}", input.text());
-        //             let track_remote = upstream.is_active();
-        //             gio::spawn_blocking({
-        //                 let path = path.clone();
-        //                 move || {
-        //                     push(
-        //                         path,
-        //                         remote_branch_name,
-        //                         track_remote,
-        //                         sender,
-        //                     );
-        //                 }
-        //             });
-        //         }
-        //     }
-        // });
     }
 
     pub fn make_context(&mut self, text_view_width: Rc<RefCell<(i32, i32)>>) {
@@ -240,17 +217,11 @@ impl Status {
 
     pub fn choose_remote(&self) -> String {
         if let Some(upstream) = &self.upstream {
-            debug!(
-                "-------------------> upstream branch {:?}",
-                upstream.branch.clone()
-            );
             return upstream.branch.clone();
         }
         if let Some(head) = &self.head {
-            debug!("-------------------> head branch");
             return head.branch.clone();
         }
-        debug!("-------------------> Default");
         String::from("origin/master")
     }
 
@@ -258,7 +229,7 @@ impl Status {
         &mut self,
         path: &OsString,
         _txt: &TextView,
-        window: &ApplicationWindow,// &impl IsA<Gtk4Window>,
+        window: &ApplicationWindow, // &impl IsA<Gtk4Window>,
         sender: Sender<crate::Event>,
     ) {
         if self.staged.is_some() {
@@ -276,12 +247,13 @@ impl Status {
                     lb.append(&input);
                     let dialog = crate::make_confirm_dialog(&window, Some(&lb), "Commit", "Commit");
                     input.connect_apply(clone!(@strong dialog as dialog => move |entry| {
+                        // someone pressed enter
                         dialog.response("confirm");
                         dialog.close();
                     }));
                     let response = dialog.choose_future().await;
                     debug!("got response from dialog! {:?}", response);
-                    if "confirm" != response {                        
+                    if "confirm" != response {
                         return;
                     }
                     gio::spawn_blocking({
@@ -503,14 +475,14 @@ impl Status {
         // there could be either file with all hunks
         // or just 1 hunk
         diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
-            let content = vc.get_content();
+            let id = vc.get_id();
             let kind = vc.get_kind();
             let view = vc.get_view();
             match kind {
                 ViewKind::File => {
                     // just store current file_path
                     // in this loop. temporary variable
-                    file_path_so_stage = content;
+                    file_path_so_stage = id;
                 }
                 ViewKind::Hunk => {
                     if !view.active {
@@ -519,18 +491,18 @@ impl Status {
                     // store active hunk in filter
                     // if the cursor is on file, all
                     // hunks under it will be active
-                    filter.file_path = file_path_so_stage.clone();
-                    filter.hunk_header.replace(content);
+                    filter.file_id = file_path_so_stage.clone();
+                    filter.hunk_id.replace(id);
                     hunks_staged += 1;
                 }
                 _ => (),
             }
         });
         debug!("stage. apply filter {:?}", filter);
-        if !filter.file_path.is_empty() {
+        if !filter.file_id.is_empty() {
             if hunks_staged > 1 {
                 // stage all hunks in file
-                filter.hunk_header = None;
+                filter.hunk_id = None;
             }
             debug!("stage via apply {:?}", filter);
             gio::spawn_blocking({
