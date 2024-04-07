@@ -16,7 +16,12 @@ impl Line {
         self.view = rendered.transfer_view();
         if self.content != rendered.content || self.origin != rendered.origin {
             self.view.dirty = true;
-            trace!("*************dirty content in reconciliation: {} <> {} origins: {:?} {:?}", self.content, rendered.content, self.origin, rendered.origin)
+            trace!("*************dirty content in reconciliation: {} <> {} origins: {:?} {:?}",
+                   self.content,
+                   rendered.content,
+                   self.origin,
+                   rendered.origin
+            )
         }
     }
     // line
@@ -299,7 +304,7 @@ impl File {
             if r_ind == rendered.hunks.len() {
                 // old hunks are over.
                 // there is nothing to enrich for new hunks
-                trace!("rendered hunls are over");
+                trace!("rendered hunks are over");
                 break;
             }
         }
