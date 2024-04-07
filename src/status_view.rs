@@ -343,7 +343,7 @@ impl Status {
         if changed {
             self.render(txt, RenderSource::Cursor(line_no));
             let buffer = txt.buffer();
-            trace!("put cursor on line {:?} in CURSOR", line_no);
+            debug!("put cursor on line {:?} in CURSOR", line_no);
             buffer.place_cursor(&buffer.iter_at_offset(offset));
         }
     }
@@ -409,18 +409,16 @@ impl Status {
                 .render(&buffer, &mut iter, &mut self.context);
             staged.render(&buffer, &mut iter, &mut self.context);
         }
-        trace!("render source {:?}", source);
+        debug!("render source {:?}", source);
         match source {
             RenderSource::Cursor(_) => {
                 // avoid loops on cursor renders
                 trace!("avoid cursor position on cursor");
             }
             RenderSource::Expand(line_no) => {
-                // avoid loops on cursor renders
                 self.choose_cursor_position(txt, &buffer, Some(line_no));
             }
             RenderSource::Git => {
-                // avoid loops on cursor renders
                 self.choose_cursor_position(txt, &buffer, None);
             }
             RenderSource::Resize => {}
@@ -520,8 +518,12 @@ impl Status {
         buffer: &TextBuffer,
         line_no: Option<i32>,
     ) {
-        trace!("choose_cursor_position. optional line {:?}", line_no);
         let offset = buffer.cursor_position();
+        debug!("choose_cursor_position. optional line {:?}. offset {:?}, line at offset {:?}",
+               line_no,
+               offset,
+               buffer.iter_at_offset(offset).line()
+        );
         if offset == buffer.end_iter().offset() {
             // first render. buffer at eof
             if let Some(unstaged) = &self.unstaged {
@@ -537,12 +539,14 @@ impl Status {
                 }
             }
         }
-        let iter = buffer.iter_at_offset(offset);
+        let mut iter = buffer.iter_at_offset(offset);
+        iter.backward_line();
+        iter.forward_lines(1);
         // after git op view could be shifted.
         // cursor is on place and it is visually current,
         // but view under it is not current, cause line_no differs
-        trace!("choose cursor when NOT on eof {:?}", iter.line());
-        self.cursor(txt, iter.line(), offset);
+        debug!("choose cursor when NOT on eof {:?}", iter.line());
+        self.cursor(txt, iter.line(), iter.offset());
     }
 
     pub fn has_staged(&self) -> bool {
