@@ -1,12 +1,13 @@
+use std::ffi::{OsString};
 use libadwaita::prelude::*;
-use libadwaita::{MessageDialog, ResponseAppearance, Window};
+use libadwaita::{MessageDialog, ResponseAppearance, Window, HeaderBar};
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
 
 use gtk4::{
     glib, AlertDialog, EventControllerKey, TextView, Widget,
-    Window as Gtk4Window,
+    Window as Gtk4Window, Button
 };
 
 pub fn display_error(
@@ -17,72 +18,6 @@ pub fn display_error(
     d.show(Some(w));
 }
 
-// pub fn get_new_branch_name(
-//     window: &Window,
-//     _current_branch: &crate::BranchData,
-//     sndr: Sender<crate::BranchesEvent>,
-// ) {
-//     let txt = TextView::builder()
-//         .monospace(true)
-//         .css_classes(["commit_message"])
-//         .build();
-//     let cancel_response = "cancel";
-//     let create_response = "create";
-
-//     let dialog = MessageDialog::builder()
-//         .heading("New branch")
-//         .transient_for(window)
-//         .modal(true)
-//         .destroy_with_parent(true)
-//         .close_response(cancel_response)
-//         .default_response(create_response)
-//         .extra_child(&txt)
-//         .default_width(640)
-//         .default_height(120)
-//         .build();
-//     dialog.add_responses(&[
-//         (cancel_response, "Cancel"),
-//         (create_response, "Create"),
-//     ]);
-//     // Make the dialog button insensitive initially
-//     dialog.set_response_enabled(create_response, false);
-//     dialog.set_response_appearance(
-//         create_response,
-//         ResponseAppearance::Suggested,
-//     );
-
-//     let event_controller = EventControllerKey::new();
-//     event_controller.connect_key_pressed({
-//         let dialog = dialog.clone();
-//         move |_, _, _, _| {
-//             dialog.set_response_enabled(create_response, true);
-//             glib::Propagation::Proceed
-//         }
-//     });
-//     txt.add_controller(event_controller);
-//     // Connect response to dialog
-//     dialog.connect_response(None, move |dialog, response| {
-//         // clone!(@weak window, @weak entry =>
-//         // Destroy dialog
-//         dialog.destroy();
-
-//         // Return if the user chose a response different than `create_response`
-//         if response != create_response {
-//             println!("return new branch name");
-//             return;
-//         }
-//         let buffer = txt.buffer();
-//         let start = buffer.iter_at_offset(0);
-//         let end = buffer.end_iter();
-//         let new_branch_name = buffer.slice(&start, &end, false);
-//         // clbk(new_branch_name.to_string());
-//         sndr.send_blocking(crate::BranchesEvent::NewBranch(
-//             new_branch_name.to_string(),
-//         ))
-//         .expect("cant send through channel");
-//     });
-//     dialog.present();
-// }
 
 pub fn make_confirm_dialog(
     window: &impl IsA<Gtk4Window>,
@@ -115,4 +50,40 @@ pub fn make_confirm_dialog(
         ResponseAppearance::Suggested,
     );
     dialog
+}
+
+pub fn make_header_bar(path: Option<OsString>, sender: Sender<crate::Event>) -> HeaderBar {
+    let refresh_btn = Button::builder()
+        .label("Refresh")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Refresh")
+        .icon_name("view-refresh-symbolic")
+        .can_shrink(true)
+        .build();
+    refresh_btn.connect_clicked({
+        let path = path.clone();
+        let sender = sender.clone();
+        move |_| {
+            crate::get_current_repo_status(path.clone(), sender.clone());
+        }
+    });
+    let push_btn = Button::builder()
+        .label("Push")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Push")
+        .icon_name("document-send-symbolic")
+        .can_shrink(true)
+        .build();
+    push_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender.send_blocking(crate::Event::Push).expect("cant send through channel");
+        }
+    });
+    let hb = HeaderBar::new();
+    hb.pack_start(&refresh_btn);
+    hb.pack_end(&push_btn);
+    hb
 }
