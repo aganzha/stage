@@ -16,7 +16,7 @@ mod git;
 use git::{
     apply_stash, checkout, cherry_pick, commit, create_branch,
     get_current_repo_status, get_refs, kill_branch, merge, pull, push,
-    stage_via_apply, stash_changes, ApplyFilter, ApplySubject, BranchData,
+    stage_via_apply, stash_changes, drop_stash, ApplyFilter, ApplySubject, BranchData,
     Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes, State, View,
 };
 mod widgets;

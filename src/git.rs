@@ -1360,3 +1360,14 @@ pub fn apply_stash(
         }
     });
 }
+
+
+pub fn drop_stash(
+    path: OsString,
+    stash_data: StashData,
+    _sender: Sender<crate::Event>,
+) {
+    let mut repo = Repository::open(path.clone()).expect("can't open repo");
+    repo.stash_drop(stash_data.num)
+        .expect("cant apply stash");    
+}
