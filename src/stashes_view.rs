@@ -68,12 +68,27 @@ impl OidRow {
         Object::builder().build()
     }
 
-    pub fn from_stash(stash: &StashData) -> Self {
+    pub fn from_stash(stash: &StashData, sender: Sender<Event>) -> Self {
         let row = Self::new();
         row.set_property("title", &stash.title);
         row.set_oid(stash.oid.to_string());
         //row.add_suffix(&Label::builder().label("suffix").build());
         //row.add_prefix(&Label::builder().label("prefix").build());
+        // row.set_icon_name(Some("emblem-documents-symbolic"));
+        let commit_button = Button::builder()
+            .label("View stash")
+            .tooltip_text("View stash")
+            .has_frame(false)
+            .icon_name("emblem-documents-symbolic")
+            .build();
+        commit_button.connect_clicked({
+            let oid = stash.oid.clone();
+            move |_| {
+                sender.send_blocking(Event::ShowOid(oid))
+                    .expect("cant send through channel");
+            }
+        });
+        row.add_suffix(&commit_button);
         row.set_subtitle(&format!("stash@{}", &stash.num));
         // row.set_property("activatable", true);
         // row.set_property("selectable", true);
@@ -117,7 +132,7 @@ impl OidRow {
             })
         });
     }
-    
+
     pub fn apply_stash(
         &self,
         path: OsString,
@@ -146,7 +161,7 @@ impl OidRow {
                         }
                     });
                     sender
-                        .send_blocking(crate::Event::StashesPanel)
+                        .send_blocking(Event::StashesPanel)
                         .expect("cant send through channel");
                 }
             })
@@ -194,12 +209,12 @@ pub fn add_stash(
                 "Stash changes",
                 "Stash changes"
             );
-            input.connect_apply(clone!(@strong dialog as dialog => move |entry| {
+            input.connect_apply(clone!(@strong dialog as dialog => move |_| {
                 // someone pressed enter
                 dialog.response("confirm");
                 dialog.close();
             }));
-            input.connect_entry_activated(clone!(@strong dialog as dialog => move |entry| {
+            input.connect_entry_activated(clone!(@strong dialog as dialog => move |_| {
                 // someone pressed enter
                 dialog.response("confirm");
                 dialog.close();
@@ -237,7 +252,7 @@ pub fn factory(
         .build();
     if let Some(data) = &status.stashes {
         for stash in &data.stashes {
-            let row = OidRow::from_stash(&stash);
+            let row = OidRow::from_stash(&stash, status.sender.clone());
             lb.append(&row);
         }
     }
@@ -261,7 +276,7 @@ pub fn factory(
         .tooltip_text("Kill stash (K)")
         .icon_name("edit-delete-symbolic")
         .build();
-    
+
     add.connect_clicked({
         let sender = status.sender.clone();
         let window = window.clone();
@@ -273,8 +288,9 @@ pub fn factory(
                 &window,
                 {
                     let lb = lb.clone();
+                    let sender = sender.clone();
                     move |stash_data| {
-                        let row = OidRow::from_stash(&stash_data);
+                        let row = OidRow::from_stash(&stash_data, sender);
                         lb.prepend(&row);
                     }
                 },
@@ -314,7 +330,7 @@ pub fn factory(
                     },
                     &window,
                     sender.clone()
-                );          
+                );
             }
         }
     });
@@ -322,7 +338,7 @@ pub fn factory(
     hb.pack_end(&add);
     hb.pack_end(&apply);
     hb.pack_end(&kill);
-    
+
     tb.add_top_bar(&hb);
 
     let event_controller = EventControllerKey::new();
@@ -374,13 +390,24 @@ pub fn factory(
                         &window,
                         {
                             let lb = lb.clone();
+                            let sender = sender.clone();
                             move |stash_data| {
-                                let row = OidRow::from_stash(&stash_data);
+                                let row = OidRow::from_stash(&stash_data, sender);
                                 lb.prepend(&row);
                             }
                         },
                         sender.clone(),
                     );
+                }
+                (gdk::Key::v, _) => {
+                    if let Some(row) = lb.selected_row() {
+                        let oid_row = row
+                            .downcast_ref::<OidRow>()
+                            .expect("cant get oid row");
+                        let oid = oid_row.imp().stash.borrow().oid.clone();
+                        sender.send_blocking(Event::ShowOid(oid))
+                            .expect("cant send through channel");
+                    }
                 }
                 (key, modifier) => {
                     debug!(
