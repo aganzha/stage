@@ -11,7 +11,7 @@ use std::ffi::OsString;
 use std::rc::Rc;
 
 use crate::{
-    apply_stash as git_apply_stash, display_error, make_confirm_dialog,
+    apply_stash as git_apply_stash, drop_stash, display_error, make_confirm_dialog,
     stash_changes, Event, StashData, Status,
 };
 use libadwaita::prelude::*;
@@ -83,6 +83,41 @@ impl OidRow {
         row
     }
 
+    pub fn kill(
+        &self,
+        path: OsString,
+        kill: impl FnOnce(OidRow) + 'static,
+        window: &impl IsA<Gtk4Window>,
+        sender: Sender<Event>,
+    ) {
+        glib::spawn_future_local({
+            clone!(@weak self as row,
+            @strong window as window => async move {
+                let stash = row.imp().stash.borrow();
+                let lbl = Label::new(Some(&format!("Drop stash {}", stash.title)));
+                let dialog = make_confirm_dialog(
+                    &window,
+                    Some(&lbl),
+                    "Drop",
+                    "Drop"
+                );
+                let result = dialog.choose_future().await;
+                if result == "confirm" {
+                    let result = gio::spawn_blocking({
+                        let stash = stash.clone();
+                        let sender = sender.clone();
+                        move || {
+                            drop_stash(path.clone(), stash, sender.clone());
+                        }
+                    }).await;
+                    if let Ok(_) = result {
+                        kill(row.clone());
+                    }
+                }
+            })
+        });
+    }
+    
     pub fn apply_stash(
         &self,
         path: OsString,
@@ -215,14 +250,18 @@ pub fn factory(
         .build();
 
     let add = Button::builder()
-        .tooltip_text("Stash")
+        .tooltip_text("Stash (Z)")
         .icon_name("list-add-symbolic")
         .build();
     let apply = Button::builder()
-        .tooltip_text("Apply")
+        .tooltip_text("Apply (A)")
         .icon_name("edit-redo-symbolic")
         .build();
-
+    let kill = Button::builder()
+        .tooltip_text("Kill stash (K)")
+        .icon_name("edit-delete-symbolic")
+        .build();
+    
     add.connect_clicked({
         let sender = status.sender.clone();
         let window = window.clone();
@@ -253,16 +292,37 @@ pub fn factory(
                 let oid_row =
                     row.downcast_ref::<OidRow>().expect("cant get oid row");
                 oid_row.apply_stash(path.clone(), &window, sender.clone());
-                sender
-                    .send_blocking(crate::Event::StashesPanel)
-                    .expect("cant send through channel");
+            }
+        }
+    });
+    kill.connect_clicked({
+        let window = window.clone();
+        let path = status.path.clone().expect("no path");
+        let sender = status.sender.clone();
+        let lb = lb.clone();
+        move |_| {
+            if let Some(row) = lb.selected_row() {
+                let oid_row =
+                    row.downcast_ref::<OidRow>().expect("cant get oid row");
+                oid_row.kill(
+                    path.clone(),
+                    {
+                        let lb = lb.clone();
+                        move |row| {
+                            lb.remove(&row);
+                        }
+                    },
+                    &window,
+                    sender.clone()
+                );          
             }
         }
     });
 
     hb.pack_end(&add);
     hb.pack_end(&apply);
-
+    hb.pack_end(&kill);
+    
     tb.add_top_bar(&hb);
 
     let event_controller = EventControllerKey::new();
@@ -285,6 +345,24 @@ pub fn factory(
                             .expect("cant get oid row");
                         oid_row.apply_stash(
                             path.clone(),
+                            &window,
+                            sender.clone(),
+                        );
+                    }
+                }
+                (gdk::Key::k, _) => {
+                    if let Some(row) = lb.selected_row() {
+                        let oid_row = row
+                            .downcast_ref::<OidRow>()
+                            .expect("cant get oid row");
+                        oid_row.kill(
+                            path.clone(),
+                            {
+                                let lb = lb.clone();
+                                move |row| {
+                                    lb.remove(&row);
+                                }
+                            },
                             &window,
                             sender.clone(),
                         );
