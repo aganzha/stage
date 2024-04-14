@@ -11,8 +11,8 @@ use std::ffi::OsString;
 use std::rc::Rc;
 
 use crate::{
-    display_error, make_confirm_dialog, stash_changes, apply_stash as git_apply_stash, Event, StashData,
-    Status,
+    apply_stash as git_apply_stash, display_error, make_confirm_dialog,
+    stash_changes, Event, StashData, Status,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
