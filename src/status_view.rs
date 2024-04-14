@@ -11,8 +11,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::{
-    commit, get_current_repo_status, push, stage_via_apply, ApplyFilter,
-    ApplySubject, Diff, DiffKind, Head, State, View,
+    commit, get_current_repo_status, pull, push, stage_via_apply, ApplyFilter,
+    ApplySubject, Diff, DiffKind, Event, Head, Stashes, State, View,
 };
 
 use async_channel::Sender;
@@ -78,8 +78,10 @@ impl StatusRenderContext {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Status {
+    pub path: Option<OsString>,
+    pub sender: Sender<Event>,
     pub head: Option<Head>,
     pub upstream: Option<Head>,
     pub state: Option<State>,
@@ -91,11 +93,14 @@ pub struct Status {
     pub unstaged: Option<Diff>,
     pub rendered: bool, // what it is for ????
     pub context: Option<StatusRenderContext>,
+    pub stashes: Option<Stashes>,
 }
 
 impl Status {
-    pub fn new() -> Self {
+    pub fn new(path: Option<OsString>, sender: Sender<Event>) -> Self {
         Self {
+            path: path,
+            sender: sender,
             head: None,
             upstream: None,
             state: None,
@@ -110,31 +115,43 @@ impl Status {
             ),
             unstaged: None,
             rendered: false,
-            context: None::<StatusRenderContext>
+            context: None::<StatusRenderContext>,
+            stashes: None
         }
     }
 
-    pub fn get_status(
-        &self,
-        path: Option<OsString>,
-        sender: Sender<crate::Event>,
-    ) {
+    pub fn update_path(&mut self, path: OsString) {
+        self.path.replace(path);
+    }
+
+    pub fn update_stashes(&mut self, stashes: Stashes) {
+        self.stashes.replace(stashes);
+    }
+
+    pub fn get_status(&self) {
         gio::spawn_blocking({
+            let path = self.path.clone();
+            let sender = self.sender.clone();
             move || {
                 get_current_repo_status(path, sender);
             }
         });
     }
 
-    pub fn push(
-        &mut self,
-        path: &OsString,
-        window: &ApplicationWindow,
-        sender: Sender<crate::Event>,
-    ) {
+    pub fn pull(&self) {
+        gio::spawn_blocking({
+            let path = self.path.clone().expect("no path");
+            let sender = self.sender.clone();
+            move || {
+                pull(path, sender);
+            }
+        });
+    }
+
+    pub fn push(&mut self, window: &ApplicationWindow) {
         let remote = self.choose_remote();
         glib::spawn_future_local({
-            clone!(@weak window as window, @strong path as path => async move {
+            clone!(@weak window as window, @strong self as status => async move {
                 let lb = ListBox::builder()
                     .selection_mode(SelectionMode::None)
                     .css_classes(vec![String::from("boxed-list")])
@@ -161,12 +178,12 @@ impl Status {
                     "Push to remote/origin", // TODO here is harcode
                     "Push",
                 );
-                input.connect_apply(clone!(@strong dialog as dialog => move |entry| {
+                input.connect_apply(clone!(@strong dialog as dialog => move |_| {
                     // someone pressed enter
                     dialog.response("confirm");
                     dialog.close();
                 }));
-                input.connect_entry_activated(clone!(@strong dialog as dialog => move |entry| {
+                input.connect_entry_activated(clone!(@strong dialog as dialog => move |_| {
                     // someone pressed enter
                     dialog.response("confirm");
                     dialog.close();
@@ -178,7 +195,8 @@ impl Status {
                 let remote_branch_name = format!("{}", input.text());
                 let track_remote = upstream.is_active();
                 gio::spawn_blocking({
-                    let path = path.clone();
+                    let path = status.path.expect("no path").clone();
+                    let sender = status.sender.clone();
                     move || {
                         push(
                             path,
@@ -220,21 +238,19 @@ impl Status {
             return upstream.branch.clone();
         }
         if let Some(head) = &self.head {
-            return head.branch.clone();
+            return format!("origin/{}", &head.branch);
         }
         String::from("origin/master")
     }
 
     pub fn commit(
         &mut self,
-        path: &OsString,
         _txt: &TextView,
         window: &ApplicationWindow, // &impl IsA<Gtk4Window>,
-        sender: Sender<crate::Event>,
     ) {
         if self.staged.is_some() {
             glib::spawn_future_local({
-                clone!(@weak window as window, @strong path as path => async move {
+                clone!(@weak window as window, @strong self as status => async move {
                     let lb = ListBox::builder()
                         .selection_mode(SelectionMode::None)
                         .css_classes(vec![String::from("boxed-list")])
@@ -257,10 +273,9 @@ impl Status {
                         return;
                     }
                     gio::spawn_blocking({
-                        let path = path.clone();
                         let message = format!("{}", input.text());
                         move || {
-                            commit(path, message, sender);
+                            commit(status.path.expect("no path"), message, status.sender);
                         }
                     });
                 })
@@ -343,7 +358,7 @@ impl Status {
         if changed {
             self.render(txt, RenderSource::Cursor(line_no));
             let buffer = txt.buffer();
-            debug!("put cursor on line {:?} in CURSOR", line_no);
+            trace!("put cursor on line {:?} in CURSOR", line_no);
             buffer.place_cursor(&buffer.iter_at_offset(offset));
         }
     }
@@ -409,7 +424,7 @@ impl Status {
                 .render(&buffer, &mut iter, &mut self.context);
             staged.render(&buffer, &mut iter, &mut self.context);
         }
-        debug!("render source {:?}", source);
+        trace!("render source {:?}", source);
         match source {
             RenderSource::Cursor(_) => {
                 // avoid loops on cursor renders
@@ -441,9 +456,7 @@ impl Status {
         &mut self,
         _txt: &TextView,
         _line_no: i32,
-        path: &OsString,
         subject: ApplySubject,
-        sender: Sender<crate::Event>,
     ) {
         // hm. this is very weird code
         match subject {
@@ -476,6 +489,7 @@ impl Status {
             let id = vc.get_id();
             let kind = vc.get_kind();
             let view = vc.get_view();
+            trace!("walks down on apply {:} {:?}", id, kind);
             match kind {
                 ViewKind::File => {
                     // just store current file_path
@@ -504,9 +518,10 @@ impl Status {
             }
             debug!("stage via apply {:?}", filter);
             gio::spawn_blocking({
-                let path = path.clone();
+                let path = self.path.clone();
+                let sender = self.sender.clone();
                 move || {
-                    stage_via_apply(path, filter, sender);
+                    stage_via_apply(path.expect("no path"), filter, sender);
                 }
             });
         }
@@ -519,7 +534,7 @@ impl Status {
         line_no: Option<i32>,
     ) {
         let offset = buffer.cursor_position();
-        debug!("choose_cursor_position. optional line {:?}. offset {:?}, line at offset {:?}",
+        trace!("choose_cursor_position. optional line {:?}. offset {:?}, line at offset {:?}",
                line_no,
                offset,
                buffer.iter_at_offset(offset).line()
@@ -545,7 +560,7 @@ impl Status {
         // after git op view could be shifted.
         // cursor is on place and it is visually current,
         // but view under it is not current, cause line_no differs
-        debug!("choose cursor when NOT on eof {:?}", iter.line());
+        trace!("choose cursor when NOT on eof {:?}", iter.line());
         self.cursor(txt, iter.line(), iter.offset());
     }
 

@@ -6,6 +6,8 @@ use log::{debug, trace};
 use std::collections::HashSet;
 use std::iter::zip;
 
+pub const MAX_LINES: i32 = 50000;
+
 impl Line {
     // line
     pub fn enrich_view(
@@ -63,9 +65,8 @@ impl Hunk {
         loop {
             trace!("++++++loop");
             guard += 1;
-            if guard > 20 {
-                trace!("guard");
-                break;
+            if guard > MAX_LINES {
+                panic!("guard");
             }
             let r_line = &rendered.lines[r_ind];
             let n_line = &self.lines[n_ind];
@@ -165,8 +166,8 @@ impl File {
         loop {
             trace!("loop........................");
             guard += 1;
-            if guard >= 100000 {
-                break;
+            if guard >= MAX_LINES {
+                panic!("guard");
             }
             let n_hunk = &self.hunks[n_ind];
 

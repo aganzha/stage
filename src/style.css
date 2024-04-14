@@ -1,21 +1,8 @@
-/* .stage { */
-/*     font-size: 24px; */
-/* } */
-/* .commit_message { */
-/*     font-size: 24px; */
-/* } */
-/* .dialog-vbox .vertical { */
-/*     /\* hack. under dialog-vbox there are *\/ */
-/*     /\* 2 classes: vertical with label *\/ */
-/*     /\* and horisontal with action. *\/ */
-/*     /\* and no any other classes *\/ */
-/*     font-size: 24px; */
-/* } */
-
-/* .input_field { */
-/*     font-size: 24px; */
-/* } */
-
 row:selected {
     background-color: #f6fecd; /* mine original  #f6fecd; gnome f9f06b*/
+}
+
+.nocorners {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
 }

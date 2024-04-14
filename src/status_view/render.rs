@@ -50,12 +50,12 @@ impl Tag {
             }
             Self::Cursor => {
                 let tt = self.new_tag();
-                tt.set_background(Some("#f6fecd"));// f6fecd mine original. f9f06b - gnome
+                tt.set_background(Some("#f6fecd")); // f6fecd mine original. f9f06b - gnome
                 tt
             }
             Self::Region => {
                 let tt = self.new_tag();
-                tt.set_background(Some("#f6f5f4"));// f2f2f2 mine original
+                tt.set_background(Some("#f6f5f4")); // f2f2f2 mine original
                 tt
             }
             Self::Hunk => {
@@ -167,9 +167,17 @@ impl crate::View {
         let line_content = content.to_string();
         if let Some(ctx) = context {
             if let Some((pixels, chars)) = ctx.screen_width {
-                trace!("build_up. context width in pixels and chars{:?} {:?}", pixels, chars);
+                trace!(
+                    "build_up. context width in pixels and chars{:?} {:?}",
+                    pixels,
+                    chars
+                );
                 if chars > 0 {
-                    trace!("build_up. line and line length {:?} {:?}", line_content, line_content.len());
+                    trace!(
+                        "build_up. line and line length {:?} {:?}",
+                        line_content,
+                        line_content.len()
+                    );
                     if chars as usize > line_content.len() {
                         let spaces = chars as usize - line_content.len();
                         trace!("build_up. spaces {:?}", spaces);

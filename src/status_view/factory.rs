@@ -63,6 +63,40 @@ fn handle_line_offset(
     }
 }
 
+pub fn calc_max_char_width(view: &TextView) -> Option<i32> {
+    if let Some((mut iter, _over_text)) = view.iter_at_position(1, 1) {
+        let buff = iter.buffer();
+        iter.forward_to_line_end();
+        let mut pos = view.cursor_locations(Some(&iter)).0.x();
+        while pos < view.width() {
+            buff.insert(&mut iter, " ");
+            pos = view.cursor_locations(Some(&iter)).0.x();
+        }
+        return Some(iter.offset());
+    }
+    None
+}
+
+pub trait CharView {
+    fn calc_max_char_width(&self) -> Option<i32>;
+}
+
+impl CharView for TextView {
+    fn calc_max_char_width(&self) -> Option<i32> {
+        if let Some((mut iter, _over_text)) = self.iter_at_position(1, 1) {
+            let buff = iter.buffer();
+            iter.forward_to_line_end();
+            let mut pos = self.cursor_locations(Some(&iter)).0.x();
+            while pos < self.width() {
+                buff.insert(&mut iter, " ");
+                pos = self.cursor_locations(Some(&iter)).0.x();
+            }
+            return Some(iter.offset());
+        }
+        None
+    }
+}
+
 pub fn text_view_factory(
     sndr: Sender<crate::Event>,
     text_view_width: Rc<RefCell<(i32, i32)>>,
@@ -83,7 +117,7 @@ pub fn text_view_factory(
     buffer.tag_table().add(&Tag::Removed.create());
     buffer.tag_table().add(&Tag::EnhancedRemoved.create());
     buffer.tag_table().add(&Tag::Hunk.create());
-    
+
     let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
         let buffer = buffer.clone();
@@ -98,6 +132,7 @@ pub fn text_view_factory(
                         iter.line(),
                     ))
                     .expect("Could not send through channel");
+                    return glib::Propagation::Stop;
                 }
                 (gdk::Key::s, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
@@ -134,9 +169,21 @@ pub fn text_view_factory(
                     sndr.send_blocking(crate::Event::Push)
                         .expect("Could not send through channel");
                 }
+                (gdk::Key::f, _) => {
+                    sndr.send_blocking(crate::Event::Pull)
+                        .expect("Could not send through channel");
+                }
                 (gdk::Key::b, _) => {
                     sndr.send_blocking(crate::Event::Branches)
                         .expect("Could not send through channel");
+                }
+                (gdk::Key::g, _) => {
+                    sndr.send_blocking(crate::Event::Refresh)
+                        .expect("Could not send through channel");
+                }
+                (gdk::Key::z, _) => {
+                    sndr.send_blocking(crate::Event::StashesPanel)
+                        .expect("cant send through channel");
                 }
                 (gdk::Key::d, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
@@ -148,7 +195,21 @@ pub fn text_view_factory(
                     sndr.send_blocking(crate::Event::Debug)
                         .expect("Could not send through channel");
                 }
-                _ => (),
+                (gdk::Key::equal, gdk::ModifierType::CONTROL_MASK) => {
+                    sndr.send_blocking(crate::Event::Zoom(true))
+                        .expect("Could not send through channel");
+                }
+                (gdk::Key::minus, gdk::ModifierType::CONTROL_MASK) => {
+                    sndr.send_blocking(crate::Event::Zoom(false))
+                        .expect("Could not send through channel");
+                }
+                (key, modifier) => {
+                    trace!(
+                        "key press in status view {:?} {:?}",
+                        key.name(),
+                        modifier
+                    );
+                }
             }
             glib::Propagation::Proceed
         }
@@ -226,20 +287,6 @@ pub fn text_view_factory(
         }
     });
 
-    let calc_max_char_width = |view: &TextView, width: i32| -> Option<i32> {
-        if let Some((mut iter, _over_text)) = view.iter_at_position(1, 1) {
-            let buff = iter.buffer();
-            iter.forward_to_line_end();
-            let mut pos = view.cursor_locations(Some(&iter)).0.x();
-            while pos < width {
-                buff.insert(&mut iter, " ");
-                pos = view.cursor_locations(Some(&iter)).0.x();
-            }
-            return Some(iter.offset());
-        }
-        None
-    };
-
     txt.add_tick_callback({
         move |view, _clock| {
             let width = view.width();
@@ -249,7 +296,7 @@ pub fn text_view_factory(
                 text_view_width.replace((width, 0));
                 if stored_width == 0 {
                     // initial render
-                    if let Some(char_width) = calc_max_char_width(&view, width) {
+                    if let Some(char_width) = view.calc_max_char_width() {
                         text_view_width.replace((width, char_width));
                     }
                 } else {
@@ -263,7 +310,7 @@ pub fn text_view_factory(
                         let sndr = sndr.clone();
                         move || {
                             if width == text_view_width.borrow().0 {
-                                if let Some(char_width) = calc_max_char_width(&view, width) {
+                                if let Some(char_width) = view.calc_max_char_width() {
                                     trace!("text view char width IN resize {:?} {:?}", text_view_width, char_width);
                                     text_view_width.replace((width, char_width));
                                     sndr.send_blocking(crate::Event::TextViewResize).expect("could not sent through channel");

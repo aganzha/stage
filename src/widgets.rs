@@ -1,13 +1,13 @@
-use std::ffi::{OsString};
 use libadwaita::prelude::*;
-use libadwaita::{MessageDialog, ResponseAppearance, Window, HeaderBar};
+use libadwaita::{HeaderBar, MessageDialog, ResponseAppearance, Window};
+use std::ffi::OsString;
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
 
 use gtk4::{
-    glib, AlertDialog, EventControllerKey, TextView, Widget,
-    Window as Gtk4Window, Button
+    glib, AlertDialog, Button, EventControllerKey, TextView, Widget,
+    Window as Gtk4Window,
 };
 
 pub fn display_error(
@@ -17,7 +17,6 @@ pub fn display_error(
     let d = AlertDialog::builder().message(message).build();
     d.show(Some(w));
 }
-
 
 pub fn make_confirm_dialog(
     window: &impl IsA<Gtk4Window>,
@@ -52,7 +51,23 @@ pub fn make_confirm_dialog(
     dialog
 }
 
-pub fn make_header_bar(path: Option<OsString>, sender: Sender<crate::Event>) -> HeaderBar {
+pub fn make_header_bar(sender: Sender<crate::Event>) -> HeaderBar {
+    let stashes_btn = Button::builder()
+        .label("Stashes")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Stashes")
+        .icon_name("sidebar-show-symbolic")
+        .can_shrink(true)
+        .build();
+    stashes_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::StashesPanel)
+                .expect("cant send through channel");
+        }
+    });
     let refresh_btn = Button::builder()
         .label("Refresh")
         .use_underline(true)
@@ -62,10 +77,11 @@ pub fn make_header_bar(path: Option<OsString>, sender: Sender<crate::Event>) -> 
         .can_shrink(true)
         .build();
     refresh_btn.connect_clicked({
-        let path = path.clone();
         let sender = sender.clone();
         move |_| {
-            crate::get_current_repo_status(path.clone(), sender.clone());
+            sender
+                .send_blocking(crate::Event::Refresh)
+                .expect("Could not send through channel");
         }
     });
     let push_btn = Button::builder()
@@ -79,11 +95,31 @@ pub fn make_header_bar(path: Option<OsString>, sender: Sender<crate::Event>) -> 
     push_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
-            sender.send_blocking(crate::Event::Push).expect("cant send through channel");
+            sender
+                .send_blocking(crate::Event::Push)
+                .expect("cant send through channel");
+        }
+    });
+    let pull_btn = Button::builder()
+        .label("Pull")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Pull")
+        .icon_name("document-save-symbolic")
+        .can_shrink(true)
+        .build();
+    pull_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::Pull)
+                .expect("cant send through channel");
         }
     });
     let hb = HeaderBar::new();
+    hb.pack_start(&stashes_btn);
     hb.pack_start(&refresh_btn);
     hb.pack_end(&push_btn);
+    hb.pack_end(&pull_btn);
     hb
 }
