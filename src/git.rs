@@ -1340,7 +1340,8 @@ pub fn stash_changes(
             return false;
         }
         true
-    }).expect("cant iterate on stashes");
+    })
+    .expect("cant iterate on stashes");
     result.expect("stash was not saved")
 }
 
@@ -1351,7 +1352,8 @@ pub fn apply_stash(
 ) {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     // let opts = StashApplyOptions::new();
-    repo.stash_apply(stash_data.num, None).expect("cant apply stash");
+    repo.stash_apply(stash_data.num, None)
+        .expect("cant apply stash");
     gio::spawn_blocking({
         move || {
             get_current_repo_status(Some(path), sender);
