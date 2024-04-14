@@ -17,8 +17,9 @@ use git::{
     apply_stash, checkout, cherry_pick, commit, create_branch,
     get_current_repo_status, get_refs, kill_branch, merge, pull, push,
     stage_via_apply, stash_changes, drop_stash, ApplyFilter, ApplySubject, BranchData,
-    Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes, State, View,
+    Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes, State, View
 };
+use git2::Oid;
 mod widgets;
 use widgets::{display_error, make_confirm_dialog, make_header_bar};
 
@@ -94,6 +95,7 @@ pub enum Event {
     Push,
     Pull,
     Branches,
+    ShowOid(Oid),
     TextViewResize,
     Toast(String),
     StashesPanel,
@@ -311,6 +313,9 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                         split.set_show_sidebar(true);
                         focus();
                     }
+                }
+                Event::ShowOid(oid) => {
+                    info!("main.show oid");
                 }
                 Event::Refresh => {
                     status.get_status();
