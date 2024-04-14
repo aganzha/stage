@@ -216,16 +216,23 @@ impl BranchList {
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window, @weak selected_item, @weak current_item => async move {
                 let branch_data = selected_item.imp().branch.borrow().clone();
+                let was_local = branch_data.branch_type == BranchType::Local;
                 let maybe_new_branch_data = gio::spawn_blocking(move || {
                     crate::checkout(repo_path, branch_data, sender)
                 }).await;
                 selected_item.set_progress(false);
                 if let Ok(new_branch_data) = maybe_new_branch_data {
-                    selected_item.imp().branch.replace(new_branch_data);
-                    selected_item.set_is_head(true);
-                    selected_item.set_no_progress(true);
-                    current_item.set_is_head(false);
-                    branch_list.set_current_pos(branch_list.selected_pos());
+                    if was_local {
+                        // just replace with new data
+                        selected_item.imp().branch.replace(new_branch_data);
+                        selected_item.set_is_head(true);
+                        selected_item.set_no_progress(true);
+                        current_item.set_is_head(false);
+                        branch_list.set_current_pos(branch_list.selected_pos());
+                    } else {
+                        // create new branch
+                        branch_list.add_new_branch_item(new_branch_data);
+                    }
                 } else {
                     crate::display_error(&window, "can't checkout branch");
                 }
@@ -293,7 +300,7 @@ impl BranchList {
         let current_branch = self.get_current_branch();
         let selected_branch = self.get_selected_branch();
         let title = format!(
-            "branch {} into {}",
+            "merge branch {} into {}",
             selected_branch.name, current_branch.name
         );
 
@@ -463,39 +470,43 @@ impl BranchList {
                     crate::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
                 }).await;
                 if let Ok(branch_data) = result {
-                    let new_head = branch_data.is_head;
-                    if  new_head {
-                        let old_item = branch_list.item(branch_list.current_pos()).unwrap();
-                        let old_branch_item = old_item.downcast_ref::<BranchItem>().unwrap();
-                        let mut old_data = old_branch_item.imp().branch.borrow_mut();
-                        old_data.is_head = false;
-                        old_branch_item.set_is_head(false);
-                    }
-                    let new_item = BranchItem::new(branch_data);
-                    if new_head {
-                        let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
-                        new_branch_item.set_initial_focus(true);
-                        new_branch_item.set_is_head(true);
-                    }
-                    {
-                        // put borrow in block
-                        branch_list.imp().list.borrow_mut().insert(0, new_item);
-                        let mut pos = branch_list.imp().remote_start_pos.borrow_mut();
-                        if let Some(mut rem_pos) = *pos {
-                            rem_pos += 1;
-                            pos.replace(rem_pos);
-                            trace!("branches. replace rem pos {:?} {:?}", rem_pos, pos);
-                        }
-                    }
-                    branch_list.items_changed(0, 0, 1);
-                    branch_list.set_selected_pos(0);
-                    branch_list.set_current_pos(0);
-
+                    branch_list.add_new_branch_item(branch_data);
                 } else {
                     crate::display_error(&window, "cant create branch");
                 }
             })
         });
+    }
+    fn add_new_branch_item(&self, branch_data: crate::BranchData) {
+        let new_head = branch_data.is_head;
+        if new_head {
+            let old_item = self.item(self.current_pos()).unwrap();
+            let old_branch_item =
+                old_item.downcast_ref::<BranchItem>().unwrap();
+            let mut old_data = old_branch_item.imp().branch.borrow_mut();
+            old_data.is_head = false;
+            old_branch_item.set_is_head(false);
+        }
+        let new_item = BranchItem::new(branch_data);
+        if new_head {
+            let new_branch_item =
+                new_item.downcast_ref::<BranchItem>().unwrap();
+            new_branch_item.set_initial_focus(true);
+            new_branch_item.set_is_head(true);
+        }
+        {
+            // put borrow in block
+            self.imp().list.borrow_mut().insert(0, new_item);
+            let mut pos = self.imp().remote_start_pos.borrow_mut();
+            if let Some(mut rem_pos) = *pos {
+                rem_pos += 1;
+                pos.replace(rem_pos);
+                trace!("branches. replace rem pos {:?} {:?}", rem_pos, pos);
+            }
+        }
+        self.items_changed(0, 0, 1);
+        self.set_selected_pos(0);
+        self.set_current_pos(0);
     }
 }
 

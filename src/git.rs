@@ -10,13 +10,13 @@ use git2::{
     ApplyLocation, ApplyOptions, Branch, BranchType, CertificateCheckStatus,
     CherrypickOptions, Commit, Cred, CredentialType, Delta, Diff as GitDiff,
     DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType, DiffOptions,
-    Error, ObjectType, Oid, PushOptions, RemoteCallbacks, Repository,
-    RepositoryState,
+    Error, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
+    Repository, RepositoryState, StashApplyOptions, StashFlags,
 };
 use log::{debug, info, trace};
 use regex::Regex;
 use std::cmp::Ordering;
-use std::time::SystemTime;
+//use std::time::SystemTime;
 use std::{env, ffi, path, str};
 
 fn get_current_repo(
@@ -163,7 +163,7 @@ impl Hunk {
         let parts: Vec<&str> = self.header.split("@@").collect();
         let line_no = match self.kind {
             DiffKind::Unstaged => self.old_start,
-            DiffKind::Staged => self.new_start
+            DiffKind::Staged => self.new_start,
         };
         let scope = parts.get(parts.len() - 1).unwrap();
         if scope.len() > 0 {
@@ -409,6 +409,7 @@ pub fn get_current_repo_status(
     // get staged
     gio::spawn_blocking({
         let sender = sender.clone();
+        let path = path.clone();
         move || {
             let repo = Repository::open(path).expect("can't open repo");
             let ob =
@@ -424,6 +425,17 @@ pub fn get_current_repo_status(
                 .expect("Could not send through channel");
         }
     });
+    // get stashes
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        let path = path.clone();
+        move || {
+            sender
+                .send_blocking(crate::Event::Stashes(stashes(path)))
+                .expect("Could not send through channel");
+        }
+    });
+
     // get unstaged
     let git_diff = repo
         .diff_index_to_workdir(None, None)
@@ -563,7 +575,6 @@ pub fn stage_via_apply(
     filter: ApplyFilter,
     sender: Sender<crate::Event>,
 ) {
-
     let repo = Repository::open(path.clone()).expect("can't open repo");
     // get actual diff for repo
     let git_diff = match filter.subject {
@@ -728,6 +739,109 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
     get_head(path, sender)
 }
 
+pub fn pull(path: OsString, sender: Sender<crate::Event>) {
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let mut remote = repo
+        .find_remote("origin") // TODO here is hardcode
+        .expect("no remote");
+    let head_ref = repo.head().expect("can't get head");
+
+    let mut opts = FetchOptions::new();
+    let mut callbacks = RemoteCallbacks::new();
+
+    callbacks.update_tips({
+        let path = path.clone();
+        let sender = sender.clone();
+        move |updated_ref, oid1, oid2| {
+            debug!(
+                "updated local references {:?} {:?} {:?}",
+                updated_ref, oid1, oid2
+            );
+            sender
+                .send_blocking(crate::Event::Toast(String::from(updated_ref)))
+                .expect("cant send through channel");
+            get_upstream(path.clone(), sender.clone());
+            // todo what is this?
+            true
+        }
+    });
+    callbacks.push_update_reference({
+        move |ref_name, opt_status| {
+            debug!("pull update ref {:?}", ref_name);
+            debug!("pull status {:?}", opt_status);
+            // TODO - if status is not None
+            // it will need to interact with user
+            assert!(opt_status.is_none());
+            Ok(())
+        }
+    });
+    callbacks.credentials(|url, username_from_url, allowed_types| {
+        debug!("auth credentials url {:?}", url);
+        // "git@github.com:aganzha/stage.git"
+        debug!("auth credentials username_from_url {:?}", username_from_url);
+        debug!("auth credentials allowed_types url {:?}", allowed_types);
+        if allowed_types.contains(CredentialType::SSH_KEY) {
+            let result = Cred::ssh_key_from_agent(username_from_url.unwrap());
+            debug!("got auth memory result. is it ok? {:?}", result.is_ok());
+            return result;
+        }
+        todo!("implement other types");
+    });
+    callbacks.transfer_progress(|progress| {
+        debug!("transfer progress {:?}", progress.received_bytes());
+        true
+    });
+    callbacks.sideband_progress(|response| {
+        debug!(
+            "pull.sideband progress {:?}",
+            String::from_utf8_lossy(response)
+        );
+        true
+    });
+    callbacks.certificate_check(|_cert, error| {
+        debug!("cert error? {:?}", error);
+        Ok(CertificateCheckStatus::CertificateOk)
+    });
+    callbacks.push_update_reference(|re, op| {
+        debug!("pull_update_reference {:?} {:?}", re, op);
+        Ok(())
+    });
+    callbacks.push_transfer_progress(|s1, s2, s3| {
+        debug!("pull_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
+    });
+    callbacks.push_negotiation(|update| {
+        debug!("pull_negotiation {:?}", update.len());
+        Ok(())
+    });
+    opts.remote_callbacks(callbacks);
+    remote
+        .fetch(&[head_ref.name().unwrap()], Some(&mut opts), None)
+        .expect("cant fetch");
+
+    // but checkout must be after fetch!!!
+    assert!(head_ref.is_branch());
+    let mut branch = Branch::wrap(head_ref);
+    let upstream = branch.upstream().unwrap();
+    // repo.set_head(upstream.get().name().unwrap()).expect("cant set head");
+    let u_oid = upstream.get().target().unwrap();
+    let mut head_ref = repo.head().expect("can't get head");
+    let log_message = format!(
+        "(HEAD -> {}, {}) HEAD@{0}: pull: Fast-forward",
+        branch.name().unwrap().unwrap(),
+        upstream.name().unwrap().unwrap()
+    );
+
+    let mut builder = CheckoutBuilder::new();
+    let opts = builder.safe();
+    let commit = repo.find_commit(u_oid).expect("can't find commit");
+    repo.checkout_tree(commit.as_object(), Some(opts))
+        .expect("can't checkout tree");
+    head_ref
+        .set_target(u_oid, &log_message)
+        .expect("cant set target");
+    get_head(path.clone(), sender.clone());
+}
+
 pub fn push(
     path: OsString,
     remote_branch: String,
@@ -761,8 +875,9 @@ pub fn push(
                 oid2
             );
             if tracking_remote {
-                let res = branch.set_upstream(Some(&remote_branch));
-                trace!("result on set upstream {:?}", res);
+                branch
+                    .set_upstream(Some(&remote_branch))
+                    .expect("cant set upstream");
             }
             sender
                 .send_blocking(crate::Event::Toast(String::from(updated_ref)))
@@ -897,6 +1012,13 @@ impl BranchData {
             commit_dt,
         }
     }
+
+    pub fn local_name(&self) -> String {
+        self.name.replace("origin/", "")
+    }
+    pub fn remote_name(&self) -> String {
+        format!("origin/{}", self.name.replace("origin/", ""))
+    }
 }
 
 pub fn get_refs(path: OsString) -> Vec<BranchData> {
@@ -945,6 +1067,18 @@ pub fn checkout(
         .expect("can't find commit");
     repo.checkout_tree(commit.as_object(), Some(opts))
         .expect("can't checkout tree");
+    match branch_data.branch_type {
+        BranchType::Local => {}
+        BranchType::Remote => {
+            let mut branch = repo
+                .branch(&branch_data.local_name(), &commit, false)
+                .expect("cant create branch");
+            branch
+                .set_upstream(Some(&branch_data.remote_name()))
+                .expect("cant set upstream");
+            branch_data = BranchData::new(branch, BranchType::Local);
+        }
+    }
     repo.set_head(&branch_data.refname).expect("can't set head");
     gio::spawn_blocking({
         move || {
@@ -1132,4 +1266,95 @@ pub fn merge(
     //     .expect("Could not send through channel");
 
     BranchData::new(branch, BranchType::Local)
+}
+
+#[derive(Debug, Clone)]
+pub struct StashData {
+    pub num: usize,
+    pub title: String,
+    pub oid: Oid,
+}
+
+impl StashData {
+    pub fn new(num: usize, oid: Oid, title: String) -> Self {
+        Self { num, oid, title }
+    }
+}
+
+impl Default for StashData {
+    fn default() -> Self {
+        Self {
+            oid: Oid::zero(),
+            title: String::from(""),
+            num: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Stashes {
+    pub stashes: Vec<StashData>,
+}
+impl Stashes {
+    pub fn new(stashes: Vec<StashData>) -> Self {
+        Self { stashes }
+    }
+}
+
+pub fn stashes(path: OsString) -> Stashes {
+    let mut repo = Repository::open(path.clone()).expect("can't open repo");
+    let mut result = Vec::new();
+    repo.stash_foreach(|num, title, oid| {
+        result.push(StashData::new(num, oid.clone(), title.to_string()));
+        true
+    })
+    .expect("cant get stash");
+    Stashes::new(result)
+}
+
+pub fn stash_changes(
+    path: OsString,
+    stash_message: String,
+    stash_staged: bool,
+    sender: Sender<crate::Event>,
+) -> StashData {
+    let mut repo = Repository::open(path.clone()).expect("can't open repo");
+    let me = repo.signature().expect("can't get signature");
+    let flags = if stash_staged {
+        StashFlags::empty()
+    } else {
+        StashFlags::KEEP_INDEX
+    };
+    let oid = repo
+        .stash_save(&me, &stash_message, Some(flags))
+        .expect("cant stash");
+    gio::spawn_blocking({
+        move || {
+            get_current_repo_status(Some(path), sender);
+        }
+    });
+    let mut result: Option<StashData> = None;
+    repo.stash_foreach(|num, title, soid| {
+        if soid == &oid {
+            result.replace(StashData::new(num, *soid, String::from(title)));
+            return false;
+        }
+        true
+    }).expect("cant iterate on stashes");
+    result.expect("stash was not saved")
+}
+
+pub fn apply_stash(
+    path: OsString,
+    stash_data: StashData,
+    sender: Sender<crate::Event>,
+) {
+    let mut repo = Repository::open(path.clone()).expect("can't open repo");
+    // let opts = StashApplyOptions::new();
+    repo.stash_apply(stash_data.num, None).expect("cant apply stash");
+    gio::spawn_blocking({
+        move || {
+            get_current_repo_status(Some(path), sender);
+        }
+    });
 }

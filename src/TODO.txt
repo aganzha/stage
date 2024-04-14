@@ -1,3 +1,17 @@
+Perhaps it need to put path to status. and window to context!!!!
+
+BUG: state Revert was cleared, but refresh btn does not reflect that
+BUG: does not completed remote branch for push
+BUG: do not know how to reproduse: after creating branch staging was not working cause ApplyFilter was empty!
+BUG: during merge do not create final commit. all changes will be in staged and state will be merge.
+     reset --hard from console and then refresh - there is a garbage string on the place of State
+     
+BUG: checkout remote branch. then checkout remote branch again!
+thread '<unnamed>' panicked at src/git.rs:1043:18:
+cant create branch: Error { code: -4, klass: 4, message: "failed to write reference 'refs/heads/rc-24.1204': a reference with that name already exists." }
+
+
+TODO: pull, not just fetch!
 TODO: commit ammend after post push hook
 TODO: whyle branch list is loaded it need to show empty repr
 FEATURE: add expand rows to hunks as in gitlab!
@@ -7,180 +21,3 @@ display hook here
 ------------------------
 TODO: super slow kill in old_docs. just couple of files and couple of lines and kill is suuuuuuuuuuuuuuuper slow
 TODO: display killed spaces please
-
-thread 'main' panicked at src/status_view/reconciliation.rs:288:21:
-no way! OverlapBefore "@@ -648,14 +648,27 @@ pub fn stage_via_apply(" "@@ -665,7 +665,10 @@ pub fn stage_via_apply("
-
-
-so. to reproduce it:
-- unstage all
-- expand git.rs
-- collapse all hunks
-- go down and begin staging from bottom.
-- third stage is crash
-
-BUG: expand first line in unstage. move cursor down -
-     it moves to line end ------------ 22222222222222
-
-BUG: thread 'main' panicked at src/text_view.rs:147:13:
-lines length are not the same 13 12
-- open view and expand all. add 1 line. hit refresh - got panic
-- change 1 work in line. hit refresh - changes are not visible. but then put cursor on it - changes apeared
-
-40c0130 - last working old version of filter
-[DEBUG stage::git] overlap
-thread 'main' panicked at src/git.rs:213:17:
-not yet implemented: extend hunk by start diff
-stack backtrace:
-   0: rust_begin_unwind
-
-
-
-BUG: thread '<unnamed>' panicked at src/git.rs:673:31:
-can't get signature: Error { code: -3, klass: 7, message: "config value 'user.name' was not found" }
-
-BUG: Stage all changes does not work
-BUG: CRITICAL: got panic not yet implemented: extend hunk by start diff
-BUG: can't stage all changes. nothing happens - ApplyFilter is empty
-BUG: i saw main in staged changes and it was not possible to unstage it.
-     perhaps it is related to deleted file!
-     https://github.com/libgit2/libgit2/issues/6643
-ffbf06 - logo color
-INFO: so. it runs as flatpak run -uv --socket=session-bus com.github.aganzha.stage
-TODO: rename file (move to another folder, and then change. what will be in staged? in magit there is "renamed" status with 2 modified rows
-
-inconsistency: enrich_view in diff, hunk, life works on child (not on self.view). but in head it works on self.view. refactor it to modify self.view everywhere
-
-inconsistency: magit highlight in yello all top level sections with their children^ staged, unstaged etc.
-inside the hunk in does not hihjlihjy in yello. only in grey. and cursor is visible
-In stage now cursor become yellow inside hunk and does not highlight sections in yellow. only current row. So basically in magit yelow highlight is for top rendered sections and grey highlight is for code.
-lets mimic that also! and make cursor visible.
-
-
-DONE: when apply tags to dirty content (cursor leave the line for the next line)
-and prev line is rendered in place. it doesn not return its length.
-why at all length is required to apply tags? those are cursor tags, which must be applied anyway...
-
-
-
-
-DONE: collapse hunk. then collapse file. then expand file. then expand hunk - it will not expand 
-// TODO when view is actually on same line it could be not curent
-todo: tests for the new expand (bug with render by calling cursor)
-todo: new files
-todo: mark blank added/delete lines
-lets choose where to put cursor
-failed workflow:
-    cargo:warning=`PKG_CONFIG_ALLOW_SYSTEM_CFLAGS="1" "pkg-config" "--libs" "--cflags" "pango" "pango >= 1.49.2"` did not exit successfully: exit status: 1
-  error: could not find system library 'pango' required by the 'pango-sys' crate
-
-  --- stderr
-  Package pango w
-
-
-todo: test for cursor
-todo: it need make search works inside text view!
-todo: write func to search view at line (see fn debug - it is incompleted. want to debug labels also)
-BUG: open with 1 file staged. unstaged it. cursor will be at second file (must be at firts though).
-move up onto the first line = 2 files are selected!
-BUG: stage 1 file. cursor is on second file. move it right - file is not selected!
-todo: get rid of transfered! just not mark as dirty!
-todo: test to bug below: test erase!
-todo: test to bug below: test tags (Vec::new() for replace_dirty_content and squahed branch!
-DONE CRITICAL: render squashed views (children) just render them if they are squashed!
-DONE CRITICAL: line_no of diff is the last line! 
-
-
-lets say for now, that commit is always successfull.
-it need to kill both in status, cause theyl become obsolete!
-
-TODO: mark region not for every line, but for region!!! with marks, probably
-
-
-
-
-DONE CRITICAL: expand file. collapse it. expand again - no color
-
-ok, tags are always removed if view is dirty. hmm. lets sey its ok, for now
-
-in View render replace ifs withsingle match with destructuring view
-
-BUG: in magit, when there are only staged or unstaged - other title is not shown.
-     so there are no jumps when staging single file.
-     just staged and understaged title is replaced. its nice
-     
-BUG: added or removed ampty lines. it need to detect them visually (no line - no background now)
-Write everything to logs!
-BUG: empty lines in the end of textview are still accumulating
-BUG: sometimes cursor jumps to first staged file, because it is in eof
-     lets perhaps pass parameter to choose cursor. eg enum like AfterRender, AfterExpand etc
-
-lfs support. sparse checkout
-
-Cursor become broken just on second file :(
-Handle pressing TAB inside line
-
-
-BUG: Tags are accumulating!
-drug racing exists )) views of deleted hunks are still there.
-perhaps just skip rendering diff via dirty flag? it still be there collapsed.
-or empty while other diff become rendered. hm.
-
-
-
-every view should render every time! on every call!
-it is OK to call render, cause nothing will blink, cause everything is on its place!
-
-so, here is the problem - one thread pushes th changed and another diff is rerendered.
-it need to separate it to different renders of individual diff!
-
-STAGING LINE INSIDE HUNK (STAGING HUNK MUST BE THE SAME)
-1. after staging 1 hunk, other hunk headers changed!
-   so all hunks must be rerenderred!. but how to i know them?
-   headers are changed??? so what? it need just to render file stupid!
-   The file will remain expanded and on the same line.
-   All other hunkns then what???
-   old_hunks: line_no: 5, a c, line_no: 10, na nc.
-   is it need to kill everything inside file (as it being collapsed)????
-   probably yes. because there are no way to match old views - hunk headers,
-   are changed. even hunk is the same.
-   lets try to kill everuthing inside file.
-
-   !!!!!!!!!!!!for future and clarity - next hunk become active and current in magit, when prev hunk stag
-
-ed
-   !!!!!!!!!!!!for future and clarity - in magit when staging hunk staged FILES are not expanded.
-   (hunks are expanded by default)
-   - whats get applied???
-- where is this diff stored???
-
-
-- refactor cursor to every view, by selecting actual view.
-do not call render on everything
-
-
-- collapse when press tab on line? YES, please
-
-
-- open with no diff in files. works weird
-
-- BUG when put mouse in the end of line it does not highlighted
-- put symbolic expand tag/href to expand regions with mouse
-
--- HUGHLIGHT for pgup/pgdown doesn not work
-- put label with current repo name (relative to path the app is started)
-- try to replace &mut dyn RecursiveViewContainer with type alias
-
-- adwaita ToolbarView
-- popup widnwow from current line (commit)
-
-- open another repo in file choose dialog
-- open repo under other user causeing error! handle it!
-
-- .gitignore does not counted in gitlib2 !!!! flags : Status(IGNORED)
-
-op
-- in parallel thread, go to the source file, while read hunks and put whole file in tree sitter,
-make a syntax, highlight it and put into the diff. while insert line into the buffer, paint it with tags
-by the tree sitter structure
-- after push add text link to mr in gitlab and github!

@@ -20,7 +20,7 @@ mod tests {
     }
 
     fn create_hunk(name: String) -> Hunk {
-        let mut hunk = Hunk::new();
+        let mut hunk = Hunk::new(DiffKind::Unstaged);
         hunk.handle_max(&name);
         hunk.header = name.to_string();
         for i in 0..3 {
@@ -32,7 +32,7 @@ mod tests {
     }
 
     fn create_file(name: String) -> File {
-        let mut file = File::new();
+        let mut file = File::new(DiffKind::Unstaged);
         file.path = name.to_string().into();
         for i in 0..3 {
             file.hunks

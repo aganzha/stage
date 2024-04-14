@@ -182,7 +182,7 @@ pub trait ViewContainer {
         }
         view.squashed = true;
         view.child_dirty = true;
-        // debug!("erasing ......{:?}", &view);
+        trace!("erasing ......{:?}", &view);
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let view = vc.get_view();
             view.squashed = true;
@@ -192,9 +192,8 @@ pub trait ViewContainer {
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
-        // debug!("erase one signgle view at line > {:?}", iter.line());
+        trace!("erase one signgle view at line > {:?}", line_no);
         self.render(&buffer, &mut iter, context);
-        // debug!("erase iter line after erase_____ > {:?}", iter.line());
     }
 
     fn resize(
@@ -202,7 +201,7 @@ pub trait ViewContainer {
         txt: &TextView,
         context: &mut Option<StatusRenderContext>,
     ) {
-        debug!("+++++++++++++++++++++ resize {:?}", context);
+        trace!("+++++++++++++++++++++ resize {:?}", context);
         let view = self.get_view();
         let line_no = view.line_no;
         if view.rendered {
@@ -219,7 +218,7 @@ pub trait ViewContainer {
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
-        // debug!("erase one signgle view at line > {:?}", iter.line());
+        trace!("render after reisze at line {:?}", iter.line());
         self.render(&buffer, &mut iter, context);
     }
 
@@ -228,7 +227,6 @@ pub trait ViewContainer {
         // it is used in comparing files and hunks
         self.get_content()
     }
-        
 }
 
 impl ViewContainer for Diff {
@@ -532,4 +530,3 @@ impl ViewContainer for State {
         format!("State:    {}", state)
     }
 }
-

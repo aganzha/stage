@@ -4,6 +4,10 @@ use status_view::{factory::text_view_factory, Status, StatusRenderContext};
 mod branches_view;
 use branches_view::{show_branches_window, Event as BranchesEvent};
 
+mod stashes_view;
+use stashes_view::factory as stashes_view_factory;
+
+use core::time::Duration;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::SystemTime;
@@ -11,30 +15,29 @@ use std::time::SystemTime;
 mod git;
 use git::{
     checkout, cherry_pick, commit, create_branch, get_current_repo_status,
-    get_refs, kill_branch, merge, push, stage_via_apply, ApplyFilter,
-    ApplySubject, BranchData, Diff, DiffKind, File, Head, Hunk, Line, State,
-    View,
+    get_refs, kill_branch, merge, pull, push, stage_via_apply, stash_changes,
+    apply_stash, ApplyFilter, ApplySubject, BranchData, Diff, DiffKind, File, Head, Hunk,
+    Line, StashData, Stashes, State, View,
 };
 mod widgets;
 use widgets::{display_error, make_confirm_dialog, make_header_bar};
 
+use gdk::Display;
+use glib::{clone, ControlFlow};
 use libadwaita::prelude::*;
 use libadwaita::{
-    Application, ApplicationWindow, HeaderBar, Toast, ToastOverlay,
-    ToolbarView,
+    Application, ApplicationWindow, HeaderBar, OverlaySplitView, Toast,
+    ToastOverlay, ToolbarStyle, ToolbarView,
 };
 
-use gdk::Display;
-
-use glib::{clone, ControlFlow};
-
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Button,
-    CssProvider, ScrolledWindow, Settings, TextWindowType,
+    gdk, gio, glib, style_context_add_provider_for_display, Align, Button,
+    CssProvider, ScrolledWindow, Settings, TextView, TextWindowType,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
 use log::{debug, info};
+use regex::Regex;
 
 const APP_ID: &str = "com.github.aganzha.stage";
 
@@ -62,7 +65,7 @@ fn main() -> glib::ExitCode {
 fn load_css() {
     let display = Display::default().expect("Could not connect to a display.");
     let settings = Settings::for_display(&display);
-    settings.set_gtk_font_name(Some("Cantarell 21"));
+    settings.set_gtk_font_name(Some("Cantarell 18")); // "Cantarell 21"
     let provider = CssProvider::new();
     provider.load_from_string(include_str!("style.css"));
     style_context_add_provider_for_display(
@@ -89,16 +92,43 @@ pub enum Event {
     Kill(i32, i32),
     Commit,
     Push,
+    Pull,
     Branches,
     TextViewResize,
     Toast(String),
+    StashesPanel,
+    Stashes(Stashes),
+    Refresh,
+    Zoom(bool),
+}
+
+fn zoom(dir: bool) {
+    let display = Display::default().expect("Could not connect to a display.");
+    let settings = Settings::for_display(&display);
+    let font = settings.gtk_font_name().expect("cant get font");
+    // "Cantarell 21"
+    let re = Regex::new(r".+ ([0-9]+)").expect("fail in regexp");
+    if let Some((_whole, [size])) =
+        re.captures_iter(&font).map(|c| c.extract()).next()
+    {
+        let mut int_size = size.parse::<i32>().expect("cant parse size");
+        if dir {
+            if int_size < 64 {
+                int_size += 1;
+            }
+        } else {
+            if int_size > 1 {
+                int_size -= 1;
+            }
+        }
+        settings.set_gtk_font_name(Some(&format!("Cantarell {}", int_size)));
+    };
 }
 
 fn run_with_args(app: &Application, files: &[gio::File], _blah: &str) {
     let le = files.len();
     if le > 0 {
         if let Some(path) = files[0].path() {
-            println!("................... {:?}", path);
             run_app(app, Some(path.into_os_string()));
             return;
         }
@@ -111,9 +141,11 @@ fn run_without_args(app: &Application) {
 }
 
 fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
-    let mut status = Status::new();
-    let mut current_repo_path = initial_path;
+    env_logger::builder().format_timestamp(None).init();
+
     let (sender, receiver) = async_channel::unbounded();
+
+    let mut status = Status::new(initial_path, sender.clone());
 
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
@@ -125,8 +157,8 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     window.add_action(&action_close);
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let hb = make_header_bar(current_repo_path.clone(), sender.clone());
-    
+    let hb = make_header_bar(sender.clone());
+
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt = text_view_factory(sender.clone(), text_view_width.clone());
 
@@ -136,26 +168,35 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     let toast_overlay = ToastOverlay::new();
     toast_overlay.set_child(Some(&scroll));
 
-    let tb = ToolbarView::builder()
+    // let (stashes_view, stashes_filler) =
+    //     stashes_view_factory(&window, Rc::new(&status.path), sender.clone());
+    let split = OverlaySplitView::builder()
         .content(&toast_overlay)
+        //.sidebar(&stashes_view)
+        .show_sidebar(false)
+        .min_sidebar_width(400.0)
+        .build();
+
+    let tb = ToolbarView::builder()
+        .top_bar_style(ToolbarStyle::Raised)
+        .content(&split)
         .build();
     tb.add_top_bar(&hb);
 
     window.set_content(Some(&tb));
 
-    env_logger::builder().format_timestamp(None).init();
-
-    status.get_status(current_repo_path.clone(), sender.clone());
+    status.get_status();
     window.present();
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
             status.make_context(text_view_width.clone());
-
+            // debug!("main looooop {:?}", scroll.width());
             match event {
                 Event::CurrentRepo(path) => {
-                    current_repo_path.replace(path);
+                    info!("info.path {:?}", path);
+                    status.update_path(path);
                 }
                 Event::State(state) => {
                     info!("main. state {:?}", &state);
@@ -173,26 +214,21 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                             "No changes were staged. Stage by hitting 's'",
                         );
                     } else {
-                        status.commit(
-                            current_repo_path.as_ref().unwrap(),
-                            &txt,
-                            &window,
-                            sender.clone(),
-                        );
+                        status.commit(&txt, &window);
                     }
                 }
                 Event::Push => {
                     info!("main.push");
-                    status.push(
-                        current_repo_path.as_ref().unwrap(),
-                        &window,
-                        sender.clone(),
-                    );
+                    status.push(&window);
+                }
+                Event::Pull => {
+                    info!("main.pull");
+                    status.pull();
                 }
                 Event::Branches => {
                     info!("main.braches");
                     show_branches_window(
-                        current_repo_path.as_ref().unwrap().clone(),
+                        status.path.clone().expect("no path"),
                         &window,
                         sender.clone(),
                     );
@@ -220,45 +256,64 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     status.cursor(&txt, line_no, offset);
                 }
                 Event::Stage(_offset, line_no) => {
-                    status.stage(
-                        &txt,
-                        line_no,
-                        current_repo_path.as_ref().unwrap(),
-                        ApplySubject::Stage,
-                        sender.clone(),
-                    );
+                    status.stage(&txt, line_no, ApplySubject::Stage);
                 }
                 Event::UnStage(_offset, line_no) => {
-                    status.stage(
-                        &txt,
-                        line_no,
-                        current_repo_path.as_ref().unwrap(),
-                        ApplySubject::Unstage,
-                        sender.clone(),
-                    );
+                    status.stage(&txt, line_no, ApplySubject::Unstage);
                 }
                 Event::Kill(_offset, line_no) => {
                     info!("main.kill {:?}", SystemTime::now());
-                    status.stage(
-                        &txt,
-                        line_no,
-                        current_repo_path.as_ref().unwrap(),
-                        ApplySubject::Kill,
-                        sender.clone(),
-                    );
+                    status.stage(&txt, line_no, ApplySubject::Kill);
                     info!("main.completed kill {:?}", SystemTime::now());
                 }
                 Event::TextViewResize => {
-                    // debug!(
-                    //     "rrrrrresize window ----------------_______ {:?}",
-                    //     status.context
-                    // );
                     status.resize(&txt);
                 }
                 Event::Toast(title) => {
+                    info!("toast");
                     let toast =
                         Toast::builder().title(title).timeout(2).build();
                     toast_overlay.add_toast(toast);
+                }
+                Event::Zoom(dir) => {
+                    zoom(dir);
+                    // when zoom, TextView become offset from scroll
+                    // on some step. this is a hack to force rerender
+                    // this pair to allow TextView accomodate whole
+                    // width of ScrollView
+                    scroll.set_halign(Align::Start);
+                    glib::source::timeout_add_local(
+                        Duration::from_millis(30),
+                        {
+                            let scroll = scroll.clone();
+                            move || {
+                                scroll.set_halign(Align::Fill);
+                                ControlFlow::Break
+                            }
+                        },
+                    );
+                    status.resize(&txt);
+                }
+                Event::Stashes(stashes) => {
+                    info!("stashes data");
+                    status.update_stashes(stashes)
+                }
+                Event::StashesPanel => {
+                    info!("stashes panel");
+                    if split.shows_sidebar() {
+                        split.set_show_sidebar(false);
+                        txt.grab_focus();
+                    } else {
+                        // stashes_filler(&status);
+                        let (view, focus) =
+                            stashes_view_factory(&window, &status);
+                        split.set_sidebar(Some(&view));
+                        split.set_show_sidebar(true);
+                        focus();
+                    }
+                }
+                Event::Refresh => {
+                    status.get_status();
                 }
             };
         }
