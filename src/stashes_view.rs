@@ -338,7 +338,7 @@ pub fn factory(
                         .send_blocking(crate::Event::StashesPanel)
                         .expect("cant send through channel");
                 }
-                (gdk::Key::a, _) => {
+                (gdk::Key::a|gdk::Key::Return, _) => {
                     if let Some(row) = lb.selected_row() {
                         let oid_row = row
                             .downcast_ref::<OidRow>()
@@ -350,7 +350,7 @@ pub fn factory(
                         );
                     }
                 }
-                (gdk::Key::k, _) => {
+                (gdk::Key::k|gdk::Key::d, _) => {
                     if let Some(row) = lb.selected_row() {
                         let oid_row = row
                             .downcast_ref::<OidRow>()
@@ -368,7 +368,7 @@ pub fn factory(
                         );
                     }
                 }
-                (gdk::Key::z, _) => {
+                (gdk::Key::z|gdk::Key::c|gdk::Key::n, _) => {
                     add_stash(
                         path.clone(),
                         &window,
@@ -383,7 +383,7 @@ pub fn factory(
                     );
                 }
                 (key, modifier) => {
-                    trace!(
+                    debug!(
                         "key press in stashes view{:?} {:?}",
                         key.name(),
                         modifier
