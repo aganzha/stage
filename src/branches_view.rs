@@ -8,6 +8,7 @@ use gtk4::{
     EventControllerKey, Image, Label, ListBox, ListHeader, ListItem,
     ListScrollFlags, ListView, Orientation, ScrolledWindow, SectionModel,
     SelectionMode, SignalListItemFactory, SingleSelection, Spinner, Widget,
+    SearchBar, SearchEntry, FilterListModel
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -95,7 +96,7 @@ impl BranchItem {
 
 glib::wrapper! {
     pub struct BranchList(ObjectSubclass<branch_list::BranchList>)
-        @implements gio::ListModel, SectionModel;
+        @implements gio::ListModel, SectionModel; // , FilterListModel
 }
 
 mod branch_list {
@@ -110,6 +111,7 @@ mod branch_list {
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::BranchList)]
     pub struct BranchList {
+        pub original_list: RefCell<Vec<super::BranchItem>>,
         pub list: RefCell<Vec<super::BranchItem>>,
         pub remote_start_pos: RefCell<Option<u32>>,
 
@@ -172,6 +174,34 @@ impl BranchList {
         Object::builder().build()
     }
 
+
+    pub fn search(&self, term: String) {
+        // it need to keep 1 list in item for sure,
+        // because transform_to bindingsin this file will fail:
+        // closures will got None instead of BranchItem
+        // lets remain head branch in list
+        let deleted_amount = self.imp().list.borrow().len() - 1;
+        self.imp().list.borrow_mut().retain(|item: &BranchItem| {
+            item.is_head()
+        });
+
+        let mut le = 1;
+        for item in self.imp().original_list.borrow().iter() {
+            if item.is_head() {
+                continue
+            }
+            if item.imp().branch.borrow().name.contains(&term) {
+                self.imp().list.borrow_mut().push(item.clone());
+            }
+            le += 1;
+        }
+        self.items_changed(1, 0, le as u32);
+    }
+    
+    pub fn reset_search(&self) {
+        debug!("reset search in list");
+    }
+    
     pub fn make_list(&self, repo_path: std::ffi::OsString) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list => async move {
@@ -194,7 +224,8 @@ impl BranchList {
                         selected = pos;
                         item.set_initial_focus(true)
                     }
-                    branch_list.imp().list.borrow_mut().push(item);
+                    branch_list.imp().list.borrow_mut().push(item.clone());
+                    branch_list.imp().original_list.borrow_mut().push(item);
                 }
                 branch_list.imp().remote_start_pos.replace(remote_start_pos);
                 branch_list.items_changed(0, 0, le);
@@ -434,7 +465,7 @@ impl BranchList {
                 //     .title(title)
                 //     .build();
                 let input = EntryRow::builder()
-                    .title("New branch name:")
+                    .title("New branch name:")                    
                     .css_classes(vec!["input_field"])
                     .build();
                 let checkout = SwitchRow::builder()
@@ -783,10 +814,34 @@ pub fn make_headerbar(
     sender: Sender<Event>,
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
-    let lbl = Label::builder()
-        .label("branches")
-        .single_line_mode(true)
+
+    let entry = SearchEntry::builder()
+        .search_delay(300)
         .build();
+    // entry.connect_stop_search(|e| {
+    //     // does not work
+    // });
+    let branch_list = get_branch_list(list_view);
+    entry.connect_search_changed(clone!(@weak branch_list => move |e| {
+        let term = e.text();
+        if !term.is_empty() && term.len() < 3 {
+            return;
+        }
+        if term.is_empty() {
+            branch_list.reset_search();
+        } else {
+            branch_list.search(term.into());
+        }
+        
+    }));
+    let search = SearchBar::builder()
+        .tooltip_text("search branches")
+        .search_mode_enabled(true)
+        .visible(true)
+        .child(&entry)
+        .build();
+    
+    search.connect_entry(&entry);
     let new_btn = Button::builder()
         // .label("N")
         .icon_name("list-add-symbolic")
@@ -818,8 +873,9 @@ pub fn make_headerbar(
 
     let _ = single_selection
         .bind_property("selected-item", &kill_btn, "sensitive")
-        .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
-        .build();
+        .transform_to(move |_, item: BranchItem| {
+            Some(!item.is_head())
+        }).build();
     kill_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
@@ -838,8 +894,9 @@ pub fn make_headerbar(
         .build();
     let _ = single_selection
         .bind_property("selected-item", &merge_btn, "sensitive")
-        .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
-        .build();
+        .transform_to(move |_, item: BranchItem| {
+            Some(!item.is_head())
+        }).build();
     merge_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
@@ -849,7 +906,8 @@ pub fn make_headerbar(
         }
     });
 
-    hb.set_title_widget(Some(&lbl));
+    // hb.set_title_widget(Some(&lbl));
+    hb.set_title_widget(Some(&search));
     hb.pack_end(&new_btn);
     hb.pack_end(&merge_btn);
     hb.pack_end(&kill_btn);
