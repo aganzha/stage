@@ -1,4 +1,6 @@
 use async_channel::Sender;
+use std::collections::HashMap;
+use git2::Oid;
 use glib::{clone, Object};
 use gtk4::builders::ButtonBuilder;
 use gtk4::prelude::*;
@@ -12,7 +14,7 @@ use std::rc::Rc;
 
 use crate::{
     apply_stash as git_apply_stash, drop_stash, display_error, make_confirm_dialog,
-    stash_changes, Event, StashData, Status,
+    stash_changes, Event, StashData, Status, Stashes
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -46,6 +48,9 @@ mod oid_row {
 
         #[property(get, set)]
         pub oid: RefCell<String>,
+        
+        #[property(get, set)]
+        pub num: RefCell<i32>,
     }
 
     #[glib::object_subclass]
@@ -72,9 +77,8 @@ impl OidRow {
         let row = Self::new();
         row.set_property("title", &stash.title);
         row.set_oid(stash.oid.to_string());
-        //row.add_suffix(&Label::builder().label("suffix").build());
-        //row.add_prefix(&Label::builder().label("prefix").build());
-        // row.set_icon_name(Some("emblem-documents-symbolic"));
+        row.set_num(stash.num as i32);
+        
         let commit_button = Button::builder()
             .label("View stash")
             .tooltip_text("View stash")
@@ -90,8 +94,10 @@ impl OidRow {
         });
         row.add_suffix(&commit_button);
         row.set_subtitle(&format!("stash@{}", &stash.num));
-        // row.set_property("activatable", true);
-        // row.set_property("selectable", true);
+        row.bind_property("num", &row, "subtitle")
+            .transform_to( |_, num: i32| {
+                Some(format!("stash@{}", &num))
+            }).build();
         row.set_can_focus(true);
         row.set_css_classes(&[&String::from("nocorners")]);
         row.imp().stash.replace(stash.clone());
@@ -101,7 +107,6 @@ impl OidRow {
     pub fn kill(
         &self,
         path: OsString,
-        kill: impl FnOnce(OidRow) + 'static,
         window: &impl IsA<Gtk4Window>,
         sender: Sender<Event>,
     ) {
@@ -122,11 +127,18 @@ impl OidRow {
                         let stash = stash.clone();
                         let sender = sender.clone();
                         move || {
-                            drop_stash(path.clone(), stash, sender.clone());
+                            drop_stash(path.clone(), stash, sender.clone())
                         }
                     }).await;
-                    if let Ok(_) = result {
-                        kill(row.clone());
+                    if let Ok(stashes) = result {
+                        let pa = row.parent().unwrap();
+                        let lb = pa.downcast_ref::<ListBox>().unwrap();
+                        let mut ind = row.num() - 1;
+                        if ind < 0 {
+                            ind = 0;
+                        }
+                        lb.remove(&row);
+                        adopt_stashes(&lb, stashes, sender, Some(ind));
                     }
                 }
             })
@@ -139,7 +151,7 @@ impl OidRow {
         window: &impl IsA<Gtk4Window>,
         sender: Sender<Event>,
     ) {
-        debug!("...........apply stash {:?}", self.imp().stash);
+        trace!("...........apply stash {:?}", self.imp().stash);
         glib::spawn_future_local({
             clone!(@weak self as row,
             @strong window as window => async move {
@@ -178,12 +190,13 @@ impl Default for OidRow {
 pub fn add_stash(
     path: OsString,
     window: &impl IsA<Gtk4Window>,
-    prepend: impl FnOnce(StashData) + 'static,
+    stashes_box: &ListBox,
     sender: Sender<Event>,
 ) {
     glib::spawn_future_local({
         clone!(@strong window as window,
-        @strong sender as sender => async move {
+               @strong stashes_box as stashes_box,
+               @strong sender as sender => async move {
             let lb = ListBox::builder()
                 .selection_mode(SelectionMode::None)
                 .css_classes(vec![
@@ -223,18 +236,48 @@ pub fn add_stash(
                 return;
             }
             let stash_message = format!("{}", input.text());
-            let stash_staged = staged.is_active();
-            debug!("+++++++++++++++++++++++++++ {:?} {:?}", stash_message, stash_staged);
-            let result = gio::spawn_blocking(move || {
-                stash_changes(path, stash_message, stash_staged, sender)
-            }).await;
-            if let Ok(stash_data) = result {
-                prepend(stash_data);
-            } else {
-                display_error(&window, "cant create stash");
-            }
+                   let stash_staged = staged.is_active();
+                   let result = gio::spawn_blocking({
+                       let sender = sender.clone();
+                       move || {
+                           stash_changes(path, stash_message, stash_staged, sender)
+                       }
+                   }).await;
+                   if let Ok(stashes) = result {
+                       adopt_stashes(&stashes_box, stashes, sender, None);
+                   } else {
+                       display_error(&window, "cant create stash");
+                   }
         })
     });
+}
+
+pub fn adopt_stashes(lb: &ListBox, stashes: Stashes, sender: Sender<Event>, o_row_ind: Option<i32>) {
+    let mut ind = 0;
+    let mut map: HashMap<Oid, StashData> = HashMap::new();
+    stashes.stashes.iter().for_each(|stash| {
+        map.insert(stash.oid, stash.clone());
+    });
+    while let Some(row) = lb.row_at_index(ind) {
+        let oid_row =
+            row.downcast_ref::<OidRow>().expect("cant get oid row");
+        let oid = oid_row.imp().stash.borrow().oid;
+        let new_stash = map.remove(&oid).unwrap();
+        oid_row.set_num(new_stash.num as i32);
+        oid_row.imp().stash.replace(new_stash);
+        ind += 1;
+    }
+    if let Some(row_ind) = o_row_ind {
+        // deleting row
+        if let Some(row) = lb.row_at_index(row_ind) {
+            lb.select_row(Some(&row));
+            row.grab_focus();
+        }
+    }
+    // adding new row
+    for (_, stash_data) in map.iter_mut(){
+        lb.prepend(&OidRow::from_stash(&stash_data, sender.clone()))
+    }
 }
 
 pub fn factory(
@@ -274,7 +317,7 @@ pub fn factory(
         .build();
     let kill = Button::builder()
         .tooltip_text("Kill stash (K)")
-        .icon_name("edit-delete-symbolic")
+        .icon_name("user-trash-symbolic")// process-stop-symbolic
         .build();
 
     add.connect_clicked({
@@ -285,15 +328,8 @@ pub fn factory(
         move |_| {
             add_stash(
                 path.clone(),
-                &window,
-                {
-                    let lb = lb.clone();
-                    let sender = sender.clone();
-                    move |stash_data| {
-                        let row = OidRow::from_stash(&stash_data, sender);
-                        lb.prepend(&row);
-                    }
-                },
+                &window,                
+                &lb,
                 sender.clone(),
             );
         }
@@ -321,13 +357,7 @@ pub fn factory(
                 let oid_row =
                     row.downcast_ref::<OidRow>().expect("cant get oid row");
                 oid_row.kill(
-                    path.clone(),
-                    {
-                        let lb = lb.clone();
-                        move |row| {
-                            lb.remove(&row);
-                        }
-                    },
+                    path.clone(),                    
                     &window,
                     sender.clone()
                 );
@@ -372,13 +402,7 @@ pub fn factory(
                             .downcast_ref::<OidRow>()
                             .expect("cant get oid row");
                         oid_row.kill(
-                            path.clone(),
-                            {
-                                let lb = lb.clone();
-                                move |row| {
-                                    lb.remove(&row);
-                                }
-                            },
+                            path.clone(),                            
                             &window,
                             sender.clone(),
                         );
@@ -388,14 +412,7 @@ pub fn factory(
                     add_stash(
                         path.clone(),
                         &window,
-                        {
-                            let lb = lb.clone();
-                            let sender = sender.clone();
-                            move |stash_data| {
-                                let row = OidRow::from_stash(&stash_data, sender);
-                                lb.prepend(&row);
-                            }
-                        },
+                        &lb.clone(),
                         sender.clone(),
                     );
                 }

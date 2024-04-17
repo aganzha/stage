@@ -805,8 +805,7 @@ pub fn make_headerbar(
         }
     });
     let kill_btn = Button::builder()
-        // .label("K")
-        .icon_name("edit-delete-symbolic")
+        .icon_name("user-trash-symbolic")// process-stop-symbolic
         .use_underline(true)
         .tooltip_text("Delete branch (K)")
         .sensitive(false)
@@ -925,6 +924,9 @@ pub fn show_branches_window(
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
+                    window.close();
+                }
+                (gdk::Key::Escape, _) => {
                     window.close();
                 }
                 (gdk::Key::n, _) => {

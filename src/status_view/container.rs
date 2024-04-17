@@ -1,5 +1,5 @@
 use crate::status_view::{Label, Tag};
-use crate::{Diff, File, Head, Hunk, Line, State, StatusRenderContext, View};
+use crate::{Diff, File, Head, Hunk, Line, State, StatusRenderContext, View, Untracked, UntrackedFile};
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter, TextView};
@@ -12,6 +12,8 @@ pub enum ViewKind {
     Hunk,
     Line,
     Label,
+    Untracked,
+    UntrackedFile
 }
 
 pub trait ViewContainer {
@@ -528,5 +530,87 @@ impl ViewContainer for State {
             }
         };
         format!("State:    {}", state)
+    }
+}
+
+impl ViewContainer for Untracked {
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Untracked
+    }
+    fn child_count(&self) -> usize {
+        self.files.len()
+    }
+
+    fn get_view(&mut self) -> &mut View {
+        self.view.expanded = true;
+        &mut self.view
+    }
+
+    fn get_content(&self) -> String {
+        String::from("")
+    }
+    
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        self.files
+            .iter_mut()
+            .map(|vh| vh as &mut dyn ViewContainer)
+            .collect()
+    }
+
+    // line
+    fn expand(&mut self, line_no: i32) -> Option<i32> {
+        // here we want to expand hunk
+        if self.get_view().line_no == line_no {
+            return Some(line_no);
+        }
+        None
+    }
+
+    fn is_active_by_parent(&self, active: bool) -> bool {
+        // if HUNK is active (cursor on some line in it or on it)
+        // this line is active
+        active
+    }
+    fn tags(&self) -> Vec<Tag> {
+        Vec::new()
+    }
+}
+
+
+impl ViewContainer for UntrackedFile {
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::UntrackedFile
+    }
+    fn child_count(&self) -> usize {
+        0
+    }
+
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
+    }
+
+    fn get_content(&self) -> String {
+        self.title()
+    }
+    
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        Vec::new()
+    }
+
+    fn expand(&mut self, line_no: i32) -> Option<i32> {
+        // here we want to expand hunk
+        if self.get_view().line_no == line_no {
+            return Some(line_no);
+        }
+        None
+    }
+
+    fn is_active_by_parent(&self, active: bool) -> bool {
+        // if HUNK is active (cursor on some line in it or on it)
+        // this line is active
+        active
+    }
+    fn tags(&self) -> Vec<Tag> {
+        Vec::new()
     }
 }
