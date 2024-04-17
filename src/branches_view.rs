@@ -185,7 +185,7 @@ impl BranchList {
             item.is_head()
         });
 
-        let mut le = 1;
+        let mut le = 0;
         for item in self.imp().original_list.borrow().iter() {
             if item.is_head() {
                 continue
@@ -199,7 +199,22 @@ impl BranchList {
     }
     
     pub fn reset_search(&self) {
+        if self.imp().list.borrow().len() == self.imp().original_list.borrow().len() {
+            return;
+        }
         debug!("reset search in list");
+        self.imp().list.borrow_mut().retain(|item: &BranchItem| {
+            item.is_head()
+        });
+        let mut le = 0;
+        for item in self.imp().original_list.borrow().iter() {
+            if item.is_head() {
+                continue
+            }
+            self.imp().list.borrow_mut().push(item.clone());
+            le += 1;
+        }
+        self.items_changed(1, 0, le as u32);
     }
     
     pub fn make_list(&self, repo_path: std::ffi::OsString) {
@@ -822,6 +837,7 @@ pub fn make_headerbar(
     //     // does not work
     // });
     let branch_list = get_branch_list(list_view);
+
     entry.connect_search_changed(clone!(@weak branch_list => move |e| {
         let term = e.text();
         if !term.is_empty() && term.len() < 3 {
