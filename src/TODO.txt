@@ -1,3 +1,5 @@
+so, about search - the head is does not matter. what matter is selected position.
+it need to update list in such a way, that selected position is always visible
 PERFORMANCE: delete ~/docs/client/WHDDemo and open app :)
 Perhaps it need to put path to status. and window to context!!!!
 
