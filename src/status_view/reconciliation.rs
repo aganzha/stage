@@ -1,6 +1,6 @@
 use crate::status_view::ViewContainer;
 use crate::{Diff, DiffKind, File, Head, Hunk, Line, State, View};
-use git2::RepositoryState;
+use git2::{RepositoryState};
 use gtk4::TextView;
 use log::{debug, trace};
 use std::collections::HashSet;

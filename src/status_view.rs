@@ -11,8 +11,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::{
-    commit, get_current_repo_status, pull, push, stage_via_apply, ApplyFilter,
-    ApplySubject, Diff, DiffKind, Event, Head, Stashes, State, View,
+    commit, get_current_repo_status, pull, push, stage_via_apply, reset_hard, ApplyFilter,
+    ApplySubject, Diff, DiffKind, Event, Head, Stashes, State, View, Untracked
 };
 
 use async_channel::Sender;
@@ -85,12 +85,19 @@ pub struct Status {
     pub head: Option<Head>,
     pub upstream: Option<Head>,
     pub state: Option<State>,
+
+    pub untracked_spacer: Label,
+    pub untracked_label: Label,
+    pub untracked: Option<Untracked>,
+    
     pub staged_spacer: Label,
     pub staged_label: Label,
     pub staged: Option<Diff>,
+
     pub unstaged_spacer: Label,
     pub unstaged_label: Label,
     pub unstaged: Option<Diff>,
+
     pub rendered: bool, // what it is for ????
     pub context: Option<StatusRenderContext>,
     pub stashes: Option<Stashes>,
@@ -104,11 +111,18 @@ impl Status {
             head: None,
             upstream: None,
             state: None,
+            untracked_spacer: Label::from_string(""),
+            untracked_label: Label::from_string(
+                "<span weight=\"bold\" color=\"#8b6508\">Untracked files</span>",
+            ),
+            untracked: None,
+            
             staged_spacer: Label::from_string(""),
             staged_label: Label::from_string(
                 "<span weight=\"bold\" color=\"#8b6508\">Staged changes</span>",
             ),
             staged: None,
+
             unstaged_spacer: Label::from_string(""),
             unstaged_label: Label::from_string(
                 "<span weight=\"bold\" color=\"#8b6508\">Unstaged changes</span>",
@@ -128,6 +142,21 @@ impl Status {
         self.stashes.replace(stashes);
     }
 
+    pub fn update_untracked(&mut self, untracked: Untracked, txt: &TextView) {
+        self.untracked.replace(untracked);
+        self.render(txt, RenderSource::Git);
+    }
+
+    pub fn reset_hard(&self, sender: Sender<Event>) {
+        gio::spawn_blocking({
+            let path = self.path.clone().expect("np path");
+            let sender = self.sender.clone();
+            move || {
+                reset_hard(path, sender);
+            }
+        });
+    }
+    
     pub fn get_status(&self) {
         gio::spawn_blocking({
             let path = self.path.clone();
@@ -401,6 +430,18 @@ impl Status {
             state.render(&buffer, &mut iter, &mut self.context);
         }
 
+        if let Some(untracked) = &mut self.untracked {
+            if untracked.files.is_empty() {
+                self.untracked_spacer.view.squashed = true;
+                self.untracked_label.view.squashed = true;
+            }
+            self.untracked_spacer
+                .render(&buffer, &mut iter, &mut self.context);
+            self.untracked_label
+                .render(&buffer, &mut iter, &mut self.context);
+            untracked.render(&buffer, &mut iter, &mut self.context);
+        }
+        
         if let Some(unstaged) = &mut self.unstaged {
             if unstaged.files.is_empty() {
                 self.unstaged_spacer.view.squashed = true;

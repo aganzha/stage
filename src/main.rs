@@ -7,6 +7,9 @@ use branches_view::{show_branches_window, Event as BranchesEvent};
 mod stashes_view;
 use stashes_view::factory as stashes_view_factory;
 
+mod oid_view;
+use oid_view::show_oid_window;
+
 use core::time::Duration;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -15,9 +18,9 @@ use std::time::SystemTime;
 mod git;
 use git::{
     apply_stash, checkout, cherry_pick, commit, create_branch,
-    get_current_repo_status, get_refs, kill_branch, merge, pull, push,
+    get_current_repo_status, get_refs, kill_branch, merge, pull, push, reset_hard,
     stage_via_apply, stash_changes, drop_stash, ApplyFilter, ApplySubject, BranchData,
-    Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes, State, View
+    Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes, State, View, Untracked, UntrackedFile
 };
 use git2::Oid;
 mod widgets;
@@ -102,6 +105,8 @@ pub enum Event {
     Stashes(Stashes),
     Refresh,
     Zoom(bool),
+    Untracked(Untracked),
+    ResetHard
 }
 
 fn zoom(dir: bool) {
@@ -170,11 +175,8 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     let toast_overlay = ToastOverlay::new();
     toast_overlay.set_child(Some(&scroll));
 
-    // let (stashes_view, stashes_filler) =
-    //     stashes_view_factory(&window, Rc::new(&status.path), sender.clone());
     let split = OverlaySplitView::builder()
         .content(&toast_overlay)
-        //.sidebar(&stashes_view)
         .show_sidebar(false)
         .min_sidebar_width(400.0)
         .build();
@@ -218,6 +220,10 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     } else {
                         status.commit(&txt, &window);
                     }
+                }
+                Event::Untracked(untracked) => {
+                    info!("main. untracked");
+                    status.update_untracked(untracked, &txt);
                 }
                 Event::Push => {
                     info!("main.push");
@@ -316,6 +322,14 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::ShowOid(oid) => {
                     info!("main.show oid");
+                    show_oid_window(
+                        status.path.clone().expect("no path"),
+                        &window,
+                        sender.clone(),);
+                }
+                Event::ResetHard => {
+                    info!("main. reset hard");
+                    status.reset_hard(sender.clone());
                 }
                 Event::Refresh => {
                     status.get_status();

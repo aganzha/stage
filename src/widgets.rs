@@ -75,7 +75,7 @@ pub fn make_header_bar(sender: Sender<crate::Event>) -> HeaderBar {
         .tooltip_text("Refresh")
         .icon_name("view-refresh-symbolic")
         .can_shrink(true)
-        .build();
+        .build();    
     refresh_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
@@ -84,12 +84,65 @@ pub fn make_header_bar(sender: Sender<crate::Event>) -> HeaderBar {
                 .expect("Could not send through channel");
         }
     });
+    let zoom_out_btn = Button::builder()
+        .label("Zoom out")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Zoom out")
+        .icon_name("zoom-out-symbolic")
+        .can_shrink(true)
+        .margin_start(24)
+        .margin_end(0)
+        .build();
+    zoom_out_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender.send_blocking(crate::Event::Zoom(false)).
+                expect("cant send through channel");
+        }
+    });
+
+    let zoom_in_btn = Button::builder()
+        .label("Zoom in")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Zoom in")
+        .icon_name("zoom-in-symbolic")
+        .can_shrink(true)
+        .margin_start(0)
+        .build();
+    zoom_in_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender.send_blocking(crate::Event::Zoom(true)).
+                expect("cant send through channel");
+        }
+    });
+
+    let branches_btn = Button::builder()
+        .label("Branches")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Branches")
+        .icon_name("org.gtk.gtk4.NodeEditor-symbolic")
+        .can_shrink(true)
+        .build();
+    branches_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::Branches)
+                .expect("cant send through channel");
+        }
+    });
+
+    
     let push_btn = Button::builder()
         .label("Push")
         .use_underline(true)
         .can_focus(false)
         .tooltip_text("Push")
-        .icon_name("document-send-symbolic")
+        .icon_name("send-to-symbolic")
         .can_shrink(true)
         .build();
     push_btn.connect_clicked({
@@ -100,6 +153,23 @@ pub fn make_header_bar(sender: Sender<crate::Event>) -> HeaderBar {
                 .expect("cant send through channel");
         }
     });
+    let reset_btn = Button::builder()
+        .label("Reset hard")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Reset hard")
+        .icon_name("software-update-urgent-symbolic")
+        .can_shrink(true)
+        .build();
+    reset_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::ResetHard)
+                .expect("cant send through channel");
+        }
+    });
+    
     let pull_btn = Button::builder()
         .label("Pull")
         .use_underline(true)
@@ -119,7 +189,11 @@ pub fn make_header_bar(sender: Sender<crate::Event>) -> HeaderBar {
     let hb = HeaderBar::new();
     hb.pack_start(&stashes_btn);
     hb.pack_start(&refresh_btn);
+    hb.pack_start(&zoom_out_btn);
+    hb.pack_start(&zoom_in_btn);
+    hb.pack_end(&branches_btn);
     hb.pack_end(&push_btn);
     hb.pack_end(&pull_btn);
+    hb.pack_end(&reset_btn);
     hb
 }

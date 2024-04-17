@@ -11,7 +11,8 @@ use git2::{
     CherrypickOptions, Commit, Cred, CredentialType, Delta, Diff as GitDiff,
     DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType, DiffOptions,
     Error, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
-    Repository, RepositoryState, StashApplyOptions, StashFlags,
+    Repository, RepositoryState, StashApplyOptions, StashFlags, DiffDelta,
+    ResetType
 };
 use log::{debug, info, trace};
 use regex::Regex;
@@ -430,13 +431,15 @@ pub fn get_current_repo_status(
         let sender = sender.clone();
         let path = path.clone();
         move || {
-            sender
-                .send_blocking(crate::Event::Stashes(stashes(path)))
-                .expect("Could not send through channel");
+            stashes(path, sender);
         }
     });
 
     // get unstaged
+    let mut opts = DiffOptions::new();
+    //let opts = opts.include_untracked(true);
+    let opts = opts.show_untracked_content(true);
+    
     let git_diff = repo
         .diff_index_to_workdir(None, None)
         .expect("cant' get diff index to workdir");
@@ -444,6 +447,84 @@ pub fn get_current_repo_status(
     sender
         .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
+
+    debug!("=============================================>>>>>>>>>>>>>>>>>>");
+    // let mut opts = DiffOptions::new();
+    // //let opts = opts.include_untracked(true);
+    // let opts = opts.show_untracked_content(true);
+    // //let opts = opts.reverse(true);
+    // let ob =
+    //     repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    // let current_tree =
+    //     repo.find_tree(ob.id()).expect("no working tree");
+    // let git_diff = repo.diff_tree_to_workdir_with_index(
+    //     Some(&current_tree),
+    //     Some(opts),
+    // ).expect("can't get diff");
+    // let mut untracked = Untracked::new();
+    // git_diff.foreach(&mut |delta: DiffDelta, _num| {
+    //     if delta.status() == Delta::Untracked {
+    //         // debug!(":--------------------> {:?} {:?}", delta.status(), delta.new_file().path());
+    //         let path: OsString = delta.new_file().path().unwrap().into();
+    //         untracked.push_file(path);
+    //     }        
+    //     true
+    // }, None, None, None);
+    // sender
+    //     .send_blocking(crate::Event::Untracked(untracked))
+    //     .expect("Could not send through channel");
+
+    // let diff = make_diff(git_diff, DiffKind::Unstaged);    
+}
+
+#[derive(Debug, Clone)]
+pub struct UntrackedFile {
+    pub path: OsString,
+    pub view: View,
+}
+
+impl UntrackedFile {
+    pub fn new() -> Self {
+        Self {
+            path: OsString::new(),
+            view: View::new(),
+        }
+    }
+    pub fn from_path(path: OsString) -> Self {
+        Self {
+            path: path,
+            view: View::new(),
+        }
+    }
+
+    pub fn title(&self) -> String {
+        self.path.to_str().unwrap().to_string()
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub struct Untracked {
+    pub files: Vec<UntrackedFile>,
+    pub view: View,
+    pub max_line_len: i32,
+}
+
+impl Untracked {
+    pub fn new() -> Self {
+        Self {
+            files: Vec::new(),
+            view: View::new(),
+            max_line_len: 0
+        }
+    }
+    pub fn push_file(&mut self, path: OsString) {
+        if path.len() as i32 > self.max_line_len {
+            self.max_line_len = path.len() as i32;
+        }
+        let file = UntrackedFile::from_path(path);
+        self.files.push(file);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -528,29 +609,15 @@ pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
             }
             if let Some(diff_hunk) = o_diff_hunk {
                 let hh = Hunk::get_header_from(&diff_hunk);
-                // let old_start = diff_hunk.old_start();
-                // let old_lines = diff_hunk.old_lines();
-                // let new_start = diff_hunk.new_start();
-                // let new_lines = diff_hunk.new_lines();
                 if current_hunk.header.is_empty() {
                     // init hunk
                     current_hunk.fill_from(&diff_hunk)
-                    // current_hunk.header = hh.clone();
-                    // current_hunk.old_start = old_start;
-                    // current_hunk.old_lines = old_lines;
-                    // current_hunk.new_start = new_start;
-                    // current_hunk.new_lines = new_lines;
                 }
                 if current_hunk.header != hh {
                     // go to next hunk
                     current_file.push_hunk(current_hunk.clone());
                     current_hunk = Hunk::new(kind.clone());
                     current_hunk.fill_from(&diff_hunk)
-                    // current_hunk.header = hh.clone();
-                    // current_hunk.old_start = old_start;
-                    // current_hunk.old_lines = old_lines;
-                    // current_hunk.new_start = new_start;
-                    // current_hunk.new_lines = new_lines;
                 }
                 current_hunk.push_line(Line::from_diff_line(&diff_line));
             } else {
@@ -848,17 +915,17 @@ pub fn push(
     tracking_remote: bool,
     sender: Sender<crate::Event>,
 ) {
-    trace!("remote branch {:?}", remote_branch);
+    debug!("remote branch {:?}", remote_branch);
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
-    trace!("push.head ref name {:?}", head_ref.name());
+    debug!("push.head ref name {:?}", head_ref.name());
     assert!(head_ref.is_branch());
     let refspec = format!(
         "{}:refs/heads/{}",
         head_ref.name().unwrap(),
         remote_branch.replace("origin/", "")
     );
-    trace!("push. refspec {}", refspec);
+    debug!("push. refspec {}", refspec);
     let mut branch = Branch::wrap(head_ref);
     let mut remote = repo
         .find_remote("origin") // TODO here is hardcode
@@ -868,7 +935,7 @@ pub fn push(
     let mut callbacks = RemoteCallbacks::new();
     callbacks.update_tips({
         move |updated_ref, oid1, oid2| {
-            trace!(
+            debug!(
                 "updated local references {:?} {:?} {:?}",
                 updated_ref,
                 oid1,
@@ -889,8 +956,8 @@ pub fn push(
     });
     callbacks.push_update_reference({
         move |ref_name, opt_status| {
-            trace!("push update ref {:?}", ref_name);
-            trace!("push status {:?}", opt_status);
+            debug!("push update ref {:?}", ref_name);
+            debug!("push status {:?}", opt_status);
             // TODO - if status is not None
             // it will need to interact with user
             assert!(opt_status.is_none());
@@ -898,41 +965,41 @@ pub fn push(
         }
     });
     callbacks.credentials(|url, username_from_url, allowed_types| {
-        trace!("auth credentials url {:?}", url);
+        debug!("auth credentials url {:?}", url);
         // "git@github.com:aganzha/stage.git"
-        trace!("auth credentials username_from_url {:?}", username_from_url);
-        trace!("auth credentials allowed_types url {:?}", allowed_types);
+        debug!("auth credentials username_from_url {:?}", username_from_url);
+        debug!("auth credentials allowed_types url {:?}", allowed_types);
         if allowed_types.contains(CredentialType::SSH_KEY) {
             let result = Cred::ssh_key_from_agent(username_from_url.unwrap());
-            trace!("got auth memory result. is it ok? {:?}", result.is_ok());
+            debug!("got auth memory result. is it ok? {:?}", result.is_ok());
             return result;
         }
         todo!("implement other types");
     });
     callbacks.transfer_progress(|progress| {
-        trace!("transfer progress {:?}", progress.received_bytes());
+        debug!("transfer progress {:?}", progress.received_bytes());
         true
     });
     callbacks.sideband_progress(|response| {
-        trace!(
+        debug!(
             "push.sideband progress {:?}",
             String::from_utf8_lossy(response)
         );
         true
     });
     callbacks.certificate_check(|_cert, error| {
-        trace!("cert error? {:?}", error);
+        debug!("cert error? {:?}", error);
         Ok(CertificateCheckStatus::CertificateOk)
     });
     callbacks.push_update_reference(|re, op| {
-        trace!("push_update_reference {:?} {:?}", re, op);
+        debug!("push_update_reference {:?} {:?}", re, op);
         Ok(())
     });
     callbacks.push_transfer_progress(|s1, s2, s3| {
-        trace!("push_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
+        debug!("push_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
     });
     callbacks.push_negotiation(|update| {
-        trace!("push_negotiation {:?}", update.len());
+        debug!("push_negotiation {:?}", update.len());
         Ok(())
     });
     opts.remote_callbacks(callbacks);
@@ -1301,15 +1368,19 @@ impl Stashes {
     }
 }
 
-pub fn stashes(path: OsString) -> Stashes {
+pub fn stashes(path: OsString, sender: Sender<crate::Event>) -> Stashes {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
     repo.stash_foreach(|num, title, oid| {
         result.push(StashData::new(num, oid.clone(), title.to_string()));
         true
     })
-    .expect("cant get stash");
-    Stashes::new(result)
+        .expect("cant get stash");
+    let stashes = Stashes::new(result);
+    sender
+        .send_blocking(crate::Event::Stashes(stashes.clone()))
+        .expect("Could not send through channel");
+    stashes
 }
 
 pub fn stash_changes(
@@ -1317,7 +1388,7 @@ pub fn stash_changes(
     stash_message: String,
     stash_staged: bool,
     sender: Sender<crate::Event>,
-) -> StashData {
+) ->  Stashes {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
     let flags = if stash_staged {
@@ -1329,20 +1400,13 @@ pub fn stash_changes(
         .stash_save(&me, &stash_message, Some(flags))
         .expect("cant stash");
     gio::spawn_blocking({
+        let path = path.clone();
+        let sender = sender.clone();
         move || {
             get_current_repo_status(Some(path), sender);
         }
     });
-    let mut result: Option<StashData> = None;
-    repo.stash_foreach(|num, title, soid| {
-        if soid == &oid {
-            result.replace(StashData::new(num, *soid, String::from(title)));
-            return false;
-        }
-        true
-    })
-    .expect("cant iterate on stashes");
-    result.expect("stash was not saved")
+    stashes(path, sender)
 }
 
 pub fn apply_stash(
@@ -1365,9 +1429,29 @@ pub fn apply_stash(
 pub fn drop_stash(
     path: OsString,
     stash_data: StashData,
-    _sender: Sender<crate::Event>,
-) {
+    sender: Sender<crate::Event>,
+) -> Stashes {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     repo.stash_drop(stash_data.num)
-        .expect("cant apply stash");    
+        .expect("cant drop stash");
+    stashes(path, sender)
+}
+
+
+pub fn reset_hard(
+    path: OsString,
+    sender: Sender<crate::Event>,
+) {
+    let mut repo = Repository::open(path.clone()).expect("can't open repo");
+    let head_ref = repo.head().expect("can't get head");
+    assert!(head_ref.is_branch());
+    let ob = head_ref
+        .peel(ObjectType::Commit)
+        .expect("can't get commit from ref!");
+    repo.reset(&ob, ResetType::Hard, None).expect("cant reset hard");
+    gio::spawn_blocking({
+        move || {
+            get_current_repo_status(Some(path), sender);
+        }
+    });    
 }

@@ -1,3 +1,4 @@
+PERFORMANCE: delete ~/docs/client/WHDDemo and open app :)
 Perhaps it need to put path to status. and window to context!!!!
 
 BUG: state Revert was cleared, but refresh btn does not reflect that
