@@ -1137,9 +1137,15 @@ pub fn checkout(
     match branch_data.branch_type {
         BranchType::Local => {}
         BranchType::Remote => {
-            let mut branch = repo
-                .branch(&branch_data.local_name(), &commit, false)
-                .expect("cant create branch");
+            let created = repo
+                .branch(&branch_data.local_name(), &commit, false);
+            let mut branch = match created {
+                Ok(branch) => branch,
+                Err(_) => repo.find_branch(
+                    &branch_data.local_name(),
+                    BranchType::Local
+                ).expect("branch was not created and not found among local branches")
+            };
             branch
                 .set_upstream(Some(&branch_data.remote_name()))
                 .expect("cant set upstream");
