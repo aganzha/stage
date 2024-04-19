@@ -1003,7 +1003,7 @@ pub fn show_branches_window(
                 (gdk::Key::Escape, _) => {
                     window.close();
                 }
-                (gdk::Key::n, _) => {
+                (gdk::Key::n|gdk::Key::c, _) => {
                     sender
                         .send_blocking(Event::Create)
                         .expect("Could not send through channel");
