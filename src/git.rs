@@ -999,8 +999,13 @@ pub fn push(
         debug!("push_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
     });
     callbacks.push_negotiation(|update| {
-        debug!("push_negotiation {:?}", update.len());
+        if !update.is_empty() {
+            debug!("push_negotiation {:?} {:?}", update[0].src_refname(), update[0].dst_refname());
+        }
         Ok(())
+    });
+    callbacks.pack_progress(|stage, s1, s2| {
+        debug!("pack progress {:?} {:?} {:?}", stage, s1, s2);
     });
     opts.remote_callbacks(callbacks);
     remote
