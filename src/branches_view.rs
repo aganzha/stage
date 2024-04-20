@@ -223,19 +223,49 @@ impl BranchList {
         if self.imp().list.borrow().len() == self.imp().original_list.borrow().len() {
             return;
         }
-        debug!("reset search in list");
-        self.imp().list.borrow_mut().retain(|item: &BranchItem| {
-            item.is_head()
-        });
-        let mut le = 0;
+        let names: Vec<String> = self.imp().list.borrow().iter().map(|bi| {
+            bi.imp().branch.borrow().name.clone()
+        }).collect();
+        debug!("reset search in list. items in current list {:?}", names);
+        let mut added = 0;
+        let mut changed_pos = 0;
+        let mut current_pos = 0;
         for item in self.imp().original_list.borrow().iter() {
-            if item.is_head() {
-                continue
+            debug!("looooooooop current_pos {:?} changed_pos {:?}", current_pos, changed_pos);
+            let name = &item.imp().branch.borrow().name;
+            if names.contains(name) {
+                debug!("!!!!!!!!!!!!!!existing item name {:?} cureent pos {:?} changed pos {:?} added {:?}",
+                       name,
+                       current_pos,
+                       changed_pos,
+                       added);
+                self.items_changed(changed_pos, 0, added);
+                added = 0;
+                changed_pos = current_pos + 1;
+            } else {
+                self.imp().list.borrow_mut().insert(current_pos as usize, item.clone());
+                added += 1;
+                debug!("just inserted new item {:?}. total added {:?}", name, added);
             }
-            self.imp().list.borrow_mut().push(item.clone());
-            le += 1;
+            current_pos += 1;
+            debug!("");
         }
-        self.items_changed(1, 0, le as u32);
+        if added > 0 {
+            debug!("fiiiiiiiiiiiiiiiiinal add {:?} {:?}", changed_pos, added);
+            self.items_changed(changed_pos, 0, added);
+        }
+        // self.imp().list.borrow_mut().retain(|item: &BranchItem| {
+        //     item.is_head()
+        // });
+        // let mut le = 0;
+        // for item in self.imp().original_list.borrow().iter() {
+        //     if item.is_head() {
+        //         continue
+        //     }
+        //     self.imp().list.borrow_mut().push(item.clone());
+        //     le += 1;
+        // }
+        // self.items_changed(1, 0, le as u32);
     }
     
     pub fn make_list(&self, repo_path: std::ffi::OsString) {
