@@ -1,6 +1,7 @@
 use async_channel::Sender;
+use core::time::Duration;
 use git2::BranchType;
-use glib::{clone, closure, Object};
+use glib::{clone, closure, Object, ControlFlow};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
@@ -8,7 +9,7 @@ use gtk4::{
     EventControllerKey, FilterListModel, Image, Label, ListBox, ListHeader,
     ListItem, ListScrollFlags, ListView, Orientation, ScrolledWindow,
     SearchBar, SearchEntry, SectionModel, SelectionMode,
-    SignalListItemFactory, SingleSelection, Spinner, Widget,
+    SignalListItemFactory, SingleSelection, Spinner, Widget, Revealer
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -157,25 +158,14 @@ mod branch_list {
 
     impl SectionModelImpl for BranchList {
         fn section(&self, position: u32) -> (u32, u32) {
-            println!("CALL SECTION--------------------------------------> {:?} {:?}", position, self.remote_start_pos);
-            for (i, item) in self.list.borrow().iter().enumerate() {
-                println!("{:?} {:?}", i, item.imp().branch.borrow().name);
-            }
             if let Some(pos) = *self.remote_start_pos.borrow() {
                 if position < pos {
                     // IMPORTANT was <=
-                    println!("return LOCAL range {:?} {:?}", 0, pos);
                     return (0, pos);
                 } else {
-                    println!(
-                        "return REMOTE range {:?} {:?}",
-                        pos,
-                        self.list.borrow().len()
-                    );
                     return (pos, self.list.borrow().len() as u32);
                 }
             }
-            println!("return whole list");
             (0, self.list.borrow().len() as u32)
         }
     }
@@ -980,9 +970,21 @@ pub fn make_headerbar(
     let hb = HeaderBar::builder().build();
 
     let entry = SearchEntry::builder().search_delay(300).build();
-    // entry.connect_stop_search(|e| {
-    //     // does not work
-    // });
+    entry.connect_stop_search(|e| {
+        let bx = e.parent().unwrap();
+        let revealer = bx.parent().unwrap();
+        let revealer = revealer.downcast_ref::<Revealer>().unwrap();        
+        glib::source::timeout_add_local(Duration::from_millis(300), {
+            let revealer = revealer.clone();
+            move || {
+                debug!("hack for pressing escape. {:?}", revealer.is_child_revealed());
+                if !revealer.is_child_revealed() {
+                    revealer.set_reveal_child(true);
+                }
+                ControlFlow::Break
+            }
+        });
+    });
     let branch_list = get_branch_list(list_view);
 
     entry.connect_search_changed(clone!(@weak branch_list => move |e| {
@@ -1001,10 +1003,13 @@ pub fn make_headerbar(
         .tooltip_text("search branches")
         .search_mode_enabled(true)
         .visible(true)
+        .show_close_button(false)
         .child(&entry)
         .build();
 
-    search.connect_entry(&entry);
+    // search.connect_entry(&entry);
+    // search.set_child(Some(&entry));
+
     let new_btn = Button::builder()
         // .label("N")
         .icon_name("list-add-symbolic")
@@ -1067,7 +1072,6 @@ pub fn make_headerbar(
         }
     });
 
-    // hb.set_title_widget(Some(&lbl));
     hb.set_title_widget(Some(&search));
     hb.pack_end(&new_btn);
     hb.pack_end(&merge_btn);
