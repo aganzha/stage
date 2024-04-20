@@ -968,7 +968,10 @@ pub fn make_headerbar(
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
 
-    let entry = SearchEntry::builder().search_delay(300).build();
+    let entry = SearchEntry::builder()
+        .search_delay(300)
+        .placeholder_text("hit s for search")
+        .build();
     entry.connect_stop_search(|e| {
         let bx = e.parent().unwrap();
         let revealer = bx.parent().unwrap();
