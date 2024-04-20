@@ -188,7 +188,6 @@ impl BranchList {
                 .borrow()
                 .name
                 .clone();
-            trace!("name in loop {:?}", name);
             match name {
                 n if n == selected_name => {
                     trace!("this branch is selected!. pos {:?}. will call items changed. deleted {:?}", current_position, deleted);
@@ -977,7 +976,7 @@ pub fn make_headerbar(
         glib::source::timeout_add_local(Duration::from_millis(300), {
             let revealer = revealer.clone();
             move || {
-                debug!("hack for pressing escape. {:?}", revealer.is_child_revealed());
+                trace!("hack for pressing escape. {:?}", revealer.is_child_revealed());
                 if !revealer.is_child_revealed() {
                     revealer.set_reveal_child(true);
                 }
@@ -1172,7 +1171,17 @@ pub fn show_branches_window(
                         .send_blocking(Event::CherryPickRequest)
                         .expect("Could not send through channel");
                 }
-                _ => {}
+                (gdk::Key::s, _) => {
+                    let search_bar = hb.title_widget().unwrap();
+                    let search_bar = search_bar.downcast_ref::<SearchBar>().unwrap();
+                    let search_entry = search_bar.child().unwrap();
+                    let search_entry = search_entry.downcast_ref::<SearchEntry>().unwrap();
+                    trace!("enter search");
+                    search_entry.grab_focus();
+                }
+                (key, modifier) => {
+                    trace!("key pressed {:?} {:?}", key, modifier);
+                }
             }
             glib::Propagation::Proceed
         }
