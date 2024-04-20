@@ -11,8 +11,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::{
-    commit, get_current_repo_status, pull, push, stage_via_apply, reset_hard, ApplyFilter,
-    ApplySubject, Diff, DiffKind, Event, Head, Stashes, State, View, Untracked
+    commit, get_current_repo_status, pull, push, reset_hard, stage_via_apply,
+    ApplyFilter, ApplySubject, Diff, DiffKind, Event, Head, Stashes, State,
+    Untracked, View,
 };
 
 use async_channel::Sender;
@@ -89,7 +90,7 @@ pub struct Status {
     pub untracked_spacer: Label,
     pub untracked_label: Label,
     pub untracked: Option<Untracked>,
-    
+
     pub staged_spacer: Label,
     pub staged_label: Label,
     pub staged: Option<Diff>,
@@ -156,7 +157,7 @@ impl Status {
             }
         });
     }
-    
+
     pub fn get_status(&self) {
         gio::spawn_blocking({
             let path = self.path.clone();
@@ -435,13 +436,16 @@ impl Status {
                 self.untracked_spacer.view.squashed = true;
                 self.untracked_label.view.squashed = true;
             }
-            self.untracked_spacer
-                .render(&buffer, &mut iter, &mut self.context);
+            self.untracked_spacer.render(
+                &buffer,
+                &mut iter,
+                &mut self.context,
+            );
             self.untracked_label
                 .render(&buffer, &mut iter, &mut self.context);
             untracked.render(&buffer, &mut iter, &mut self.context);
         }
-        
+
         if let Some(unstaged) = &mut self.unstaged {
             if unstaged.files.is_empty() {
                 self.unstaged_spacer.view.squashed = true;

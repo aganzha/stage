@@ -1,5 +1,8 @@
 use crate::status_view::{Label, Tag};
-use crate::{Diff, File, Head, Hunk, Line, State, StatusRenderContext, View, Untracked, UntrackedFile};
+use crate::{
+    Diff, File, Head, Hunk, Line, State, StatusRenderContext, Untracked,
+    UntrackedFile, View,
+};
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter, TextView};
@@ -13,7 +16,7 @@ pub enum ViewKind {
     Line,
     Label,
     Untracked,
-    UntrackedFile
+    UntrackedFile,
 }
 
 pub trait ViewContainer {
@@ -549,7 +552,7 @@ impl ViewContainer for Untracked {
     fn get_content(&self) -> String {
         String::from("")
     }
-    
+
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
         self.files
             .iter_mut()
@@ -576,7 +579,6 @@ impl ViewContainer for Untracked {
     }
 }
 
-
 impl ViewContainer for UntrackedFile {
     fn get_kind(&self) -> ViewKind {
         ViewKind::UntrackedFile
@@ -592,7 +594,7 @@ impl ViewContainer for UntrackedFile {
     fn get_content(&self) -> String {
         self.title()
     }
-    
+
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
         Vec::new()
     }

@@ -17,10 +17,11 @@ use std::time::SystemTime;
 
 mod git;
 use git::{
-    apply_stash, checkout, cherry_pick, commit, create_branch,
-    get_current_repo_status, get_refs, kill_branch, merge, pull, push, reset_hard,
-    stage_via_apply, stash_changes, drop_stash, ApplyFilter, ApplySubject, BranchData,
-    Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes, State, View, Untracked, UntrackedFile
+    apply_stash, checkout, cherry_pick, commit, create_branch, drop_stash,
+    get_current_repo_status, get_refs, kill_branch, merge, pull, push,
+    reset_hard, stage_via_apply, stash_changes, ApplyFilter, ApplySubject,
+    BranchData, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
+    State, Untracked, UntrackedFile, View,
 };
 use git2::Oid;
 mod widgets;
@@ -106,7 +107,7 @@ pub enum Event {
     Refresh,
     Zoom(bool),
     Untracked(Untracked),
-    ResetHard
+    ResetHard,
 }
 
 fn zoom(dir: bool) {
@@ -325,7 +326,8 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     show_oid_window(
                         status.path.clone().expect("no path"),
                         &window,
-                        sender.clone(),);
+                        sender.clone(),
+                    );
                 }
                 Event::ResetHard => {
                     info!("main. reset hard");
