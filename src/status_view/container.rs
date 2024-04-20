@@ -261,7 +261,7 @@ impl ViewContainer for Diff {
     // diff
     fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
         let mut result = false;
-        for file in &mut self.files {
+        for file in &mut self.files {            
             result = file.cursor(line_no, parent_active) || result;
         }
         result
@@ -275,7 +275,6 @@ impl ViewContainer for Diff {
         context: &mut Option<StatusRenderContext>,
     ) {
         self.view.line_no = iter.line();
-        let _prev_line_len: Option<i32> = None;
         for file in &mut self.files {
             file.render(buffer, iter, context);
         }
@@ -365,13 +364,14 @@ impl ViewContainer for Hunk {
             .map(|vh| vh as &mut dyn ViewContainer)
             .collect()
     }
-
+    // Hunk
     fn is_active_by_parent(&self, active: bool) -> bool {
         // if file is active (cursor on it)
         // whole hunk is active
         active
     }
 
+    // Hunk
     fn is_active_by_child(&self, active: bool) -> bool {
         // if line is active (cursor on it)
         // whole hunk is active
@@ -421,6 +421,7 @@ impl ViewContainer for Line {
         None
     }
 
+    // LIne
     fn is_active_by_parent(&self, active: bool) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
@@ -544,15 +545,18 @@ impl ViewContainer for Untracked {
         self.files.len()
     }
 
+    // untracked
     fn get_view(&mut self) -> &mut View {
         self.view.expanded = true;
         &mut self.view
     }
 
+    // Untracked
     fn get_content(&self) -> String {
         String::from("")
     }
 
+    // Untracked
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
         self.files
             .iter_mut()
@@ -560,7 +564,7 @@ impl ViewContainer for Untracked {
             .collect()
     }
 
-    // line
+    // Untracked
     fn expand(&mut self, line_no: i32) -> Option<i32> {
         // here we want to expand hunk
         if self.get_view().line_no == line_no {
@@ -577,6 +581,29 @@ impl ViewContainer for Untracked {
     fn tags(&self) -> Vec<Tag> {
         Vec::new()
     }
+
+    // Untracked
+    fn render(
+        &mut self,
+        buffer: &TextBuffer,
+        iter: &mut TextIter,
+        context: &mut Option<StatusRenderContext>,
+    ) {
+        self.view.line_no = iter.line();
+        for file in &mut self.files {
+            file.render(buffer, iter, context);
+        }
+    }
+
+    // Untracked
+    fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
+        let mut result = false;
+        for file in &mut self.files {
+            result = file.cursor(line_no, parent_active) || result;
+        }
+        result
+    }
+
 }
 
 impl ViewContainer for UntrackedFile {

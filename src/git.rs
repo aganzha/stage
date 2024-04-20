@@ -437,7 +437,6 @@ pub fn get_current_repo_status(
 
     // get unstaged
     let mut opts = DiffOptions::new();
-    //let opts = opts.include_untracked(true);
     let opts = opts.show_untracked_content(true);
 
     let git_diff = repo
@@ -448,33 +447,32 @@ pub fn get_current_repo_status(
         .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
 
-    debug!("=============================================>>>>>>>>>>>>>>>>>>");
-    // let mut opts = DiffOptions::new();
-    // //let opts = opts.include_untracked(true);
-    // let opts = opts.show_untracked_content(true);
-    // //let opts = opts.reverse(true);
-    // let ob =
-    //     repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    // let current_tree =
-    //     repo.find_tree(ob.id()).expect("no working tree");
-    // let git_diff = repo.diff_tree_to_workdir_with_index(
-    //     Some(&current_tree),
-    //     Some(opts),
-    // ).expect("can't get diff");
-    // let mut untracked = Untracked::new();
-    // git_diff.foreach(&mut |delta: DiffDelta, _num| {
-    //     if delta.status() == Delta::Untracked {
-    //         // debug!(":--------------------> {:?} {:?}", delta.status(), delta.new_file().path());
-    //         let path: OsString = delta.new_file().path().unwrap().into();
-    //         untracked.push_file(path);
-    //     }
-    //     true
-    // }, None, None, None);
-    // sender
-    //     .send_blocking(crate::Event::Untracked(untracked))
-    //     .expect("Could not send through channel");
+    // get untracked
+    // TODO! put in separate thread (previous clause)
+    let mut opts = DiffOptions::new();
 
-    // let diff = make_diff(git_diff, DiffKind::Unstaged);
+    let opts = opts.show_untracked_content(true);
+
+    let ob =
+        repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    let current_tree =
+        repo.find_tree(ob.id()).expect("no working tree");
+    let git_diff = repo.diff_tree_to_workdir_with_index(
+        Some(&current_tree),
+        Some(opts),
+    ).expect("can't get diff");
+    let mut untracked = Untracked::new();
+    git_diff.foreach(&mut |delta: DiffDelta, _num| {
+        if delta.status() == Delta::Untracked {
+            // debug!(":--------------------> {:?} {:?}", delta.status(), delta.new_file().path());
+            let path: OsString = delta.new_file().path().unwrap().into();
+            untracked.push_file(path);
+        }
+        true
+    }, None, None, None);
+    sender
+        .send_blocking(crate::Event::Untracked(untracked))
+        .expect("Could not send through channel");
 }
 
 #[derive(Debug, Clone)]
@@ -634,6 +632,21 @@ pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
         diff.push_file(current_file);
     }
     diff
+}
+
+pub fn stage_untracked(
+    path: OsString,
+    file: UntrackedFile,
+    sender: Sender<crate::Event>,
+) {
+    trace!("stage untracked! {:?}", file.path);
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let mut index = repo.index().expect("cant get index");
+    let pth = path::Path::new(&file.path);
+    index.add_path(pth).expect("cant add path");
+    index.write().expect("cant write index");
+    get_current_repo_status(Some(path), sender);
+    
 }
 
 pub fn stage_via_apply(
