@@ -1,5 +1,4 @@
 use async_channel::Sender;
-use std::collections::HashMap;
 use git2::Oid;
 use glib::{clone, Object};
 use gtk4::builders::ButtonBuilder;
@@ -9,12 +8,13 @@ use gtk4::{
     gdk, gio, glib, Box, Button, EventControllerKey, Label, ListBox,
     Orientation, ScrolledWindow, SelectionMode, Window as Gtk4Window,
 };
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::rc::Rc;
 
 use crate::{
-    apply_stash as git_apply_stash, drop_stash, display_error, make_confirm_dialog,
-    stash_changes, Event, StashData, Status, Stashes
+    apply_stash as git_apply_stash, display_error, drop_stash,
+    make_confirm_dialog, stash_changes, Event, StashData, Stashes, Status,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -48,7 +48,7 @@ mod oid_row {
 
         #[property(get, set)]
         pub oid: RefCell<String>,
-        
+
         #[property(get, set)]
         pub num: RefCell<i32>,
     }
@@ -78,7 +78,7 @@ impl OidRow {
         row.set_property("title", &stash.title);
         row.set_oid(stash.oid.to_string());
         row.set_num(stash.num as i32);
-        
+
         let commit_button = Button::builder()
             .label("View stash")
             .tooltip_text("View stash")
@@ -88,16 +88,16 @@ impl OidRow {
         commit_button.connect_clicked({
             let oid = stash.oid.clone();
             move |_| {
-                sender.send_blocking(Event::ShowOid(oid))
+                sender
+                    .send_blocking(Event::ShowOid(oid))
                     .expect("cant send through channel");
             }
         });
         row.add_suffix(&commit_button);
         row.set_subtitle(&format!("stash@{}", &stash.num));
         row.bind_property("num", &row, "subtitle")
-            .transform_to( |_, num: i32| {
-                Some(format!("stash@{}", &num))
-            }).build();
+            .transform_to(|_, num: i32| Some(format!("stash@{}", &num)))
+            .build();
         row.set_can_focus(true);
         row.set_css_classes(&[&String::from("nocorners")]);
         row.imp().stash.replace(stash.clone());
@@ -252,15 +252,19 @@ pub fn add_stash(
     });
 }
 
-pub fn adopt_stashes(lb: &ListBox, stashes: Stashes, sender: Sender<Event>, o_row_ind: Option<i32>) {
+pub fn adopt_stashes(
+    lb: &ListBox,
+    stashes: Stashes,
+    sender: Sender<Event>,
+    o_row_ind: Option<i32>,
+) {
     let mut ind = 0;
     let mut map: HashMap<Oid, StashData> = HashMap::new();
     stashes.stashes.iter().for_each(|stash| {
         map.insert(stash.oid, stash.clone());
     });
     while let Some(row) = lb.row_at_index(ind) {
-        let oid_row =
-            row.downcast_ref::<OidRow>().expect("cant get oid row");
+        let oid_row = row.downcast_ref::<OidRow>().expect("cant get oid row");
         let oid = oid_row.imp().stash.borrow().oid;
         let new_stash = map.remove(&oid).unwrap();
         oid_row.set_num(new_stash.num as i32);
@@ -275,7 +279,7 @@ pub fn adopt_stashes(lb: &ListBox, stashes: Stashes, sender: Sender<Event>, o_ro
         }
     }
     // adding new row
-    for (_, stash_data) in map.iter_mut(){
+    for (_, stash_data) in map.iter_mut() {
         lb.prepend(&OidRow::from_stash(&stash_data, sender.clone()))
     }
 }
@@ -317,7 +321,7 @@ pub fn factory(
         .build();
     let kill = Button::builder()
         .tooltip_text("Kill stash (K)")
-        .icon_name("user-trash-symbolic")// process-stop-symbolic
+        .icon_name("user-trash-symbolic") // process-stop-symbolic
         .build();
 
     add.connect_clicked({
@@ -326,12 +330,7 @@ pub fn factory(
         let path = status.path.clone().expect("no path");
         let lb = lb.clone();
         move |_| {
-            add_stash(
-                path.clone(),
-                &window,                
-                &lb,
-                sender.clone(),
-            );
+            add_stash(path.clone(), &window, &lb, sender.clone());
         }
     });
     apply.connect_clicked({
@@ -356,11 +355,7 @@ pub fn factory(
             if let Some(row) = lb.selected_row() {
                 let oid_row =
                     row.downcast_ref::<OidRow>().expect("cant get oid row");
-                oid_row.kill(
-                    path.clone(),                    
-                    &window,
-                    sender.clone()
-                );
+                oid_row.kill(path.clone(), &window, sender.clone());
             }
         }
     });
@@ -384,7 +379,7 @@ pub fn factory(
                         .send_blocking(crate::Event::StashesPanel)
                         .expect("cant send through channel");
                 }
-                (gdk::Key::a|gdk::Key::Return, _) => {
+                (gdk::Key::a | gdk::Key::Return, _) => {
                     if let Some(row) = lb.selected_row() {
                         let oid_row = row
                             .downcast_ref::<OidRow>()
@@ -396,19 +391,15 @@ pub fn factory(
                         );
                     }
                 }
-                (gdk::Key::k|gdk::Key::d, _) => {
+                (gdk::Key::k | gdk::Key::d, _) => {
                     if let Some(row) = lb.selected_row() {
                         let oid_row = row
                             .downcast_ref::<OidRow>()
                             .expect("cant get oid row");
-                        oid_row.kill(
-                            path.clone(),                            
-                            &window,
-                            sender.clone(),
-                        );
+                        oid_row.kill(path.clone(), &window, sender.clone());
                     }
                 }
-                (gdk::Key::z|gdk::Key::c|gdk::Key::n, _) => {
+                (gdk::Key::z | gdk::Key::c | gdk::Key::n, _) => {
                     add_stash(
                         path.clone(),
                         &window,
@@ -422,7 +413,8 @@ pub fn factory(
                             .downcast_ref::<OidRow>()
                             .expect("cant get oid row");
                         let oid = oid_row.imp().stash.borrow().oid.clone();
-                        sender.send_blocking(Event::ShowOid(oid))
+                        sender
+                            .send_blocking(Event::ShowOid(oid))
                             .expect("cant send through channel");
                     }
                 }

@@ -4,14 +4,10 @@ use libadwaita::prelude::*;
 
 use log::{debug, info, trace};
 
-use async_channel::Sender;
 use crate::Event;
-use libadwaita::{
-    ApplicationWindow, Window, HeaderBar, ToolbarView, 
-};
-use gtk4::{
-    gdk, gio, glib, pango, ScrolledWindow, EventControllerKey, Label
-};
+use async_channel::Sender;
+use gtk4::{gdk, gio, glib, pango, EventControllerKey, Label, ScrolledWindow};
+use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
 
 pub fn make_headerbar(
     _repo_path: std::ffi::OsString,
@@ -74,7 +70,8 @@ pub fn show_oid_window(
                     // sender
                     //     .send_blocking(Event::CherryPickRequest)
                     //     .expect("Could not send through channel");
-                }                _ => {}
+                }
+                _ => {}
             }
             glib::Propagation::Proceed
         }

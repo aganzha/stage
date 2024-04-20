@@ -75,7 +75,7 @@ pub fn make_header_bar(sender: Sender<crate::Event>) -> HeaderBar {
         .tooltip_text("Refresh")
         .icon_name("view-refresh-symbolic")
         .can_shrink(true)
-        .build();    
+        .build();
     refresh_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
@@ -97,8 +97,9 @@ pub fn make_header_bar(sender: Sender<crate::Event>) -> HeaderBar {
     zoom_out_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
-            sender.send_blocking(crate::Event::Zoom(false)).
-                expect("cant send through channel");
+            sender
+                .send_blocking(crate::Event::Zoom(false))
+                .expect("cant send through channel");
         }
     });
 
@@ -114,8 +115,9 @@ pub fn make_header_bar(sender: Sender<crate::Event>) -> HeaderBar {
     zoom_in_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
-            sender.send_blocking(crate::Event::Zoom(true)).
-                expect("cant send through channel");
+            sender
+                .send_blocking(crate::Event::Zoom(true))
+                .expect("cant send through channel");
         }
     });
 
@@ -136,7 +138,6 @@ pub fn make_header_bar(sender: Sender<crate::Event>) -> HeaderBar {
         }
     });
 
-    
     let push_btn = Button::builder()
         .label("Push")
         .use_underline(true)
@@ -169,7 +170,7 @@ pub fn make_header_bar(sender: Sender<crate::Event>) -> HeaderBar {
                 .expect("cant send through channel");
         }
     });
-    
+
     let pull_btn = Button::builder()
         .label("Pull")
         .use_underline(true)

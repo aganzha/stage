@@ -9,10 +9,10 @@ use git2::build::CheckoutBuilder;
 use git2::{
     ApplyLocation, ApplyOptions, Branch, BranchType, CertificateCheckStatus,
     CherrypickOptions, Commit, Cred, CredentialType, Delta, Diff as GitDiff,
-    DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType, DiffOptions,
-    Error, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
-    Repository, RepositoryState, StashApplyOptions, StashFlags, DiffDelta,
-    ResetType
+    DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
+    DiffOptions, Error, FetchOptions, ObjectType, Oid, PushOptions,
+    RemoteCallbacks, Repository, RepositoryState, ResetType,
+    StashApplyOptions, StashFlags,
 };
 use log::{debug, info, trace};
 use regex::Regex;
@@ -439,7 +439,7 @@ pub fn get_current_repo_status(
     let mut opts = DiffOptions::new();
     //let opts = opts.include_untracked(true);
     let opts = opts.show_untracked_content(true);
-    
+
     let git_diff = repo
         .diff_index_to_workdir(None, None)
         .expect("cant' get diff index to workdir");
@@ -467,14 +467,14 @@ pub fn get_current_repo_status(
     //         // debug!(":--------------------> {:?} {:?}", delta.status(), delta.new_file().path());
     //         let path: OsString = delta.new_file().path().unwrap().into();
     //         untracked.push_file(path);
-    //     }        
+    //     }
     //     true
     // }, None, None, None);
     // sender
     //     .send_blocking(crate::Event::Untracked(untracked))
     //     .expect("Could not send through channel");
 
-    // let diff = make_diff(git_diff, DiffKind::Unstaged);    
+    // let diff = make_diff(git_diff, DiffKind::Unstaged);
 }
 
 #[derive(Debug, Clone)]
@@ -502,7 +502,6 @@ impl UntrackedFile {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Untracked {
     pub files: Vec<UntrackedFile>,
@@ -515,7 +514,7 @@ impl Untracked {
         Self {
             files: Vec::new(),
             view: View::new(),
-            max_line_len: 0
+            max_line_len: 0,
         }
     }
     pub fn push_file(&mut self, path: OsString) {
@@ -937,9 +936,7 @@ pub fn push(
         move |updated_ref, oid1, oid2| {
             debug!(
                 "updated local references {:?} {:?} {:?}",
-                updated_ref,
-                oid1,
-                oid2
+                updated_ref, oid1, oid2
             );
             if tracking_remote {
                 branch
@@ -1000,7 +997,11 @@ pub fn push(
     });
     callbacks.push_negotiation(|update| {
         if !update.is_empty() {
-            debug!("push_negotiation {:?} {:?}", update[0].src_refname(), update[0].dst_refname());
+            debug!(
+                "push_negotiation {:?} {:?}",
+                update[0].src_refname(),
+                update[0].dst_refname()
+            );
         }
         Ok(())
     });
@@ -1142,8 +1143,8 @@ pub fn checkout(
     match branch_data.branch_type {
         BranchType::Local => {}
         BranchType::Remote => {
-            let created = repo
-                .branch(&branch_data.local_name(), &commit, false);
+            let created =
+                repo.branch(&branch_data.local_name(), &commit, false);
             let mut branch = match created {
                 Ok(branch) => branch,
                 Err(_) => repo.find_branch(
@@ -1386,7 +1387,7 @@ pub fn stashes(path: OsString, sender: Sender<crate::Event>) -> Stashes {
         result.push(StashData::new(num, oid.clone(), title.to_string()));
         true
     })
-        .expect("cant get stash");
+    .expect("cant get stash");
     let stashes = Stashes::new(result);
     sender
         .send_blocking(crate::Event::Stashes(stashes.clone()))
@@ -1399,7 +1400,7 @@ pub fn stash_changes(
     stash_message: String,
     stash_staged: bool,
     sender: Sender<crate::Event>,
-) ->  Stashes {
+) -> Stashes {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
     let flags = if stash_staged {
@@ -1436,33 +1437,28 @@ pub fn apply_stash(
     });
 }
 
-
 pub fn drop_stash(
     path: OsString,
     stash_data: StashData,
     sender: Sender<crate::Event>,
 ) -> Stashes {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
-    repo.stash_drop(stash_data.num)
-        .expect("cant drop stash");
+    repo.stash_drop(stash_data.num).expect("cant drop stash");
     stashes(path, sender)
 }
 
-
-pub fn reset_hard(
-    path: OsString,
-    sender: Sender<crate::Event>,
-) {
+pub fn reset_hard(path: OsString, sender: Sender<crate::Event>) {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
     let ob = head_ref
         .peel(ObjectType::Commit)
         .expect("can't get commit from ref!");
-    repo.reset(&ob, ResetType::Hard, None).expect("cant reset hard");
+    repo.reset(&ob, ResetType::Hard, None)
+        .expect("cant reset hard");
     gio::spawn_blocking({
         move || {
             get_current_repo_status(Some(path), sender);
         }
-    });    
+    });
 }
