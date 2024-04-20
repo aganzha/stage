@@ -5,10 +5,10 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, AlertDialog, Box, Button, CheckButton,
-    EventControllerKey, Image, Label, ListBox, ListHeader, ListItem,
-    ListScrollFlags, ListView, Orientation, ScrolledWindow, SectionModel,
-    SelectionMode, SignalListItemFactory, SingleSelection, Spinner, Widget,
-    SearchBar, SearchEntry, FilterListModel
+    EventControllerKey, FilterListModel, Image, Label, ListBox, ListHeader,
+    ListItem, ListScrollFlags, ListView, Orientation, ScrolledWindow,
+    SearchBar, SearchEntry, SectionModel, SelectionMode,
+    SignalListItemFactory, SingleSelection, Spinner, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -157,13 +157,25 @@ mod branch_list {
 
     impl SectionModelImpl for BranchList {
         fn section(&self, position: u32) -> (u32, u32) {
+            println!("CALL SECTION--------------------------------------> {:?} {:?}", position, self.remote_start_pos);
+            for (i, item) in self.list.borrow().iter().enumerate() {
+                println!("{:?} {:?}", i, item.imp().branch.borrow().name);
+            }
             if let Some(pos) = *self.remote_start_pos.borrow() {
-                if position <= pos {
+                if position < pos {
+                    // IMPORTANT was <=
+                    println!("return LOCAL range {:?} {:?}", 0, pos);
                     return (0, pos);
                 } else {
+                    println!(
+                        "return REMOTE range {:?} {:?}",
+                        pos,
+                        self.list.borrow().len()
+                    );
                     return (pos, self.list.borrow().len() as u32);
                 }
             }
+            println!("return whole list");
             (0, self.list.borrow().len() as u32)
         }
     }
@@ -174,86 +186,171 @@ impl BranchList {
         Object::builder().build()
     }
 
-
     pub fn search(&self, term: String) {
-
         let selected_name = self.get_selected_branch().name;
         let mut current_position = 0;
         let mut deleted = 0;
-                
-        loop {                        
-            let name = self.imp().list.borrow()[current_position].imp().branch.borrow().name.clone();
-            debug!("name in loop {:?}", name);
+        // while deleting item section does not called at all
+        loop {
+            let name = self.imp().list.borrow()[current_position]
+                .imp()
+                .branch
+                .borrow()
+                .name
+                .clone();
+            trace!("name in loop {:?}", name);
             match name {
                 n if n == selected_name => {
-                    debug!("this branch is selected!. pos {:?}. will call items changed. deleted {:?}", current_position, deleted);
+                    trace!("this branch is selected!. pos {:?}. will call items changed. deleted {:?}", current_position, deleted);
                     if deleted > 0 {
-                        self.items_changed(current_position as u32, deleted, 0);
+                        self.items_changed(
+                            current_position as u32,
+                            deleted,
+                            0,
+                        );
                     }
                     current_position += 1;
                     deleted = 0;
                 }
                 n if n.contains(&term) => {
-                    debug!("this branch is found!. pos {:?}. will call items changed. deleted {:?}", current_position, deleted);
+                    trace!("this branch is found!. pos {:?}. will call items changed. deleted {:?}", current_position, deleted);
                     if deleted > 0 {
-                        self.items_changed(current_position as u32, deleted, 0);
+                        self.items_changed(
+                            current_position as u32,
+                            deleted,
+                            0,
+                        );
                     }
                     current_position += 1;
-                    deleted = 0;    
+                    deleted = 0;
                 }
                 n => {
                     self.imp().list.borrow_mut().remove(current_position);
                     deleted += 1;
-                    debug!("remove from list {:?}. tot deleted {:?}", n, deleted);
+                    trace!(
+                        "remove from list {:?}. tot deleted {:?}",
+                        n, deleted
+                    );
                 }
             }
             if current_position == self.imp().list.borrow().len() {
-                debug!("looop is over!");
+                trace!(
+                    "looop is over! ============= {:?}",
+                    self.imp().remote_start_pos
+                );
                 if deleted > 0 {
-                    debug!("call final delete. pos {:?} deleted {:?}", current_position, deleted);
+                    trace!(
+                        "call final delete. pos {:?} deleted {:?}",
+                        current_position, deleted
+                    );
                     self.items_changed(current_position as u32, deleted, 0);
                 }
                 break;
             }
-            debug!("");
-        }        
+            trace!("");
+        }
     }
-    
+
     pub fn reset_search(&self) {
-        if self.imp().list.borrow().len() == self.imp().original_list.borrow().len() {
+        if self.imp().list.borrow().len()
+            == self.imp().original_list.borrow().len()
+        {
             return;
         }
-        let names: Vec<String> = self.imp().list.borrow().iter().map(|bi| {
-            bi.imp().branch.borrow().name.clone()
-        }).collect();
-        debug!("reset search in list. items in current list {:?}", names);
+        let names: Vec<String> = self
+            .imp()
+            .list
+            .borrow()
+            .iter()
+            .map(|bi| bi.imp().branch.borrow().name.clone())
+            .collect();
+        trace!("reset search in list. items in current list {:?}", names);
         let mut added = 0;
         let mut changed_pos = 0;
         let mut current_pos = 0;
+        // it need to set remote section properly
+        let mut pos = 0;
+        for item in self.imp().list.borrow().iter() {
+            if item.imp().branch.borrow().branch_type == BranchType::Remote {
+                self.imp().remote_start_pos.replace(Some(pos));
+                break;
+            }
+            pos += 1;
+        }
+
+        let mut remote_tracked: bool = false;
         for item in self.imp().original_list.borrow().iter() {
-            debug!("looooooooop current_pos {:?} changed_pos {:?}", current_pos, changed_pos);
+            trace!(
+                "looooooooop current_pos {:?} changed_pos {:?}",
+                current_pos, changed_pos
+            );
             let name = &item.imp().branch.borrow().name;
             if names.contains(name) {
-                debug!("!!!!!!!!!!!!!!existing item name {:?} cureent pos {:?} changed pos {:?} added {:?}",
+                // do not add this item. will step over it"
+                // but it need to signal about all added items before it
+                // since last changed.
+                trace!("!!!!!!!!!!!!!!existing item name {:?} cureent pos {:?} changed pos {:?} added {:?}",
                        name,
                        current_pos,
                        changed_pos,
                        added);
                 self.items_changed(changed_pos, 0, added);
                 added = 0;
+                // next changed position wil be after this item
                 changed_pos = current_pos + 1;
             } else {
-                self.imp().list.borrow_mut().insert(current_pos as usize, item.clone());
+                let is_remote = item.imp().branch.borrow().branch_type
+                    == BranchType::Remote;
+                if is_remote {
+                    if !remote_tracked && is_remote {
+                        trace!(
+                            "track remote position prev {:?}, new {:?}",
+                            self.imp().remote_start_pos,
+                            current_pos
+                        );
+                        self.imp().remote_start_pos.replace(Some(current_pos));
+                        remote_tracked = true;
+                        // lets try update items here
+                        // but it does now work also :(
+                        self.items_changed(changed_pos, 0, added);
+                        changed_pos = current_pos;
+                        added = 0;
+                    }
+                } else {
+                    trace!(
+                        "insert local. remote start pos {:?}",
+                        self.imp().remote_start_pos
+                    );
+                    if self.imp().remote_start_pos.borrow().is_some() {
+                        let current =
+                            self.imp().remote_start_pos.borrow().unwrap();
+                        trace!("................increment remote!");
+                        self.imp().remote_start_pos.replace(Some(current + 1));
+                    }
+                }
+                self.imp()
+                    .list
+                    .borrow_mut()
+                    .insert(current_pos as usize, item.clone());
                 added += 1;
-                debug!("just inserted new item {:?}. total added {:?}", name, added);
+                trace!(
+                    "just inserted new item {:?}. total added {:?}",
+                    name, added
+                );
             }
             current_pos += 1;
-            debug!("");
+            trace!("");
         }
         if added > 0 {
-            debug!("fiiiiiiiiiiiiiiiiinal add {:?} {:?}", changed_pos, added);
+            trace!("fiiiiiiiiiiiiiiiiinal add {:?} {:?}", changed_pos, added);
             self.items_changed(changed_pos, 0, added);
         }
+        // trace!("1");
+        // self.sections_changed(8, 1);
+        trace!("++++++++++++++++++++++++++++++++++++++++");
+        // trace!("2");
+        // self.sections_changed(6, 1);
+
         // self.imp().list.borrow_mut().retain(|item: &BranchItem| {
         //     item.is_head()
         // });
@@ -267,7 +364,7 @@ impl BranchList {
         // }
         // self.items_changed(1, 0, le as u32);
     }
-    
+
     pub fn make_list(&self, repo_path: std::ffi::OsString) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list => async move {
@@ -375,7 +472,7 @@ impl BranchList {
                 if let Ok(git_result) = result {
                     match git_result {
                         Ok(branch_data) => {
-                            debug!("just cherry picked and this is branch data {:?}", branch_data);
+                            trace!("just cherry picked and this is branch data {:?}", branch_data);
                             branch_list.update_current_item(branch_data);
                             return;
                         }
@@ -420,7 +517,7 @@ impl BranchList {
                 }).await;
 
                 if let Ok(branch_data) = result {
-                    debug!("just merged and this is branch data {:?}", branch_data);
+                    trace!("just merged and this is branch data {:?}", branch_data);
                     branch_list.update_current_item(branch_data);
                     window.close();
                 } else {
@@ -531,7 +628,7 @@ impl BranchList {
                 //     .title(title)
                 //     .build();
                 let input = EntryRow::builder()
-                    .title("New branch name:")                    
+                    .title("New branch name:")
                     .css_classes(vec!["input_field"])
                     .build();
                 let checkout = SwitchRow::builder()
@@ -712,7 +809,8 @@ pub fn make_item_factory() -> SignalListItemFactory {
         list_item.set_activatable(true);
         list_item.set_focusable(true);
 
-        list_item.bind_property("selected", &bx, "css_classes")
+        list_item
+            .bind_property("selected", &bx, "css_classes")
             .transform_to(move |_, is_selected: bool| {
                 if is_selected {
                     Some(vec![String::from("branch_row")])
@@ -807,7 +905,7 @@ pub fn make_list_view(
     let _ = bind.bidirectional().build();
     // selection_model.connect_selected_item_notify(|single_selection| {
     //     // let ss_pos = single_selection.selected();
-    //     // debug!("selected_item_notify............. {:?}", ss_pos);
+    //     // trace!("selected_item_notify............. {:?}", ss_pos);
     //     // if let Some(item) = single_selection.selected_item() {
     //     //     let branch_item = item.downcast_ref::<BranchItem>().unwrap();
     //     //     branch_item.imp().add_css_class("selected");
@@ -881,9 +979,7 @@ pub fn make_headerbar(
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
 
-    let entry = SearchEntry::builder()
-        .search_delay(300)
-        .build();
+    let entry = SearchEntry::builder().search_delay(300).build();
     // entry.connect_stop_search(|e| {
     //     // does not work
     // });
@@ -899,7 +995,7 @@ pub fn make_headerbar(
         } else {
             branch_list.search(term.into());
         }
-        
+
     }));
     let search = SearchBar::builder()
         .tooltip_text("search branches")
@@ -907,7 +1003,7 @@ pub fn make_headerbar(
         .visible(true)
         .child(&entry)
         .build();
-    
+
     search.connect_entry(&entry);
     let new_btn = Button::builder()
         // .label("N")
@@ -927,7 +1023,7 @@ pub fn make_headerbar(
         }
     });
     let kill_btn = Button::builder()
-        .icon_name("user-trash-symbolic")// process-stop-symbolic
+        .icon_name("user-trash-symbolic") // process-stop-symbolic
         .use_underline(true)
         .tooltip_text("Delete branch (K)")
         .sensitive(false)
@@ -940,9 +1036,8 @@ pub fn make_headerbar(
 
     let _ = single_selection
         .bind_property("selected-item", &kill_btn, "sensitive")
-        .transform_to(move |_, item: BranchItem| {
-            Some(!item.is_head())
-        }).build();
+        .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
+        .build();
     kill_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
@@ -961,9 +1056,8 @@ pub fn make_headerbar(
         .build();
     let _ = single_selection
         .bind_property("selected-item", &merge_btn, "sensitive")
-        .transform_to(move |_, item: BranchItem| {
-            Some(!item.is_head())
-        }).build();
+        .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
+        .build();
     merge_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
@@ -1054,7 +1148,7 @@ pub fn show_branches_window(
                 (gdk::Key::Escape, _) => {
                     window.close();
                 }
-                (gdk::Key::n|gdk::Key::c, _) => {
+                (gdk::Key::n | gdk::Key::c, _) => {
                     sender
                         .send_blocking(Event::Create)
                         .expect("Could not send through channel");
