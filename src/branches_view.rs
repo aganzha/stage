@@ -176,26 +176,47 @@ impl BranchList {
 
 
     pub fn search(&self, term: String) {
-        // it need to keep 1 list in item for sure,
-        // because transform_to bindingsin this file will fail:
-        // closures will got None instead of BranchItem
-        // lets remain head branch in list
-        let deleted_amount = self.imp().list.borrow().len() - 1;
-        self.imp().list.borrow_mut().retain(|item: &BranchItem| {
-            item.is_head()
-        });
 
-        let mut le = 0;
-        for item in self.imp().original_list.borrow().iter() {
-            if item.is_head() {
-                continue
+        let selected_name = self.get_selected_branch().name;
+        let mut current_position = 0;
+        let mut deleted = 0;
+                
+        loop {                        
+            let name = self.imp().list.borrow()[current_position].imp().branch.borrow().name.clone();
+            debug!("name in loop {:?}", name);
+            match name {
+                n if n == selected_name => {
+                    debug!("this branch is selected!. pos {:?}. will call items changed. deleted {:?}", current_position, deleted);
+                    if deleted > 0 {
+                        self.items_changed(current_position as u32, deleted, 0);
+                    }
+                    current_position += 1;
+                    deleted = 0;
+                }
+                n if n.contains(&term) => {
+                    debug!("this branch is found!. pos {:?}. will call items changed. deleted {:?}", current_position, deleted);
+                    if deleted > 0 {
+                        self.items_changed(current_position as u32, deleted, 0);
+                    }
+                    current_position += 1;
+                    deleted = 0;    
+                }
+                n => {
+                    self.imp().list.borrow_mut().remove(current_position);
+                    deleted += 1;
+                    debug!("remove from list {:?}. tot deleted {:?}", n, deleted);
+                }
             }
-            if item.imp().branch.borrow().name.contains(&term) {
-                self.imp().list.borrow_mut().push(item.clone());
+            if current_position == self.imp().list.borrow().len() {
+                debug!("looop is over!");
+                if deleted > 0 {
+                    debug!("call final delete. pos {:?} deleted {:?}", current_position, deleted);
+                    self.items_changed(current_position as u32, deleted, 0);
+                }
+                break;
             }
-            le += 1;
-        }
-        self.items_changed(1, 0, le as u32);
+            debug!("");
+        }        
     }
     
     pub fn reset_search(&self) {
@@ -661,15 +682,15 @@ pub fn make_item_factory() -> SignalListItemFactory {
         list_item.set_activatable(true);
         list_item.set_focusable(true);
 
-        // list_item.bind_property("selected", &bx, "css_classes")
-        //     .transform_to(move |_, is_selected: bool| {
-        //         if is_selected {
-        //             Some(vec![String::from("branch_row")])
-        //         } else {
-        //             Some(vec![])
-        //         }
-        //     })
-        //     .build();
+        list_item.bind_property("selected", &bx, "css_classes")
+            .transform_to(move |_, is_selected: bool| {
+                if is_selected {
+                    Some(vec![String::from("branch_row")])
+                } else {
+                    Some(vec![])
+                }
+            })
+            .build();
 
         list_item.connect_selected_notify(|li: &ListItem| {
             // grab focus only once on list init
@@ -908,11 +929,11 @@ pub fn make_headerbar(
         .sensitive(false)
         .can_shrink(true)
         .build();
-    let _ = single_selection
-        .bind_property("selected-item", &merge_btn, "sensitive")
-        .transform_to(move |_, item: BranchItem| {
-            Some(!item.is_head())
-        }).build();
+    // let _ = single_selection
+    //     .bind_property("selected-item", &merge_btn, "sensitive")
+    //     .transform_to(move |_, item: BranchItem| {
+    //         Some(!item.is_head())
+    //     }).build();
     merge_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
