@@ -929,11 +929,11 @@ pub fn make_headerbar(
         .sensitive(false)
         .can_shrink(true)
         .build();
-    // let _ = single_selection
-    //     .bind_property("selected-item", &merge_btn, "sensitive")
-    //     .transform_to(move |_, item: BranchItem| {
-    //         Some(!item.is_head())
-    //     }).build();
+    let _ = single_selection
+        .bind_property("selected-item", &merge_btn, "sensitive")
+        .transform_to(move |_, item: BranchItem| {
+            Some(!item.is_head())
+        }).build();
     merge_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
