@@ -1,5 +1,5 @@
 use crate::status_view::ViewContainer;
-use crate::{Diff, DiffKind, File, Head, Hunk, Line, State, View};
+use crate::{Diff, DiffKind, File, Head, Hunk, Line, State, View, Untracked, UntrackedFile};
 use git2::RepositoryState;
 use gtk4::TextView;
 use log::{debug, trace};
@@ -359,6 +359,54 @@ impl Diff {
     }
 }
 
+impl UntrackedFile {
+
+    pub fn enrich_view(
+        &mut self,
+        rendered: &UntrackedFile,
+        _context: &mut Option<crate::StatusRenderContext>,
+    ) {
+        self.view = rendered.transfer_view();
+    }
+
+    pub fn transfer_view(&self) -> View {
+        let mut clone = self.view.clone();
+        clone.transfered = true;
+        clone
+    }
+}
+
+impl Untracked {
+    pub fn enrich_view(
+        &mut self,
+        rendered: &mut Untracked,
+        txt: &TextView,
+        context: &mut Option<crate::StatusRenderContext>,
+    ) {
+        debug!("enriich untracked");
+        let mut replaces_by_new = HashSet::new();
+        for file in &mut self.files {
+            for of in &mut rendered.files {
+                if file.path == of.path {
+                    file.enrich_view(of, context);
+                    replaces_by_new.insert(file.path.clone());
+                }
+            }
+        }
+        rendered
+            .files
+            .iter_mut()
+            .filter(|f| !replaces_by_new.contains(&f.path))
+            .for_each(|f| {
+                trace!(
+                    "context on final lines of diff render view {:?}",
+                    context
+                );
+                f.erase(txt, context)
+            });
+    }
+}
+            
 impl Head {
     // head
     pub fn enrich_view(&mut self, rendered: &Head) {

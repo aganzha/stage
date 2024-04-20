@@ -12,6 +12,7 @@ use std::rc::Rc;
 
 use crate::{
     commit, get_current_repo_status, pull, push, reset_hard, stage_via_apply,
+    stage_untracked,
     ApplyFilter, ApplySubject, Diff, DiffKind, Event, Head, Stashes, State,
     Untracked, View,
 };
@@ -141,11 +142,6 @@ impl Status {
 
     pub fn update_stashes(&mut self, stashes: Stashes) {
         self.stashes.replace(stashes);
-    }
-
-    pub fn update_untracked(&mut self, untracked: Untracked, txt: &TextView) {
-        self.untracked.replace(untracked);
-        self.render(txt, RenderSource::Git);
     }
 
     pub fn reset_hard(&self, sender: Sender<Event>) {
@@ -347,6 +343,15 @@ impl Status {
         self.render(txt, RenderSource::Git);
     }
 
+    pub fn update_untracked(&mut self, mut untracked: Untracked, txt: &TextView) {
+        self.update_screen_line_width(untracked.max_line_len);
+        if let Some(u) = &mut self.untracked {
+            untracked.enrich_view(u, txt, &mut self.context);
+        }
+        self.untracked.replace(untracked);
+        self.render(txt, RenderSource::Git);
+    }
+
     pub fn update_staged(&mut self, mut diff: Diff, txt: &TextView) {
         self.update_screen_line_width(diff.max_line_len);
         if let Some(s) = &mut self.staged {
@@ -357,6 +362,7 @@ impl Status {
             diff.enrich_view(s, txt, &mut self.context);
         }
         self.staged.replace(diff);
+        // why check both??? perhaps just for very first render
         if self.staged.is_some() && self.unstaged.is_some() {
             self.render(txt, RenderSource::Git);
         }
@@ -372,6 +378,7 @@ impl Status {
             diff.enrich_view(u, txt, &mut self.context);
         }
         self.unstaged.replace(diff);
+        // why check both??? perhaps just for very first render
         if self.staged.is_some() && self.unstaged.is_some() {
             self.render(txt, RenderSource::Git);
         }
@@ -379,6 +386,9 @@ impl Status {
     // status
     pub fn cursor(&mut self, txt: &TextView, line_no: i32, offset: i32) {
         let mut changed = false;
+        if let Some(untracked) = &mut self.untracked {
+            changed = changed || untracked.cursor(line_no, false);
+        }
         if let Some(unstaged) = &mut self.unstaged {
             changed = changed || unstaged.cursor(line_no, false);
         }
@@ -503,10 +513,27 @@ impl Status {
         _line_no: i32,
         subject: ApplySubject,
     ) {
-        // hm. this is very weird code
+        if let Some(untracked) = &mut self.untracked {
+            for file in &mut untracked.files {
+                if file.get_view().current {
+                    debug!("stage untracked {:?}", file.title());
+                    gio::spawn_blocking({
+                        let path = self.path.clone();
+                        let sender = self.sender.clone();
+                        let file = file.clone();
+                        move || {
+                            stage_untracked(path.expect("no path"), file, sender);
+                        }
+                    });
+                    return
+                }
+            }
+        }
+        
+        // just a check
         match subject {
             ApplySubject::Stage | ApplySubject::Kill => {
-                if self.unstaged.is_none() {
+                if self.unstaged.is_none(){
                     return;
                 }
             }
