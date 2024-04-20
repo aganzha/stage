@@ -431,10 +431,19 @@ pub fn get_current_repo_status(
         let sender = sender.clone();
         let path = path.clone();
         move || {
-            stashes(path, sender);
+            get_stashes(path, sender);
         }
     });
 
+    // get untracked
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        let path = path.clone();
+        move || {
+            get_untracked(path, sender);
+        }
+    });
+    
     // get unstaged
     let mut opts = DiffOptions::new();
     let opts = opts.show_untracked_content(true);
@@ -449,6 +458,13 @@ pub fn get_current_repo_status(
 
     // get untracked
     // TODO! put in separate thread (previous clause)
+
+}
+
+pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
+
+    let mut repo = Repository::open(path.clone()).expect("can't open repo");
+    
     let mut opts = DiffOptions::new();
 
     let opts = opts.show_untracked_content(true);
@@ -740,6 +756,7 @@ pub fn stage_via_apply(
     // staged changes. not needed in kill, btw.
     gio::spawn_blocking({
         let sender = sender.clone();
+        let path = path.clone();
         move || {
             let repo = Repository::open(path).expect("can't open repo");
             let ob =
@@ -755,6 +772,16 @@ pub fn stage_via_apply(
                 .expect("Could not send through channel");
         }
     });
+
+    // get untracked
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        let path = path.clone();
+        move || {
+            get_untracked(path, sender);
+        }
+    });
+    
     // unstaged changes
     let git_diff = repo
         .diff_index_to_workdir(None, None)
@@ -1393,7 +1420,7 @@ impl Stashes {
     }
 }
 
-pub fn stashes(path: OsString, sender: Sender<crate::Event>) -> Stashes {
+pub fn get_stashes(path: OsString, sender: Sender<crate::Event>) -> Stashes {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
     repo.stash_foreach(|num, title, oid| {
@@ -1431,7 +1458,7 @@ pub fn stash_changes(
             get_current_repo_status(Some(path), sender);
         }
     });
-    stashes(path, sender)
+    get_stashes(path, sender)
 }
 
 pub fn apply_stash(
@@ -1457,7 +1484,7 @@ pub fn drop_stash(
 ) -> Stashes {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     repo.stash_drop(stash_data.num).expect("cant drop stash");
-    stashes(path, sender)
+    get_stashes(path, sender)
 }
 
 pub fn reset_hard(path: OsString, sender: Sender<crate::Event>) {
