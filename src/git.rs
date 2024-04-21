@@ -443,7 +443,7 @@ pub fn get_current_repo_status(
             get_untracked(path, sender);
         }
     });
-    
+
     // get unstaged
     let mut opts = DiffOptions::new();
     let opts = opts.show_untracked_content(true);
@@ -458,34 +458,34 @@ pub fn get_current_repo_status(
 
     // get untracked
     // TODO! put in separate thread (previous clause)
-
 }
 
 pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
-
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
-    
+
     let mut opts = DiffOptions::new();
 
     let opts = opts.show_untracked_content(true);
 
-    let ob =
-        repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    let current_tree =
-        repo.find_tree(ob.id()).expect("no working tree");
-    let git_diff = repo.diff_tree_to_workdir_with_index(
-        Some(&current_tree),
-        Some(opts),
-    ).expect("can't get diff");
+    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    let git_diff = repo
+        .diff_tree_to_workdir_with_index(Some(&current_tree), Some(opts))
+        .expect("can't get diff");
     let mut untracked = Untracked::new();
-    git_diff.foreach(&mut |delta: DiffDelta, _num| {
-        if delta.status() == Delta::Untracked {
-            // debug!(":--------------------> {:?} {:?}", delta.status(), delta.new_file().path());
-            let path: OsString = delta.new_file().path().unwrap().into();
-            untracked.push_file(path);
-        }
-        true
-    }, None, None, None);
+    git_diff.foreach(
+        &mut |delta: DiffDelta, _num| {
+            if delta.status() == Delta::Untracked {
+                // debug!(":--------------------> {:?} {:?}", delta.status(), delta.new_file().path());
+                let path: OsString = delta.new_file().path().unwrap().into();
+                untracked.push_file(path);
+            }
+            true
+        },
+        None,
+        None,
+        None,
+    );
     sender
         .send_blocking(crate::Event::Untracked(untracked))
         .expect("Could not send through channel");
@@ -662,7 +662,6 @@ pub fn stage_untracked(
     index.add_path(pth).expect("cant add path");
     index.write().expect("cant write index");
     get_current_repo_status(Some(path), sender);
-    
 }
 
 pub fn stage_via_apply(
@@ -781,7 +780,7 @@ pub fn stage_via_apply(
             get_untracked(path, sender);
         }
     });
-    
+
     // unstaged changes
     let git_diff = repo
         .diff_index_to_workdir(None, None)

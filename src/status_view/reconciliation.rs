@@ -1,5 +1,8 @@
 use crate::status_view::ViewContainer;
-use crate::{Diff, DiffKind, File, Head, Hunk, Line, State, View, Untracked, UntrackedFile};
+use crate::{
+    Diff, DiffKind, File, Head, Hunk, Line, State, Untracked, UntrackedFile,
+    View,
+};
 use git2::RepositoryState;
 use gtk4::TextView;
 use log::{debug, trace};
@@ -360,7 +363,6 @@ impl Diff {
 }
 
 impl UntrackedFile {
-
     pub fn enrich_view(
         &mut self,
         rendered: &UntrackedFile,
@@ -406,7 +408,7 @@ impl Untracked {
             });
     }
 }
-            
+
 impl Head {
     // head
     pub fn enrich_view(&mut self, rendered: &Head) {

@@ -19,9 +19,9 @@ mod git;
 use git::{
     apply_stash, checkout, cherry_pick, commit, create_branch, drop_stash,
     get_current_repo_status, get_refs, kill_branch, merge, pull, push,
-    reset_hard, stage_via_apply, stash_changes, stage_untracked, ApplyFilter, ApplySubject,
-    BranchData, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
-    State, Untracked, UntrackedFile, View,
+    reset_hard, stage_untracked, stage_via_apply, stash_changes, ApplyFilter,
+    ApplySubject, BranchData, Diff, DiffKind, File, Head, Hunk, Line,
+    StashData, Stashes, State, Untracked, UntrackedFile, View,
 };
 use git2::Oid;
 mod widgets;
