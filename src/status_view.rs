@@ -12,13 +12,16 @@ use std::rc::Rc;
 
 use crate::{
     commit, get_current_repo_status, get_directories, pull, push, reset_hard,
-    stage_untracked, stage_via_apply, track_changes, ApplyFilter, ApplySubject, Diff,
-    DiffKind, Event, Head, Stashes, State, Untracked, View,
+    stage_untracked, stage_via_apply, track_changes, ApplyFilter,
+    ApplySubject, Diff, DiffKind, Event, Head, Stashes, State, Untracked,
+    View,
 };
 
 use async_channel::Sender;
 
-use gio::{Cancellable, File, FileMonitor, FileMonitorFlags, FileMonitorEvent};
+use gio::{
+    Cancellable, File, FileMonitor, FileMonitorEvent, FileMonitorFlags,
+};
 use glib::clone;
 use gtk4::prelude::*;
 use gtk4::{
@@ -103,7 +106,6 @@ pub struct Status {
     pub rendered: bool, // what it is for ????
     pub context: Option<StatusRenderContext>,
     pub stashes: Option<Stashes>,
-
     // pub monitors: Vec<FileMonitor>,
 }
 
@@ -137,7 +139,11 @@ impl Status {
         }
     }
 
-    pub fn update_path(&mut self, path: OsString, monitors: Rc<RefCell<Vec<FileMonitor>>>) {
+    pub fn update_path(
+        &mut self,
+        path: OsString,
+        monitors: Rc<RefCell<Vec<FileMonitor>>>,
+    ) {
         if self.path.is_some() {
             panic!("got one more path ? {:?} {:?}", self.path, path);
         }
@@ -147,26 +153,24 @@ impl Status {
 
     pub fn setup_monitor(&mut self, monitors: Rc<RefCell<Vec<FileMonitor>>>) {
         if let Some(_) = &self.path {
-
             glib::spawn_future_local({
                 let path = self.path.clone().expect("no path");
                 let sender = self.sender.clone();
                 async move {
                     let mut directories = gio::spawn_blocking({
                         let path = path.clone();
-                        move || {
-                            get_directories(path)
-                        }
-                    }).await.expect("cant get direcories");
-                    let root = path.to_str()
+                        move || get_directories(path)
+                    })
+                    .await
+                    .expect("cant get direcories");
+                    let root = path
+                        .to_str()
                         .expect("cant get string from path")
                         .replace(".git/", "");
                     directories.insert(root.clone());
                     for dir in directories {
                         let dir_name = match dir {
-                            name if name == root => {
-                                name
-                            },
+                            name if name == root => name,
                             name => {
                                 format!("{}/{}", root, name)
                             }
@@ -175,25 +179,28 @@ impl Status {
                         let file = File::for_path(dir_name);
                         let flags = FileMonitorFlags::empty();
 
-                        let monitor = file.monitor_directory(
-                            flags,
-                            Cancellable::current().as_ref()
-                        ).expect("cant get monitor");
+                        let monitor = file
+                            .monitor_directory(
+                                flags,
+                                Cancellable::current().as_ref(),
+                            )
+                            .expect("cant get monitor");
                         monitor.connect_changed({
                             let path = path.clone();
                             let sender = sender.clone();
                             move |_monitor, file, _other_file, event| {
                                 match event {
                                     FileMonitorEvent::ChangesDoneHint => {
-                                        gio::spawn_blocking({                                 
+                                        gio::spawn_blocking({
                                             let path = path.clone();
                                             let sender = sender.clone();
-                                            let file_path = file.path().expect("no file path").into_os_string();
+                                            let file_path = file
+                                                .path()
+                                                .expect("no file path")
+                                                .into_os_string();
                                             move || {
                                                 track_changes(
-                                                    path,
-                                                    file_path,
-                                                    sender
+                                                    path, file_path, sender,
                                                 )
                                             }
                                         });
@@ -202,7 +209,8 @@ impl Status {
                                         trace!("file event {:?}", event);
                                     }
                                 }
-                            }});
+                            }
+                        });
 
                         monitors.borrow_mut().push(monitor);
                     }
@@ -262,7 +270,6 @@ impl Status {
                     .active(true)
                     .build();
 
-
                 let input = EntryRow::builder()
                     .title("Remote branch name:")
                     .show_apply_button(true)
@@ -278,16 +285,20 @@ impl Status {
                     "Push to remote/origin", // TODO here is harcode
                     "Push",
                 );
-                input.connect_apply(clone!(@strong dialog as dialog => move |_| {
-                    // someone pressed enter
-                    dialog.response("confirm");
-                    dialog.close();
-                }));
-                input.connect_entry_activated(clone!(@strong dialog as dialog => move |_| {
-                    // someone pressed enter
-                    dialog.response("confirm");
-                    dialog.close();
-                }));
+                input.connect_apply(
+                    clone!(@strong dialog as dialog => move |_| {
+                        // someone pressed enter
+                        dialog.response("confirm");
+                        dialog.close();
+                    }),
+                );
+                input.connect_entry_activated(
+                    clone!(@strong dialog as dialog => move |_| {
+                        // someone pressed enter
+                        dialog.response("confirm");
+                        dialog.close();
+                    }),
+                );
                 let response = dialog.choose_future().await;
                 if "confirm" != response {
                     return;
@@ -362,12 +373,19 @@ impl Status {
                         .css_classes(vec!["input_field"])
                         .build();
                     lb.append(&input);
-                    let dialog = crate::make_confirm_dialog(&window, Some(&lb), "Commit", "Commit");
-                    input.connect_apply(clone!(@strong dialog as dialog => move |_entry| {
-                        // someone pressed enter
-                        dialog.response("confirm");
-                        dialog.close();
-                    }));
+                    let dialog = crate::make_confirm_dialog(
+                        &window,
+                        Some(&lb),
+                        "Commit",
+                        "Commit",
+                    );
+                    input.connect_apply(
+                        clone!(@strong dialog as dialog => move |_entry| {
+                            // someone pressed enter
+                            dialog.response("confirm");
+                            dialog.close();
+                        }),
+                    );
                     let response = dialog.choose_future().await;
                     debug!("got response from dialog! {:?}", response);
                     if "confirm" != response {

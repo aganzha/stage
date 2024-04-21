@@ -20,9 +20,9 @@ use git::{
     apply_stash, checkout, cherry_pick, commit, create_branch, drop_stash,
     get_current_repo_status, get_directories, get_refs, kill_branch, merge,
     pull, push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes,
-    ApplyFilter, ApplySubject, BranchData, Diff, DiffKind, File, Head, Hunk,
-    Line, StashData, Stashes, State, Untracked, UntrackedFile, View,
+    track_changes, ApplyFilter, ApplySubject, BranchData, Diff, DiffKind,
+    File, Head, Hunk, Line, StashData, Stashes, State, Untracked,
+    UntrackedFile, View,
 };
 use git2::Oid;
 mod widgets;
@@ -172,8 +172,6 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt = text_view_factory(sender.clone(), text_view_width.clone());
-
-
 
     let scroll = ScrolledWindow::new();
     scroll.set_child(Some(&txt));

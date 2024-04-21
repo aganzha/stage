@@ -1516,13 +1516,17 @@ pub fn get_directories(path: OsString) -> HashSet<String> {
     directories
 }
 
-pub fn track_changes(path: OsString, file_path: OsString, sender: Sender<crate::Event>) {
+pub fn track_changes(
+    path: OsString,
+    file_path: OsString,
+    sender: Sender<crate::Event>,
+) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let file_path = file_path.into_string().expect("wrong path");
     for entry in index.iter() {
         let entry_path = format!("{}", String::from_utf8_lossy(&entry.path));
-        if file_path.ends_with(&entry_path) {            
+        if file_path.ends_with(&entry_path) {
             trace!("got modifeied file {:?}", file_path);
             let git_diff = repo
                 .diff_index_to_workdir(None, None)
