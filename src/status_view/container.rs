@@ -261,7 +261,7 @@ impl ViewContainer for Diff {
     // diff
     fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
         let mut result = false;
-        for file in &mut self.files {            
+        for file in &mut self.files {
             result = file.cursor(line_no, parent_active) || result;
         }
         result
@@ -603,7 +603,6 @@ impl ViewContainer for Untracked {
         }
         result
     }
-
 }
 
 impl ViewContainer for UntrackedFile {

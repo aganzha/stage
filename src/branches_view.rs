@@ -1,15 +1,15 @@
 use async_channel::Sender;
 use core::time::Duration;
 use git2::BranchType;
-use glib::{clone, closure, Object, ControlFlow};
+use glib::{clone, closure, ControlFlow, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, AlertDialog, Box, Button, CheckButton,
     EventControllerKey, FilterListModel, Image, Label, ListBox, ListHeader,
-    ListItem, ListScrollFlags, ListView, Orientation, ScrolledWindow,
-    SearchBar, SearchEntry, SectionModel, SelectionMode,
-    SignalListItemFactory, SingleSelection, Spinner, Widget, Revealer
+    ListItem, ListScrollFlags, ListView, Orientation, Revealer,
+    ScrolledWindow, SearchBar, SearchEntry, SectionModel, SelectionMode,
+    SignalListItemFactory, SingleSelection, Spinner, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -218,7 +218,8 @@ impl BranchList {
                     deleted += 1;
                     trace!(
                         "remove from list {:?}. tot deleted {:?}",
-                        n, deleted
+                        n,
+                        deleted
                     );
                 }
             }
@@ -230,7 +231,8 @@ impl BranchList {
                 if deleted > 0 {
                     trace!(
                         "call final delete. pos {:?} deleted {:?}",
-                        current_position, deleted
+                        current_position,
+                        deleted
                     );
                     self.items_changed(current_position as u32, deleted, 0);
                 }
@@ -271,7 +273,8 @@ impl BranchList {
         for item in self.imp().original_list.borrow().iter() {
             trace!(
                 "looooooooop current_pos {:?} changed_pos {:?}",
-                current_pos, changed_pos
+                current_pos,
+                changed_pos
             );
             let name = &item.imp().branch.borrow().name;
             if names.contains(name) {
@@ -324,7 +327,8 @@ impl BranchList {
                 added += 1;
                 trace!(
                     "just inserted new item {:?}. total added {:?}",
-                    name, added
+                    name,
+                    added
                 );
             }
             current_pos += 1;
@@ -694,33 +698,26 @@ impl BranchList {
 }
 
 pub fn make_header_factory() -> SignalListItemFactory {
-    let section_title = std::cell::RefCell::new(String::from("Branches"));
     let header_factory = SignalListItemFactory::new();
     header_factory.connect_setup(move |_, list_header| {
-        let label = Label::new(Some(&*section_title.borrow()));
+        let label = Label::new(None);
         let list_header = list_header
             .downcast_ref::<ListHeader>()
             .expect("Needs to be ListHeader");
         list_header.set_child(Some(&label));
-        section_title.replace(String::from("Remotes"));
-        // does not work. it is always git first BranchItem
-        // why???
-        // list_header.connect_item_notify(move |lh| {
-        //     let ob = lh.item().unwrap();
-        //     let item: &BranchItem = ob
-        //         .downcast_ref::<BranchItem>()
-        //         .unwrap();
-        //     // let title = match item.imp().branch.borrow().branch_type {
-        //     //     BranchType::Local => "Branches",
-        //     //     BranchType::Remote => "Remote"
-        //     // };
-        //     // label.set_label(title);
-        // });
-        // does not work also
-        // let item = list_header
-        //     .property_expression("item");
-        // item.chain_property::<BranchItem>("ref-kind")
-        //     .bind(&label, "label", Widget::NONE);
+        list_header.connect_item_notify(move |lh| {
+            if lh.item().is_none() {
+                return;
+            }
+            let ob = lh.item().unwrap();
+            let item: &BranchItem = ob.downcast_ref::<BranchItem>().unwrap();
+
+            let title = match item.imp().branch.borrow().branch_type {
+                BranchType::Local => "Branches",
+                BranchType::Remote => "Remote branches",
+            };
+            label.set_label(&title);
+        });
     });
     header_factory
 }
@@ -975,11 +972,14 @@ pub fn make_headerbar(
     entry.connect_stop_search(|e| {
         let bx = e.parent().unwrap();
         let revealer = bx.parent().unwrap();
-        let revealer = revealer.downcast_ref::<Revealer>().unwrap();        
+        let revealer = revealer.downcast_ref::<Revealer>().unwrap();
         glib::source::timeout_add_local(Duration::from_millis(300), {
             let revealer = revealer.clone();
             move || {
-                trace!("hack for pressing escape. {:?}", revealer.is_child_revealed());
+                trace!(
+                    "hack for pressing escape. {:?}",
+                    revealer.is_child_revealed()
+                );
                 if !revealer.is_child_revealed() {
                     revealer.set_reveal_child(true);
                 }
@@ -1176,9 +1176,11 @@ pub fn show_branches_window(
                 }
                 (gdk::Key::s, _) => {
                     let search_bar = hb.title_widget().unwrap();
-                    let search_bar = search_bar.downcast_ref::<SearchBar>().unwrap();
+                    let search_bar =
+                        search_bar.downcast_ref::<SearchBar>().unwrap();
                     let search_entry = search_bar.child().unwrap();
-                    let search_entry = search_entry.downcast_ref::<SearchEntry>().unwrap();
+                    let search_entry =
+                        search_entry.downcast_ref::<SearchEntry>().unwrap();
                     trace!("enter search");
                     search_entry.grab_focus();
                 }

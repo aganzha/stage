@@ -11,10 +11,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::{
-    commit, get_current_repo_status, pull, push, reset_hard, stage_via_apply,
-    stage_untracked,
-    ApplyFilter, ApplySubject, Diff, DiffKind, Event, Head, Stashes, State,
-    Untracked, View,
+    commit, get_current_repo_status, pull, push, reset_hard, stage_untracked,
+    stage_via_apply, ApplyFilter, ApplySubject, Diff, DiffKind, Event, Head,
+    Stashes, State, Untracked, View,
 };
 
 use async_channel::Sender;
@@ -118,13 +117,11 @@ impl Status {
                 "<span weight=\"bold\" color=\"#8b6508\">Untracked files</span>",
             ),
             untracked: None,
-            
             staged_spacer: Label::from_string(""),
             staged_label: Label::from_string(
                 "<span weight=\"bold\" color=\"#8b6508\">Staged changes</span>",
             ),
             staged: None,
-
             unstaged_spacer: Label::from_string(""),
             unstaged_label: Label::from_string(
                 "<span weight=\"bold\" color=\"#8b6508\">Unstaged changes</span>",
@@ -343,7 +340,11 @@ impl Status {
         self.render(txt, RenderSource::Git);
     }
 
-    pub fn update_untracked(&mut self, mut untracked: Untracked, txt: &TextView) {
+    pub fn update_untracked(
+        &mut self,
+        mut untracked: Untracked,
+        txt: &TextView,
+    ) {
         self.update_screen_line_width(untracked.max_line_len);
         if let Some(u) = &mut self.untracked {
             untracked.enrich_view(u, txt, &mut self.context);
@@ -522,18 +523,22 @@ impl Status {
                         let sender = self.sender.clone();
                         let file = file.clone();
                         move || {
-                            stage_untracked(path.expect("no path"), file, sender);
+                            stage_untracked(
+                                path.expect("no path"),
+                                file,
+                                sender,
+                            );
                         }
                     });
-                    return
+                    return;
                 }
             }
         }
-        
+
         // just a check
         match subject {
             ApplySubject::Stage | ApplySubject::Kill => {
-                if self.unstaged.is_none(){
+                if self.unstaged.is_none() {
                     return;
                 }
             }
