@@ -6,7 +6,7 @@ use libadwaita::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 use log::{debug, info, trace};
-use crate::{Diff, get_commit_diff, Event, CommitDiff};
+use crate::{Diff, get_commit_diff, Event, CommitDiff, StatusRenderContext};
 use async_channel::Sender;
 use gtk4::{gdk, gio, glib, pango, EventControllerKey, Label, ScrolledWindow, TextView};
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
@@ -89,7 +89,7 @@ pub fn show_commit_window(
     window.present();
 
     let mut main_diff: Option<CommitDiff> = None;
-
+    
     gio::spawn_blocking({
         let path = repo_path.clone();
         move || {
@@ -99,6 +99,8 @@ pub fn show_commit_window(
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
+            let mut ctx = StatusRenderContext::new();
+            ctx.screen_width.replace(*text_view_width.borrow());
             match event {
                 Event::CommitDiff(mut commit_diff) => {
                     if main_diff.is_none() {
@@ -107,8 +109,9 @@ pub fn show_commit_window(
                     if let Some(d) = &mut main_diff {
                         let buffer = txt.buffer();
                         let mut iter = buffer.iter_at_offset(0);
-                        commit_diff.diff.enrich_view(&mut d.diff, &txt, &mut None);
-                        d.diff.render(&buffer, &mut iter, &mut None);
+                        let ctx = &mut Some(ctx);
+                        commit_diff.diff.enrich_view(&mut d.diff, &txt, ctx);
+                        d.diff.render(&buffer, &mut iter, ctx);
                     }
                 },
                 Event::Expand(offset, line_no) => {
@@ -123,7 +126,7 @@ pub fn show_commit_window(
                             }
                         }
                         if need_render {
-                            d.diff.render(&buffer, &mut iter, &mut None);
+                            d.diff.render(&buffer, &mut iter, &mut Some(ctx));
                         }
                     }
                 }
@@ -132,11 +135,18 @@ pub fn show_commit_window(
                         if d.diff.cursor(line_no, false) {
                             let buffer = txt.buffer();
                             let mut iter = buffer.iter_at_offset(0);
-                            d.diff.render(&buffer, &mut iter, &mut None);
+                            d.diff.render(&buffer, &mut iter, &mut Some(ctx));
                         }
                     }
                 }
+                Event::TextViewResize => {
+                    if let Some(d) = &mut main_diff {
+                        debug!("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
+                        d.diff.resize(&txt, &mut Some(ctx));
+                    }                    
+                }
                 _ => {
+                    
                     debug!("meeeeeeeeeeeeeeeeeeeeeerr {:?}", event);
                 }
             }
