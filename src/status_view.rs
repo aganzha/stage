@@ -11,13 +11,14 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::{
-    commit, get_current_repo_status, pull, push, reset_hard, stage_untracked,
-    stage_via_apply, ApplyFilter, ApplySubject, Diff, DiffKind, Event, Head,
-    Stashes, State, Untracked, View,
+    commit, get_current_repo_status, get_directories, pull, push, reset_hard,
+    stage_untracked, stage_via_apply, track_changes, ApplyFilter, ApplySubject, Diff,
+    DiffKind, Event, Head, Stashes, State, Untracked, View,
 };
 
 use async_channel::Sender;
 
+use gio::{Cancellable, File, FileMonitor, FileMonitorFlags, FileMonitorEvent};
 use glib::clone;
 use gtk4::prelude::*;
 use gtk4::{
@@ -102,6 +103,8 @@ pub struct Status {
     pub rendered: bool, // what it is for ????
     pub context: Option<StatusRenderContext>,
     pub stashes: Option<Stashes>,
+
+    // pub monitors: Vec<FileMonitor>,
 }
 
 impl Status {
@@ -129,12 +132,83 @@ impl Status {
             unstaged: None,
             rendered: false,
             context: None::<StatusRenderContext>,
-            stashes: None
+            stashes: None,
+            // monitors: Vec::new()
         }
     }
 
-    pub fn update_path(&mut self, path: OsString) {
+    pub fn update_path(&mut self, path: OsString, monitors: Rc<RefCell<Vec<FileMonitor>>>) {
+        if self.path.is_some() {
+            panic!("got one more path ? {:?} {:?}", self.path, path);
+        }
         self.path.replace(path);
+        self.setup_monitor(monitors);
+    }
+
+    pub fn setup_monitor(&mut self, monitors: Rc<RefCell<Vec<FileMonitor>>>) {
+        if let Some(_) = &self.path {
+
+            glib::spawn_future_local({
+                let path = self.path.clone().expect("no path");
+                let sender = self.sender.clone();
+                async move {
+                    let mut directories = gio::spawn_blocking({
+                        let path = path.clone();
+                        move || {
+                            get_directories(path)
+                        }
+                    }).await.expect("cant get direcories");
+                    let root = path.to_str()
+                        .expect("cant get string from path")
+                        .replace(".git/", "");
+                    directories.insert(root.clone());
+                    for dir in directories {
+                        let dir_name = match dir {
+                            name if name == root => {
+                                name
+                            },
+                            name => {
+                                format!("{}/{}", root, name)
+                            }
+                        };
+                        trace!("setup monitor {:?}", dir_name);
+                        let file = File::for_path(dir_name);
+                        let flags = FileMonitorFlags::empty();
+
+                        let monitor = file.monitor_directory(
+                            flags,
+                            Cancellable::current().as_ref()
+                        ).expect("cant get monitor");
+                        monitor.connect_changed({
+                            let path = path.clone();
+                            let sender = sender.clone();
+                            move |_monitor, file, _other_file, event| {
+                                match event {
+                                    FileMonitorEvent::ChangesDoneHint => {
+                                        gio::spawn_blocking({                                 
+                                            let path = path.clone();
+                                            let sender = sender.clone();
+                                            let file_path = file.path().expect("no file path").into_os_string();
+                                            move || {
+                                                track_changes(
+                                                    path,
+                                                    file_path,
+                                                    sender
+                                                )
+                                            }
+                                        });
+                                    }
+                                    _ => {
+                                        trace!("file event {:?}", event);
+                                    }
+                                }
+                            }});
+
+                        monitors.borrow_mut().push(monitor);
+                    }
+                }
+            });
+        }
     }
 
     pub fn update_stashes(&mut self, stashes: Stashes) {
@@ -174,7 +248,10 @@ impl Status {
     pub fn push(&mut self, window: &ApplicationWindow) {
         let remote = self.choose_remote();
         glib::spawn_future_local({
-            clone!(@weak window as window, @strong self as status => async move {
+            let window = window.clone();
+            let path = self.path.clone();
+            let sender = self.sender.clone();
+            async move {
                 let lb = ListBox::builder()
                     .selection_mode(SelectionMode::None)
                     .css_classes(vec![String::from("boxed-list")])
@@ -218,18 +295,16 @@ impl Status {
                 let remote_branch_name = format!("{}", input.text());
                 let track_remote = upstream.is_active();
                 gio::spawn_blocking({
-                    let path = status.path.expect("no path").clone();
-                    let sender = status.sender.clone();
                     move || {
                         push(
-                            path,
+                            path.expect("no path"),
                             remote_branch_name,
                             track_remote,
                             sender,
                         );
                     }
                 });
-            })
+            }
         });
     }
 
@@ -273,7 +348,10 @@ impl Status {
     ) {
         if self.staged.is_some() {
             glib::spawn_future_local({
-                clone!(@weak window as window, @strong self as status => async move {
+                let window = window.clone();
+                let sender = self.sender.clone();
+                let path = self.path.clone();
+                async move {
                     let lb = ListBox::builder()
                         .selection_mode(SelectionMode::None)
                         .css_classes(vec![String::from("boxed-list")])
@@ -285,7 +363,7 @@ impl Status {
                         .build();
                     lb.append(&input);
                     let dialog = crate::make_confirm_dialog(&window, Some(&lb), "Commit", "Commit");
-                    input.connect_apply(clone!(@strong dialog as dialog => move |entry| {
+                    input.connect_apply(clone!(@strong dialog as dialog => move |_entry| {
                         // someone pressed enter
                         dialog.response("confirm");
                         dialog.close();
@@ -298,10 +376,10 @@ impl Status {
                     gio::spawn_blocking({
                         let message = format!("{}", input.text());
                         move || {
-                            commit(status.path.expect("no path"), message, status.sender);
+                            commit(path.expect("no path"), message, sender);
                         }
                     });
-                })
+                }
             });
         }
     }

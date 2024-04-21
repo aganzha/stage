@@ -18,7 +18,7 @@ use log::{debug, info, trace};
 use regex::Regex;
 use std::cmp::Ordering;
 //use std::time::SystemTime;
-use std::{env, ffi, path, str};
+use std::{collections::HashSet, env, ffi, path, str};
 
 fn get_current_repo(
     mut path_buff: path::PathBuf,
@@ -445,9 +445,6 @@ pub fn get_current_repo_status(
     });
 
     // get unstaged
-    let mut opts = DiffOptions::new();
-    let opts = opts.show_untracked_content(true);
-
     let git_diff = repo
         .diff_index_to_workdir(None, None)
         .expect("cant' get diff index to workdir");
@@ -462,7 +459,6 @@ pub fn get_current_repo_status(
 
 pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
-
     let mut opts = DiffOptions::new();
 
     let opts = opts.show_untracked_content(true);
@@ -1500,4 +1496,42 @@ pub fn reset_hard(path: OsString, sender: Sender<crate::Event>) {
             get_current_repo_status(Some(path), sender);
         }
     });
+}
+
+pub fn get_directories(path: OsString) -> HashSet<String> {
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let index = repo.index().expect("cant get index");
+    let mut directories = HashSet::new();
+    for entry in index.iter() {
+        trace!("entry in index {:?}", String::from_utf8_lossy(&entry.path));
+        let pth = String::from_utf8_lossy(&entry.path);
+        let mut parts: Vec<&str> = pth.split("/").collect();
+        if parts.len() > 0 {
+            parts.pop();
+        }
+        for dir in parts {
+            directories.insert(String::from(dir));
+        }
+    }
+    directories
+}
+
+pub fn track_changes(path: OsString, file_path: OsString, sender: Sender<crate::Event>) {
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let index = repo.index().expect("cant get index");
+    let file_path = file_path.into_string().expect("wrong path");
+    for entry in index.iter() {
+        let entry_path = format!("{}", String::from_utf8_lossy(&entry.path));
+        if file_path.ends_with(&entry_path) {            
+            trace!("got modifeied file {:?}", file_path);
+            let git_diff = repo
+                .diff_index_to_workdir(None, None)
+                .expect("cant' get diff index to workdir");
+            let diff = make_diff(git_diff, DiffKind::Unstaged);
+            sender
+                .send_blocking(crate::Event::Unstaged(diff))
+                .expect("Could not send through channel");
+            break;
+        }
+    }
 }
