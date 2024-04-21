@@ -7,8 +7,8 @@ use branches_view::{show_branches_window, Event as BranchesEvent};
 mod stashes_view;
 use stashes_view::factory as stashes_view_factory;
 
-mod oid_view;
-use oid_view::show_oid_window;
+mod commit_view;
+use commit_view::show_commit_window;
 
 use core::time::Duration;
 use std::cell::RefCell;
@@ -19,8 +19,8 @@ mod git;
 use git::{
     apply_stash, checkout, cherry_pick, commit, create_branch, drop_stash,
     get_current_repo_status, get_directories, get_refs, kill_branch, merge,
-    pull, push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, ApplyFilter, ApplySubject, BranchData, Diff, DiffKind,
+    pull, push, reset_hard, stage_untracked, stage_via_apply, stash_changes, get_commit_diff,
+    track_changes, ApplyFilter, ApplySubject, BranchData, Diff, DiffKind, CommitDiff,
     File, Head, Hunk, Line, StashData, Stashes, State, Untracked,
     UntrackedFile, View,
 };
@@ -109,6 +109,7 @@ pub enum Event {
     Zoom(bool),
     Untracked(Untracked),
     ResetHard,
+    CommitDiff(CommitDiff)
     // Monitors(Vec<gio::FileMonitor>)
 }
 
@@ -326,8 +327,9 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::ShowOid(oid) => {
                     info!("main.show oid");
-                    show_oid_window(
+                    show_commit_window(
                         status.path.clone().expect("no path"),
+                        oid,
                         &window,
                         sender.clone(),
                     );
@@ -338,6 +340,9 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Refresh => {
                     status.get_status();
+                }
+                Event::CommitDiff(_d) => {
+                    panic!("got oid diff in another receiver");
                 }
             };
         }

@@ -1539,3 +1539,52 @@ pub fn track_changes(
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct CommitDiff {
+    pub oid: Oid,
+    pub commit_string: String,
+    pub commit_dt: DateTime<FixedOffset>,
+    pub diff: Diff,
+}
+
+impl Default for CommitDiff {
+    fn default() -> Self {
+        CommitDiff {
+            oid: Oid::zero(),
+            commit_string: String::from(""),            
+            commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
+            diff: Diff::new(DiffKind::Unstaged)
+        }
+    }
+}
+
+impl CommitDiff {
+    pub fn new(commit: Commit, diff: Diff) -> Self {
+        CommitDiff {
+            oid: commit.id(),
+            commit_string: commit_string(&commit),
+            commit_dt: commit_dt(&commit),
+            diff: diff
+        }
+    }
+}
+
+pub fn get_commit_diff(
+    path: OsString,
+    oid: Oid,
+    sender: Sender<crate::Event>
+) {
+    let repo = Repository::open(path).expect("can't open repo");
+    let commit = repo.find_commit(oid).expect("cant find commit");
+    let tree = commit.tree().expect("no get tree from commit");
+    let parent = commit.parent(0).expect("cant get commit parent");
+
+    let parent_tree = parent.tree().expect("no get tree from PARENT commit");
+    let git_diff = repo
+        .diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)
+        .expect("can't get diff tree to index");
+    let commit_diff = CommitDiff::new(commit, make_diff(git_diff, DiffKind::Unstaged));    
+    sender.send_blocking(crate::Event::CommitDiff(commit_diff))
+        .expect("Could not send through channel");
+}
