@@ -1108,6 +1108,7 @@ impl BranchData {
         }
         let is_head = branch.is_head();
         let bref = branch.get();
+        // can't get commit from ref!: Error { code: -3, klass: 3, message: "the reference 'refs/remotes/origin/HEAD' cannot be peeled - Cannot resolve reference" }
         let refname = bref.name().unwrap().to_string();
         let ob = bref
             .peel(ObjectType::Commit)
