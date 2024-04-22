@@ -112,8 +112,8 @@ pub enum Event {
     Zoom(bool),
     Untracked(Untracked),
     ResetHard,
-    CommitDiff(CommitDiff)
-    // Monitors(Vec<gio::FileMonitor>)
+    CommitDiff(CommitDiff),
+    PushUserPass(String, bool)
 }
 
 fn zoom(dir: bool) {
@@ -235,7 +235,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Push => {
                     info!("main.push");
-                    status.push(&window);
+                    status.push(&window, None);
                 }
                 Event::Pull => {
                     info!("main.pull");
@@ -346,6 +346,9 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::CommitDiff(_d) => {
                     panic!("got oid diff in another receiver");
+                }
+                Event::PushUserPass(remote, tracking) => {
+                    status.push(&window, Some((remote, tracking, true)))
                 }
             };
         }
