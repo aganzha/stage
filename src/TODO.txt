@@ -1,3 +1,11 @@
+thread '<unnamed>' panicked at src/git.rs:1114:14:
+can't get commit from ref!: Error { code: -3, klass: 3, message: "the reference 'refs/remotes/origin/HEAD' cannot be peeled - Cannot resolve reference" }
+
+BUG: kill in untracked stages it
+BUG: unstaging 1 untracked unstage all untracked (perhaps in libgit)
+BUG: search item in branches. checkout with active search - core dump.
+     because newly checkout item is not in list???
+     
 so, about search - the head is does not matter. what matter is selected position.
 it need to update list in such a way, that selected position is always visible
 PERFORMANCE: delete ~/docs/client/WHDDemo and open app :)
