@@ -29,7 +29,7 @@ use gtk4::{
     Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
-use libadwaita::{ApplicationWindow, EntryRow, SwitchRow}; // _Window,
+use libadwaita::{ApplicationWindow, EntryRow, SwitchRow, PasswordEntryRow}; // _Window,
 use log::{debug, trace};
 
 use std::ffi::OsString;
@@ -148,7 +148,7 @@ impl Status {
                                 format!("{}/{}", root, name)
                             }
                         };
-                        trace!("setup monitor {:?}", dir_name);
+                        debug!("setup monitor {:?}", dir_name);
                         let file = File::for_path(dir_name);
                         let flags = FileMonitorFlags::empty();
 
@@ -179,12 +179,11 @@ impl Status {
                                         });
                                     }
                                     _ => {
-                                        trace!("file event {:?}", event);
+                                        debug!("file event in monitor {:?}", event);
                                     }
                                 }
                             }
                         });
-
                         monitors.borrow_mut().push(monitor);
                     }
                 }
@@ -226,7 +225,11 @@ impl Status {
         });
     }
 
-    pub fn push(&mut self, window: &ApplicationWindow) {
+    pub fn push(
+        &mut self,
+        window: &ApplicationWindow,
+        remote_dialog: Option<(String, bool, bool)>
+    ){
         let remote = self.choose_remote();
         glib::spawn_future_local({
             let window = window.clone();
@@ -249,15 +252,23 @@ impl Status {
                     .css_classes(vec!["input_field"])
                     .text(remote)
                     .build();
-                lb.append(&input);
-                lb.append(&upstream);
-
+                
+                let user_name = EntryRow::builder()
+                    .title("User name:")
+                    .show_apply_button(true)
+                    .css_classes(vec!["input_field"])
+                    .build();
+                let password = PasswordEntryRow::builder()
+                    .title("Password:")
+                    .css_classes(vec!["input_field"])
+                    .build();                
                 let dialog = crate::make_confirm_dialog(
                     &window,
                     Some(&lb),
                     "Push to remote/origin", // TODO here is harcode
                     "Push",
-                );
+                );                
+
                 input.connect_apply(
                     clone!(@strong dialog as dialog => move |_| {
                         // someone pressed enter
@@ -272,12 +283,40 @@ impl Status {
                         dialog.close();
                     }),
                 );
+                let mut pass = false;
+                match remote_dialog {
+                    None => {
+                        lb.append(&input);
+                        lb.append(&upstream);
+                    }
+                    Some((remote_branch, track_remote, ask_password)) if ask_password => {
+                        input.set_text(&remote_branch);
+                        if track_remote {
+                            upstream.set_active(true);
+                        }
+                        lb.append(&user_name);
+                        lb.append(&password);
+                        pass = true;
+                    }
+                    _ => {
+                        panic!("unknown case");
+                    }
+                }
+
                 let response = dialog.choose_future().await;
                 if "confirm" != response {
                     return;
                 }
                 let remote_branch_name = format!("{}", input.text());
                 let track_remote = upstream.is_active();
+                let mut user_pass: Option<(String, String)> = None;
+                if pass {
+                    user_pass.replace(
+                        (
+                            format!("{}", user_name.text()),
+                            format!("{}", password.text())
+                        ));
+                }
                 gio::spawn_blocking({
                     move || {
                         push(
@@ -285,6 +324,7 @@ impl Status {
                             remote_branch_name,
                             track_remote,
                             sender,
+                            user_pass
                         );
                     }
                 });

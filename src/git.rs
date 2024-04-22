@@ -948,6 +948,7 @@ pub fn push(
     remote_branch: String,
     tracking_remote: bool,
     sender: Sender<crate::Event>,
+    user_pass: Option<(String, String)>
 ) {
     debug!("remote branch {:?}", remote_branch);
     let repo = Repository::open(path.clone()).expect("can't open repo");
@@ -967,7 +968,10 @@ pub fn push(
 
     let mut opts = PushOptions::new();
     let mut callbacks = RemoteCallbacks::new();
+
     callbacks.update_tips({
+        let remote_branch = remote_branch.clone();
+        let sender = sender.clone();
         move |updated_ref, oid1, oid2| {
             debug!(
                 "updated local references {:?} {:?} {:?}",
@@ -996,17 +1000,26 @@ pub fn push(
             Ok(())
         }
     });
-    callbacks.credentials(|url, username_from_url, allowed_types| {
-        debug!("auth credentials url {:?}", url);
-        // "git@github.com:aganzha/stage.git"
-        debug!("auth credentials username_from_url {:?}", username_from_url);
-        debug!("auth credentials allowed_types url {:?}", allowed_types);
-        if allowed_types.contains(CredentialType::SSH_KEY) {
-            let result = Cred::ssh_key_from_agent(username_from_url.unwrap());
-            debug!("got auth memory result. is it ok? {:?}", result.is_ok());
-            return result;
+    const plain_password: &str = "plain text password required";
+    callbacks.credentials({
+        move |url, username_from_url, allowed_types| {
+            debug!("auth credentials url {:?}", url);
+            // "git@github.com:aganzha/stage.git"
+            debug!("auth credentials username_from_url {:?}", username_from_url);
+            debug!("auth credentials allowed_types {:?}", allowed_types);
+            if allowed_types.contains(CredentialType::SSH_KEY) {
+                let result = Cred::ssh_key_from_agent(username_from_url.unwrap());
+                debug!("got auth memory result. is it ok? {:?}", result.is_ok());
+                return result;
+            }
+            if allowed_types == CredentialType::USER_PASS_PLAINTEXT {
+                if let Some((user_name, password)) = &user_pass {
+                    return Cred::userpass_plaintext(&user_name, &password);
+                }
+                return Err(Error::from_str(plain_password));
+            }
+            todo!("implement other types");
         }
-        todo!("implement other types");
     });
     callbacks.transfer_progress(|progress| {
         debug!("transfer progress {:?}", progress.received_bytes());
@@ -1044,9 +1057,18 @@ pub fn push(
         debug!("pack progress {:?} {:?} {:?}", stage, s1, s2);
     });
     opts.remote_callbacks(callbacks);
-    remote
-        .push(&[refspec], Some(&mut opts))
-        .expect("cant push to remote");
+    match remote.push(&[refspec], Some(&mut opts)) {
+        Ok(_) => {}
+        Err(error) if error.message() == plain_password => {
+            sender.send_blocking(
+                crate::Event::PushUserPass(remote_branch, tracking_remote)
+            ).expect("cant send through channel");
+
+        }
+        Err(error) => {
+            panic!("{}", error);
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
