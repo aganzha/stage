@@ -407,7 +407,6 @@ pub fn get_current_repo_status(
         }
     });
 
-    // get staged
     gio::spawn_blocking({
         let sender = sender.clone();
         let path = path.clone();
@@ -445,6 +444,8 @@ pub fn get_current_repo_status(
     });
 
     // get unstaged
+    // TODO! throttle monitor
+    // Error { code: -1, klass: 2, message: "error reading file for hashing: " }
     let git_diff = repo
         .diff_index_to_workdir(None, None)
         .expect("cant' get diff index to workdir");
@@ -1542,6 +1543,7 @@ pub fn track_changes(
     file_path: OsString,
     sender: Sender<crate::Event>,
 ) {
+    // TODO throttle!
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let file_path = file_path.into_string().expect("wrong path");

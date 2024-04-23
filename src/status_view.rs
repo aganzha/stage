@@ -173,6 +173,7 @@ impl Status {
                                                 .expect("no file path")
                                                 .into_os_string();
                                             move || {
+                                                // TODO! throttle!
                                                 track_changes(
                                                     path, file_path, sender,
                                                 )
