@@ -97,6 +97,7 @@ impl CharView for TextView {
     }
 }
 
+
 pub fn text_view_factory(
     sndr: Sender<crate::Event>,
     text_view_width: Rc<RefCell<(i32, i32)>>,
