@@ -1,6 +1,7 @@
 pub mod container;
 pub mod factory;
 use container::{ViewContainer, ViewKind};
+use core::time::Duration;
 
 pub mod render;
 use render::Tag;
@@ -79,7 +80,7 @@ pub struct Status {
     pub rendered: bool, // what it is for ????
     pub context: Option<StatusRenderContext>,
     pub stashes: Option<Stashes>,
-    // pub monitors: Vec<FileMonitor>,
+    pub monitor_lock: Rc<RefCell<bool>>
 }
 
 impl Status {
@@ -108,6 +109,7 @@ impl Status {
             rendered: false,
             context: None::<StatusRenderContext>,
             stashes: None,
+            monitor_lock: Rc::new(RefCell::<bool>::new(false))
             // monitors: Vec::new()
         }
     }
@@ -129,6 +131,7 @@ impl Status {
             glib::spawn_future_local({
                 let path = self.path.clone().expect("no path");
                 let sender = self.sender.clone();
+                let lock = self.monitor_lock.clone();
                 async move {
                     let mut directories = gio::spawn_blocking({
                         let path = path.clone();
@@ -161,22 +164,42 @@ impl Status {
                         monitor.connect_changed({
                             let path = path.clone();
                             let sender = sender.clone();
+                            let lock = lock.clone();
+                            debug!("++++++++++++++++++++ lock before {:p} {:?}", &lock, lock);
                             move |_monitor, file, _other_file, event| {
                                 match event {
                                     FileMonitorEvent::ChangesDoneHint => {
-                                        // TODO! throttle for checkout/pull!!!!
-                                        gio::spawn_blocking({
+                                        // TODO! throttle for checkout/pull!!!!                               
+                                        if *lock.borrow() {
+                                            debug!("noooooooooooooo way {:p} {:?}", &lock, lock);
+                                            return;
+                                        }
+                                        lock.replace(true);
+                                        debug!("SET LOCK -------------------> {:p} {:?}", &lock, lock);
+                                        let file_path = file
+                                            .path()
+                                            .expect("no file path")
+                                            .into_os_string();
+                                        glib::source::timeout_add_local(Duration::from_millis(300), {
+                                            let lock = lock.clone();
                                             let path = path.clone();
                                             let sender = sender.clone();
-                                            let file_path = file
-                                                .path()
-                                                .expect("no file path")
-                                                .into_os_string();
+                                            let file_path = file_path.clone();
                                             move || {
-                                                // TODO! throttle!
-                                                track_changes(
-                                                    path, file_path, sender,
-                                                )
+                                                gio::spawn_blocking({
+                                                    let path = path.clone();
+                                                    let sender = sender.clone();
+                                                    let file_path = file_path.clone();
+                                                    lock.replace(false);
+                                                    debug!("RELEASE LOCK................. lock after {:p} {:?}", &lock, lock);
+                                                    move || {
+                                                        // TODO! throttle!
+                                                        track_changes(
+                                                            path, file_path, sender,
+                                                        )
+                                                    }
+                                                });
+                                                glib::ControlFlow::Break
                                             }
                                         });
                                     }
@@ -254,7 +277,7 @@ impl Status {
                     .css_classes(vec!["input_field"])
                     .text(remote)
                     .build();
-                
+
                 let user_name = EntryRow::builder()
                     .title("User name:")
                     .show_apply_button(true)
@@ -263,13 +286,13 @@ impl Status {
                 let password = PasswordEntryRow::builder()
                     .title("Password:")
                     .css_classes(vec!["input_field"])
-                    .build();                
+                    .build();
                 let dialog = crate::make_confirm_dialog(
                     &window,
                     Some(&lb),
                     "Push to remote/origin", // TODO here is harcode
                     "Push",
-                );                
+                );
 
                 input.connect_apply(
                     clone!(@strong dialog as dialog => move |_| {
