@@ -1001,7 +1001,7 @@ pub fn push(
             Ok(())
         }
     });
-    const plain_password: &str = "plain text password required";
+    const PLAIN_PASSWORD: &str = "plain text password required";
     callbacks.credentials({
         move |url, username_from_url, allowed_types| {
             debug!("auth credentials url {:?}", url);
@@ -1017,7 +1017,7 @@ pub fn push(
                 if let Some((user_name, password)) = &user_pass {
                     return Cred::userpass_plaintext(&user_name, &password);
                 }
-                return Err(Error::from_str(plain_password));
+                return Err(Error::from_str(PLAIN_PASSWORD));
             }
             todo!("implement other types");
         }
@@ -1060,7 +1060,7 @@ pub fn push(
     opts.remote_callbacks(callbacks);
     match remote.push(&[refspec], Some(&mut opts)) {
         Ok(_) => {}
-        Err(error) if error.message() == plain_password => {
+        Err(error) if error.message() == PLAIN_PASSWORD => {
             sender.send_blocking(
                 crate::Event::PushUserPass(remote_branch, tracking_remote)
             ).expect("cant send through channel");
