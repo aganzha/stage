@@ -127,6 +127,7 @@ impl Status {
     }
 
     pub fn setup_monitor(&mut self, monitors: Rc<RefCell<Vec<FileMonitor>>>) {
+
         if let Some(_) = &self.path {
             glib::spawn_future_local({
                 let path = self.path.clone().expect("no path");
@@ -166,19 +167,26 @@ impl Status {
                             let sender = sender.clone();
                             let lock = lock.clone();
                             move |_monitor, file, _other_file, event| {
+                                // TODO get from SELF.settings
+                                let patterns_to_exclude: Vec<&str> = vec!["/.#", "/mout", "flycheck_", "/sed"];
                                 match event {
                                     FileMonitorEvent::ChangesDoneHint => {
-                                        // TODO! throttle for checkout/pull!!!!                               
-                                        if *lock.borrow() {
-                                            debug!("NOOOOOOOOOOOOOOOOOOOOOOOOOOOO way {:p} {:?}", &lock, lock);
-                                            return;
-                                        }
-                                        lock.replace(true);
-                                        debug!("SET LOCK -------------------> {:p} {:?}", &lock, lock);
                                         let file_path = file
                                             .path()
                                             .expect("no file path")
                                             .into_os_string();
+                                        let str_file_path = file_path.clone().into_string().expect("no file path");
+                                        for pat in patterns_to_exclude {
+                                            if str_file_path.contains(pat) {
+                                                return
+                                            }
+                                        }
+                                        if *lock.borrow() {
+                                            debug!("NOOOOOOOOOOOOOOOOOOOOOOOOOOOO way {:p} {:?} {:?}", &lock, lock, file_path);
+                                            return;
+                                        }
+                                        lock.replace(true);
+                                        debug!("SET LOCK -------------------> {:p} {:?} {:?}", &lock, lock, file_path);
                                         glib::source::timeout_add_local(Duration::from_millis(300), {
                                             let lock = lock.clone();
                                             let path = path.clone();
@@ -190,7 +198,7 @@ impl Status {
                                                     let sender = sender.clone();
                                                     let file_path = file_path.clone();
                                                     lock.replace(false);
-                                                    debug!("RELEASE LOCK................. lock after {:p} {:?}", &lock, lock);
+                                                    debug!("RELEASE LOCK................. lock after {:p} {:?} {:?}", &lock, lock, file_path);
                                                     move || {
                                                         // TODO! throttle!
                                                         track_changes(
