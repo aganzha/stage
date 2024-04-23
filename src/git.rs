@@ -1525,16 +1525,14 @@ pub fn get_directories(path: OsString) -> HashSet<String> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let mut directories = HashSet::new();
-    for entry in index.iter() {
-        trace!("entry in index {:?}", String::from_utf8_lossy(&entry.path));
+    for entry in index.iter() {        
         let pth = String::from_utf8_lossy(&entry.path);
         let mut parts: Vec<&str> = pth.split("/").collect();
+        trace!("entry in index {:?}", parts);
         if parts.len() > 0 {
             parts.pop();
         }
-        for dir in parts {
-            directories.insert(String::from(dir));
-        }
+        directories.insert(parts.join("/"));
     }
     directories
 }

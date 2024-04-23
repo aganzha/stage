@@ -164,6 +164,7 @@ impl Status {
                             move |_monitor, file, _other_file, event| {
                                 match event {
                                     FileMonitorEvent::ChangesDoneHint => {
+                                        // TODO! throttle for checkout/pull!!!!
                                         gio::spawn_blocking({
                                             let path = path.clone();
                                             let sender = sender.clone();
