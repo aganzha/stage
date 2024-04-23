@@ -165,13 +165,12 @@ impl Status {
                             let path = path.clone();
                             let sender = sender.clone();
                             let lock = lock.clone();
-                            debug!("++++++++++++++++++++ lock before {:p} {:?}", &lock, lock);
                             move |_monitor, file, _other_file, event| {
                                 match event {
                                     FileMonitorEvent::ChangesDoneHint => {
                                         // TODO! throttle for checkout/pull!!!!                               
                                         if *lock.borrow() {
-                                            debug!("noooooooooooooo way {:p} {:?}", &lock, lock);
+                                            debug!("NOOOOOOOOOOOOOOOOOOOOOOOOOOOO way {:p} {:?}", &lock, lock);
                                             return;
                                         }
                                         lock.replace(true);
@@ -204,7 +203,7 @@ impl Status {
                                         });
                                     }
                                     _ => {
-                                        debug!("file event in monitor {:?}", event);
+                                        trace!("file event in monitor {:?}", event);
                                     }
                                 }
                             }
