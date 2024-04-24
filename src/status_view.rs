@@ -247,12 +247,53 @@ impl Status {
         });
     }
 
-    pub fn pull(&self) {
-        gio::spawn_blocking({
+    pub fn pull(&self,
+                window: &ApplicationWindow,
+                ask_pass: Option<bool>) {
+        glib::spawn_future_local({
             let path = self.path.clone().expect("no path");
             let sender = self.sender.clone();
-            move || {
-                pull(path, sender);
+            let window = window.clone();
+            async move {
+                let mut user_pass: Option<(String, String)> = None;
+                if let Some(ask)  = ask_pass {
+                    if ask {
+                        let lb = ListBox::builder()
+                            .selection_mode(SelectionMode::None)
+                            .css_classes(vec![String::from("boxed-list")])
+                            .build();
+
+                        let user_name = EntryRow::builder()
+                            .title("User name:")
+                            .show_apply_button(true)
+                            .css_classes(vec!["input_field"])
+                            .build();
+                        let password = PasswordEntryRow::builder()
+                            .title("Password:")
+                            .css_classes(vec!["input_field"])
+                            .build();
+                        let dialog = crate::make_confirm_dialog(
+                            &window,
+                            Some(&lb),
+                            "Pull from remote/origin", // TODO here is harcode
+                            "Pull",
+                        );
+                        let response = dialog.choose_future().await;
+                        if "confirm" != response {
+                            return;
+                        }
+                        user_pass.replace(
+                        (
+                            format!("{}", user_name.text()),
+                            format!("{}", password.text())
+                        ));
+                    }
+                }
+                gio::spawn_blocking({
+                    move || {
+                        pull(path, sender, user_pass);
+                    }
+                });
             }
         });
     }

@@ -12,7 +12,7 @@ use git2::{
     DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
     DiffOptions, Error, FetchOptions, ObjectType, Oid, PushOptions,
     RemoteCallbacks, Repository, RepositoryState, ResetType,
-    StashApplyOptions, StashFlags,
+    StashApplyOptions, StashFlags, AutotagOption, Direction
 };
 use log::{debug, info, trace};
 use regex::Regex;
@@ -841,7 +841,11 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
     get_head(path, sender)
 }
 
-pub fn pull(path: OsString, sender: Sender<crate::Event>) {
+pub fn pull(
+    path: OsString,
+    sender: Sender<crate::Event>,
+    user_pass: Option<(String, String)>
+) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut remote = repo
         .find_remote("origin") // TODO here is hardcode
@@ -867,55 +871,10 @@ pub fn pull(path: OsString, sender: Sender<crate::Event>) {
             true
         }
     });
-    callbacks.push_update_reference({
-        move |ref_name, opt_status| {
-            debug!("pull update ref {:?}", ref_name);
-            debug!("pull status {:?}", opt_status);
-            // TODO - if status is not None
-            // it will need to interact with user
-            assert!(opt_status.is_none());
-            Ok(())
-        }
-    });
-    callbacks.credentials(|url, username_from_url, allowed_types| {
-        debug!("auth credentials url {:?}", url);
-        // "git@github.com:aganzha/stage.git"
-        debug!("auth credentials username_from_url {:?}", username_from_url);
-        debug!("auth credentials allowed_types url {:?}", allowed_types);
-        if allowed_types.contains(CredentialType::SSH_KEY) {
-            let result = Cred::ssh_key_from_agent(username_from_url.unwrap());
-            debug!("got auth memory result. is it ok? {:?}", result.is_ok());
-            return result;
-        }
-        todo!("implement other types");
-    });
-    callbacks.transfer_progress(|progress| {
-        debug!("transfer progress {:?}", progress.received_bytes());
-        true
-    });
-    callbacks.sideband_progress(|response| {
-        debug!(
-            "pull.sideband progress {:?}",
-            String::from_utf8_lossy(response)
-        );
-        true
-    });
-    callbacks.certificate_check(|_cert, error| {
-        debug!("cert error? {:?}", error);
-        Ok(CertificateCheckStatus::CertificateOk)
-    });
-    callbacks.push_update_reference(|re, op| {
-        debug!("pull_update_reference {:?} {:?}", re, op);
-        Ok(())
-    });
-    callbacks.push_transfer_progress(|s1, s2, s3| {
-        debug!("pull_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
-    });
-    callbacks.push_negotiation(|update| {
-        debug!("pull_negotiation {:?}", update.len());
-        Ok(())
-    });
+
+    set_remote_callbacks(&mut callbacks, &user_pass);
     opts.remote_callbacks(callbacks);
+
     remote
         .fetch(&[head_ref.name().unwrap()], Some(&mut opts), None)
         .expect("cant fetch");
@@ -943,6 +902,84 @@ pub fn pull(path: OsString, sender: Sender<crate::Event>) {
         .expect("cant set target");
     get_head(path.clone(), sender.clone());
 }
+
+const PLAIN_PASSWORD: &str = "plain text password required";
+
+pub fn set_remote_callbacks(callbacks: &mut RemoteCallbacks, user_pass: &Option<(String, String)>) {
+
+    // const PLAIN_PASSWORD: &str = "plain text password required";
+    callbacks.credentials({
+        let user_pass = user_pass.clone();
+        move |url, username_from_url, allowed_types| {
+            debug!("auth credentials url {:?}", url);
+            // "git@github.com:aganzha/stage.git"
+            debug!("auth credentials username_from_url {:?}", username_from_url);
+            debug!("auth credentials allowed_types {:?}", allowed_types);
+            if allowed_types.contains(CredentialType::SSH_KEY) {
+                let result = Cred::ssh_key_from_agent(username_from_url.unwrap());
+                debug!("got auth memory result. is it ok? {:?}", result.is_ok());
+                return result;
+            }
+            if allowed_types == CredentialType::USER_PASS_PLAINTEXT {
+                if let Some((user_name, password)) = &user_pass {
+                    return Cred::userpass_plaintext(&user_name, &password);
+                }
+                return Err(Error::from_str(PLAIN_PASSWORD));
+            }
+            todo!("implement other types");
+        }
+    });
+
+    callbacks.push_transfer_progress(|s1, s2, s3| {
+        debug!("push_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
+    });
+
+    callbacks.transfer_progress(|progress| {
+        debug!("transfer progress {:?}", progress.received_bytes());
+        true
+    });
+
+    callbacks.pack_progress(|stage, s1, s2| {
+        debug!("pack progress {:?} {:?} {:?}", stage, s1, s2);
+    });
+
+    callbacks.sideband_progress(|response| {
+        debug!(
+            "push.sideband progress {:?}",
+            String::from_utf8_lossy(response)
+        );
+        true
+    });
+
+    callbacks.push_update_reference({
+        move |ref_name, opt_status| {
+            debug!("push update ref {:?}", ref_name);
+            debug!("push status {:?}", opt_status);
+            // TODO - if status is not None
+            // it will need to interact with user
+            assert!(opt_status.is_none());
+            Ok(())
+        }
+    });
+
+    callbacks.certificate_check(|_cert, error| {
+        debug!("cert error? {:?}", error);
+        Ok(CertificateCheckStatus::CertificateOk)
+    });
+
+    callbacks.push_negotiation(|update| {
+        if !update.is_empty() {
+            debug!(
+                "push_negotiation {:?} {:?}",
+                update[0].src_refname(),
+                update[0].dst_refname()
+            );
+        }
+        Ok(())
+    });
+
+}
+
 
 pub fn push(
     path: OsString,
@@ -991,73 +1028,10 @@ pub fn push(
             true
         }
     });
-    callbacks.push_update_reference({
-        move |ref_name, opt_status| {
-            debug!("push update ref {:?}", ref_name);
-            debug!("push status {:?}", opt_status);
-            // TODO - if status is not None
-            // it will need to interact with user
-            assert!(opt_status.is_none());
-            Ok(())
-        }
-    });
-    const PLAIN_PASSWORD: &str = "plain text password required";
-    callbacks.credentials({
-        move |url, username_from_url, allowed_types| {
-            debug!("auth credentials url {:?}", url);
-            // "git@github.com:aganzha/stage.git"
-            debug!("auth credentials username_from_url {:?}", username_from_url);
-            debug!("auth credentials allowed_types {:?}", allowed_types);
-            if allowed_types.contains(CredentialType::SSH_KEY) {
-                let result = Cred::ssh_key_from_agent(username_from_url.unwrap());
-                debug!("got auth memory result. is it ok? {:?}", result.is_ok());
-                return result;
-            }
-            if allowed_types == CredentialType::USER_PASS_PLAINTEXT {
-                if let Some((user_name, password)) = &user_pass {
-                    return Cred::userpass_plaintext(&user_name, &password);
-                }
-                return Err(Error::from_str(PLAIN_PASSWORD));
-            }
-            todo!("implement other types");
-        }
-    });
-    callbacks.transfer_progress(|progress| {
-        debug!("transfer progress {:?}", progress.received_bytes());
-        true
-    });
-    callbacks.sideband_progress(|response| {
-        debug!(
-            "push.sideband progress {:?}",
-            String::from_utf8_lossy(response)
-        );
-        true
-    });
-    callbacks.certificate_check(|_cert, error| {
-        debug!("cert error? {:?}", error);
-        Ok(CertificateCheckStatus::CertificateOk)
-    });
-    callbacks.push_update_reference(|re, op| {
-        debug!("push_update_reference {:?} {:?}", re, op);
-        Ok(())
-    });
-    callbacks.push_transfer_progress(|s1, s2, s3| {
-        debug!("push_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
-    });
-    callbacks.push_negotiation(|update| {
-        if !update.is_empty() {
-            debug!(
-                "push_negotiation {:?} {:?}",
-                update[0].src_refname(),
-                update[0].dst_refname()
-            );
-        }
-        Ok(())
-    });
-    callbacks.pack_progress(|stage, s1, s2| {
-        debug!("pack progress {:?} {:?} {:?}", stage, s1, s2);
-    });
+
+    set_remote_callbacks(&mut callbacks, &user_pass);
     opts.remote_callbacks(callbacks);
+
     match remote.push(&[refspec], Some(&mut opts)) {
         Ok(_) => {}
         Err(error) if error.message() == PLAIN_PASSWORD => {
@@ -1153,7 +1127,7 @@ impl BranchData {
     }
 }
 
-pub fn get_refs(path: OsString) -> Vec<BranchData> {
+pub fn get_branches(path: OsString) -> Vec<BranchData> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
     let branches = repo.branches(None).expect("can't get branches");
@@ -1165,12 +1139,14 @@ pub fn get_refs(path: OsString) -> Vec<BranchData> {
         }
     });
     result.sort_by(|a, b| {
-        // if a.is_head {
-        //     return Ordering::Less;
-        // }
-        // if b.is_head {
-        //     return Ordering::Greater;
-        // }
+        // let head be always on top
+        if a.is_head {
+            return Ordering::Less;
+        }
+        if b.is_head {
+            return Ordering::Greater;
+        }
+
         if a.branch_type == BranchType::Local
             && b.branch_type != BranchType::Local
         {
@@ -1526,7 +1502,7 @@ pub fn get_directories(path: OsString) -> HashSet<String> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let mut directories = HashSet::new();
-    for entry in index.iter() {        
+    for entry in index.iter() {
         let pth = String::from_utf8_lossy(&entry.path);
         let mut parts: Vec<&str> = pth.split("/").collect();
         trace!("entry in index {:?}", parts);
@@ -1575,7 +1551,7 @@ impl Default for CommitDiff {
     fn default() -> Self {
         CommitDiff {
             oid: Oid::zero(),
-            commit_string: String::from(""),            
+            commit_string: String::from(""),
             commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
             diff: Diff::new(DiffKind::Unstaged)
         }
@@ -1607,7 +1583,31 @@ pub fn get_commit_diff(
     let git_diff = repo
         .diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)
         .expect("can't get diff tree to index");
-    let commit_diff = CommitDiff::new(commit, make_diff(git_diff, DiffKind::Unstaged));    
+    let commit_diff = CommitDiff::new(commit, make_diff(git_diff, DiffKind::Unstaged));
     sender.send_blocking(crate::Event::CommitDiff(commit_diff))
         .expect("Could not send through channel");
+}
+
+
+pub fn update_remote(path: OsString,  _sender: Sender<crate::Event>, user_pass: Option<(String, String)>) -> Result<(),()> {
+    let repo = Repository::open(path).expect("can't open repo");
+    let mut remote = repo
+        .find_remote("origin") // TODO here is hardcode
+        .expect("no remote");
+
+    let mut callbacks = RemoteCallbacks::new();
+    set_remote_callbacks(&mut callbacks, &user_pass);
+
+    remote.connect_auth(Direction::Fetch, Some(callbacks), None).expect("cant connect");
+    let mut callbacks = RemoteCallbacks::new();
+    set_remote_callbacks(&mut callbacks, &user_pass);
+
+    remote.prune(Some(callbacks)).expect("cant prune");
+
+    let mut callbacks = RemoteCallbacks::new();
+    set_remote_callbacks(&mut callbacks, &user_pass);
+
+    remote.update_tips(Some(&mut callbacks), true, AutotagOption::Auto, None).expect("cant update");
+
+    Ok(())
 }

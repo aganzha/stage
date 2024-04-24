@@ -342,9 +342,9 @@ impl BranchList {
         // self.sections_changed(8, 1);
         trace!("++++++++++++++++++++++++++++++++++++++++");
         // trace!("2");
-        // self.sections_changed(6, 1);
+        // self.sections_changed(6, 1;)
 
-        // self.imp().list.borrow_mut().retain(|item: &BranchItem| {
+        // self.imp().list.borrow_mut().retian(|item: &BranchItem| {
         //     item.is_head()
         // });
         // let mut le = 0;
@@ -358,11 +358,11 @@ impl BranchList {
         // self.items_changed(1, 0, le as u32);
     }
 
-    pub fn make_list(&self, repo_path: std::ffi::OsString) {
+    pub fn get_branches(&self, repo_path: std::ffi::OsString) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list => async move {
                 let branches: Vec<crate::BranchData> = gio::spawn_blocking(move || {
-                    crate::get_refs(repo_path)
+                    crate::get_branches(repo_path)
                 }).await.expect("Task needs to finish successfully.");
 
                 let items: Vec<BranchItem> = branches.into_iter()
@@ -473,6 +473,28 @@ impl BranchList {
                     }
                 }
                 crate::display_error(&window, &err_message);
+            })
+        });
+    }
+
+    pub fn update_remote(
+        &self,
+        repo_path: std::ffi::OsString,
+        window: &Window,
+        sender: Sender<crate::Event>,
+    ) {
+        trace!("update remote!");
+        let le = self.imp().list.borrow().len();
+        self.imp().list.borrow_mut().clear();
+        self.imp().original_list.borrow_mut().clear();
+        self.items_changed(0, le as u32, 0);
+        glib::spawn_future_local({
+            let path = repo_path.clone();
+            clone!(@weak self as branch_list, @weak window as window => async move {
+                let _ = gio::spawn_blocking(move || {
+                    crate::update_remote(repo_path, sender, None)
+                }).await;
+                branch_list.get_branches(path);
             })
         });
     }
@@ -899,7 +921,7 @@ pub fn make_list_view(
     // });
 
     let branch_list = model.downcast_ref::<BranchList>().unwrap();
-    branch_list.make_list(repo_path.clone());
+    branch_list.get_branches(repo_path.clone());
 
     let list_view = ListView::builder()
         .model(&selection_model)
@@ -1026,7 +1048,7 @@ pub fn make_headerbar(
     let single_selection =
         selection_model.downcast_ref::<SingleSelection>().unwrap();
 
-    let _ = single_selection
+    let kill_bind = single_selection
         .bind_property("selected-item", &kill_btn, "sensitive")
         .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
         .build();
@@ -1046,7 +1068,7 @@ pub fn make_headerbar(
         .sensitive(false)
         .can_shrink(true)
         .build();
-    let _ = single_selection
+    let merge_bind = single_selection
         .bind_property("selected-item", &merge_btn, "sensitive")
         .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
         .build();
@@ -1059,10 +1081,33 @@ pub fn make_headerbar(
         }
     });
 
+    let refresh_btn = Button::builder()
+        .label("Update remote")
+        .icon_name("view-refresh-symbolic")
+        .use_underline(true)
+        .tooltip_text("Update remote")
+        .sensitive(true)
+        .can_shrink(true)
+        .build();
+
+    refresh_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            // hack to prevent panics on transform_to
+            merge_bind.unbind();
+            kill_bind.unbind();
+            debug!("!!!!!!!!!!!!!!!!!!!!! just unbinded!");
+            sender
+                .send_blocking(Event::UpdateRemote)
+                .expect("Could not send through channel");
+        }
+    });
+
     hb.set_title_widget(Some(&search));
     hb.pack_end(&new_btn);
     hb.pack_end(&merge_btn);
     hb.pack_end(&kill_btn);
+    hb.pack_end(&refresh_btn);
     hb.set_show_end_title_buttons(true);
     hb.set_show_back_button(true);
     hb
@@ -1074,6 +1119,7 @@ pub enum Event {
     Kill,
     Merge,
     CherryPickRequest,
+    UpdateRemote
 }
 
 pub fn get_branch_list(list_view: &ListView) -> BranchList {
@@ -1159,6 +1205,11 @@ pub fn show_branches_window(
                         .send_blocking(Event::CherryPickRequest)
                         .expect("Could not send through channel");
                 }
+                (gdk::Key::r, _) => {
+                    sender
+                        .send_blocking(Event::UpdateRemote)
+                        .expect("Could not send through channel");
+                }
                 (gdk::Key::s, _) => {
                     let search_bar = hb.title_widget().unwrap();
                     let search_bar =
@@ -1211,6 +1262,15 @@ pub fn show_branches_window(
                     trace!("branches. merge");
                     let branch_list = get_branch_list(&list_view);
                     branch_list.merge(
+                        repo_path.clone(),
+                        &window,
+                        main_sender.clone(),
+                    )
+                }
+                Event::UpdateRemote => {
+                    trace!("branches. update remote");
+                    let branch_list = get_branch_list(&list_view);
+                    branch_list.update_remote(
                         repo_path.clone(),
                         &window,
                         main_sender.clone(),
