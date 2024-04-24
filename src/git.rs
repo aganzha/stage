@@ -1074,7 +1074,7 @@ impl Default for BranchData {
 }
 
 impl BranchData {
-    pub fn new(branch: Branch, branch_type: BranchType) -> Self {
+    pub fn from_branch(branch: Branch, branch_type: BranchType) -> Result<Self, Error> {
         let name = branch.name().unwrap().unwrap().to_string();
         let mut upstream_name: Option<String> = None;
         if let Ok(upstream) = branch.upstream() {
@@ -1086,8 +1086,7 @@ impl BranchData {
         // can't get commit from ref!: Error { code: -3, klass: 3, message: "the reference 'refs/remotes/origin/HEAD' cannot be peeled - Cannot resolve reference" }
         let refname = bref.name().unwrap().to_string();
         let ob = bref
-            .peel(ObjectType::Commit)
-            .expect("can't get commit from ref!");
+            .peel(ObjectType::Commit)?;
         let commit = ob.peel_to_commit().expect("can't get commit from ob!");
         let commit_string = commit_string(&commit);
         let target = branch.get().target();
@@ -1107,7 +1106,7 @@ impl BranchData {
         }
 
         let commit_dt = commit_dt(&commit);
-        BranchData {
+        Ok(BranchData {
             name,
             refname,
             branch_type,
@@ -1116,7 +1115,7 @@ impl BranchData {
             is_head,
             upstream_name,
             commit_dt,
-        }
+        })
     }
 
     pub fn local_name(&self) -> String {
@@ -1133,9 +1132,10 @@ pub fn get_branches(path: OsString) -> Vec<BranchData> {
     let branches = repo.branches(None).expect("can't get branches");
     branches.for_each(|item| {
         let (branch, branch_type) = item.unwrap();
-        let branch_data = BranchData::new(branch, branch_type);
-        if branch_data.oid != Oid::zero() {
-            result.push(branch_data);
+        if let Ok(branch_data) = BranchData::from_branch(branch, branch_type) {
+            if branch_data.oid != Oid::zero() {
+                result.push(branch_data);
+            }
         }
     });
     result.sort_by(|a, b| {
@@ -1190,7 +1190,7 @@ pub fn checkout(
             branch
                 .set_upstream(Some(&branch_data.remote_name()))
                 .expect("cant set upstream");
-            branch_data = BranchData::new(branch, BranchType::Local);
+            branch_data = BranchData::from_branch(branch, BranchType::Local).expect("cant get branch");
         }
     }
     repo.set_head(&branch_data.refname).expect("can't set head");
@@ -1215,7 +1215,7 @@ pub fn create_branch(
     let branch = repo
         .branch(&new_branch_name, &commit, false)
         .expect("cant create branch");
-    let branch_data = BranchData::new(branch, BranchType::Local);
+    let branch_data = BranchData::from_branch(branch, BranchType::Local).expect("cant get branch");
     if need_checkout {
         checkout(path, branch_data, sender)
     } else {
@@ -1290,7 +1290,7 @@ pub fn cherry_pick(
         .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
 
-    Ok(BranchData::new(branch, BranchType::Local))
+    Ok(BranchData::from_branch(branch, BranchType::Local).expect("cant get branch"))
 }
 
 pub fn merge(
@@ -1379,7 +1379,7 @@ pub fn merge(
     //     )))
     //     .expect("Could not send through channel");
 
-    BranchData::new(branch, BranchType::Local)
+    BranchData::from_branch(branch, BranchType::Local).expect("cant get branch")
 }
 
 #[derive(Debug, Clone)]

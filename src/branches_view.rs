@@ -969,7 +969,7 @@ pub fn make_list_view(
             branch_list.checkout(
                 repo_path.clone(),
                 activated_branch_item,
-                // got panic here!
+                // got panic here! AGAIN!
                 current_item.unwrap(),
                 window,
                 sender.clone(),
