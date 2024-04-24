@@ -21,9 +21,9 @@ use std::time::SystemTime;
 mod git;
 use git::{
     apply_stash, checkout, cherry_pick, commit, create_branch, drop_stash,
-    get_current_repo_status, get_directories, get_refs, kill_branch, merge,
+    get_current_repo_status, get_directories, get_branches, kill_branch, merge,
     pull, push, reset_hard, stage_untracked, stage_via_apply, stash_changes, get_commit_diff,
-    track_changes, ApplyFilter, ApplySubject, BranchData, Diff, DiffKind, CommitDiff,
+    track_changes, update_remote, ApplyFilter, ApplySubject, BranchData, Diff, DiffKind, CommitDiff,
     File, Head, Hunk, Line, StashData, Stashes, State, Untracked,
     UntrackedFile, View,
 };
@@ -113,7 +113,8 @@ pub enum Event {
     Untracked(Untracked),
     ResetHard,
     CommitDiff(CommitDiff),
-    PushUserPass(String, bool)
+    PushUserPass(String, bool),
+    PullUserPass
 }
 
 fn zoom(dir: bool) {
@@ -239,7 +240,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Pull => {
                     info!("main.pull");
-                    status.pull();
+                    status.pull(&window, None);
                 }
                 Event::Branches => {
                     info!("main.braches");
@@ -349,6 +350,9 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::PushUserPass(remote, tracking) => {
                     status.push(&window, Some((remote, tracking, true)))
+                }
+                Event::PullUserPass => {
+                    status.pull(&window, Some(true))
                 }
             };
         }
