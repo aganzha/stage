@@ -1607,6 +1607,22 @@ pub fn update_remote(path: OsString,  _sender: Sender<crate::Event>, user_pass: 
     let mut callbacks = RemoteCallbacks::new();
     set_remote_callbacks(&mut callbacks, &user_pass);
 
+    callbacks.update_tips({
+        move |updated_ref, oid1, oid2| {
+            debug!(
+                "updat tips {:?} {:?} {:?}",
+                updated_ref, oid1, oid2
+            );
+            true
+        }
+    });
+
+    let mut opts = FetchOptions::new();
+    opts.remote_callbacks(callbacks);
+    let refs: [String; 0]= [];
+    remote.fetch(&refs, Some(&mut opts), None).expect("cant fetch");
+    let mut callbacks = RemoteCallbacks::new();
+    set_remote_callbacks(&mut callbacks, &user_pass);
     remote.update_tips(Some(&mut callbacks), true, AutotagOption::Auto, None).expect("cant update");
 
     Ok(())
