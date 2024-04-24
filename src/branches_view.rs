@@ -970,22 +970,7 @@ pub fn make_headerbar(
         .placeholder_text("hit s for search")
         .build();
     entry.connect_stop_search(|e| {
-        let bx = e.parent().unwrap();
-        let revealer = bx.parent().unwrap();
-        let revealer = revealer.downcast_ref::<Revealer>().unwrap();
-        glib::source::timeout_add_local(Duration::from_millis(300), {
-            let revealer = revealer.clone();
-            move || {
-                trace!(
-                    "hack for pressing escape. {:?}",
-                    revealer.is_child_revealed()
-                );
-                if !revealer.is_child_revealed() {
-                    revealer.set_reveal_child(true);
-                }
-                ControlFlow::Break
-            }
-        });
+        e.stop_signal_emission_by_name("stop-search");
     });
     let branch_list = get_branch_list(list_view);
 
