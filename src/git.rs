@@ -1505,11 +1505,11 @@ pub fn get_directories(path: OsString) -> HashSet<String> {
     for entry in index.iter() {
         let pth = String::from_utf8_lossy(&entry.path);
         let mut parts: Vec<&str> = pth.split("/").collect();
-        trace!("entry in index {:?}", parts);
-        if parts.len() > 0 {
+        debug!("entry in index {:?}", parts);
+        if parts.len() > 1 {
             parts.pop();
-        }
-        directories.insert(parts.join("/"));
+            directories.insert(parts.join("/"));
+        }        
     }
     directories
 }
