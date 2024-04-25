@@ -13,7 +13,8 @@ use std::rc::Rc;
 
 use crate::{
     commit, get_current_repo_status, get_directories, pull, push, reset_hard,
-    stage_untracked, stage_via_apply, track_changes, ApplyFilter,
+    stage_untracked, stage_via_apply, track_changes, checkout_oid, stash_changes,
+    ApplyFilter,
     ApplySubject, Diff, DiffKind, Event, Head, Stashes, State, Untracked,
     View, StatusRenderContext
 };
@@ -27,7 +28,7 @@ use glib::clone;
 use gtk4::prelude::*;
 use gtk4::{
     gio, glib, ListBox, SelectionMode, TextBuffer, TextView,
-    Window as Gtk4Window,
+    Window as Gtk4Window, Label as GtkLabel, Box, Orientation
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, EntryRow, SwitchRow, PasswordEntryRow}; // _Window,
@@ -861,5 +862,90 @@ impl Status {
                 }
             });
         }
+    }
+
+    pub fn checkout_error(
+        &mut self,
+        window: &ApplicationWindow,
+        oid: crate::Oid,
+        ref_log_msg: String,
+        err_msg: String
+    ) {
+        debug!("+++++++++++++++++++++++++++ {:?} {:?} {:?}", oid, ref_log_msg, err_msg);
+        glib::spawn_future_local({
+            let window = window.clone();
+            let sender = self.sender.clone();
+            let path = self.path.clone();
+            async move {
+                let bx = Box::builder()
+                    .orientation(Orientation::Vertical)
+                    .margin_top(2)
+                    .margin_bottom(2)
+                    .margin_start(2)
+                    .margin_end(2)
+                    .spacing(12)
+                    .build();
+                let label = GtkLabel::builder()
+                    .label(&err_msg)
+                    .build();
+                
+                let lb = ListBox::builder()
+                    .selection_mode(SelectionMode::None)
+                    .css_classes(vec![String::from("boxed-list")])
+                    .build();
+                let stash = SwitchRow::builder()
+                    .title("Stash changes and checkout")
+                    .css_classes(vec!["input_field"])
+                    .active(true)
+                    .build();
+                let conflicts = SwitchRow::builder()
+                    .title("Checkout with conflicts")
+                    .css_classes(vec!["input_field"])
+                    .active(false)
+                    .build();
+                lb.append(&stash);
+                lb.append(&conflicts);
+                let _bind = stash
+                    .bind_property("active", &conflicts, "active")
+                    .transform_to(move |_, value: bool| {
+                        debug!("-------------------- STASH {:?}", value);
+                        Some(!value)
+                    })
+                    //.bidirectional()
+                    .build();
+                let _bind = conflicts
+                    .bind_property("active", &stash, "active")
+                    .transform_to(move |_, value: bool| {
+                        debug!("-------------------- CONFLICTS {:?}", value);
+                        Some(!value)
+                    })
+                    //.bidirectional()
+                    .build();
+                bx.append(&label);
+                bx.append(&lb);
+
+                let dialog = crate::make_confirm_dialog(
+                    &window,
+                    Some(&bx),
+                    "Checkout error ",
+                    "Proceed",
+                );
+                let response = dialog.choose_future().await;
+                if "confirm" != response {
+                    return;
+                }
+                let stash = stash.is_active();
+                gio::spawn_blocking({
+                    let path = path.clone().expect("no path");
+                    let sender = sender.clone();
+                    move || {
+                        if stash {
+                            stash_changes(path.clone(), ref_log_msg.clone(), true, sender.clone());
+                        }
+                        checkout_oid(path, sender, oid, Some(ref_log_msg));
+                    }
+                });
+            }
+        });
     }
 }

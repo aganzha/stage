@@ -12,7 +12,8 @@ use git2::{
     DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
     DiffOptions, Error, FetchOptions, ObjectType, Oid, PushOptions,
     RemoteCallbacks, Repository, RepositoryState, ResetType,
-    StashApplyOptions, StashFlags, AutotagOption, Direction
+    StashApplyOptions, StashFlags, AutotagOption, Direction,
+    ErrorClass, ErrorCode
 };
 use log::{debug, info, trace};
 use regex::Regex;
@@ -879,11 +880,10 @@ pub fn pull(
         .fetch(&[head_ref.name().unwrap()], Some(&mut opts), None)
         .expect("cant fetch");
 
-    // but checkout must be after fetch!!!
     assert!(head_ref.is_branch());
     let mut branch = Branch::wrap(head_ref);
     let upstream = branch.upstream().unwrap();
-    // repo.set_head(upstream.get().name().unwrap()).expect("cant set head");
+
     let u_oid = upstream.get().target().unwrap();
     let mut head_ref = repo.head().expect("can't get head");
     let log_message = format!(
@@ -891,16 +891,28 @@ pub fn pull(
         branch.name().unwrap().unwrap(),
         upstream.name().unwrap().unwrap()
     );
-
+    
     let mut builder = CheckoutBuilder::new();
     let opts = builder.safe();
     let commit = repo.find_commit(u_oid).expect("can't find commit");
-    repo.checkout_tree(commit.as_object(), Some(opts))
-        .expect("can't checkout tree");
-    head_ref
-        .set_target(u_oid, &log_message)
-        .expect("cant set target");
-    get_head(path.clone(), sender.clone());
+    let result = repo.checkout_tree(commit.as_object(), Some(opts));
+    match result {
+        Ok(_) => {
+            head_ref
+                .set_target(u_oid, &log_message)
+                .expect("cant set target");
+            get_head(path.clone(), sender.clone());
+        }
+        Err(err) => {
+            debug!("errrrrrrrrrrror {:?} {:?} {:?}", err, err.code(), err.class());
+            match (err.code(), err.class()) {
+                (ErrorCode::Conflict, ErrorClass::Checkout) => sender
+                    .send_blocking(crate::Event::CheckoutError(u_oid, log_message, String::from(err.message())))
+                    .expect("cant send through channel"),
+                (code, class) => panic!("unknown checkout error {:?} {:?}", code, class)
+            };
+        }
+    }
 }
 
 const PLAIN_PASSWORD: &str = "plain text password required";
@@ -1626,4 +1638,30 @@ pub fn update_remote(path: OsString,  _sender: Sender<crate::Event>, user_pass: 
     remote.update_tips(Some(&mut callbacks), true, AutotagOption::Auto, None).expect("cant update");
 
     Ok(())
+}
+
+pub fn checkout_oid(path: OsString,  sender: Sender<crate::Event>, oid: Oid, ref_log_msg: Option<String>) {
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let commit = repo
+        .find_commit(oid)
+        .expect("can't find commit");
+    let head_ref = repo.head().expect("can't get head");
+    assert!(head_ref.is_branch());
+    let branch = Branch::wrap(head_ref);
+    let log_message = match ref_log_msg {
+        None => format!(
+            "HEAD -> {}, {}",
+            branch.name().unwrap().unwrap(),
+            oid
+        ),
+        Some(msg) => msg
+    };
+    let mut builder = CheckoutBuilder::new();
+    let builder = builder.force();
+    repo.checkout_tree(commit.as_object(), Some(builder)).expect("cant checkout oid");
+    let mut head_ref = repo.head().expect("can't get head");
+    head_ref
+        .set_target(oid, &log_message)
+        .expect("cant set target");
+    get_current_repo_status(Some(path), sender);
 }

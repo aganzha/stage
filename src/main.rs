@@ -23,7 +23,7 @@ use git::{
     apply_stash, checkout, cherry_pick, commit, create_branch, drop_stash,
     get_current_repo_status, get_directories, get_branches, kill_branch, merge,
     pull, push, reset_hard, stage_untracked, stage_via_apply, stash_changes, get_commit_diff,
-    track_changes, update_remote, ApplyFilter, ApplySubject, BranchData, Diff, DiffKind, CommitDiff,
+    track_changes, update_remote, checkout_oid, ApplyFilter, ApplySubject, BranchData, Diff, DiffKind, CommitDiff,
     File, Head, Hunk, Line, StashData, Stashes, State, Untracked,
     UntrackedFile, View,
 };
@@ -114,7 +114,8 @@ pub enum Event {
     ResetHard,
     CommitDiff(CommitDiff),
     PushUserPass(String, bool),
-    PullUserPass
+    PullUserPass,
+    CheckoutError(Oid, String, String)
 }
 
 fn zoom(dir: bool) {
@@ -353,6 +354,9 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::PullUserPass => {
                     status.pull(&window, Some(true))
+                }
+                Event::CheckoutError(oid, ref_message, error_message) => {
+                    status.checkout_error(&window, oid, ref_message, error_message)
                 }
             };
         }
