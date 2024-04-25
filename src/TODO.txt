@@ -4,7 +4,7 @@ BUG: Bail out! Gtk:ERROR:../gtk/gtklistitemmanager.c:1416:gtk_list_item_manager_
 thread '<unnamed>' panicked at src/git.rs:1114:14:
 can't get commit from ref!: Error { code: -3, klass: 3, message: "the reference 'refs/remotes/origin/HEAD' cannot be peeled - Cannot resolve reference" }
 
-BUG: kill in untracked stages it
+BUG: kill in untracked stages it + what if it is a directory???
 BUG: unstaging 1 untracked unstage all untracked (perhaps in libgit)
 BUG: search item in branches. checkout with active search - core dump.
      because newly checkout item is not in list???
