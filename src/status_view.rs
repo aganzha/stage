@@ -529,12 +529,12 @@ impl Status {
         mut untracked: Untracked,
         txt: &TextView,
     ) {
-        self.update_screen_line_width(untracked.max_line_len);
-        if let Some(u) = &mut self.untracked {
-            untracked.enrich_view(u, txt, &mut self.context);
-        }
-        self.untracked.replace(untracked);
-        self.render(txt, RenderSource::Git);
+        // self.update_screen_line_width(untracked.max_line_len);
+        // if let Some(u) = &mut self.untracked {
+        //     untracked.enrich_view(u, txt, &mut self.context);
+        // }
+        // self.untracked.replace(untracked);
+        // self.render(txt, RenderSource::Git);
     }
 
     pub fn update_staged(&mut self, mut diff: Diff, txt: &TextView) {
