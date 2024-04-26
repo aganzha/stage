@@ -151,7 +151,7 @@ impl Status {
                         let dir_name = match dir {
                             name if name == root => name,
                             name => {
-                                format!("{}{}", root, name)
+                                format!("{}/{}", root, name)
                             }
                         };
                         debug!("setup monitor {:?}", dir_name);
