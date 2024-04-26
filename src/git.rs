@@ -1657,7 +1657,7 @@ pub fn checkout_oid(path: OsString,  sender: Sender<crate::Event>, oid: Oid, ref
         Some(msg) => msg
     };
     let mut builder = CheckoutBuilder::new();
-    let builder = builder.force();
+    let builder = builder.safe();// no force please!
     repo.checkout_tree(commit.as_object(), Some(builder)).expect("cant checkout oid");
     let mut head_ref = repo.head().expect("can't get head");
     head_ref

@@ -888,7 +888,7 @@ impl Status {
                 let label = GtkLabel::builder()
                     .label(&err_msg)
                     .build();
-                
+
                 let lb = ListBox::builder()
                     .selection_mode(SelectionMode::None)
                     .css_classes(vec![String::from("boxed-list")])
@@ -899,7 +899,7 @@ impl Status {
                     .active(true)
                     .build();
                 let conflicts = SwitchRow::builder()
-                    .title("Checkout with conflicts")
+                    .title("Merge and resolve conflicts")
                     .css_classes(vec!["input_field"])
                     .active(false)
                     .build();
@@ -911,7 +911,6 @@ impl Status {
                         debug!("-------------------- STASH {:?}", value);
                         Some(!value)
                     })
-                    //.bidirectional()
                     .build();
                 let _bind = conflicts
                     .bind_property("active", &stash, "active")
@@ -919,7 +918,6 @@ impl Status {
                         debug!("-------------------- CONFLICTS {:?}", value);
                         Some(!value)
                     })
-                    //.bidirectional()
                     .build();
                 bx.append(&label);
                 bx.append(&lb);
@@ -927,7 +925,7 @@ impl Status {
                 let dialog = crate::make_confirm_dialog(
                     &window,
                     Some(&bx),
-                    "Checkout error ",
+                    "Checkout error",
                     "Proceed",
                 );
                 let response = dialog.choose_future().await;
@@ -941,8 +939,11 @@ impl Status {
                     move || {
                         if stash {
                             stash_changes(path.clone(), ref_log_msg.clone(), true, sender.clone());
+                            // just checkout oid
+                        } else {
+                            // no need that just do merge!
+                            // checkout_oid(path, sender, oid, Some(ref_log_msg));
                         }
-                        checkout_oid(path, sender, oid, Some(ref_log_msg));
                     }
                 });
             }
