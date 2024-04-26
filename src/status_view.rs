@@ -10,6 +10,7 @@ pub mod tests;
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::collections::HashMap;
 
 use crate::{
     commit, get_current_repo_status, get_directories, pull, push, reset_hard,
@@ -81,11 +82,12 @@ pub struct Status {
     pub rendered: bool, // what it is for ????
     pub context: Option<StatusRenderContext>,
     pub stashes: Option<Stashes>,
-    pub monitor_lock: Rc<RefCell<bool>>
+    pub monitor_lock: Rc<RefCell<bool>>,
+    pub settings: gio::Settings
 }
 
 impl Status {
-    pub fn new(path: Option<OsString>, sender: Sender<Event>) -> Self {
+    pub fn new(path: Option<OsString>, settings: gio::Settings, sender: Sender<Event>) -> Self {
         Self {
             path: path,
             sender: sender,
@@ -110,8 +112,8 @@ impl Status {
             rendered: false,
             context: None::<StatusRenderContext>,
             stashes: None,
-            monitor_lock: Rc::new(RefCell::<bool>::new(false))
-            // monitors: Vec::new()
+            monitor_lock: Rc::new(RefCell::<bool>::new(false)),
+            settings: settings
         }
     }
 
@@ -521,11 +523,28 @@ impl Status {
         self.render(txt, RenderSource::Git);
     }
 
+    fn path_as_string(&self) -> String {
+        self.path.clone()
+            .expect("no path")
+            .into_string()
+            .expect("wrong string")
+    }
+    
     pub fn update_untracked(
         &mut self,
         mut untracked: Untracked,
         txt: &TextView,
     ) {
+        let mut settings = self.settings.get::<HashMap<String, Vec<String>>>("ignored");
+        let repo_path = self.path_as_string();
+        if let Some(ignored) = settings.get_mut(&repo_path) {
+            untracked.files.retain(|f| {
+                let str_path = f.path.clone()
+                    .into_string()
+                    .expect("wrong string");
+                !ignored.contains(&str_path)
+            });
+        }        
         self.update_screen_line_width(untracked.max_line_len);
         if let Some(u) = &mut self.untracked {
             untracked.enrich_view(u, txt, &mut self.context);
@@ -690,6 +709,41 @@ impl Status {
         self.render(txt, RenderSource::Resize);
     }
 
+    pub fn ignore(
+        &mut self,
+        txt: &TextView,
+        line_no: i32,
+        _offset: i32
+    ) {
+        if let Some(untracked) = &mut self.untracked {
+            for file in &mut untracked.files {
+                // TODO!
+                // refactor to some generic method
+                // why other elements do not using this?
+                let view = file.get_view();
+                if view.current && view.line_no == line_no {
+                    let ignore_path = file.path
+                        .clone()
+                        .into_string()
+                        .expect("wrong string");
+                    trace!("ignore path! {:?}", ignore_path);
+                    let mut settings = self.settings.get::<HashMap<String, Vec<String>>>("ignored");
+                    let repo_path = self.path_as_string();
+                    if let Some(stored) = settings.get_mut(&repo_path) {
+                        stored.push(ignore_path);
+                        trace!("added ignore {:?}", settings);
+                    } else {
+                        settings.insert(repo_path, vec![ignore_path]);
+                        trace!("first ignored file {:?}", settings);
+                    }
+                    self.settings.set("ignored", settings).expect("cant set settings");
+                    self.update_untracked(self.untracked.clone().unwrap(), txt);
+                    break;
+                }
+            }
+        }
+    }
+    
     pub fn stage(
         &mut self,
         _txt: &TextView,
