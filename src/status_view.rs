@@ -120,9 +120,6 @@ impl Status {
         path: OsString,
         monitors: Rc<RefCell<Vec<FileMonitor>>>,
     ) {
-        if self.path.is_some() {
-            panic!("got one more path ? {:?} {:?}", self.path, path);
-        }
         self.path.replace(path);
         self.setup_monitor(monitors);
     }
@@ -151,7 +148,7 @@ impl Status {
                         let dir_name = match dir {
                             name if name == root => name,
                             name => {
-                                format!("{}/{}", root, name)
+                                format!("{}{}", root, name)
                             }
                         };
                         debug!("setup monitor {:?}", dir_name);

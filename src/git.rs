@@ -21,19 +21,6 @@ use std::cmp::Ordering;
 //use std::time::SystemTime;
 use std::{collections::HashSet, env, ffi, path, str};
 
-fn get_current_repo(
-    mut path_buff: path::PathBuf,
-) -> Result<Repository, String> {
-    let path = path_buff.as_path();
-    Repository::open(path).or_else(|error| {
-        println!("err while open repo {:?}", error);
-        if !path_buff.pop() {
-            return Err("no repoitory found".to_string());
-        }
-        get_current_repo(path_buff)
-    })
-}
-
 #[derive(Debug, Clone)]
 pub struct View {
     pub line_no: i32,
@@ -273,16 +260,6 @@ impl Diff {
     }
 }
 
-pub fn get_cwd_repo(sender: Sender<crate::Event>) -> Repository {
-    let path_buff = env::current_exe().expect("cant't get exe path");
-    let repo =
-        get_current_repo(path_buff).expect("cant't get repo for current exe");
-    let path = OsString::from(repo.path());
-    sender
-        .send_blocking(crate::Event::CurrentRepo(path.clone()))
-        .expect("Could not send through channel");
-    repo
-}
 
 #[derive(Debug, Clone)]
 pub struct State {
@@ -381,18 +358,25 @@ pub fn get_current_repo_status(
     current_path: Option<OsString>,
     sender: Sender<crate::Event>,
 ) {
-    trace!("get_current_repo_status {:?}", current_path);
-    let (repo, path) = {
-        if let Some(path) = current_path {
-            let repo =
-                Repository::open(path.clone()).expect("can't open repo");
-            (repo, path)
+    debug!("get_current_repo_status {:?}", current_path);
+    // path could came from command args or from choosing path
+    // by user
+    let path = {
+        if current_path.is_some() {
+            current_path.unwrap()
         } else {
-            let repo = get_cwd_repo(sender.clone());
-            let path = OsString::from(repo.path());
-            (repo, path)
+            OsString::from
+                (env::current_exe()
+                 .expect("cant't get exe path")
+                 .as_path()
+                )
         }
     };
+    let repo = Repository::discover(path.clone()).expect("can't open repo");
+    let path = OsString::from(repo.path());
+    sender
+        .send_blocking(crate::Event::CurrentRepo(path.clone()))
+        .expect("Could not send through channel");
 
     sender
         .send_blocking(crate::Event::State(State::new(repo.state())))
@@ -1532,7 +1516,7 @@ pub fn get_directories(path: OsString) -> HashSet<String> {
     for entry in index.iter() {
         let pth = String::from_utf8_lossy(&entry.path);
         let mut parts: Vec<&str> = pth.split("/").collect();
-        debug!("entry in index {:?}", parts);
+        trace!("entry in index {:?}", parts);
         if parts.len() > 1 {
             parts.pop();
             directories.insert(parts.join("/"));
