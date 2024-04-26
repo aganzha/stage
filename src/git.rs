@@ -891,7 +891,22 @@ pub fn pull(
         branch.name().unwrap().unwrap(),
         upstream.name().unwrap().unwrap()
     );
-    
+
+    // think about it! perhaps it need to call merge analysys
+    // during pull! if its fast formard - ok. if not - do merge, please.
+    // see what git suggests:
+    // Pulling without specifying how to reconcile divergent branches is
+    // discouraged. You can squelch this message by running one of the following
+    // commands sometime before your next pull:
+
+    //   git config pull.rebase false  # merge (the default strategy)
+    //   git config pull.rebase true   # rebase
+    //   git config pull.ff only       # fast-forward only
+
+    // You can replace "git config" with "git config --global" to set a default
+    // preference for all repositories. You can also pass --rebase, --no-rebase,
+    // or --ff-only on the command line to override the configured default per
+    // invocation.
     let mut builder = CheckoutBuilder::new();
     let opts = builder.safe();
     let commit = repo.find_commit(u_oid).expect("can't find commit");
@@ -1641,6 +1656,7 @@ pub fn update_remote(path: OsString,  _sender: Sender<crate::Event>, user_pass: 
 }
 
 pub fn checkout_oid(path: OsString,  sender: Sender<crate::Event>, oid: Oid, ref_log_msg: Option<String>) {
+    // DANGEROUS! see in status_view!
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let commit = repo
         .find_commit(oid)
@@ -1659,6 +1675,7 @@ pub fn checkout_oid(path: OsString,  sender: Sender<crate::Event>, oid: Oid, ref
     let mut builder = CheckoutBuilder::new();
     let builder = builder.safe().allow_conflicts(true);
     repo.checkout_tree(commit.as_object(), Some(builder)).expect("cant checkout oid");
+
     let mut head_ref = repo.head().expect("can't get head");
     head_ref
         .set_target(oid, &log_message)

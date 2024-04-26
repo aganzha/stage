@@ -943,6 +943,24 @@ impl Status {
                         if stash {
                             stash_changes(path.clone(), ref_log_msg.clone(), true, sender.clone());
                         }
+                        // DOES NOT WORK! if local branch has commits diverged from upstream
+                        // all commit become lost! because you simple checkout ortogonal tree
+                        // and put head on it! IT NEED TO MERGE upstream branch of course!
+                        // think about it! perhaps it need to call merge analysys
+                        // during pull! if its fast formard - ok. if not - do merge, please.
+                        // see what git suggests:
+                         // Pulling without specifying how to reconcile divergent branches is
+                         // discouraged. You can squelch this message by running one of the following
+                         // commands sometime before your next pull:
+                         
+                         //   git config pull.rebase false  # merge (the default strategy)
+                         //   git config pull.rebase true   # rebase
+                         //   git config pull.ff only       # fast-forward only
+                         
+                         // You can replace "git config" with "git config --global" to set a default
+                         // preference for all repositories. You can also pass --rebase, --no-rebase,
+                         // or --ff-only on the command line to override the configured default per
+                         // invocation.
                         checkout_oid(path, sender, oid, Some(ref_log_msg));
                     }
                 });
