@@ -156,12 +156,24 @@ fn run_without_args(app: &Application) {
     run_app(app, None)
 }
 
+pub fn get_settings() -> gio::Settings {
+    let mut exe_path = std::env::current_exe().expect("cant get exe path");
+    exe_path.pop();
+    let exe_path = exe_path.as_path();
+    let schema_source = gio::SettingsSchemaSource::from_directory(exe_path, None, true)
+        .expect("no source");
+    let schema = schema_source.lookup(APP_ID, false).expect("no schema");
+    gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None) 
+}
+
 fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     env_logger::builder().format_timestamp(None).init();
-
+   
     let (sender, receiver) = async_channel::unbounded();
     let monitors = Rc::new(RefCell::<Vec<gio::FileMonitor>>::new(Vec::new()));
 
+    let settings = get_settings();
+    
     let mut status = Status::new(initial_path, sender.clone());
     status.setup_monitor(monitors.clone());
     let window = ApplicationWindow::new(app);
