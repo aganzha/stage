@@ -531,7 +531,7 @@ impl Status {
             untracked.enrich_view(u, txt, &mut self.context);
         }
         self.untracked.replace(untracked);
-        // self.render(txt, RenderSource::Git);
+        self.render(txt, RenderSource::Git);
     }
 
     pub fn update_staged(&mut self, mut diff: Diff, txt: &TextView) {
