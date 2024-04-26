@@ -100,6 +100,7 @@ pub enum Event {
     Stage(i32, i32),
     UnStage(i32, i32),
     Kill(i32, i32),
+    Ignore(i32, i32),
     Commit,
     Push,
     Pull,
@@ -174,16 +175,17 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     let monitors = Rc::new(RefCell::<Vec<gio::FileMonitor>>::new(Vec::new()));
 
     let settings = get_settings();
-    let mut ignored: HashMap<String, Vec<String>> = settings.get("ignored");
-    debug!("-------------------> {:?}", ignored);
-    let mut bass = Vec::new();
-    bass.push(String::from("smass"));
-    ignored.insert(String::from("ass"), bass);
-    settings.set("ignored", ignored);
+    // let mut ignored: HashMap<String, Vec<String>> = settings.get("ignored");
+    // debug!("-------------------> {:?}", ignored);
+    // let mut bass = Vec::new();
+    // bass.push(String::from("smass"));
+    // ignored.insert(String::from("ass"), bass);
+    // let clean:HashMap<String, Vec<String>> = HashMap::new();
+    // settings.set("ignored", clean);
     
     debug!("=====================> {:?}", settings.get::<HashMap<String, Vec<String>>>("ignored"));
     
-    let mut status = Status::new(initial_path, sender.clone());
+    let mut status = Status::new(initial_path, settings, sender.clone());
     status.setup_monitor(monitors.clone());
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
@@ -304,6 +306,10 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     info!("main.kill {:?}", SystemTime::now());
                     status.stage(&txt, line_no, ApplySubject::Kill);
                     info!("main.completed kill {:?}", SystemTime::now());
+                }
+                Event::Ignore(offset, line_no) => {
+                    info!("main.ignore");
+                    status.ignore(&txt, line_no, offset);
                 }
                 Event::TextViewResize => {
                     status.resize(&txt);
