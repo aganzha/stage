@@ -1,3 +1,7 @@
+BUG: thread 'main' panicked at src/status_view/container.rs:199:14:
+     can't get iter at line
+     stack backtrace:
+
 BUG: Bail out! Gtk:ERROR:../gtk/gtklistitemmanager.c:1416:gtk_list_item_manager_ensure_items: code should not be reached
      reproduce: refresh edo branches. checkout release from search (rc-24.3100)
      

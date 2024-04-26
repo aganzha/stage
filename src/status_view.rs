@@ -529,11 +529,11 @@ impl Status {
         mut untracked: Untracked,
         txt: &TextView,
     ) {
-        // self.update_screen_line_width(untracked.max_line_len);
-        // if let Some(u) = &mut self.untracked {
-        //     untracked.enrich_view(u, txt, &mut self.context);
-        // }
-        // self.untracked.replace(untracked);
+        self.update_screen_line_width(untracked.max_line_len);
+        if let Some(u) = &mut self.untracked {
+            untracked.enrich_view(u, txt, &mut self.context);
+        }
+        self.untracked.replace(untracked);
         // self.render(txt, RenderSource::Git);
     }
 
@@ -556,6 +556,7 @@ impl Status {
     pub fn update_unstaged(&mut self, mut diff: Diff, txt: &TextView) {
         self.update_screen_line_width(diff.max_line_len);
         if let Some(u) = &mut self.unstaged {
+            // hide untracked for now
             // DiffDirection is required here to choose which lines to
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
@@ -888,7 +889,7 @@ impl Status {
                 let label = GtkLabel::builder()
                     .label(&err_msg)
                     .build();
-
+                
                 let lb = ListBox::builder()
                     .selection_mode(SelectionMode::None)
                     .css_classes(vec![String::from("boxed-list")])
@@ -899,7 +900,7 @@ impl Status {
                     .active(true)
                     .build();
                 let conflicts = SwitchRow::builder()
-                    .title("Merge and resolve conflicts")
+                    .title("Checkout with conflicts")
                     .css_classes(vec!["input_field"])
                     .active(false)
                     .build();
@@ -911,6 +912,7 @@ impl Status {
                         debug!("-------------------- STASH {:?}", value);
                         Some(!value)
                     })
+                    //.bidirectional()
                     .build();
                 let _bind = conflicts
                     .bind_property("active", &stash, "active")
@@ -918,6 +920,7 @@ impl Status {
                         debug!("-------------------- CONFLICTS {:?}", value);
                         Some(!value)
                     })
+                    //.bidirectional()
                     .build();
                 bx.append(&label);
                 bx.append(&lb);
@@ -925,7 +928,7 @@ impl Status {
                 let dialog = crate::make_confirm_dialog(
                     &window,
                     Some(&bx),
-                    "Checkout error",
+                    "Checkout error ",
                     "Proceed",
                 );
                 let response = dialog.choose_future().await;
@@ -939,11 +942,8 @@ impl Status {
                     move || {
                         if stash {
                             stash_changes(path.clone(), ref_log_msg.clone(), true, sender.clone());
-                            // just checkout oid
-                        } else {
-                            // no need that just do merge!
-                            // checkout_oid(path, sender, oid, Some(ref_log_msg));
                         }
+                        checkout_oid(path, sender, oid, Some(ref_log_msg));
                     }
                 });
             }

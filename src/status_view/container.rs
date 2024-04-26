@@ -194,6 +194,7 @@ pub trait ViewContainer {
             view.child_dirty = true;
         });
         let buffer = txt.buffer();
+        // GOT BUG HERE DURING STAGING SAME FILES!
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");

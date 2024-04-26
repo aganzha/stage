@@ -1174,7 +1174,7 @@ pub fn get_branches(path: OsString) -> Vec<BranchData> {
     result
 }
 
-pub fn checkout(
+pub fn checkout_branch(
     path: OsString,
     mut branch_data: BranchData,
     sender: Sender<crate::Event>,
@@ -1229,7 +1229,7 @@ pub fn create_branch(
         .expect("cant create branch");
     let branch_data = BranchData::from_branch(branch, BranchType::Local).expect("cant get branch");
     if need_checkout {
-        checkout(path, branch_data, sender)
+        checkout_branch(path, branch_data, sender)
     } else {
         branch_data
     }
@@ -1657,7 +1657,7 @@ pub fn checkout_oid(path: OsString,  sender: Sender<crate::Event>, oid: Oid, ref
         Some(msg) => msg
     };
     let mut builder = CheckoutBuilder::new();
-    let builder = builder.safe();// no force please!
+    let builder = builder.safe().allow_conflicts(true);
     repo.checkout_tree(commit.as_object(), Some(builder)).expect("cant checkout oid");
     let mut head_ref = repo.head().expect("can't get head");
     head_ref
