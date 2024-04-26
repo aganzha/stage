@@ -20,7 +20,7 @@ use std::time::SystemTime;
 
 mod git;
 use git::{
-    apply_stash, checkout, cherry_pick, commit, create_branch, drop_stash,
+    apply_stash, checkout_branch, cherry_pick, commit, create_branch, drop_stash,
     get_current_repo_status, get_directories, get_branches, kill_branch, merge,
     pull, push, reset_hard, stage_untracked, stage_via_apply, stash_changes, get_commit_diff,
     track_changes, update_remote, checkout_oid, ApplyFilter, ApplySubject, BranchData, Diff, DiffKind, CommitDiff,

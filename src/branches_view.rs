@@ -405,7 +405,7 @@ impl BranchList {
                 let branch_data = selected_item.imp().branch.borrow().clone();
                 let was_local = branch_data.branch_type == BranchType::Local;
                 let maybe_new_branch_data = gio::spawn_blocking(move || {
-                    crate::checkout(repo_path, branch_data, sender)
+                    crate::checkout_branch(repo_path, branch_data, sender)
                 }).await;
                 selected_item.set_progress(false);
                 if let Ok(new_branch_data) = maybe_new_branch_data {
