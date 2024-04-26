@@ -47,6 +47,7 @@ use gtk4::{
 
 use log::{debug, info};
 use regex::Regex;
+use std::collections::HashMap;
 
 const APP_ID: &str = "com.github.aganzha.stage";
 
@@ -173,6 +174,14 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     let monitors = Rc::new(RefCell::<Vec<gio::FileMonitor>>::new(Vec::new()));
 
     let settings = get_settings();
+    let mut ignored: HashMap<String, Vec<String>> = settings.get("ignored");
+    debug!("-------------------> {:?}", ignored);
+    let mut bass = Vec::new();
+    bass.push(String::from("smass"));
+    ignored.insert(String::from("ass"), bass);
+    settings.set("ignored", ignored);
+    
+    debug!("=====================> {:?}", settings.get::<HashMap<String, Vec<String>>>("ignored"));
     
     let mut status = Status::new(initial_path, sender.clone());
     status.setup_monitor(monitors.clone());
