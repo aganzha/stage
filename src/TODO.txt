@@ -1,3 +1,5 @@
+BUG: thread '<unnamed>' panicked at src/git.rs:149:9:
+     cant reverse header @@ -1 +0,0 @@
 BUG: thread 'main' panicked at src/status_view/container.rs:199:14:
      can't get iter at line
      stack backtrace:
