@@ -930,12 +930,6 @@ pub fn make_item_factory() -> SignalListItemFactory {
         });
 
         let item = list_item.property_expression("item");
-        // let exp = item.expression();
-        // let inside_list_item = exp.unwrap().value_type();
-        // let branch_item = inside_list_item.downcast_ref::<BranchItem>().unwrap();
-        // debug!("whaaaaaaatttttttttttttttttttt is item exp?  ========================> {:?}", branch_item);
-        // let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-        // let branch = item.imp().branch.borrow();
 
         item.chain_property::<BranchItem>("is-head")// was "is_head"! it works also!
             .chain_closure::<String>(closure!(
@@ -1024,47 +1018,6 @@ pub fn make_list_view(
             window,
             sender.clone(),
         );
-        // let selection_model = lv.model().unwrap();
-        // let single_selection =
-        //     selection_model.downcast_ref::<SingleSelection>().unwrap();
-        // let list_model = single_selection.model().unwrap();
-        // let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
-
-        // let item_ob = selection_model.item(pos);
-        // let mut current_item: Option<&BranchItem> = None;
-        // if let Some(item) = item_ob {
-        //     let list = branch_list.imp().list.borrow();
-        //     let activated_branch_item =
-        //         item.downcast_ref::<BranchItem>().unwrap();
-        //     if activated_branch_item.is_head() {
-        //         return;
-        //     }
-        //     for branch_item in list.iter() {
-        //         if branch_item.is_head() {
-        //             current_item.replace(branch_item);
-        //         }
-        //         branch_item.set_progress(false);
-        //         branch_item.set_no_progress(true);
-        //     }
-        //     activated_branch_item.set_progress(true);
-        //     activated_branch_item.set_no_progress(false);
-        //     let root = lv.root().unwrap();
-        //     let window = root.downcast_ref::<Window>().unwrap();
-        //     trace!(
-        //         "branches checkout! {:?} {:?}",
-        //         single_selection.selected(),
-        //         branch_list.selected_pos()
-        //     );
-        //     branch_list.checkout(
-        //         repo_path.clone(),
-        //         activated_branch_item,
-        //         // got panic here! AGAIN!
-        //         // this means no head branch in items!
-        //         current_item.unwrap(),
-        //         window,
-        //         sender.clone(),
-        //     );
-        // }
     });
     list_view.add_css_class("stage");
     list_view
