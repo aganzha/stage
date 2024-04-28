@@ -408,13 +408,18 @@ impl BranchList {
     pub fn checkout(
         &self,
         repo_path: std::ffi::OsString,
-        selected_item: &BranchItem,
-        current_item: &BranchItem, // TODO refactor. get this item from branch_list itself
+        // selected_item: &BranchItem,
+        // current_item: &BranchItem, // TODO refactor. get this item from branch_list itself
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
         glib::spawn_future_local({
-            clone!(@weak self as branch_list, @weak window as window, @weak selected_item, @weak current_item => async move {
+            clone!(@weak self as branch_list, @weak window as window => async move { // , @weak selected_item, @weak current_item
+                let selected_pos = branch_list.selected_pos();                
+                let selected_item = branch_list.item(selected_pos).unwrap();
+                let selected_item = selected_item.downcast_ref::<BranchItem>().unwrap();
+                // let current_item = branch_list.get_current_item();
+                
                 let branch_data = selected_item.imp().branch.borrow().clone();
                 let local = branch_data.branch_type == BranchType::Local;
                 let new_branch_data = gio::spawn_blocking(move || {
@@ -423,44 +428,54 @@ impl BranchList {
                 selected_item.set_progress(false);
                 if let Ok(new_branch_data) = new_branch_data {
                     if local {
+                        branch_list.deactivate_current_branch();
+                        // current_item.imp().branch.borrow_mut().is_head = false;
+                        // // to trigger avatar render
+                        // current_item.set_is_head(false);
+                        
                         selected_item.imp().branch.replace(new_branch_data);
                         // to trigger avatar render
                         selected_item.set_is_head(true);
                         selected_item.set_no_progress(true);
-
-                        current_item.imp().branch.borrow_mut().is_head = false;
-                        // to trigger avatar render
-                        current_item.set_is_head(false);
                     } else {
                         // local branch already could be in list
                         assert!(new_branch_data.branch_type == BranchType::Local);
                         let new_name = &new_branch_data.name;
-                        let this_is_current_branch = &current_item.imp().branch.borrow().name == new_name;
+                        let current_name = branch_list
+                            .get_current_branch()
+                            .expect("no current branch")
+                            .name;
+                        debug!("???????????????? {:?}", current_name);
+                        let this_is_current_branch = false;// wtf??? &current_name == &new_name;
                         for i in 0..branch_list.n_items() {
                             if let Some(item) = branch_list.item(i) {
                                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
                                 if &branch_item.imp().branch.borrow().name == new_name {
-                                    branch_item.imp().branch.replace(new_branch_data);
-                                    branch_item.set_initial_focus(true);
-                                    branch_item.set_is_head(true);
-                                    branch_item.set_no_progress(true);
+
                                     if !this_is_current_branch {
-                                        current_item.imp().branch.borrow_mut().is_head = false;
-                                        // to trigger avatar render
-                                        current_item.set_is_head(false);
+                                        branch_list.deactivate_current_branch();
+                                        // current_item.imp().branch.borrow_mut().is_head = false;
+                                        // // to trigger avatar render
+                                        // current_item.set_is_head(false);
 
                                     } else {
                                         // e.g. current branch is master and
                                         // user chekout origin master
                                     }
+                                    
+                                    branch_item.imp().branch.replace(new_branch_data);
+                                    branch_item.set_initial_focus(true);
+                                    branch_item.set_is_head(true);
+                                    branch_item.set_no_progress(true);                                    
                                     branch_list.set_selected_pos(i);
                                     return;
                                 }
                             }
                         }
-                        current_item.imp().branch.borrow_mut().is_head = false;
-                        // to trigger avatar render
-                        current_item.set_is_head(false);
+                        branch_list.deactivate_current_branch();
+                        // current_item.imp().branch.borrow_mut().is_head = false;
+                        // // to trigger avatar render
+                        // current_item.set_is_head(false);
 
                         // create new branch
                         branch_list.add_new_branch_item(new_branch_data);
@@ -472,10 +487,24 @@ impl BranchList {
         });
     }
 
+    pub fn deactivate_current_branch(&self) {
+        for branch_item in self.imp().list.borrow().iter() {
+            if branch_item.is_head() {                
+                branch_item.imp().branch.borrow_mut().is_head = false;
+                // to trigger render for avatar icon
+                branch_item.set_is_head(false);
+                return;
+            }
+        }
+        panic!("cant update current branch");
+    }
+    
     pub fn update_current_branch(&self, branch_data: crate::BranchData) {
         for branch_item in self.imp().list.borrow().iter() {
             if branch_item.is_head() {                
                 branch_item.imp().branch.replace(branch_data.clone());
+                // to trigger render for avatar icon
+                branch_item.set_is_head(branch_item.is_head());
                 return;
             }
         }
@@ -499,7 +528,7 @@ impl BranchList {
         }
         result
     }
-
+    
     pub fn cherry_pick(
         &self,
         repo_path: std::ffi::OsString,
@@ -748,7 +777,6 @@ impl BranchList {
 
         let new_item = BranchItem::new(branch_data);
 
-
         let new_branch_item =
             new_item.downcast_ref::<BranchItem>().unwrap();
         new_branch_item.set_initial_focus(true);
@@ -968,14 +996,6 @@ pub fn make_list_view(
     let bind =
         selection_model.bind_property("selected", &model, "selected_pos");
     let _ = bind.bidirectional().build();
-    // selection_model.connect_selected_item_notify(|single_selection| {
-    //     // let ss_pos = single_selection.selected();
-    //     // trace!("selected_item_notify............. {:?}", ss_pos);
-    //     // if let Some(item) = single_selection.selected_item() {
-    //     //     let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-    //     //     branch_item.imp().add_css_class("selected");
-    //     // }
-    // });
 
     let branch_list = model.downcast_ref::<BranchList>().unwrap();
     branch_list.get_branches(repo_path.clone());
@@ -992,47 +1012,59 @@ pub fn make_list_view(
         .build();
 
     list_view.connect_activate(move |lv: &ListView, pos: u32| {
+        let root = lv.root().unwrap();
+        let window = root.downcast_ref::<Window>().unwrap();
         let selection_model = lv.model().unwrap();
         let single_selection =
             selection_model.downcast_ref::<SingleSelection>().unwrap();
         let list_model = single_selection.model().unwrap();
-        let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
+        let branch_list = list_model.downcast_ref::<BranchList>().unwrap();        
+        branch_list.checkout(
+            repo_path.clone(),
+            window,
+            sender.clone(),
+        );
+        // let selection_model = lv.model().unwrap();
+        // let single_selection =
+        //     selection_model.downcast_ref::<SingleSelection>().unwrap();
+        // let list_model = single_selection.model().unwrap();
+        // let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
 
-        let item_ob = selection_model.item(pos);
-        let mut current_item: Option<&BranchItem> = None;
-        if let Some(item) = item_ob {
-            let list = branch_list.imp().list.borrow();
-            let activated_branch_item =
-                item.downcast_ref::<BranchItem>().unwrap();
-            if activated_branch_item.is_head() {
-                return;
-            }
-            for branch_item in list.iter() {
-                if branch_item.is_head() {
-                    current_item.replace(branch_item);
-                }
-                branch_item.set_progress(false);
-                branch_item.set_no_progress(true);
-            }
-            activated_branch_item.set_progress(true);
-            activated_branch_item.set_no_progress(false);
-            let root = lv.root().unwrap();
-            let window = root.downcast_ref::<Window>().unwrap();
-            trace!(
-                "branches checkout! {:?} {:?}",
-                single_selection.selected(),
-                branch_list.selected_pos()
-            );
-            branch_list.checkout(
-                repo_path.clone(),
-                activated_branch_item,
-                // got panic here! AGAIN!
-                // this means no head branch in items!
-                current_item.unwrap(),
-                window,
-                sender.clone(),
-            );
-        }
+        // let item_ob = selection_model.item(pos);
+        // let mut current_item: Option<&BranchItem> = None;
+        // if let Some(item) = item_ob {
+        //     let list = branch_list.imp().list.borrow();
+        //     let activated_branch_item =
+        //         item.downcast_ref::<BranchItem>().unwrap();
+        //     if activated_branch_item.is_head() {
+        //         return;
+        //     }
+        //     for branch_item in list.iter() {
+        //         if branch_item.is_head() {
+        //             current_item.replace(branch_item);
+        //         }
+        //         branch_item.set_progress(false);
+        //         branch_item.set_no_progress(true);
+        //     }
+        //     activated_branch_item.set_progress(true);
+        //     activated_branch_item.set_no_progress(false);
+        //     let root = lv.root().unwrap();
+        //     let window = root.downcast_ref::<Window>().unwrap();
+        //     trace!(
+        //         "branches checkout! {:?} {:?}",
+        //         single_selection.selected(),
+        //         branch_list.selected_pos()
+        //     );
+        //     branch_list.checkout(
+        //         repo_path.clone(),
+        //         activated_branch_item,
+        //         // got panic here! AGAIN!
+        //         // this means no head branch in items!
+        //         current_item.unwrap(),
+        //         window,
+        //         sender.clone(),
+        //     );
+        // }
     });
     list_view.add_css_class("stage");
     list_view
@@ -1208,7 +1240,7 @@ pub fn branches_in_use(
     let list_model = single_selection.model().unwrap();
     let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
     (
-        branch_list.get_current_branch().expect("cant get curent branch"),
+        branch_list.get_current_branch().expect("cant get current branch"),
         branch_list.get_selected_branch(),
     )
 }
