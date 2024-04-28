@@ -403,13 +403,13 @@ impl BranchList {
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window, @weak selected_item, @weak current_item => async move {
                 let branch_data = selected_item.imp().branch.borrow().clone();
-                let was_local = branch_data.branch_type == BranchType::Local;
-                let maybe_new_branch_data = gio::spawn_blocking(move || {
+                let local = branch_data.branch_type == BranchType::Local;
+                let new_branch_data = gio::spawn_blocking(move || {
                     crate::checkout_branch(repo_path, branch_data, sender)
                 }).await;
                 selected_item.set_progress(false);
-                if let Ok(new_branch_data) = maybe_new_branch_data {
-                    if was_local {
+                if let Ok(new_branch_data) = new_branch_data {
+                    if local {
                         // just replace with new data
                         selected_item.imp().branch.replace(new_branch_data);
                         selected_item.set_is_head(true);
@@ -417,6 +417,40 @@ impl BranchList {
                         current_item.set_is_head(false);
                         branch_list.set_current_pos(branch_list.selected_pos());
                     } else {
+                        // local branch already could be in list
+                        assert!(new_branch_data.branch_type == BranchType::Local);                        
+                        let new_name = new_branch_data.name.clone();
+                        let current_name = current_item.imp().branch.borrow().name.clone();
+                        let head = new_branch_data.is_head;
+                        for i in 0..branch_list.n_items() {
+                            if let Some(item) = branch_list.item(i) {
+                                let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+                                if branch_item.imp().branch.borrow().name == new_name {
+                                    debug!("yyyyyyyyyyyyyyyyyyyyeah {:?} {:?}", i, new_name);
+                                    branch_item.imp().branch.replace(new_branch_data);
+                                    branch_item.set_initial_focus(true);
+                                    branch_item.set_is_head(true);
+                                    branch_item.set_no_progress(true);
+                                    if current_name != new_name {
+                                        current_item.set_is_head(false);
+                                        current_item.imp().branch.borrow_mut().is_head = false;
+                                    } else {
+                                        // e.g. current branch is master and
+                                        // user chekout origin master
+                                    }
+                                    branch_list.set_selected_pos(i);
+                                    branch_list.set_current_pos(i);
+                                    branch_list.items_changed(i, 0, 0);
+                                    debug!("wtf???????????? {:?} {:?} current item {:?} {:?}",
+                                           branch_item.is_head(),
+                                           head,
+                                           current_item.title(),
+                                           current_item.is_head()
+                                    );
+                                    return;
+                                }
+                            }
+                        }
                         // create new branch
                         branch_list.add_new_branch_item(new_branch_data);
                     }
@@ -976,6 +1010,7 @@ pub fn make_list_view(
                 repo_path.clone(),
                 activated_branch_item,
                 // got panic here! AGAIN!
+                // this means no head branch in items!
                 current_item.unwrap(),
                 window,
                 sender.clone(),
