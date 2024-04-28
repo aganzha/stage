@@ -419,19 +419,17 @@ impl BranchList {
                     } else {
                         // local branch already could be in list
                         assert!(new_branch_data.branch_type == BranchType::Local);                        
-                        let new_name = new_branch_data.name.clone();
-                        let current_name = current_item.imp().branch.borrow().name.clone();
-                        let head = new_branch_data.is_head;
+                        let new_name = &new_branch_data.name;
+                        let this_is_current_branch = &current_item.imp().branch.borrow().name == new_name;
                         for i in 0..branch_list.n_items() {
                             if let Some(item) = branch_list.item(i) {
                                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                                if branch_item.imp().branch.borrow().name == new_name {
-                                    debug!("yyyyyyyyyyyyyyyyyyyyeah {:?} {:?}", i, new_name);
+                                if &branch_item.imp().branch.borrow().name == new_name {
                                     branch_item.imp().branch.replace(new_branch_data);
                                     branch_item.set_initial_focus(true);
                                     branch_item.set_is_head(true);
                                     branch_item.set_no_progress(true);
-                                    if current_name != new_name {
+                                    if !this_is_current_branch {
                                         current_item.set_is_head(false);
                                         current_item.imp().branch.borrow_mut().is_head = false;
                                     } else {
@@ -440,13 +438,6 @@ impl BranchList {
                                     }
                                     branch_list.set_selected_pos(i);
                                     branch_list.set_current_pos(i);
-                                    branch_list.items_changed(i, 0, 0);
-                                    debug!("wtf???????????? {:?} {:?} current item {:?} {:?}",
-                                           branch_item.is_head(),
-                                           head,
-                                           current_item.title(),
-                                           current_item.is_head()
-                                    );
                                     return;
                                 }
                             }
@@ -589,6 +580,7 @@ impl BranchList {
                 let pos = branch_list.selected_pos();
                 let branch_data = branch_list.get_selected_branch();
                 if branch_data.is_head {
+                    panic!("kill head branch!");
                     return
                 }
                 let kind = branch_data.branch_type;
