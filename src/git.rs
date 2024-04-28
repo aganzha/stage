@@ -1179,20 +1179,28 @@ pub fn checkout_branch(
     sender: Sender<crate::Event>,
 ) -> BranchData {
     let repo = Repository::open(path.clone()).expect("can't open repo");
-    let mut builder = CheckoutBuilder::new();
-    let opts = builder.safe();
     let commit = repo
         .find_commit(branch_data.oid)
         .expect("can't find commit");
-    let annotated_commit = repo
-        .find_annotated_commit(branch_data.oid)
-        .expect("cant find commit");
-
-    let analysis = repo.merge_analysis(&[&annotated_commit]);
-    debug!("--------------------------> {:?}", analysis);
-    // perhaps the commit will be behind curent commit in local branch
-    // e.g. when checkout origin/master and Head is already on master
-    // and origin/master is behind master. what to do then?
+    
+    if branch_data.branch_type == BranchType::Remote {
+        // handle case when checkout remote branch and local branch
+        // is ahead of remote
+        let head_ref = repo.head().expect("can't get head");
+        assert!(head_ref.is_branch());
+        let ob = head_ref
+            .peel(ObjectType::Commit)
+            .expect("can't get commit from ref!");
+        let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+        if repo.graph_descendant_of(commit.id(), branch_data.oid).expect("error comparing commits") {
+            debug!("skip checkout ancestor tree");
+            let branch = Branch::wrap(head_ref);
+            return BranchData::from_branch(branch, BranchType::Local).expect("cant get branch");
+        }        
+    }
+    let mut builder = CheckoutBuilder::new();
+    let opts = builder.safe();
+    
     repo.checkout_tree(commit.as_object(), Some(opts))
         .expect("can't checkout tree");
     match branch_data.branch_type {
