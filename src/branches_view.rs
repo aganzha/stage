@@ -580,7 +580,7 @@ impl BranchList {
                 let pos = branch_list.selected_pos();
                 let branch_data = branch_list.get_selected_branch();
                 if branch_data.is_head {
-                    panic!("kill head branch!");
+                    panic!("kill head branch! {:?}", branch_data);
                     return
                 }
                 let kind = branch_data.branch_type;
