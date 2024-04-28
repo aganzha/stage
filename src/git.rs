@@ -1184,6 +1184,15 @@ pub fn checkout_branch(
     let commit = repo
         .find_commit(branch_data.oid)
         .expect("can't find commit");
+    let annotated_commit = repo
+        .find_annotated_commit(branch_data.oid)
+        .expect("cant find commit");
+
+    let analysis = repo.merge_analysis(&[&annotated_commit]);
+    debug!("--------------------------> {:?}", analysis);
+    // perhaps the commit will be behind curent commit in local branch
+    // e.g. when checkout origin/master and Head is already on master
+    // and origin/master is behind master. what to do then?
     repo.checkout_tree(commit.as_object(), Some(opts))
         .expect("can't checkout tree");
     match branch_data.branch_type {
