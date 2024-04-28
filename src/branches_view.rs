@@ -33,6 +33,7 @@ mod branch_item {
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::BranchItem)]
     pub struct BranchItem {
+
         pub branch: RefCell<crate::BranchData>,
 
         #[property(get, set)]
@@ -43,8 +44,8 @@ mod branch_item {
 
         #[property(get, set)]
         pub no_progress: RefCell<bool>,
-
-        #[property(get, set)]
+                        
+        #[property(get = Self::get_branch_is_head, set = Self::set_branch_is_head)]
         pub is_head: RefCell<bool>,
 
         #[property(get, set)]
@@ -58,6 +59,7 @@ mod branch_item {
 
         #[property(get, set)]
         pub dt: RefCell<String>,
+
     }
 
     #[glib::object_subclass]
@@ -66,7 +68,29 @@ mod branch_item {
         type Type = super::BranchItem;
     }
     #[glib::derived_properties]
-    impl ObjectImpl for BranchItem {}
+    impl ObjectImpl for BranchItem {
+        // fn constructed(&self) {
+        //     self.parent_constructed();
+        //     println!("@@@@@@@@@@@@@@@@@@@@@@@@@@@ BranchItem constructed");
+        //     let obj = self.obj();
+        //     obj.bind_property("is-head", obj.as_ref(), "branch")
+        //         .sync_create()
+        //         .build();
+        // }
+    }
+    impl BranchItem {
+        pub fn set_branch_is_head(&self, value: bool) -> bool {
+            println!("setttttttttttttttttttttttttttt is heeeeeeeeeead! {:?}", value);
+            value
+        }
+    
+        pub fn get_branch_is_head(&self) -> bool {
+            let branch = self.branch.borrow();
+            println!("ggggggggggggggggggggggggget is head {:?} {:?}", branch.name, branch.is_head);
+            branch.is_head
+        }
+    }
+    
 }
 
 impl BranchItem {
@@ -78,7 +102,7 @@ impl BranchItem {
             }
         };
         let ob = Object::builder::<BranchItem>()
-            .property("is-head", branch.is_head)
+            //.property("is-head", branch.is_head)
             .property("progress", false)
             .property("no-progress", true)
             .property("ref-kind", ref_kind)
@@ -411,12 +435,16 @@ impl BranchList {
                 if let Ok(new_branch_data) = new_branch_data {
                     if local {
                         // just replace with new data
+                        // aganzha it need to trigger refresh avatar somehow!
                         selected_item.imp().branch.replace(new_branch_data);
                         selected_item.set_is_head(true);
+                        
                         selected_item.set_no_progress(true);
-                        current_item.set_is_head(false);
+                        // current_item.set_is_head(false);
                         current_item.imp().branch.borrow_mut().is_head = false;
+                        current_item.set_is_head(false);
                         //branch_list.set_current_pos(branch_list.selected_pos());
+                        // aganzha it need to trigger refresh avatar somehow!
                     } else {
                         // local branch already could be in list
                         assert!(new_branch_data.branch_type == BranchType::Local);                        
@@ -428,10 +456,10 @@ impl BranchList {
                                 if &branch_item.imp().branch.borrow().name == new_name {
                                     branch_item.imp().branch.replace(new_branch_data);
                                     branch_item.set_initial_focus(true);
-                                    branch_item.set_is_head(true);
+                                    // branch_item.set_is_head(true);
                                     branch_item.set_no_progress(true);
                                     if !this_is_current_branch {
-                                        current_item.set_is_head(false);
+                                        // current_item.set_is_head(false);
                                         current_item.imp().branch.borrow_mut().is_head = false;
                                     } else {
                                         // e.g. current branch is master and
@@ -456,7 +484,9 @@ impl BranchList {
     pub fn update_current_branch(&self, branch_data: crate::BranchData) {
         for branch_item in self.imp().list.borrow().iter() {
             if branch_item.is_head() {
+                debug!("====================>  PERFORM UPDATING current branch {:?} in {:?}", branch_data, branch_item.title());
                 branch_item.imp().branch.replace(branch_data.clone());
+                debug!("aaaaaaaaaaaaaaaaaaand ??? {:?}", branch_item.is_head());
                 return;
                 // return branch_item.imp().branch.borrow().clone();
             }
@@ -735,35 +765,21 @@ impl BranchList {
             })
         });
     }
+    
     fn add_new_branch_item(&self, branch_data: crate::BranchData) {
-        // debug!("new branch_data ========================> {:?} +++++++++++ {:?}", branch_data, self.current_pos());
         let new_head = branch_data.is_head;
         if new_head {
-            // it need to set is_head to false!
-            // let branch_data = match self.get_current_branch() {
-            //     Some(crate::BranchData {is_head, rest}) if is_head => {
-            //     }
-            //     _ => {
-            //         panic!("current item is not head")
-            //     }
-            // };
             let mut current_branch = self.get_current_branch().expect("cant get current branch");
             current_branch.is_head = false;
             self.update_current_branch(current_branch);
-            // let old_item = self.item(self.current_pos()).unwrap();
-            // let old_branch_item =
-            //     old_item.downcast_ref::<BranchItem>().unwrap();
-            // let mut old_data = old_branch_item.imp().branch.borrow_mut();
-            // debug!("sssssssssssssssssssssssssssset false to old item {:?} {:?}", old_data, old_branch_item.is_head());
-            // old_data.is_head = false;
-            // old_branch_item.set_is_head(false);
+            // aganzha it need to trigger refresh avatar somehow!
         }
         let new_item = BranchItem::new(branch_data);
         if new_head {
             let new_branch_item =
                 new_item.downcast_ref::<BranchItem>().unwrap();
             new_branch_item.set_initial_focus(true);
-            new_branch_item.set_is_head(true);
+            // new_branch_item.set_is_head(true);
         }
         {
             // put borrow in block
@@ -914,7 +930,14 @@ pub fn make_item_factory() -> SignalListItemFactory {
         });
 
         let item = list_item.property_expression("item");
-        item.chain_property::<BranchItem>("is_head")
+        // let exp = item.expression();
+        // let inside_list_item = exp.unwrap().value_type();
+        // let branch_item = inside_list_item.downcast_ref::<BranchItem>().unwrap();
+        // debug!("whaaaaaaatttttttttttttttttttt is item exp?  ========================> {:?}", branch_item);
+        // let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+        // let branch = item.imp().branch.borrow();
+
+        item.chain_property::<BranchItem>("is-head")// was "is_head"! it works also!
             .chain_closure::<String>(closure!(
                 |_: Option<Object>, is_head: bool| {
                     if is_head {
