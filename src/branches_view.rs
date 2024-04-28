@@ -408,8 +408,6 @@ impl BranchList {
     pub fn checkout(
         &self,
         repo_path: std::ffi::OsString,
-        // selected_item: &BranchItem,
-        // current_item: &BranchItem, // TODO refactor. get this item from branch_list itself
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
@@ -418,7 +416,6 @@ impl BranchList {
                 let selected_pos = branch_list.selected_pos();                
                 let selected_item = branch_list.item(selected_pos).unwrap();
                 let selected_item = selected_item.downcast_ref::<BranchItem>().unwrap();
-                // let current_item = branch_list.get_current_item();
                 
                 let branch_data = selected_item.imp().branch.borrow().clone();
                 let local = branch_data.branch_type == BranchType::Local;
@@ -428,41 +425,27 @@ impl BranchList {
                 selected_item.set_progress(false);
                 if let Ok(new_branch_data) = new_branch_data {
                     if local {
-                        branch_list.deactivate_current_branch();
-                        // current_item.imp().branch.borrow_mut().is_head = false;
-                        // // to trigger avatar render
-                        // current_item.set_is_head(false);
-                        
+                        branch_list.deactivate_current_branch();                        
                         selected_item.imp().branch.replace(new_branch_data);
-                        // to trigger avatar render
                         selected_item.set_is_head(true);
                         selected_item.set_no_progress(true);
                     } else {
                         // local branch already could be in list
                         assert!(new_branch_data.branch_type == BranchType::Local);
                         let new_name = &new_branch_data.name;
-                        let current_name = branch_list
-                            .get_current_branch()
-                            .expect("no current branch")
-                            .name;
-                        debug!("???????????????? {:?}", current_name);
-                        let this_is_current_branch = false;// wtf??? &current_name == &new_name;
+                        // lets check all items in list
                         for i in 0..branch_list.n_items() {
                             if let Some(item) = branch_list.item(i) {
                                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
                                 if &branch_item.imp().branch.borrow().name == new_name {
-
-                                    if !this_is_current_branch {
+                                    
+                                    if !branch_item.is_head() {
+                                        // new head will be set
                                         branch_list.deactivate_current_branch();
-                                        // current_item.imp().branch.borrow_mut().is_head = false;
-                                        // // to trigger avatar render
-                                        // current_item.set_is_head(false);
-
                                     } else {
                                         // e.g. current branch is master and
                                         // user chekout origin master
-                                    }
-                                    
+                                    }                                    
                                     branch_item.imp().branch.replace(new_branch_data);
                                     branch_item.set_initial_focus(true);
                                     branch_item.set_is_head(true);
@@ -473,10 +456,6 @@ impl BranchList {
                             }
                         }
                         branch_list.deactivate_current_branch();
-                        // current_item.imp().branch.borrow_mut().is_head = false;
-                        // // to trigger avatar render
-                        // current_item.set_is_head(false);
-
                         // create new branch
                         branch_list.add_new_branch_item(new_branch_data);
                     }
