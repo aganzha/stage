@@ -744,6 +744,7 @@ impl BranchList {
                     crate::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
                 }).await;
                 if let Ok(branch_data) = result {
+                    branch_list.deactivate_current_branch();
                     branch_list.add_new_branch_item(branch_data);
                 } else {
                     crate::display_error(&window, "cant create branch");
