@@ -1,7 +1,6 @@
 BUG: after manipulating branches stashes list is empty, and just feeling of stashes in the log
      dot emacs file also apeared in unstaged, and killing it causeing panic
      
-BUG: create new branch. commit. push. switch to master. kill local branch. refresh - segfault.
 BUG: thread '<unnamed>' panicked at src/git.rs:149:9:
      cant reverse header @@ -1 +0,0 @@
 BUG: thread 'main' panicked at src/status_view/container.rs:199:14:
