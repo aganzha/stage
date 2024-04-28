@@ -1182,7 +1182,7 @@ pub fn checkout_branch(
     let commit = repo
         .find_commit(branch_data.oid)
         .expect("can't find commit");
-    
+
     if branch_data.branch_type == BranchType::Remote {
         // handle case when checkout remote branch and local branch
         // is ahead of remote
@@ -1196,11 +1196,11 @@ pub fn checkout_branch(
             debug!("skip checkout ancestor tree");
             let branch = Branch::wrap(head_ref);
             return BranchData::from_branch(branch, BranchType::Local).expect("cant get branch");
-        }        
+        }
     }
     let mut builder = CheckoutBuilder::new();
     let opts = builder.safe();
-    
+
     repo.checkout_tree(commit.as_object(), Some(opts))
         .expect("can't checkout tree");
     match branch_data.branch_type {
@@ -1260,6 +1260,29 @@ pub fn kill_branch(
     let name = &branch_data.name;
     let kind = branch_data.branch_type;
     let mut branch = repo.find_branch(name, kind).expect("can't find branch");
+    if kind == BranchType::Remote {
+        gio::spawn_blocking({
+            let path = path.clone();
+            let name = name.clone();
+            move || {
+                let repo = Repository::open(path.clone()).expect("can't open repo");
+                let mut remote = repo
+                    .find_remote("origin") // TODO here is hardcode
+                    .expect("no remote");
+                let mut opts = PushOptions::new();
+                let mut callbacks = RemoteCallbacks::new();
+                set_remote_callbacks(&mut callbacks, &None);
+                opts.remote_callbacks(callbacks);
+
+                let refspec = format!(
+                    ":refs/heads/{}",
+                    name.replace("origin/", ""),
+                );
+                remote.push(&[refspec], Some(&mut opts)).expect("cant push to remote");
+            }
+        });
+    }
+
     let result = branch.delete();
     if let Err(err) = result {
         trace!(
@@ -1268,11 +1291,6 @@ pub fn kill_branch(
             err.class(),
             err.message()
         );
-        // match err.code() {
-        //     ErrorCode::Conflict => {
-        //         return Err(String::from(""));
-        //     }
-        // }
         return Err(String::from(err.message()));
     }
     Ok(())
@@ -1537,7 +1555,7 @@ pub fn get_directories(path: OsString) -> HashSet<String> {
         if parts.len() > 1 {
             parts.pop();
             directories.insert(parts.join("/"));
-        }        
+        }
     }
     directories
 }
