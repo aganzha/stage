@@ -415,6 +415,7 @@ impl BranchList {
                         selected_item.set_is_head(true);
                         selected_item.set_no_progress(true);
                         current_item.set_is_head(false);
+                        current_item.imp().branch.borrow_mut().is_head = false;
                         branch_list.set_current_pos(branch_list.selected_pos());
                     } else {
                         // local branch already could be in list
