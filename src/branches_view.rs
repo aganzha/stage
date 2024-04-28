@@ -505,9 +505,11 @@ impl BranchList {
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
-        // let btns = vec!["Cancel", "Merge"];
         let current_branch = self.get_current_branch();
         let selected_branch = self.get_selected_branch();
+        if selected_branch.is_head {
+            return
+        }
         let title = format!(
             "merge branch {} into {}",
             selected_branch.name, current_branch.name
@@ -552,6 +554,9 @@ impl BranchList {
             clone!(@weak self as branch_list, @weak window as window => async move {
                 let pos = branch_list.selected_pos();
                 let branch_data = branch_list.get_selected_branch();
+                if branch_data.is_head {
+                    return
+                }
                 let kind = branch_data.branch_type;
                 let result = gio::spawn_blocking(move || {
                     crate::kill_branch(repo_path, branch_data, sender)
@@ -568,15 +573,15 @@ impl BranchList {
                                     if let Some(mut rem_pos) = *pos {
                                         rem_pos -= 1;
                                         pos.replace(rem_pos);
-                                        trace!("branches.replace rem pos {:?} {:?}", rem_pos, pos);
+                                        debug!("branches.replace rem pos {:?} {:?}", rem_pos, pos);
                                     }
                                 }
                             }
                             let shifted_item = branch_list.item(pos);
-                            trace!("branches. removed item at pos {:?}", pos);
+                            debug!("branches. removed item at pos {:?}", pos);
                             let mut new_pos = pos;
                             if let Some(item) = shifted_item {
-                                trace!("branches.shift item");
+                                debug!("branches.shift item");
                                 // next item in list will shift to this position
                                 // and must get focus
                                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
@@ -593,12 +598,13 @@ impl BranchList {
                                         0
                                     }
                                 };
-                                trace!("branches.got last item. decrement pos {:?}", new_pos);
+                                debug!("branches.got last item. decrement pos {:?}", new_pos);
                                 let prev_item = branch_list.item(new_pos).unwrap();
                                 let branch_item = prev_item.downcast_ref::<BranchItem>().unwrap();
                                 branch_item.set_initial_focus(true);
                                 branch_list.set_selected_pos(new_pos);
                             }
+                            debug!("call items cganged with pos {:?}. new pos will be {:?}", pos, new_pos);
                             branch_list.items_changed(pos, 1, 0);
                             // restore selected position to next one
                             // will will get focus
@@ -1044,13 +1050,24 @@ pub fn make_headerbar(
         .can_shrink(true)
         .build();
 
-    let selection_model = list_view.model().unwrap();
-    let single_selection =
-        selection_model.downcast_ref::<SingleSelection>().unwrap();
-
-    let kill_bind = single_selection
-        .bind_property("selected-item", &kill_btn, "sensitive")
-        .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
+    let set_sensitive = |bind: &glib::Binding, position: u32| {
+        let src = bind.source().unwrap();
+        let li: &BranchList = src.downcast_ref().unwrap();
+        let item = li.item(position);
+        if let Some(item) = item {
+            let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+            Some(!branch_item.is_head())
+        } else {
+            Some(false)
+        }
+    };
+    let _ = branch_list
+        .bind_property("selected-pos", &kill_btn, "sensitive")
+        .transform_to(set_sensitive)
+        .build();
+    let _ = branch_list
+        .bind_property("current-pos", &kill_btn, "sensitive")
+        .transform_to(set_sensitive)
         .build();
     kill_btn.connect_clicked({
         let sender = sender.clone();
@@ -1061,16 +1078,19 @@ pub fn make_headerbar(
         }
     });
     let merge_btn = Button::builder()
-        // .label("M")
         .icon_name("org.gtk.gtk4.NodeEditor-symbolic")
         .use_underline(true)
         .tooltip_text("Merge branch (M)")
         .sensitive(false)
         .can_shrink(true)
         .build();
-    let merge_bind = single_selection
-        .bind_property("selected-item", &merge_btn, "sensitive")
-        .transform_to(move |_, item: BranchItem| Some(!item.is_head()))
+    let _ = branch_list
+        .bind_property("selected-pos", &merge_btn, "sensitive")
+        .transform_to(set_sensitive)
+        .build();
+    let _ = branch_list
+        .bind_property("current-pos", &merge_btn, "sensitive")
+        .transform_to(set_sensitive)
         .build();
     merge_btn.connect_clicked({
         let sender = sender.clone();
@@ -1093,10 +1113,6 @@ pub fn make_headerbar(
     refresh_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
-            // hack to prevent panics on transform_to
-            merge_bind.unbind();
-            kill_bind.unbind();
-            debug!("!!!!!!!!!!!!!!!!!!!!! just unbinded!");
             sender
                 .send_blocking(Event::UpdateRemote)
                 .expect("Could not send through channel");
