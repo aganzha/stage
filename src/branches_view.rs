@@ -39,12 +39,6 @@ mod branch_item {
         #[property(get, set)]
         pub initial_focus: RefCell<bool>,
 
-        #[property(get, set)]
-        pub progress: RefCell<bool>,
-
-        #[property(get, set)]
-        pub no_progress: RefCell<bool>,
-
         #[property(get = Self::get_branch_is_head, set = Self::set_branch_is_head)]
         pub is_head: RefCell<bool>,
 
@@ -70,7 +64,7 @@ mod branch_item {
     #[glib::derived_properties]
     impl ObjectImpl for BranchItem {
     }
-    
+
     impl BranchItem {
         pub fn set_branch_is_head(&self, value: bool) -> bool {
             // fake property. it need to set it, to trigger
@@ -96,8 +90,6 @@ impl BranchItem {
         };
         let ob = Object::builder::<BranchItem>()
             .property("is-head", branch.is_head)
-            .property("progress", false)
-            .property("no-progress", true)
             .property("ref-kind", ref_kind)
             .property(
                 "title",
@@ -413,22 +405,20 @@ impl BranchList {
     ) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window => async move { // , @weak selected_item, @weak current_item
-                let selected_pos = branch_list.selected_pos();                
+                let selected_pos = branch_list.selected_pos();
                 let selected_item = branch_list.item(selected_pos).unwrap();
                 let selected_item = selected_item.downcast_ref::<BranchItem>().unwrap();
-                
+
                 let branch_data = selected_item.imp().branch.borrow().clone();
                 let local = branch_data.branch_type == BranchType::Local;
                 let new_branch_data = gio::spawn_blocking(move || {
                     crate::checkout_branch(repo_path, branch_data, sender)
                 }).await;
-                selected_item.set_progress(false);
                 if let Ok(new_branch_data) = new_branch_data {
                     if local {
-                        branch_list.deactivate_current_branch();                        
+                        branch_list.deactivate_current_branch();
                         selected_item.imp().branch.replace(new_branch_data);
                         selected_item.set_is_head(true);
-                        selected_item.set_no_progress(true);
                     } else {
                         // local branch already could be in list
                         assert!(new_branch_data.branch_type == BranchType::Local);
@@ -438,18 +428,17 @@ impl BranchList {
                             if let Some(item) = branch_list.item(i) {
                                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
                                 if &branch_item.imp().branch.borrow().name == new_name {
-                                    
+
                                     if !branch_item.is_head() {
                                         // new head will be set
                                         branch_list.deactivate_current_branch();
                                     } else {
                                         // e.g. current branch is master and
                                         // user chekout origin master
-                                    }                                    
+                                    }
                                     branch_item.imp().branch.replace(new_branch_data);
                                     branch_item.set_initial_focus(true);
                                     branch_item.set_is_head(true);
-                                    branch_item.set_no_progress(true);                                    
                                     branch_list.set_selected_pos(i);
                                     return;
                                 }
@@ -468,7 +457,7 @@ impl BranchList {
 
     pub fn deactivate_current_branch(&self) {
         for branch_item in self.imp().list.borrow().iter() {
-            if branch_item.is_head() {                
+            if branch_item.is_head() {
                 branch_item.imp().branch.borrow_mut().is_head = false;
                 // to trigger render for avatar icon
                 branch_item.set_is_head(false);
@@ -477,10 +466,10 @@ impl BranchList {
         }
         panic!("cant update current branch");
     }
-    
+
     pub fn update_current_branch(&self, branch_data: crate::BranchData) {
         for branch_item in self.imp().list.borrow().iter() {
-            if branch_item.is_head() {                
+            if branch_item.is_head() {
                 branch_item.imp().branch.replace(branch_data.clone());
                 // to trigger render for avatar icon
                 branch_item.set_is_head(branch_item.is_head());
@@ -507,7 +496,7 @@ impl BranchList {
         }
         result
     }
-    
+
     pub fn cherry_pick(
         &self,
         repo_path: std::ffi::OsString,
@@ -922,16 +911,6 @@ pub fn make_item_factory() -> SignalListItemFactory {
                 }
             ))
             .bind(&image, "icon-name", Widget::NONE);
-        item.chain_property::<BranchItem>("progress").bind(
-            &spinner,
-            "visible",
-            Widget::NONE,
-        );
-        item.chain_property::<BranchItem>("progress").bind(
-            &spinner,
-            "spinning",
-            Widget::NONE,
-        );
         item.chain_property::<BranchItem>("title").bind(
             &label_title,
             "label",
@@ -992,7 +971,7 @@ pub fn make_list_view(
         let single_selection =
             selection_model.downcast_ref::<SingleSelection>().unwrap();
         let list_model = single_selection.model().unwrap();
-        let branch_list = list_model.downcast_ref::<BranchList>().unwrap();        
+        let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
         branch_list.checkout(
             repo_path.clone(),
             window,
