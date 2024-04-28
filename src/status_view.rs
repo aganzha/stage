@@ -183,11 +183,11 @@ impl Status {
                                             }
                                         }
                                         if *lock.borrow() {
-                                            debug!("NOOOOOOOOOOOOOOOOOOOOOOOOOOOO way {:p} {:?} {:?}", &lock, lock, file_path);
+                                            trace!("monitor locked");
                                             return;
                                         }
                                         lock.replace(true);
-                                        debug!("SET LOCK -------------------> {:p} {:?} {:?}", &lock, lock, file_path);
+                                        trace!("set monitor lock");
                                         glib::source::timeout_add_local(Duration::from_millis(300), {
                                             let lock = lock.clone();
                                             let path = path.clone();
@@ -199,7 +199,7 @@ impl Status {
                                                     let sender = sender.clone();
                                                     let file_path = file_path.clone();
                                                     lock.replace(false);
-                                                    debug!("RELEASE LOCK................. lock after {:p} {:?} {:?}", &lock, lock, file_path);
+                                                    trace!("release monitor lock");
                                                     move || {
                                                         // TODO! throttle!
                                                         track_changes(
@@ -474,7 +474,6 @@ impl Status {
                         }),
                     );
                     let response = dialog.choose_future().await;
-                    debug!("got response from dialog! {:?}", response);
                     if "confirm" != response {
                         return;
                     }
@@ -753,7 +752,6 @@ impl Status {
         if let Some(untracked) = &mut self.untracked {
             for file in &mut untracked.files {
                 if file.get_view().current {
-                    debug!("stage untracked {:?}", file.title());
                     gio::spawn_blocking({
                         let path = self.path.clone();
                         let sender = self.sender.clone();
@@ -823,13 +821,12 @@ impl Status {
                 _ => (),
             }
         });
-        debug!("stage. apply filter {:?}", filter);
         if !filter.file_id.is_empty() {
             if hunks_staged > 1 {
                 // stage all hunks in file
                 filter.hunk_id = None;
             }
-            debug!("stage via apply {:?}", filter);
+            trace!("stage via apply {:?}", filter);
             gio::spawn_blocking({
                 let path = self.path.clone();
                 let sender = self.sender.clone();
@@ -923,7 +920,6 @@ impl Status {
         ref_log_msg: String,
         err_msg: String
     ) {
-        debug!("+++++++++++++++++++++++++++ {:?} {:?} {:?}", oid, ref_log_msg, err_msg);
         glib::spawn_future_local({
             let window = window.clone();
             let sender = self.sender.clone();
@@ -960,7 +956,6 @@ impl Status {
                 let _bind = stash
                     .bind_property("active", &conflicts, "active")
                     .transform_to(move |_, value: bool| {
-                        debug!("-------------------- STASH {:?}", value);
                         Some(!value)
                     })
                     //.bidirectional()
@@ -968,7 +963,6 @@ impl Status {
                 let _bind = conflicts
                     .bind_property("active", &stash, "active")
                     .transform_to(move |_, value: bool| {
-                        debug!("-------------------- CONFLICTS {:?}", value);
                         Some(!value)
                     })
                     //.bidirectional()

@@ -371,6 +371,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     status.reset_hard(sender.clone());
                 }
                 Event::Refresh => {
+                    info!("main. refresh");
                     status.get_status();
                 }
                 Event::CommitDiff(_d) => {
@@ -380,9 +381,11 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     status.push(&window, Some((remote, tracking, true)))
                 }
                 Event::PullUserPass => {
+                    info!("main. userpass");
                     status.pull(&window, Some(true))
                 }
                 Event::CheckoutError(oid, ref_message, error_message) => {
+                    info!("main. checkout error");
                     status.checkout_error(&window, oid, ref_message, error_message)
                 }
             };
