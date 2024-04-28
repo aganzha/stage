@@ -720,12 +720,14 @@ impl BranchList {
         });
     }
     fn add_new_branch_item(&self, branch_data: crate::BranchData) {
+        debug!("new branch_data ========================> {:?} +++++++++++ {:?}", branch_data, self.current_pos());
         let new_head = branch_data.is_head;
         if new_head {
             let old_item = self.item(self.current_pos()).unwrap();
             let old_branch_item =
                 old_item.downcast_ref::<BranchItem>().unwrap();
             let mut old_data = old_branch_item.imp().branch.borrow_mut();
+            debug!("sssssssssssssssssssssssssssset false to old item {:?} {:?}", old_data, old_branch_item.is_head());
             old_data.is_head = false;
             old_branch_item.set_is_head(false);
         }
