@@ -33,6 +33,7 @@ mod branch_item {
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::BranchItem)]
     pub struct BranchItem {
+
         pub branch: RefCell<crate::BranchData>,
 
         #[property(get, set)]
@@ -44,7 +45,7 @@ mod branch_item {
         #[property(get, set)]
         pub no_progress: RefCell<bool>,
 
-        #[property(get, set)]
+        #[property(get = Self::get_branch_is_head, set = Self::set_branch_is_head)]
         pub is_head: RefCell<bool>,
 
         #[property(get, set)]
@@ -58,6 +59,7 @@ mod branch_item {
 
         #[property(get, set)]
         pub dt: RefCell<String>,
+
     }
 
     #[glib::object_subclass]
@@ -66,7 +68,22 @@ mod branch_item {
         type Type = super::BranchItem;
     }
     #[glib::derived_properties]
-    impl ObjectImpl for BranchItem {}
+    impl ObjectImpl for BranchItem {
+    }
+    
+    impl BranchItem {
+        pub fn set_branch_is_head(&self, value: bool) -> bool {
+            // fake property. it need to set it, to trigger
+            // avatar icon render via binding
+            value
+        }
+
+        pub fn get_branch_is_head(&self) -> bool {
+            let branch = self.branch.borrow();
+            branch.is_head
+        }
+    }
+
 }
 
 impl BranchItem {
@@ -118,9 +135,6 @@ mod branch_list {
 
         #[property(get, set)]
         pub selected_pos: RefCell<u32>,
-
-        #[property(get, set)]
-        pub current_pos: RefCell<u32>,
     }
 
     #[glib::object_subclass]
@@ -387,7 +401,6 @@ impl BranchList {
                 branch_list.items_changed(0, 0, le);
                 // works via bind to single_selection selected
                 branch_list.set_selected_pos(selected as u32);
-                branch_list.set_current_pos(selected as u32);
             })
         });
     }
@@ -395,13 +408,15 @@ impl BranchList {
     pub fn checkout(
         &self,
         repo_path: std::ffi::OsString,
-        selected_item: &BranchItem,
-        current_item: &BranchItem, // TODO refactor. get this item from branch_list itself
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
         glib::spawn_future_local({
-            clone!(@weak self as branch_list, @weak window as window, @weak selected_item, @weak current_item => async move {
+            clone!(@weak self as branch_list, @weak window as window => async move { // , @weak selected_item, @weak current_item
+                let selected_pos = branch_list.selected_pos();                
+                let selected_item = branch_list.item(selected_pos).unwrap();
+                let selected_item = selected_item.downcast_ref::<BranchItem>().unwrap();
+                
                 let branch_data = selected_item.imp().branch.borrow().clone();
                 let local = branch_data.branch_type == BranchType::Local;
                 let new_branch_data = gio::spawn_blocking(move || {
@@ -410,39 +425,37 @@ impl BranchList {
                 selected_item.set_progress(false);
                 if let Ok(new_branch_data) = new_branch_data {
                     if local {
-                        // just replace with new data
+                        branch_list.deactivate_current_branch();                        
                         selected_item.imp().branch.replace(new_branch_data);
                         selected_item.set_is_head(true);
                         selected_item.set_no_progress(true);
-                        current_item.set_is_head(false);
-                        current_item.imp().branch.borrow_mut().is_head = false;
-                        branch_list.set_current_pos(branch_list.selected_pos());
                     } else {
                         // local branch already could be in list
-                        assert!(new_branch_data.branch_type == BranchType::Local);                        
+                        assert!(new_branch_data.branch_type == BranchType::Local);
                         let new_name = &new_branch_data.name;
-                        let this_is_current_branch = &current_item.imp().branch.borrow().name == new_name;
+                        // lets check all items in list
                         for i in 0..branch_list.n_items() {
                             if let Some(item) = branch_list.item(i) {
                                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
                                 if &branch_item.imp().branch.borrow().name == new_name {
-                                    branch_item.imp().branch.replace(new_branch_data);
-                                    branch_item.set_initial_focus(true);
-                                    branch_item.set_is_head(true);
-                                    branch_item.set_no_progress(true);
-                                    if !this_is_current_branch {
-                                        current_item.set_is_head(false);
-                                        current_item.imp().branch.borrow_mut().is_head = false;
+                                    
+                                    if !branch_item.is_head() {
+                                        // new head will be set
+                                        branch_list.deactivate_current_branch();
                                     } else {
                                         // e.g. current branch is master and
                                         // user chekout origin master
-                                    }
+                                    }                                    
+                                    branch_item.imp().branch.replace(new_branch_data);
+                                    branch_item.set_initial_focus(true);
+                                    branch_item.set_is_head(true);
+                                    branch_item.set_no_progress(true);                                    
                                     branch_list.set_selected_pos(i);
-                                    branch_list.set_current_pos(i);
                                     return;
                                 }
                             }
                         }
+                        branch_list.deactivate_current_branch();
                         // create new branch
                         branch_list.add_new_branch_item(new_branch_data);
                     }
@@ -453,10 +466,28 @@ impl BranchList {
         });
     }
 
-    pub fn update_current_item(&self, branch_data: crate::BranchData) {
-        let current_item = self.item(self.current_pos()).unwrap();
-        let branch_item = current_item.downcast_ref::<BranchItem>().unwrap();
-        branch_item.imp().branch.replace(branch_data);
+    pub fn deactivate_current_branch(&self) {
+        for branch_item in self.imp().list.borrow().iter() {
+            if branch_item.is_head() {                
+                branch_item.imp().branch.borrow_mut().is_head = false;
+                // to trigger render for avatar icon
+                branch_item.set_is_head(false);
+                return;
+            }
+        }
+        panic!("cant update current branch");
+    }
+    
+    pub fn update_current_branch(&self, branch_data: crate::BranchData) {
+        for branch_item in self.imp().list.borrow().iter() {
+            if branch_item.is_head() {                
+                branch_item.imp().branch.replace(branch_data.clone());
+                // to trigger render for avatar icon
+                branch_item.set_is_head(branch_item.is_head());
+                return;
+            }
+        }
+        panic!("cant update current branch");
     }
 
     pub fn get_selected_branch(&self) -> crate::BranchData {
@@ -467,14 +498,16 @@ impl BranchList {
         data
     }
 
-    pub fn get_current_branch(&self) -> crate::BranchData {
-        let pos = self.current_pos();
-        let item = self.item(pos).unwrap();
-        let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-        let data = branch_item.imp().branch.borrow().clone();
-        data
+    pub fn get_current_branch(&self) -> Option<crate::BranchData> {
+        let mut result = None;
+        for branch_item in self.imp().list.borrow().iter() {
+            if branch_item.is_head() {
+                result.replace(branch_item.imp().branch.borrow().clone());
+            }
+        }
+        result
     }
-
+    
     pub fn cherry_pick(
         &self,
         repo_path: std::ffi::OsString,
@@ -492,7 +525,7 @@ impl BranchList {
                     match git_result {
                         Ok(branch_data) => {
                             trace!("just cherry picked and this is branch data {:?}", branch_data);
-                            branch_list.update_current_item(branch_data);
+                            branch_list.update_current_branch(branch_data);
                             return;
                         }
                         Err(err) => err_message = err
@@ -531,7 +564,7 @@ impl BranchList {
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
-        let current_branch = self.get_current_branch();
+        let current_branch = self.get_current_branch().expect("cant get current branch");
         let selected_branch = self.get_selected_branch();
         if selected_branch.is_head {
             return
@@ -561,7 +594,7 @@ impl BranchList {
 
                 if let Ok(branch_data) = result {
                     trace!("just merged and this is branch data {:?}", branch_data);
-                    branch_list.update_current_item(branch_data);
+                    branch_list.update_current_branch(branch_data);
                     window.close();
                 } else {
                     crate::display_error(&window, "error in merge");
@@ -581,7 +614,6 @@ impl BranchList {
                 let pos = branch_list.selected_pos();
                 let branch_data = branch_list.get_selected_branch();
                 if branch_data.is_head {
-                    panic!("kill head branch! {:?}", branch_data);
                     return
                 }
                 let kind = branch_data.branch_type;
@@ -719,25 +751,15 @@ impl BranchList {
             })
         });
     }
+
     fn add_new_branch_item(&self, branch_data: crate::BranchData) {
-        debug!("new branch_data ========================> {:?} +++++++++++ {:?}", branch_data, self.current_pos());
-        let new_head = branch_data.is_head;
-        if new_head {
-            let old_item = self.item(self.current_pos()).unwrap();
-            let old_branch_item =
-                old_item.downcast_ref::<BranchItem>().unwrap();
-            let mut old_data = old_branch_item.imp().branch.borrow_mut();
-            debug!("sssssssssssssssssssssssssssset false to old item {:?} {:?}", old_data, old_branch_item.is_head());
-            old_data.is_head = false;
-            old_branch_item.set_is_head(false);
-        }
+
         let new_item = BranchItem::new(branch_data);
-        if new_head {
-            let new_branch_item =
-                new_item.downcast_ref::<BranchItem>().unwrap();
-            new_branch_item.set_initial_focus(true);
-            new_branch_item.set_is_head(true);
-        }
+
+        let new_branch_item =
+            new_item.downcast_ref::<BranchItem>().unwrap();
+        new_branch_item.set_initial_focus(true);
+
         {
             // put borrow in block
             self.imp().list.borrow_mut().insert(0, new_item);
@@ -749,8 +771,8 @@ impl BranchList {
             }
         }
         self.items_changed(0, 0, 1);
+        // works via bind to single_selection selected ?????
         self.set_selected_pos(0);
-        self.set_current_pos(0);
     }
 }
 
@@ -887,7 +909,8 @@ pub fn make_item_factory() -> SignalListItemFactory {
         });
 
         let item = list_item.property_expression("item");
-        item.chain_property::<BranchItem>("is_head")
+
+        item.chain_property::<BranchItem>("is-head")// was "is_head"! it works also!
             .chain_closure::<String>(closure!(
                 |_: Option<Object>, is_head: bool| {
                     if is_head {
@@ -946,14 +969,6 @@ pub fn make_list_view(
     let bind =
         selection_model.bind_property("selected", &model, "selected_pos");
     let _ = bind.bidirectional().build();
-    // selection_model.connect_selected_item_notify(|single_selection| {
-    //     // let ss_pos = single_selection.selected();
-    //     // trace!("selected_item_notify............. {:?}", ss_pos);
-    //     // if let Some(item) = single_selection.selected_item() {
-    //     //     let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-    //     //     branch_item.imp().add_css_class("selected");
-    //     // }
-    // });
 
     let branch_list = model.downcast_ref::<BranchList>().unwrap();
     branch_list.get_branches(repo_path.clone());
@@ -970,47 +985,18 @@ pub fn make_list_view(
         .build();
 
     list_view.connect_activate(move |lv: &ListView, pos: u32| {
+        let root = lv.root().unwrap();
+        let window = root.downcast_ref::<Window>().unwrap();
         let selection_model = lv.model().unwrap();
         let single_selection =
             selection_model.downcast_ref::<SingleSelection>().unwrap();
         let list_model = single_selection.model().unwrap();
-        let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
-
-        let item_ob = selection_model.item(pos);
-        let mut current_item: Option<&BranchItem> = None;
-        if let Some(item) = item_ob {
-            let list = branch_list.imp().list.borrow();
-            let activated_branch_item =
-                item.downcast_ref::<BranchItem>().unwrap();
-            if activated_branch_item.is_head() {
-                return;
-            }
-            for branch_item in list.iter() {
-                if branch_item.is_head() {
-                    current_item.replace(branch_item);
-                }
-                branch_item.set_progress(false);
-                branch_item.set_no_progress(true);
-            }
-            activated_branch_item.set_progress(true);
-            activated_branch_item.set_no_progress(false);
-            let root = lv.root().unwrap();
-            let window = root.downcast_ref::<Window>().unwrap();
-            trace!(
-                "branches checkout! {:?} {:?}",
-                single_selection.selected(),
-                branch_list.selected_pos()
-            );
-            branch_list.checkout(
-                repo_path.clone(),
-                activated_branch_item,
-                // got panic here! AGAIN!
-                // this means no head branch in items!
-                current_item.unwrap(),
-                window,
-                sender.clone(),
-            );
-        }
+        let branch_list = list_model.downcast_ref::<BranchList>().unwrap();        
+        branch_list.checkout(
+            repo_path.clone(),
+            window,
+            sender.clone(),
+        );
     });
     list_view.add_css_class("stage");
     list_view
@@ -1095,10 +1081,10 @@ pub fn make_headerbar(
         .bind_property("selected-pos", &kill_btn, "sensitive")
         .transform_to(set_sensitive)
         .build();
-    let _ = branch_list
-        .bind_property("current-pos", &kill_btn, "sensitive")
-        .transform_to(set_sensitive)
-        .build();
+    // let _ = branch_list
+    //     .bind_property("current-pos", &kill_btn, "sensitive")
+    //     .transform_to(set_sensitive)
+    //     .build();
     kill_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
@@ -1118,10 +1104,10 @@ pub fn make_headerbar(
         .bind_property("selected-pos", &merge_btn, "sensitive")
         .transform_to(set_sensitive)
         .build();
-    let _ = branch_list
-        .bind_property("current-pos", &merge_btn, "sensitive")
-        .transform_to(set_sensitive)
-        .build();
+    // let _ = branch_list
+    //     .bind_property("current-pos", &merge_btn, "sensitive")
+    //     .transform_to(set_sensitive)
+    //     .build();
     merge_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
@@ -1186,7 +1172,7 @@ pub fn branches_in_use(
     let list_model = single_selection.model().unwrap();
     let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
     (
-        branch_list.get_current_branch(),
+        branch_list.get_current_branch().expect("cant get current branch"),
         branch_list.get_selected_branch(),
     )
 }
