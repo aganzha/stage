@@ -119,8 +119,8 @@ mod branch_list {
         #[property(get, set)]
         pub selected_pos: RefCell<u32>,
 
-        #[property(get, set)]
-        pub current_pos: RefCell<u32>,
+        // #[property(get, set)]
+        // pub current_pos: RefCell<u32>,
     }
 
     #[glib::object_subclass]
@@ -387,7 +387,7 @@ impl BranchList {
                 branch_list.items_changed(0, 0, le);
                 // works via bind to single_selection selected
                 branch_list.set_selected_pos(selected as u32);
-                branch_list.set_current_pos(selected as u32);
+                // branch_list.set_current_pos(selected as u32);
             })
         });
     }
@@ -416,7 +416,7 @@ impl BranchList {
                         selected_item.set_no_progress(true);
                         current_item.set_is_head(false);
                         current_item.imp().branch.borrow_mut().is_head = false;
-                        branch_list.set_current_pos(branch_list.selected_pos());
+                        //branch_list.set_current_pos(branch_list.selected_pos());
                     } else {
                         // local branch already could be in list
                         assert!(new_branch_data.branch_type == BranchType::Local);                        
@@ -438,7 +438,7 @@ impl BranchList {
                                         // user chekout origin master
                                     }
                                     branch_list.set_selected_pos(i);
-                                    branch_list.set_current_pos(i);
+                                    //branch_list.set_current_pos(i);
                                     return;
                                 }
                             }
@@ -453,10 +453,18 @@ impl BranchList {
         });
     }
 
-    pub fn update_current_item(&self, branch_data: crate::BranchData) {
-        let current_item = self.item(self.current_pos()).unwrap();
-        let branch_item = current_item.downcast_ref::<BranchItem>().unwrap();
-        branch_item.imp().branch.replace(branch_data);
+    pub fn update_current_branch(&self, branch_data: crate::BranchData) {
+        for branch_item in self.imp().list.borrow().iter() {
+            if branch_item.is_head() {
+                branch_item.imp().branch.replace(branch_data.clone());
+                return;
+                // return branch_item.imp().branch.borrow().clone();
+            }
+        }
+        panic!("cant update current branch");
+        // let current_item = self.item(self.current_pos()).unwrap();
+        // let branch_item = current_item.downcast_ref::<BranchItem>().unwrap();
+        // branch_item.imp().branch.replace(branch_data);
     }
 
     pub fn get_selected_branch(&self) -> crate::BranchData {
@@ -467,12 +475,20 @@ impl BranchList {
         data
     }
 
-    pub fn get_current_branch(&self) -> crate::BranchData {
-        let pos = self.current_pos();
-        let item = self.item(pos).unwrap();
-        let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-        let data = branch_item.imp().branch.borrow().clone();
-        data
+    pub fn get_current_branch(&self) -> Option<crate::BranchData> {
+        let mut result = None;
+        for branch_item in self.imp().list.borrow().iter() {
+            if branch_item.is_head() {
+                result.replace(branch_item.imp().branch.borrow().clone());
+                // return branch_item.imp().branch.borrow().clone();
+            }
+        }
+        result
+        // let pos = self.current_pos();
+        // let item = self.item(pos).unwrap();
+        // let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+        // let data = branch_item.imp().branch.borrow().clone();
+        // data
     }
 
     pub fn cherry_pick(
@@ -492,7 +508,7 @@ impl BranchList {
                     match git_result {
                         Ok(branch_data) => {
                             trace!("just cherry picked and this is branch data {:?}", branch_data);
-                            branch_list.update_current_item(branch_data);
+                            branch_list.update_current_branch(branch_data);
                             return;
                         }
                         Err(err) => err_message = err
@@ -531,7 +547,7 @@ impl BranchList {
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
-        let current_branch = self.get_current_branch();
+        let current_branch = self.get_current_branch().expect("cant get current branch");
         let selected_branch = self.get_selected_branch();
         if selected_branch.is_head {
             return
@@ -561,7 +577,7 @@ impl BranchList {
 
                 if let Ok(branch_data) = result {
                     trace!("just merged and this is branch data {:?}", branch_data);
-                    branch_list.update_current_item(branch_data);
+                    branch_list.update_current_branch(branch_data);
                     window.close();
                 } else {
                     crate::display_error(&window, "error in merge");
@@ -720,16 +736,27 @@ impl BranchList {
         });
     }
     fn add_new_branch_item(&self, branch_data: crate::BranchData) {
-        debug!("new branch_data ========================> {:?} +++++++++++ {:?}", branch_data, self.current_pos());
+        // debug!("new branch_data ========================> {:?} +++++++++++ {:?}", branch_data, self.current_pos());
         let new_head = branch_data.is_head;
         if new_head {
-            let old_item = self.item(self.current_pos()).unwrap();
-            let old_branch_item =
-                old_item.downcast_ref::<BranchItem>().unwrap();
-            let mut old_data = old_branch_item.imp().branch.borrow_mut();
-            debug!("sssssssssssssssssssssssssssset false to old item {:?} {:?}", old_data, old_branch_item.is_head());
-            old_data.is_head = false;
-            old_branch_item.set_is_head(false);
+            // it need to set is_head to false!
+            // let branch_data = match self.get_current_branch() {
+            //     Some(crate::BranchData {is_head, rest}) if is_head => {
+            //     }
+            //     _ => {
+            //         panic!("current item is not head")
+            //     }
+            // };
+            let mut current_branch = self.get_current_branch().expect("cant get current branch");
+            current_branch.is_head = false;
+            self.update_current_branch(current_branch);
+            // let old_item = self.item(self.current_pos()).unwrap();
+            // let old_branch_item =
+            //     old_item.downcast_ref::<BranchItem>().unwrap();
+            // let mut old_data = old_branch_item.imp().branch.borrow_mut();
+            // debug!("sssssssssssssssssssssssssssset false to old item {:?} {:?}", old_data, old_branch_item.is_head());
+            // old_data.is_head = false;
+            // old_branch_item.set_is_head(false);
         }
         let new_item = BranchItem::new(branch_data);
         if new_head {
@@ -750,7 +777,7 @@ impl BranchList {
         }
         self.items_changed(0, 0, 1);
         self.set_selected_pos(0);
-        self.set_current_pos(0);
+        // self.set_current_pos(0);
     }
 }
 
@@ -1186,7 +1213,7 @@ pub fn branches_in_use(
     let list_model = single_selection.model().unwrap();
     let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
     (
-        branch_list.get_current_branch(),
+        branch_list.get_current_branch().expect("cant get curent branch"),
         branch_list.get_selected_branch(),
     )
 }
