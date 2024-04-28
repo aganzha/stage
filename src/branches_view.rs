@@ -1122,10 +1122,10 @@ pub fn make_headerbar(
         .bind_property("selected-pos", &kill_btn, "sensitive")
         .transform_to(set_sensitive)
         .build();
-    let _ = branch_list
-        .bind_property("current-pos", &kill_btn, "sensitive")
-        .transform_to(set_sensitive)
-        .build();
+    // let _ = branch_list
+    //     .bind_property("current-pos", &kill_btn, "sensitive")
+    //     .transform_to(set_sensitive)
+    //     .build();
     kill_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
@@ -1145,10 +1145,10 @@ pub fn make_headerbar(
         .bind_property("selected-pos", &merge_btn, "sensitive")
         .transform_to(set_sensitive)
         .build();
-    let _ = branch_list
-        .bind_property("current-pos", &merge_btn, "sensitive")
-        .transform_to(set_sensitive)
-        .build();
+    // let _ = branch_list
+    //     .bind_property("current-pos", &merge_btn, "sensitive")
+    //     .transform_to(set_sensitive)
+    //     .build();
     merge_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
