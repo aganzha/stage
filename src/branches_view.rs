@@ -44,7 +44,7 @@ mod branch_item {
 
         #[property(get, set)]
         pub no_progress: RefCell<bool>,
-                        
+
         #[property(get = Self::get_branch_is_head, set = Self::set_branch_is_head)]
         pub is_head: RefCell<bool>,
 
@@ -69,28 +69,21 @@ mod branch_item {
     }
     #[glib::derived_properties]
     impl ObjectImpl for BranchItem {
-        // fn constructed(&self) {
-        //     self.parent_constructed();
-        //     println!("@@@@@@@@@@@@@@@@@@@@@@@@@@@ BranchItem constructed");
-        //     let obj = self.obj();
-        //     obj.bind_property("is-head", obj.as_ref(), "branch")
-        //         .sync_create()
-        //         .build();
-        // }
     }
+    
     impl BranchItem {
         pub fn set_branch_is_head(&self, value: bool) -> bool {
-            println!("setttttttttttttttttttttttttttt is heeeeeeeeeead! {:?}", value);
+            // fake property. it need to set it, to trigger
+            // avatar icon render via binding
             value
         }
-    
+
         pub fn get_branch_is_head(&self) -> bool {
             let branch = self.branch.borrow();
-            println!("ggggggggggggggggggggggggget is head {:?} {:?}", branch.name, branch.is_head);
             branch.is_head
         }
     }
-    
+
 }
 
 impl BranchItem {
@@ -102,7 +95,7 @@ impl BranchItem {
             }
         };
         let ob = Object::builder::<BranchItem>()
-            //.property("is-head", branch.is_head)
+            .property("is-head", branch.is_head)
             .property("progress", false)
             .property("no-progress", true)
             .property("ref-kind", ref_kind)
@@ -142,9 +135,6 @@ mod branch_list {
 
         #[property(get, set)]
         pub selected_pos: RefCell<u32>,
-
-        // #[property(get, set)]
-        // pub current_pos: RefCell<u32>,
     }
 
     #[glib::object_subclass]
@@ -411,7 +401,6 @@ impl BranchList {
                 branch_list.items_changed(0, 0, le);
                 // works via bind to single_selection selected
                 branch_list.set_selected_pos(selected as u32);
-                // branch_list.set_current_pos(selected as u32);
             })
         });
     }
@@ -434,20 +423,17 @@ impl BranchList {
                 selected_item.set_progress(false);
                 if let Ok(new_branch_data) = new_branch_data {
                     if local {
-                        // just replace with new data
-                        // aganzha it need to trigger refresh avatar somehow!
                         selected_item.imp().branch.replace(new_branch_data);
+                        // to trigger avatar render
                         selected_item.set_is_head(true);
-                        
                         selected_item.set_no_progress(true);
 
-                        // @@ set_is_head false
                         current_item.imp().branch.borrow_mut().is_head = false;
+                        // to trigger avatar render
                         current_item.set_is_head(false);
-                        // aganzha it need to trigger refresh avatar somehow!
                     } else {
                         // local branch already could be in list
-                        assert!(new_branch_data.branch_type == BranchType::Local);                        
+                        assert!(new_branch_data.branch_type == BranchType::Local);
                         let new_name = &new_branch_data.name;
                         let this_is_current_branch = &current_item.imp().branch.borrow().name == new_name;
                         for i in 0..branch_list.n_items() {
@@ -458,23 +444,24 @@ impl BranchList {
                                     branch_item.set_initial_focus(true);
                                     branch_item.set_is_head(true);
                                     branch_item.set_no_progress(true);
-                                    if !this_is_current_branch {                                        
-                                        // @@ set_is_head false
+                                    if !this_is_current_branch {
                                         current_item.imp().branch.borrow_mut().is_head = false;
+                                        // to trigger avatar render
                                         current_item.set_is_head(false);
-                                        
+
                                     } else {
                                         // e.g. current branch is master and
                                         // user chekout origin master
                                     }
                                     branch_list.set_selected_pos(i);
-                                    //branch_list.set_current_pos(i);
                                     return;
                                 }
                             }
                         }
                         current_item.imp().branch.borrow_mut().is_head = false;
+                        // to trigger avatar render
                         current_item.set_is_head(false);
+
                         // create new branch
                         branch_list.add_new_branch_item(new_branch_data);
                     }
@@ -487,18 +474,12 @@ impl BranchList {
 
     pub fn update_current_branch(&self, branch_data: crate::BranchData) {
         for branch_item in self.imp().list.borrow().iter() {
-            if branch_item.is_head() {
-                debug!("====================>  PERFORM UPDATING current branch {:?} in {:?}", branch_data, branch_item.title());
+            if branch_item.is_head() {                
                 branch_item.imp().branch.replace(branch_data.clone());
-                debug!("aaaaaaaaaaaaaaaaaaand ??? {:?}", branch_item.is_head());
                 return;
-                // return branch_item.imp().branch.borrow().clone();
             }
         }
         panic!("cant update current branch");
-        // let current_item = self.item(self.current_pos()).unwrap();
-        // let branch_item = current_item.downcast_ref::<BranchItem>().unwrap();
-        // branch_item.imp().branch.replace(branch_data);
     }
 
     pub fn get_selected_branch(&self) -> crate::BranchData {
@@ -514,15 +495,9 @@ impl BranchList {
         for branch_item in self.imp().list.borrow().iter() {
             if branch_item.is_head() {
                 result.replace(branch_item.imp().branch.borrow().clone());
-                // return branch_item.imp().branch.borrow().clone();
             }
         }
         result
-        // let pos = self.current_pos();
-        // let item = self.item(pos).unwrap();
-        // let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-        // let data = branch_item.imp().branch.borrow().clone();
-        // data
     }
 
     pub fn cherry_pick(
@@ -769,24 +744,16 @@ impl BranchList {
             })
         });
     }
-    
+
     fn add_new_branch_item(&self, branch_data: crate::BranchData) {
-        // let new_head = branch_data.is_head;
-        // if new_head {
-        //     let mut current_branch = self.get_current_branch().expect("cant get current branch");
-        //     current_branch.is_head = false;
-        //     self.update_current_branch(current_branch);
-        //     // aganzha it need to trigger refresh avatar somehow!
-        // }
 
         let new_item = BranchItem::new(branch_data);
 
-        // if new_head {
+
         let new_branch_item =
             new_item.downcast_ref::<BranchItem>().unwrap();
         new_branch_item.set_initial_focus(true);
-        // new_branch_item.set_is_head(true);
-        // }
+
         {
             // put borrow in block
             self.imp().list.borrow_mut().insert(0, new_item);
