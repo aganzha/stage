@@ -5,5 +5,9 @@
       <default>[]</default>
       <summary>ignored files</summary>
     </key>
+    <key name="paths" type="as">
+      <default>[]</default>
+      <summary>ignored files</summary>
+    </key>
   </schema>
 </schemalist>
