@@ -1,5 +1,8 @@
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, MessageDialog, ResponseAppearance, Window, SplitButton, ButtonContent};
+use libadwaita::{
+    ButtonContent, HeaderBar, MessageDialog, ResponseAppearance, SplitButton,
+    Window,
+};
 use std::ffi::OsString;
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
@@ -8,9 +11,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk4::{
-    glib, gio, AlertDialog, Button, EventControllerKey, TextView, Widget,
-    Window as Gtk4Window, Label, ArrowType, PopoverMenu, Box, Orientation, Align,
-    FileDialog
+    gio, glib, AlertDialog, Align, ArrowType, Box, Button, EventControllerKey,
+    FileDialog, Label, Orientation, PopoverMenu, TextView, Widget,
+    Window as Gtk4Window,
 };
 use log::{debug, info, trace};
 
@@ -55,7 +58,10 @@ pub fn make_confirm_dialog(
     dialog
 }
 
-pub fn make_header_bar(sender: Sender<crate::Event>, settings: gio::Settings) -> (HeaderBar, impl Fn(OsString)) {
+pub fn make_header_bar(
+    sender: Sender<crate::Event>,
+    settings: gio::Settings,
+) -> (HeaderBar, impl Fn(OsString)) {
     let stashes_btn = Button::builder()
         .label("Stashes")
         .use_underline(true)
@@ -207,28 +213,37 @@ pub fn make_header_bar(sender: Sender<crate::Event>, settings: gio::Settings) ->
     let path_updater = {
         let repo_opener = repo_opener.clone();
         move |path: OsString| {
-            let repo_opener_label = repo_opener.last_child()
-                .unwrap();
-            let repo_opener_label = repo_opener_label.downcast_ref::<Label>()
-                .unwrap();
+            let repo_opener_label = repo_opener.last_child().unwrap();
+            let repo_opener_label =
+                repo_opener_label.downcast_ref::<Label>().unwrap();
             let clean_path = path.into_string().unwrap().replace(".git/", "");
-            repo_opener_label.set_markup(&format!("<span weight=\"normal\">{}</span>", clean_path));
+            repo_opener_label.set_markup(&format!(
+                "<span weight=\"normal\">{}</span>",
+                clean_path
+            ));
             repo_opener_label.set_visible(true);
             let mut path_exists = false;
             for i in 0..repo_menu.n_items() {
                 let iter = repo_menu.iterate_item_attributes(i);
                 while let Some(attr) = iter.next() {
                     if attr.0 == "target" {
-                        if clean_path == attr.1.get::<String>().expect("cant get path from gvariant") {
+                        if clean_path
+                            == attr
+                                .1
+                                .get::<String>()
+                                .expect("cant get path from gvariant")
+                        {
                             path_exists = true;
                             break;
                         }
                     }
-
                 }
             }
             if !path_exists {
-                repo_menu.append(Some(&clean_path), Some(&format!("win.open::{}", clean_path)));
+                repo_menu.append(
+                    Some(&clean_path),
+                    Some(&format!("win.open::{}", clean_path)),
+                );
             }
         }
     };
@@ -241,17 +256,24 @@ pub fn make_header_bar(sender: Sender<crate::Event>, settings: gio::Settings) ->
         let sender = sender.clone();
         move |_| {
             let dialog = FileDialog::new();
-            dialog.select_folder(None::<&Window>, None::<&gio::Cancellable>, {
-                let sender = sender.clone();
-                move |result| {
-                    if let Ok(file) = result {
-                        if let Some(path) = file.path() {
-                            sender.send_blocking(crate::Event::OpenRepo(path.into()))
-                                .expect("Could not send through channel");
+            dialog.select_folder(
+                None::<&Window>,
+                None::<&gio::Cancellable>,
+                {
+                    let sender = sender.clone();
+                    move |result| {
+                        if let Ok(file) = result {
+                            if let Some(path) = file.path() {
+                                sender
+                                    .send_blocking(crate::Event::OpenRepo(
+                                        path.into(),
+                                    ))
+                                    .expect("Could not send through channel");
+                            }
                         }
                     }
-                }
-            });
+                },
+            );
         }
     });
     let hb = HeaderBar::new();

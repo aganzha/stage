@@ -97,7 +97,6 @@ impl CharView for TextView {
     }
 }
 
-
 pub fn text_view_factory(
     sndr: Sender<crate::Event>,
     text_view_width: Rc<RefCell<(i32, i32)>>,
@@ -166,7 +165,7 @@ pub fn text_view_factory(
                         iter.line(),
                     ))
                     .expect("Could not send through channel");
-                }                
+                }
                 (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
                     // for ctrl-c
                 }
