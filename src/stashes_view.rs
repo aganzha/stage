@@ -1,16 +1,15 @@
 use async_channel::Sender;
 use git2::Oid;
 use glib::{clone, Object};
-use gtk4::builders::ButtonBuilder;
+
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Box, Button, EventControllerKey, Label, ListBox,
-    Orientation, ScrolledWindow, SelectionMode, Window as Gtk4Window,
+    gdk, gio, glib, Button, EventControllerKey, Label, ListBox, ScrolledWindow, SelectionMode, Window as Gtk4Window,
 };
 use std::collections::HashMap;
 use std::ffi::OsString;
-use std::rc::Rc;
+
 
 use crate::{
     apply_stash as git_apply_stash, display_error, drop_stash,
@@ -32,7 +31,7 @@ glib::wrapper! {
 
 mod oid_row {
     use crate::StashData;
-    use git2::Oid;
+    
     use glib::Properties;
     use gtk4::glib;
     use gtk4::prelude::*;
@@ -86,7 +85,7 @@ impl OidRow {
             .icon_name("emblem-documents-symbolic")
             .build();
         commit_button.connect_clicked({
-            let oid = stash.oid.clone();
+            let oid = stash.oid;
             move |_| {
                 sender
                     .send_blocking(Event::ShowOid(oid))
@@ -138,7 +137,7 @@ impl OidRow {
                             ind = 0;
                         }
                         lb.remove(&row);
-                        adopt_stashes(&lb, stashes, sender, Some(ind));
+                        adopt_stashes(lb, stashes, sender, Some(ind));
                     }
                 }
             })
@@ -280,7 +279,7 @@ pub fn adopt_stashes(
     }
     // adding new row
     for (_, stash_data) in map.iter_mut() {
-        lb.prepend(&OidRow::from_stash(&stash_data, sender.clone()))
+        lb.prepend(&OidRow::from_stash(stash_data, sender.clone()))
     }
 }
 
@@ -299,7 +298,7 @@ pub fn factory(
         .build();
     if let Some(data) = &status.stashes {
         for stash in &data.stashes {
-            let row = OidRow::from_stash(&stash, status.sender.clone());
+            let row = OidRow::from_stash(stash, status.sender.clone());
             lb.append(&row);
         }
     }
@@ -412,7 +411,7 @@ pub fn factory(
                         let oid_row = row
                             .downcast_ref::<OidRow>()
                             .expect("cant get oid row");
-                        let oid = oid_row.imp().stash.borrow().oid.clone();
+                        let oid = oid_row.imp().stash.borrow().oid;
                         sender
                             .send_blocking(Event::ShowOid(oid))
                             .expect("cant send through channel");

@@ -7,15 +7,15 @@ use std::ffi::OsString;
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
-use std::cell::RefCell;
-use std::rc::Rc;
+
+
 
 use gtk4::{
-    gio, glib, AlertDialog, Align, ArrowType, Box, Button, EventControllerKey,
-    FileDialog, Label, Orientation, PopoverMenu, TextView, Widget,
+    gio, AlertDialog, Align, Button,
+    FileDialog, Label, PopoverMenu, Widget,
     Window as Gtk4Window,
 };
-use log::{debug, info, trace};
+
 
 pub fn display_error(
     w: &impl IsA<Gtk4Window>, // Application
@@ -226,16 +226,12 @@ pub fn make_header_bar(
             for i in 0..repo_menu.n_items() {
                 let iter = repo_menu.iterate_item_attributes(i);
                 while let Some(attr) = iter.next() {
-                    if attr.0 == "target" {
-                        if clean_path
-                            == attr
+                    if attr.0 == "target" && clean_path == attr
                                 .1
                                 .get::<String>()
-                                .expect("cant get path from gvariant")
-                        {
-                            path_exists = true;
-                            break;
-                        }
+                                .expect("cant get path from gvariant") {
+                        path_exists = true;
+                        break;
                     }
                 }
             }

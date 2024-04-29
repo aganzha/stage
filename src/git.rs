@@ -12,7 +12,7 @@ use git2::{
     Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat, DiffHunk,
     DiffLine, DiffLineType, DiffOptions, Direction, Error, ErrorClass,
     ErrorCode, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
-    Repository, RepositoryState, ResetType, StashApplyOptions, StashFlags,
+    Repository, RepositoryState, ResetType, StashFlags,
 };
 use log::{debug, info, trace};
 use regex::Regex;
@@ -88,7 +88,7 @@ impl Hunk {
             old_lines: 0,
             new_lines: 0,
             max_line_len: 0,
-            kind: kind,
+            kind,
         }
     }
 
@@ -153,8 +153,8 @@ impl Hunk {
             DiffKind::Unstaged => self.old_start,
             DiffKind::Staged => self.new_start,
         };
-        let scope = parts.get(parts.len() - 1).unwrap();
-        if scope.len() > 0 {
+        let scope = parts.last().unwrap();
+        if !scope.is_empty() {
             format!("Line {:} in{:}", line_no, scope)
         } else {
             format!("Line {:?}", line_no)
@@ -192,20 +192,20 @@ impl File {
             id: Oid::zero(),
             hunks: Vec::new(),
             max_line_len: 0,
-            kind: kind,
+            kind,
         }
     }
     pub fn from_diff_file(f: &DiffFile, kind: DiffKind) -> Self {
         let path: OsString = f.path().unwrap().into();
         let len = path.len();
-        return File {
+        File {
             view: View::new(),
-            path: path,
+            path,
             id: f.id(),
             hunks: Vec::new(),
             max_line_len: len as i32,
-            kind: kind,
-        };
+            kind,
+        }
     }
 
     pub fn push_hunk(&mut self, h: Hunk) {
@@ -440,7 +440,7 @@ pub fn get_current_repo_status(
 }
 
 pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
-    let mut repo = Repository::open(path.clone()).expect("can't open repo");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut opts = DiffOptions::new();
 
     let opts = opts.show_untracked_content(true);
@@ -451,7 +451,7 @@ pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
         .diff_tree_to_workdir_with_index(Some(&current_tree), Some(opts))
         .expect("can't get diff");
     let mut untracked = Untracked::new();
-    git_diff.foreach(
+    let _ = git_diff.foreach(
         &mut |delta: DiffDelta, _num| {
             if delta.status() == Delta::Untracked {
                 // debug!(":--------------------> {:?} {:?}", delta.status(), delta.new_file().path());
@@ -475,6 +475,12 @@ pub struct UntrackedFile {
     pub view: View,
 }
 
+impl Default for UntrackedFile {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UntrackedFile {
     pub fn new() -> Self {
         Self {
@@ -484,7 +490,7 @@ impl UntrackedFile {
     }
     pub fn from_path(path: OsString) -> Self {
         Self {
-            path: path,
+            path,
             view: View::new(),
         }
     }
@@ -499,6 +505,12 @@ pub struct Untracked {
     pub files: Vec<UntrackedFile>,
     pub view: View,
     pub max_line_len: i32,
+}
+
+impl Default for Untracked {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Untracked {
@@ -861,7 +873,7 @@ pub fn pull(
         .expect("cant fetch");
 
     assert!(head_ref.is_branch());
-    let mut branch = Branch::wrap(head_ref);
+    let branch = Branch::wrap(head_ref);
     let upstream = branch.upstream().unwrap();
 
     let u_oid = upstream.get().target().unwrap();
@@ -949,7 +961,7 @@ pub fn set_remote_callbacks(
             }
             if allowed_types == CredentialType::USER_PASS_PLAINTEXT {
                 if let Some((user_name, password)) = &user_pass {
-                    return Cred::userpass_plaintext(&user_name, &password);
+                    return Cred::userpass_plaintext(user_name, password);
                 }
                 return Err(Error::from_str(PLAIN_PASSWORD));
             }
@@ -1377,7 +1389,7 @@ pub fn merge(
     // let result = repo.merge(&[&annotated_commit], None, None);
 
     let do_merge = || {
-        let result = repo
+        repo
             .merge(&[&annotated_commit], None, None)
             .expect("cant merge");
         // all changes are in index now
@@ -1387,7 +1399,7 @@ pub fn merge(
         let message = format!(
             "merge branch {} into {}",
             branch_data.name,
-            current_branch.name().unwrap().unwrap().to_string()
+            current_branch.name().unwrap().unwrap()
         );
         commit(path, message, sender.clone());
         repo.cleanup_state().unwrap();
@@ -1492,7 +1504,7 @@ pub fn get_stashes(path: OsString, sender: Sender<crate::Event>) -> Stashes {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
     repo.stash_foreach(|num, title, oid| {
-        result.push(StashData::new(num, oid.clone(), title.to_string()));
+        result.push(StashData::new(num, *oid, title.to_string()));
         true
     })
     .expect("cant get stash");
@@ -1516,7 +1528,7 @@ pub fn stash_changes(
     } else {
         StashFlags::KEEP_INDEX
     };
-    let oid = repo
+    let _oid = repo
         .stash_save(&me, &stash_message, Some(flags))
         .expect("cant stash");
     gio::spawn_blocking({
@@ -1556,7 +1568,7 @@ pub fn drop_stash(
 }
 
 pub fn reset_hard(path: OsString, sender: Sender<crate::Event>) {
-    let mut repo = Repository::open(path.clone()).expect("can't open repo");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
     let ob = head_ref
@@ -1577,7 +1589,7 @@ pub fn get_directories(path: OsString) -> HashSet<String> {
     let mut directories = HashSet::new();
     for entry in index.iter() {
         let pth = String::from_utf8_lossy(&entry.path);
-        let mut parts: Vec<&str> = pth.split("/").collect();
+        let mut parts: Vec<&str> = pth.split('/').collect();
         trace!("entry in index {:?}", parts);
         if parts.len() > 1 {
             parts.pop();
@@ -1637,7 +1649,7 @@ impl CommitDiff {
             oid: commit.id(),
             commit_string: commit_string(&commit),
             commit_dt: commit_dt(&commit),
-            diff: diff,
+            diff,
         }
     }
 }

@@ -1,23 +1,23 @@
 use async_channel::Sender;
-use core::time::Duration;
+
 use git2::BranchType;
-use glib::{clone, closure, ControlFlow, Object};
+use glib::{clone, closure, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, AlertDialog, Box, Button, CheckButton,
-    EventControllerKey, FilterListModel, Image, Label, ListBox, ListHeader,
-    ListItem, ListScrollFlags, ListView, Orientation, Revealer,
+    gdk, gio, glib, pango, AlertDialog, Box, Button,
+    EventControllerKey, Image, Label, ListBox, ListHeader,
+    ListItem, ListScrollFlags, ListView, Orientation,
     ScrolledWindow, SearchBar, SearchEntry, SectionModel, SelectionMode,
     SignalListItemFactory, SingleSelection, Spinner, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    ActionRow, ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView,
+    ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView,
     Window,
 };
 
-use log::{debug, info, trace};
+use log::{debug, trace};
 
 glib::wrapper! {
     pub struct BranchItem(ObjectSubclass<branch_item::BranchItem>);
@@ -672,7 +672,7 @@ impl BranchList {
         &self,
         repo_path: std::ffi::OsString,
         window: &Window,
-        branch_sender: Sender<Event>,
+        _branch_sender: Sender<Event>,
         sender: Sender<crate::Event>,
     ) {
         let selected_branch = self.get_selected_branch();
@@ -710,12 +710,12 @@ impl BranchList {
                     &title,
                     "Create"
                 );
-                input.connect_apply(clone!(@strong dialog as dialog => move |entry| {
+                input.connect_apply(clone!(@strong dialog as dialog => move |_entry| {
                     // someone pressed enter
                     dialog.response("confirm");
                     dialog.close();
                 }));
-                input.connect_entry_activated(clone!(@strong dialog as dialog => move |entry| {
+                input.connect_entry_activated(clone!(@strong dialog as dialog => move |_entry| {
                     // someone pressed enter
                     dialog.response("confirm");
                     dialog.close();
@@ -780,7 +780,7 @@ pub fn make_header_factory() -> SignalListItemFactory {
                 BranchType::Local => "Branches",
                 BranchType::Remote => "Remote branches",
             };
-            label.set_label(&title);
+            label.set_label(title);
         });
     });
     header_factory
@@ -959,7 +959,7 @@ pub fn make_list_view(
         .show_separators(true)
         .build();
 
-    list_view.connect_activate(move |lv: &ListView, pos: u32| {
+    list_view.connect_activate(move |lv: &ListView, _pos: u32| {
         let root = lv.root().unwrap();
         let window = root.downcast_ref::<Window>().unwrap();
         let selection_model = lv.model().unwrap();

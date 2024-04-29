@@ -107,7 +107,7 @@ mod tests {
         // the cursor is on it
         let mut cursor_line = 2;
         for file in &mut diff.files {
-            if let Some(expanded_line) = file.expand(cursor_line) {
+            if let Some(_expanded_line) = file.expand(cursor_line) {
                 assert!(file.get_view().child_dirty);
                 break;
             }
@@ -146,7 +146,7 @@ mod tests {
         cursor(&mut diff, cursor_line);
 
         for file in &mut diff.files {
-            if let Some(expanded_line) = file.expand(cursor_line) {
+            if let Some(_expanded_line) = file.expand(cursor_line) {
                 break;
             }
         }
@@ -195,7 +195,7 @@ mod tests {
         cursor_line = 2;
         cursor(&mut diff, cursor_line);
         for file in &mut diff.files {
-            if let Some(expanded_line) = file.expand(cursor_line) {
+            if let Some(_expanded_line) = file.expand(cursor_line) {
                 for child in file.get_children() {
                     let view = child.get_view();
                     if view.line_no == cursor_line {
@@ -325,7 +325,7 @@ mod tests {
             &mut buffer.end_iter(),
             true,
         );
-        let content_lines = content.split("\n");
+        let content_lines = content.split('\n');
 
         for (i, cl) in content_lines.enumerate() {
             if i == 0 {
@@ -354,7 +354,7 @@ mod tests {
             &mut buffer.end_iter(),
             true,
         );
-        let content_lines = content.split("\n");
+        let content_lines = content.split('\n');
         // ensure that hunk1 is collapsed eg hunk2 follows hunk1 (no lines between)
         let hunk1_content = diff.files[0].hunks[0].get_content();
         let hunk2_content = diff.files[0].hunks[1].get_content();
@@ -363,11 +363,9 @@ mod tests {
             debug!("{} {}", i, cl);
             if cl == hunk1_content {
                 hunk1_passed = true
-            } else {
-                if hunk1_passed {
-                    assert!(cl == hunk2_content);
-                    hunk1_passed = false;
-                }
+            } else if hunk1_passed {
+                assert!(cl == hunk2_content);
+                hunk1_passed = false;
             }
         }
     }

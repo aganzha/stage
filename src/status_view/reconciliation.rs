@@ -427,11 +427,7 @@ impl State {
     // state
     pub fn enrich_view(&mut self, rendered: &Self) {
         self.view = rendered.transfer_view();
-        if self.state == RepositoryState::Clean {
-            self.view.hidden = true;
-        } else {
-            self.view.hidden = false;
-        }
+        self.view.hidden = self.state == RepositoryState::Clean;
     }
     // state
     pub fn transfer_view(&self) -> View {

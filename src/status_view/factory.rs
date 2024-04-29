@@ -10,7 +10,7 @@ use gtk4::{
     gdk, glib, EventControllerKey, EventSequenceState, GestureClick,
     MovementStep, TextIter, TextView, TextWindowType,
 };
-use log::{debug, trace};
+use log::{trace};
 
 fn handle_line_offset(
     iter: &mut TextIter,
@@ -61,20 +61,6 @@ fn handle_line_offset(
             *cnt = prev_line_offset;
         }
     }
-}
-
-pub fn calc_max_char_width(view: &TextView) -> Option<i32> {
-    if let Some((mut iter, _over_text)) = view.iter_at_position(1, 1) {
-        let buff = iter.buffer();
-        iter.forward_to_line_end();
-        let mut pos = view.cursor_locations(Some(&iter)).0.x();
-        while pos < view.width() {
-            buff.insert(&mut iter, " ");
-            pos = view.cursor_locations(Some(&iter)).0.x();
-        }
-        return Some(iter.offset());
-    }
-    None
 }
 
 pub trait CharView {
@@ -298,7 +284,7 @@ pub fn text_view_factory(
     txt.add_tick_callback({
         move |view, _clock| {
             let width = view.width();
-            let stored_width = (*text_view_width.borrow()).0;
+            let stored_width = text_view_width.borrow().0;
             if width > 0 && width != stored_width {
                 // resizing window. handle both cases: initial render and further resizing
                 text_view_width.replace((width, 0));

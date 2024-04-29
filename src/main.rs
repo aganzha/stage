@@ -5,7 +5,7 @@ mod status_view;
 use status_view::{factory::text_view_factory, Status};
 
 mod branches_view;
-use branches_view::{show_branches_window, Event as BranchesEvent};
+use branches_view::{show_branches_window};
 
 mod stashes_view;
 use stashes_view::factory as stashes_view_factory;
@@ -36,19 +36,19 @@ use gdk::Display;
 use glib::{clone, ControlFlow};
 use libadwaita::prelude::*;
 use libadwaita::{
-    Application, ApplicationWindow, HeaderBar, OverlaySplitView, Toast,
+    Application, ApplicationWindow, OverlaySplitView, Toast,
     ToastOverlay, ToolbarStyle, ToolbarView,
 };
 
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Align, Button,
-    CssProvider, ScrolledWindow, Settings, TextView, TextWindowType,
+    gdk, gio, glib, style_context_add_provider_for_display, Align,
+    CssProvider, ScrolledWindow, Settings,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
-use log::{debug, info};
+use log::{info};
 use regex::Regex;
-use std::collections::HashMap;
+
 
 const APP_ID: &str = "com.github.aganzha.stage";
 
@@ -136,10 +136,8 @@ fn zoom(dir: bool) {
             if int_size < 64 {
                 int_size += 1;
             }
-        } else {
-            if int_size > 1 {
-                int_size -= 1;
-            }
+        } else if int_size > 1 {
+            int_size -= 1;
         }
         settings.set_gtk_font_name(Some(&format!("Cantarell {}", int_size)));
     };
@@ -254,7 +252,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     status.update_path(path, monitors.clone());
                 }
                 Event::State(state) => {
-                    info!("main. state {:?}", &state);
+                    info!("main. state");
                     status.update_state(state, &txt);
                 }
                 Event::Debug => {
