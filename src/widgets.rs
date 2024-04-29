@@ -9,7 +9,8 @@ use std::rc::Rc;
 
 use gtk4::{
     glib, gio, AlertDialog, Button, EventControllerKey, TextView, Widget,
-    Window as Gtk4Window, Label, ArrowType, Popover, Box, Orientation, Align
+    Window as Gtk4Window, Label, ArrowType, Popover, Box, Orientation, Align,
+    FileDialog
 };
 use log::{debug, info, trace};
 
@@ -200,46 +201,49 @@ pub fn make_header_bar(sender: Sender<crate::Event>) -> (HeaderBar, impl Fn(OsSt
     // menu_items.append(&item3);
 
     let popover = Popover::builder()
-        .child(&menu_items)        
+        .child(&menu_items)
         .build();
 
     let opener = ButtonContent::builder()
         .icon_name("document-open-symbolic")
-        // .label("/home/aganzha/stage/")
         .use_underline(true)
         .valign(Align::Baseline)
         .build();
-    
 
-    // let opener_label_var = Rc::new(RefCell::new(opener_label));
-    debug!("zooooooooooooooooooooooooo {:p}", &opener);
-    // let path_updater = glib::clone!(@weak opener as opener => move |path: OsString| {
-    //     let opener_label = opener.last_child()
-    //         .unwrap();
-    //     let opener_label = opener_label.downcast_ref::<Label>()
-    //         .unwrap();
-    //     debug!("uuuuuuuuuuuuuuuupdate ----------------- path {:?}", path);
-    //     opener_label.set_markup(&format!("<span weight=\"normal\">{:?}</span>", path));
-    //     debug!("oooooooooooooooooooo {:p} {:?}", &opener, opener_label.label());
-    // });
     let path_updater = {
         let opener = opener.clone();
         move |path: OsString| {
-            debug!("uuuuuuuuuuuuuuuupdate ----------------- path {:?}", path);
             let opener_label = opener.last_child()
                 .unwrap();
             let opener_label = opener_label.downcast_ref::<Label>()
-                .unwrap();            
-            opener_label.set_markup(&format!("<span weight=\"normal\">{:?}</span>", path.into_string().unwrap()));
+                .unwrap();
+            let clean_path = path.into_string().unwrap().replace(".git/", "");
+            opener_label.set_markup(&format!("<span weight=\"normal\">{}</span>", clean_path));
             opener_label.set_visible(true);
-            debug!("oooooooooooooooooooo {:p}", &opener);
         }
     };
-    
-    let repo_selector = SplitButton::new();    
+
+    let repo_selector = SplitButton::new();
     repo_selector.set_child(Some(&opener));
     repo_selector.set_popover(Some(&popover));
-    
+
+    repo_selector.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            let dialog = FileDialog::new();
+            dialog.select_folder(None::<&Window>, None::<&gio::Cancellable>, {
+                let sender = sender.clone();
+                move |result| {
+                    if let Ok(file) = result {
+                        if let Some(path) = file.path() {
+                            sender.send_blocking(crate::Event::OpenRepo(path.into()))
+                                .expect("Could not send through channel");
+                        }
+                    }                    
+                }
+            });
+        }
+    });
     let hb = HeaderBar::new();
     hb.pack_start(&stashes_btn);
     hb.pack_start(&refresh_btn);
