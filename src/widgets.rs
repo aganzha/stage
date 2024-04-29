@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 use gtk4::{
     glib, gio, AlertDialog, Button, EventControllerKey, TextView, Widget,
-    Window as Gtk4Window, Label, ArrowType, Popover, Box, Orientation, Align,
+    Window as Gtk4Window, Label, ArrowType, PopoverMenu, Box, Orientation, Align,
     FileDialog
 };
 use log::{debug, info, trace};
@@ -55,7 +55,7 @@ pub fn make_confirm_dialog(
     dialog
 }
 
-pub fn make_header_bar(sender: Sender<crate::Event>) -> (HeaderBar, impl Fn(OsString)) {
+pub fn make_header_bar(sender: Sender<crate::Event>, settings: gio::Settings) -> (HeaderBar, impl Fn(OsString)) {
     let stashes_btn = Button::builder()
         .label("Stashes")
         .use_underline(true)
@@ -192,17 +192,8 @@ pub fn make_header_bar(sender: Sender<crate::Event>) -> (HeaderBar, impl Fn(OsSt
         }
     });
 
-    let menu_items = Box::new(Orientation::Vertical, 0);
-    // let item1 = Button::with_label("item 1");
-    // let item2 = Button::with_label("item 2");
-    // let item3 = Button::with_label("item 3");
-    // menu_items.append(&item1);
-    // menu_items.append(&item2);
-    // menu_items.append(&item3);
-
-    let popover = Popover::builder()
-        .child(&menu_items)
-        .build();
+    let menu = gio::Menu::new();
+    let popover = PopoverMenu::from_model(Some(&menu));
 
     let opener = ButtonContent::builder()
         .icon_name("document-open-symbolic")
@@ -220,6 +211,7 @@ pub fn make_header_bar(sender: Sender<crate::Event>) -> (HeaderBar, impl Fn(OsSt
             let clean_path = path.into_string().unwrap().replace(".git/", "");
             opener_label.set_markup(&format!("<span weight=\"normal\">{}</span>", clean_path));
             opener_label.set_visible(true);
+            menu.append(Some(&clean_path), None);
         }
     };
 

@@ -10,7 +10,7 @@ pub mod tests;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     commit, get_current_repo_status, get_directories, pull, push, reset_hard,
@@ -122,6 +122,21 @@ impl Status {
         path: OsString,
         monitors: Rc<RefCell<Vec<FileMonitor>>>,
     ) {
+        // here could come path selected by the user
+        // this is 'dirty' one. The right path will
+        // came from git with /.git/ suffix
+        // but the 'dirty' path will be used first
+        // for querying repo status and investigate real one
+        let str_path = path.clone().into_string().unwrap();
+        if str_path.contains("/.git/") {
+            let mut settings = self.settings.get::<Vec<String>>("paths");
+            debug!("ssssssssssssserring before update path {:?} {:?}", settings, path);
+            let str_path = path.clone().into_string().unwrap().replace(".git/", "");
+            if !settings.contains(&str_path) {
+                settings.push(str_path);
+                self.settings.set("paths", settings).expect("cant set settings");
+            }
+        }
         self.path.replace(path);
         self.setup_monitor(monitors);
     }
@@ -146,14 +161,14 @@ impl Status {
                         .replace(".git/", "");
                     directories.insert(root.clone());
                     for dir in directories {
-                        debug!("dirname {:?}", dir);
+                        trace!("dirname {:?}", dir);
                         let dir_name = match dir {
                             name if name == root => name,
                             name => {
                                 format!("{}{}", root, name)
                             }
                         };
-                        debug!("setup monitor {:?}", dir_name);
+                        trace!("setup monitor {:?}", dir_name);
                         let file = File::for_path(dir_name);
                         let flags = FileMonitorFlags::empty();
 
@@ -528,7 +543,7 @@ impl Status {
             .into_string()
             .expect("wrong string")
     }
-    
+
     pub fn update_untracked(
         &mut self,
         mut untracked: Untracked,
@@ -543,7 +558,7 @@ impl Status {
                     .expect("wrong string");
                 !ignored.contains(&str_path)
             });
-        }        
+        }
         self.update_screen_line_width(untracked.max_line_len);
         if let Some(u) = &mut self.untracked {
             untracked.enrich_view(u, txt, &mut self.context);
@@ -742,7 +757,7 @@ impl Status {
             }
         }
     }
-    
+
     pub fn stage(
         &mut self,
         _txt: &TextView,
@@ -936,7 +951,7 @@ impl Status {
                 let label = GtkLabel::builder()
                     .label(&err_msg)
                     .build();
-                
+
                 let lb = ListBox::builder()
                     .selection_mode(SelectionMode::None)
                     .css_classes(vec![String::from("boxed-list")])
@@ -997,11 +1012,11 @@ impl Status {
                          // Pulling without specifying how to reconcile divergent branches is
                          // discouraged. You can squelch this message by running one of the following
                          // commands sometime before your next pull:
-                         
+
                          //   git config pull.rebase false  # merge (the default strategy)
                          //   git config pull.rebase true   # rebase
                          //   git config pull.ff only       # fast-forward only
-                         
+
                          // You can replace "git config" with "git config --global" to set a default
                          // preference for all repositories. You can also pass --rebase, --no-rebase,
                          // or --ff-only on the command line to override the configured default per

@@ -176,10 +176,8 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     let monitors = Rc::new(RefCell::<Vec<gio::FileMonitor>>::new(Vec::new()));
 
     let settings = get_settings();
-    
-    debug!("=====================> {:?}", settings.get::<HashMap<String, Vec<String>>>("ignored"));
-    
-    let mut status = Status::new(initial_path, settings, sender.clone());
+    // settings.set("paths", Vec::<String>::new()).expect("cant set settings");
+    let mut status = Status::new(initial_path, settings.clone(), sender.clone());
     status.setup_monitor(monitors.clone());
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
@@ -191,7 +189,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     window.add_action(&action_close);
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let (hb, hb_path_updater) = make_header_bar(sender.clone());
+    let (hb, hb_path_updater) = make_header_bar(sender.clone(), settings);
 
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt = text_view_factory(sender.clone(), text_view_width.clone());
@@ -223,11 +221,15 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
             status.make_context(text_view_width.clone());
-            // debug!("main looooop {:?} {:p}", monitors, &monitors);
             match event {
                 Event::OpenRepo(path) => {
                     info!("info.open repo {:?}", path);
-                    hb_path_updater(path.clone());
+                    // here could come path selected by the user
+                    // this is 'dirty' one. The right path will
+                    // came from git with /.git/ suffix
+                    // but the 'dirty' path will be used first
+                    // for querying repo status and investigate real one
+                    // see next clause
                     status.update_path(path, monitors.clone());
                     status.get_status();
                 }
