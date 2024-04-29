@@ -88,6 +88,7 @@ fn load_css() {
 #[derive(Debug)]
 pub enum Event {
     Debug,
+    OpenRepo(std::ffi::OsString),
     CurrentRepo(std::ffi::OsString),
     Unstaged(Diff),
     Staged(Diff),
@@ -175,13 +176,6 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     let monitors = Rc::new(RefCell::<Vec<gio::FileMonitor>>::new(Vec::new()));
 
     let settings = get_settings();
-    // let mut ignored: HashMap<String, Vec<String>> = settings.get("ignored");
-    // debug!("-------------------> {:?}", ignored);
-    // let mut bass = Vec::new();
-    // bass.push(String::from("smass"));
-    // ignored.insert(String::from("ass"), bass);
-    // let clean:HashMap<String, Vec<String>> = HashMap::new();
-    // settings.set("ignored", clean);
     
     debug!("=====================> {:?}", settings.get::<HashMap<String, Vec<String>>>("ignored"));
     
@@ -231,6 +225,12 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
             status.make_context(text_view_width.clone());
             // debug!("main looooop {:?} {:p}", monitors, &monitors);
             match event {
+                Event::OpenRepo(path) => {
+                    info!("info.open repo {:?}", path);
+                    hb_path_updater(path.clone());
+                    status.update_path(path, monitors.clone());
+                    status.get_status();
+                }
                 Event::CurrentRepo(path) => {
                     info!("info.path {:?}", path);
                     hb_path_updater(path.clone());
