@@ -166,12 +166,12 @@ pub fn get_settings() -> gio::Settings {
     let schema_source = gio::SettingsSchemaSource::from_directory(exe_path, None, true)
         .expect("no source");
     let schema = schema_source.lookup(APP_ID, false).expect("no schema");
-    gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None) 
+    gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None)
 }
 
 fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     env_logger::builder().format_timestamp(None).init();
-   
+
     let (sender, receiver) = async_channel::unbounded();
     let monitors = Rc::new(RefCell::<Vec<gio::FileMonitor>>::new(Vec::new()));
 
@@ -187,6 +187,17 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
         window.close();
     }));
     window.add_action(&action_close);
+
+    let action_open = gio::SimpleAction::new("open", Some(glib::VariantTy::STRING));//
+    action_open.connect_activate(clone!(@strong sender => move |_, chosen_path| {
+        if let Some(path) = chosen_path {
+            let path:String = path.get().expect("cant get path from gvariant");
+            sender.send_blocking(Event::OpenRepo(path.into()))
+                                .expect("Could not send through channel");
+        }
+    }));
+    window.add_action(&action_open);
+
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
     let (hb, hb_path_updater) = make_header_bar(sender.clone(), settings);

@@ -192,32 +192,50 @@ pub fn make_header_bar(sender: Sender<crate::Event>, settings: gio::Settings) ->
         }
     });
 
-    let menu = gio::Menu::new();
-    let popover = PopoverMenu::from_model(Some(&menu));
+    let repo_menu = gio::Menu::new();
+    for path in settings.get::<Vec<String>>("paths").iter() {
+        repo_menu.append(Some(path), Some(&format!("win.open::{}", path)));
+    }
+    let repo_popover = PopoverMenu::from_model(Some(&repo_menu));
 
-    let opener = ButtonContent::builder()
+    let repo_opener = ButtonContent::builder()
         .icon_name("document-open-symbolic")
         .use_underline(true)
         .valign(Align::Baseline)
         .build();
 
     let path_updater = {
-        let opener = opener.clone();
+        let repo_opener = repo_opener.clone();
         move |path: OsString| {
-            let opener_label = opener.last_child()
+            let repo_opener_label = repo_opener.last_child()
                 .unwrap();
-            let opener_label = opener_label.downcast_ref::<Label>()
+            let repo_opener_label = repo_opener_label.downcast_ref::<Label>()
                 .unwrap();
             let clean_path = path.into_string().unwrap().replace(".git/", "");
-            opener_label.set_markup(&format!("<span weight=\"normal\">{}</span>", clean_path));
-            opener_label.set_visible(true);
-            menu.append(Some(&clean_path), None);
+            repo_opener_label.set_markup(&format!("<span weight=\"normal\">{}</span>", clean_path));
+            repo_opener_label.set_visible(true);
+            let mut path_exists = false;
+            for i in 0..repo_menu.n_items() {
+                let iter = repo_menu.iterate_item_attributes(i);
+                while let Some(attr) = iter.next() {
+                    if attr.0 == "target" {
+                        if clean_path == attr.1.get::<String>().expect("cant get path from gvariant") {
+                            path_exists = true;
+                            break;
+                        }
+                    }
+
+                }
+            }
+            if !path_exists {
+                repo_menu.append(Some(&clean_path), Some(&format!("win.open::{}", clean_path)));
+            }
         }
     };
 
     let repo_selector = SplitButton::new();
-    repo_selector.set_child(Some(&opener));
-    repo_selector.set_popover(Some(&popover));
+    repo_selector.set_child(Some(&repo_opener));
+    repo_selector.set_popover(Some(&repo_popover));
 
     repo_selector.connect_clicked({
         let sender = sender.clone();
@@ -231,7 +249,7 @@ pub fn make_header_bar(sender: Sender<crate::Event>, settings: gio::Settings) ->
                             sender.send_blocking(crate::Event::OpenRepo(path.into()))
                                 .expect("Could not send through channel");
                         }
-                    }                    
+                    }
                 }
             });
         }
