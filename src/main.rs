@@ -1,5 +1,5 @@
 mod context;
-use context::{StatusRenderContext};
+use context::StatusRenderContext;
 
 mod status_view;
 use status_view::{factory::text_view_factory, Status};
@@ -20,12 +20,13 @@ use std::time::SystemTime;
 
 mod git;
 use git::{
-    apply_stash, checkout_branch, cherry_pick, commit, create_branch, drop_stash,
-    get_current_repo_status, get_directories, get_branches, kill_branch, merge,
-    pull, push, reset_hard, stage_untracked, stage_via_apply, stash_changes, get_commit_diff,
-    track_changes, update_remote, checkout_oid, ApplyFilter, ApplySubject, BranchData, Diff, DiffKind, CommitDiff,
-    File, Head, Hunk, Line, StashData, Stashes, State, Untracked,
-    UntrackedFile, View,
+    apply_stash, checkout_branch, checkout_oid, cherry_pick, commit,
+    create_branch, drop_stash, get_branches, get_commit_diff,
+    get_current_repo_status, get_directories, kill_branch, merge, pull, push,
+    reset_hard, stage_untracked, stage_via_apply, stash_changes,
+    track_changes, update_remote, ApplyFilter, ApplySubject, BranchData,
+    CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
+    State, Untracked, UntrackedFile, View,
 };
 use git2::Oid;
 mod widgets;
@@ -118,7 +119,7 @@ pub enum Event {
     CommitDiff(CommitDiff),
     PushUserPass(String, bool),
     PullUserPass,
-    CheckoutError(Oid, String, String)
+    CheckoutError(Oid, String, String),
 }
 
 fn zoom(dir: bool) {
@@ -163,8 +164,9 @@ pub fn get_settings() -> gio::Settings {
     let mut exe_path = std::env::current_exe().expect("cant get exe path");
     exe_path.pop();
     let exe_path = exe_path.as_path();
-    let schema_source = gio::SettingsSchemaSource::from_directory(exe_path, None, true)
-        .expect("no source");
+    let schema_source =
+        gio::SettingsSchemaSource::from_directory(exe_path, None, true)
+            .expect("no source");
     let schema = schema_source.lookup(APP_ID, false).expect("no schema");
     gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None)
 }
@@ -177,7 +179,8 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     let settings = get_settings();
     // settings.set("paths", Vec::<String>::new()).expect("cant set settings");
-    let mut status = Status::new(initial_path, settings.clone(), sender.clone());
+    let mut status =
+        Status::new(initial_path, settings.clone(), sender.clone());
     status.setup_monitor(monitors.clone());
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
@@ -188,7 +191,8 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     }));
     window.add_action(&action_close);
 
-    let action_open = gio::SimpleAction::new("open", Some(glib::VariantTy::STRING));//
+    let action_open =
+        gio::SimpleAction::new("open", Some(glib::VariantTy::STRING)); //
     action_open.connect_activate(clone!(@strong sender => move |_, chosen_path| {
         if let Some(path) = chosen_path {
             let path:String = path.get().expect("cant get path from gvariant");
@@ -399,7 +403,12 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::CheckoutError(oid, ref_message, error_message) => {
                     info!("main. checkout error");
-                    status.checkout_error(&window, oid, ref_message, error_message)
+                    status.checkout_error(
+                        &window,
+                        oid,
+                        ref_message,
+                        error_message,
+                    )
                 }
             };
         }

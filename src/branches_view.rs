@@ -33,7 +33,6 @@ mod branch_item {
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::BranchItem)]
     pub struct BranchItem {
-
         pub branch: RefCell<crate::BranchData>,
 
         #[property(get, set)]
@@ -53,7 +52,6 @@ mod branch_item {
 
         #[property(get, set)]
         pub dt: RefCell<String>,
-
     }
 
     #[glib::object_subclass]
@@ -62,8 +60,7 @@ mod branch_item {
         type Type = super::BranchItem;
     }
     #[glib::derived_properties]
-    impl ObjectImpl for BranchItem {
-    }
+    impl ObjectImpl for BranchItem {}
 
     impl BranchItem {
         pub fn set_branch_is_head(&self, value: bool) -> bool {
@@ -77,7 +74,6 @@ mod branch_item {
             branch.is_head
         }
     }
-
 }
 
 impl BranchItem {
@@ -553,10 +549,11 @@ impl BranchList {
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
-        let current_branch = self.get_current_branch().expect("cant get current branch");
+        let current_branch =
+            self.get_current_branch().expect("cant get current branch");
         let selected_branch = self.get_selected_branch();
         if selected_branch.is_head {
-            return
+            return;
         }
         let title = format!(
             "merge branch {} into {}",
@@ -743,11 +740,9 @@ impl BranchList {
     }
 
     fn add_new_branch_item(&self, branch_data: crate::BranchData) {
-
         let new_item = BranchItem::new(branch_data);
 
-        let new_branch_item =
-            new_item.downcast_ref::<BranchItem>().unwrap();
+        let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
         new_branch_item.set_initial_focus(true);
 
         {
@@ -900,7 +895,7 @@ pub fn make_item_factory() -> SignalListItemFactory {
 
         let item = list_item.property_expression("item");
 
-        item.chain_property::<BranchItem>("is-head")// was "is_head"! it works also!
+        item.chain_property::<BranchItem>("is-head") // was "is_head"! it works also!
             .chain_closure::<String>(closure!(
                 |_: Option<Object>, is_head: bool| {
                     if is_head {
@@ -972,11 +967,7 @@ pub fn make_list_view(
             selection_model.downcast_ref::<SingleSelection>().unwrap();
         let list_model = single_selection.model().unwrap();
         let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
-        branch_list.checkout(
-            repo_path.clone(),
-            window,
-            sender.clone(),
-        );
+        branch_list.checkout(repo_path.clone(), window, sender.clone());
     });
     list_view.add_css_class("stage");
     list_view
@@ -1131,7 +1122,7 @@ pub enum Event {
     Kill,
     Merge,
     CherryPickRequest,
-    UpdateRemote
+    UpdateRemote,
 }
 
 pub fn get_branch_list(list_view: &ListView) -> BranchList {
@@ -1152,7 +1143,9 @@ pub fn branches_in_use(
     let list_model = single_selection.model().unwrap();
     let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
     (
-        branch_list.get_current_branch().expect("cant get current branch"),
+        branch_list
+            .get_current_branch()
+            .expect("cant get current branch"),
         branch_list.get_selected_branch(),
     )
 }

@@ -9,15 +9,14 @@ pub mod reconciliation;
 pub mod tests;
 
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 use crate::{
-    commit, get_current_repo_status, get_directories, pull, push, reset_hard,
-    stage_untracked, stage_via_apply, track_changes, checkout_oid, stash_changes,
-    ApplyFilter,
-    ApplySubject, Diff, DiffKind, Event, Head, Stashes, State, Untracked,
-    View, StatusRenderContext
+    checkout_oid, commit, get_current_repo_status, get_directories, pull,
+    push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
+    track_changes, ApplyFilter, ApplySubject, Diff, DiffKind, Event, Head,
+    Stashes, State, StatusRenderContext, Untracked, View,
 };
 
 use async_channel::Sender;
@@ -28,11 +27,11 @@ use gio::{
 use glib::clone;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, ListBox, SelectionMode, TextBuffer, TextView,
-    Window as Gtk4Window, Label as GtkLabel, Box, Orientation
+    gio, glib, Box, Label as GtkLabel, ListBox, Orientation, SelectionMode,
+    TextBuffer, TextView, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
-use libadwaita::{ApplicationWindow, EntryRow, SwitchRow, PasswordEntryRow}; // _Window,
+use libadwaita::{ApplicationWindow, EntryRow, PasswordEntryRow, SwitchRow}; // _Window,
 use log::{debug, trace};
 
 use std::ffi::OsString;
@@ -83,11 +82,15 @@ pub struct Status {
     pub context: Option<StatusRenderContext>,
     pub stashes: Option<Stashes>,
     pub monitor_lock: Rc<RefCell<bool>>,
-    pub settings: gio::Settings
+    pub settings: gio::Settings,
 }
 
 impl Status {
-    pub fn new(path: Option<OsString>, settings: gio::Settings, sender: Sender<Event>) -> Self {
+    pub fn new(
+        path: Option<OsString>,
+        settings: gio::Settings,
+        sender: Sender<Event>,
+    ) -> Self {
         Self {
             path: path,
             sender: sender,
@@ -130,11 +133,17 @@ impl Status {
         let str_path = path.clone().into_string().unwrap();
         if str_path.contains("/.git/") {
             let mut settings = self.settings.get::<Vec<String>>("paths");
-            debug!("ssssssssssssserring before update path {:?} {:?}", settings, path);
-            let str_path = path.clone().into_string().unwrap().replace(".git/", "");
+            debug!(
+                "ssssssssssssserring before update path {:?} {:?}",
+                settings, path
+            );
+            let str_path =
+                path.clone().into_string().unwrap().replace(".git/", "");
             if !settings.contains(&str_path) {
                 settings.push(str_path);
-                self.settings.set("paths", settings).expect("cant set settings");
+                self.settings
+                    .set("paths", settings)
+                    .expect("cant set settings");
             }
         }
         self.path.replace(path);
@@ -142,7 +151,6 @@ impl Status {
     }
 
     pub fn setup_monitor(&mut self, monitors: Rc<RefCell<Vec<FileMonitor>>>) {
-
         if let Some(_) = &self.path {
             glib::spawn_future_local({
                 let path = self.path.clone().expect("no path");
@@ -263,16 +271,14 @@ impl Status {
         });
     }
 
-    pub fn pull(&self,
-                window: &ApplicationWindow,
-                ask_pass: Option<bool>) {
+    pub fn pull(&self, window: &ApplicationWindow, ask_pass: Option<bool>) {
         glib::spawn_future_local({
             let path = self.path.clone().expect("no path");
             let sender = self.sender.clone();
             let window = window.clone();
             async move {
                 let mut user_pass: Option<(String, String)> = None;
-                if let Some(ask)  = ask_pass {
+                if let Some(ask) = ask_pass {
                     if ask {
                         let lb = ListBox::builder()
                             .selection_mode(SelectionMode::None)
@@ -298,10 +304,9 @@ impl Status {
                         if "confirm" != response {
                             return;
                         }
-                        user_pass.replace(
-                        (
+                        user_pass.replace((
                             format!("{}", user_name.text()),
-                            format!("{}", password.text())
+                            format!("{}", password.text()),
                         ));
                     }
                 }
@@ -317,8 +322,8 @@ impl Status {
     pub fn push(
         &mut self,
         window: &ApplicationWindow,
-        remote_dialog: Option<(String, bool, bool)>
-    ){
+        remote_dialog: Option<(String, bool, bool)>,
+    ) {
         let remote = self.choose_remote();
         glib::spawn_future_local({
             let window = window.clone();
@@ -378,7 +383,9 @@ impl Status {
                         lb.append(&input);
                         lb.append(&upstream);
                     }
-                    Some((remote_branch, track_remote, ask_password)) if ask_password => {
+                    Some((remote_branch, track_remote, ask_password))
+                        if ask_password =>
+                    {
                         input.set_text(&remote_branch);
                         if track_remote {
                             upstream.set_active(true);
@@ -400,11 +407,10 @@ impl Status {
                 let track_remote = upstream.is_active();
                 let mut user_pass: Option<(String, String)> = None;
                 if pass {
-                    user_pass.replace(
-                        (
-                            format!("{}", user_name.text()),
-                            format!("{}", password.text())
-                        ));
+                    user_pass.replace((
+                        format!("{}", user_name.text()),
+                        format!("{}", password.text()),
+                    ));
                 }
                 gio::spawn_blocking({
                     move || {
@@ -413,7 +419,7 @@ impl Status {
                             remote_branch_name,
                             track_remote,
                             sender,
-                            user_pass
+                            user_pass,
                         );
                     }
                 });
@@ -538,7 +544,8 @@ impl Status {
     }
 
     fn path_as_string(&self) -> String {
-        self.path.clone()
+        self.path
+            .clone()
             .expect("no path")
             .into_string()
             .expect("wrong string")
@@ -549,13 +556,13 @@ impl Status {
         mut untracked: Untracked,
         txt: &TextView,
     ) {
-        let mut settings = self.settings.get::<HashMap<String, Vec<String>>>("ignored");
+        let mut settings =
+            self.settings.get::<HashMap<String, Vec<String>>>("ignored");
         let repo_path = self.path_as_string();
         if let Some(ignored) = settings.get_mut(&repo_path) {
             untracked.files.retain(|f| {
-                let str_path = f.path.clone()
-                    .into_string()
-                    .expect("wrong string");
+                let str_path =
+                    f.path.clone().into_string().expect("wrong string");
                 !ignored.contains(&str_path)
             });
         }
@@ -723,12 +730,7 @@ impl Status {
         self.render(txt, RenderSource::Resize);
     }
 
-    pub fn ignore(
-        &mut self,
-        txt: &TextView,
-        line_no: i32,
-        _offset: i32
-    ) {
+    pub fn ignore(&mut self, txt: &TextView, line_no: i32, _offset: i32) {
         if let Some(untracked) = &mut self.untracked {
             for file in &mut untracked.files {
                 // TODO!
@@ -736,12 +738,12 @@ impl Status {
                 // why other elements do not using this?
                 let view = file.get_view();
                 if view.current && view.line_no == line_no {
-                    let ignore_path = file.path
-                        .clone()
-                        .into_string()
-                        .expect("wrong string");
+                    let ignore_path =
+                        file.path.clone().into_string().expect("wrong string");
                     trace!("ignore path! {:?}", ignore_path);
-                    let mut settings = self.settings.get::<HashMap<String, Vec<String>>>("ignored");
+                    let mut settings =
+                        self.settings
+                            .get::<HashMap<String, Vec<String>>>("ignored");
                     let repo_path = self.path_as_string();
                     if let Some(stored) = settings.get_mut(&repo_path) {
                         stored.push(ignore_path);
@@ -750,8 +752,13 @@ impl Status {
                         settings.insert(repo_path, vec![ignore_path]);
                         trace!("first ignored file {:?}", settings);
                     }
-                    self.settings.set("ignored", settings).expect("cant set settings");
-                    self.update_untracked(self.untracked.clone().unwrap(), txt);
+                    self.settings
+                        .set("ignored", settings)
+                        .expect("cant set settings");
+                    self.update_untracked(
+                        self.untracked.clone().unwrap(),
+                        txt,
+                    );
                     break;
                 }
             }
@@ -933,7 +940,7 @@ impl Status {
         window: &ApplicationWindow,
         oid: crate::Oid,
         ref_log_msg: String,
-        err_msg: String
+        err_msg: String,
     ) {
         glib::spawn_future_local({
             let window = window.clone();
@@ -948,9 +955,7 @@ impl Status {
                     .margin_end(2)
                     .spacing(12)
                     .build();
-                let label = GtkLabel::builder()
-                    .label(&err_msg)
-                    .build();
+                let label = GtkLabel::builder().label(&err_msg).build();
 
                 let lb = ListBox::builder()
                     .selection_mode(SelectionMode::None)
@@ -970,16 +975,12 @@ impl Status {
                 lb.append(&conflicts);
                 let _bind = stash
                     .bind_property("active", &conflicts, "active")
-                    .transform_to(move |_, value: bool| {
-                        Some(!value)
-                    })
+                    .transform_to(move |_, value: bool| Some(!value))
                     //.bidirectional()
                     .build();
                 let _bind = conflicts
                     .bind_property("active", &stash, "active")
-                    .transform_to(move |_, value: bool| {
-                        Some(!value)
-                    })
+                    .transform_to(move |_, value: bool| Some(!value))
                     //.bidirectional()
                     .build();
                 bx.append(&label);
@@ -1001,7 +1002,12 @@ impl Status {
                     let sender = sender.clone();
                     move || {
                         if stash {
-                            stash_changes(path.clone(), ref_log_msg.clone(), true, sender.clone());
+                            stash_changes(
+                                path.clone(),
+                                ref_log_msg.clone(),
+                                true,
+                                sender.clone(),
+                            );
                         }
                         // DOES NOT WORK! if local branch has commits diverged from upstream
                         // all commit become lost! because you simple checkout ortogonal tree
@@ -1009,18 +1015,18 @@ impl Status {
                         // think about it! perhaps it need to call merge analysys
                         // during pull! if its fast formard - ok. if not - do merge, please.
                         // see what git suggests:
-                         // Pulling without specifying how to reconcile divergent branches is
-                         // discouraged. You can squelch this message by running one of the following
-                         // commands sometime before your next pull:
+                        // Pulling without specifying how to reconcile divergent branches is
+                        // discouraged. You can squelch this message by running one of the following
+                        // commands sometime before your next pull:
 
-                         //   git config pull.rebase false  # merge (the default strategy)
-                         //   git config pull.rebase true   # rebase
-                         //   git config pull.ff only       # fast-forward only
+                        //   git config pull.rebase false  # merge (the default strategy)
+                        //   git config pull.rebase true   # rebase
+                        //   git config pull.ff only       # fast-forward only
 
-                         // You can replace "git config" with "git config --global" to set a default
-                         // preference for all repositories. You can also pass --rebase, --no-rebase,
-                         // or --ff-only on the command line to override the configured default per
-                         // invocation.
+                        // You can replace "git config" with "git config --global" to set a default
+                        // preference for all repositories. You can also pass --rebase, --no-rebase,
+                        // or --ff-only on the command line to override the configured default per
+                        // invocation.
                         checkout_oid(path, sender, oid, Some(ref_log_msg));
                     }
                 });

@@ -1,4 +1,4 @@
-use crate::{DiffKind};
+use crate::DiffKind;
 
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext {

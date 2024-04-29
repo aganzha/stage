@@ -7,13 +7,12 @@ use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use ffi::OsString;
 use git2::build::CheckoutBuilder;
 use git2::{
-    ApplyLocation, ApplyOptions, Branch, BranchType, CertificateCheckStatus,
-    CherrypickOptions, Commit, Cred, CredentialType, Delta, Diff as GitDiff,
-    DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
-    DiffOptions, Error, FetchOptions, ObjectType, Oid, PushOptions,
-    RemoteCallbacks, Repository, RepositoryState, ResetType,
-    StashApplyOptions, StashFlags, AutotagOption, Direction,
-    ErrorClass, ErrorCode
+    ApplyLocation, ApplyOptions, AutotagOption, Branch, BranchType,
+    CertificateCheckStatus, CherrypickOptions, Commit, Cred, CredentialType,
+    Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat, DiffHunk,
+    DiffLine, DiffLineType, DiffOptions, Direction, Error, ErrorClass,
+    ErrorCode, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
+    Repository, RepositoryState, ResetType, StashApplyOptions, StashFlags,
 };
 use log::{debug, info, trace};
 use regex::Regex;
@@ -260,7 +259,6 @@ impl Diff {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct State {
     pub state: RepositoryState,
@@ -365,11 +363,9 @@ pub fn get_current_repo_status(
         if current_path.is_some() {
             current_path.unwrap()
         } else {
-            OsString::from
-                (env::current_exe()
-                 .expect("cant't get exe path")
-                 .as_path()
-                )
+            OsString::from(
+                env::current_exe().expect("cant't get exe path").as_path(),
+            )
         }
     };
     let repo = Repository::discover(path.clone()).expect("can't open repo");
@@ -829,7 +825,7 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
 pub fn pull(
     path: OsString,
     sender: Sender<crate::Event>,
-    user_pass: Option<(String, String)>
+    user_pass: Option<(String, String)>,
 ) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut remote = repo
@@ -903,12 +899,23 @@ pub fn pull(
             get_head(path.clone(), sender.clone());
         }
         Err(err) => {
-            debug!("errrrrrrrrrrror {:?} {:?} {:?}", err, err.code(), err.class());
+            debug!(
+                "errrrrrrrrrrror {:?} {:?} {:?}",
+                err,
+                err.code(),
+                err.class()
+            );
             match (err.code(), err.class()) {
                 (ErrorCode::Conflict, ErrorClass::Checkout) => sender
-                    .send_blocking(crate::Event::CheckoutError(u_oid, log_message, String::from(err.message())))
+                    .send_blocking(crate::Event::CheckoutError(
+                        u_oid,
+                        log_message,
+                        String::from(err.message()),
+                    ))
                     .expect("cant send through channel"),
-                (code, class) => panic!("unknown checkout error {:?} {:?}", code, class)
+                (code, class) => {
+                    panic!("unknown checkout error {:?} {:?}", code, class)
+                }
             };
         }
     }
@@ -916,19 +923,28 @@ pub fn pull(
 
 const PLAIN_PASSWORD: &str = "plain text password required";
 
-pub fn set_remote_callbacks(callbacks: &mut RemoteCallbacks, user_pass: &Option<(String, String)>) {
-
+pub fn set_remote_callbacks(
+    callbacks: &mut RemoteCallbacks,
+    user_pass: &Option<(String, String)>,
+) {
     // const PLAIN_PASSWORD: &str = "plain text password required";
     callbacks.credentials({
         let user_pass = user_pass.clone();
         move |url, username_from_url, allowed_types| {
             debug!("auth credentials url {:?}", url);
             // "git@github.com:aganzha/stage.git"
-            debug!("auth credentials username_from_url {:?}", username_from_url);
+            debug!(
+                "auth credentials username_from_url {:?}",
+                username_from_url
+            );
             debug!("auth credentials allowed_types {:?}", allowed_types);
             if allowed_types.contains(CredentialType::SSH_KEY) {
-                let result = Cred::ssh_key_from_agent(username_from_url.unwrap());
-                debug!("got auth memory result. is it ok? {:?}", result.is_ok());
+                let result =
+                    Cred::ssh_key_from_agent(username_from_url.unwrap());
+                debug!(
+                    "got auth memory result. is it ok? {:?}",
+                    result.is_ok()
+                );
                 return result;
             }
             if allowed_types == CredentialType::USER_PASS_PLAINTEXT {
@@ -988,16 +1004,14 @@ pub fn set_remote_callbacks(callbacks: &mut RemoteCallbacks, user_pass: &Option<
         }
         Ok(())
     });
-
 }
-
 
 pub fn push(
     path: OsString,
     remote_branch: String,
     tracking_remote: bool,
     sender: Sender<crate::Event>,
-    user_pass: Option<(String, String)>
+    user_pass: Option<(String, String)>,
 ) {
     debug!("remote branch {:?}", remote_branch);
     let repo = Repository::open(path.clone()).expect("can't open repo");
@@ -1046,10 +1060,12 @@ pub fn push(
     match remote.push(&[refspec], Some(&mut opts)) {
         Ok(_) => {}
         Err(error) if error.message() == PLAIN_PASSWORD => {
-            sender.send_blocking(
-                crate::Event::PushUserPass(remote_branch, tracking_remote)
-            ).expect("cant send through channel");
-
+            sender
+                .send_blocking(crate::Event::PushUserPass(
+                    remote_branch,
+                    tracking_remote,
+                ))
+                .expect("cant send through channel");
         }
         Err(error) => {
             panic!("{}", error);
@@ -1085,7 +1101,10 @@ impl Default for BranchData {
 }
 
 impl BranchData {
-    pub fn from_branch(branch: Branch, branch_type: BranchType) -> Result<Self, Error> {
+    pub fn from_branch(
+        branch: Branch,
+        branch_type: BranchType,
+    ) -> Result<Self, Error> {
         let name = branch.name().unwrap().unwrap().to_string();
         let mut upstream_name: Option<String> = None;
         if let Ok(upstream) = branch.upstream() {
@@ -1096,8 +1115,7 @@ impl BranchData {
         let bref = branch.get();
         // can't get commit from ref!: Error { code: -3, klass: 3, message: "the reference 'refs/remotes/origin/HEAD' cannot be peeled - Cannot resolve reference" }
         let refname = bref.name().unwrap().to_string();
-        let ob = bref
-            .peel(ObjectType::Commit)?;
+        let ob = bref.peel(ObjectType::Commit)?;
         let commit = ob.peel_to_commit().expect("can't get commit from ob!");
         let commit_string = commit_string(&commit);
         let target = branch.get().target();
@@ -1192,10 +1210,14 @@ pub fn checkout_branch(
             .peel(ObjectType::Commit)
             .expect("can't get commit from ref!");
         let commit = ob.peel_to_commit().expect("can't get commit from ob!");
-        if repo.graph_descendant_of(commit.id(), branch_data.oid).expect("error comparing commits") {
+        if repo
+            .graph_descendant_of(commit.id(), branch_data.oid)
+            .expect("error comparing commits")
+        {
             debug!("skip checkout ancestor tree");
             let branch = Branch::wrap(head_ref);
-            return BranchData::from_branch(branch, BranchType::Local).expect("cant get branch");
+            return BranchData::from_branch(branch, BranchType::Local)
+                .expect("cant get branch");
         }
     }
     let mut builder = CheckoutBuilder::new();
@@ -1218,7 +1240,8 @@ pub fn checkout_branch(
             branch
                 .set_upstream(Some(&branch_data.remote_name()))
                 .expect("cant set upstream");
-            branch_data = BranchData::from_branch(branch, BranchType::Local).expect("cant get branch");
+            branch_data = BranchData::from_branch(branch, BranchType::Local)
+                .expect("cant get branch");
         }
     }
     repo.set_head(&branch_data.refname).expect("can't set head");
@@ -1243,7 +1266,8 @@ pub fn create_branch(
     let branch = repo
         .branch(&new_branch_name, &commit, false)
         .expect("cant create branch");
-    let branch_data = BranchData::from_branch(branch, BranchType::Local).expect("cant get branch");
+    let branch_data = BranchData::from_branch(branch, BranchType::Local)
+        .expect("cant get branch");
     if need_checkout {
         checkout_branch(path, branch_data, sender)
     } else {
@@ -1265,7 +1289,8 @@ pub fn kill_branch(
             let path = path.clone();
             let name = name.clone();
             move || {
-                let repo = Repository::open(path.clone()).expect("can't open repo");
+                let repo =
+                    Repository::open(path.clone()).expect("can't open repo");
                 let mut remote = repo
                     .find_remote("origin") // TODO here is hardcode
                     .expect("no remote");
@@ -1274,11 +1299,11 @@ pub fn kill_branch(
                 set_remote_callbacks(&mut callbacks, &None);
                 opts.remote_callbacks(callbacks);
 
-                let refspec = format!(
-                    ":refs/heads/{}",
-                    name.replace("origin/", ""),
-                );
-                remote.push(&[refspec], Some(&mut opts)).expect("cant push to remote");
+                let refspec =
+                    format!(":refs/heads/{}", name.replace("origin/", ""),);
+                remote
+                    .push(&[refspec], Some(&mut opts))
+                    .expect("cant push to remote");
             }
         });
     }
@@ -1336,7 +1361,8 @@ pub fn cherry_pick(
         .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
 
-    Ok(BranchData::from_branch(branch, BranchType::Local).expect("cant get branch"))
+    Ok(BranchData::from_branch(branch, BranchType::Local)
+        .expect("cant get branch"))
 }
 
 pub fn merge(
@@ -1425,7 +1451,8 @@ pub fn merge(
     //     )))
     //     .expect("Could not send through channel");
 
-    BranchData::from_branch(branch, BranchType::Local).expect("cant get branch")
+    BranchData::from_branch(branch, BranchType::Local)
+        .expect("cant get branch")
 }
 
 #[derive(Debug, Clone)]
@@ -1599,7 +1626,7 @@ impl Default for CommitDiff {
             oid: Oid::zero(),
             commit_string: String::from(""),
             commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
-            diff: Diff::new(DiffKind::Unstaged)
+            diff: Diff::new(DiffKind::Unstaged),
         }
     }
 }
@@ -1610,7 +1637,7 @@ impl CommitDiff {
             oid: commit.id(),
             commit_string: commit_string(&commit),
             commit_dt: commit_dt(&commit),
-            diff: diff
+            diff: diff,
         }
     }
 }
@@ -1618,7 +1645,7 @@ impl CommitDiff {
 pub fn get_commit_diff(
     path: OsString,
     oid: Oid,
-    sender: Sender<crate::Event>
+    sender: Sender<crate::Event>,
 ) {
     let repo = Repository::open(path).expect("can't open repo");
     let commit = repo.find_commit(oid).expect("cant find commit");
@@ -1629,13 +1656,18 @@ pub fn get_commit_diff(
     let git_diff = repo
         .diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)
         .expect("can't get diff tree to index");
-    let commit_diff = CommitDiff::new(commit, make_diff(git_diff, DiffKind::Unstaged));
-    sender.send_blocking(crate::Event::CommitDiff(commit_diff))
+    let commit_diff =
+        CommitDiff::new(commit, make_diff(git_diff, DiffKind::Unstaged));
+    sender
+        .send_blocking(crate::Event::CommitDiff(commit_diff))
         .expect("Could not send through channel");
 }
 
-
-pub fn update_remote(path: OsString,  _sender: Sender<crate::Event>, user_pass: Option<(String, String)>) -> Result<(),()> {
+pub fn update_remote(
+    path: OsString,
+    _sender: Sender<crate::Event>,
+    user_pass: Option<(String, String)>,
+) -> Result<(), ()> {
     let repo = Repository::open(path).expect("can't open repo");
     let mut remote = repo
         .find_remote("origin") // TODO here is hardcode
@@ -1644,7 +1676,9 @@ pub fn update_remote(path: OsString,  _sender: Sender<crate::Event>, user_pass: 
     let mut callbacks = RemoteCallbacks::new();
     set_remote_callbacks(&mut callbacks, &user_pass);
 
-    remote.connect_auth(Direction::Fetch, Some(callbacks), None).expect("cant connect");
+    remote
+        .connect_auth(Direction::Fetch, Some(callbacks), None)
+        .expect("cant connect");
     let mut callbacks = RemoteCallbacks::new();
     set_remote_callbacks(&mut callbacks, &user_pass);
 
@@ -1655,45 +1689,48 @@ pub fn update_remote(path: OsString,  _sender: Sender<crate::Event>, user_pass: 
 
     callbacks.update_tips({
         move |updated_ref, oid1, oid2| {
-            debug!(
-                "updat tips {:?} {:?} {:?}",
-                updated_ref, oid1, oid2
-            );
+            debug!("updat tips {:?} {:?} {:?}", updated_ref, oid1, oid2);
             true
         }
     });
 
     let mut opts = FetchOptions::new();
     opts.remote_callbacks(callbacks);
-    let refs: [String; 0]= [];
-    remote.fetch(&refs, Some(&mut opts), None).expect("cant fetch");
+    let refs: [String; 0] = [];
+    remote
+        .fetch(&refs, Some(&mut opts), None)
+        .expect("cant fetch");
     let mut callbacks = RemoteCallbacks::new();
     set_remote_callbacks(&mut callbacks, &user_pass);
-    remote.update_tips(Some(&mut callbacks), true, AutotagOption::Auto, None).expect("cant update");
+    remote
+        .update_tips(Some(&mut callbacks), true, AutotagOption::Auto, None)
+        .expect("cant update");
 
     Ok(())
 }
 
-pub fn checkout_oid(path: OsString,  sender: Sender<crate::Event>, oid: Oid, ref_log_msg: Option<String>) {
+pub fn checkout_oid(
+    path: OsString,
+    sender: Sender<crate::Event>,
+    oid: Oid,
+    ref_log_msg: Option<String>,
+) {
     // DANGEROUS! see in status_view!
     let repo = Repository::open(path.clone()).expect("can't open repo");
-    let commit = repo
-        .find_commit(oid)
-        .expect("can't find commit");
+    let commit = repo.find_commit(oid).expect("can't find commit");
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
     let branch = Branch::wrap(head_ref);
     let log_message = match ref_log_msg {
-        None => format!(
-            "HEAD -> {}, {}",
-            branch.name().unwrap().unwrap(),
-            oid
-        ),
-        Some(msg) => msg
+        None => {
+            format!("HEAD -> {}, {}", branch.name().unwrap().unwrap(), oid)
+        }
+        Some(msg) => msg,
     };
     let mut builder = CheckoutBuilder::new();
     let builder = builder.safe().allow_conflicts(true);
-    repo.checkout_tree(commit.as_object(), Some(builder)).expect("cant checkout oid");
+    repo.checkout_tree(commit.as_object(), Some(builder))
+        .expect("cant checkout oid");
 
     let mut head_ref = repo.head().expect("can't get head");
     head_ref
