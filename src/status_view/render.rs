@@ -1,6 +1,6 @@
 use gtk4::prelude::*;
 use gtk4::{pango, TextBuffer, TextIter, TextTag};
-use log::{debug, trace};
+use log::{trace};
 use pango::Style;
 use std::collections::HashSet;
 

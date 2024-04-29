@@ -6,7 +6,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter, TextView};
-use log::{debug, trace};
+use log::{trace};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
@@ -316,11 +316,11 @@ impl ViewContainer for File {
     fn fill_context(&self, context: &mut Option<StatusRenderContext>) {
         if let Some(ctx) = context {
             if let Some(len) = ctx.max_len {
-                if len < self.max_line_len as i32 {
-                    ctx.max_len.replace(self.max_line_len as i32);
+                if len < self.max_line_len {
+                    ctx.max_len.replace(self.max_line_len);
                 }
             } else {
-                ctx.max_len.replace(self.max_line_len as i32);
+                ctx.max_len.replace(self.max_line_len);
             }
         }
     }

@@ -9,13 +9,13 @@ pub mod reconciliation;
 pub mod tests;
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use std::rc::Rc;
 
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, pull,
     push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, ApplyFilter, ApplySubject, Diff, DiffKind, Event, Head,
+    track_changes, ApplyFilter, ApplySubject, Diff, Event, Head,
     Stashes, State, StatusRenderContext, Untracked, View,
 };
 
@@ -28,7 +28,7 @@ use glib::clone;
 use gtk4::prelude::*;
 use gtk4::{
     gio, glib, Box, Label as GtkLabel, ListBox, Orientation, SelectionMode,
-    TextBuffer, TextView, Window as Gtk4Window,
+    TextBuffer, TextView,
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, EntryRow, PasswordEntryRow, SwitchRow}; // _Window,
@@ -92,8 +92,8 @@ impl Status {
         sender: Sender<Event>,
     ) -> Self {
         Self {
-            path: path,
-            sender: sender,
+            path,
+            sender,
             head: None,
             upstream: None,
             state: None,
@@ -116,7 +116,7 @@ impl Status {
             context: None::<StatusRenderContext>,
             stashes: None,
             monitor_lock: Rc::new(RefCell::<bool>::new(false)),
-            settings: settings
+            settings
         }
     }
 
@@ -133,10 +133,6 @@ impl Status {
         let str_path = path.clone().into_string().unwrap();
         if str_path.contains("/.git/") {
             let mut settings = self.settings.get::<Vec<String>>("paths");
-            debug!(
-                "ssssssssssssserring before update path {:?} {:?}",
-                settings, path
-            );
             let str_path =
                 path.clone().into_string().unwrap().replace(".git/", "");
             if !settings.contains(&str_path) {
@@ -151,7 +147,7 @@ impl Status {
     }
 
     pub fn setup_monitor(&mut self, monitors: Rc<RefCell<Vec<FileMonitor>>>) {
-        if let Some(_) = &self.path {
+        if self.path.is_some() {
             glib::spawn_future_local({
                 let path = self.path.clone().expect("no path");
                 let sender = self.sender.clone();
@@ -251,7 +247,7 @@ impl Status {
         self.stashes.replace(stashes);
     }
 
-    pub fn reset_hard(&self, sender: Sender<Event>) {
+    pub fn reset_hard(&self, _sender: Sender<Event>) {
         gio::spawn_blocking({
             let path = self.path.clone().expect("np path");
             let sender = self.sender.clone();

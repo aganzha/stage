@@ -1,23 +1,23 @@
 use crate::status_view::container::ViewContainer;
-use crate::{get_commit_diff, CommitDiff, Diff, Event, StatusRenderContext};
+use crate::{get_commit_diff, CommitDiff, Event, StatusRenderContext};
 use async_channel::Sender;
 use git2::Oid;
-use glib::clone;
+
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, EventControllerKey, Label, ScrolledWindow, TextView,
+    gdk, gio, glib, EventControllerKey, Label, ScrolledWindow,
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
-use log::{debug, info, trace};
+use log::{debug};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn make_headerbar(
     _repo_path: std::ffi::OsString,
     oid: Oid,
-    sender: Sender<Event>,
+    _sender: Sender<Event>,
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
     let lbl = Label::builder()
@@ -35,7 +35,7 @@ pub fn show_commit_window(
     repo_path: std::ffi::OsString,
     oid: Oid,
     app_window: &ApplicationWindow,
-    main_sender: Sender<Event>,
+    _main_sender: Sender<Event>,
 ) {
     let (sender, receiver) = async_channel::unbounded();
 
@@ -67,7 +67,7 @@ pub fn show_commit_window(
     let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
         let window = window.clone();
-        let sender = sender.clone();
+        let _sender = sender.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
@@ -117,7 +117,7 @@ pub fn show_commit_window(
                         d.diff.render(&buffer, &mut iter, ctx);
                     }
                 }
-                Event::Expand(offset, line_no) => {
+                Event::Expand(_offset, line_no) => {
                     if let Some(d) = &mut main_diff {
                         let buffer = txt.buffer();
                         let mut iter = buffer.iter_at_offset(0);
@@ -134,7 +134,7 @@ pub fn show_commit_window(
                         }
                     }
                 }
-                Event::Cursor(offset, line_no) => {
+                Event::Cursor(_offset, line_no) => {
                     if let Some(d) = &mut main_diff {
                         if d.diff.cursor(line_no, false) {
                             let buffer = txt.buffer();
