@@ -197,7 +197,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     window.add_action(&action_close);
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let hb = make_header_bar(sender.clone());
+    let (hb, hb_path_updater) = make_header_bar(sender.clone());
 
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt = text_view_factory(sender.clone(), text_view_width.clone());
@@ -233,6 +233,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
             match event {
                 Event::CurrentRepo(path) => {
                     info!("info.path {:?}", path);
+                    hb_path_updater(path.clone());
                     status.update_path(path, monitors.clone());
                 }
                 Event::State(state) => {
@@ -349,7 +350,6 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                         split.set_show_sidebar(false);
                         txt.grab_focus();
                     } else {
-                        // stashes_filler(&status);
                         let (view, focus) =
                             stashes_view_factory(&window, &status);
                         split.set_sidebar(Some(&view));
