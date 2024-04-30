@@ -154,15 +154,24 @@ impl CommitList {
                     let commit_item = item.downcast_ref::<CommitItem>().unwrap();
                     let oid = commit_item.imp().commit.borrow().oid;
                     start_oid.replace(oid);
-                }                
+                }
+
                 let commits = gio::spawn_blocking(move || {
                     crate::revwalk(repo_path, start_oid)
-                }).await.expect("cant get commits");
-                let commits_le = commits.len() as u32;
+                }).await.expect("cant get commits");                
+                let mut added = 0;
                 for item in commits.into_iter().map(CommitItem::new) {
+                    if let Some(oid) = start_oid {
+                        if item.imp().commit.borrow().oid == oid {
+                            break;
+                        }
+                    }
                     commit_list.imp().list.borrow_mut().push(item.clone());
+                    added += 1;
                 }
-                commit_list.items_changed(if list_le > 0 {list_le} else {0}, 0, commits_le);
+                if added > 0 {
+                    commit_list.items_changed(if list_le > 0 {list_le} else {0}, 0, added);
+                }
             }
         });
     }
