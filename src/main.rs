@@ -168,7 +168,7 @@ pub fn get_settings() -> gio::Settings {
     gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None)
 }
 
-fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
+fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
     env_logger::builder().format_timestamp(None).init();
 
     let (sender, receiver) = async_channel::unbounded();
@@ -176,6 +176,12 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
 
     let settings = get_settings();
     // settings.set("paths", Vec::<String>::new()).expect("cant set settings");
+    if initial_path.is_none() {
+        let last_path = settings.get::<String>("lastpath");
+        if !last_path.is_empty() {
+            initial_path.replace(last_path.into());
+        }
+    }
     let mut status =
         Status::new(initial_path, settings.clone(), sender.clone());
 
