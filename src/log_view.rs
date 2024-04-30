@@ -188,9 +188,7 @@ pub fn make_item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory 
             }
         });
         oid_label.add_controller(gesture_controller);
-        // oid_label.connect_clicked(|some| {
-        //     debug!("cliiiiiiiiiiiiiiiiiiiiiicked {:?}", some);
-        // });
+
         let author_label = Label::builder()
             .label("")
             .width_chars(18)
@@ -280,8 +278,8 @@ pub fn make_item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory 
 pub fn make_list_view(sender: Sender<crate::Event>) -> ListView {
     let commit_list = CommitList::new();
     let selection_model = SingleSelection::new(Some(commit_list));
-    let factory = make_item_factory(sender);
-    ListView::builder()
+    let factory = make_item_factory(sender.clone());
+    let list_view = ListView::builder()
         .model(&selection_model)
         .factory(&factory)
         .margin_start(12)
@@ -289,7 +287,19 @@ pub fn make_list_view(sender: Sender<crate::Event>) -> ListView {
         .margin_top(12)
         .margin_bottom(12)
         .show_separators(true)
-        .build()
+        .build();
+    list_view.connect_activate({
+        let sender = sender.clone();
+        move |lv: &ListView, _pos: u32| {
+            let selection_model = lv.model().unwrap();
+            let single_selection =
+                selection_model.downcast_ref::<SingleSelection>().unwrap();
+            let list_item = single_selection.selected_item().unwrap();
+            let commit_item = list_item.downcast_ref::<CommitItem>().unwrap();
+            let oid = commit_item.imp().commit.borrow().oid;
+            sender.send_blocking(crate::Event::ShowOid(oid)).expect("cant send through sender");
+        }});
+    list_view
 }
 
 pub fn get_commit_list(list_view: &ListView) -> CommitList {

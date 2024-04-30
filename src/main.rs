@@ -392,7 +392,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                     }
                 }
                 Event::ShowOid(oid) => {
-                    info!("main.show oid");
+                    info!("main.show oid {:?}", oid);
                     show_commit_window(
                         status.path.clone().expect("no path"),
                         oid,
