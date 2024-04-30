@@ -141,13 +141,14 @@ impl Status {
             // investigated path
             assert!(str_path.contains("/.git/"));
             if self.path.is_none() || path != self.path.clone().unwrap() {
-                let mut settings = self.settings.get::<Vec<String>>("paths");
+                let mut paths = self.settings.get::<Vec<String>>("paths");
                 let str_path =
                     path.clone().into_string().unwrap().replace(".git/", "");
-                if !settings.contains(&str_path) {
-                    settings.push(str_path);
+                self.settings.set("lastpath", str_path.clone()).expect("cant set lastpath");
+                if !paths.contains(&str_path) {
+                    paths.push(str_path);
                     self.settings
-                        .set("paths", settings)
+                        .set("paths", paths)
                         .expect("cant set settings");
                 }
                 self.setup_monitors(monitors, path.clone());
