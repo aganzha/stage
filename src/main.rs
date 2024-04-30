@@ -91,14 +91,12 @@ pub enum Event {
     OpenRepo(std::ffi::OsString),
     CurrentRepo(std::ffi::OsString),
     Unstaged(Diff),
-    FSChanges(Diff),
     Staged(Diff),
     Head(Head),
     Upstream(Option<Head>),
     State(State),
     Expand(i32, i32),
     Cursor(i32, i32),
-    // does not used for now
     Stage(i32, i32),
     UnStage(i32, i32),
     Kill(i32, i32),
@@ -120,6 +118,7 @@ pub enum Event {
     PushUserPass(String, bool),
     PullUserPass,
     CheckoutError(Oid, String, String),
+    LockMonitors(bool),
 }
 
 fn zoom(dir: bool) {
@@ -306,10 +305,6 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     info!("main. unstaged");
                     status.update_unstaged(d, &txt);
                 }
-                Event::FSChanges(d) => {
-                    info!("main. FSchanges");
-                    status.update_unstaged(d, &txt);
-                }
                 Event::Expand(offset, line_no) => {
                     status.expand(&txt, line_no, offset);
                 }
@@ -411,6 +406,10 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                         ref_message,
                         error_message,
                     )
+                }
+                Event::LockMonitors(lock) => {
+                    info!("main. lock monitors {}", lock);
+                    status.lock_monitors(lock);
                 }
             };
         }

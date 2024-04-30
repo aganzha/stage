@@ -133,12 +133,7 @@ impl Status {
         // for querying repo status and investigate real one
         let str_path = path.clone().into_string().unwrap();
         if user_action {
-            debug!("will cleanup monitors {:?}", monitors.borrow().len());
             monitors.borrow_mut().retain(|fm: &FileMonitor| {
-                debug!(
-                    "@@@@@@@@@@@@@@@@@@@@@@@@@@ just canceled monitor {:?}",
-                    fm
-                );
                 fm.cancel();
                 false
             });
@@ -155,11 +150,14 @@ impl Status {
                         .set("paths", settings)
                         .expect("cant set settings");
                 }
-                debug!("ssssssssssssssssssssetup monitors1");
                 self.setup_monitors(monitors, path.clone());
             }
         }
         self.path.replace(path.clone());
+    }
+
+    pub fn lock_monitors(&mut self, lock: bool) {
+        self.monitor_lock.replace(lock);
     }
 
     pub fn setup_monitors(
@@ -614,7 +612,6 @@ impl Status {
 
     pub fn update_unstaged(&mut self, mut diff: Diff, txt: &TextView) {
         self.update_screen_line_width(diff.max_line_len);
-        debug!("uuuuuuuuuuuuuuuuupdate unstaged {:?}", diff.files.len());
         if let Some(u) = &mut self.unstaged {
             // hide untracked for now
             // DiffDirection is required here to choose which lines to
