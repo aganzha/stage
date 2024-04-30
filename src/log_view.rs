@@ -56,7 +56,6 @@ impl CommitItem {
             .property("dt", commit.commit_dt.to_string())
             .build();
         ob.imp().commit.replace(commit);
-        debug!("========================== > {:?} {:?} {:?}", ob.imp().commit, ob.title(), ob.dt());
         ob
     }
 }
@@ -98,17 +97,14 @@ mod commit_list {
 
     impl ListModelImpl for CommitList {
         fn item_type(&self) -> glib::Type {
-            super::debug!("----------------------- 11");
             super::CommitItem::static_type()
         }
 
         fn n_items(&self) -> u32 {
-            super::debug!("~~~~~~~~~~~~~~~~~~~~~~~~~~ {:?}", &self.list);
             self.list.borrow().len() as u32
         }
 
         fn item(&self, position: u32) -> Option<glib::Object> {
-            super::debug!("----------------------- 33");
             let list = self.list.borrow();
             if list.is_empty() {
                 return None;

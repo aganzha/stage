@@ -1813,7 +1813,7 @@ pub fn revwalk(
     let mut revwalk = repo.revwalk().expect("cant get revwalk");    
     let mut i = 0;
     if start.is_none() {
-        revwalk.push_head();
+        revwalk.push_head().expect("no head for refwalk?");
     }
     let mut result: Vec<CommitDiff> = Vec::new();
     while let Some(oid) = revwalk.next() {
