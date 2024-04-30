@@ -171,6 +171,10 @@ pub fn text_view_factory(
                     sndr.send_blocking(crate::Event::Branches)
                         .expect("Could not send through channel");
                 }
+                (gdk::Key::l, _) => {
+                    sndr.send_blocking(crate::Event::Log)
+                        .expect("Could not send through channel");
+                }
                 (gdk::Key::g, _) => {
                     sndr.send_blocking(crate::Event::Refresh)
                         .expect("Could not send through channel");

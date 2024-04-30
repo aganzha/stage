@@ -18,6 +18,7 @@ use log::{debug, trace};
 pub fn show_log_window(
     repo_path: std::ffi::OsString,
     app_window: &ApplicationWindow,
+    head: String,
     main_sender: Sender<crate::Event>,
 ) {
     // let (sender, receiver) = async_channel::unbounded();
@@ -30,7 +31,13 @@ pub fn show_log_window(
     window.set_default_size(1280, 960);
     let scroll = ScrolledWindow::new();
     let tb = ToolbarView::builder().content(&scroll).build();
+
+    let title = Label::builder()
+        .label(head)
+        .build();
     let hb = HeaderBar::builder().build();
+    hb.set_title_widget(Some(&title));
+    
     tb.add_top_bar(&hb);
     window.set_content(Some(&tb));
 
