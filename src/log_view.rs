@@ -14,7 +14,7 @@ use libadwaita::{
     ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
 };
 use git2::Oid;
-use log::{debug, trace};
+use log::{debug, trace, info};
 
 glib::wrapper! {
     pub struct CommitItem(ObjectSubclass<commit_item::CommitItem>);
@@ -162,7 +162,7 @@ impl CommitList {
     }
 }
 
-pub fn make_item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
+pub fn make_item_factory(sender: Sender<Event>) -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
 
@@ -184,7 +184,7 @@ pub fn make_item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory 
                 let commit_item = list_item.item().unwrap();                
                 let commit_item = commit_item.downcast_ref::<CommitItem>().unwrap();  
                 let oid = commit_item.imp().commit.borrow().oid;
-                sender.send_blocking(crate::Event::ShowOid(oid)).expect("cant send through sender");
+                sender.send_blocking(Event::ShowOid(oid)).expect("cant send through sender");
             }
         });
         oid_label.add_controller(gesture_controller);
@@ -275,7 +275,7 @@ pub fn make_item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory 
     factory
 }
 
-pub fn make_list_view(sender: Sender<crate::Event>) -> ListView {
+pub fn make_list_view(sender: Sender<Event>) -> ListView {
     let commit_list = CommitList::new();
     let selection_model = SingleSelection::new(Some(commit_list));
     let factory = make_item_factory(sender.clone());
@@ -297,7 +297,7 @@ pub fn make_list_view(sender: Sender<crate::Event>) -> ListView {
             let list_item = single_selection.selected_item().unwrap();
             let commit_item = list_item.downcast_ref::<CommitItem>().unwrap();
             let oid = commit_item.imp().commit.borrow().oid;
-            sender.send_blocking(crate::Event::ShowOid(oid)).expect("cant send through sender");
+            sender.send_blocking(Event::ShowOid(oid)).expect("cant send through sender");
         }});
     list_view
 }
@@ -311,13 +311,18 @@ pub fn get_commit_list(list_view: &ListView) -> CommitList {
     commit_list.to_owned()
 }
 
+pub enum Event {
+    ShowOid(Oid)
+}
+
 pub fn show_log_window(
     repo_path: std::ffi::OsString,
     app_window: &ApplicationWindow,
     head: String,
     main_sender: Sender<crate::Event>,
 ) {
-    // let (sender, receiver) = async_channel::unbounded();
+    let (sender, receiver) = async_channel::unbounded();
+
     let window = Window::builder()
         .application(&app_window.application().unwrap())
         .transient_for(app_window)
@@ -326,7 +331,7 @@ pub fn show_log_window(
         .build();
     window.set_default_size(1280, 960);
 
-    let list_view = make_list_view(main_sender.clone());
+    let list_view = make_list_view(sender.clone());
     
     let scroll = ScrolledWindow::new();
 
@@ -377,6 +382,20 @@ pub fn show_log_window(
     window.add_controller(event_controller);
     window.present();
     list_view.grab_focus();
-    get_commit_list(&list_view).get_commits_inside(repo_path);
-
+    get_commit_list(&list_view).get_commits_inside(repo_path.clone());
+    glib::spawn_future_local(async move {
+        while let Ok(event) = receiver.recv().await {
+            match event {
+                Event::ShowOid(oid) => {
+                    info!("show oid {:?}", oid);
+                    crate::show_commit_window(
+                        repo_path.clone(),
+                        oid,
+                        &window,
+                        main_sender.clone(),
+                    );
+                }
+            }
+        }
+    });
 }
