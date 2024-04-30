@@ -7,6 +7,9 @@ use status_view::{factory::text_view_factory, Status};
 mod branches_view;
 use branches_view::show_branches_window;
 
+mod log_view;
+use log_view::show_log_window;
+
 mod stashes_view;
 use stashes_view::factory as stashes_view_factory;
 
@@ -105,6 +108,7 @@ pub enum Event {
     Push,
     Pull,
     Branches,
+    Log,
     ShowOid(Oid),
     TextViewResize,
     Toast(String),
@@ -290,6 +294,14 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 Event::Branches => {
                     info!("main.braches");
                     show_branches_window(
+                        status.path.clone().expect("no path"),
+                        &window,
+                        sender.clone(),
+                    );
+                }
+                Event::Log => {
+                    info!("main.log");
+                    show_log_window(
                         status.path.clone().expect("no path"),
                         &window,
                         sender.clone(),
