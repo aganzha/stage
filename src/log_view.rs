@@ -4,7 +4,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, AlertDialog, Box, Button, EventControllerKey,
-    Image, Label, ListBox, ListHeader, ListItem, ListScrollFlags, ListView,
+    Image, Label, ListBox, ListHeader, ListItem, ListScrollFlags, ListView, GestureClick,
     Orientation, ScrolledWindow, SearchBar, SearchEntry, SectionModel,
     SelectionMode, SignalListItemFactory, SingleSelection, Spinner, Widget,
     PositionType
@@ -162,7 +162,7 @@ impl CommitList {
     }
 }
 
-pub fn make_item_factory() -> SignalListItemFactory {
+pub fn make_item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
 
@@ -175,6 +175,22 @@ pub fn make_item_factory() -> SignalListItemFactory {
             .cursor(&gdk::Cursor::from_name("pointer", None).unwrap())
             .ellipsize(pango::EllipsizeMode::End)
             .build();
+        let gesture_controller = GestureClick::new();
+        gesture_controller.connect_released({
+            let list_item = list_item.clone();
+            let sender = sender.clone();
+            move |_gesture, _some, _wx, _wy| {
+                let list_item = list_item.downcast_ref::<ListItem>().unwrap();
+                let commit_item = list_item.item().unwrap();                
+                let commit_item = commit_item.downcast_ref::<CommitItem>().unwrap();  
+                let oid = commit_item.imp().commit.borrow().oid;
+                sender.send_blocking(crate::Event::ShowOid(oid)).expect("cant send through sender");
+            }
+        });
+        oid_label.add_controller(gesture_controller);
+        // oid_label.connect_clicked(|some| {
+        //     debug!("cliiiiiiiiiiiiiiiiiiiiiicked {:?}", some);
+        // });
         let author_label = Label::builder()
             .label("")
             .width_chars(18)
@@ -261,10 +277,10 @@ pub fn make_item_factory() -> SignalListItemFactory {
     factory
 }
 
-pub fn make_list_view() -> ListView {
+pub fn make_list_view(sender: Sender<crate::Event>) -> ListView {
     let commit_list = CommitList::new();
     let selection_model = SingleSelection::new(Some(commit_list));
-    let factory = make_item_factory();
+    let factory = make_item_factory(sender);
     ListView::builder()
         .model(&selection_model)
         .factory(&factory)
@@ -300,7 +316,8 @@ pub fn show_log_window(
         .build();
     window.set_default_size(1280, 960);
 
-    let list_view = make_list_view();
+    let list_view = make_list_view(main_sender.clone());
+    
     let scroll = ScrolledWindow::new();
 
     // reached works with pagedown instead of overshot
