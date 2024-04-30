@@ -1688,6 +1688,14 @@ impl CommitDiff {
             diff,
         }
     }
+    pub fn from_commit(commit: Commit) -> Self {
+        CommitDiff {
+            oid: commit.id(),
+            commit_string: commit_string(&commit),
+            commit_dt: commit_dt(&commit),
+            diff: Diff::new(DiffKind::Unstaged),
+        }
+    }
 }
 
 pub fn get_commit_diff(
@@ -1792,4 +1800,30 @@ pub fn checkout_oid(
         .set_target(oid, &log_message)
         .expect("cant set target");
     get_current_repo_status(Some(path), sender);
+}
+
+
+const COMMIT_PAGE_SIZE: i32 = 2000;
+
+pub fn revwalk(
+    path: OsString,
+    start: Option<Oid>
+) -> Vec<CommitDiff> {
+    let repo = Repository::open(path.clone()).expect("cant open repo");
+    let mut revwalk = repo.revwalk().expect("cant get revwalk");    
+    let mut i = 0;
+    if start.is_none() {
+        revwalk.push_head();
+    }
+    let mut result: Vec<CommitDiff> = Vec::new();
+    while let Some(oid) = revwalk.next() {
+        let oid = oid.expect("no oid in rev");
+        let commit = repo.find_commit(oid).expect("can't find commit");
+        result.push(CommitDiff::from_commit(commit));
+        i += 1;
+        if i > COMMIT_PAGE_SIZE {
+            break;
+        }
+    }
+    result
 }

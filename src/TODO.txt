@@ -1,3 +1,4 @@
+TODO: kill in branch_list: css, sender in constructor, spinner
 TODO: mnemonic!
 BUG: after manipulating branches stashes list is empty, and just feeling of stashes in the log
      dot emacs file also apeared in unstaged, and killing it causeing panic

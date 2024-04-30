@@ -27,9 +27,9 @@ use git::{
     create_branch, drop_stash, get_branches, get_commit_diff,
     get_current_repo_status, get_directories, kill_branch, merge, pull, push,
     reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, update_remote, ApplyFilter, ApplySubject, BranchData,
+    track_changes, update_remote, revwalk, ApplyFilter, ApplySubject, BranchData,
     CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
-    State, Untracked, UntrackedFile, View,
+    State, Untracked, UntrackedFile, View
 };
 use git2::Oid;
 mod widgets;
