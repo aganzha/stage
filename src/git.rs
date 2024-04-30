@@ -1665,6 +1665,7 @@ pub struct CommitDiff {
     pub oid: Oid,
     pub commit_string: String,
     pub commit_dt: DateTime<FixedOffset>,
+    pub author: String, 
     pub diff: Diff,
 }
 
@@ -1674,6 +1675,7 @@ impl Default for CommitDiff {
             oid: Oid::zero(),
             commit_string: String::from(""),
             commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
+            author: String::from(""),
             diff: Diff::new(DiffKind::Unstaged),
         }
     }
@@ -1685,6 +1687,7 @@ impl CommitDiff {
             oid: commit.id(),
             commit_string: commit_string(&commit),
             commit_dt: commit_dt(&commit),
+            author: String::from(commit.author().name().unwrap_or("")),
             diff,
         }
     }
@@ -1693,6 +1696,7 @@ impl CommitDiff {
             oid: commit.id(),
             commit_string: commit_string(&commit),
             commit_dt: commit_dt(&commit),
+            author: String::from(commit.author().name().unwrap_or("")),
             diff: Diff::new(DiffKind::Unstaged),
         }
     }

@@ -32,6 +32,12 @@ mod commit_item {
     pub struct CommitItem {
         pub commit: RefCell<crate::CommitDiff>,
 
+        #[property(get = Self::get_author)]
+        pub author: String,
+
+        #[property(get = Self::get_oid)]
+        pub oid: String,
+
         #[property(get, set)]
         pub title: RefCell<String>,
 
@@ -48,6 +54,12 @@ mod commit_item {
     impl ObjectImpl for CommitItem {}
 
     impl CommitItem {
+        pub fn get_oid(&self) -> String {
+            format!("{}", self.commit.borrow().oid)
+        }
+        pub fn get_author(&self) -> String {
+            format!("{}", self.commit.borrow().author)
+        }
     }
 }
 
@@ -153,6 +165,10 @@ impl CommitList {
 pub fn make_item_factory() -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
+
+        let oid_label = Label::new(Some(""));
+        let author_label = Label::new(Some(""));
+        
         let label_commit = Label::builder()
             .label("")
             .lines(1)
@@ -165,6 +181,7 @@ pub fn make_item_factory() -> SignalListItemFactory {
             .can_focus(true)
             .can_target(true)
             .build();
+        
         let label_dt = Label::builder()
             .label("")
             .lines(1)
@@ -190,6 +207,8 @@ pub fn make_item_factory() -> SignalListItemFactory {
             .focusable(true)
             .build();
 
+        bx.append(&oid_label);
+        bx.append(&author_label);
         bx.append(&label_commit);
         bx.append(&label_dt);
 
@@ -202,7 +221,16 @@ pub fn make_item_factory() -> SignalListItemFactory {
         list_item.set_focusable(true);
 
         let item = list_item.property_expression("item");
-
+        item.chain_property::<CommitItem>("oid").bind(
+            &oid_label,
+            "label",
+            Widget::NONE
+        );
+        item.chain_property::<CommitItem>("author").bind(
+            &author_label,
+            "label",
+            Widget::NONE
+        );  
         item.chain_property::<CommitItem>("title").bind(
             &label_commit,
             "label",

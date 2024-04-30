@@ -253,6 +253,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                     // for querying repo status and investigate real one
                     // see next clause
                     status.update_path(path, monitors.clone(), true);
+                    txt.grab_focus();
                     status.get_status();
                 }
                 Event::CurrentRepo(path) => {
