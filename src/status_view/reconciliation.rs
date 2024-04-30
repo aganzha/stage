@@ -385,7 +385,6 @@ impl Untracked {
         txt: &TextView,
         context: &mut Option<crate::StatusRenderContext>,
     ) {
-        debug!("enriich untracked");
         let mut replaces_by_new = HashSet::new();
         for file in &mut self.files {
             for of in &mut rendered.files {

@@ -5,11 +5,11 @@ use glib::{clone, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, ListBox, ScrolledWindow, SelectionMode, Window as Gtk4Window,
+    gdk, gio, glib, Button, EventControllerKey, Label, ListBox,
+    ScrolledWindow, SelectionMode, Window as Gtk4Window,
 };
 use std::collections::HashMap;
 use std::ffi::OsString;
-
 
 use crate::{
     apply_stash as git_apply_stash, display_error, drop_stash,
@@ -31,7 +31,7 @@ glib::wrapper! {
 
 mod oid_row {
     use crate::StashData;
-    
+
     use glib::Properties;
     use gtk4::glib;
     use gtk4::prelude::*;

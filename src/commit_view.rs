@@ -5,12 +5,10 @@ use git2::Oid;
 
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
-use gtk4::{
-    gdk, gio, glib, EventControllerKey, Label, ScrolledWindow,
-};
+use gtk4::{gdk, gio, glib, EventControllerKey, Label, ScrolledWindow};
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
-use log::{debug};
+use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
 

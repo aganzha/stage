@@ -9,14 +9,14 @@ pub mod reconciliation;
 pub mod tests;
 
 use std::cell::RefCell;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, pull,
     push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, ApplyFilter, ApplySubject, Diff, Event, Head,
-    Stashes, State, StatusRenderContext, Untracked, View,
+    track_changes, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
+    State, StatusRenderContext, Untracked, View,
 };
 
 use async_channel::Sender;
@@ -124,6 +124,7 @@ impl Status {
         &mut self,
         path: OsString,
         monitors: Rc<RefCell<Vec<FileMonitor>>>,
+        user_action: bool,
     ) {
         // here could come path selected by the user
         // this is 'dirty' one. The right path will
@@ -131,83 +132,106 @@ impl Status {
         // but the 'dirty' path will be used first
         // for querying repo status and investigate real one
         let str_path = path.clone().into_string().unwrap();
-        if str_path.contains("/.git/") {
-            let mut settings = self.settings.get::<Vec<String>>("paths");
-            let str_path =
-                path.clone().into_string().unwrap().replace(".git/", "");
-            if !settings.contains(&str_path) {
-                settings.push(str_path);
-                self.settings
-                    .set("paths", settings)
-                    .expect("cant set settings");
+        if user_action {
+            debug!("will cleanup monitors {:?}", monitors.borrow().len());
+            monitors.borrow_mut().retain(|fm: &FileMonitor| {
+                debug!(
+                    "@@@@@@@@@@@@@@@@@@@@@@@@@@ just canceled monitor {:?}",
+                    fm
+                );
+                fm.cancel();
+                false
+            });
+        } else {
+            // investigated path
+            assert!(str_path.contains("/.git/"));
+            if self.path.is_none() || path != self.path.clone().unwrap() {
+                let mut settings = self.settings.get::<Vec<String>>("paths");
+                let str_path =
+                    path.clone().into_string().unwrap().replace(".git/", "");
+                if !settings.contains(&str_path) {
+                    settings.push(str_path);
+                    self.settings
+                        .set("paths", settings)
+                        .expect("cant set settings");
+                }
+                debug!("ssssssssssssssssssssetup monitors1");
+                self.setup_monitors(monitors, path.clone());
             }
         }
-        self.path.replace(path);
-        self.setup_monitor(monitors);
+        self.path.replace(path.clone());
     }
 
-    pub fn setup_monitor(&mut self, monitors: Rc<RefCell<Vec<FileMonitor>>>) {
-        if self.path.is_some() {
-            glib::spawn_future_local({
-                let path = self.path.clone().expect("no path");
-                let sender = self.sender.clone();
-                let lock = self.monitor_lock.clone();
-                async move {
-                    let mut directories = gio::spawn_blocking({
-                        let path = path.clone();
-                        move || get_directories(path)
-                    })
-                    .await
-                    .expect("cant get direcories");
-                    let root = path
-                        .to_str()
-                        .expect("cant get string from path")
-                        .replace(".git/", "");
-                    directories.insert(root.clone());
-                    for dir in directories {
-                        trace!("dirname {:?}", dir);
-                        let dir_name = match dir {
-                            name if name == root => name,
-                            name => {
-                                format!("{}{}", root, name)
-                            }
-                        };
-                        trace!("setup monitor {:?}", dir_name);
-                        let file = File::for_path(dir_name);
-                        let flags = FileMonitorFlags::empty();
+    pub fn setup_monitors(
+        &mut self,
+        monitors: Rc<RefCell<Vec<FileMonitor>>>,
+        path: OsString,
+    ) {
+        glib::spawn_future_local({
+            let sender = self.sender.clone();
+            let lock = self.monitor_lock.clone();
+            async move {
+                let mut directories = gio::spawn_blocking({
+                    let path = path.clone();
+                    move || get_directories(path)
+                })
+                .await
+                .expect("cant get direcories");
+                let root = path
+                    .to_str()
+                    .expect("cant get string from path")
+                    .replace(".git/", "");
+                directories.insert(root.clone());
+                for dir in directories {
+                    trace!("dirname {:?}", dir);
+                    let dir_name = match dir {
+                        name if name == root => name,
+                        name => {
+                            format!("{}{}", root, name)
+                        }
+                    };
+                    trace!("setup monitor {:?}", dir_name);
+                    let file = File::for_path(dir_name);
+                    let flags = FileMonitorFlags::empty();
 
-                        let monitor = file
-                            .monitor_directory(
-                                flags,
-                                Cancellable::current().as_ref(),
-                            )
-                            .expect("cant get monitor");
-                        monitor.connect_changed({
-                            let path = path.clone();
-                            let sender = sender.clone();
-                            let lock = lock.clone();
-                            move |_monitor, file, _other_file, event| {
-                                // TODO get from SELF.settings
-                                let patterns_to_exclude: Vec<&str> = vec!["/.#", "/mout", "flycheck_", "/sed"];
-                                match event {
-                                    FileMonitorEvent::ChangesDoneHint => {
-                                        let file_path = file
-                                            .path()
-                                            .expect("no file path")
-                                            .into_os_string();
-                                        let str_file_path = file_path.clone().into_string().expect("no file path");
-                                        for pat in patterns_to_exclude {
-                                            if str_file_path.contains(pat) {
-                                                return
-                                            }
-                                        }
-                                        if *lock.borrow() {
-                                            trace!("monitor locked");
+                    let monitor = file
+                        .monitor_directory(
+                            flags,
+                            Cancellable::current().as_ref(),
+                        )
+                        .expect("cant get monitor");
+                    monitor.connect_changed({
+                        let path = path.clone();
+                        let sender = sender.clone();
+                        let lock = lock.clone();
+                        move |_monitor, file, _other_file, event| {
+                            // TODO get from SELF.settings
+                            let patterns_to_exclude: Vec<&str> =
+                                vec!["/.#", "/mout", "flycheck_", "/sed"];
+                            match event {
+                                FileMonitorEvent::ChangesDoneHint => {
+                                    let file_path = file
+                                        .path()
+                                        .expect("no file path")
+                                        .into_os_string();
+                                    let str_file_path = file_path
+                                        .clone()
+                                        .into_string()
+                                        .expect("no file path");
+                                    for pat in patterns_to_exclude {
+                                        if str_file_path.contains(pat) {
                                             return;
                                         }
-                                        lock.replace(true);
-                                        trace!("set monitor lock");
-                                        glib::source::timeout_add_local(Duration::from_millis(300), {
+                                    }
+                                    if *lock.borrow() {
+                                        trace!("monitor locked");
+                                        return;
+                                    }
+                                    lock.replace(true);
+                                    trace!("set monitor lock");
+                                    glib::source::timeout_add_local(
+                                        Duration::from_millis(300),
+                                        {
                                             let lock = lock.clone();
                                             let path = path.clone();
                                             let sender = sender.clone();
@@ -215,32 +239,41 @@ impl Status {
                                             move || {
                                                 gio::spawn_blocking({
                                                     let path = path.clone();
-                                                    let sender = sender.clone();
-                                                    let file_path = file_path.clone();
+                                                    let sender =
+                                                        sender.clone();
+                                                    let file_path =
+                                                        file_path.clone();
                                                     lock.replace(false);
-                                                    trace!("release monitor lock");
+                                                    trace!(
+                                                        "release monitor lock"
+                                                    );
                                                     move || {
                                                         // TODO! throttle!
                                                         track_changes(
-                                                            path, file_path, sender,
+                                                            path, file_path,
+                                                            sender,
                                                         )
                                                     }
                                                 });
                                                 glib::ControlFlow::Break
                                             }
-                                        });
-                                    }
-                                    _ => {
-                                        trace!("file event in monitor {:?}", event);
-                                    }
+                                        },
+                                    );
+                                }
+                                _ => {
+                                    trace!(
+                                        "file event in monitor {:?}",
+                                        event
+                                    );
                                 }
                             }
-                        });
-                        monitors.borrow_mut().push(monitor);
-                    }
+                        }
+                    });
+                    monitors.borrow_mut().push(monitor);
                 }
-            });
-        }
+                debug!("my monitors a set {:?}", monitors.borrow().len());
+            }
+        });
     }
 
     pub fn update_stashes(&mut self, stashes: Stashes) {
@@ -427,13 +460,6 @@ impl Status {
         let mut ctx = StatusRenderContext::new();
         ctx.screen_width.replace(*text_view_width.borrow());
         self.context.replace(ctx);
-        // lines in diffs could be wider then screen
-        if let Some(diff) = &self.staged {
-            self.update_screen_line_width(diff.max_line_len);
-        }
-        if let Some(diff) = &self.unstaged {
-            self.update_screen_line_width(diff.max_line_len);
-        }
     }
 
     pub fn update_screen_line_width(&mut self, max_line_len: i32) {
@@ -588,6 +614,7 @@ impl Status {
 
     pub fn update_unstaged(&mut self, mut diff: Diff, txt: &TextView) {
         self.update_screen_line_width(diff.max_line_len);
+        debug!("uuuuuuuuuuuuuuuuupdate unstaged {:?}", diff.files.len());
         if let Some(u) = &mut self.unstaged {
             // hide untracked for now
             // DiffDirection is required here to choose which lines to
