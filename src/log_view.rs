@@ -38,11 +38,11 @@ mod commit_item {
         #[property(get = Self::get_oid)]
         pub oid: String,
 
-        #[property(get, set)]
-        pub title: RefCell<String>,
+        #[property(get = Self::get_message)]
+        pub message: String,
 
-        #[property(get, set)]
-        pub dt: RefCell<String>,
+        #[property(get = Self::get_dt)]
+        pub dt: String,
     }
 
     #[glib::object_subclass]
@@ -60,14 +60,20 @@ mod commit_item {
         pub fn get_author(&self) -> String {
             format!("{}", self.commit.borrow().author)
         }
+        pub fn get_message(&self) -> String {
+            let mut encoded = String::from("");
+            html_escape::encode_safe_to_string(&self.commit.borrow().message.trim(), &mut encoded);
+            encoded
+        }
+        pub fn get_dt(&self) -> String {
+            format!("{}", self.commit.borrow().commit_dt)
+        }
     }
 }
 
 impl CommitItem {
     pub fn new(commit: crate::CommitDiff) -> Self {
         let ob = Object::builder::<CommitItem>()
-            .property("title", &commit.commit_string)
-            .property("dt", commit.commit_dt.to_string())
             .build();
         ob.imp().commit.replace(commit);
         ob
@@ -259,7 +265,7 @@ pub fn make_item_factory(sender: Sender<Event>) -> SignalListItemFactory {
             "label",
             Widget::NONE
         );  
-        item.chain_property::<CommitItem>("title").bind(
+        item.chain_property::<CommitItem>("message").bind(
             &label_commit,
             "label",
             Widget::NONE,

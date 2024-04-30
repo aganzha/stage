@@ -1663,7 +1663,7 @@ pub fn track_changes(
 #[derive(Debug, Clone)]
 pub struct CommitDiff {
     pub oid: Oid,
-    pub commit_string: String,
+    pub message: String,
     pub commit_dt: DateTime<FixedOffset>,
     pub author: String, 
     pub diff: Diff,
@@ -1673,7 +1673,7 @@ impl Default for CommitDiff {
     fn default() -> Self {
         CommitDiff {
             oid: Oid::zero(),
-            commit_string: String::from(""),
+            message: String::from(""),
             commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
             author: String::from(""),
             diff: Diff::new(DiffKind::Unstaged),
@@ -1685,7 +1685,7 @@ impl CommitDiff {
     pub fn new(commit: Commit, diff: Diff) -> Self {
         CommitDiff {
             oid: commit.id(),
-            commit_string: commit_string(&commit),
+            message: commit.message().unwrap_or("").replace('\n', ""),
             commit_dt: commit_dt(&commit),
             author: String::from(commit.author().name().unwrap_or("")),
             diff,
@@ -1694,7 +1694,7 @@ impl CommitDiff {
     pub fn from_commit(commit: Commit) -> Self {
         CommitDiff {
             oid: commit.id(),
-            commit_string: commit_string(&commit),
+            message: commit.message().unwrap_or("").replace('\n', ""),
             commit_dt: commit_dt(&commit),
             author: String::from(commit.author().name().unwrap_or("")),
             diff: Diff::new(DiffKind::Unstaged),
