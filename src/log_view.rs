@@ -55,7 +55,7 @@ mod commit_item {
 
     impl CommitItem {
         pub fn get_oid(&self) -> String {
-            format!("{}", self.commit.borrow().oid)
+            format!("<span color=\"#1C71D8\"> {}</span>", self.commit.borrow().oid)
         }
         pub fn get_author(&self) -> String {
             format!("{}", self.commit.borrow().author)
@@ -166,8 +166,22 @@ pub fn make_item_factory() -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
 
-        let oid_label = Label::new(Some(""));
-        let author_label = Label::new(Some(""));
+        let oid_label = Label::builder()
+            .label("")
+            .use_markup(true)
+            .width_chars(12)
+            .max_width_chars(12)
+            .xalign(0.0)
+            .cursor(&gdk::Cursor::from_name("pointer", None).unwrap())
+            .ellipsize(pango::EllipsizeMode::End)
+            .build();
+        let author_label = Label::builder()
+            .label("")
+            .width_chars(18)
+            .max_width_chars(18)
+            .xalign(0.0)
+            .ellipsize(pango::EllipsizeMode::End)
+            .build();
         
         let label_commit = Label::builder()
             .label("")
