@@ -902,7 +902,15 @@ pub fn pull(
     let mut builder = CheckoutBuilder::new();
     let opts = builder.safe();
     let commit = repo.find_commit(u_oid).expect("can't find commit");
+
+    sender
+        .send_blocking(crate::Event::LockMonitors(true))
+        .expect("can send through channel");
     let result = repo.checkout_tree(commit.as_object(), Some(opts));
+    sender
+        .send_blocking(crate::Event::LockMonitors(false))
+        .expect("can send through channel");
+
     match result {
         Ok(_) => {
             head_ref
@@ -1236,8 +1244,16 @@ pub fn checkout_branch(
     let mut builder = CheckoutBuilder::new();
     let opts = builder.safe();
 
+    sender
+        .send_blocking(crate::Event::LockMonitors(true))
+        .expect("can send through channel");
+
     repo.checkout_tree(commit.as_object(), Some(opts))
         .expect("can't checkout tree");
+    sender
+        .send_blocking(crate::Event::LockMonitors(false))
+        .expect("can send through channel");
+
     match branch_data.branch_type {
         BranchType::Local => {}
         BranchType::Remote => {
@@ -1341,7 +1357,15 @@ pub fn cherry_pick(
 ) -> Result<BranchData, String> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let commit = repo.find_commit(branch_data.oid).expect("cant find commit");
+
+    sender
+        .send_blocking(crate::Event::LockMonitors(true))
+        .expect("can send through channel");
     let result = repo.cherrypick(&commit, Some(&mut CherrypickOptions::new()));
+    sender
+        .send_blocking(crate::Event::LockMonitors(false))
+        .expect("can send through channel");
+
     if let Err(err) = result {
         trace!(
             "err on checkout {:?} {:?} {:?}",
@@ -1548,8 +1572,14 @@ pub fn apply_stash(
 ) {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     // let opts = StashApplyOptions::new();
+    sender
+        .send_blocking(crate::Event::LockMonitors(true))
+        .expect("can send through channel");
     repo.stash_apply(stash_data.num, None)
         .expect("cant apply stash");
+    sender
+        .send_blocking(crate::Event::LockMonitors(false))
+        .expect("can send through channel");
     gio::spawn_blocking({
         move || {
             get_current_repo_status(Some(path), sender);
@@ -1574,8 +1604,14 @@ pub fn reset_hard(path: OsString, sender: Sender<crate::Event>) {
     let ob = head_ref
         .peel(ObjectType::Commit)
         .expect("can't get commit from ref!");
+    sender
+        .send_blocking(crate::Event::LockMonitors(true))
+        .expect("can send through channel");
     repo.reset(&ob, ResetType::Hard, None)
         .expect("cant reset hard");
+    sender
+        .send_blocking(crate::Event::LockMonitors(false))
+        .expect("can send through channel");
     gio::spawn_blocking({
         move || {
             get_current_repo_status(Some(path), sender);
@@ -1617,7 +1653,7 @@ pub fn track_changes(
                 .expect("cant' get diff index to workdir");
             let diff = make_diff(git_diff, DiffKind::Unstaged);
             sender
-                .send_blocking(crate::Event::FSChanges(diff))
+                .send_blocking(crate::Event::Unstaged(diff))
                 .expect("Could not send through channel");
             break;
         }
@@ -1741,8 +1777,15 @@ pub fn checkout_oid(
     };
     let mut builder = CheckoutBuilder::new();
     let builder = builder.safe().allow_conflicts(true);
+
+    sender
+        .send_blocking(crate::Event::LockMonitors(true))
+        .expect("can send through channel");
     repo.checkout_tree(commit.as_object(), Some(builder))
         .expect("cant checkout oid");
+    sender
+        .send_blocking(crate::Event::LockMonitors(false))
+        .expect("can send through channel");
 
     let mut head_ref = repo.head().expect("can't get head");
     head_ref
