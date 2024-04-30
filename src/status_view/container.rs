@@ -6,7 +6,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter, TextView};
-use log::{trace};
+use log::trace;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {

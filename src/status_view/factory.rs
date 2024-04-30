@@ -10,7 +10,7 @@ use gtk4::{
     gdk, glib, EventControllerKey, EventSequenceState, GestureClick,
     MovementStep, TextIter, TextView, TextWindowType,
 };
-use log::{trace};
+use log::trace;
 
 fn handle_line_offset(
     iter: &mut TextIter,

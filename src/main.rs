@@ -5,7 +5,7 @@ mod status_view;
 use status_view::{factory::text_view_factory, Status};
 
 mod branches_view;
-use branches_view::{show_branches_window};
+use branches_view::show_branches_window;
 
 mod stashes_view;
 use stashes_view::factory as stashes_view_factory;
@@ -36,8 +36,8 @@ use gdk::Display;
 use glib::{clone, ControlFlow};
 use libadwaita::prelude::*;
 use libadwaita::{
-    Application, ApplicationWindow, OverlaySplitView, Toast,
-    ToastOverlay, ToolbarStyle, ToolbarView,
+    Application, ApplicationWindow, OverlaySplitView, Toast, ToastOverlay,
+    ToolbarStyle, ToolbarView,
 };
 
 use gtk4::{
@@ -46,9 +46,8 @@ use gtk4::{
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
-use log::{info};
+use log::info;
 use regex::Regex;
-
 
 const APP_ID: &str = "com.github.aganzha.stage";
 
@@ -92,6 +91,7 @@ pub enum Event {
     OpenRepo(std::ffi::OsString),
     CurrentRepo(std::ffi::OsString),
     Unstaged(Diff),
+    FSChanges(Diff),
     Staged(Diff),
     Head(Head),
     Upstream(Option<Head>),
@@ -179,7 +179,7 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
     // settings.set("paths", Vec::<String>::new()).expect("cant set settings");
     let mut status =
         Status::new(initial_path, settings.clone(), sender.clone());
-    status.setup_monitor(monitors.clone());
+
     let window = ApplicationWindow::new(app);
     window.set_default_size(1280, 960);
 
@@ -243,13 +243,13 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     // but the 'dirty' path will be used first
                     // for querying repo status and investigate real one
                     // see next clause
-                    status.update_path(path, monitors.clone());
+                    status.update_path(path, monitors.clone(), true);
                     status.get_status();
                 }
                 Event::CurrentRepo(path) => {
                     info!("info.path {:?}", path);
                     hb_path_updater(path.clone());
-                    status.update_path(path, monitors.clone());
+                    status.update_path(path, monitors.clone(), false);
                 }
                 Event::State(state) => {
                     info!("main. state");
@@ -299,11 +299,15 @@ fn run_app(app: &Application, initial_path: Option<std::ffi::OsString>) {
                     status.update_upstream(h, &txt);
                 }
                 Event::Staged(d) => {
-                    info!("main. staged {:p}", &d);
+                    info!("main. staged");
                     status.update_staged(d, &txt);
                 }
                 Event::Unstaged(d) => {
-                    info!("main. unstaged {:p}", &d);
+                    info!("main. unstaged");
+                    status.update_unstaged(d, &txt);
+                }
+                Event::FSChanges(d) => {
+                    info!("main. FSchanges");
                     status.update_unstaged(d, &txt);
                 }
                 Event::Expand(offset, line_no) => {

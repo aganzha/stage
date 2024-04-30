@@ -5,16 +5,14 @@ use glib::{clone, closure, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, AlertDialog, Box, Button,
-    EventControllerKey, Image, Label, ListBox, ListHeader,
-    ListItem, ListScrollFlags, ListView, Orientation,
-    ScrolledWindow, SearchBar, SearchEntry, SectionModel, SelectionMode,
-    SignalListItemFactory, SingleSelection, Spinner, Widget,
+    gdk, gio, glib, pango, AlertDialog, Box, Button, EventControllerKey,
+    Image, Label, ListBox, ListHeader, ListItem, ListScrollFlags, ListView,
+    Orientation, ScrolledWindow, SearchBar, SearchEntry, SectionModel,
+    SelectionMode, SignalListItemFactory, SingleSelection, Spinner, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView,
-    Window,
+    ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
 };
 
 use log::{debug, trace};

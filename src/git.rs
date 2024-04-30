@@ -1208,6 +1208,7 @@ pub fn checkout_branch(
     mut branch_data: BranchData,
     sender: Sender<crate::Event>,
 ) -> BranchData {
+    info!("checkout branch");
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let commit = repo
         .find_commit(branch_data.oid)
@@ -1389,8 +1390,7 @@ pub fn merge(
     // let result = repo.merge(&[&annotated_commit], None, None);
 
     let do_merge = || {
-        repo
-            .merge(&[&annotated_commit], None, None)
+        repo.merge(&[&annotated_commit], None, None)
             .expect("cant merge");
         // all changes are in index now
         let head_ref = repo.head().expect("can't get head");
@@ -1617,7 +1617,7 @@ pub fn track_changes(
                 .expect("cant' get diff index to workdir");
             let diff = make_diff(git_diff, DiffKind::Unstaged);
             sender
-                .send_blocking(crate::Event::Unstaged(diff))
+                .send_blocking(crate::Event::FSChanges(diff))
                 .expect("Could not send through channel");
             break;
         }
