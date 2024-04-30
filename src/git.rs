@@ -1803,7 +1803,7 @@ pub fn checkout_oid(
 }
 
 
-const COMMIT_PAGE_SIZE: i32 = 2000;
+const COMMIT_PAGE_SIZE: i32 = 500;
 
 pub fn revwalk(
     path: OsString,
@@ -1812,7 +1812,9 @@ pub fn revwalk(
     let repo = Repository::open(path.clone()).expect("cant open repo");
     let mut revwalk = repo.revwalk().expect("cant get revwalk");    
     let mut i = 0;
-    if start.is_none() {
+    if let Some(oid) = start {
+        revwalk.push(oid).expect("cant push oid to revlog");
+    } else {
         revwalk.push_head().expect("no head for refwalk?");
     }
     let mut result: Vec<CommitDiff> = Vec::new();
@@ -1821,7 +1823,7 @@ pub fn revwalk(
         let commit = repo.find_commit(oid).expect("can't find commit");
         result.push(CommitDiff::from_commit(commit));
         i += 1;
-        if i > COMMIT_PAGE_SIZE {
+        if i == COMMIT_PAGE_SIZE {
             break;
         }
     }

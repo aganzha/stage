@@ -7,11 +7,13 @@ use gtk4::{
     Image, Label, ListBox, ListHeader, ListItem, ListScrollFlags, ListView,
     Orientation, ScrolledWindow, SearchBar, SearchEntry, SectionModel,
     SelectionMode, SignalListItemFactory, SingleSelection, Spinner, Widget,
+    PositionType
 };
 use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
 };
+use git2::Oid;
 use log::{debug, trace};
 
 glib::wrapper! {
@@ -127,14 +129,22 @@ impl CommitList {
             let commit_list = self.clone();
             let repo_path = repo_path.clone();
             async move {
+                let list_le = commit_list.imp().list.borrow().len() as u32;
+                let mut start_oid: Option<Oid> = None;
+                if list_le > 0 {
+                    let item = commit_list.item(list_le - 1).unwrap();
+                    let commit_item = item.downcast_ref::<CommitItem>().unwrap();
+                    let oid = commit_item.imp().commit.borrow().oid;
+                    start_oid.replace(oid);
+                }                
                 let commits = gio::spawn_blocking(move || {
-                    crate::revwalk(repo_path, None)
+                    crate::revwalk(repo_path, start_oid)
                 }).await.expect("cant get commits");
-                let le = commits.len() as u32;
+                let commits_le = commits.len() as u32;
                 for item in commits.into_iter().map(CommitItem::new) {
                     commit_list.imp().list.borrow_mut().push(item.clone());
                 }
-                commit_list.items_changed(0, 0, le);
+                commit_list.items_changed(if list_le > 0 {list_le} else {0}, 0, commits_le);
             }
         });
     }
@@ -250,12 +260,25 @@ pub fn show_log_window(
 
     let list_view = make_list_view();
     let scroll = ScrolledWindow::new();
+
+    // reached works with pagedown instead of overshot
+    scroll.connect_edge_reached({
+        let repo_path = repo_path.clone();
+        move |scroll, position| {
+            if position != PositionType::Bottom {
+                return;
+            }
+            let list_view = scroll.child().unwrap();
+            let list_view = list_view.downcast_ref::<ListView>().unwrap();
+            get_commit_list(&list_view).get_commits_inside(repo_path.clone());
+        }});
     scroll.set_child(Some(&list_view));
 
     let tb = ToolbarView::builder().content(&scroll).build();
 
     let title = Label::builder()
         .label(head)
+        .ellipsize(pango::EllipsizeMode::End)
         .build();
     let hb = HeaderBar::builder().build();
     hb.set_title_widget(Some(&title));
