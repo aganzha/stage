@@ -275,8 +275,9 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Head {
+    pub oid: Oid,
     pub commit: String,
     pub branch: String,
     pub view: View,
@@ -286,6 +287,7 @@ pub struct Head {
 impl Head {
     pub fn new(branch: &Branch, commit: &Commit) -> Self {
         Self {
+            oid: commit.id(),
             branch: String::from(branch.name().unwrap().unwrap()),
             commit: commit_string(commit),
             view: View::new_markup(),

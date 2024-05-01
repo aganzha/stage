@@ -311,10 +311,21 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Head(h) => {
                     info!("main. head");
+                    if let Some(upstream) = &status.upstream {
+                        hb_updater(HbUpdateData::Unsynced(h.oid != upstream.oid));
+                    } else {
+                        hb_updater(HbUpdateData::Unsynced(true));
+                    }
                     status.update_head(h, &txt);
                 }
                 Event::Upstream(h) => {
                     info!("main. upstream");
+                    match (&status.head, &h) {
+                        (Some(head), Some(upstream)) => {
+                            hb_updater(HbUpdateData::Unsynced(head.oid != upstream.oid));
+                        }
+                        _ => {}
+                    }
                     status.update_upstream(h, &txt);
                 }
                 Event::Staged(d) => {
