@@ -2,7 +2,7 @@ mod context;
 use context::StatusRenderContext;
 
 mod status_view;
-use status_view::{factory::textview_factory, Status, headerbar::headerbar_factory, headerbar::HbUpdateData};
+use status_view::{textview::textview_factory, Status, headerbar::headerbar_factory, headerbar::HbUpdateData};
 
 mod branches_view;
 use branches_view::show_branches_window;
