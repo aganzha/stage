@@ -28,7 +28,8 @@ pub enum Tag {
     Hunk,
     Italic,
     Pointer,
-    Staged
+    Staged,
+    Unstaged,
     // Link
 }
 impl Tag {
@@ -79,21 +80,16 @@ impl Tag {
                 tt.set_style(Style::Italic);
                 tt
             }
-            Self::Pointer => {
-                let tt = self.new_tag();
-                tt
-            }
-            Self::Staged => {
-                let tt = self.new_tag();
-                tt.set_background(Some("#ff7b63")); // f2f2f2 mine original
-                tt
-            }
             // Self::Link => {
-              //     let tt = self.new_tag();
-              //     tt.set_background(Some("0000ff"));
-              //     tt.set_style(Style::Underlined);
-              //     tt
-              // }
+            //     let tt = self.new_tag();
+            //     tt.set_background(Some("0000ff"));
+            //     tt.set_style(Style::Underlined);
+            //     tt
+            // }
+            _ => {
+                // all tags without attrs
+                self.new_tag()
+            }
         }
     }
     pub fn new_tag(&self) -> TextTag {
@@ -112,7 +108,8 @@ impl Tag {
             Self::Italic => "italic",
             Self::Pointer => "pointer",
             Self::Staged => "staged",
-        }
+            Self::Unstaged => "unstaged",
+        }        
     }
     pub fn enhance(&self) -> &Self {
         match self {
@@ -207,6 +204,8 @@ pub fn factory(
     let buffer = txt.buffer();
 
     let pointer = Tag::Pointer.create();
+    let staged = Tag::Staged.create();
+    let unstaged = Tag::Unstaged.create();
     buffer.tag_table().add(&pointer);
     buffer.tag_table().add(&Tag::Cursor.create());
     buffer.tag_table().add(&Tag::Region.create());
@@ -216,7 +215,9 @@ pub fn factory(
     buffer.tag_table().add(&Tag::Removed.create());
     buffer.tag_table().add(&Tag::EnhancedRemoved.create());
     buffer.tag_table().add(&Tag::Hunk.create());
-
+    buffer.tag_table().add(&staged);
+    buffer.tag_table().add(&unstaged);
+    
     let key_controller = EventControllerKey::new();
     key_controller.connect_key_pressed({
         let buffer = buffer.clone();
@@ -355,7 +356,21 @@ pub fn factory(
                 )).expect("Could not send through channel");
                 if iter.has_tag(&pointer) {
                     if n_clicks == 2 {
-                        
+                        debug!("222222222222222222> @ CLICKS");
+                        if iter.has_tag(&staged) {
+                            debug!("SSSSSSTAGED");
+                            sndr.send_blocking(crate::Event::UnStage(
+                                iter.offset(),
+                                iter.line(),
+                            )).expect("Could not send through channel");
+                        }
+                        if iter.has_tag(&unstaged) {
+                            debug!("UUUUUUUUUUUUUNSTAGED");
+                            sndr.send_blocking(crate::Event::Stage(
+                                iter.offset(),
+                                iter.line(),
+                            )).expect("Could not send through channel");
+                        }
                     } else {
                         sndr.send_blocking(crate::Event::Expand(
                             iter.offset(),
@@ -464,7 +479,6 @@ pub fn factory(
                 y as i32,
             );
             if let Some(iter) = txt.iter_at_location(x, y) {
-                // debug!("---------------> {:?}", iter.has_tag(&pointer));
                 if iter.has_tag(&pointer) {
                     txt.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
                 } else {
