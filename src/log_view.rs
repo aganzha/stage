@@ -99,6 +99,7 @@ mod commit_list {
     pub struct CommitList {
 
         pub list: RefCell<Vec<super::CommitItem>>,
+        pub original_list: RefCell<Vec<super::CommitItem>>,
 
         #[property(get, set)]
         pub selected_pos: RefCell<u32>,
@@ -141,7 +142,7 @@ mod commit_list {
 impl CommitList {
     pub fn new() -> Self {
         Object::builder().build()
-    }    
+    }
     pub fn get_commits_inside(&self, repo_path: std::ffi::OsString) {
         glib::spawn_future_local({
             let commit_list = self.clone();
@@ -157,8 +158,8 @@ impl CommitList {
                 }
 
                 let commits = gio::spawn_blocking(move || {
-                    crate::revwalk(repo_path, start_oid)
-                }).await.expect("cant get commits");                
+                    crate::revwalk(repo_path, start_oid, None)
+                }).await.expect("cant get commits");
                 let mut added = 0;
                 for item in commits.into_iter().map(CommitItem::new) {
                     if let Some(oid) = start_oid {
@@ -171,6 +172,49 @@ impl CommitList {
                 }
                 if added > 0 {
                     commit_list.items_changed(if list_le > 0 {list_le} else {0}, 0, added);
+                }
+            }
+        });
+    }
+
+    pub fn reset_search(&self) {
+        if self.imp().list.borrow().len()
+            == self.imp().original_list.borrow().len()
+        {
+            return;
+        }
+        let orig_le = self.imp().original_list.borrow().len();
+        if orig_le == 0 {
+            // this is hack for the first triggered event.
+            // for some reason it is triggered without search
+            return;
+        }
+        let searched = self.imp().list.take();
+        self.items_changed(0, searched.len() as u32, 0);
+
+        self.imp().list.replace(self.imp().original_list.take());
+        self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
+
+    }
+
+    pub fn search(&self, term: String, repo_path: std::ffi::OsString) {
+        glib::spawn_future_local({
+            let commit_list = self.clone();
+            let repo_path = repo_path.clone();
+            async move {
+                let commits = gio::spawn_blocking(move || {
+                    crate::revwalk(repo_path, None, Some(term))
+                }).await.expect("cant get commits");
+                let orig_le = commit_list.imp().list.borrow().len();
+                commit_list.imp().original_list.replace(commit_list.imp().list.take());
+                commit_list.items_changed(0, orig_le as u32, 0);
+                let mut added = 0;
+                for item in commits.into_iter().map(CommitItem::new) {
+                    commit_list.imp().list.borrow_mut().push(item.clone());
+                    added += 1;
+                }
+                if added > 0 {
+                    commit_list.items_changed(0, 0, added);
                 }
             }
         });
@@ -196,8 +240,8 @@ pub fn make_item_factory(sender: Sender<Event>) -> SignalListItemFactory {
             let sender = sender.clone();
             move |_gesture, _some, _wx, _wy| {
                 let list_item = list_item.downcast_ref::<ListItem>().unwrap();
-                let commit_item = list_item.item().unwrap();                
-                let commit_item = commit_item.downcast_ref::<CommitItem>().unwrap();  
+                let commit_item = list_item.item().unwrap();
+                let commit_item = commit_item.downcast_ref::<CommitItem>().unwrap();
                 let oid = commit_item.imp().commit.borrow().oid;
                 sender.send_blocking(Event::ShowOid(oid)).expect("cant send through sender");
             }
@@ -211,7 +255,7 @@ pub fn make_item_factory(sender: Sender<Event>) -> SignalListItemFactory {
             .xalign(0.0)
             .ellipsize(pango::EllipsizeMode::End)
             .build();
-        
+
         let label_commit = Label::builder()
             .label("")
             .lines(1)
@@ -224,7 +268,7 @@ pub fn make_item_factory(sender: Sender<Event>) -> SignalListItemFactory {
             .can_focus(true)
             .can_target(true)
             .build();
-        
+
         let label_dt = Label::builder()
             .label("")
             .lines(1)
@@ -273,7 +317,7 @@ pub fn make_item_factory(sender: Sender<Event>) -> SignalListItemFactory {
             &author_label,
             "label",
             Widget::NONE
-        );  
+        );
         item.chain_property::<CommitItem>("message").bind(
             &label_commit,
             "label",
@@ -293,6 +337,13 @@ pub fn make_item_factory(sender: Sender<Event>) -> SignalListItemFactory {
 pub fn make_list_view(sender: Sender<Event>) -> ListView {
     let commit_list = CommitList::new();
     let selection_model = SingleSelection::new(Some(commit_list));
+    
+    // model IS commit_list actually
+    let model = selection_model.model().unwrap();
+    let bind =
+        selection_model.bind_property("selected", &model, "selected_pos");
+    let _ = bind.bidirectional().build();
+
     let factory = make_item_factory(sender.clone());
     let list_view = ListView::builder()
         .model(&selection_model)
@@ -330,12 +381,52 @@ pub enum Event {
     ShowOid(Oid)
 }
 
+pub fn make_header_bar(list_view: &ListView, repo_path: std::ffi::OsString) -> HeaderBar {
+
+    let entry = SearchEntry::builder()
+        .search_delay(300)
+        .placeholder_text("hit s for search")
+        .build();
+    entry.connect_stop_search(|e| {
+        e.stop_signal_emission_by_name("stop-search");
+    });
+    let commit_list = get_commit_list(list_view);
+
+    let search = SearchBar::builder()
+        .tooltip_text("search commits")
+        .search_mode_enabled(true)
+        .visible(true)
+        .show_close_button(false)
+        .child(&entry)
+        .build();
+    entry.connect_search_changed(clone!(@weak commit_list, @weak list_view => move |e| {
+        let term = e.text();
+        if !term.is_empty() && term.len() < 3 {
+            return;
+        }
+        if term.is_empty() {
+            let selection_model = list_view.model().unwrap();
+            let single_selection =
+                selection_model.downcast_ref::<SingleSelection>().unwrap();
+            single_selection.set_can_unselect(true);
+            commit_list.reset_search();
+            single_selection.set_can_unselect(false);
+        } else {
+            commit_list.search(term.into(), repo_path.clone());
+        }
+    }));
+    let hb = HeaderBar::builder().build();
+    hb.set_title_widget(Some(&search));
+    hb
+}
+
 pub fn show_log_window(
     repo_path: std::ffi::OsString,
     app_window: &ApplicationWindow,
     head: String,
     main_sender: Sender<crate::Event>,
 ) {
+
     let (sender, receiver) = async_channel::unbounded();
 
     let window = Window::builder()
@@ -347,7 +438,7 @@ pub fn show_log_window(
     window.set_default_size(1280, 960);
 
     let list_view = make_list_view(sender.clone());
-    
+
     let scroll = ScrolledWindow::new();
 
     // reached works with pagedown instead of overshot
@@ -365,12 +456,8 @@ pub fn show_log_window(
 
     let tb = ToolbarView::builder().content(&scroll).build();
 
-    let title = Label::builder()
-        .label("Log")
-        .ellipsize(pango::EllipsizeMode::End)
-        .build();
-    let hb = HeaderBar::builder().build();
-    hb.set_title_widget(Some(&title));
+    let hb = make_header_bar(&list_view, repo_path.clone());
+
 
     tb.add_top_bar(&hb);
     window.set_content(Some(&tb));
@@ -386,6 +473,16 @@ pub fn show_log_window(
                 }
                 (gdk::Key::Escape, _) => {
                     window.close();
+                }
+                (gdk::Key::s, _) => {
+                    let search_bar = hb.title_widget().unwrap();
+                    let search_bar =
+                        search_bar.downcast_ref::<SearchBar>().unwrap();
+                    let search_entry = search_bar.child().unwrap();
+                    let search_entry =
+                        search_entry.downcast_ref::<SearchEntry>().unwrap();
+                    trace!("enter search");
+                    search_entry.grab_focus();
                 }
                 (key, modifier) => {
                     trace!("key pressed {:?} {:?}", key, modifier);

@@ -1811,10 +1811,12 @@ const COMMIT_PAGE_SIZE: i32 = 500;
 
 pub fn revwalk(
     path: OsString,
-    start: Option<Oid>
+    start: Option<Oid>,
+    search_term: Option<String>
 ) -> Vec<CommitDiff> {
     let repo = Repository::open(path.clone()).expect("cant open repo");
     let mut revwalk = repo.revwalk().expect("cant get revwalk");    
+    revwalk.simplify_first_parent().expect("cant simplify");
     let mut i = 0;
     if let Some(oid) = start {
         revwalk.push(oid).expect("cant push oid to revlog");
@@ -1825,6 +1827,11 @@ pub fn revwalk(
     while let Some(oid) = revwalk.next() {
         let oid = oid.expect("no oid in rev");
         let commit = repo.find_commit(oid).expect("can't find commit");
+        if let Some(ref term) = search_term {
+            if !commit.message().unwrap_or("").contains(term) {
+                continue
+            }
+        }
         result.push(CommitDiff::from_commit(commit));
         i += 1;
         if i == COMMIT_PAGE_SIZE {
