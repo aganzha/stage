@@ -2,7 +2,7 @@ mod context;
 use context::StatusRenderContext;
 
 mod status_view;
-use status_view::{factory::text_view_factory, Status, headerbar::make_header_bar, headerbar::HbUpdateData};
+use status_view::{factory::textview_factory, Status, headerbar::headerbar_factory, headerbar::HbUpdateData};
 
 mod branches_view;
 use branches_view::show_branches_window;
@@ -213,10 +213,10 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
 
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let (hb, hb_updater) = make_header_bar(sender.clone(), settings);
+    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings);
 
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
-    let txt = text_view_factory(sender.clone(), text_view_width.clone());
+    let txt = textview_factory(sender.clone(), text_view_width.clone());
 
     let scroll = ScrolledWindow::new();
     scroll.set_child(Some(&txt));

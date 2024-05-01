@@ -53,7 +53,7 @@ pub fn show_commit_window(
 
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt =
-        crate::text_view_factory(sender.clone(), text_view_width.clone());
+        crate::textview_factory(sender.clone(), text_view_width.clone());
 
     scroll.set_child(Some(&txt));
 
