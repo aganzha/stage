@@ -1828,7 +1828,17 @@ pub fn revwalk(
         let oid = oid.expect("no oid in rev");
         let commit = repo.find_commit(oid).expect("can't find commit");
         if let Some(ref term) = search_term {
-            if !commit.message().unwrap_or("").contains(term) {
+            let mut found = false;
+            for el in vec![
+                commit.message().unwrap_or("").to_lowercase(),
+                commit.author().name().unwrap_or("").to_lowercase()
+            ] {
+                if el.contains(term) {
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
                 continue
             }
         }
