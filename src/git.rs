@@ -1667,7 +1667,7 @@ pub struct CommitDiff {
     pub oid: Oid,
     pub message: String,
     pub commit_dt: DateTime<FixedOffset>,
-    pub author: String, 
+    pub author: String,
     pub diff: Diff,
 }
 
@@ -1808,16 +1808,15 @@ pub fn checkout_oid(
     get_current_repo_status(Some(path), sender);
 }
 
-
 const COMMIT_PAGE_SIZE: i32 = 500;
 
 pub fn revwalk(
     path: OsString,
     start: Option<Oid>,
-    search_term: Option<String>
+    search_term: Option<String>,
 ) -> Vec<CommitDiff> {
     let repo = Repository::open(path.clone()).expect("cant open repo");
-    let mut revwalk = repo.revwalk().expect("cant get revwalk");    
+    let mut revwalk = repo.revwalk().expect("cant get revwalk");
     revwalk.simplify_first_parent().expect("cant simplify");
     let mut i = 0;
     if let Some(oid) = start {
@@ -1833,7 +1832,7 @@ pub fn revwalk(
             let mut found = false;
             for el in vec![
                 commit.message().unwrap_or("").to_lowercase(),
-                commit.author().name().unwrap_or("").to_lowercase()
+                commit.author().name().unwrap_or("").to_lowercase(),
             ] {
                 if el.contains(term) {
                     found = true;
@@ -1841,7 +1840,7 @@ pub fn revwalk(
                 }
             }
             if !found {
-                continue
+                continue;
             }
         }
         result.push(CommitDiff::from_commit(commit));

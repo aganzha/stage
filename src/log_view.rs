@@ -1,20 +1,20 @@
 use async_channel::Sender;
+use git2::Oid;
 use glib::{clone, closure, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, AlertDialog, Box, Button, EventControllerKey,
-    Image, Label, ListBox, ListHeader, ListItem, ListScrollFlags, ListView, GestureClick,
-    Orientation, ScrolledWindow, SearchBar, SearchEntry, SectionModel,
-    SelectionMode, SignalListItemFactory, SingleSelection, Spinner, Widget,
-    PositionType
+    GestureClick, Image, Label, ListBox, ListHeader, ListItem,
+    ListScrollFlags, ListView, Orientation, PositionType, ScrolledWindow,
+    SearchBar, SearchEntry, SectionModel, SelectionMode,
+    SignalListItemFactory, SingleSelection, Spinner, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
 };
-use git2::Oid;
-use log::{debug, trace, info};
+use log::{debug, info, trace};
 
 glib::wrapper! {
     pub struct CommitItem(ObjectSubclass<commit_item::CommitItem>);
@@ -55,14 +55,20 @@ mod commit_item {
 
     impl CommitItem {
         pub fn get_oid(&self) -> String {
-            format!("<span color=\"#1C71D8\"> {}</span>", self.commit.borrow().oid)
+            format!(
+                "<span color=\"#1C71D8\"> {}</span>",
+                self.commit.borrow().oid
+            )
         }
         pub fn get_author(&self) -> String {
             format!("{}", self.commit.borrow().author)
         }
         pub fn get_message(&self) -> String {
             let mut encoded = String::from("");
-            html_escape::encode_safe_to_string(&self.commit.borrow().message.trim(), &mut encoded);
+            html_escape::encode_safe_to_string(
+                &self.commit.borrow().message.trim(),
+                &mut encoded,
+            );
             encoded
         }
         pub fn get_dt(&self) -> String {
@@ -73,8 +79,7 @@ mod commit_item {
 
 impl CommitItem {
     pub fn new(commit: crate::CommitDiff) -> Self {
-        let ob = Object::builder::<CommitItem>()
-            .build();
+        let ob = Object::builder::<CommitItem>().build();
         ob.imp().commit.replace(commit);
         ob
     }
@@ -97,7 +102,6 @@ mod commit_list {
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::CommitList)]
     pub struct CommitList {
-
         pub list: RefCell<Vec<super::CommitItem>>,
         pub original_list: RefCell<Vec<super::CommitItem>>,
 
@@ -152,14 +156,17 @@ impl CommitList {
                 let mut start_oid: Option<Oid> = None;
                 if list_le > 0 {
                     let item = commit_list.item(list_le - 1).unwrap();
-                    let commit_item = item.downcast_ref::<CommitItem>().unwrap();
+                    let commit_item =
+                        item.downcast_ref::<CommitItem>().unwrap();
                     let oid = commit_item.imp().commit.borrow().oid;
                     start_oid.replace(oid);
                 }
 
                 let commits = gio::spawn_blocking(move || {
                     crate::revwalk(repo_path, start_oid, None)
-                }).await.expect("cant get commits");
+                })
+                .await
+                .expect("cant get commits");
                 let mut added = 0;
                 for item in commits.into_iter().map(CommitItem::new) {
                     if let Some(oid) = start_oid {
@@ -171,7 +178,11 @@ impl CommitList {
                     added += 1;
                 }
                 if added > 0 {
-                    commit_list.items_changed(if list_le > 0 {list_le} else {0}, 0, added);
+                    commit_list.items_changed(
+                        if list_le > 0 { list_le } else { 0 },
+                        0,
+                        added,
+                    );
                 }
             }
         });
@@ -198,9 +209,14 @@ impl CommitList {
             async move {
                 let commits = gio::spawn_blocking(move || {
                     crate::revwalk(repo_path, None, Some(term))
-                }).await.expect("cant get commits");
+                })
+                .await
+                .expect("cant get commits");
                 let orig_le = commit_list.imp().list.borrow().len();
-                commit_list.imp().original_list.replace(commit_list.imp().list.take());
+                commit_list
+                    .imp()
+                    .original_list
+                    .replace(commit_list.imp().list.take());
                 commit_list.items_changed(0, orig_le as u32, 0);
                 let mut added = 0;
                 for item in commits.into_iter().map(CommitItem::new) {
@@ -218,7 +234,6 @@ impl CommitList {
 pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
-
         let oid_label = Label::builder()
             .label("")
             .use_markup(true)
@@ -235,9 +250,12 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
             move |_gesture, _some, _wx, _wy| {
                 let list_item = list_item.downcast_ref::<ListItem>().unwrap();
                 let commit_item = list_item.item().unwrap();
-                let commit_item = commit_item.downcast_ref::<CommitItem>().unwrap();
+                let commit_item =
+                    commit_item.downcast_ref::<CommitItem>().unwrap();
                 let oid = commit_item.imp().commit.borrow().oid;
-                sender.send_blocking(Event::ShowOid(oid)).expect("cant send through sender");
+                sender
+                    .send_blocking(Event::ShowOid(oid))
+                    .expect("cant send through sender");
             }
         });
         oid_label.add_controller(gesture_controller);
@@ -305,12 +323,12 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
         item.chain_property::<CommitItem>("oid").bind(
             &oid_label,
             "label",
-            Widget::NONE
+            Widget::NONE,
         );
         item.chain_property::<CommitItem>("author").bind(
             &author_label,
             "label",
-            Widget::NONE
+            Widget::NONE,
         );
         item.chain_property::<CommitItem>("message").bind(
             &label_commit,
@@ -331,7 +349,7 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
 pub fn listview_factory(sender: Sender<Event>) -> ListView {
     let commit_list = CommitList::new();
     let selection_model = SingleSelection::new(Some(commit_list));
-    
+
     // model IS commit_list actually
     let model = selection_model.model().unwrap();
     let bind =
@@ -357,8 +375,11 @@ pub fn listview_factory(sender: Sender<Event>) -> ListView {
             let list_item = single_selection.selected_item().unwrap();
             let commit_item = list_item.downcast_ref::<CommitItem>().unwrap();
             let oid = commit_item.imp().commit.borrow().oid;
-            sender.send_blocking(Event::ShowOid(oid)).expect("cant send through sender");
-        }});
+            sender
+                .send_blocking(Event::ShowOid(oid))
+                .expect("cant send through sender");
+        }
+    });
     list_view
 }
 
@@ -372,11 +393,13 @@ pub fn get_commit_list(list_view: &ListView) -> CommitList {
 }
 
 pub enum Event {
-    ShowOid(Oid)
+    ShowOid(Oid),
 }
 
-pub fn headerbar_factory(list_view: &ListView, repo_path: std::ffi::OsString) -> HeaderBar {
-
+pub fn headerbar_factory(
+    list_view: &ListView,
+    repo_path: std::ffi::OsString,
+) -> HeaderBar {
     let entry = SearchEntry::builder()
         .search_delay(300)
         .width_chars(22)
@@ -394,23 +417,25 @@ pub fn headerbar_factory(list_view: &ListView, repo_path: std::ffi::OsString) ->
         .show_close_button(false)
         .child(&entry)
         .build();
-    entry.connect_search_changed(clone!(@weak commit_list, @weak list_view => move |e| {
-        let term = e.text().to_lowercase();
-        debug!("SEEEARCH CHANGED {:?}", term);
-        if !term.is_empty() && term.len() < 3 {
-            return;
-        }
-        if term.is_empty() {
-            let selection_model = list_view.model().unwrap();
-            let single_selection =
-                selection_model.downcast_ref::<SingleSelection>().unwrap();
-            single_selection.set_can_unselect(true);
-            commit_list.reset_search();
-            single_selection.set_can_unselect(false);
-        } else {
-            commit_list.search(term.into(), repo_path.clone());
-        }
-    }));
+    entry.connect_search_changed(
+        clone!(@weak commit_list, @weak list_view => move |e| {
+            let term = e.text().to_lowercase();
+            debug!("SEEEARCH CHANGED {:?}", term);
+            if !term.is_empty() && term.len() < 3 {
+                return;
+            }
+            if term.is_empty() {
+                let selection_model = list_view.model().unwrap();
+                let single_selection =
+                    selection_model.downcast_ref::<SingleSelection>().unwrap();
+                single_selection.set_can_unselect(true);
+                commit_list.reset_search();
+                single_selection.set_can_unselect(false);
+            } else {
+                commit_list.search(term.into(), repo_path.clone());
+            }
+        }),
+    );
     let hb = HeaderBar::builder().build();
     hb.set_title_widget(Some(&search));
     hb
@@ -422,7 +447,6 @@ pub fn show_log_window(
     head: String,
     main_sender: Sender<crate::Event>,
 ) {
-
     let (sender, receiver) = async_channel::unbounded();
 
     let window = Window::builder()
@@ -447,13 +471,13 @@ pub fn show_log_window(
             let list_view = scroll.child().unwrap();
             let list_view = list_view.downcast_ref::<ListView>().unwrap();
             get_commit_list(&list_view).get_commits_inside(repo_path.clone());
-        }});
+        }
+    });
     scroll.set_child(Some(&list_view));
 
     let tb = ToolbarView::builder().content(&scroll).build();
 
     let hb = headerbar_factory(&list_view, repo_path.clone());
-
 
     tb.add_top_bar(&hb);
     window.set_content(Some(&tb));

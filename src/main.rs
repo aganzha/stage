@@ -2,7 +2,10 @@ mod context;
 use context::StatusRenderContext;
 
 mod status_view;
-use status_view::{textview::factory as textview_factory, Status, headerbar::factory as headerbar_factory, headerbar::HbUpdateData};
+use status_view::{
+    headerbar::factory as headerbar_factory, headerbar::HbUpdateData,
+    textview::factory as textview_factory, Status,
+};
 
 mod branches_view;
 use branches_view::show_branches_window;
@@ -26,14 +29,14 @@ use git::{
     apply_stash, checkout_branch, checkout_oid, cherry_pick, commit,
     create_branch, drop_stash, get_branches, get_commit_diff,
     get_current_repo_status, get_directories, kill_branch, merge, pull, push,
-    reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, update_remote, revwalk, ApplyFilter, ApplySubject, BranchData,
+    reset_hard, revwalk, stage_untracked, stage_via_apply, stash_changes,
+    track_changes, update_remote, ApplyFilter, ApplySubject, BranchData,
     CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
-    State, Untracked, UntrackedFile, View
+    State, Untracked, UntrackedFile, View,
 };
 use git2::Oid;
 mod widgets;
-use widgets::{display_error, confirm_dialog_factory};
+use widgets::{confirm_dialog_factory, display_error};
 
 use gdk::Display;
 use glib::{clone, ControlFlow};
@@ -258,10 +261,10 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                     txt.grab_focus();
                     status.get_status();
                 }
-                Event::RepoOpen => {                    
+                Event::RepoOpen => {
                     hb_updater(HbUpdateData::RepoOpen);
                 }
-                Event::RepoPopup => {                    
+                Event::RepoPopup => {
                     hb_updater(HbUpdateData::RepoPopup);
                 }
                 Event::CurrentRepo(path) => {
@@ -320,7 +323,9 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 Event::Head(h) => {
                     info!("main. head");
                     if let Some(upstream) = &status.upstream {
-                        hb_updater(HbUpdateData::Unsynced(h.oid != upstream.oid));
+                        hb_updater(HbUpdateData::Unsynced(
+                            h.oid != upstream.oid,
+                        ));
                     } else {
                         hb_updater(HbUpdateData::Unsynced(true));
                     }
@@ -330,7 +335,9 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                     info!("main. upstream");
                     match (&status.head, &h) {
                         (Some(head), Some(upstream)) => {
-                            hb_updater(HbUpdateData::Unsynced(head.oid != upstream.oid));
+                            hb_updater(HbUpdateData::Unsynced(
+                                head.oid != upstream.oid,
+                            ));
                         }
                         _ => {}
                     }

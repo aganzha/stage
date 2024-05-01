@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use std::ffi::OsString;
 
 use crate::{
-    apply_stash as git_apply_stash, display_error, drop_stash,
-    confirm_dialog_factory, stash_changes, Event, StashData, Stashes, Status,
+    apply_stash as git_apply_stash, confirm_dialog_factory, display_error,
+    drop_stash, stash_changes, Event, StashData, Stashes, Status,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
