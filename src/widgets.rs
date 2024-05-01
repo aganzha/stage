@@ -209,7 +209,24 @@ pub fn make_header_bar(
                 .expect("cant send through channel");
         }
     });
-
+    let commit_btn = Button::builder()
+        .label("Pull")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Pull")
+        .icon_name("object-select-symbolic")
+        .can_shrink(true)
+        .build();
+    commit_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::Commit)
+                .expect("cant send through channel");
+        }
+    });
+    
+    
     let repo_menu = gio::Menu::new();
     for path in settings.get::<Vec<String>>("paths").iter() {
         repo_menu.append(Some(path), Some(&format!("win.open::{}", path)));
@@ -293,6 +310,7 @@ pub fn make_header_bar(
     hb.pack_start(&zoom_out_btn);
     hb.pack_start(&zoom_in_btn);
     hb.set_title_widget(Some(&repo_selector));
+    hb.pack_end(&commit_btn);
     hb.pack_end(&branches_btn);
     hb.pack_end(&push_btn);
     hb.pack_end(&pull_btn);
