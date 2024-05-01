@@ -58,7 +58,8 @@ pub enum HbUpdateData {
     Path(OsString),
     Staged(bool),
     Unsynced(bool),
-    RepoOpen
+    RepoOpen,
+    RepoPopup
 }
 
 pub fn make_header_bar(
@@ -300,7 +301,10 @@ pub fn make_header_bar(
                 }
                 HbUpdateData::RepoOpen => {
                     repo_selector.emit_activate();
-                }                
+                }
+                HbUpdateData::RepoPopup => {
+                    repo_selector.popover().expect("no popover").popup();
+                }
             }
         }
     };
