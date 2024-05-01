@@ -178,23 +178,17 @@ impl CommitList {
     }
 
     pub fn reset_search(&self) {
-        if self.imp().list.borrow().len()
-            == self.imp().original_list.borrow().len()
-        {
-            return;
-        }
         let orig_le = self.imp().original_list.borrow().len();
         if orig_le == 0 {
             // this is hack for the first triggered event.
             // for some reason it is triggered without search
+            debug!("ret2");
             return;
         }
         let searched = self.imp().list.take();
         self.items_changed(0, searched.len() as u32, 0);
-
         self.imp().list.replace(self.imp().original_list.take());
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
-
     }
 
     pub fn search(&self, term: String, repo_path: std::ffi::OsString) {
@@ -401,7 +395,8 @@ pub fn make_header_bar(list_view: &ListView, repo_path: std::ffi::OsString) -> H
         .child(&entry)
         .build();
     entry.connect_search_changed(clone!(@weak commit_list, @weak list_view => move |e| {
-        let term = e.text();
+        let term = e.text().to_lowercase();
+        debug!("SEEEARCH CHANGED {:?}", term);
         if !term.is_empty() && term.len() < 3 {
             return;
         }
