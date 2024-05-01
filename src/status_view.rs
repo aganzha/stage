@@ -5,7 +5,7 @@ use container::{ViewContainer, ViewKind};
 use core::time::Duration;
 
 pub mod render;
-use render::Tag;
+use textview::Tag;
 pub mod reconciliation;
 pub mod tests;
 
