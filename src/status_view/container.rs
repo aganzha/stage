@@ -6,7 +6,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter, TextView};
-use log::trace;
+use log::{trace, debug};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
@@ -277,10 +277,10 @@ impl ViewContainer for Diff {
     ) {
         // why do i need it at all?
         self.view.line_no = iter.line();
-        let start_iter = buffer.iter_at_line(iter.line()).unwrap();
         for file in &mut self.files {
             file.render(buffer, iter, context);
         }
+        let start_iter = buffer.iter_at_line(self.view.line_no).unwrap();
         let end_iter = buffer.iter_at_line(iter.line()).unwrap();
         for tag in self.tags() {
             buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
@@ -292,10 +292,14 @@ impl ViewContainer for Diff {
     }
 
     fn tags(&self) -> Vec<Tag> {
-        if self.kind == DiffKind::Staged {
-            return vec![Tag::Staged]
+        match self.kind {
+            DiffKind::Staged => {
+                return vec![Tag::Staged]
+            },
+            DiffKind::Unstaged => {
+                return vec![Tag::Unstaged]
+            }
         }
-        Vec::new()
     }
 }
 
