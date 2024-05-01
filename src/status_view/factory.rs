@@ -183,6 +183,10 @@ pub fn text_view_factory(
                     sndr.send_blocking(crate::Event::RepoOpen)
                         .expect("Could not send through channel");
                 }
+                (gdk::Key::r, _) => {
+                    sndr.send_blocking(crate::Event::RepoPopup)
+                        .expect("Could not send through channel");
+                }
                 (gdk::Key::z, _) => {
                     sndr.send_blocking(crate::Event::StashesPanel)
                         .expect("cant send through channel");
