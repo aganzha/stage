@@ -1,5 +1,6 @@
 pub mod container;
 pub mod factory;
+pub mod headerbar;
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
 

@@ -2,7 +2,7 @@ mod context;
 use context::StatusRenderContext;
 
 mod status_view;
-use status_view::{factory::text_view_factory, Status};
+use status_view::{factory::text_view_factory, Status, headerbar::make_header_bar, headerbar::HbUpdateData};
 
 mod branches_view;
 use branches_view::show_branches_window;
@@ -33,7 +33,7 @@ use git::{
 };
 use git2::Oid;
 mod widgets;
-use widgets::{display_error, make_confirm_dialog, make_header_bar, HbUpdateData};
+use widgets::{display_error, make_confirm_dialog};
 
 use gdk::Display;
 use glib::{clone, ControlFlow};
