@@ -18,6 +18,7 @@ pub enum Tag {
     Region,
     Hunk,
     Italic,
+    Pointer,
     // Link
 }
 impl Tag {
@@ -67,7 +68,12 @@ impl Tag {
                 let tt = self.new_tag();
                 tt.set_style(Style::Italic);
                 tt
-            } // Self::Link => {
+            }
+            Self::Pointer => {
+                let tt = self.new_tag();
+                tt
+            }
+            // Self::Link => {
               //     let tt = self.new_tag();
               //     tt.set_background(Some("0000ff"));
               //     tt.set_style(Style::Underlined);
@@ -89,6 +95,7 @@ impl Tag {
             Self::Region => "region",
             Self::Hunk => "hunk",
             Self::Italic => "italic",
+            Self::Pointer => "pointer"
         }
     }
     fn enhance(&self) -> &Self {
