@@ -5,7 +5,10 @@ use git2::Oid;
 
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
-use gtk4::{gdk, gio, glib, EventControllerKey, Label, ScrolledWindow, Window as Gtk4Window,};
+use gtk4::{
+    gdk, gio, glib, EventControllerKey, Label, ScrolledWindow,
+    Window as Gtk4Window,
+};
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
 use log::debug;
@@ -50,8 +53,7 @@ pub fn show_commit_window(
     let hb = headerbar_factory(repo_path.clone(), oid, sender.clone());
 
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
-    let txt =
-        crate::textview_factory(sender.clone(), text_view_width.clone());
+    let txt = crate::textview_factory(sender.clone(), text_view_width.clone());
 
     scroll.set_child(Some(&txt));
 

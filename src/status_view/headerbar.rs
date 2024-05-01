@@ -13,13 +13,12 @@ use gtk4::{
     Window as Gtk4Window,
 };
 
-
 pub enum HbUpdateData {
     Path(OsString),
     Staged(bool),
     Unsynced(bool),
     RepoOpen,
-    RepoPopup
+    RepoPopup,
 }
 
 pub fn factory(
@@ -195,8 +194,7 @@ pub fn factory(
                 .expect("cant send through channel");
         }
     });
-    
-    
+
     let repo_menu = gio::Menu::new();
     for path in settings.get::<Vec<String>>("paths").iter() {
         repo_menu.append(Some(path), Some(&format!("win.open::{}", path)));
@@ -218,57 +216,55 @@ pub fn factory(
         let commit_btn = commit_btn.clone();
         let push_btn = push_btn.clone();
         let repo_selector = repo_selector.clone();
-        move |data: HbUpdateData| {
-            match data {
-                HbUpdateData::Path(path) => {
-                    let repo_opener_label = repo_opener.last_child().unwrap();
-                    let repo_opener_label =
-                        repo_opener_label.downcast_ref::<Label>().unwrap();
-                    let clean_path = path.into_string().unwrap().replace(".git/", "");
-                    repo_opener_label.set_markup(&format!(
-                        "<span weight=\"normal\">{}</span>",
-                        clean_path
-                    ));
-                    repo_opener_label.set_visible(true);
-                    let mut path_exists = false;
-                    for i in 0..repo_menu.n_items() {
-                        let iter = repo_menu.iterate_item_attributes(i);
-                        while let Some(attr) = iter.next() {
-                            if attr.0 == "target"
-                                && clean_path
+        move |data: HbUpdateData| match data {
+            HbUpdateData::Path(path) => {
+                let repo_opener_label = repo_opener.last_child().unwrap();
+                let repo_opener_label =
+                    repo_opener_label.downcast_ref::<Label>().unwrap();
+                let clean_path =
+                    path.into_string().unwrap().replace(".git/", "");
+                repo_opener_label.set_markup(&format!(
+                    "<span weight=\"normal\">{}</span>",
+                    clean_path
+                ));
+                repo_opener_label.set_visible(true);
+                let mut path_exists = false;
+                for i in 0..repo_menu.n_items() {
+                    let iter = repo_menu.iterate_item_attributes(i);
+                    while let Some(attr) = iter.next() {
+                        if attr.0 == "target"
+                            && clean_path
                                 == attr
-                                .1
-                                .get::<String>()
-                                .expect("cant get path from gvariant")
-                            {
-                                path_exists = true;
-                                break;
-                            }
+                                    .1
+                                    .get::<String>()
+                                    .expect("cant get path from gvariant")
+                        {
+                            path_exists = true;
+                            break;
                         }
                     }
-                    if !path_exists {
-                        repo_menu.append(
-                            Some(&clean_path),
-                            Some(&format!("win.open::{}", clean_path)),
-                        );
-                    }
                 }
-                HbUpdateData::Staged(is_staged) => {
-                    commit_btn.set_sensitive(is_staged);
+                if !path_exists {
+                    repo_menu.append(
+                        Some(&clean_path),
+                        Some(&format!("win.open::{}", clean_path)),
+                    );
                 }
-                HbUpdateData::Unsynced(has_unsynced) => {
-                    push_btn.set_sensitive(has_unsynced);
-                }
-                HbUpdateData::RepoOpen => {
-                    repo_selector.emit_activate();
-                }
-                HbUpdateData::RepoPopup => {
-                    repo_selector.popover().expect("no popover").popup();
-                }
+            }
+            HbUpdateData::Staged(is_staged) => {
+                commit_btn.set_sensitive(is_staged);
+            }
+            HbUpdateData::Unsynced(has_unsynced) => {
+                push_btn.set_sensitive(has_unsynced);
+            }
+            HbUpdateData::RepoOpen => {
+                repo_selector.emit_activate();
+            }
+            HbUpdateData::RepoPopup => {
+                repo_selector.popover().expect("no popover").popup();
             }
         }
     };
-
 
     repo_selector.connect_clicked({
         let sender = sender.clone();

@@ -1,6 +1,6 @@
 pub mod container;
-pub mod textview;
 pub mod headerbar;
+pub mod textview;
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
 
@@ -127,7 +127,7 @@ impl Status {
         }
         String::from("there are no head")
     }
-    
+
     pub fn update_path(
         &mut self,
         path: OsString,
@@ -152,7 +152,9 @@ impl Status {
                 let mut paths = self.settings.get::<Vec<String>>("paths");
                 let str_path =
                     path.clone().into_string().unwrap().replace(".git/", "");
-                self.settings.set("lastpath", str_path.clone()).expect("cant set lastpath");
+                self.settings
+                    .set("lastpath", str_path.clone())
+                    .expect("cant set lastpath");
                 if !paths.contains(&str_path) {
                     paths.push(str_path);
                     self.settings
@@ -463,7 +465,10 @@ impl Status {
         });
     }
 
-    pub fn context_factory(&mut self, text_view_width: Rc<RefCell<(i32, i32)>>) {
+    pub fn context_factory(
+        &mut self,
+        text_view_width: Rc<RefCell<(i32, i32)>>,
+    ) {
         let mut ctx = StatusRenderContext::new();
         ctx.screen_width.replace(*text_view_width.borrow());
         self.context.replace(ctx);
