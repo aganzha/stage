@@ -98,6 +98,7 @@ pub enum Event {
     Head(Head),
     Upstream(Option<Head>),
     State(State),
+    RepoOpen,
     Expand(i32, i32),
     Cursor(i32, i32),
     Stage(i32, i32),
@@ -255,6 +256,9 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                     status.update_path(path, monitors.clone(), true);
                     txt.grab_focus();
                     status.get_status();
+                }
+                Event::RepoOpen => {
+                    hb_updater(HbUpdateData::RepoOpen);
                 }
                 Event::CurrentRepo(path) => {
                     info!("info.path {:?}", path);
