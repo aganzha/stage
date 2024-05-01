@@ -7,6 +7,9 @@ use status_view::{factory::text_view_factory, Status};
 mod branches_view;
 use branches_view::show_branches_window;
 
+mod log_view;
+use log_view::show_log_window;
+
 mod stashes_view;
 use stashes_view::factory as stashes_view_factory;
 
@@ -24,9 +27,9 @@ use git::{
     create_branch, drop_stash, get_branches, get_commit_diff,
     get_current_repo_status, get_directories, kill_branch, merge, pull, push,
     reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, update_remote, ApplyFilter, ApplySubject, BranchData,
+    track_changes, update_remote, revwalk, ApplyFilter, ApplySubject, BranchData,
     CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
-    State, Untracked, UntrackedFile, View,
+    State, Untracked, UntrackedFile, View
 };
 use git2::Oid;
 mod widgets;
@@ -105,6 +108,7 @@ pub enum Event {
     Push,
     Pull,
     Branches,
+    Log,
     ShowOid(Oid),
     TextViewResize,
     Toast(String),
@@ -249,6 +253,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                     // for querying repo status and investigate real one
                     // see next clause
                     status.update_path(path, monitors.clone(), true);
+                    txt.grab_focus();
                     status.get_status();
                 }
                 Event::CurrentRepo(path) => {
@@ -292,6 +297,15 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                     show_branches_window(
                         status.path.clone().expect("no path"),
                         &window,
+                        sender.clone(),
+                    );
+                }
+                Event::Log => {
+                    info!("main.log");
+                    show_log_window(
+                        status.path.clone().expect("no path"),
+                        &window,
+                        status.head_title(),
                         sender.clone(),
                     );
                 }
@@ -378,7 +392,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                     }
                 }
                 Event::ShowOid(oid) => {
-                    info!("main.show oid");
+                    info!("main.show oid {:?}", oid);
                     show_commit_window(
                         status.path.clone().expect("no path"),
                         oid,

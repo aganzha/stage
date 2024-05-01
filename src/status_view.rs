@@ -120,6 +120,13 @@ impl Status {
         }
     }
 
+    pub fn head_title(&self) -> String {
+        if let Some(head) = &self.head {
+            return format!("On {}: {}", &head.branch, &head.commit);
+        }
+        String::from("there are no head")
+    }
+    
     pub fn update_path(
         &mut self,
         path: OsString,
