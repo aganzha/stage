@@ -310,7 +310,7 @@ impl ViewContainer for File {
             .collect()
     }
     fn tags(&self) -> Vec<Tag> {
-        vec![Tag::Bold]
+        vec![Tag::Bold, Tag::Pointer]
     }
 
     fn fill_context(&self, context: &mut Option<StatusRenderContext>) {
@@ -379,7 +379,7 @@ impl ViewContainer for Hunk {
         active
     }
     fn tags(&self) -> Vec<Tag> {
-        vec![Tag::Hunk]
+        vec![Tag::Hunk, Tag::Pointer]
     }
 
     fn is_expandable_by_child(&self) -> bool {

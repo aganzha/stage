@@ -8,9 +8,9 @@ use glib::ControlFlow;
 use gtk4::prelude::*;
 use gtk4::{
     gdk, glib, EventControllerKey, EventSequenceState, GestureClick,
-    MovementStep, TextIter, TextView, TextWindowType,
+    MovementStep, TextIter, TextView, TextWindowType, EventControllerMotion
 };
-use log::trace;
+use log::{trace, debug};
 
 fn handle_line_offset(
     iter: &mut TextIter,
@@ -95,6 +95,8 @@ pub fn factory(
         .build();
     let buffer = txt.buffer();
 
+    let pointer = Tag::Pointer.create();
+    buffer.tag_table().add(&pointer);
     buffer.tag_table().add(&Tag::Cursor.create());
     buffer.tag_table().add(&Tag::Region.create());
     buffer.tag_table().add(&Tag::Bold.create());
@@ -104,8 +106,8 @@ pub fn factory(
     buffer.tag_table().add(&Tag::EnhancedRemoved.create());
     buffer.tag_table().add(&Tag::Hunk.create());
 
-    let event_controller = EventControllerKey::new();
-    event_controller.connect_key_pressed({
+    let key_controller = EventControllerKey::new();
+    key_controller.connect_key_pressed({
         let buffer = buffer.clone();
         let sndr = sndr.clone();
         // let txt = txt.clone();
@@ -220,12 +222,14 @@ pub fn factory(
             glib::Propagation::Proceed
         }
     });
-    txt.add_controller(event_controller);
+    txt.add_controller(key_controller);
 
+    
     let gesture_controller = GestureClick::new();
     gesture_controller.connect_released({
         let sndr = sndr.clone();
         let txt = txt.clone();
+        let pointer = pointer.clone();
         move |gesture, _some, wx, wy| {
             gesture.set_state(EventSequenceState::Claimed);
             let (x, y) = txt.window_to_buffer_coords(
@@ -237,8 +241,13 @@ pub fn factory(
                 sndr.send_blocking(crate::Event::Cursor(
                     iter.offset(),
                     iter.line(),
-                ))
-                .expect("Could not send through channel");
+                )).expect("Could not send through channel");
+                if iter.has_tag(&pointer) {
+                    sndr.send_blocking(crate::Event::Expand(
+                        iter.offset(),
+                        iter.line(),
+                    )).expect("Could not send through channel");
+                }            
             }
         }
     });
@@ -330,6 +339,27 @@ pub fn factory(
         }
     });
 
+    let motion_controller = EventControllerMotion::new();
+    motion_controller.connect_motion({
+        let txt = txt.clone();
+        move |_c, x, y| {
+            let (x, y) = txt.window_to_buffer_coords(
+                TextWindowType::Text,
+                x as i32,
+                y as i32,
+            );
+            if let Some(iter) = txt.iter_at_location(x, y) {
+                // debug!("---------------> {:?}", iter.has_tag(&pointer));
+                if iter.has_tag(&pointer) {
+                    txt.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
+                } else {
+                    txt.set_cursor(Some(&gdk::Cursor::from_name("text", None).unwrap()));
+                }
+            }
+        }
+    });
+    txt.add_controller(motion_controller);
+        
     txt.add_css_class("stage");
     txt.set_monospace(true);
     txt.set_editable(false);
