@@ -22,7 +22,7 @@ pub enum HbUpdateData {
     RepoPopup
 }
 
-pub fn headerbar_factory(
+pub fn factory(
     sender: Sender<crate::Event>,
     settings: gio::Settings,
 ) -> (HeaderBar, impl Fn(HbUpdateData)) {
