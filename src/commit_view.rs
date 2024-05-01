@@ -47,8 +47,6 @@ pub fn show_commit_window(
 
     let scroll = ScrolledWindow::new();
 
-    // let list_view = make_list_view(repo_path.clone(), main_sender.clone());
-
     let hb = headerbar_factory(repo_path.clone(), oid, sender.clone());
 
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
