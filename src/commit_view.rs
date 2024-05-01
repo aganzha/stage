@@ -5,7 +5,7 @@ use git2::Oid;
 
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
-use gtk4::{gdk, gio, glib, EventControllerKey, Label, ScrolledWindow};
+use gtk4::{gdk, gio, glib, EventControllerKey, Label, ScrolledWindow, Window as Gtk4Window,};
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
 use log::debug;
@@ -19,7 +19,7 @@ pub fn make_headerbar(
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
     let lbl = Label::builder()
-        .label(format!("{}", oid))
+        .label("Commit")
         .single_line_mode(true)
         .build();
 
@@ -32,7 +32,7 @@ pub fn make_headerbar(
 pub fn show_commit_window(
     repo_path: std::ffi::OsString,
     oid: Oid,
-    app_window: &ApplicationWindow,
+    app_window: &impl IsA<Gtk4Window>,
     _main_sender: Sender<Event>,
 ) {
     let (sender, receiver) = async_channel::unbounded();

@@ -1663,8 +1663,9 @@ pub fn track_changes(
 #[derive(Debug, Clone)]
 pub struct CommitDiff {
     pub oid: Oid,
-    pub commit_string: String,
+    pub message: String,
     pub commit_dt: DateTime<FixedOffset>,
+    pub author: String, 
     pub diff: Diff,
 }
 
@@ -1672,8 +1673,9 @@ impl Default for CommitDiff {
     fn default() -> Self {
         CommitDiff {
             oid: Oid::zero(),
-            commit_string: String::from(""),
+            message: String::from(""),
             commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
+            author: String::from(""),
             diff: Diff::new(DiffKind::Unstaged),
         }
     }
@@ -1683,9 +1685,19 @@ impl CommitDiff {
     pub fn new(commit: Commit, diff: Diff) -> Self {
         CommitDiff {
             oid: commit.id(),
-            commit_string: commit_string(&commit),
+            message: commit.message().unwrap_or("").replace('\n', ""),
             commit_dt: commit_dt(&commit),
+            author: String::from(commit.author().name().unwrap_or("")),
             diff,
+        }
+    }
+    pub fn from_commit(commit: Commit) -> Self {
+        CommitDiff {
+            oid: commit.id(),
+            message: commit.message().unwrap_or("").replace('\n', ""),
+            commit_dt: commit_dt(&commit),
+            author: String::from(commit.author().name().unwrap_or("")),
+            diff: Diff::new(DiffKind::Unstaged),
         }
     }
 }
@@ -1705,7 +1717,7 @@ pub fn get_commit_diff(
         .diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)
         .expect("can't get diff tree to index");
     let commit_diff =
-        CommitDiff::new(commit, make_diff(git_diff, DiffKind::Unstaged));
+        CommitDiff::new(commit, make_diff(git_diff, DiffKind::Staged));
     sender
         .send_blocking(crate::Event::CommitDiff(commit_diff))
         .expect("Could not send through channel");
@@ -1792,4 +1804,39 @@ pub fn checkout_oid(
         .set_target(oid, &log_message)
         .expect("cant set target");
     get_current_repo_status(Some(path), sender);
+}
+
+
+const COMMIT_PAGE_SIZE: i32 = 500;
+
+pub fn revwalk(
+    path: OsString,
+    start: Option<Oid>,
+    search_term: Option<String>
+) -> Vec<CommitDiff> {
+    let repo = Repository::open(path.clone()).expect("cant open repo");
+    let mut revwalk = repo.revwalk().expect("cant get revwalk");    
+    revwalk.simplify_first_parent().expect("cant simplify");
+    let mut i = 0;
+    if let Some(oid) = start {
+        revwalk.push(oid).expect("cant push oid to revlog");
+    } else {
+        revwalk.push_head().expect("no head for refwalk?");
+    }
+    let mut result: Vec<CommitDiff> = Vec::new();
+    while let Some(oid) = revwalk.next() {
+        let oid = oid.expect("no oid in rev");
+        let commit = repo.find_commit(oid).expect("can't find commit");
+        if let Some(ref term) = search_term {
+            if !commit.message().unwrap_or("").contains(term) {
+                continue
+            }
+        }
+        result.push(CommitDiff::from_commit(commit));
+        i += 1;
+        if i == COMMIT_PAGE_SIZE {
+            break;
+        }
+    }
+    result
 }

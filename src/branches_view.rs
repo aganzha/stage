@@ -243,6 +243,8 @@ impl BranchList {
     }
 
     pub fn reset_search(&self) {
+        // this works because both list are
+        // filled up initially
         if self.imp().list.borrow().len()
             == self.imp().original_list.borrow().len()
         {
@@ -980,6 +982,7 @@ pub fn make_headerbar(
 
     let entry = SearchEntry::builder()
         .search_delay(300)
+        .width_chars(22)
         .placeholder_text("hit s for search")
         .build();
     entry.connect_stop_search(|e| {
@@ -1006,9 +1009,6 @@ pub fn make_headerbar(
         .show_close_button(false)
         .child(&entry)
         .build();
-
-    // search.connect_entry(&entry);
-    // search.set_child(Some(&entry));
 
     let new_btn = Button::builder()
         // .label("N")
@@ -1050,10 +1050,7 @@ pub fn make_headerbar(
         .bind_property("selected-pos", &kill_btn, "sensitive")
         .transform_to(set_sensitive)
         .build();
-    // let _ = branch_list
-    //     .bind_property("current-pos", &kill_btn, "sensitive")
-    //     .transform_to(set_sensitive)
-    //     .build();
+
     kill_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {
@@ -1073,10 +1070,7 @@ pub fn make_headerbar(
         .bind_property("selected-pos", &merge_btn, "sensitive")
         .transform_to(set_sensitive)
         .build();
-    // let _ = branch_list
-    //     .bind_property("current-pos", &merge_btn, "sensitive")
-    //     .transform_to(set_sensitive)
-    //     .build();
+
     merge_btn.connect_clicked({
         let sender = sender.clone();
         move |_| {

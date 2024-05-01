@@ -176,6 +176,22 @@ pub fn make_header_bar(
                 .expect("cant send through channel");
         }
     });
+    let log_btn = Button::builder()
+        .label("Log")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Log")
+        .icon_name("org.gnome.Logs-symbolic")
+        .can_shrink(true)
+        .build();
+    log_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::Log)
+                .expect("cant send through channel");
+        }
+    });
 
     let pull_btn = Button::builder()
         .label("Pull")
@@ -280,6 +296,7 @@ pub fn make_header_bar(
     hb.pack_end(&branches_btn);
     hb.pack_end(&push_btn);
     hb.pack_end(&pull_btn);
+    hb.pack_end(&log_btn);
     hb.pack_end(&reset_btn);
     (hb, path_updater)
 }
