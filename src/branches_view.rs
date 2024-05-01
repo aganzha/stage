@@ -564,7 +564,7 @@ impl BranchList {
             clone!(@weak self as branch_list,
             @weak window as window,
             @strong selected_branch as branch_data => async move {
-                let dialog = crate::make_confirm_dialog(
+                let dialog = crate::confirm_dialog_factory(
                     &window,
                     Some(&Label::new(Some(&title))),
                     "Merge",
@@ -704,7 +704,7 @@ impl BranchList {
                     .build();
                 lb.append(&input);
                 lb.append(&checkout);
-                let dialog = crate::make_confirm_dialog(
+                let dialog = crate::confirm_dialog_factory(
                     &window,
                     Some(&lb),
                     &title,
@@ -761,7 +761,7 @@ impl BranchList {
     }
 }
 
-pub fn make_header_factory() -> SignalListItemFactory {
+pub fn header_factory() -> SignalListItemFactory {
     let header_factory = SignalListItemFactory::new();
     header_factory.connect_setup(move |_, list_header| {
         let label = Label::new(None);
@@ -786,7 +786,7 @@ pub fn make_header_factory() -> SignalListItemFactory {
     header_factory
 }
 
-pub fn make_item_factory() -> SignalListItemFactory {
+pub fn item_factory() -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
         let image = Image::new();
@@ -928,12 +928,12 @@ pub fn make_item_factory() -> SignalListItemFactory {
     factory
 }
 
-pub fn make_list_view(
+pub fn listview_factory(
     repo_path: std::ffi::OsString,
     sender: Sender<crate::Event>,
 ) -> ListView {
-    let header_factory = make_header_factory();
-    let factory = make_item_factory();
+    let header_factory = header_factory();
+    let factory = item_factory();
 
     let branch_list = BranchList::new(sender.clone());
 
@@ -973,7 +973,7 @@ pub fn make_list_view(
     list_view
 }
 
-pub fn make_headerbar(
+pub fn headerbar_factory(
     _repo_path: std::ffi::OsString,
     list_view: &ListView,
     sender: Sender<Event>,
@@ -1159,9 +1159,9 @@ pub fn show_branches_window(
 
     let scroll = ScrolledWindow::new();
 
-    let list_view = make_list_view(repo_path.clone(), main_sender.clone());
+    let list_view = listview_factory(repo_path.clone(), main_sender.clone());
 
-    let hb = make_headerbar(repo_path.clone(), &list_view, sender.clone());
+    let hb = headerbar_factory(repo_path.clone(), &list_view, sender.clone());
 
     scroll.set_child(Some(&list_view));
 

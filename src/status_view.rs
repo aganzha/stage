@@ -1,5 +1,6 @@
 pub mod container;
-pub mod factory;
+pub mod textview;
+pub mod headerbar;
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
 
@@ -329,7 +330,7 @@ impl Status {
                             .title("Password:")
                             .css_classes(vec!["input_field"])
                             .build();
-                        let dialog = crate::make_confirm_dialog(
+                        let dialog = crate::confirm_dialog_factory(
                             &window,
                             Some(&lb),
                             "Pull from remote/origin", // TODO here is harcode
@@ -391,7 +392,7 @@ impl Status {
                     .title("Password:")
                     .css_classes(vec!["input_field"])
                     .build();
-                let dialog = crate::make_confirm_dialog(
+                let dialog = crate::confirm_dialog_factory(
                     &window,
                     Some(&lb),
                     "Push to remote/origin", // TODO here is harcode
@@ -462,7 +463,7 @@ impl Status {
         });
     }
 
-    pub fn make_context(&mut self, text_view_width: Rc<RefCell<(i32, i32)>>) {
+    pub fn context_factory(&mut self, text_view_width: Rc<RefCell<(i32, i32)>>) {
         let mut ctx = StatusRenderContext::new();
         ctx.screen_width.replace(*text_view_width.borrow());
         self.context.replace(ctx);
@@ -509,7 +510,7 @@ impl Status {
                         .css_classes(vec!["input_field"])
                         .build();
                     lb.append(&input);
-                    let dialog = crate::make_confirm_dialog(
+                    let dialog = crate::confirm_dialog_factory(
                         &window,
                         Some(&lb),
                         "Commit",
@@ -1014,7 +1015,7 @@ impl Status {
                 bx.append(&label);
                 bx.append(&lb);
 
-                let dialog = crate::make_confirm_dialog(
+                let dialog = crate::confirm_dialog_factory(
                     &window,
                     Some(&bx),
                     "Checkout error ",

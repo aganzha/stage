@@ -2,7 +2,7 @@ mod context;
 use context::StatusRenderContext;
 
 mod status_view;
-use status_view::{factory::text_view_factory, Status};
+use status_view::{textview::factory as textview_factory, Status, headerbar::factory as headerbar_factory, headerbar::HbUpdateData};
 
 mod branches_view;
 use branches_view::show_branches_window;
@@ -33,7 +33,7 @@ use git::{
 };
 use git2::Oid;
 mod widgets;
-use widgets::{display_error, make_confirm_dialog, make_header_bar, HbUpdateData};
+use widgets::{display_error, confirm_dialog_factory};
 
 use gdk::Display;
 use glib::{clone, ControlFlow};
@@ -213,10 +213,10 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
 
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let (hb, hb_updater) = make_header_bar(sender.clone(), settings);
+    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings);
 
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
-    let txt = text_view_factory(sender.clone(), text_view_width.clone());
+    let txt = textview_factory(sender.clone(), text_view_width.clone());
 
     let scroll = ScrolledWindow::new();
     scroll.set_child(Some(&txt));
@@ -244,7 +244,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
-            status.make_context(text_view_width.clone());
+            status.context_factory(text_view_width.clone());
             match event {
                 Event::OpenRepo(path) => {
                     info!("info.open repo {:?}", path);
