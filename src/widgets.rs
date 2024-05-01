@@ -57,7 +57,8 @@ pub fn make_confirm_dialog(
 pub enum HbUpdateData {
     Path(OsString),
     Staged(bool),
-    Unsynced(bool)
+    Unsynced(bool),
+    RepoOpen
 }
 
 pub fn make_header_bar(
@@ -247,10 +248,15 @@ pub fn make_header_bar(
         .valign(Align::Baseline)
         .build();
 
+    let repo_selector = SplitButton::new();
+    repo_selector.set_child(Some(&repo_opener));
+    repo_selector.set_popover(Some(&repo_popover));
+
     let updater = {
         let repo_opener = repo_opener.clone();
         let commit_btn = commit_btn.clone();
         let push_btn = push_btn.clone();
+        let repo_selector = repo_selector.clone();
         move |data: HbUpdateData| {
             match data {
                 HbUpdateData::Path(path) => {
@@ -292,13 +298,13 @@ pub fn make_header_bar(
                 HbUpdateData::Unsynced(has_unsynced) => {
                     push_btn.set_sensitive(has_unsynced);
                 }
+                HbUpdateData::RepoOpen => {
+                    repo_selector.emit_activate();
+                }                
             }
         }
     };
 
-    let repo_selector = SplitButton::new();
-    repo_selector.set_child(Some(&repo_opener));
-    repo_selector.set_popover(Some(&repo_popover));
 
     repo_selector.connect_clicked({
         let sender = sender.clone();
