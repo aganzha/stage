@@ -1,18 +1,17 @@
 use async_channel::Sender;
 use git2::Oid;
-use glib::{clone, closure, Object};
+use glib::{clone, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, AlertDialog, Box, Button, EventControllerKey,
-    GestureClick, Image, Label, ListBox, ListHeader, ListItem,
-    ListScrollFlags, ListView, Orientation, PositionType, ScrolledWindow,
-    SearchBar, SearchEntry, SectionModel, SelectionMode,
-    SignalListItemFactory, SingleSelection, Spinner, Widget,
+    gdk, gio, glib, pango, Box, EventControllerKey,
+    GestureClick, Label, ListItem, ListView, Orientation, PositionType, ScrolledWindow,
+    SearchBar, SearchEntry,
+    SignalListItemFactory, SingleSelection, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
+    ApplicationWindow, HeaderBar, ToolbarView, Window,
 };
 use log::{debug, info, trace};
 
@@ -61,12 +60,12 @@ mod commit_item {
             )
         }
         pub fn get_author(&self) -> String {
-            format!("{}", self.commit.borrow().author)
+            self.commit.borrow().author.to_string()
         }
         pub fn get_message(&self) -> String {
             let mut encoded = String::from("");
             html_escape::encode_safe_to_string(
-                &self.commit.borrow().message.trim(),
+                self.commit.borrow().message.trim(),
                 &mut encoded,
             );
             encoded
@@ -140,6 +139,12 @@ mod commit_list {
             // why clone???
             Some(list[position as usize].clone().into())
         }
+    }
+}
+
+impl Default for CommitList {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -432,7 +437,7 @@ pub fn headerbar_factory(
                 commit_list.reset_search();
                 single_selection.set_can_unselect(false);
             } else {
-                commit_list.search(term.into(), repo_path.clone());
+                commit_list.search(term, repo_path.clone());
             }
         }),
     );
@@ -444,7 +449,7 @@ pub fn headerbar_factory(
 pub fn show_log_window(
     repo_path: std::ffi::OsString,
     app_window: &ApplicationWindow,
-    head: String,
+    _head: String,
     main_sender: Sender<crate::Event>,
 ) {
     let (sender, receiver) = async_channel::unbounded();
@@ -470,7 +475,7 @@ pub fn show_log_window(
             }
             let list_view = scroll.child().unwrap();
             let list_view = list_view.downcast_ref::<ListView>().unwrap();
-            get_commit_list(&list_view).get_commits_inside(repo_path.clone());
+            get_commit_list(list_view).get_commits_inside(repo_path.clone());
         }
     });
     scroll.set_child(Some(&list_view));

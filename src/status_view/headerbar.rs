@@ -1,6 +1,6 @@
 use libadwaita::prelude::*;
 use libadwaita::{
-    ButtonContent, HeaderBar, MessageDialog, ResponseAppearance, SplitButton,
+    ButtonContent, HeaderBar, SplitButton,
     Window,
 };
 use std::ffi::OsString;
@@ -9,8 +9,7 @@ use std::ffi::OsString;
 use async_channel::Sender;
 
 use gtk4::{
-    gio, AlertDialog, Align, Button, FileDialog, Label, PopoverMenu, Widget,
-    Window as Gtk4Window,
+    gio, Align, Button, FileDialog, Label, PopoverMenu,
 };
 
 pub enum HbUpdateData {
