@@ -10,14 +10,14 @@ use gtk4::{
     Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
-use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
+use libadwaita::{HeaderBar, ToolbarView, Window};
 use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn headerbar_factory(
     _repo_path: std::ffi::OsString,
-    oid: Oid,
+    _oid: Oid,
     _sender: Sender<Event>,
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();

@@ -1825,15 +1825,13 @@ pub fn revwalk(
         revwalk.push_head().expect("no head for refwalk?");
     }
     let mut result: Vec<CommitDiff> = Vec::new();
-    while let Some(oid) = revwalk.next() {
+    for oid in revwalk {
         let oid = oid.expect("no oid in rev");
         let commit = repo.find_commit(oid).expect("can't find commit");
         if let Some(ref term) = search_term {
             let mut found = false;
-            for el in vec![
-                commit.message().unwrap_or("").to_lowercase(),
-                commit.author().name().unwrap_or("").to_lowercase(),
-            ] {
+            for el in [commit.message().unwrap_or("").to_lowercase(),
+                commit.author().name().unwrap_or("").to_lowercase()] {
                 if el.contains(term) {
                     found = true;
                     break;

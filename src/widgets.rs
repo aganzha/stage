@@ -1,15 +1,14 @@
 use libadwaita::prelude::*;
 use libadwaita::{
-    ButtonContent, HeaderBar, MessageDialog, ResponseAppearance, SplitButton,
-    Window,
+    MessageDialog, ResponseAppearance,
 };
-use std::ffi::OsString;
+
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
-use async_channel::Sender;
+
 
 use gtk4::{
-    gio, AlertDialog, Align, Button, FileDialog, Label, PopoverMenu, Widget,
+    AlertDialog, Widget,
     Window as Gtk4Window,
 };
 

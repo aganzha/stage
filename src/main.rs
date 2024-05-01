@@ -345,7 +345,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Staged(d) => {
                     info!("main. staged");
-                    hb_updater(HbUpdateData::Staged(d.files.len() > 0));
+                    hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
                     status.update_staged(d, &txt);
                 }
                 Event::Unstaged(d) => {
