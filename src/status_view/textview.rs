@@ -1,16 +1,127 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::status_view::Tag;
 use async_channel::Sender;
 use core::time::Duration;
 use glib::ControlFlow;
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, glib, EventControllerKey, EventSequenceState, GestureClick,
-    MovementStep, TextIter, TextView, TextWindowType, EventControllerMotion
+    gdk, glib, pango, EventControllerKey, EventSequenceState, GestureClick,
+    MovementStep, TextIter, TextView, TextWindowType, EventControllerMotion,
+    TextTag
 };
+use pango::Style;
 use log::{trace, debug};
+
+const CURSOR_TAG: &str = "CursorTag";
+
+// gnome colors https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/named-colors.html
+#[derive(Eq, Hash, PartialEq)]
+pub enum Tag {
+    Bold,
+    Added,
+    EnhancedAdded,
+    Removed,
+    EnhancedRemoved,
+    Cursor,
+    Region,
+    Hunk,
+    Italic,
+    Pointer,
+    Staged
+    // Link
+}
+impl Tag {
+    pub fn create(&self) -> TextTag {
+        match self {
+            Self::Bold => {
+                let tt = self.new_tag();
+                tt.set_weight(700);
+                tt
+            }
+            Self::Added => {
+                let tt = self.new_tag();
+                tt.set_background(Some("#ebfcf1"));
+                tt
+            }
+            Self::EnhancedAdded => {
+                let tt = self.new_tag();
+                tt.set_background(Some("#d3fae1"));
+                tt
+            }
+            Self::Removed => {
+                let tt = self.new_tag();
+                tt.set_background(Some("#fbf0f3"));
+                tt
+            }
+            Self::EnhancedRemoved => {
+                let tt = self.new_tag();
+                tt.set_background(Some("#f4c3d0"));
+                tt
+            }
+            Self::Cursor => {
+                let tt = self.new_tag();
+                tt.set_background(Some("#f6fecd")); // f6fecd mine original. f9f06b - gnome
+                tt
+            }
+            Self::Region => {
+                let tt = self.new_tag();
+                tt.set_background(Some("#f6f5f4")); // f2f2f2 mine original
+                tt
+            }
+            Self::Hunk => {
+                let tt = self.new_tag();
+                tt.set_background(Some("#deddda"));
+                tt
+            }
+            Self::Italic => {
+                let tt = self.new_tag();
+                tt.set_style(Style::Italic);
+                tt
+            }
+            Self::Pointer => {
+                let tt = self.new_tag();
+                tt
+            }
+            Self::Staged => {
+                let tt = self.new_tag();
+                tt.set_background(Some("#ff7b63")); // f2f2f2 mine original
+                tt
+            }
+            // Self::Link => {
+              //     let tt = self.new_tag();
+              //     tt.set_background(Some("0000ff"));
+              //     tt.set_style(Style::Underlined);
+              //     tt
+              // }
+        }
+    }
+    pub fn new_tag(&self) -> TextTag {
+        TextTag::new(Some(self.name()))
+    }
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Bold => "bold",
+            Self::Added => "added",
+            Self::EnhancedAdded => "enhancedAdded",
+            Self::Removed => "removed",
+            Self::EnhancedRemoved => "enhancedRemoved",
+            Self::Cursor => CURSOR_TAG,
+            Self::Region => "region",
+            Self::Hunk => "hunk",
+            Self::Italic => "italic",
+            Self::Pointer => "pointer",
+            Self::Staged => "staged",
+        }
+    }
+    pub fn enhance(&self) -> &Self {
+        match self {
+            Self::Added => &Self::EnhancedAdded,
+            Self::Removed => &Self::EnhancedRemoved,
+            other => other,
+        }
+    }
+}
 
 fn handle_line_offset(
     iter: &mut TextIter,
@@ -230,7 +341,7 @@ pub fn factory(
         let sndr = sndr.clone();
         let txt = txt.clone();
         let pointer = pointer.clone();
-        move |gesture, _some, wx, wy| {
+        move |gesture, n_clicks, wx, wy| {
             gesture.set_state(EventSequenceState::Claimed);
             let (x, y) = txt.window_to_buffer_coords(
                 TextWindowType::Text,
@@ -243,10 +354,14 @@ pub fn factory(
                     iter.line(),
                 )).expect("Could not send through channel");
                 if iter.has_tag(&pointer) {
-                    sndr.send_blocking(crate::Event::Expand(
-                        iter.offset(),
-                        iter.line(),
-                    )).expect("Could not send through channel");
+                    if n_clicks == 2 {
+                        
+                    } else {
+                        sndr.send_blocking(crate::Event::Expand(
+                            iter.offset(),
+                            iter.line(),
+                        )).expect("Could not send through channel");
+                    }
                 }            
             }
         }

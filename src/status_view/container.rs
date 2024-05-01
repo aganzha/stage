@@ -1,7 +1,7 @@
 use crate::status_view::{Label, Tag};
 use crate::{
     Diff, File, Head, Hunk, Line, State, StatusRenderContext, Untracked,
-    UntrackedFile, View,
+    UntrackedFile, View, DiffKind
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
@@ -275,14 +275,27 @@ impl ViewContainer for Diff {
         iter: &mut TextIter,
         context: &mut Option<StatusRenderContext>,
     ) {
+        // why do i need it at all?
         self.view.line_no = iter.line();
+        let start_iter = buffer.iter_at_line(iter.line()).unwrap();
         for file in &mut self.files {
             file.render(buffer, iter, context);
+        }
+        let end_iter = buffer.iter_at_line(iter.line()).unwrap();
+        for tag in self.tags() {
+            buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
         }
     }
     // Diff
     fn expand(&mut self, _line_no: i32) -> Option<i32> {
         todo!("no one calls expand on diff");
+    }
+
+    fn tags(&self) -> Vec<Tag> {
+        if self.kind == DiffKind::Staged {
+            return vec![Tag::Staged]
+        }
+        Vec::new()
     }
 }
 
