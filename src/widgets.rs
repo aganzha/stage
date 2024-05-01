@@ -21,7 +21,7 @@ pub fn display_error(
     d.show(Some(w));
 }
 
-pub fn make_confirm_dialog(
+pub fn confirm_dialog_factory(
     window: &impl IsA<Gtk4Window>,
     child: Option<&impl IsA<Widget>>,
     heading: &str,

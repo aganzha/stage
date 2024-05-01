@@ -12,7 +12,7 @@ use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn make_headerbar(
+pub fn headerbar_factory(
     _repo_path: std::ffi::OsString,
     oid: Oid,
     _sender: Sender<Event>,
@@ -49,7 +49,7 @@ pub fn show_commit_window(
 
     // let list_view = make_list_view(repo_path.clone(), main_sender.clone());
 
-    let hb = make_headerbar(repo_path.clone(), oid, sender.clone());
+    let hb = headerbar_factory(repo_path.clone(), oid, sender.clone());
 
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt =

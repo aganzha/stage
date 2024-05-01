@@ -13,7 +13,7 @@ use std::ffi::OsString;
 
 use crate::{
     apply_stash as git_apply_stash, display_error, drop_stash,
-    make_confirm_dialog, stash_changes, Event, StashData, Stashes, Status,
+    confirm_dialog_factory, stash_changes, Event, StashData, Stashes, Status,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -114,7 +114,7 @@ impl OidRow {
             @strong window as window => async move {
                 let stash = row.imp().stash.borrow();
                 let lbl = Label::new(Some(&format!("Drop stash {}", stash.title)));
-                let dialog = make_confirm_dialog(
+                let dialog = confirm_dialog_factory(
                     &window,
                     Some(&lbl),
                     "Drop",
@@ -156,7 +156,7 @@ impl OidRow {
             @strong window as window => async move {
                 let stash = row.imp().stash.borrow();
                 let lbl = Label::new(Some(&format!("Apply stash {}", stash.title)));
-                let dialog = make_confirm_dialog(
+                let dialog = confirm_dialog_factory(
                     &window,
                     Some(&lbl),
                     "Apply",
@@ -215,7 +215,7 @@ pub fn add_stash(
             lb.append(&input);
             lb.append(&staged);
 
-            let dialog = make_confirm_dialog(
+            let dialog = confirm_dialog_factory(
                 &window,
                 Some(&lb),
                 "Stash changes",

@@ -215,7 +215,7 @@ impl CommitList {
     }
 }
 
-pub fn make_item_factory(sender: Sender<Event>) -> SignalListItemFactory {
+pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     factory.connect_setup(move |_, list_item| {
 
@@ -328,7 +328,7 @@ pub fn make_item_factory(sender: Sender<Event>) -> SignalListItemFactory {
     factory
 }
 
-pub fn make_list_view(sender: Sender<Event>) -> ListView {
+pub fn listview_factory(sender: Sender<Event>) -> ListView {
     let commit_list = CommitList::new();
     let selection_model = SingleSelection::new(Some(commit_list));
     
@@ -338,7 +338,7 @@ pub fn make_list_view(sender: Sender<Event>) -> ListView {
         selection_model.bind_property("selected", &model, "selected_pos");
     let _ = bind.bidirectional().build();
 
-    let factory = make_item_factory(sender.clone());
+    let factory = item_factory(sender.clone());
     let list_view = ListView::builder()
         .model(&selection_model)
         .factory(&factory)
@@ -375,7 +375,7 @@ pub enum Event {
     ShowOid(Oid)
 }
 
-pub fn make_header_bar(list_view: &ListView, repo_path: std::ffi::OsString) -> HeaderBar {
+pub fn headerbar_factory(list_view: &ListView, repo_path: std::ffi::OsString) -> HeaderBar {
 
     let entry = SearchEntry::builder()
         .search_delay(300)
@@ -433,7 +433,7 @@ pub fn show_log_window(
         .build();
     window.set_default_size(1280, 960);
 
-    let list_view = make_list_view(sender.clone());
+    let list_view = listview_factory(sender.clone());
 
     let scroll = ScrolledWindow::new();
 
@@ -452,7 +452,7 @@ pub fn show_log_window(
 
     let tb = ToolbarView::builder().content(&scroll).build();
 
-    let hb = make_header_bar(&list_view, repo_path.clone());
+    let hb = headerbar_factory(&list_view, repo_path.clone());
 
 
     tb.add_top_bar(&hb);

@@ -33,7 +33,7 @@ use git::{
 };
 use git2::Oid;
 mod widgets;
-use widgets::{display_error, make_confirm_dialog};
+use widgets::{display_error, confirm_dialog_factory};
 
 use gdk::Display;
 use glib::{clone, ControlFlow};
@@ -244,7 +244,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
-            status.make_context(text_view_width.clone());
+            status.context_factory(text_view_width.clone());
             match event {
                 Event::OpenRepo(path) => {
                     info!("info.open repo {:?}", path);
