@@ -1717,7 +1717,7 @@ pub fn get_commit_diff(
         .diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)
         .expect("can't get diff tree to index");
     let commit_diff =
-        CommitDiff::new(commit, make_diff(git_diff, DiffKind::Unstaged));
+        CommitDiff::new(commit, make_diff(git_diff, DiffKind::Staged));
     sender
         .send_blocking(crate::Event::CommitDiff(commit_diff))
         .expect("Could not send through channel");

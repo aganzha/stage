@@ -1,8 +1,3 @@
-BUG: panic when open f3004bd store last path:
-     [INFO  stage] main.show oid
-thread '<unnamed>' panicked at src/git.rs:579:25:
-not yet implemented: delta added in unstaged DiffDelta { nfiles: 1, status: Added, old_file: DiffFile { id: 0000000000000000000000000000000000000000, path_bytes: [99, 111, 109, 112, 105, 108, 101, 95, 115, 99, 104, 101, 109, 97, 46, 115, 104], path: "compile_schema.sh", size: 0 }, new_file: DiffFile { id: d351e9ab171c59a65f931c5aeb18f7aaa435b53b, path_bytes: [99, 111, 109, 112, 105, 108, 101, 95, 115, 99, 104, 101, 109, 97, 46, 115, 104], path: "compile_schema.sh", size: 84 } }
-
 TODO: kill in branch_list: css, sender in constructor, spinner
 TODO: mnemonic!
 BUG: after manipulating branches stashes list is empty, and just feeling of stashes in the log

@@ -19,7 +19,7 @@ pub fn make_headerbar(
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
     let lbl = Label::builder()
-        .label(format!("{}", oid))
+        .label("Commit")
         .single_line_mode(true)
         .build();
 

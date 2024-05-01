@@ -366,7 +366,7 @@ pub fn show_log_window(
     let tb = ToolbarView::builder().content(&scroll).build();
 
     let title = Label::builder()
-        .label(head)
+        .label("Log")
         .ellipsize(pango::EllipsizeMode::End)
         .build();
     let hb = HeaderBar::builder().build();
