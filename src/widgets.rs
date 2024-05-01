@@ -54,10 +54,16 @@ pub fn make_confirm_dialog(
     dialog
 }
 
+pub enum HbUpdateData {
+    Path(OsString),
+    Staged(bool),
+    Unsynced(bool)
+}
+
 pub fn make_header_bar(
     sender: Sender<crate::Event>,
     settings: gio::Settings,
-) -> (HeaderBar, impl Fn(OsString)) {
+) -> (HeaderBar, impl Fn(HbUpdateData)) {
     let stashes_btn = Button::builder()
         .label("Stashes")
         .use_underline(true)
@@ -151,6 +157,7 @@ pub fn make_header_bar(
         .tooltip_text("Push")
         .icon_name("send-to-symbolic")
         .can_shrink(true)
+        .sensitive(false)
         .build();
     push_btn.connect_clicked({
         let sender = sender.clone();
@@ -210,12 +217,13 @@ pub fn make_header_bar(
         }
     });
     let commit_btn = Button::builder()
-        .label("Pull")
+        .label("Commit")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Pull")
+        .tooltip_text("Commit")
         .icon_name("object-select-symbolic")
         .can_shrink(true)
+        .sensitive(false)
         .build();
     commit_btn.connect_clicked({
         let sender = sender.clone();
@@ -239,39 +247,51 @@ pub fn make_header_bar(
         .valign(Align::Baseline)
         .build();
 
-    let path_updater = {
+    let updater = {
         let repo_opener = repo_opener.clone();
-        move |path: OsString| {
-            let repo_opener_label = repo_opener.last_child().unwrap();
-            let repo_opener_label =
-                repo_opener_label.downcast_ref::<Label>().unwrap();
-            let clean_path = path.into_string().unwrap().replace(".git/", "");
-            repo_opener_label.set_markup(&format!(
-                "<span weight=\"normal\">{}</span>",
-                clean_path
-            ));
-            repo_opener_label.set_visible(true);
-            let mut path_exists = false;
-            for i in 0..repo_menu.n_items() {
-                let iter = repo_menu.iterate_item_attributes(i);
-                while let Some(attr) = iter.next() {
-                    if attr.0 == "target"
-                        && clean_path
-                            == attr
+        let commit_btn = commit_btn.clone();
+        let push_btn = push_btn.clone();
+        move |data: HbUpdateData| {
+            match data {
+                HbUpdateData::Path(path) => {
+                    let repo_opener_label = repo_opener.last_child().unwrap();
+                    let repo_opener_label =
+                        repo_opener_label.downcast_ref::<Label>().unwrap();
+                    let clean_path = path.into_string().unwrap().replace(".git/", "");
+                    repo_opener_label.set_markup(&format!(
+                        "<span weight=\"normal\">{}</span>",
+                        clean_path
+                    ));
+                    repo_opener_label.set_visible(true);
+                    let mut path_exists = false;
+                    for i in 0..repo_menu.n_items() {
+                        let iter = repo_menu.iterate_item_attributes(i);
+                        while let Some(attr) = iter.next() {
+                            if attr.0 == "target"
+                                && clean_path
+                                == attr
                                 .1
                                 .get::<String>()
                                 .expect("cant get path from gvariant")
-                    {
-                        path_exists = true;
-                        break;
+                            {
+                                path_exists = true;
+                                break;
+                            }
+                        }
+                    }
+                    if !path_exists {
+                        repo_menu.append(
+                            Some(&clean_path),
+                            Some(&format!("win.open::{}", clean_path)),
+                        );
                     }
                 }
-            }
-            if !path_exists {
-                repo_menu.append(
-                    Some(&clean_path),
-                    Some(&format!("win.open::{}", clean_path)),
-                );
+                HbUpdateData::Staged(is_staged) => {
+                    commit_btn.set_sensitive(is_staged);
+                }
+                HbUpdateData::Unsynced(has_unsynced) => {
+                    push_btn.set_sensitive(has_unsynced);
+                }
             }
         }
     };
@@ -316,5 +336,5 @@ pub fn make_header_bar(
     hb.pack_end(&pull_btn);
     hb.pack_end(&log_btn);
     hb.pack_end(&reset_btn);
-    (hb, path_updater)
+    (hb, updater)
 }

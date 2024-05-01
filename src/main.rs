@@ -33,7 +33,7 @@ use git::{
 };
 use git2::Oid;
 mod widgets;
-use widgets::{display_error, make_confirm_dialog, make_header_bar};
+use widgets::{display_error, make_confirm_dialog, make_header_bar, HbUpdateData};
 
 use gdk::Display;
 use glib::{clone, ControlFlow};
@@ -211,7 +211,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
 
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let (hb, hb_path_updater) = make_header_bar(sender.clone(), settings);
+    let (hb, hb_updater) = make_header_bar(sender.clone(), settings);
 
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt = text_view_factory(sender.clone(), text_view_width.clone());
@@ -258,7 +258,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::CurrentRepo(path) => {
                     info!("info.path {:?}", path);
-                    hb_path_updater(path.clone());
+                    hb_updater(HbUpdateData::Path(path.clone()));
                     status.update_path(path, monitors.clone(), false);
                 }
                 Event::State(state) => {
@@ -319,6 +319,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Staged(d) => {
                     info!("main. staged");
+                    hb_updater(HbUpdateData::Staged(d.files.len() > 0));
                     status.update_staged(d, &txt);
                 }
                 Event::Unstaged(d) => {
