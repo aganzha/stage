@@ -942,22 +942,17 @@ impl Status {
         let current_line = iter.line();
         println!("debug at line {:?}", current_line);
         if let Some(diff) = &mut self.staged {
-            for f in &diff.files {
-                dbg!(&f);
-            }
             diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let content = vc.get_content();
                 let view = vc.get_view();
-                if view.line_no == current_line {
-                    println!("found view {:?}", content);
+                if view.line_no == current_line && view.rendered {
+                    debug!("view under line {:?} {:?}", view.line_no, content);
+                    debug!("is rendered in {:?} {:?}", view.is_rendered_in(current_line), current_line);
                     dbg!(view);
                 }
             });
         }
         if let Some(diff) = &mut self.unstaged {
-            for f in &diff.files {
-                dbg!(&f);
-            }
             diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let content = vc.get_content();
                 let view = vc.get_view();
