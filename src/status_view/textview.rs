@@ -400,7 +400,7 @@ pub fn factory(
 
     txt.connect_move_cursor({
         let sndr = sndr.clone();
-        let latest_char_offset = RefCell::new(0);
+        // let latest_char_offset = RefCell::new(0);
         move |view: &TextView, step, count, _selection| {
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
@@ -439,10 +439,10 @@ pub fn factory(
                     current_line,
                 ))
                 .expect("Could not send through channel");
-            } else {
-                let mut cnt = latest_char_offset.borrow_mut();
-                *cnt = 0;
-            }
+            }//  else {
+            //     let mut cnt = latest_char_offset.borrow_mut();
+            //     *cnt = 0;
+            // }
         }
     });
 
