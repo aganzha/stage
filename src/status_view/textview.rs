@@ -332,6 +332,7 @@ pub fn factory(
     txt.add_controller(key_controller);
 
     let mut click_lock = Rc::new(RefCell::new(false));
+    let mut num_clicks = Rc::new(RefCell::new(0));
     
     let gesture_controller = GestureClick::new();
     gesture_controller.connect_released({
@@ -351,20 +352,31 @@ pub fn factory(
                     iter.line(),
                 )).expect("Could not send through channel");
                 if iter.has_tag(&pointer) {
-                    if !*click_lock.borrow() {
-                        click_lock.replace(true);
-                        glib::source::timeout_add_local(Duration::from_millis(180), {
-                            let click_lock = click_lock.clone();
-                            move || {
-                                debug!("DO real cliiiiiiiiiiick clock {:?} {:?}", click_lock, n_clicks);
-                                click_lock.replace(false);
-                                ControlFlow::Break
+                    num_clicks.replace(n_clicks);
+                    glib::source::timeout_add_local(Duration::from_millis(180), {
+                        let num_clicks = num_clicks.clone();
+                        move || {
+                            if *num_clicks.borrow() == n_clicks {
+                                debug!("PERFORM REAL CLICK {:?}", n_clicks);
                             }
-                        });
-                    } else {
-                        debug!(" CLICK LOCK WAS SET----------------------------> {:?}", n_clicks);
-                        // here it need to cancel first click somehow.
-                    }
+                            ControlFlow::Break
+                        }
+                    });
+
+                    // if !*click_lock.borrow() {
+                    //     click_lock.replace(true);
+                    //     glib::source::timeout_add_local(Duration::from_millis(180), {
+                    //         let click_lock = click_lock.clone();
+                    //         move || {
+                    //             debug!("DO real cliiiiiiiiiiick clock {:?} {:?}", click_lock, n_clicks);
+                    //             click_lock.replace(false);
+                    //             ControlFlow::Break
+                    //         }
+                    //     });
+                    // } else {
+                    //     debug!(" CLICK LOCK WAS SET----------------------------> {:?}", n_clicks);
+                    //     // here it need to cancel first click somehow.
+                    // }
                     // if n_clicks == 2 {
                     //     if iter.has_tag(&staged) {
                     //         sndr.send_blocking(crate::Event::UnStage(
