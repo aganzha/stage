@@ -1,3 +1,13 @@
+BUG: single click only works after second click (when cursor is already in line)
+     Invalid text buffer iterator: either the iterator is uninitialized, or the characters/paintables/widgets in the buffer have been modified since the iterator was created.
+BUG: search item in branches. checkout REMOTE with active local branch during search - core dump.
+     because newly checkout item is not in list???
+**
+Gtk:ERROR:../gtk/gtklistitemmanager.c:1416:gtk_list_item_manager_ensure_items: code should not be reached
+Bail out! Gtk:ERROR:../gtk/gtklistitemmanager.c:1416:gtk_list_item_manager_ensure_items: code should not be reached
+./inside_flatpak_run.sh: строка 2:   533 Аварийный останов         (образ памяти сброшен на диск) RUST_BACKTRACE=1 RUST_LOG=debug ~/stage/stage/target/debug/stage $@
+bash-5.2$ 
+
 TODO: kill in branch_list: css, sender in constructor, spinner
 TODO: mnemonic!
 BUG: after manipulating branches stashes list is empty, and just feeling of stashes in the log
@@ -15,9 +25,9 @@ can't get commit from ref!: Error { code: -3, klass: 3, message: "the reference 
 
 BUG: kill in untracked stages it + what if it is a directory???
 BUG: unstaging 1 untracked unstage all untracked (perhaps in libgit)
-BUG: search item in branches. checkout with active search - core dump.
-     because newly checkout item is not in list???
-     
+
+
+
 so, about search - the head is does not matter. what matter is selected position.
 it need to update list in such a way, that selected position is always visible
 PERFORMANCE: delete ~/docs/client/WHDDemo and open app :)
