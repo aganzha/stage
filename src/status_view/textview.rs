@@ -307,11 +307,6 @@ pub fn factory(
                 }
                 (gdk::Key::d, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    println!(
-                        "debug ... debug ... {:?} {:?}",
-                        iter.line(),
-                        iter.line_offset()
-                    );
                     sndr.send_blocking(crate::Event::Debug)
                         .expect("Could not send through channel");
                 }
