@@ -644,13 +644,13 @@ impl Status {
     pub fn cursor(&mut self, txt: &TextView, line_no: i32, offset: i32) {
         let mut changed = false;
         if let Some(untracked) = &mut self.untracked {
-            changed = changed || untracked.cursor(line_no, false);
+            changed = untracked.cursor(line_no, false) || changed;
         }
         if let Some(unstaged) = &mut self.unstaged {
-            changed = changed || unstaged.cursor(line_no, false);
+            changed = unstaged.cursor(line_no, false) || changed;
         }
         if let Some(staged) = &mut self.staged {
-            changed = changed || staged.cursor(line_no, false);
+            changed = staged.cursor(line_no, false) || changed;
         }
         if changed {
             self.render(txt, RenderSource::Cursor(line_no));

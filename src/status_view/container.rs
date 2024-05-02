@@ -67,6 +67,7 @@ pub trait ViewContainer {
 
     // ViewContainer
     fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
+        // returns if view is changed during cursor move
         let mut result = false;
         let view = self.get_view();
 
@@ -103,6 +104,8 @@ pub trait ViewContainer {
         for child in self.get_children() {
             result = child.cursor(line_no, self_active) || result;
         }
+        // result here just means view is changed
+        // it does not actually means that view is under cursor
         result
     }
 
