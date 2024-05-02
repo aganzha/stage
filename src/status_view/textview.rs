@@ -355,47 +355,43 @@ pub fn factory(
                     num_clicks.replace(n_clicks);
                     glib::source::timeout_add_local(Duration::from_millis(180), {
                         let num_clicks = num_clicks.clone();
+                        let staged = staged.clone();
+                        let unstaged = unstaged.clone();
+                        let sndr = sndr.clone();
                         move || {
                             if *num_clicks.borrow() == n_clicks {
+                                match n_clicks {
+                                    1 => {
+                                        sndr.send_blocking(crate::Event::Expand(
+                                            iter.offset(),
+                                            iter.line(),
+                                        )).expect("Could not send through channel");
+                                    },
+                                    2 => {
+                                        if iter.has_tag(&staged) {
+                                            sndr.send_blocking(crate::Event::UnStage(
+                                                iter.offset(),
+                                                iter.line(),
+                                            )).expect("Could not send through channel");
+                                        }
+                                        if iter.has_tag(&unstaged) {
+                                            sndr.send_blocking(crate::Event::Stage(
+                                                iter.offset(),
+                                                iter.line(),
+                                            )).expect("Could not send through channel");
+                                        }
+                                        
+                                    },
+                                    _ => {
+                                        todo!("how many clicks? {:?}", n_clicks);
+                                    }
+                                }
                                 debug!("PERFORM REAL CLICK {:?}", n_clicks);
                             }
                             ControlFlow::Break
                         }
                     });
 
-                    // if !*click_lock.borrow() {
-                    //     click_lock.replace(true);
-                    //     glib::source::timeout_add_local(Duration::from_millis(180), {
-                    //         let click_lock = click_lock.clone();
-                    //         move || {
-                    //             debug!("DO real cliiiiiiiiiiick clock {:?} {:?}", click_lock, n_clicks);
-                    //             click_lock.replace(false);
-                    //             ControlFlow::Break
-                    //         }
-                    //     });
-                    // } else {
-                    //     debug!(" CLICK LOCK WAS SET----------------------------> {:?}", n_clicks);
-                    //     // here it need to cancel first click somehow.
-                    // }
-                    // if n_clicks == 2 {
-                    //     if iter.has_tag(&staged) {
-                    //         sndr.send_blocking(crate::Event::UnStage(
-                    //             iter.offset(),
-                    //             iter.line(),
-                    //         )).expect("Could not send through channel");
-                    //     }
-                    //     if iter.has_tag(&unstaged) {
-                    //         sndr.send_blocking(crate::Event::Stage(
-                    //             iter.offset(),
-                    //             iter.line(),
-                    //         )).expect("Could not send through channel");
-                    //     }
-                    // } else {
-                    //     sndr.send_blocking(crate::Event::Expand(
-                    //         iter.offset(),
-                    //         iter.line(),
-                    //     )).expect("Could not send through channel");
-                    // }
                 }            
             }
         }
