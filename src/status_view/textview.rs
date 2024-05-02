@@ -331,13 +331,14 @@ pub fn factory(
     });
     txt.add_controller(key_controller);
 
+    let mut click_lock = Rc::new(RefCell::new(false));
     
     let gesture_controller = GestureClick::new();
     gesture_controller.connect_released({
         let sndr = sndr.clone();
         let txt = txt.clone();
         let pointer = pointer.clone();
-        move |gesture, n_clicks, wx, wy| {
+        move |gesture, n_clicks, wx, wy| {            
             gesture.set_state(EventSequenceState::Claimed);
             let (x, y) = txt.window_to_buffer_coords(
                 TextWindowType::Text,
@@ -350,28 +351,39 @@ pub fn factory(
                     iter.line(),
                 )).expect("Could not send through channel");
                 if iter.has_tag(&pointer) {
-                    if n_clicks == 2 {
-                        debug!("222222222222222222> @ CLICKS");
-                        if iter.has_tag(&staged) {
-                            debug!("SSSSSSTAGED");
-                            sndr.send_blocking(crate::Event::UnStage(
-                                iter.offset(),
-                                iter.line(),
-                            )).expect("Could not send through channel");
-                        }
-                        if iter.has_tag(&unstaged) {
-                            debug!("UUUUUUUUUUUUUNSTAGED");
-                            sndr.send_blocking(crate::Event::Stage(
-                                iter.offset(),
-                                iter.line(),
-                            )).expect("Could not send through channel");
-                        }
+                    if !*click_lock.borrow() {
+                        click_lock.replace(true);
+                        glib::source::timeout_add_local(Duration::from_millis(180), {
+                            let click_lock = click_lock.clone();
+                            move || {
+                                debug!("DO real cliiiiiiiiiiick clock {:?} {:?}", click_lock, n_clicks);
+                                click_lock.replace(false);
+                                ControlFlow::Break
+                            }
+                        });
                     } else {
-                        sndr.send_blocking(crate::Event::Expand(
-                            iter.offset(),
-                            iter.line(),
-                        )).expect("Could not send through channel");
+                        debug!(" CLICK LOCK WAS SET----------------------------> {:?}", n_clicks);
+                        // here it need to cancel first click somehow.
                     }
+                    // if n_clicks == 2 {
+                    //     if iter.has_tag(&staged) {
+                    //         sndr.send_blocking(crate::Event::UnStage(
+                    //             iter.offset(),
+                    //             iter.line(),
+                    //         )).expect("Could not send through channel");
+                    //     }
+                    //     if iter.has_tag(&unstaged) {
+                    //         sndr.send_blocking(crate::Event::Stage(
+                    //             iter.offset(),
+                    //             iter.line(),
+                    //         )).expect("Could not send through channel");
+                    //     }
+                    // } else {
+                    //     sndr.send_blocking(crate::Event::Expand(
+                    //         iter.offset(),
+                    //         iter.line(),
+                    //     )).expect("Could not send through channel");
+                    // }
                 }            
             }
         }
