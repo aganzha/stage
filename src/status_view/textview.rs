@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use async_channel::Sender;
@@ -331,8 +331,7 @@ pub fn factory(
     });
     txt.add_controller(key_controller);
 
-    let mut click_lock = Rc::new(RefCell::new(false));
-    let mut num_clicks = Rc::new(RefCell::new(0));
+    let mut num_clicks = Rc::new(Cell::new(0));
     
     let gesture_controller = GestureClick::new();
     gesture_controller.connect_released({
@@ -359,7 +358,7 @@ pub fn factory(
                         let unstaged = unstaged.clone();
                         let sndr = sndr.clone();
                         move || {
-                            if *num_clicks.borrow() == n_clicks {
+                            if num_clicks.get() == n_clicks {
                                 match n_clicks {
                                     1 => {
                                         sndr.send_blocking(crate::Event::Expand(
