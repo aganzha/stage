@@ -331,7 +331,7 @@ pub fn factory(
     });
     txt.add_controller(key_controller);
 
-    let mut num_clicks = Rc::new(Cell::new(0));
+    let num_clicks = Rc::new(Cell::new(0));
     
     let gesture_controller = GestureClick::new();
     gesture_controller.connect_released({
@@ -346,19 +346,23 @@ pub fn factory(
                 wy as i32,
             );
             if let Some(iter) = txt.iter_at_location(x, y) {
+                let pos = iter.offset();
+                let has_pointer = iter.has_tag(&pointer);
                 sndr.send_blocking(crate::Event::Cursor(
                     iter.offset(),
                     iter.line(),
                 )).expect("Could not send through channel");
-                if iter.has_tag(&pointer) {
+                if has_pointer {
                     num_clicks.replace(n_clicks);
-                    glib::source::timeout_add_local(Duration::from_millis(180), {
+                    glib::source::timeout_add_local(Duration::from_millis(200), {
                         let num_clicks = num_clicks.clone();
                         let staged = staged.clone();
                         let unstaged = unstaged.clone();
                         let sndr = sndr.clone();
+                        let txt = txt.clone();
                         move || {
                             if num_clicks.get() == n_clicks {
+                                let iter = txt.buffer().iter_at_offset(pos);
                                 match n_clicks {
                                     1 => {
                                         sndr.send_blocking(crate::Event::Expand(
