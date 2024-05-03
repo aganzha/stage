@@ -365,9 +365,8 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                     status.stage(&txt, line_no, ApplySubject::Unstage);
                 }
                 Event::Kill(_offset, line_no) => {
-                    info!("main.kill {:?}", SystemTime::now());
+                    info!("main.kill");
                     status.stage(&txt, line_no, ApplySubject::Kill);
-                    info!("main.completed kill {:?}", SystemTime::now());
                 }
                 Event::Ignore(offset, line_no) => {
                     info!("main.ignore");

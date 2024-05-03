@@ -697,6 +697,8 @@ pub fn stage_via_apply(
                 repo.revparse_single("HEAD^{tree}").expect("fail revparse");
             let current_tree =
                 repo.find_tree(ob.id()).expect("no working tree");
+            // problem here: this diff is incorrect, when stage part of file
+            // and want to kill another part. hunks headers are different!           
             repo.diff_tree_to_workdir(
                 Some(&current_tree),
                 Some(DiffOptions::new().reverse(true)), // reverse!!!
