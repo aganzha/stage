@@ -1,5 +1,13 @@
-BUG: single click only works after second click (when cursor is already in line)
-     Invalid text buffer iterator: either the iterator is uninitialized, or the characters/paintables/widgets in the buffer have been modified since the iterator was created.
+thread '<unnamed>' panicked at src/git.rs:585:21:
+not yet implemented: unhandled status ---> Conflicted === DiffDelta { nfiles: 2, status: Conflicted, old_file: DiffFile { id: 0000000000000000000000000000000000000000, path_bytes: [99, 108, 105, 101, 110, 116, 47, 87, 72, 68, 47, 67, 111, 110, 116, 114, 111, 108, 115, 47, 77, 97, 114, 107, 105, 110, 103, 47, 95, 109, 97, 114, 107, 105, 110, 103, 67, 111, 109, 109, 111, 110, 47, 73, 110, 105, 116, 105, 97, 108, 80, 104, 97, 115, 101, 46, 116, 115], path: "client/WHD/Controls/Marking/_markingCommon/InitialPhase.ts", size: 0 }, new_file: DiffFile { id: 0000000000000000000000000000000000000000, path_bytes: [99, 108, 105, 101, 110, 116, 47, 87, 72, 68, 47, 67, 111, 110, 116, 114, 111, 108, 115, 47, 77, 97, 114, 107, 105, 110, 103, 47, 95, 109, 97, 114, 107, 105, 110, 103, 67, 111, 109, 109, 111, 110, 47, 73, 110, 105, 116, 105, 97, 108, 80, 104, 97, 115, 101, 46, 116, 115], path: "client/WHD/Controls/Marking/_markingCommon/InitialPhase.ts", size: 16552 } }, kind === Unstaged
+stack backtrace:
+
+
+[DEBUG stage::git] push status Some("pre-receive hook declined")
+       thread '<unnamed>' panicked at src/git.rs:1009:13:
+       assertion failed: opt_status.is_none()
+       stack backtrace:
+
 BUG: search item in branches. checkout REMOTE with active local branch during search - core dump.
      because newly checkout item is not in list???
 **
