@@ -391,6 +391,7 @@ pub fn get_current_repo_status(
     });
 
     gio::spawn_blocking({
+        // get staged
         let sender = sender.clone();
         let path = path.clone();
         move || {
@@ -402,7 +403,7 @@ pub fn get_current_repo_status(
             let git_diff = repo
                 .diff_tree_to_index(Some(&current_tree), None, None)
                 .expect("can't get diff tree to index");
-            let diff = make_diff(git_diff, DiffKind::Staged);
+            let diff = make_diff(&git_diff, DiffKind::Staged);
             sender
                 .send_blocking(crate::Event::Staged(diff))
                 .expect("Could not send through channel");
@@ -427,18 +428,15 @@ pub fn get_current_repo_status(
     });
 
     // get unstaged
-    // TODO! throttle monitor
     // Error { code: -1, klass: 2, message: "error reading file for hashing: " }
     let git_diff = repo
         .diff_index_to_workdir(None, None)
         .expect("cant' get diff index to workdir");
-    let diff = make_diff(git_diff, DiffKind::Unstaged);
+    let diff = make_diff(&git_diff, DiffKind::Unstaged);
     sender
         .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
 
-    // get untracked
-    // TODO! put in separate thread (previous clause)
 }
 
 pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
@@ -456,7 +454,6 @@ pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
     let _ = git_diff.foreach(
         &mut |delta: DiffDelta, _num| {
             if delta.status() == Delta::Untracked {
-                // debug!(":--------------------> {:?} {:?}", delta.status(), delta.new_file().path());
                 let path: OsString = delta.new_file().path().unwrap().into();
                 untracked.push_file(path);
             }
@@ -556,13 +553,14 @@ impl ApplyFilter {
     }
 }
 
-pub fn make_diff(git_diff: GitDiff, kind: DiffKind) -> Diff {
+pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let mut diff = Diff::new(kind.clone());
     let mut current_file = File::new(kind.clone());
     let mut current_hunk = Hunk::new(kind.clone());
     let _res = git_diff.print(
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
+            // debug!("-----------------------------------------------> {:?} {:?}", diff_line.origin(), String::from(str::from_utf8(diff_line.content()).unwrap()));
             // new_file - is workdir side
             // old_file - index side
             // oid of the file is used as uniq id
@@ -663,6 +661,7 @@ pub fn stage_via_apply(
 ) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     // get actual diff for repo
+    debug!("ooooooooooooooooooooo");
     let git_diff = match filter.subject {
         // The index will be used for the “old_file” side of the delta,
         // and the working directory will be used
@@ -671,7 +670,7 @@ pub fn stage_via_apply(
             .diff_index_to_workdir(None, None)
             .expect("can't get diff"),
         // The tree you pass will be used for the “old_file”
-        // side of the delta, and the index
+        // side of the delta, and the index???
         // will be used for the “new_file” side of the delta.
         // !!!!! SEE reverse below. Means tree will be new side
         // and index will be old side. Means changes from tree come to index!
@@ -693,12 +692,20 @@ pub fn stage_via_apply(
         // !!!!! SEE reverse below. Means tree will be new side
         // and workdir will be old side. Means changes from tree come to index!
         ApplySubject::Kill => {
+            // ATTENTION!
+            // perhaps it need to create new index. add file to that index
+            // and compare workdir with this index! and 
+            // we are killing unstaged. perhaps diff with index then?
+            // but how to reverse that? just line by line?
+            // repo.diff_index_to_workdir(None, Some(DiffOptions::new().reverse(true)))
+            // reverse doesn work either, it is empty!
             let ob =
                 repo.revparse_single("HEAD^{tree}").expect("fail revparse");
             let current_tree =
                 repo.find_tree(ob.id()).expect("no working tree");
-            // problem here: this diff is incorrect, when stage part of file
-            // and want to kill another part. hunks headers are different!           
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // // problem here: this diff is incorrect, when stage part of file
+            // // and want to kill another part. hunks headers are different!           
             repo.diff_tree_to_workdir(
                 Some(&current_tree),
                 Some(DiffOptions::new().reverse(true)), // reverse!!!
@@ -706,12 +713,23 @@ pub fn stage_via_apply(
             .expect("can't get diff in kill")
         }
     };
-
+    debug!("print pleeeease");
+    let diff = make_diff(&git_diff, DiffKind::Unstaged);
+    for f in diff.files {
+        for h in f.hunks {
+            for l in h.lines {
+                debug!("________________________ {:?} {:?}", l.origin, l.content)
+            }
+        }
+    }
+    
+    
     let mut options = ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
         if let Some(hunk_header) = &filter.hunk_id {
             if let Some(dh) = odh {
+                debug!("+++++++++++++++++++++++ {:?}", dh);
                 let header = Hunk::get_header_from(&dh);
                 return match filter.subject {
                     ApplySubject::Stage => hunk_header == &header,
@@ -719,7 +737,10 @@ pub fn stage_via_apply(
                         hunk_header == &Hunk::reverse_header(header) // reverse!!!
                     }
                     ApplySubject::Kill => {
-                        hunk_header == &Hunk::reverse_header(header) // reverse!!!
+                        let reversed = Hunk::reverse_header(header);
+                        debug!("@@@@@@@@@@@@@@@@@@@@@@> {:?} vs {:?}", hunk_header, reversed);
+                        // hunk_header == &reversed // reverse!!!
+                        false
                     }
                 };
             }
@@ -733,6 +754,7 @@ pub fn stage_via_apply(
             // let new_file = dd.new_file();
             // let file = File::from_diff_file(&new_file, kind);
             // let path = file.path.into_string().unwrap();
+            debug!("--------------------> {:?} vs {:?}", dd.new_file().path(), dd.old_file().path());
             let path: OsString = dd.new_file().path().unwrap().into();
             return filter.file_id == path.into_string().unwrap();
         }
@@ -742,10 +764,10 @@ pub fn stage_via_apply(
         ApplySubject::Stage | ApplySubject::Unstage => ApplyLocation::Index,
         ApplySubject::Kill => ApplyLocation::WorkDir,
     };
-
+    debug!("AAAAAAAAAAAAAAAAAAPPLY");
     repo.apply(&git_diff, apply_location, Some(&mut options))
         .expect("can't apply patch");
-
+    debug!("soooooooooooooooooooooooooooo?");
     // staged changes. not needed in kill, btw.
     gio::spawn_blocking({
         let sender = sender.clone();
@@ -759,7 +781,7 @@ pub fn stage_via_apply(
             let git_diff = repo
                 .diff_tree_to_index(Some(&current_tree), None, None)
                 .expect("can't get diff tree to index");
-            let diff = make_diff(git_diff, DiffKind::Staged);
+            let diff = make_diff(&git_diff, DiffKind::Staged);
             sender
                 .send_blocking(crate::Event::Staged(diff))
                 .expect("Could not send through channel");
@@ -779,7 +801,7 @@ pub fn stage_via_apply(
     let git_diff = repo
         .diff_index_to_workdir(None, None)
         .expect("cant get diff_index_to_workdir");
-    let diff = make_diff(git_diff, DiffKind::Unstaged);
+    let diff = make_diff(&git_diff, DiffKind::Unstaged);
     sender
         .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
@@ -815,7 +837,7 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
         .expect("can't get diff tree to index");
     sender
         .send_blocking(crate::Event::Staged(make_diff(
-            git_diff,
+            &git_diff,
             DiffKind::Staged,
         )))
         .expect("Could not send through channel");
@@ -829,7 +851,7 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
             let git_diff = repo
                 .diff_index_to_workdir(None, None)
                 .expect("cant' get diff index to workdir");
-            let diff = make_diff(git_diff, DiffKind::Unstaged);
+            let diff = make_diff(&git_diff, DiffKind::Unstaged);
             sender
                 .send_blocking(crate::Event::Unstaged(diff))
                 .expect("Could not send through channel");
@@ -1655,7 +1677,7 @@ pub fn track_changes(
             let git_diff = repo
                 .diff_index_to_workdir(None, None)
                 .expect("cant' get diff index to workdir");
-            let diff = make_diff(git_diff, DiffKind::Unstaged);
+            let diff = make_diff(&git_diff, DiffKind::Unstaged);
             sender
                 .send_blocking(crate::Event::Unstaged(diff))
                 .expect("Could not send through channel");
@@ -1721,7 +1743,7 @@ pub fn get_commit_diff(
         .diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)
         .expect("can't get diff tree to index");
     let commit_diff =
-        CommitDiff::new(commit, make_diff(git_diff, DiffKind::Staged));
+        CommitDiff::new(commit, make_diff(&git_diff, DiffKind::Staged));
     sender
         .send_blocking(crate::Event::CommitDiff(commit_diff))
         .expect("Could not send through channel");

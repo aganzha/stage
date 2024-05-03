@@ -882,7 +882,7 @@ impl Status {
                 // stage all hunks in file
                 filter.hunk_id = None;
             }
-            trace!("stage via apply {:?}", filter);
+            debug!("stage via apply {:?}", filter);
             gio::spawn_blocking({
                 let path = self.path.clone();
                 let sender = self.sender.clone();
