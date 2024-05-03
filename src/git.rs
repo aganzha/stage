@@ -739,8 +739,7 @@ pub fn stage_via_apply(
                     ApplySubject::Kill => {
                         let reversed = Hunk::reverse_header(header);
                         debug!("@@@@@@@@@@@@@@@@@@@@@@> {:?} vs {:?}", hunk_header, reversed);
-                        // hunk_header == &reversed // reverse!!!
-                        false
+                        hunk_header == &reversed // reverse!!!
                     }
                 };
             }
