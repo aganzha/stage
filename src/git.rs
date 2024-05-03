@@ -694,7 +694,9 @@ pub fn stage_via_apply(
         ApplySubject::Kill => {
             // ATTENTION!
             // perhaps it need to create new index. add file to that index
-            // and compare workdir with this index! and 
+            // and compare workdir with this index! and ...
+            // OR! just checkout that file from tree and apply path from index!
+
             // we are killing unstaged. perhaps diff with index then?
             // but how to reverse that? just line by line?
             // repo.diff_index_to_workdir(None, Some(DiffOptions::new().reverse(true)))
