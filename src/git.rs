@@ -178,7 +178,7 @@ impl Hunk {
 pub struct File {
     pub view: View,
     pub path: OsString,
-    pub id: Oid,
+    // pub id: Oid,
     pub hunks: Vec<Hunk>,
     pub max_line_len: i32,
     pub kind: DiffKind,
@@ -189,7 +189,7 @@ impl File {
         Self {
             view: View::new(),
             path: OsString::new(),
-            id: Oid::zero(),
+            // id: Oid::zero(),
             hunks: Vec::new(),
             max_line_len: 0,
             kind,
@@ -201,7 +201,7 @@ impl File {
         File {
             view: View::new(),
             path,
-            id: f.id(),
+            // id: f.id(),
             hunks: Vec::new(),
             max_line_len: len as i32,
             kind,
@@ -429,8 +429,9 @@ pub fn get_current_repo_status(
 
     // get unstaged
     // Error { code: -1, klass: 2, message: "error reading file for hashing: " }
+    debug!("~~~~~~~~~~~~~~~~~~~~~~~~~ UNSTAGED ~~~~~~~~~~~~~~~~~~~~~");
     let git_diff = repo
-        .diff_index_to_workdir(None, None)
+        .diff_index_to_workdir(None, Some(&mut DiffOptions::new().ignore_filemode(true)))
         .expect("cant' get diff index to workdir");
     let diff = make_diff(&git_diff, DiffKind::Unstaged);
     sender
@@ -560,18 +561,25 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let _res = git_diff.print(
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
+            debug!("..............................> {:?} {:?}", o_diff_hunk, kind);
             // debug!("-----------------------------------------------> {:?} {:?}", diff_line.origin(), String::from(str::from_utf8(diff_line.content()).unwrap()));
-            // new_file - is workdir side
-            // old_file - index side
-            // oid of the file is used as uniq id
-            // when file is Delta.Modified, there will be old
-            // and new file in diff. we are interesetd in new
-            // new_file, of course.
-            // but when file is Delta.Deleted - there will be now new_file
-            // and we will use old_file instead
+            // ---------------------------------------
+            // unstaged - diff_index_to_workdir
+            //    index - old_file, workdir - new_file
+            // ..
+            // staged - diff_tree_to_index
+            //   tree - old_file, index - new_file
+            // ..
+            // when conflict in unstaged - the file id is zero. hm
+            // lets use file path instead of id then
+            // ---------------------------------------
+            // !!!!!!!! when file is Delta.Deleted - there will be now new_file
+            // and we will use old_file instead. why use id in file at all?
+            // file.id is not used. on;y as uniq file id here, while composing
+            // diff. lets get rid of it.
             let status = diff_delta.status();
             let file: DiffFile = match status {
-                Delta::Modified => diff_delta.new_file(),
+                Delta::Modified | Delta::Conflicted => diff_delta.new_file(),
                 Delta::Deleted => diff_delta.old_file(),
                 Delta::Added => match diff.kind {
                     DiffKind::Staged => diff_delta.new_file(),
@@ -588,20 +596,17 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                     )
                 }
             };
-            let oid = file.id();
-            if oid.is_zero() {
-                // this is case of deleted file
-                todo!();
-            }
+
             if file.path().is_none() {
                 todo!();
             }
             // build up diff structure
-            if current_file.id.is_zero() {
+            if current_file.path.is_empty() {
                 // init new file
                 current_file = File::from_diff_file(&file, kind.clone());
+                debug!("just inited new file 111111111 {:?} {:?}", current_file.path, kind);
             }
-            if current_file.id != oid {
+            if current_file.path != file.path().unwrap() {
                 // go to next file
                 // push current_hunk to file and init new empty hunk
                 current_file.push_hunk(current_hunk.clone());
@@ -612,6 +617,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
             }
             if let Some(diff_hunk) = o_diff_hunk {
                 let hh = Hunk::get_header_from(&diff_hunk);
+                debug!("hunk header in diff ============= {:?}", hh);
                 if current_hunk.header.is_empty() {
                     // init hunk
                     current_hunk.fill_from(&diff_hunk)
@@ -625,7 +631,9 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                 current_hunk.push_line(Line::from_diff_line(&diff_line));
             } else {
                 // this is file header line.
-                current_hunk.push_line(Line::from_diff_line(&diff_line))
+                let line = Line::from_diff_line(&diff_line);
+                debug!("file header line {:?} kind {:?}", &line.content, kind);
+                current_hunk.push_line(line)
             }
 
             true
