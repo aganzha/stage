@@ -12,7 +12,7 @@ use git2::{
     Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat, DiffHunk,
     DiffLine, DiffLineType, DiffOptions, Direction, Error, ErrorClass,
     ErrorCode, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
-    Repository, RepositoryState, ResetType, StashFlags,
+    Repository, RepositoryState, ResetType, StashFlags, MergeOptions
 };
 use log::{debug, info, trace};
 use regex::Regex;
@@ -1396,7 +1396,9 @@ pub fn merge(
     // let result = repo.merge(&[&annotated_commit], None, None);
 
     let do_merge = || {
-        repo.merge(&[&annotated_commit], None, None)
+        let mut merge_opts = MergeOptions::new();
+        merge_opts.fail_on_conflict(true);
+        repo.merge(&[&annotated_commit], Some(&mut merge_opts), None)
             .expect("cant merge");
         // all changes are in index now
         let head_ref = repo.head().expect("can't get head");
