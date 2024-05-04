@@ -197,8 +197,7 @@ impl CommitList {
         let orig_le = self.imp().original_list.borrow().len();
         if orig_le == 0 {
             // this is hack for the first triggered event.
-            // for some reason it is triggered without search
-            debug!("ret2");
+            // for some reason it is triggered without
             return;
         }
         let searched = self.imp().list.take();
@@ -425,7 +424,6 @@ pub fn headerbar_factory(
     entry.connect_search_changed(
         clone!(@weak commit_list, @weak list_view => move |e| {
             let term = e.text().to_lowercase();
-            debug!("SEEEARCH CHANGED {:?}", term);
             if !term.is_empty() && term.len() < 3 {
                 return;
             }
