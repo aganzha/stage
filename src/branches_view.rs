@@ -789,7 +789,7 @@ impl BranchList {
     }
 
     fn add_new_branch_item(&self, branch_data: crate::BranchData) {
-        debug!("aaaaaaaaaaaaaaaaaadd new branch_data {:?}", branch_data);
+
         let new_item = BranchItem::new(branch_data);
 
         let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
