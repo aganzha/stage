@@ -1396,13 +1396,16 @@ pub fn merge(
     // let result = repo.merge(&[&annotated_commit], None, None);
 
     let do_merge = || {
+        // !!! there will be error: merge conflict exists then in expect
         // let mut merge_opts = MergeOptions::new();
         // merge_opts.fail_on_conflict(true);
-        // there will be error: merge conflict exists then in expect
-        let mut checkout_opts = CheckoutBuilder::new();
-        let checkout_opts = checkout_opts.safe().allow_conflicts(true);
-        repo.merge(&[&annotated_commit], None, Some(checkout_opts))
+
+        // !!! nothing changes here. same effect as None
+        // let mut checkout_opts = CheckoutBuilder::new();
+        // let checkout_opts = checkout_opts.safe().allow_conflicts(true);
+        repo.merge(&[&annotated_commit], None, None)
             .expect("cant merge");
+
         // all changes are in index now
         let head_ref = repo.head().expect("can't get head");
         assert!(head_ref.is_branch());
