@@ -358,7 +358,6 @@ pub fn get_current_repo_status(
     current_path: Option<OsString>,
     sender: Sender<crate::Event>,
 ) {
-    debug!("get_current_repo_status {:?}", current_path);
     // path could came from command args or from choosing path
     // by user
     let path = {
@@ -429,9 +428,8 @@ pub fn get_current_repo_status(
 
     // get unstaged
     // Error { code: -1, klass: 2, message: "error reading file for hashing: " }
-    debug!("~~~~~~~~~~~~~~~~~~~~~~~~~ UNSTAGED ~~~~~~~~~~~~~~~~~~~~~");
     let git_diff = repo
-        .diff_index_to_workdir(None, Some(&mut DiffOptions::new().ignore_filemode(true)))
+        .diff_index_to_workdir(None, None)
         .expect("cant' get diff index to workdir");
     let diff = make_diff(&git_diff, DiffKind::Unstaged);
     sender
@@ -561,25 +559,9 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let _res = git_diff.print(
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
-            debug!("..............................> {:?} {:?}", o_diff_hunk, kind);
-            // debug!("-----------------------------------------------> {:?} {:?}", diff_line.origin(), String::from(str::from_utf8(diff_line.content()).unwrap()));
-            // ---------------------------------------
-            // unstaged - diff_index_to_workdir
-            //    index - old_file, workdir - new_file
-            // ..
-            // staged - diff_tree_to_index
-            //   tree - old_file, index - new_file
-            // ..
-            // when conflict in unstaged - the file id is zero. hm
-            // lets use file path instead of id then
-            // ---------------------------------------
-            // !!!!!!!! when file is Delta.Deleted - there will be now new_file
-            // and we will use old_file instead. why use id in file at all?
-            // file.id is not used. on;y as uniq file id here, while composing
-            // diff. lets get rid of it.
             let status = diff_delta.status();
             let file: DiffFile = match status {
-                Delta::Modified | Delta::Conflicted => diff_delta.new_file(),
+                Delta::Modified => diff_delta.new_file(),
                 Delta::Deleted => diff_delta.old_file(),
                 Delta::Added => match diff.kind {
                     DiffKind::Staged => diff_delta.new_file(),
@@ -604,7 +586,6 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
             if current_file.path.is_empty() {
                 // init new file
                 current_file = File::from_diff_file(&file, kind.clone());
-                debug!("just inited new file 111111111 {:?} {:?}", current_file.path, kind);
             }
             if current_file.path != file.path().unwrap() {
                 // go to next file
@@ -617,7 +598,6 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
             }
             if let Some(diff_hunk) = o_diff_hunk {
                 let hh = Hunk::get_header_from(&diff_hunk);
-                debug!("hunk header in diff ============= {:?}", hh);
                 if current_hunk.header.is_empty() {
                     // init hunk
                     current_hunk.fill_from(&diff_hunk)
@@ -632,7 +612,6 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
             } else {
                 // this is file header line.
                 let line = Line::from_diff_line(&diff_line);
-                debug!("file header line {:?} kind {:?}", &line.content, kind);
                 current_hunk.push_line(line)
             }
 
@@ -1434,7 +1413,7 @@ pub fn merge(
                 let path = conflict.unwrap().ancestor.unwrap().path;
                 paths.push(String::from_utf8(path).expect("cant get path"));                
             }
-            debug!("++++++++++++++++++++> {:?}", paths);
+            debug!("reset_default paths on conflicts ++++++++++++++++++++> {:?}", paths);
             repo.reset_default(Some(&ob), paths).expect("cant reset_default");
             return;
         }
