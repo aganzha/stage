@@ -1,7 +1,9 @@
 use async_channel::Sender;
 
+use core::time::Duration;
+
 use git2::BranchType;
-use glib::{clone, closure, Object};
+use glib::{clone, closure, Object, ControlFlow};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
@@ -409,6 +411,16 @@ impl BranchList {
                 branch_list.items_changed(0, 0, le);
                 // works via bind to single_selection selected
                 branch_list.set_selected_pos(selected as u32);
+                // glib::source::timeout_add_local(
+                //     Duration::from_millis(300),
+                //         {
+                //             move || {
+                //                 debug!("sselected pos 11111111111111 {:?}", selected);
+                //                 branch_list.set_selected_pos(selected as u32);
+                //                 ControlFlow::Break
+                //             }
+                //         },
+                // );
             })
         });
     }
@@ -455,6 +467,7 @@ impl BranchList {
                                     branch_item.imp().branch.replace(new_branch_data);
                                     branch_item.set_initial_focus(true);
                                     branch_item.set_is_head(true);
+                                    debug!("sselected pos 222222222222222222 {:?}", i);
                                     branch_list.set_selected_pos(i);
                                     return;
                                 }
@@ -477,7 +490,7 @@ impl BranchList {
         // items in list are clones of each other and setting branch_data
         // in item in one list affects branch data in cloned item in another list
         // BUT it need to trigger item property to rerender avatar icon
-        
+
         for branch_item in self.imp().list.borrow().iter() {
             if branch_item.is_head() {
                 branch_item.imp().branch.borrow_mut().is_head = false;
@@ -933,6 +946,7 @@ pub fn item_factory() -> SignalListItemFactory {
                     li.position()
                 );
                 if branch_item.initial_focus() {
+                    debug!("initial_focus..................................");
                     li.child().unwrap().grab_focus();
                     branch_item.set_initial_focus(false)
                 }
@@ -989,7 +1003,8 @@ pub fn listview_factory(
     let branch_list = BranchList::new(sender.clone());
 
     let selection_model = SingleSelection::new(Some(branch_list));
-    selection_model.set_autoselect(false);
+    // why it was needed?
+    // selection_model.set_autoselect(false);
 
     let model = selection_model.model().unwrap();
     let bind =
@@ -997,7 +1012,6 @@ pub fn listview_factory(
     let _ = bind.bidirectional().build();
 
     let branch_list = model.downcast_ref::<BranchList>().unwrap();
-    branch_list.get_branches(repo_path.clone());
 
     let list_view = ListView::builder()
         .model(&selection_model)
@@ -1010,16 +1024,22 @@ pub fn listview_factory(
         .show_separators(true)
         .build();
 
-    list_view.connect_activate(move |lv: &ListView, _pos: u32| {
-        let root = lv.root().unwrap();
-        let window = root.downcast_ref::<Window>().unwrap();
-        let selection_model = lv.model().unwrap();
-        let single_selection =
-            selection_model.downcast_ref::<SingleSelection>().unwrap();
-        let list_model = single_selection.model().unwrap();
-        let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
-        branch_list.checkout(repo_path.clone(), window, sender.clone());
+    list_view.connect_activate({
+        let repo_path = repo_path.clone();
+        move |lv: &ListView, _pos: u32| {
+            let root = lv.root().unwrap();
+            let window = root.downcast_ref::<Window>().unwrap();
+            let selection_model = lv.model().unwrap();
+            let single_selection =
+                selection_model.downcast_ref::<SingleSelection>().unwrap();
+            let list_model = single_selection.model().unwrap();
+            let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
+            branch_list.checkout(repo_path.clone(), window, sender.clone());
+        }
     });
+
+    branch_list.get_branches(repo_path.clone());
+
     list_view.add_css_class("stage");
     list_view
 }
@@ -1053,12 +1073,6 @@ pub fn headerbar_factory(
 
         single_selection.set_can_unselect(false);
         branch_list.search_new(term.into());
-        // if term.is_empty() {
-        //     branch_list.reset_search_new();
-        // } else {
-        //     // branch_list.search(term.into());
-        //     branch_list.search_new(term.into());
-        // }
         single_selection.set_can_unselect(false);
     }));
     let search = SearchBar::builder()

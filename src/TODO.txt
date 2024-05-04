@@ -11,15 +11,6 @@ stack backtrace:
        assertion failed: opt_status.is_none()
        stack backtrace:
 
-BUG: search item in branches. checkout REMOTE with active local branch during search - core dump.
-     because newly checkout item is not in list???
-**
-Gtk:ERROR:../gtk/gtklistitemmanager.c:1416:gtk_list_item_manager_ensure_items: code should not be reached
-Bail out! Gtk:ERROR:../gtk/gtklistitemmanager.c:1416:gtk_list_item_manager_ensure_items: code should not be reached
-./inside_flatpak_run.sh: строка 2:   533 Аварийный останов         (образ памяти сброшен на диск) RUST_BACKTRACE=1 RUST_LOG=debug ~/stage/stage/target/debug/stage $@
-bash-5.2$ 
-
-TODO: kill in branch_list: css, sender in constructor, spinner
 TODO: mnemonic!
 BUG: after manipulating branches stashes list is empty, and just feeling of stashes in the log
      dot emacs file also apeared in unstaged, and killing it causeing panic
