@@ -686,8 +686,9 @@ pub fn stage_via_apply(
             .expect("can't get diff")
         }
         ApplySubject::Kill => {
+            // weird behaviour - sometimes it does not work at all.
+            // diff become empty!
             repo.diff_index_to_workdir(None, Some(DiffOptions::new().reverse(true)))
-            // reverse doesn work either, it is empty!
             // let ob =
             //     repo.revparse_single("HEAD^{tree}").expect("fail revparse");
             // let current_tree =
