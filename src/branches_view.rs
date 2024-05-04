@@ -176,6 +176,26 @@ impl BranchList {
         Object::builder().build()
     }
 
+    pub fn search_new(&self, term: String) {
+        let orig_le = self.imp().list.borrow().len();
+        self.imp().list.borrow_mut().clear();
+        self.items_changed(0, orig_le as u32, 0);
+
+        let mut remote: Option<u32> = None;
+        for (i, bi) in self.imp().original_list.borrow().iter().enumerate() {
+            let branch = bi.imp().branch.borrow();
+            let name = &branch.name;
+            let btype = branch.branch_type;
+            if term.is_empty() || name.contains(&term) {
+                self.imp().list.borrow_mut().push(bi.clone());
+            }
+            if remote.is_none() && btype == BranchType::Remote {
+                remote.replace(i as u32);
+            }
+        }
+        self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
+    }
+
     pub fn search(&self, term: String) {
         let selected_name = self.get_selected_branch().name;
         let mut current_position = 0;
@@ -452,27 +472,52 @@ impl BranchList {
     }
 
     pub fn deactivate_current_branch(&self) {
+
+        // it does not need to set branch_data in original_list cause
+        // items in list are clones of each other and setting branch_data
+        // in item in one list affects branch data in cloned item in another list
+        // BUT it need to trigger item property to rerender avatar icon
+        
         for branch_item in self.imp().list.borrow().iter() {
             if branch_item.is_head() {
                 branch_item.imp().branch.borrow_mut().is_head = false;
-                // to trigger render for avatar icon
+                // just to trigger render for avatar icon
                 branch_item.set_is_head(false);
-                return;
             }
         }
-        panic!("cant update current branch");
+        for branch_item in self.imp().original_list.borrow().iter() {
+            if branch_item.is_head() {
+                branch_item.imp().branch.borrow_mut().is_head = false;
+            }
+        }
     }
 
     pub fn update_current_branch(&self, branch_data: crate::BranchData) {
-        for branch_item in self.imp().list.borrow().iter() {
+
+        for branch_item in self.imp().original_list.borrow().iter() {
+            debug!("HEAD in original list {:?} {:?}", branch_item.imp().branch.borrow().name, branch_item.is_head());
             if branch_item.is_head() {
                 branch_item.imp().branch.replace(branch_data.clone());
                 // to trigger render for avatar icon
                 branch_item.set_is_head(branch_item.is_head());
-                return;
+                return
             }
         }
-        panic!("cant update current branch");
+
+        // it does not need to set branch_data in original_list cause
+        // items in list are clones of each other and setting branch_data
+        // in item in one list affects branch data in cloned item in another list
+        // BUT it need to trigger item property to rerender avatar icon
+
+        for branch_item in self.imp().list.borrow().iter() {
+            debug!("HEAD in list {:?} {:?}", branch_item.imp().branch.borrow().name, branch_item.is_head());
+            if branch_item.is_head() {
+                branch_item.imp().branch.replace(branch_data.clone());
+                // to trigger render for avatar icon
+                branch_item.set_is_head(branch_item.is_head());
+                break;
+            }
+        }
     }
 
     pub fn get_selected_branch(&self) -> crate::BranchData {
@@ -603,6 +648,7 @@ impl BranchList {
                     return
                 }
                 let kind = branch_data.branch_type;
+                let name = branch_data.name.clone();
                 let result = gio::spawn_blocking(move || {
                     crate::kill_branch(repo_path, branch_data, sender)
                 }).await;
@@ -613,6 +659,9 @@ impl BranchList {
                             {
                                 // put borrow in block
                                 branch_list.imp().list.borrow_mut().remove(pos as usize);
+                                branch_list.imp().original_list.borrow_mut().retain(|bi| {
+                                    bi.imp().branch.borrow().name != name
+                                });
                                 if kind == BranchType::Local {
                                     let mut pos = branch_list.imp().remote_start_pos.borrow_mut();
                                     if let Some(mut rem_pos) = *pos {
@@ -740,6 +789,7 @@ impl BranchList {
     }
 
     fn add_new_branch_item(&self, branch_data: crate::BranchData) {
+        debug!("aaaaaaaaaaaaaaaaaadd new branch_data {:?}", branch_data);
         let new_item = BranchItem::new(branch_data);
 
         let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
@@ -747,7 +797,8 @@ impl BranchList {
 
         {
             // put borrow in block
-            self.imp().list.borrow_mut().insert(0, new_item);
+            self.imp().list.borrow_mut().insert(0, new_item.clone());
+            self.imp().original_list.borrow_mut().insert(0, new_item);
             let mut pos = self.imp().remote_start_pos.borrow_mut();
             if let Some(mut rem_pos) = *pos {
                 rem_pos += 1;
@@ -990,17 +1041,25 @@ pub fn headerbar_factory(
     });
     let branch_list = get_branch_list(list_view);
 
-    entry.connect_search_changed(clone!(@weak branch_list => move |e| {
+    entry.connect_search_changed(clone!(@weak branch_list, @weak list_view => move |e| {
         let term = e.text();
         if !term.is_empty() && term.len() < 3 {
             return;
         }
-        if term.is_empty() {
-            branch_list.reset_search();
-        } else {
-            branch_list.search(term.into());
-        }
+        let selection_model = list_view.model().unwrap();
 
+        let single_selection =
+            selection_model.downcast_ref::<SingleSelection>().unwrap();
+
+        single_selection.set_can_unselect(false);
+        branch_list.search_new(term.into());
+        // if term.is_empty() {
+        //     branch_list.reset_search_new();
+        // } else {
+        //     // branch_list.search(term.into());
+        //     branch_list.search_new(term.into());
+        // }
+        single_selection.set_can_unselect(false);
     }));
     let search = SearchBar::builder()
         .tooltip_text("search branches")
