@@ -1402,21 +1402,21 @@ pub fn merge(
         let head_ref = repo.head().expect("can't get head");
         assert!(head_ref.is_branch());
 
-        let index = repo.index().expect("cant get index");
-        if index.has_conflicts() {
-            let conflicts = index.conflicts().expect("no conflicts");
-            let ob = head_ref
-                .peel(ObjectType::Commit)
-                .expect("can't get commit from ref!");
-            let mut paths: Vec<String> = Vec::new();
-            for conflict in conflicts {
-                let path = conflict.unwrap().ancestor.unwrap().path;
-                paths.push(String::from_utf8(path).expect("cant get path"));                
-            }
-            debug!("reset_default paths on conflicts ++++++++++++++++++++> {:?}", paths);
-            repo.reset_default(Some(&ob), paths).expect("cant reset_default");
-            return;
-        }
+        // let index = repo.index().expect("cant get index");
+        // if index.has_conflicts() {
+        //     let conflicts = index.conflicts().expect("no conflicts");
+        //     let ob = head_ref
+        //         .peel(ObjectType::Commit)
+        //         .expect("can't get commit from ref!");
+        //     let mut paths: Vec<String> = Vec::new();
+        //     for conflict in conflicts {
+        //         let path = conflict.unwrap().ancestor.unwrap().path;
+        //         paths.push(String::from_utf8(path).expect("cant get path"));                
+        //     }
+        //     debug!("reset_default paths on conflicts ++++++++++++++++++++> {:?}", paths);
+        //     repo.reset_default(Some(&ob), paths).expect("cant reset_default");
+        //     return;
+        // }
         
         let current_branch = Branch::wrap(head_ref);
         let message = format!(
