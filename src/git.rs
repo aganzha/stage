@@ -660,8 +660,7 @@ pub fn stage_via_apply(
     sender: Sender<crate::Event>,
 ) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
-    // get actual diff for repo
-    debug!("ooooooooooooooooooooo");
+
     let git_diff = match filter.subject {
         // The index will be used for the “old_file” side of the delta,
         // and the working directory will be used
@@ -686,52 +685,28 @@ pub fn stage_via_apply(
             )
             .expect("can't get diff")
         }
-        // The tree you provide will be used for the “old_file”
-        // side of the delta, and the working directory
-        // will be used for the “new_file” side.
-        // !!!!! SEE reverse below. Means tree will be new side
-        // and workdir will be old side. Means changes from tree come to index!
         ApplySubject::Kill => {
-            // ATTENTION!
-            // perhaps it need to create new index. add file to that index
-            // and compare workdir with this index! and ...
-            // OR! just checkout that file from tree and apply path from index!
-
-            // we are killing unstaged. perhaps diff with index then?
-            // but how to reverse that? just line by line?
-            // repo.diff_index_to_workdir(None, Some(DiffOptions::new().reverse(true)))
+            repo.diff_index_to_workdir(None, Some(DiffOptions::new().reverse(true)))
             // reverse doesn work either, it is empty!
-            let ob =
-                repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-            let current_tree =
-                repo.find_tree(ob.id()).expect("no working tree");
-            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            // // problem here: this diff is incorrect, when stage part of file
-            // // and want to kill another part. hunks headers are different!           
-            repo.diff_tree_to_workdir(
-                Some(&current_tree),
-                Some(DiffOptions::new().reverse(true)), // reverse!!!
-            )
+            // let ob =
+            //     repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+            // let current_tree =
+            //     repo.find_tree(ob.id()).expect("no working tree");
+            // problem here: this diff is incorrect, when stage part of file
+            // and want to kill another part. hunks headers are different!           
+            // repo.diff_tree_to_workdir(
+            //     Some(&current_tree),
+            //     Some(DiffOptions::new().reverse(true)), // reverse!!!
+            // )
             .expect("can't get diff in kill")
         }
     };
-    debug!("print pleeeease");
-    let diff = make_diff(&git_diff, DiffKind::Unstaged);
-    for f in diff.files {
-        for h in f.hunks {
-            for l in h.lines {
-                debug!("________________________ {:?} {:?}", l.origin, l.content)
-            }
-        }
-    }
-    
-    
+        
     let mut options = ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
         if let Some(hunk_header) = &filter.hunk_id {
             if let Some(dh) = odh {
-                debug!("+++++++++++++++++++++++ {:?}", dh);
                 let header = Hunk::get_header_from(&dh);
                 return match filter.subject {
                     ApplySubject::Stage => hunk_header == &header,
@@ -740,8 +715,7 @@ pub fn stage_via_apply(
                     }
                     ApplySubject::Kill => {
                         let reversed = Hunk::reverse_header(header);
-                        debug!("@@@@@@@@@@@@@@@@@@@@@@> {:?} vs {:?}", hunk_header, reversed);
-                        hunk_header == &reversed // reverse!!!
+                        hunk_header == &reversed
                     }
                 };
             }
@@ -750,12 +724,6 @@ pub fn stage_via_apply(
     });
     options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
-            // let status = dd.status();
-            // trace!("delta_callback in stage_via_apply status {:?}", status);
-            // let new_file = dd.new_file();
-            // let file = File::from_diff_file(&new_file, kind);
-            // let path = file.path.into_string().unwrap();
-            debug!("--------------------> {:?} vs {:?}", dd.new_file().path(), dd.old_file().path());
             let path: OsString = dd.new_file().path().unwrap().into();
             return filter.file_id == path.into_string().unwrap();
         }
@@ -765,10 +733,10 @@ pub fn stage_via_apply(
         ApplySubject::Stage | ApplySubject::Unstage => ApplyLocation::Index,
         ApplySubject::Kill => ApplyLocation::WorkDir,
     };
-    debug!("AAAAAAAAAAAAAAAAAAPPLY");
+
     repo.apply(&git_diff, apply_location, Some(&mut options))
         .expect("can't apply patch");
-    debug!("soooooooooooooooooooooooooooo?");
+
     // staged changes. not needed in kill, btw.
     gio::spawn_blocking({
         let sender = sender.clone();
