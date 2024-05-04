@@ -19,7 +19,7 @@ Bail out! Gtk:ERROR:../gtk/gtklistitemmanager.c:1416:gtk_list_item_manager_ensur
 ./inside_flatpak_run.sh: строка 2:   533 Аварийный останов         (образ памяти сброшен на диск) RUST_BACKTRACE=1 RUST_LOG=debug ~/stage/stage/target/debug/stage $@
 bash-5.2$ 
 
-TODO: kill in branch_list: css, sender in constructor, spinner
+lets make conflictsx
 TODO: mnemonic!
 BUG: after manipulating branches stashes list is empty, and just feeling of stashes in the log
      dot emacs file also apeared in unstaged, and killing it causeing panic
