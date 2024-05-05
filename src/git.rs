@@ -2,7 +2,7 @@ use crate::gio;
 // use crate::glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
-
+    
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use ffi::OsString;
 use git2::build::CheckoutBuilder;
@@ -12,8 +12,11 @@ use git2::{
     Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat, DiffHunk,
     DiffLine, DiffLineType, DiffOptions, Direction, Error, ErrorClass,
     ErrorCode, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
-    Repository, RepositoryState, ResetType, StashFlags,
+    Repository, RepositoryState, ResetType, StashFlags, MergeOptions,
+    IndexEntry
 };
+
+// use libgit2_sys;
 use log::{debug, info, trace};
 use regex::Regex;
 use std::cmp::Ordering;
@@ -150,7 +153,7 @@ impl Hunk {
     pub fn title(&self) -> String {
         let parts: Vec<&str> = self.header.split("@@").collect();
         let line_no = match self.kind {
-            DiffKind::Unstaged => self.old_start,
+            DiffKind::Unstaged | DiffKind::Conflicted => self.old_start,
             DiffKind::Staged => self.new_start,
         };
         let scope = parts.last().unwrap();
@@ -178,7 +181,7 @@ impl Hunk {
 pub struct File {
     pub view: View,
     pub path: OsString,
-    pub id: Oid,
+    // pub id: Oid,
     pub hunks: Vec<Hunk>,
     pub max_line_len: i32,
     pub kind: DiffKind,
@@ -189,7 +192,7 @@ impl File {
         Self {
             view: View::new(),
             path: OsString::new(),
-            id: Oid::zero(),
+            // id: Oid::zero(),
             hunks: Vec::new(),
             max_line_len: 0,
             kind,
@@ -201,7 +204,7 @@ impl File {
         File {
             view: View::new(),
             path,
-            id: f.id(),
+            // id: f.id(),
             hunks: Vec::new(),
             max_line_len: len as i32,
             kind,
@@ -224,6 +227,7 @@ impl File {
 pub enum DiffKind {
     Staged,
     Unstaged,
+    Conflicted
 }
 
 #[derive(Debug, Clone)]
@@ -358,7 +362,6 @@ pub fn get_current_repo_status(
     current_path: Option<OsString>,
     sender: Sender<crate::Event>,
 ) {
-    debug!("get_current_repo_status {:?}", current_path);
     // path could came from command args or from choosing path
     // by user
     let path = {
@@ -427,8 +430,25 @@ pub fn get_current_repo_status(
         }
     });
 
-    // get unstaged
-    // Error { code: -1, klass: 2, message: "error reading file for hashing: " }
+
+    let index = repo.index().expect("cant get index");
+    if index.has_conflicts() {
+        // https://github.com/libgit2/libgit2/issues/6232
+        // this one is for staging killed hunk
+        // https://github.com/libgit2/libgit2/issues/6643
+        gio::spawn_blocking({
+            let sender = sender.clone();
+            let path = path.clone();
+            move || {
+                get_conflicted(path, sender);
+            }
+        });
+    } else {
+        sender
+            .send_blocking(crate::Event::Conflicted(Diff::new(DiffKind::Conflicted)))
+            .expect("Could not send through channel");
+    }
+
     let git_diff = repo
         .diff_index_to_workdir(None, None)
         .expect("cant' get diff index to workdir");
@@ -437,6 +457,79 @@ pub fn get_current_repo_status(
         .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
 
+}
+
+pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
+    debug!("CONFLICTS");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let index = repo.index().expect("cant get index");
+    let conflicts = index.conflicts().expect("no conflicts");
+
+    let kind = DiffKind::Conflicted;
+    // why do i need kind on file and on hunk at all???
+    let mut diff = Diff::new(kind.clone());
+
+    for conflict in conflicts {
+        let mut current_file = File::new(kind.clone());
+        let mut current_hunk = Hunk::new(kind.clone());
+
+        let conflict = conflict.unwrap();
+        let our = conflict.our.unwrap();
+        let our_oid = our.id;
+        let our_path = String::from_utf8(our.path).unwrap();
+        let our_blob = repo.find_blob(our_oid).expect("cant get blob");
+        let their_oid = conflict.their.unwrap().id;
+        let their_blob = repo.find_blob(their_oid).expect("cant get blob");
+
+        repo.diff_blobs(
+            Some(&our_blob),
+            None,
+            Some(&their_blob),
+            None,
+            Some(DiffOptions::new().reverse(false)),
+            None,
+            None,
+            None,
+            Some(&mut |diff_delta, o_diff_hunk, diff_line|{
+                let file = diff_delta.new_file();
+                if current_file.path.is_empty() {
+                // init new file
+                    current_file = File::from_diff_file(&file, kind.clone());
+                    current_file.path = our_path.clone().into();
+                }
+                if let Some(diff_hunk) = o_diff_hunk {
+                    let hh = Hunk::get_header_from(&diff_hunk);
+                    if current_hunk.header.is_empty() {
+                        // init hunk
+                        current_hunk.fill_from(&diff_hunk)
+                    }
+                    if current_hunk.header != hh {
+                        // go to next hunk
+                        current_file.push_hunk(current_hunk.clone());
+                        current_hunk = Hunk::new(kind.clone());
+                        current_hunk.fill_from(&diff_hunk)
+                    }
+                    current_hunk.push_line(Line::from_diff_line(&diff_line));
+                } else {
+                    // this is file header line.
+                    let line = Line::from_diff_line(&diff_line);
+                    current_hunk.push_line(line)
+                }
+                true
+            })
+        ).expect("cant compare blobs");
+        if !current_hunk.header.is_empty() {
+            current_file.push_hunk(current_hunk);
+        }
+        if !current_file.path.is_empty() {
+            diff.push_file(current_file);
+        }
+    }
+
+    // debug!("++++++++++++++++++++++++++ {:?}", diff);
+    sender
+        .send_blocking(crate::Event::Conflicted(diff))
+        .expect("Could not send through channel");
 }
 
 pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
@@ -553,6 +646,7 @@ impl ApplyFilter {
     }
 }
 
+
 pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let mut diff = Diff::new(kind.clone());
     let mut current_file = File::new(kind.clone());
@@ -560,23 +654,22 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let _res = git_diff.print(
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
-            // debug!("-----------------------------------------------> {:?} {:?}", diff_line.origin(), String::from(str::from_utf8(diff_line.content()).unwrap()));
-            // new_file - is workdir side
-            // old_file - index side
-            // oid of the file is used as uniq id
-            // when file is Delta.Modified, there will be old
-            // and new file in diff. we are interesetd in new
-            // new_file, of course.
-            // but when file is Delta.Deleted - there will be now new_file
-            // and we will use old_file instead
             let status = diff_delta.status();
+            if status == Delta::Conflicted {
+                if kind == DiffKind::Staged || kind == DiffKind::Unstaged {
+                    return true;
+                }
+            }
             let file: DiffFile = match status {
-                Delta::Modified => diff_delta.new_file(),
+                Delta::Modified | Delta::Conflicted => diff_delta.new_file(),
                 Delta::Deleted => diff_delta.old_file(),
                 Delta::Added => match diff.kind {
                     DiffKind::Staged => diff_delta.new_file(),
                     DiffKind::Unstaged => {
                         todo!("delta added in unstaged {:?}", diff_delta)
+                    },
+                    DiffKind::Conflicted => {
+                        todo!("delta added in conflicted {:?}", diff_delta)
                     }
                 },
                 _ => {
@@ -588,20 +681,16 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                     )
                 }
             };
-            let oid = file.id();
-            if oid.is_zero() {
-                // this is case of deleted file
-                todo!();
-            }
+
             if file.path().is_none() {
                 todo!();
             }
             // build up diff structure
-            if current_file.id.is_zero() {
+            if current_file.path.is_empty() {
                 // init new file
                 current_file = File::from_diff_file(&file, kind.clone());
             }
-            if current_file.id != oid {
+            if current_file.path != file.path().unwrap() {
                 // go to next file
                 // push current_hunk to file and init new empty hunk
                 current_file.push_hunk(current_hunk.clone());
@@ -625,7 +714,8 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                 current_hunk.push_line(Line::from_diff_line(&diff_line));
             } else {
                 // this is file header line.
-                current_hunk.push_line(Line::from_diff_line(&diff_line))
+                let line = Line::from_diff_line(&diff_line);
+                current_hunk.push_line(line)
             }
 
             true
@@ -681,7 +771,7 @@ pub fn stage_via_apply(
             repo.diff_tree_to_index(
                 Some(&current_tree),
                 None,
-                Some(DiffOptions::new().reverse(true)), // reverse!!!
+                Some(DiffOptions::new().reverse(false)), // reverse!!!
             )
             .expect("can't get diff")
         }
@@ -693,7 +783,7 @@ pub fn stage_via_apply(
             // let current_tree =
             //     repo.find_tree(ob.id()).expect("no working tree");
             // problem here: this diff is incorrect, when stage part of file
-            // and want to kill another part. hunks headers are different!           
+            // and want to kill another part. hunks headers are different!
             // repo.diff_tree_to_workdir(
             //     Some(&current_tree),
             //     Some(DiffOptions::new().reverse(true)), // reverse!!!
@@ -701,7 +791,7 @@ pub fn stage_via_apply(
             .expect("can't get diff in kill")
         }
     };
-        
+
     let mut options = ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
@@ -733,7 +823,11 @@ pub fn stage_via_apply(
         ApplySubject::Stage | ApplySubject::Unstage => ApplyLocation::Index,
         ApplySubject::Kill => ApplyLocation::WorkDir,
     };
-
+    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
+    // sender
+    //     .send_blocking(crate::Event::Conflicted(diff))
+    //     .expect("Could not send through channel");
+    // debug!("ttttttttttttttttttttttttt {:?}", apply_location);
     repo.apply(&git_diff, apply_location, Some(&mut options))
         .expect("can't apply patch");
 
@@ -1368,11 +1462,6 @@ pub fn cherry_pick(
             err.class(),
             err.message()
         );
-        // match err.code() {
-        //     ErrorCode::Conflict => {
-        //         return Err(String::from(""));
-        //     }
-        // }
         return Err(String::from(err.message()));
     }
     debug!("cherry pick could not change the current branch, cause of merge conflict.
@@ -1401,29 +1490,44 @@ pub fn merge(
     path: OsString,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
-) -> BranchData {
+) -> Result<BranchData, String> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let annotated_commit = repo
         .find_annotated_commit(branch_data.oid)
         .expect("cant find commit");
     // let result = repo.merge(&[&annotated_commit], None, None);
 
-    let do_merge = || {
-        repo.merge(&[&annotated_commit], None, None)
-            .expect("cant merge");
+    let do_merge = || -> Result<bool, String> {
+
+        let result = repo.merge(&[&annotated_commit], None, None);
+        if result.is_err() {
+            let git_err = result.unwrap_err();
+            return Err(String::from(git_err.message()));
+        }
+
         // all changes are in index now
         let head_ref = repo.head().expect("can't get head");
         assert!(head_ref.is_branch());
+
+        let index = repo.index().expect("cant get index");
+        if index.has_conflicts() {
+            // just skip commit as it will panic anyways
+            return Ok(true);
+        }
+
         let current_branch = Branch::wrap(head_ref);
         let message = format!(
             "merge branch {} into {}",
             branch_data.name,
             current_branch.name().unwrap().unwrap()
         );
-        commit(path, message, sender.clone());
+        commit(path.clone(), message, sender.clone());
         repo.cleanup_state().unwrap();
+        Ok(false)
     };
 
+    let mut has_conflicts = false;
+    
     match repo.merge_analysis(&[&annotated_commit]) {
         Ok((analysis, _)) if analysis.is_up_to_date() => {
             info!("merge.uptodate");
@@ -1435,14 +1539,21 @@ pub fn merge(
         {
             debug!("-----------------------------------> {:?}", analysis);
             info!("merge.fastforward");
-            do_merge();
+            match do_merge() {
+                Ok(conflicts) => has_conflicts = conflicts,
+                Err(message) => return Err(message)
+            }
+            
         }
         Ok((analysis, preference))
             if analysis.is_normal() && !preference.is_fastforward_only() =>
         {
             debug!("-----------------------------------> {:?}", analysis);
             info!("merge.normal");
-            do_merge();
+            match do_merge() {
+                Ok(conflicts) => has_conflicts = conflicts,
+                Err(message) => return Err(message)
+            }            
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
@@ -1451,7 +1562,16 @@ pub fn merge(
             panic!("error in merge_analysis {:?}", err.message());
         }
     }
-
+    if has_conflicts {
+        gio::spawn_blocking({
+            let sender = sender.clone();
+            let path = path.clone();
+            move || {
+                get_current_repo_status(Some(path), sender.clone());
+            }
+        });
+        return Err(String::from("Conflicts during merge"));
+    }
     let state = repo.state();
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
@@ -1468,22 +1588,8 @@ pub fn merge(
         .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
 
-    // update staged changes
-    // let tree_ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    // debug!("lets find treeeeeeeeeeeeeeeeeeee {:?}", tree_ob.id());
-    // let current_tree = repo.find_tree(tree_ob.id()).expect("no working tree");
-    // let git_diff = repo
-    //     .diff_tree_to_index(Some(&current_tree), None, None)
-    //     .expect("can't get diff tree to index");
-    // sender
-    //     .send_blocking(crate::Event::Staged(make_diff(
-    //         git_diff,
-    //         DiffKind::Staged,
-    //     )))
-    //     .expect("Could not send through channel");
-
-    BranchData::from_branch(branch, BranchType::Local)
-        .expect("cant get branch")
+    Ok(BranchData::from_branch(branch, BranchType::Local)
+        .expect("cant get branch"))
 }
 
 #[derive(Debug, Clone)]
@@ -1841,4 +1947,69 @@ pub fn revwalk(
         }
     }
     result
+}
+
+
+pub fn resolve_conflict(
+    path: OsString,
+    file_path: OsString,
+    hunk_header: String,
+    origin: DiffLineType,
+    sender: Sender<crate::Event>,
+) {
+    let repo = Repository::open(path.clone()).expect("cant open repo");
+    let mut index = repo.index().expect("cant get index");
+    
+    for entry in index.iter() {
+        debug!(".. {:?} {:?}", entry.flags, String::from_utf8_lossy(&entry.path));
+    }
+    debug!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee {:?}", file_path);
+
+    let conflicts = index.conflicts().expect("no conflicts");
+    let mut entry: Option<IndexEntry> = None;
+    let my_path = "src/TODO.txt";
+    for conflict in conflicts {
+        let conflict = conflict.unwrap();
+        let mut choosed = {
+            // deletion is our side due to blob diff:
+            // our is old side and merged branch is new side
+            if origin == DiffLineType::Deletion {
+                conflict.our.unwrap()
+            } else {
+                conflict.their.unwrap()
+            }
+        };
+        if String::from_utf8_lossy(&choosed.path) != my_path {
+            continue
+        }
+        // pub const GIT_INDEX_ENTRY_STAGEMASK: u16 = 0x3000;
+        let stage_flag: u16 = 0x3000;
+        choosed.flags = choosed.flags & !stage_flag;
+        entry.replace(choosed);
+        break;
+    }    
+    debug!("aaaaaaaaaaaaaaaddd {:?}", entry);
+    index.add(&entry.unwrap()).expect("cant add entry");
+    for stage in 1..4 {
+        index.remove(path::Path::new(my_path), stage).expect("cant remove entry");
+    }
+    for entry in index.iter() {
+        debug!(".. {:?} {:?}", entry.flags, String::from_utf8_lossy(&entry.path));
+    }
+    index.write().expect("cant write index");
+    let mut options = DiffOptions::new();
+    options.reverse(true);
+    options.pathspec(my_path);
+    let git_diff = repo
+        .diff_index_to_workdir(Some(&index), Some(&mut options))
+        .expect("cant' get diff index to workdir");
+    repo.apply(&git_diff, ApplyLocation::WorkDir, None)
+        .expect("can't apply patch");
+    get_current_repo_status(Some(path), sender)
+    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
+    // sender
+    //     .send_blocking(crate::Event::Unstaged(diff))
+    //     .expect("Could not send through channel");
+    // Index.add_path - will mark file as resolved
+    // now it need somehow organize diff.
 }
