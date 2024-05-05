@@ -473,12 +473,13 @@ pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
 
     for conflict in conflicts {
         let conflict = conflict.unwrap();
-
-        let our_oid = conflict.our.unwrap().id;
+        let our = conflict.our.unwrap();
+        let our_oid = our.id;
+        let our_path = String::from_utf8(our.path).unwrap();
         let our_blob = repo.find_blob(our_oid).expect("cant get blob");
         let their_oid = conflict.their.unwrap().id;
         let their_blob = repo.find_blob(their_oid).expect("cant get blob");
-        debug!("{:?}_________________________ {:?}", our_oid, their_oid);
+
         repo.diff_blobs(
             Some(&our_blob),
             None,
@@ -493,6 +494,7 @@ pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
                 if current_file.path.is_empty() {
                 // init new file
                     current_file = File::from_diff_file(&file, kind.clone());
+                    current_file.path = our_path.clone().into();
                 }
                 if current_file.path != file.path().unwrap() {
                     // go to next file
@@ -502,6 +504,7 @@ pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
                     // push current_file to diff and change to new file
                     diff.push_file(current_file.clone());
                     current_file = File::from_diff_file(&file, kind.clone());
+                    current_file.path = our_path.clone().into();
                 }
                 if let Some(diff_hunk) = o_diff_hunk {
                     let hh = Hunk::get_header_from(&diff_hunk);
@@ -1498,10 +1501,13 @@ pub fn merge(
         .expect("cant find commit");
     // let result = repo.merge(&[&annotated_commit], None, None);
 
-    let do_merge = || -> bool {
+    let do_merge = || -> Result<bool, String> {
 
-        repo.merge(&[&annotated_commit], None, None)
-            .expect("cant merge");
+        let result = repo.merge(&[&annotated_commit], None, None);
+        if result.is_err() {
+            let git_err = result.unwrap_err();
+            return Err(String::from(git_err.message()));
+        }
 
         // all changes are in index now
         let head_ref = repo.head().expect("can't get head");
@@ -1510,7 +1516,7 @@ pub fn merge(
         let index = repo.index().expect("cant get index");
         if index.has_conflicts() {
             // just skip commit as it will panic anyways
-            return true;
+            return Ok(true);
         }
 
         let current_branch = Branch::wrap(head_ref);
@@ -1521,7 +1527,7 @@ pub fn merge(
         );
         commit(path.clone(), message, sender.clone());
         repo.cleanup_state().unwrap();
-        false
+        Ok(false)
     };
 
     let mut has_conflicts = false;
@@ -1537,14 +1543,21 @@ pub fn merge(
         {
             debug!("-----------------------------------> {:?}", analysis);
             info!("merge.fastforward");
-            has_conflicts = do_merge();
+            match do_merge() {
+                Ok(conflicts) => has_conflicts = conflicts,
+                Err(message) => return Err(message)
+            }
+            
         }
         Ok((analysis, preference))
             if analysis.is_normal() && !preference.is_fastforward_only() =>
         {
             debug!("-----------------------------------> {:?}", analysis);
             info!("merge.normal");
-            has_conflicts = do_merge();
+            match do_merge() {
+                Ok(conflicts) => has_conflicts = conflicts,
+                Err(message) => return Err(message)
+            }            
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
