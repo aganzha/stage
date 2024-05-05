@@ -455,6 +455,9 @@ pub fn get_current_repo_status(
 
     let index = repo.index().expect("cant get index");
     if index.has_conflicts() {
+        // https://github.com/libgit2/libgit2/issues/6232
+        // this one is for staging killed hunk
+        // https://github.com/libgit2/libgit2/issues/6643
         gio::spawn_blocking({
             let sender = sender.clone();
             let path = path.clone();
