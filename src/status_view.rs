@@ -16,7 +16,7 @@ use std::rc::Rc;
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, pull,
     push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
+    track_changes, resolve_conflict, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
     State, StatusRenderContext, Untracked, View,
 };
 
@@ -79,6 +79,10 @@ pub struct Status {
     pub unstaged_label: Label,
     pub unstaged: Option<Diff>,
 
+    pub conflicted_spacer: Label,
+    pub conflicted_label: Label,
+    pub conflicted: Option<Diff>,
+
     pub rendered: bool, // what it is for ????
     pub context: Option<StatusRenderContext>,
     pub stashes: Option<Stashes>,
@@ -113,6 +117,11 @@ impl Status {
                 "<span weight=\"bold\" color=\"#8b6508\">Unstaged changes</span>",
             ),
             unstaged: None,
+            conflicted_spacer: Label::from_string(""),
+            conflicted_label: Label::from_string(
+                "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>",
+            ),
+            conflicted: None,
             rendered: false,
             context: None::<StatusRenderContext>,
             stashes: None,
@@ -608,6 +617,21 @@ impl Status {
         self.render(txt, RenderSource::Git);
     }
 
+    pub fn update_conflicted(&mut self, mut diff: Diff, txt: &TextView) {
+        self.update_screen_line_width(diff.max_line_len);
+        if let Some(s) = &mut self.conflicted {
+            // DiffDirection is required here to choose which lines to
+            // compare - new_ or old_
+            // perhaps need to move to git.rs during sending event
+            // to main (during update)
+            diff.enrich_view(s, txt, &mut self.context);
+        }
+        self.conflicted.replace(diff);
+
+        self.render(txt, RenderSource::Git);
+
+    }
+
     pub fn update_staged(&mut self, mut diff: Diff, txt: &TextView) {
         self.update_screen_line_width(diff.max_line_len);
         if let Some(s) = &mut self.staged {
@@ -646,6 +670,9 @@ impl Status {
         if let Some(untracked) = &mut self.untracked {
             changed = untracked.cursor(line_no, false) || changed;
         }
+        if let Some(conflicted) = &mut self.conflicted {
+            changed = conflicted.cursor(line_no, false) || changed;
+        }
         if let Some(unstaged) = &mut self.unstaged {
             changed = unstaged.cursor(line_no, false) || changed;
         }
@@ -663,6 +690,16 @@ impl Status {
     // Status
     pub fn expand(&mut self, txt: &TextView, line_no: i32, _offset: i32) {
         // let mut changed = false;
+
+        if let Some(conflicted) = &mut self.conflicted {
+            for file in &mut conflicted.files {
+                if let Some(expanded_line) = file.expand(line_no) {
+                    self.render(txt, RenderSource::Expand(expanded_line));
+                    return;
+                }
+            }
+        }
+
         if let Some(unstaged) = &mut self.unstaged {
             for file in &mut unstaged.files {
                 if let Some(expanded_line) = file.expand(line_no) {
@@ -711,6 +748,18 @@ impl Status {
             self.untracked_label
                 .render(&buffer, &mut iter, &mut self.context);
             untracked.render(&buffer, &mut iter, &mut self.context);
+        }
+
+        if let Some(conflicted) = &mut self.conflicted {
+            if conflicted.files.is_empty() {
+                self.conflicted_spacer.view.squashed = true;
+                self.conflicted_label.view.squashed = true;
+            }
+            self.conflicted_spacer
+                .render(&buffer, &mut iter, &mut self.context);
+            self.conflicted_label
+                .render(&buffer, &mut iter, &mut self.context);
+            conflicted.render(&buffer, &mut iter, &mut self.context);
         }
 
         if let Some(unstaged) = &mut self.unstaged {
@@ -821,6 +870,31 @@ impl Status {
                         }
                     });
                     return;
+                }
+            }
+        }
+        if let Some(conflicted) = &self.conflicted {
+            for f in &conflicted.files {
+                for hunk in &f.hunks {
+                    for line in &hunk.lines {
+                        if line.view.current {
+                            if line.origin  == crate::DiffLineType::Addition
+                                ||
+                                line.origin == crate::DiffLineType::Deletion {
+                                    gio::spawn_blocking({                                        
+                                        let path = self.path.clone().unwrap();
+                                        let sender = self.sender.clone();
+                                        let file_path = f.path.clone();
+                                        let hunk_header = hunk.header.clone();
+                                        let origin = line.origin.clone();
+                                        move || {
+                                            resolve_conflict(path, file_path, hunk_header, origin, sender);
+                                        }
+                                    });
+                                    return;
+                            }
+                        }
+                    }
                 }
             }
         }

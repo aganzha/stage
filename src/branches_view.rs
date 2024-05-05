@@ -636,10 +636,19 @@ impl BranchList {
                     crate::merge(repo_path, branch_data, sender)
                 }).await;
 
-                if let Ok(branch_data) = result {
-                    trace!("just merged and this is branch data {:?}", branch_data);
-                    branch_list.update_current_branch(branch_data);
-                    window.close();
+                if let Ok(result) = result {
+                    match result {
+                        Ok(branch_data) => {
+                            trace!("just merged and this is branch data {:?}", branch_data);
+                            branch_list.update_current_branch(branch_data);
+                            window.close();
+                        }
+                        Err(message) => {
+                            // conflicts
+                            // window.close();
+                            crate::display_error(&window, &message);
+                        }
+                    }
                 } else {
                     crate::display_error(&window, "error in merge");
                 }

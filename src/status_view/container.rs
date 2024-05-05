@@ -299,7 +299,8 @@ impl ViewContainer for Diff {
             DiffKind::Staged => {
                 return vec![Tag::Staged]
             },
-            DiffKind::Unstaged => {
+            // TODO! create separate tag for conflicted!
+            DiffKind::Unstaged | DiffKind::Conflicted => {
                 return vec![Tag::Unstaged]
             }
         }
