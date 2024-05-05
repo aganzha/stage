@@ -480,19 +480,54 @@ pub fn get_current_repo_status(
 pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
     debug!("CONFLICTS");
     let repo = Repository::open(path.clone()).expect("can't open repo");
+    let index = repo.index().expect("cant get index");
+    let conflicts = index.conflicts().expect("no conflicts");
+    // let mut paths: Vec<String> = Vec::new();
+    for conflict in conflicts {
+        let conflict = conflict.unwrap();
+        // let ancestor_oid = conflict.ancestor.unwrap().id;
+        // let ancestor_blob = repo.find_blob(ancestor_oid).expect("cant get blob");
+        // let temp_oid = repo.blob_path(path::Path::new("src/TODO.txt")).unwrap();
 
-    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
-    let mut opts = DiffOptions::new();
-    opts.interhunk_lines(3);
-    let git_diff = repo
-        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
-        .expect("can't get diff");
-    let diff = make_diff(&git_diff, DiffKind::Conflicted);
-    // debug!("----------------------------- {:?}", diff);
-    sender
-        .send_blocking(crate::Event::Unstaged(diff))
-        .expect("Could not send through channel");
+        // let work_dir_blob = repo.find_blob(temp_oid).expect("cant get blob");
+        let our_oid = conflict.our.unwrap().id;        
+        let our_blob = repo.find_blob(our_oid).expect("cant get blob");
+        let their_oid = conflict.their.unwrap().id;
+        let their_blob = repo.find_blob(their_oid).expect("cant get blob");
+        debug!("{:?}_________________________ {:?}", our_oid, their_oid);
+        let res = repo.diff_blobs(
+            Some(&our_blob),
+            None,
+            Some(&their_blob),
+            Some("rsc/TODO.txt"),
+            None,
+            None,
+            None,
+            None,
+            Some(&mut |delta, o_hunk_delta, diff_line|{
+                debug!("{:?}....................... {:?}", diff_line.origin_value(), str::from_utf8(diff_line.content()).unwrap());
+                true
+            })
+        );
+        debug!("--------------------> {:?}", res);
+        // let path = conflict.unwrap().ancestor.unwrap().path;
+        // paths.push(String::from_utf8(path).expect("cant get path"));
+    }
+    
+    // let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    // let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    // let mut opts = DiffOptions::new();
+    // opts.interhunk_lines(3);
+    // let git_diff = repo
+    //     .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
+    //     .expect("can't get diff");
+    // let diff = make_diff(&git_diff, DiffKind::Conflicted);
+    // // debug!("----------------------------- {:?}", diff);
+    // sender
+    //     .send_blocking(crate::Event::Unstaged(diff))
+    //     .expect("Could not send through channel");
+
+    
     // let mut untracked = Untracked::new();
     // let _ = git_diff.foreach(
     //     &mut |delta: DiffDelta, _num| {
