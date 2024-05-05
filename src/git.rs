@@ -427,7 +427,42 @@ pub fn get_current_repo_status(
     });
 
     // get unstaged
+    // below line happened while monitors were installed not correctly
+    // (triggered during pull or repo change)
     // Error { code: -1, klass: 2, message: "error reading file for hashing: " }
+
+    // does not work either. nothing changed: same as None
+    // let mut diff_opts = DiffOptions::new();
+    // diff_opts.disable_pathspec_match(true);
+    // diff_opts.pathspec("src/TODO.txt");
+
+    // does not work. got just 1 ConflictDelta instead of 2.
+    // let head_ref = repo.head().expect("can't get head");
+    // assert!(head_ref.is_branch());
+    // let mut index = repo.index().expect("cant get index");
+    // if index.has_conflicts() {
+    //     let conflicts = index.conflicts().expect("no conflicts");
+    //     let mut paths: Vec<String> = Vec::new();
+    //     for conflict in conflicts {
+    //         let path = conflict.unwrap().ancestor.unwrap().path;
+    //         paths.push(String::from_utf8(path).expect("cant get path"));                
+    //     }
+    //     for p in paths {
+    //         index.remove_path(&path::Path::new(&p)).expect("cant remove path from index");
+    //     }
+    // }
+
+    let index = repo.index().expect("cant get index");
+    if index.has_conflicts() {
+        gio::spawn_blocking({
+            let sender = sender.clone();
+            let path = path.clone();
+            move || {
+                get_conflicted(path, sender);
+            }
+        });
+    }
+
     let git_diff = repo
         .diff_index_to_workdir(None, None)
         .expect("cant' get diff index to workdir");
@@ -436,6 +471,10 @@ pub fn get_current_repo_status(
         .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
 
+}
+
+pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
+    debug!("CONFLICTS");
 }
 
 pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
@@ -560,8 +599,13 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
             let status = diff_delta.status();
+            if status == Delta::Conflicted {                
+                if kind == DiffKind::Staged || kind == DiffKind::Unstaged {
+                    return true;
+                }
+            }
             let file: DiffFile = match status {
-                Delta::Modified => diff_delta.new_file(),
+                Delta::Modified | Delta::Conflicted => diff_delta.new_file(),
                 Delta::Deleted => diff_delta.old_file(),
                 Delta::Added => match diff.kind {
                     DiffKind::Staged => diff_delta.new_file(),
@@ -1410,7 +1454,11 @@ pub fn merge(
         let head_ref = repo.head().expect("can't get head");
         assert!(head_ref.is_branch());
 
-        // let index = repo.index().expect("cant get index");
+        let index = repo.index().expect("cant get index");
+        if index.has_conflicts() {
+            // just skip commit as it will panic anyways
+            return;
+        }
         // if index.has_conflicts() {
         //     let conflicts = index.conflicts().expect("no conflicts");
         //     let ob = head_ref
