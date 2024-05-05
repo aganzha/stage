@@ -30,11 +30,11 @@ use git::{
     create_branch, drop_stash, get_branches, get_commit_diff,
     get_current_repo_status, get_directories, kill_branch, merge, pull, push,
     reset_hard, revwalk, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, update_remote, ApplyFilter, ApplySubject, BranchData,
+    track_changes, update_remote, resolve_conflict, ApplyFilter, ApplySubject, BranchData,
     CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
     State, Untracked, UntrackedFile, View
 };
-use git2::Oid;
+use git2::{Oid, DiffLineType};
 mod widgets;
 use widgets::{confirm_dialog_factory, display_error};
 
@@ -365,9 +365,11 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                     status.cursor(&txt, line_no, offset);
                 }
                 Event::Stage(_offset, line_no) => {
+                    info!("main. stage");
                     status.stage(&txt, line_no, ApplySubject::Stage);
                 }
                 Event::UnStage(_offset, line_no) => {
+                    info!("main. unstage");
                     status.stage(&txt, line_no, ApplySubject::Unstage);
                 }
                 Event::Kill(_offset, line_no) => {

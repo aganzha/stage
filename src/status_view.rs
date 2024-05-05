@@ -16,7 +16,7 @@ use std::rc::Rc;
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, pull,
     push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
+    track_changes, resolve_conflict, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
     State, StatusRenderContext, Untracked, View,
 };
 
@@ -761,7 +761,7 @@ impl Status {
                 .render(&buffer, &mut iter, &mut self.context);
             conflicted.render(&buffer, &mut iter, &mut self.context);
         }
-        
+
         if let Some(unstaged) = &mut self.unstaged {
             if unstaged.files.is_empty() {
                 self.unstaged_spacer.view.squashed = true;
@@ -870,6 +870,31 @@ impl Status {
                         }
                     });
                     return;
+                }
+            }
+        }
+        if let Some(conflicted) = &self.conflicted {
+            for f in &conflicted.files {
+                for hunk in &f.hunks {
+                    for line in &hunk.lines {
+                        if line.view.current {
+                            if line.origin  == crate::DiffLineType::Addition
+                                ||
+                                line.origin == crate::DiffLineType::Deletion {
+                                    gio::spawn_blocking({                                        
+                                        let path = self.path.clone().unwrap();
+                                        let sender = self.sender.clone();
+                                        let file_path = f.path.clone();
+                                        let hunk_header = hunk.header.clone();
+                                        let origin = line.origin.clone();
+                                        move || {
+                                            resolve_conflict(path, file_path, hunk_header, origin, sender);
+                                        }
+                                    });
+                                    return;
+                            }
+                        }
+                    }
                 }
             }
         }

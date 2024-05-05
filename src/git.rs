@@ -12,8 +12,11 @@ use git2::{
     Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat, DiffHunk,
     DiffLine, DiffLineType, DiffOptions, Direction, Error, ErrorClass,
     ErrorCode, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
-    Repository, RepositoryState, ResetType, StashFlags, MergeOptions
+    Repository, RepositoryState, ResetType, StashFlags, MergeOptions,
+    IndexEntry
 };
+
+// use libgit2_sys;
 use log::{debug, info, trace};
 use regex::Regex;
 use std::cmp::Ordering;
@@ -1962,4 +1965,49 @@ pub fn revwalk(
         }
     }
     result
+}
+
+
+pub fn resolve_conflict(
+    path: OsString,
+    file_path: OsString,
+    hunk_header: String,
+    origin: DiffLineType,
+    sender: Sender<crate::Event>,
+) {
+    let repo = Repository::open(path.clone()).expect("cant open repo");
+    let mut index = repo.index().expect("cant get index");
+    
+    for entry in index.iter() {
+        debug!(".. {:?} {:?}", entry.flags, String::from_utf8_lossy(&entry.path));
+    }
+    debug!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+
+    let conflicts = index.conflicts().expect("no conflicts");
+    let mut entry: Option<IndexEntry> = None;
+    for conflict in conflicts {
+        let conflict = conflict.unwrap();
+        let mut ours = conflict.our.unwrap();
+        // pub const GIT_INDEX_ENTRY_STAGEMASK: u16 = 0x3000;
+        let stage_flag: u16 = 0x3000;
+        ours.flags = ours.flags & !stage_flag;
+        entry.replace(ours);
+        break;
+        // debug!("-------------------> {:?}", ours);
+        // debug!("{:?}", conflict.their);
+        // debug!("{:?}", conflict.ancestor);
+        // libgit2_sys::git_index_entry_stage
+    }
+    
+    debug!("aaaaaaaaaaaaaaaddd {:?}", entry);
+    index.add(&entry.unwrap()).expect("cant add entry");
+    index.remove(path::Path::new("src/TODO.txt"), 1).expect("cant remove entry");
+    index.remove(path::Path::new("src/TODO.txt"), 2).expect("cant remove entry");
+    index.remove(path::Path::new("src/TODO.txt"), 3).expect("cant remove entry");
+    for entry in index.iter() {
+        debug!(".. {:?} {:?}", entry.flags, String::from_utf8_lossy(&entry.path));
+    }
+    index.write().expect("cant write index");
+    // Index.add_path - will mark file as resolved
+    // now it need somehow organize diff.
 }
