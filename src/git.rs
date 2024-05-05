@@ -1510,7 +1510,7 @@ pub fn merge(
         let index = repo.index().expect("cant get index");
         if index.has_conflicts() {
             // just skip commit as it will panic anyways
-            return false;
+            return true;
         }
 
         let current_branch = Branch::wrap(head_ref);
@@ -1521,7 +1521,7 @@ pub fn merge(
         );
         commit(path.clone(), message, sender.clone());
         repo.cleanup_state().unwrap();
-        true
+        false
     };
 
     let mut has_conflicts = false;
