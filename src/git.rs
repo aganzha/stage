@@ -150,7 +150,7 @@ impl Hunk {
     pub fn title(&self) -> String {
         let parts: Vec<&str> = self.header.split("@@").collect();
         let line_no = match self.kind {
-            DiffKind::Unstaged => self.old_start,
+            DiffKind::Unstaged | DiffKind::Conflicted => self.old_start,
             DiffKind::Staged => self.new_start,
         };
         let scope = parts.last().unwrap();
@@ -224,6 +224,7 @@ impl File {
 pub enum DiffKind {
     Staged,
     Unstaged,
+    Conflicted
 }
 
 #[derive(Debug, Clone)]
@@ -475,6 +476,36 @@ pub fn get_current_repo_status(
 
 pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
     debug!("CONFLICTS");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+
+    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    let mut opts = DiffOptions::new();
+    opts.interhunk_lines(3);
+    let git_diff = repo
+        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
+        .expect("can't get diff");
+    let diff = make_diff(&git_diff, DiffKind::Conflicted);
+    // debug!("----------------------------- {:?}", diff);
+    sender
+        .send_blocking(crate::Event::Unstaged(diff))
+        .expect("Could not send through channel");
+    // let mut untracked = Untracked::new();
+    // let _ = git_diff.foreach(
+    //     &mut |delta: DiffDelta, _num| {
+    //         if delta.status() == Delta::Untracked {
+    //             let path: OsString = delta.new_file().path().unwrap().into();
+    //             untracked.push_file(path);
+    //         }
+    //         true
+    //     },
+    //     None,
+    //     None,
+    //     None,
+    // );
+    // sender
+    //     .send_blocking(crate::Event::Untracked(untracked))
+    //     .expect("Could not send through channel");
 }
 
 pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
@@ -611,6 +642,9 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                     DiffKind::Staged => diff_delta.new_file(),
                     DiffKind::Unstaged => {
                         todo!("delta added in unstaged {:?}", diff_delta)
+                    },
+                    DiffKind::Conflicted => {
+                        todo!("delta added in conflicted {:?}", diff_delta)
                     }
                 },
                 _ => {
