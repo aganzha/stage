@@ -1491,14 +1491,14 @@ pub fn merge(
     path: OsString,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
-) -> BranchData {
+) -> Result<BranchData, String> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let annotated_commit = repo
         .find_annotated_commit(branch_data.oid)
         .expect("cant find commit");
     // let result = repo.merge(&[&annotated_commit], None, None);
 
-    let do_merge = || {
+    let do_merge = || -> bool {
 
         repo.merge(&[&annotated_commit], None, None)
             .expect("cant merge");
@@ -1510,7 +1510,7 @@ pub fn merge(
         let index = repo.index().expect("cant get index");
         if index.has_conflicts() {
             // just skip commit as it will panic anyways
-            return;
+            return false;
         }
 
         let current_branch = Branch::wrap(head_ref);
@@ -1519,10 +1519,13 @@ pub fn merge(
             branch_data.name,
             current_branch.name().unwrap().unwrap()
         );
-        commit(path, message, sender.clone());
+        commit(path.clone(), message, sender.clone());
         repo.cleanup_state().unwrap();
+        true
     };
 
+    let mut has_conflicts = false;
+    
     match repo.merge_analysis(&[&annotated_commit]) {
         Ok((analysis, _)) if analysis.is_up_to_date() => {
             info!("merge.uptodate");
@@ -1534,14 +1537,14 @@ pub fn merge(
         {
             debug!("-----------------------------------> {:?}", analysis);
             info!("merge.fastforward");
-            do_merge();
+            has_conflicts = do_merge();
         }
         Ok((analysis, preference))
             if analysis.is_normal() && !preference.is_fastforward_only() =>
         {
             debug!("-----------------------------------> {:?}", analysis);
             info!("merge.normal");
-            do_merge();
+            has_conflicts = do_merge();
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
@@ -1550,7 +1553,16 @@ pub fn merge(
             panic!("error in merge_analysis {:?}", err.message());
         }
     }
-
+    if has_conflicts {
+        gio::spawn_blocking({
+            let sender = sender.clone();
+            let path = path.clone();
+            move || {
+                get_current_repo_status(Some(path), sender.clone());
+            }
+        });
+        return Err(String::from("Conflicts during merge"));
+    }
     let state = repo.state();
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
@@ -1567,22 +1579,8 @@ pub fn merge(
         .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
 
-    // update staged changes
-    // let tree_ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    // debug!("lets find treeeeeeeeeeeeeeeeeeee {:?}", tree_ob.id());
-    // let current_tree = repo.find_tree(tree_ob.id()).expect("no working tree");
-    // let git_diff = repo
-    //     .diff_tree_to_index(Some(&current_tree), None, None)
-    //     .expect("can't get diff tree to index");
-    // sender
-    //     .send_blocking(crate::Event::Staged(make_diff(
-    //         git_diff,
-    //         DiffKind::Staged,
-    //     )))
-    //     .expect("Could not send through channel");
-
-    BranchData::from_branch(branch, BranchType::Local)
-        .expect("cant get branch")
+    Ok(BranchData::from_branch(branch, BranchType::Local)
+        .expect("cant get branch"))
 }
 
 #[derive(Debug, Clone)]
