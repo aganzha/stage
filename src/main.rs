@@ -96,6 +96,7 @@ pub enum Event {
     Debug,
     OpenRepo(std::ffi::OsString),
     CurrentRepo(std::ffi::OsString),
+    Conflicted(Diff),
     Unstaged(Diff),
     Staged(Diff),
     Head(Head),
@@ -342,6 +343,11 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                         _ => {}
                     }
                     status.update_upstream(h, &txt);
+                }
+                Event::Conflicted(d) => {
+                    info!("main. conflicted");
+                    // hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
+                    status.update_conflicted(d, &txt);
                 }
                 Event::Staged(d) => {
                     info!("main. staged");

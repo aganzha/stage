@@ -2,7 +2,7 @@ use crate::gio;
 // use crate::glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
-
+    
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use ffi::OsString;
 use git2::build::CheckoutBuilder;
@@ -457,31 +457,78 @@ pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
-    // let mut paths: Vec<String> = Vec::new();
+
+    let kind = DiffKind::Conflicted;
+    // why do i need kind on file and on hunk at all???
+    let mut diff = Diff::new(kind.clone());
+    let mut current_file = File::new(kind.clone());
+    let mut current_hunk = Hunk::new(kind.clone());
+
     for conflict in conflicts {
         let conflict = conflict.unwrap();
 
-        let our_oid = conflict.our.unwrap().id;        
+        let our_oid = conflict.our.unwrap().id;
         let our_blob = repo.find_blob(our_oid).expect("cant get blob");
         let their_oid = conflict.their.unwrap().id;
         let their_blob = repo.find_blob(their_oid).expect("cant get blob");
         debug!("{:?}_________________________ {:?}", our_oid, their_oid);
-        let res = repo.diff_blobs(
+        repo.diff_blobs(
             Some(&our_blob),
             None,
             Some(&their_blob),
-            Some("rsc/TODO.txt"),
+            None,
+            Some(DiffOptions::new().reverse(false)),
             None,
             None,
             None,
-            None,
-            Some(&mut |delta, o_hunk_delta, diff_line|{
-                debug!("{:?}....................... {:?}", diff_line.origin_value(), str::from_utf8(diff_line.content()).unwrap());
+            Some(&mut |diff_delta, o_diff_hunk, diff_line|{
+                let file = diff_delta.new_file();
+                if current_file.path.is_empty() {
+                // init new file
+                    current_file = File::from_diff_file(&file, kind.clone());
+                }
+                if current_file.path != file.path().unwrap() {
+                    // go to next file
+                    // push current_hunk to file and init new empty hunk
+                    current_file.push_hunk(current_hunk.clone());
+                    current_hunk = Hunk::new(kind.clone());
+                    // push current_file to diff and change to new file
+                    diff.push_file(current_file.clone());
+                    current_file = File::from_diff_file(&file, kind.clone());
+                }
+                if let Some(diff_hunk) = o_diff_hunk {
+                    let hh = Hunk::get_header_from(&diff_hunk);
+                    if current_hunk.header.is_empty() {
+                        // init hunk
+                        current_hunk.fill_from(&diff_hunk)
+                    }
+                    if current_hunk.header != hh {
+                        // go to next hunk
+                        current_file.push_hunk(current_hunk.clone());
+                        current_hunk = Hunk::new(kind.clone());
+                        current_hunk.fill_from(&diff_hunk)
+                    }
+                    current_hunk.push_line(Line::from_diff_line(&diff_line));
+                } else {
+                    // this is file header line.
+                    let line = Line::from_diff_line(&diff_line);
+                    current_hunk.push_line(line)
+                }
                 true
             })
-        );
+        ).expect("cant compare blobs");
     }
-    
+    if !current_hunk.header.is_empty() {
+        current_file.push_hunk(current_hunk);
+    }
+    if !current_file.path.is_empty() {
+        diff.push_file(current_file);
+    }
+    // debug!("++++++++++++++++++++++++++ {:?}", diff);
+    sender
+        .send_blocking(crate::Event::Conflicted(diff))
+        .expect("Could not send through channel");
+
     // let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
     // let current_tree = repo.find_tree(ob.id()).expect("no working tree");
     // let mut opts = DiffOptions::new();
@@ -494,8 +541,6 @@ pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
     // sender
     //     .send_blocking(crate::Event::Unstaged(diff))
     //     .expect("Could not send through channel");
-
-    
     // let mut untracked = Untracked::new();
     // let _ = git_diff.foreach(
     //     &mut |delta: DiffDelta, _num| {
@@ -637,7 +682,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
             let status = diff_delta.status();
-            if status == Delta::Conflicted {                
+            if status == Delta::Conflicted {
                 if kind == DiffKind::Staged || kind == DiffKind::Unstaged {
                     return true;
                 }
@@ -753,7 +798,7 @@ pub fn stage_via_apply(
             repo.diff_tree_to_index(
                 Some(&current_tree),
                 None,
-                Some(DiffOptions::new().reverse(true)), // reverse!!!
+                Some(DiffOptions::new().reverse(false)), // reverse!!!
             )
             .expect("can't get diff")
         }
@@ -765,7 +810,7 @@ pub fn stage_via_apply(
             // let current_tree =
             //     repo.find_tree(ob.id()).expect("no working tree");
             // problem here: this diff is incorrect, when stage part of file
-            // and want to kill another part. hunks headers are different!           
+            // and want to kill another part. hunks headers are different!
             // repo.diff_tree_to_workdir(
             //     Some(&current_tree),
             //     Some(DiffOptions::new().reverse(true)), // reverse!!!
@@ -773,7 +818,7 @@ pub fn stage_via_apply(
             .expect("can't get diff in kill")
         }
     };
-        
+
     let mut options = ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
@@ -1489,7 +1534,7 @@ pub fn merge(
             // just skip commit as it will panic anyways
             return;
         }
-        
+
         let current_branch = Branch::wrap(head_ref);
         let message = format!(
             "merge branch {} into {}",
