@@ -1981,33 +1981,48 @@ pub fn resolve_conflict(
     for entry in index.iter() {
         debug!(".. {:?} {:?}", entry.flags, String::from_utf8_lossy(&entry.path));
     }
-    debug!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+    debug!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee {:?}", file_path);
 
     let conflicts = index.conflicts().expect("no conflicts");
     let mut entry: Option<IndexEntry> = None;
+    let my_path = "src/TODO.txt";
     for conflict in conflicts {
         let conflict = conflict.unwrap();
-        let mut ours = conflict.our.unwrap();
+        let mut choosed = {
+            // TODO choose side here
+            conflict.our.unwrap()
+        };
+        if String::from_utf8_lossy(&choosed.path) != my_path {
+            continue
+        }
         // pub const GIT_INDEX_ENTRY_STAGEMASK: u16 = 0x3000;
         let stage_flag: u16 = 0x3000;
-        ours.flags = ours.flags & !stage_flag;
-        entry.replace(ours);
+        choosed.flags = choosed.flags & !stage_flag;
+        entry.replace(choosed);
         break;
-        // debug!("-------------------> {:?}", ours);
-        // debug!("{:?}", conflict.their);
-        // debug!("{:?}", conflict.ancestor);
-        // libgit2_sys::git_index_entry_stage
-    }
-    
+    }    
     debug!("aaaaaaaaaaaaaaaddd {:?}", entry);
     index.add(&entry.unwrap()).expect("cant add entry");
-    index.remove(path::Path::new("src/TODO.txt"), 1).expect("cant remove entry");
-    index.remove(path::Path::new("src/TODO.txt"), 2).expect("cant remove entry");
-    index.remove(path::Path::new("src/TODO.txt"), 3).expect("cant remove entry");
+    for stage in 1..4 {
+        index.remove(path::Path::new(my_path), stage).expect("cant remove entry");
+    }
     for entry in index.iter() {
         debug!(".. {:?} {:?}", entry.flags, String::from_utf8_lossy(&entry.path));
     }
     index.write().expect("cant write index");
+    let mut options = DiffOptions::new();
+    options.reverse(true);
+    options.pathspec(my_path);
+    let git_diff = repo
+        .diff_index_to_workdir(Some(&index), Some(&mut options))
+        .expect("cant' get diff index to workdir");
+    repo.apply(&git_diff, ApplyLocation::WorkDir, None)
+        .expect("can't apply patch");
+    get_current_repo_status(Some(path), sender)
+    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
+    // sender
+    //     .send_blocking(crate::Event::Unstaged(diff))
+    //     .expect("Could not send through channel");
     // Index.add_path - will mark file as resolved
     // now it need somehow organize diff.
 }
