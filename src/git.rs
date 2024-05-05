@@ -427,31 +427,6 @@ pub fn get_current_repo_status(
         }
     });
 
-    // get unstaged
-    // below line happened while monitors were installed not correctly
-    // (triggered during pull or repo change)
-    // Error { code: -1, klass: 2, message: "error reading file for hashing: " }
-
-    // does not work either. nothing changed: same as None
-    // let mut diff_opts = DiffOptions::new();
-    // diff_opts.disable_pathspec_match(true);
-    // diff_opts.pathspec("src/TODO.txt");
-
-    // does not work. got just 1 ConflictDelta instead of 2.
-    // let head_ref = repo.head().expect("can't get head");
-    // assert!(head_ref.is_branch());
-    // let mut index = repo.index().expect("cant get index");
-    // if index.has_conflicts() {
-    //     let conflicts = index.conflicts().expect("no conflicts");
-    //     let mut paths: Vec<String> = Vec::new();
-    //     for conflict in conflicts {
-    //         let path = conflict.unwrap().ancestor.unwrap().path;
-    //         paths.push(String::from_utf8(path).expect("cant get path"));                
-    //     }
-    //     for p in paths {
-    //         index.remove_path(&path::Path::new(&p)).expect("cant remove path from index");
-    //     }
-    // }
 
     let index = repo.index().expect("cant get index");
     if index.has_conflicts() {
@@ -485,11 +460,7 @@ pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
     // let mut paths: Vec<String> = Vec::new();
     for conflict in conflicts {
         let conflict = conflict.unwrap();
-        // let ancestor_oid = conflict.ancestor.unwrap().id;
-        // let ancestor_blob = repo.find_blob(ancestor_oid).expect("cant get blob");
-        // let temp_oid = repo.blob_path(path::Path::new("src/TODO.txt")).unwrap();
 
-        // let work_dir_blob = repo.find_blob(temp_oid).expect("cant get blob");
         let our_oid = conflict.our.unwrap().id;        
         let our_blob = repo.find_blob(our_oid).expect("cant get blob");
         let their_oid = conflict.their.unwrap().id;
@@ -509,9 +480,6 @@ pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
                 true
             })
         );
-        debug!("--------------------> {:?}", res);
-        // let path = conflict.unwrap().ancestor.unwrap().path;
-        // paths.push(String::from_utf8(path).expect("cant get path"));
     }
     
     // let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
@@ -659,6 +627,7 @@ impl ApplyFilter {
         }
     }
 }
+
 
 pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let mut diff = Diff::new(kind.clone());
@@ -1471,11 +1440,6 @@ pub fn cherry_pick(
             err.class(),
             err.message()
         );
-        // match err.code() {
-        //     ErrorCode::Conflict => {
-        //         return Err(String::from(""));
-        //     }
-        // }
         return Err(String::from(err.message()));
     }
     debug!("cherry pick could not change the current branch, cause of merge conflict.
@@ -1512,13 +1476,7 @@ pub fn merge(
     // let result = repo.merge(&[&annotated_commit], None, None);
 
     let do_merge = || {
-        // !!! there will be error: merge conflict exists then in expect
-        // let mut merge_opts = MergeOptions::new();
-        // merge_opts.fail_on_conflict(true);
 
-        // !!! nothing changes here. same effect as None
-        // let mut checkout_opts = CheckoutBuilder::new();
-        // let checkout_opts = checkout_opts.safe().allow_conflicts(true);
         repo.merge(&[&annotated_commit], None, None)
             .expect("cant merge");
 
@@ -1531,20 +1489,6 @@ pub fn merge(
             // just skip commit as it will panic anyways
             return;
         }
-        // if index.has_conflicts() {
-        //     let conflicts = index.conflicts().expect("no conflicts");
-        //     let ob = head_ref
-        //         .peel(ObjectType::Commit)
-        //         .expect("can't get commit from ref!");
-        //     let mut paths: Vec<String> = Vec::new();
-        //     for conflict in conflicts {
-        //         let path = conflict.unwrap().ancestor.unwrap().path;
-        //         paths.push(String::from_utf8(path).expect("cant get path"));                
-        //     }
-        //     debug!("reset_default paths on conflicts ++++++++++++++++++++> {:?}", paths);
-        //     repo.reset_default(Some(&ob), paths).expect("cant reset_default");
-        //     return;
-        // }
         
         let current_branch = Branch::wrap(head_ref);
         let message = format!(
