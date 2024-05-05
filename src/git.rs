@@ -823,7 +823,11 @@ pub fn stage_via_apply(
         ApplySubject::Stage | ApplySubject::Unstage => ApplyLocation::Index,
         ApplySubject::Kill => ApplyLocation::WorkDir,
     };
-
+    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
+    // sender
+    //     .send_blocking(crate::Event::Conflicted(diff))
+    //     .expect("Could not send through channel");
+    // debug!("ttttttttttttttttttttttttt {:?}", apply_location);
     repo.apply(&git_diff, apply_location, Some(&mut options))
         .expect("can't apply patch");
 

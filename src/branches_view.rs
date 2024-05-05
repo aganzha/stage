@@ -645,8 +645,8 @@ impl BranchList {
                         }
                         Err(message) => {
                             // conflicts
-                            window.close();
-                            // crate::display_error(&window, &message);
+                            // window.close();
+                            crate::display_error(&window, &message);
                         }
                     }
                 } else {

@@ -1,3 +1,6 @@
+IMPORTANT: merge conflict shows 2 changes, but there is only one!
+           comparining blobs is not correct. not only unmerged hunks are goind to diff!
+BUG: perhaps the same: cant unstage TODO with 1 first line changed
 BUG: after resolvinf to their, changes are in staged and they could not be unstaged!
 TODO: Cherry-pick - it does copy changes but does not create commit (feature?) refresh button does not cleanu state
       feature - add popup while click on state suggest cleanup. 
