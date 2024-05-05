@@ -468,10 +468,11 @@ pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
     let kind = DiffKind::Conflicted;
     // why do i need kind on file and on hunk at all???
     let mut diff = Diff::new(kind.clone());
-    let mut current_file = File::new(kind.clone());
-    let mut current_hunk = Hunk::new(kind.clone());
 
     for conflict in conflicts {
+        let mut current_file = File::new(kind.clone());
+        let mut current_hunk = Hunk::new(kind.clone());
+
         let conflict = conflict.unwrap();
         let our = conflict.our.unwrap();
         let our_oid = our.id;
@@ -496,16 +497,6 @@ pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
                     current_file = File::from_diff_file(&file, kind.clone());
                     current_file.path = our_path.clone().into();
                 }
-                if current_file.path != file.path().unwrap() {
-                    // go to next file
-                    // push current_hunk to file and init new empty hunk
-                    current_file.push_hunk(current_hunk.clone());
-                    current_hunk = Hunk::new(kind.clone());
-                    // push current_file to diff and change to new file
-                    diff.push_file(current_file.clone());
-                    current_file = File::from_diff_file(&file, kind.clone());
-                    current_file.path = our_path.clone().into();
-                }
                 if let Some(diff_hunk) = o_diff_hunk {
                     let hh = Hunk::get_header_from(&diff_hunk);
                     if current_hunk.header.is_empty() {
@@ -527,13 +518,14 @@ pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
                 true
             })
         ).expect("cant compare blobs");
+        if !current_hunk.header.is_empty() {
+            current_file.push_hunk(current_hunk);
+        }
+        if !current_file.path.is_empty() {
+            diff.push_file(current_file);
+        }
     }
-    if !current_hunk.header.is_empty() {
-        current_file.push_hunk(current_hunk);
-    }
-    if !current_file.path.is_empty() {
-        diff.push_file(current_file);
-    }
+
     // debug!("++++++++++++++++++++++++++ {:?}", diff);
     sender
         .send_blocking(crate::Event::Conflicted(diff))
@@ -1975,8 +1967,13 @@ pub fn resolve_conflict(
     for conflict in conflicts {
         let conflict = conflict.unwrap();
         let mut choosed = {
-            // TODO choose side here
-            conflict.their.unwrap()
+            // deletion is our side due to blob diff:
+            // our is old side and merged branch is new side
+            if origin == DiffLineType::Deletion {
+                conflict.our.unwrap()
+            } else {
+                conflict.their.unwrap()
+            }
         };
         if String::from_utf8_lossy(&choosed.path) != my_path {
             continue

@@ -1,3 +1,4 @@
+BUG: after resolvinf to their, changes are in staged and they could not be unstaged!
 TODO: Cherry-pick - it does copy changes but does not create commit (feature?) refresh button does not cleanu state
       feature - add popup while click on state suggest cleanup. 
       
