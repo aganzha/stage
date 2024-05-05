@@ -10,7 +10,7 @@ stack backtrace:
        thread '<unnamed>' panicked at src/git.rs:1009:13:
        assertion failed: opt_status.is_none()
        stack backtrace:
-
+moloko
 TODO: mnemonic!
 BUG: after manipulating branches stashes list is empty, and just feeling of stashes in the log
      dot emacs file also apeared in unstaged, and killing it causeing panic
