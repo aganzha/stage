@@ -443,6 +443,10 @@ pub fn get_current_repo_status(
                 get_conflicted(path, sender);
             }
         });
+    } else {
+        sender
+            .send_blocking(crate::Event::Conflicted(Diff::new(DiffKind::Conflicted)))
+            .expect("Could not send through channel");
     }
 
     let git_diff = repo
@@ -531,35 +535,6 @@ pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
     sender
         .send_blocking(crate::Event::Conflicted(diff))
         .expect("Could not send through channel");
-
-    // let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    // let current_tree = repo.find_tree(ob.id()).expect("no working tree");
-    // let mut opts = DiffOptions::new();
-    // opts.interhunk_lines(3);
-    // let git_diff = repo
-    //     .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
-    //     .expect("can't get diff");
-    // let diff = make_diff(&git_diff, DiffKind::Conflicted);
-    // // debug!("----------------------------- {:?}", diff);
-    // sender
-    //     .send_blocking(crate::Event::Unstaged(diff))
-    //     .expect("Could not send through channel");
-    // let mut untracked = Untracked::new();
-    // let _ = git_diff.foreach(
-    //     &mut |delta: DiffDelta, _num| {
-    //         if delta.status() == Delta::Untracked {
-    //             let path: OsString = delta.new_file().path().unwrap().into();
-    //             untracked.push_file(path);
-    //         }
-    //         true
-    //     },
-    //     None,
-    //     None,
-    //     None,
-    // );
-    // sender
-    //     .send_blocking(crate::Event::Untracked(untracked))
-    //     .expect("Could not send through channel");
 }
 
 pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
@@ -1990,7 +1965,7 @@ pub fn resolve_conflict(
         let conflict = conflict.unwrap();
         let mut choosed = {
             // TODO choose side here
-            conflict.our.unwrap()
+            conflict.their.unwrap()
         };
         if String::from_utf8_lossy(&choosed.path) != my_path {
             continue
