@@ -776,7 +776,14 @@ pub fn stage_via_apply(
             .expect("can't get diff")
         }
         ApplySubject::Kill => {
-            repo.diff_index_to_workdir(None, Some(DiffOptions::new().reverse(true)))
+            // diff_index_to_workdir with reverse does not work: it is empty :(
+            // if index is empty and workdir changed - straight index (reverse=false)
+            // shows unstaged hunk. BUT if reverse - it does show NOTHING for some reason.
+            // why????
+            let mut opts = DiffOptions::new();
+            opts.reverse(true);
+            opts.include_unmodified(true);
+            repo.diff_index_to_workdir(None, Some(&mut opts))
             // reverse doesn work either, it is empty!
             // let ob =
             //     repo.revparse_single("HEAD^{tree}").expect("fail revparse");
@@ -801,7 +808,7 @@ pub fn stage_via_apply(
                 return match filter.subject {
                     ApplySubject::Stage => hunk_header == &header,
                     ApplySubject::Unstage => {
-                        hunk_header == &Hunk::reverse_header(header) // reverse!!!
+                        hunk_header == &Hunk::reverse_header(header)
                     }
                     ApplySubject::Kill => {
                         let reversed = Hunk::reverse_header(header);
@@ -823,11 +830,13 @@ pub fn stage_via_apply(
         ApplySubject::Stage | ApplySubject::Unstage => ApplyLocation::Index,
         ApplySubject::Kill => ApplyLocation::WorkDir,
     };
-    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
+    let diff = make_diff(&git_diff, DiffKind::Unstaged);
+
     // sender
     //     .send_blocking(crate::Event::Conflicted(diff))
     //     .expect("Could not send through channel");
-    // debug!("ttttttttttttttttttttttttt {:?}", apply_location);
+    debug!("APPLY LOCATION {:?}", apply_location);
+
     repo.apply(&git_diff, apply_location, Some(&mut options))
         .expect("can't apply patch");
 
