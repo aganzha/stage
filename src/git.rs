@@ -771,7 +771,7 @@ pub fn stage_via_apply(
             repo.diff_tree_to_index(
                 Some(&current_tree),
                 None,
-                Some(DiffOptions::new().reverse(false)), // reverse!!!
+                Some(DiffOptions::new().reverse(true)), // reverse!!!
             )
             .expect("can't get diff")
         }
