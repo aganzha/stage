@@ -782,6 +782,7 @@ pub fn stage_via_apply(
             // why????
             let mut opts = DiffOptions::new();
             opts.reverse(true);
+            // allow empty chunks!
             opts.include_unmodified(true);
             repo.diff_index_to_workdir(None, Some(&mut opts))
             // reverse doesn work either, it is empty!
@@ -2009,6 +2010,8 @@ pub fn resolve_conflict(
     let mut options = DiffOptions::new();
     options.reverse(true);
     options.pathspec(my_path);
+    // allow empty chunks!
+    options.include_unmodified(true);
     let git_diff = repo
         .diff_index_to_workdir(Some(&index), Some(&mut options))
         .expect("cant' get diff index to workdir");
