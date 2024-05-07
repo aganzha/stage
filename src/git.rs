@@ -440,7 +440,7 @@ pub fn get_current_repo_status(
             let sender = sender.clone();
             let path = path.clone();
             move || {
-                get_conflicted(path, sender);
+                get_conflicted_v1(path, sender);
             }
         });
     } else {
@@ -455,6 +455,31 @@ pub fn get_current_repo_status(
     let diff = make_diff(&git_diff, DiffKind::Unstaged);
     sender
         .send_blocking(crate::Event::Unstaged(diff))
+        .expect("Could not send through channel");
+
+}
+
+pub fn get_conflicted_v1(path: OsString, sender: Sender<crate::Event>) {
+    // so, when file is in conflictduring merge, this means nothing
+    // was staged to that file, cause mergeing in such state is PROHIBITED!
+    // sure? Yes, it must be true!
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let index = repo.index().expect("cant get index");
+    let conflicts = index.conflicts().expect("no conflicts");
+    let mut opts = DiffOptions::new();
+    for conflict in conflicts {
+        let conflict = conflict.unwrap();
+        let our = conflict.our.unwrap();
+        let our_path = String::from_utf8(our.path).unwrap();
+        opts.pathspec(our_path);
+    }
+    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    let git_diff = repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
+        .expect("cant get diff");
+    let diff = make_diff(&git_diff, DiffKind::Conflicted);
+    sender
+        .send_blocking(crate::Event::Conflicted(diff))
         .expect("Could not send through channel");
 
 }
