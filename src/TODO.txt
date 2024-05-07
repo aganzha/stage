@@ -1,3 +1,8 @@
+so. conflicted file should be marked as conflicted - ok (though it could be on unstaged like in magit).
+all other files will be staged, right? and this file must also go to staged... for what?
+unstaging it does what? nothing. why do i need it there? just to unstage. then commit staged changes
+without conflicts? hmm....
+
 see conflicted_v1 - much cleaner.
 BUT! one more thing - conflicted file is not shown on staged!
 thats bad, cause it prevents to commit other staged changes during merge. there is a panic during commit -
