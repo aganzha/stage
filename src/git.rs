@@ -880,6 +880,24 @@ pub fn stage_via_apply(
         .expect("Could not send through channel");
 }
 
+pub fn get_parents_for_commit(repo: &Repository) -> Vec<Commit> {
+    let ob = repo
+        .revparse_single("HEAD^{commit}")
+        .expect("fail revparse");
+    let parent = repo.find_commit(ob.id()).expect("can't find commit");
+    // in case of merging we will have 2 parents!
+    match repo.state() {
+        RepositoryState::Clean => return vec![parent],
+        RepositoryState::Merge => {
+            todo!("merge parents")
+        },
+        _ => {
+            todo!("commit in another state")
+        }
+    }
+}
+
+
 pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
@@ -895,12 +913,22 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
         .write_tree()
         .expect("can't write tree");
     let tree = repo.find_tree(tree_oid).expect("can't find tree");
-    let ob = repo
-        .revparse_single("HEAD^{commit}")
-        .expect("fail revparse");
-    let parent = repo.find_commit(ob.id()).expect("can't find commit");
-    repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&parent])
-        .expect("can't commit");
+    
+    let parents = get_parents_for_commit(&repo);
+    match parents.len() {
+        1 => {
+            repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&parents[0]])
+                .expect("can't commit");
+        },
+        2 => {
+            repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&parents[0], &parents[1]])
+                .expect("can't commit");
+
+        },
+        _ => {
+            todo!("more then 2 parents")
+        }
+    }
 
     // update staged changes
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
