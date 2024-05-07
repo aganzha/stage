@@ -1,3 +1,6 @@
+BUG: state is not updated: when state is Merge and changing it outside of Stage it does not changed.
+     looks like it need to mark it as dirty
+
 BUG: when kill untracked file from magit (when it was visible in stage), it remains visible and even changing repo does not help
 # pull branch whithout remote
 [INFO  stage] toast
