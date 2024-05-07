@@ -1,3 +1,12 @@
+see conflicted_v1 - much cleaner.
+BUT! one more thing - conflicted file is not shown on staged!
+thats bad, cause it prevents to commit other staged changes during merge. there is a panic during commit -
+cant write tree from unmerged index. and it is not possible to unstage it, because it is not in the index!
+it need to show it. just a filename with possibility to unstage!
+also - panic in commit must be shown to user.
+something like unknown error or such.
+
+
 BUG: state is not updated: when state is Merge and changing it outside of Stage it does not changed.
      looks like it need to mark it as dirty
 
@@ -8,6 +17,7 @@ BUG: when kill untracked file from magit (when it was visible in stage), it rema
 thread '<unnamed>' panicked at src/git.rs:966:38:
 called `Result::unwrap()` on an `Err` value: Error { code: -3, klass: 7, message: "config value 'branch.rc-24.2132.remote' was not found" }
 fixed manually: git branch --set-upstream-to=origin/rc-24.2132 rc-24.2132
+
 
 prepare merge commit
 
