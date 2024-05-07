@@ -9,7 +9,7 @@ thread '<unnamed>' panicked at src/git.rs:966:38:
 called `Result::unwrap()` on an `Err` value: Error { code: -3, klass: 7, message: "config value 'branch.rc-24.2132.remote' was not found" }
 fixed manually: git branch --set-upstream-to=origin/rc-24.2132 rc-24.2132
 
-more conflicts!
+prepare merge commit
 
 
 TODO: Cherry-pick - it does copy changes but does not create commit (feature?) refresh button does not cleanu state
