@@ -1240,7 +1240,9 @@ pub fn push(
                 .expect("cant send through channel");
         }
         Err(error) => {
-            panic!("{}", error);
+            sender
+                .send_blocking(crate::Event::Toast(String::from(error.message())))
+                .expect("cant send through channel");
         }
     }
 }
