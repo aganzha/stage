@@ -2043,7 +2043,7 @@ pub fn resolve_conflict_v1(
     // vv --------------------------------------------------------
     // delete whole conflict hunk and store lines which user
     // choosed to later apply them
-    debug!(".........removed conflicted file from index");
+    debug!(".........START removing conflicted file from index");
     index.remove_path(std::path::Path::new(&file_path)).expect("cant remove path");
 
     opts.pathspec(file_path.clone());
@@ -2074,8 +2074,8 @@ pub fn resolve_conflict_v1(
                     let content = String::from(
                         str::from_utf8(dl.content()).unwrap()
                     ).replace("\r\n", "").replace('\n', "");
-                    debug!(".........got reverse header. line: {:?}", &content);
-                    if !collect {
+                    debug!(".........collect {:?} and line in comparison: {:?}", collect, &content);                    
+                    if content.len() >= 3 {
                         match &content[..3] {
                             "<<<" => {
                                 debug!("..start collecting");
@@ -2085,11 +2085,18 @@ pub fn resolve_conflict_v1(
                                 debug!("..stop collecting");
                                 collect = false;
                             }
-                            _ => {}
+                            _ => {
+                                if collect {
+                                    debug!("collect this line!");
+                                    choosed_lines.push_str(&content);
+                                }
+                            }
                         }
                     } else {
-                        debug!("collect this line!");
-                        choosed_lines.push_str(&content);
+                        if collect {
+                            debug!("collect this line!");
+                            choosed_lines.push_str(&content);
+                        }
                     }
                 }
             }
@@ -2131,6 +2138,7 @@ pub fn resolve_conflict_v1(
 
     // vv --------------------------- apply hunk from choosed side
     let our_id = our_id.unwrap();
+    debug!("=========================== {:?}", our_id);
     let tree = repo.find_tree(our_id)
         .expect("no working tree");
 

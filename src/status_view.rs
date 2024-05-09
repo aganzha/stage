@@ -878,9 +878,9 @@ impl Status {
                 for hunk in &f.hunks {
                     for line in &hunk.lines {
                         if line.view.current {
-                            if line.origin  == crate::DiffLineType::Addition
-                                ||
-                                line.origin == crate::DiffLineType::Deletion {
+                            // if line.origin  == crate::DiffLineType::Addition
+                            //     ||
+                            //     line.origin == crate::DiffLineType::Deletion {
                                     gio::spawn_blocking({                                        
                                         let path = self.path.clone().unwrap();
                                         let sender = self.sender.clone();
@@ -892,7 +892,7 @@ impl Status {
                                         }
                                     });
                                     return;
-                            }
+                            // }
                         }
                     }
                 }
