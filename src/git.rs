@@ -2037,7 +2037,7 @@ pub fn resolve_conflict_v1(
             }
         }
     }
-    let current_conflict = current_conflict.unwrap();
+    let mut current_conflict = current_conflict.unwrap();
     let mut index = repo.index().expect("cant get index");
 
     // vv --------------------------------------------------------
@@ -2134,19 +2134,50 @@ pub fn resolve_conflict_v1(
         .expect("can't apply patch");
     // ^^ -----------------------------------------------------
     debug!("..... conflict removed from workdir");
-
+    // NOW. if user choosed our side, this means NOTHING
+    // else todo with this current conflict. changes already were
+    // reverted to our side! next part is valid only if chooser
+    // used THEIR side!
+    
 
     // vv --------------------------- apply hunk from choosed side
-    let our_id = our_id.unwrap();
-    debug!("=========================== {:?}", our_id);
-    let tree = repo.find_tree(our_id)
-        .expect("no working tree");
 
+    // so. it is not possible to find tree from blob.
+    // lets put this blob to index, maybe?
+    let our_entry = current_conflict.our.as_mut().unwrap();
+    let our_original_flags = our_entry.flags;
+
+    debug!(">>>>> flags before {:?}", our_original_flags);
+    our_entry.flags = our_entry.flags & !STAGE_FLAG;
+    debug!(">>>>> flags after mask {:?}", our_entry.flags);
+    
+    index.add(our_entry).expect("cant add entry");
     let mut opts = DiffOptions::new();
     opts.pathspec(file_path.clone());
-    let git_diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut opts))
+    // reverse means index will be NEW side cause we are adding hunk to workdir
+    opts.reverse(true);
+    let git_diff = repo.diff_index_to_workdir(Some(&index), Some(&mut opts))
         .expect("cant get diff");
+    
+    // restore stage flag to conflict again
+    our_entry.flags = our_original_flags;
+    debug!(">>>>> flags after restore {:?}", our_entry.flags);
 
+    // tree comparison does not work, cause our_id is blob, not tree
+    // let our_id = our_id.unwrap();
+    // debug!("=========================== {:?}", our_id);
+    // let tree = repo.find_tree(our_id)
+    //     .expect("no working tree");
+
+    // let mut opts = DiffOptions::new();
+    // opts.pathspec(file_path.clone());
+    // let git_diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut opts))
+    //     .expect("cant get diff");
+    let diff = make_diff(&git_diff, DiffKind::Staged);
+    sender
+        .send_blocking(crate::Event::Staged(diff))
+        .expect("Could not send through channel");
+    
     // vv ~~~~~~~~~~~~~~~~ select hunk header for choosed lines
     let mut hunk_header_to_apply = String::from("");
     let mut current_hunk_header = String::from("");
@@ -2246,6 +2277,9 @@ pub fn resolve_conflict_v1(
     get_conflicted_v1(path, sender);
 }
 
+// this one comes from libgit internals
+// pub const GIT_INDEX_ENTRY_STAGEMASK: u16 = 0x3000;
+pub const STAGE_FLAG: u16 = 0x3000;
 
 pub fn resolve_conflict(
     path: OsString,
@@ -2279,9 +2313,7 @@ pub fn resolve_conflict(
         if String::from_utf8_lossy(&choosed.path) != my_path {
             continue
         }
-        // pub const GIT_INDEX_ENTRY_STAGEMASK: u16 = 0x3000;
-        let stage_flag: u16 = 0x3000;
-        choosed.flags = choosed.flags & !stage_flag;
+        choosed.flags = choosed.flags & !STAGE_FLAG;
         entry.replace(choosed);
         break;
     }
