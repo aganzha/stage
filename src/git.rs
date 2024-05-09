@@ -2,7 +2,7 @@ use crate::gio;
 // use crate::glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
-    
+
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use ffi::OsString;
 use git2::build::CheckoutBuilder;
@@ -13,7 +13,7 @@ use git2::{
     DiffLine, DiffLineType, DiffOptions, Direction, Error, ErrorClass,
     ErrorCode, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
     Repository, RepositoryState, ResetType, StashFlags, MergeOptions,
-    IndexEntry
+    IndexEntry, IndexEntryFlag, IndexConflict
 };
 
 // use libgit2_sys;
@@ -856,12 +856,12 @@ pub fn stage_via_apply(
         ApplySubject::Stage | ApplySubject::Unstage => ApplyLocation::Index,
         ApplySubject::Kill => ApplyLocation::WorkDir,
     };
-    let diff = make_diff(&git_diff, DiffKind::Unstaged);
-
+    // this was for debug
+    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
     // sender
     //     .send_blocking(crate::Event::Conflicted(diff))
     //     .expect("Could not send through channel");
-    debug!("APPLY LOCATION {:?}", apply_location);
+    // debug!("APPLY LOCATION {:?}", apply_location);
 
     repo.apply(&git_diff, apply_location, Some(&mut options))
         .expect("can't apply patch");
@@ -938,7 +938,7 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
         .write_tree()
         .expect("can't write tree");
     let tree = repo.find_tree(tree_oid).expect("can't find tree");
-    
+
     let parents = get_parents_for_commit(&repo);
     match parents.len() {
         1 => {
@@ -1590,7 +1590,7 @@ pub fn merge(
     };
 
     let mut has_conflicts = false;
-    
+
     match repo.merge_analysis(&[&annotated_commit]) {
         Ok((analysis, _)) if analysis.is_up_to_date() => {
             info!("merge.uptodate");
@@ -1606,7 +1606,7 @@ pub fn merge(
                 Ok(conflicts) => has_conflicts = conflicts,
                 Err(message) => return Err(message)
             }
-            
+
         }
         Ok((analysis, preference))
             if analysis.is_normal() && !preference.is_fastforward_only() =>
@@ -1616,7 +1616,7 @@ pub fn merge(
             match do_merge() {
                 Ok(conflicts) => has_conflicts = conflicts,
                 Err(message) => return Err(message)
-            }            
+            }
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
@@ -2021,6 +2021,150 @@ pub fn resolve_conflict_v1(
     sender: Sender<crate::Event>,
 ) {
     debug!("resolve!");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let index = repo.index().expect("cant get index");
+    let conflicts = index.conflicts().expect("no conflicts");
+    let mut opts = DiffOptions::new();
+    let mut current_conflict: Option<IndexConflict> = None;
+    for conflict in conflicts {
+        if let Ok(conflict) = conflict {
+            if let Some(ref our) = conflict.our {
+                if file_path.to_str().unwrap() == String::from_utf8(our.path.clone()).unwrap() {
+                    current_conflict.replace(conflict);
+                }
+            }
+        }
+    }
+    let current_conflict = current_conflict.unwrap();
+    let mut index = repo.index().expect("cant get index");
+    index.remove_path(std::path::Path::new(&file_path)).expect("cant remove path");
+    
+    opts.pathspec(file_path.clone());
+    opts.reverse(true);
+    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    let git_diff = repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
+        .expect("cant get diff");
+
+    let mut options = ApplyOptions::new();
+
+    options.hunk_callback(|odh| -> bool {
+        if let Some(dh) = odh {
+            let header = Hunk::get_header_from(&dh);
+            debug!("hunk callback {:?} {:?} == {:?}", header, Hunk::reverse_header(hunk_header.clone()), header == Hunk::reverse_header(hunk_header.clone()));
+            return header == Hunk::reverse_header(hunk_header.clone())
+        }
+        false
+    });
+    options.delta_callback(|odd| -> bool {
+        if let Some(dd) = odd {
+            let path: OsString = dd.new_file().path().unwrap().into();
+            debug!("delta callback {:?} {:?} {:?}", file_path, path, file_path == path);
+            return file_path == path;
+        }
+        todo!("diff without delta");
+    });
+    // let diff = make_diff(&git_diff, DiffKind::Staged);
+    // sender
+    //     .send_blocking(crate::Event::Staged(diff))
+    //     .expect("Could not send through channel");
+
+    repo.apply(&git_diff, ApplyLocation::WorkDir, Some(&mut options))
+        .expect("can't apply patch");
+
+    
+    // index.add_path(std::path::Path::new(&file_path)).expect("cant add path");
+    // debug!("paaaaaaaaaaaaaaath added!");
+    
+    if let Some(entry) = current_conflict.ancestor {
+        index.add(&entry).expect("cant add ancestor");
+        debug!("ancestor added!");
+    }
+    if let Some(entry) = current_conflict.our {
+        debug!("our added!");
+        index.add(&entry).expect("cant add our");        
+    }
+    if let Some(entry) = current_conflict.their {
+        debug!("their added!");
+        index.add(&entry).expect("cant add their");
+    }
+    index.write().expect("cant write index");
+    // ok, now u have a git diff with exact hunk
+    // why do i need that?
+    // i can kill it in workdir! DO NOT FORGET DISABLE MONITOR!
+    // then i can create a blob from workdir file.
+    // get blob from choosed side of conflict
+    // and compare blobs. it need to setup options
+    // to exctract lines which was choosed by user.
+    // but how? i have only hunk headers....
+    // it need to calculate exact hunk header before apply.
+    // ok, lets go!
+    // lets consider now - Adding - is our side
+    
+    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
+    
+    // let apply_location = ApplyLocation::Index;
+    // let mut index = repo.index().expect("cant get index");
+    // index.add_path(std::path::Path::new(&file_path)).expect("cant add_path");
+    // for entry in index.iter() {
+    //     let path = String::from_utf8(entry.path).expect("cant get path");
+    //     if path == file_path.clone().into_string().unwrap() {
+    //         debug!("yeeeeeeeeeeeeeeah. {:?} {:?}", path, entry.flags);
+    //     }
+    // }
+    // index.write().expect("cant write index");
+    //         // flags does not work  :(
+    //         // let flags = IndexEntryFlag::from_bits(entry.flags);
+    //         // debug!("flags? {:?}", flags);
+    //         // if let Some(flags) = flags {
+    //         //     for flag in flags.iter_names() {
+    //         //         debug!("flag {:?}", flag);
+    //         //     }
+    //         // }
+    //         // debug!("???????????????????");
+    //         // let flags = IndexEntryFlag::from_bits_retain(entry.flags);
+    //         // debug!("flags? {:?}", flags);
+
+    //         // for flag in flags.iter_names() {
+    //         //     debug!("flag name {:?}", flag);
+    //         // }
+    //         // for flag in flags.iter() {
+    //         //     debug!("flag itself {:?}", flag);
+    //         // }
+    //     }
+    // }
+
+    // repo.apply(&git_diff, apply_location, Some(&mut options))
+    //     .expect("can't apply patch");
+
+
+    // gio::spawn_blocking({
+    //     let sender = sender.clone();
+    //     let path = path.clone();
+    //     move || {
+    //         let repo = Repository::open(path).expect("can't open repo");
+    //         let ob =
+    //             repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    //         let current_tree =
+    //             repo.find_tree(ob.id()).expect("no working tree");
+    //         let git_diff = repo
+    //             .diff_tree_to_index(Some(&current_tree), None, None)
+    //             .expect("can't get diff tree to index");
+    //         let diff = make_diff(&git_diff, DiffKind::Staged);
+    //         sender
+    //             .send_blocking(crate::Event::Staged(diff))
+    //             .expect("Could not send through channel");
+    //     }
+    // });
+
+    // // unstaged changes
+    // let git_diff = repo
+    //     .diff_index_to_workdir(None, None)
+    //     .expect("cant get diff_index_to_workdir");
+    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
+    // sender
+    //     .send_blocking(crate::Event::Unstaged(diff))
+    //     .expect("Could not send through channel");
 }
 
 pub fn resolve_conflict(
@@ -2032,7 +2176,7 @@ pub fn resolve_conflict(
 ) {
     let repo = Repository::open(path.clone()).expect("cant open repo");
     let mut index = repo.index().expect("cant get index");
-    
+
     for entry in index.iter() {
         debug!(".. {:?} {:?}", entry.flags, String::from_utf8_lossy(&entry.path));
     }
@@ -2060,7 +2204,7 @@ pub fn resolve_conflict(
         choosed.flags = choosed.flags & !stage_flag;
         entry.replace(choosed);
         break;
-    }    
+    }
     debug!("aaaaaaaaaaaaaaaddd {:?}", entry);
     index.add(&entry.unwrap()).expect("cant add entry");
     for stage in 1..4 {
