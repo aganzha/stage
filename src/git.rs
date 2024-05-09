@@ -2055,7 +2055,7 @@ pub fn resolve_conflict_v1(
 
     debug!(".........reverse header to apply to workdir to delete {:?}", &reversed_header);
 
-    // ~~~~~~~~~~~~~~~~~~ store chosed lines ~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~ store choosed lines ~~~~~~~~~~~~~~~~
     // lets store hunk lines, which will be removed from diff
     let mut choosed_lines = String::from("");
     let mut collect: bool = false;
@@ -2106,8 +2106,8 @@ pub fn resolve_conflict_v1(
             true
         })
     ).expect("cant iter on diff");
-    debug!("~~~~~~~ chosed lines before delete {}", choosed_lines);
-    // ~~~~~~~~~~~~~~~~~~ store chosed lines ~~~~~~~~~~~~~~~~
+    debug!("~~~~~~~ choosed lines before delete: {}", choosed_lines);
+    // ~~~~~~~~~~~~~~~~~~ store choosed lines ~~~~~~~~~~~~~~~~
 
 
     let mut options = ApplyOptions::new();
@@ -2178,14 +2178,13 @@ pub fn resolve_conflict_v1(
 
     debug!("..... choosing hunk to apply for choosed lines");
 
-    git_diff.foreach(
+    let result = git_diff.foreach(
         &mut |_delta: DiffDelta, _num| { // file cb
             true
         },
         None, // binary cb
         None, // hunk cb
         Some(&mut |_delta: DiffDelta, odh: Option<DiffHunk>, dl: DiffLine| {
-            debug!("..iter");
             if let Some(dh) = odh {
                 if !hunk_header_to_apply.is_empty() {
                     // all done
@@ -2217,13 +2216,14 @@ pub fn resolve_conflict_v1(
             }
             true
         })
-    ).expect_err("cant find THEIR hunk to apply");
-
-    
-    // handle case when choosed hunk is last one
-    debug!("++++ outside of loop. found lines {:?}", found_lines);
-    if found_lines == choosed_lines {
-        hunk_header_to_apply = current_hunk_header;
+    );
+    if result.is_ok() {
+        // handle case when choosed hunk is last one
+        assert!(hunk_header_to_apply.is_empty());
+        debug!("++++ outside of loop. found lines {:?}", found_lines);
+        if found_lines == choosed_lines {
+            hunk_header_to_apply = current_hunk_header;
+        }
     }
     if hunk_header_to_apply.is_empty() {
         panic!("cant find header for choosed_lines {:?}", choosed_lines);
