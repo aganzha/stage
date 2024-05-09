@@ -43,12 +43,12 @@ use glib::{clone, ControlFlow};
 use libadwaita::prelude::*;
 use libadwaita::{
     Application, ApplicationWindow, OverlaySplitView, Toast, ToastOverlay,
-    ToolbarStyle, ToolbarView,
+    ToolbarStyle, ToolbarView, Banner
 };
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align,
-    CssProvider, ScrolledWindow, Settings,
+    CssProvider, ScrolledWindow, Settings, Box, Orientation,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
@@ -195,8 +195,13 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
     let mut status =
         Status::new(initial_path, settings.clone(), sender.clone());
 
-    let window = ApplicationWindow::new(app);
-    window.set_default_size(1280, 960);
+    let window = ApplicationWindow::builder()
+        .application(app)
+        .default_width(1280)
+        .default_height(960)
+        //.css_classes(vec!["devel"])
+        .build();
+    // window.set_default_size(1280, 960);
 
     let action_close = gio::SimpleAction::new("close", None);
     action_close.connect_activate(clone!(@weak window => move |_, _| {
@@ -219,14 +224,37 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
 
     let (hb, hb_updater) = headerbar_factory(sender.clone(), settings);
 
+    
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt = textview_factory(sender.clone(), text_view_width.clone());
 
-    let scroll = ScrolledWindow::new();
+
+    let scroll = ScrolledWindow::builder()
+        .vexpand(true)
+        .vexpand_set(true)
+        .hexpand(true)        
+        .hexpand_set(true)
+        .build();
     scroll.set_child(Some(&txt));
 
+    let bx = Box::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .vexpand_set(true)
+        .hexpand_set(true)
+        .orientation(Orientation::Vertical)
+        .build();
+    let banner = Banner::builder()
+        .title("Got conflicts while merging branch master")
+        .css_classes(vec!["error"])
+        .button_label("Abort or Resolve All")
+        .revealed(true)
+        .build();
+    bx.append(&banner);
+    bx.append(&scroll);
+    
     let toast_overlay = ToastOverlay::new();
-    toast_overlay.set_child(Some(&scroll));
+    toast_overlay.set_child(Some(&bx));// scroll
 
     let split = OverlaySplitView::builder()
         .content(&toast_overlay)
