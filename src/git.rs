@@ -2026,10 +2026,12 @@ pub fn resolve_conflict_v1(
     let conflicts = index.conflicts().expect("no conflicts");
     let mut opts = DiffOptions::new();
     let mut current_conflict: Option<IndexConflict> = None;
+    let mut our_id: Option<Oid> = None;
     for conflict in conflicts {
         if let Ok(conflict) = conflict {
             if let Some(ref our) = conflict.our {
                 if file_path.to_str().unwrap() == String::from_utf8(our.path.clone()).unwrap() {
+                    our_id.replace(our.id);
                     current_conflict.replace(conflict);
                 }
             }
@@ -2037,8 +2039,13 @@ pub fn resolve_conflict_v1(
     }
     let current_conflict = current_conflict.unwrap();
     let mut index = repo.index().expect("cant get index");
+
+    // vv --------------------------------------------------------
+    // delete whole conflict hunk and store lines which user
+    // choosed to later apply them
+    debug!(".........removed conflicted file from index");
     index.remove_path(std::path::Path::new(&file_path)).expect("cant remove path");
-    
+
     opts.pathspec(file_path.clone());
     opts.reverse(true);
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
@@ -2046,126 +2053,191 @@ pub fn resolve_conflict_v1(
     let git_diff = repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
 
+    let reversed_header = Hunk::reverse_header(hunk_header.clone());
+
+    debug!(".........reverse header to apply to workdir to delete {:?}", &reversed_header);
+
+    // ~~~~~~~~~~~~~~~~~~ store chosed lines ~~~~~~~~~~~~~~~~
+    // lets store hunk lines, which will be removed from diff
+    let mut choosed_lines = String::from("");
+    let mut collect: bool = false;
+    git_diff.foreach(
+        &mut |delta: DiffDelta, _num| { // file cb
+            true
+        },
+        None, // binary cb
+        None, // hunk cb
+        Some(&mut |_delta: DiffDelta, odh: Option<DiffHunk>, dl: DiffLine| {
+            if let Some(dh) = odh {
+                let header = Hunk::get_header_from(&dh);
+                if header == reversed_header {
+                    let content = String::from(
+                        str::from_utf8(dl.content()).unwrap()
+                    ).replace("\r\n", "").replace('\n', "");
+                    debug!(".........got reverse header. line: {:?}", &content);
+                    if !collect {
+                        match &content[..3] {
+                            "<<<" => {
+                                debug!("..start collecting");
+                                collect = true;
+                            },
+                            "===" => {
+                                debug!("..stop collecting");
+                                collect = false;
+                            }
+                            _ => {}
+                        }
+                    } else {
+                        debug!("collect this line!");
+                        choosed_lines.push_str(&content);
+                    }
+                }
+            }
+            true
+        })
+    ).expect("cant iter on diff");
+    debug!("~~~~~~~ chosed lines before delete {}", choosed_lines);
+    // ~~~~~~~~~~~~~~~~~~ store chosed lines ~~~~~~~~~~~~~~~~
+
+
     let mut options = ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
         if let Some(dh) = odh {
             let header = Hunk::get_header_from(&dh);
-            debug!("hunk callback {:?} {:?} == {:?}", header, Hunk::reverse_header(hunk_header.clone()), header == Hunk::reverse_header(hunk_header.clone()));
-            return header == Hunk::reverse_header(hunk_header.clone())
+            debug!("--apply delete patch. hunk callback {:?} {:?} == {:?}", header, Hunk::reverse_header(hunk_header.clone()), header == Hunk::reverse_header(hunk_header.clone()));
+            return header == reversed_header
         }
         false
     });
     options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
             let path: OsString = dd.new_file().path().unwrap().into();
-            debug!("delta callback {:?} {:?} {:?}", file_path, path, file_path == path);
+            debug!("--apply delete patch. delta callback {:?} {:?} {:?}", file_path, path, file_path == path);
             return file_path == path;
         }
         todo!("diff without delta");
     });
-    // let diff = make_diff(&git_diff, DiffKind::Staged);
-    // sender
-    //     .send_blocking(crate::Event::Staged(diff))
-    //     .expect("Could not send through channel");
+
+
+    sender.send_blocking(crate::Event::LockMonitors(true))
+        .expect("Could not send through channel");
 
     repo.apply(&git_diff, ApplyLocation::WorkDir, Some(&mut options))
         .expect("can't apply patch");
+    // ^^ -----------------------------------------------------
+    debug!("..... conflict removed from workdir");
 
-    
-    // index.add_path(std::path::Path::new(&file_path)).expect("cant add path");
-    // debug!("paaaaaaaaaaaaaaath added!");
-    
+
+    // vv --------------------------- apply hunk from choosed side
+    let our_id = our_id.unwrap();
+    let tree = repo.find_tree(our_id)
+        .expect("no working tree");
+
+    let mut opts = DiffOptions::new();
+    opts.pathspec(file_path.clone());
+    let git_diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut opts))
+        .expect("cant get diff");
+
+    // vv ~~~~~~~~~~~~~~~~ select hunk header for choosed lines
+    let mut hunk_header_to_apply = String::from("");
+    let mut current_hunk_header = String::from("");
+    let mut found_lines = String::from("");
+
+    debug!("..... choosing hunk to apply for choosed lines");
+
+    git_diff.foreach(
+        &mut |_delta: DiffDelta, _num| { // file cb
+            true
+        },
+        None, // binary cb
+        None, // hunk cb
+        Some(&mut |_delta: DiffDelta, odh: Option<DiffHunk>, dl: DiffLine| {
+            if let Some(dh) = odh {
+                if !hunk_header_to_apply.is_empty() {
+                    // all done
+                    debug!("+++ all good. return");
+                    return false;
+                }
+                let header = Hunk::get_header_from(&dh);
+                if header != current_hunk_header {
+                    // handle next header (or first one)
+                    debug!("++++ thats new hunk header and current one {:?} {:?}", header, current_hunk_header);
+                    if found_lines == choosed_lines {
+                        debug!("!!!!!!!!!!!!!!!!!! match!");
+                        hunk_header_to_apply = current_hunk_header.clone();
+                        // all done
+                        return false;
+                    }
+                    debug!("+++ reset found lines");
+                    current_hunk_header = header;
+                    found_lines = String::from("");
+                }
+                let content = String::from(
+                    str::from_utf8(dl.content()).unwrap()
+                ).replace("\r\n", "").replace('\n', "");                
+                found_lines.push_str(&content);
+                debug!("++++ thats current line and total found lines {:?} {:?}", &content, &found_lines)
+            }
+            true
+        })
+    ).expect("cant iter on diff");
+    // handle case when choosed hunk is last one
+    debug!("++++ outside of loop. found lines {:?}", found_lines);
+    if found_lines == choosed_lines {
+        hunk_header_to_apply = current_hunk_header;
+    }
+    if hunk_header_to_apply.is_empty() {
+        panic!("cant find header for choosed_lines {:?}", choosed_lines);
+    }
+    // ^^ ~~~~~~~~~~~~~~~~ select hunk header for choosed lines
+
+    let mut options = ApplyOptions::new();
+
+    options.hunk_callback(|odh| -> bool {
+        if let Some(dh) = odh {
+            let header = Hunk::get_header_from(&dh);
+            debug!("**** apply hunk callback {:?} {:?} == {:?}", header, hunk_header_to_apply, header == hunk_header_to_apply);
+            return header == hunk_header_to_apply
+        }
+        false
+    });
+    options.delta_callback(|odd| -> bool {
+        if let Some(dd) = odd {
+            let path: OsString = dd.new_file().path().unwrap().into();
+            debug!("**** apply delta callback {:?} {:?} {:?}", file_path, path, file_path == path);
+            return file_path == path;
+        }
+        todo!("diff without delta");
+    });
+    repo.apply(&git_diff, ApplyLocation::WorkDir, Some(&mut options))
+        .expect("can't apply patch");
+    // ^^ ----------------------------
+
+
+    sender.send_blocking(crate::Event::LockMonitors(false))
+        .expect("Could not send through channel");
+
+
+    // ------------------------------------------
+    // restore conflict file in index if not all conflicts were resolved
     if let Some(entry) = current_conflict.ancestor {
         index.add(&entry).expect("cant add ancestor");
         debug!("ancestor added!");
     }
     if let Some(entry) = current_conflict.our {
         debug!("our added!");
-        index.add(&entry).expect("cant add our");        
+        index.add(&entry).expect("cant add our");
     }
     if let Some(entry) = current_conflict.their {
         debug!("their added!");
         index.add(&entry).expect("cant add their");
     }
     index.write().expect("cant write index");
-    // ok, now u have a git diff with exact hunk
-    // why do i need that?
-    // i can kill it in workdir! DO NOT FORGET DISABLE MONITOR!
-    // then i can create a blob from workdir file.
-    // get blob from choosed side of conflict
-    // and compare blobs. it need to setup options
-    // to exctract lines which was choosed by user.
-    // but how? i have only hunk headers....
-    // it need to calculate exact hunk header before apply.
-    // ok, lets go!
-    // lets consider now - Adding - is our side
-    
-    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
-    
-    // let apply_location = ApplyLocation::Index;
-    // let mut index = repo.index().expect("cant get index");
-    // index.add_path(std::path::Path::new(&file_path)).expect("cant add_path");
-    // for entry in index.iter() {
-    //     let path = String::from_utf8(entry.path).expect("cant get path");
-    //     if path == file_path.clone().into_string().unwrap() {
-    //         debug!("yeeeeeeeeeeeeeeah. {:?} {:?}", path, entry.flags);
-    //     }
-    // }
-    // index.write().expect("cant write index");
-    //         // flags does not work  :(
-    //         // let flags = IndexEntryFlag::from_bits(entry.flags);
-    //         // debug!("flags? {:?}", flags);
-    //         // if let Some(flags) = flags {
-    //         //     for flag in flags.iter_names() {
-    //         //         debug!("flag {:?}", flag);
-    //         //     }
-    //         // }
-    //         // debug!("???????????????????");
-    //         // let flags = IndexEntryFlag::from_bits_retain(entry.flags);
-    //         // debug!("flags? {:?}", flags);
-
-    //         // for flag in flags.iter_names() {
-    //         //     debug!("flag name {:?}", flag);
-    //         // }
-    //         // for flag in flags.iter() {
-    //         //     debug!("flag itself {:?}", flag);
-    //         // }
-    //     }
-    // }
-
-    // repo.apply(&git_diff, apply_location, Some(&mut options))
-    //     .expect("can't apply patch");
-
-
-    // gio::spawn_blocking({
-    //     let sender = sender.clone();
-    //     let path = path.clone();
-    //     move || {
-    //         let repo = Repository::open(path).expect("can't open repo");
-    //         let ob =
-    //             repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    //         let current_tree =
-    //             repo.find_tree(ob.id()).expect("no working tree");
-    //         let git_diff = repo
-    //             .diff_tree_to_index(Some(&current_tree), None, None)
-    //             .expect("can't get diff tree to index");
-    //         let diff = make_diff(&git_diff, DiffKind::Staged);
-    //         sender
-    //             .send_blocking(crate::Event::Staged(diff))
-    //             .expect("Could not send through channel");
-    //     }
-    // });
-
-    // // unstaged changes
-    // let git_diff = repo
-    //     .diff_index_to_workdir(None, None)
-    //     .expect("cant get diff_index_to_workdir");
-    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
-    // sender
-    //     .send_blocking(crate::Event::Unstaged(diff))
-    //     .expect("Could not send through channel");
+    // ^^ -------------------------------------------
+    get_conflicted_v1(path, sender);
 }
+
 
 pub fn resolve_conflict(
     path: OsString,
