@@ -1,3 +1,16 @@
+so. after adding file to index during resolving all changes come to index. patch could not be applied.
+and conflicts are resolved! i do not want to resolve them yet!
+what it need to do! choose what the user is selected. there are 2 cases:
+ - he edited file manually - and there is nothing to choose from :( all changes must be applied in that hunk.
+   but how to apply? it does not needed. just display it, it is already applied by the user!
+   
+ - he did not edited file - just choose either ours or theirs. in this case only part of hunk should be applied!
+how to do that? directly: when prepairing conflict hunk track markers. all lines between markers must be
+supplied with original origin. if user choosed that origin - get the conflict. match hunks line by line with choosed
+origin. if matched - apply that to workdir. but how????
+
+finally: llok for the markers. if all markers are gone - stage that file!
+
 just a text
 
 also, just for info - apply to workdir panics when conflicts are not resolved!
