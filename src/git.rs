@@ -261,6 +261,10 @@ impl Diff {
             self.files.push(file);
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        return self.files.is_empty()
+    }
 }
 
 #[derive(Debug, Clone)]
