@@ -2013,6 +2013,16 @@ pub fn revwalk(
 }
 
 
+pub fn resolve_conflict_v1(
+    path: OsString,
+    file_path: OsString,
+    hunk_header: String,
+    origin: DiffLineType,
+    sender: Sender<crate::Event>,
+) {
+    debug!("resolve!");
+}
+
 pub fn resolve_conflict(
     path: OsString,
     file_path: OsString,
