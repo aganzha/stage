@@ -1,7 +1,9 @@
+use async_channel::Sender;
 use libadwaita::prelude::*;
 use libadwaita::{
     MessageDialog, ResponseAppearance,
 };
+use log::{debug};
 
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
@@ -51,4 +53,9 @@ pub fn confirm_dialog_factory(
         ResponseAppearance::Suggested,
     );
     dialog
+}
+
+
+pub fn merge_dialog_factory(_window: &impl IsA<Gtk4Window>, _sender: Sender<crate::Event>) {
+    debug!("cliiiiiiiiiiiiiiiick");
 }

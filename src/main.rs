@@ -36,7 +36,7 @@ use git::{
 };
 use git2::{Oid, DiffLineType};
 mod widgets;
-use widgets::{confirm_dialog_factory, display_error};
+use widgets::{confirm_dialog_factory, display_error, merge_dialog_factory};
 
 use gdk::Display;
 use glib::{clone, ControlFlow};
@@ -245,16 +245,13 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
         .orientation(Orientation::Vertical)
         .build();
     let banner = Banner::builder()
-        // .title("Got conflicts while merging branch master")
-        // .css_classes(vec!["error"])
-        // .button_label("Abort or Resolve All")
         .revealed(false)
         .build();
     let revealer = banner.last_child().unwrap();
     let gizmo = revealer.last_child().unwrap();
     let banner_button = gizmo.last_child().unwrap();
-    // banner_button.set_css_classes(&vec!["destructive-action"]);
-
+    let banner_button_handler_id = banner.connect_button_clicked(|_| {});
+    let banner_button_clicked = RefCell::new(Some(banner_button_handler_id));
     bx.append(&banner);
     bx.append(&scroll);
 
@@ -387,6 +384,16 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                             banner.set_button_label(Some("Abort or Resolve All"));
                             banner_button.set_css_classes(&vec!["destructive-action"]);
                             banner.set_revealed(true);
+                            if let Some(handler_id) = banner_button_clicked.take() {
+                                banner.disconnect(handler_id);
+                            }
+                            banner.connect_button_clicked({
+                                let sender = sender.clone();
+                                let window = window.clone();
+                                move |_| {
+                                    merge_dialog_factory(&window, sender.clone());
+                                }
+                            });
                         }
                     }
                     status.update_conflicted(d, &txt);
