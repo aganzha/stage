@@ -1,3 +1,13 @@
+next thing to do with resolve:
+- introduce IF to ours/theirs in resolve (don not apply theirs if ours is chosen)
+- introduce new line field ours/theirs
+- fill this field in conflicted only according to markers
+- paint lines according to that field
+- pass this field as argument to resolve
+- if conflicted present - show red banner with abort button if new field is present
+- show green banner with stage button if no field is present
+- implement abort and stage-conflicted buttons
+
 so. after adding file to index during resolving all changes come to index. patch could not be applied.
 and conflicts are resolved! i do not want to resolve them yet!
 what it need to do! choose what the user is selected. there are 2 cases:
