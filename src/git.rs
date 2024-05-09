@@ -2026,12 +2026,10 @@ pub fn resolve_conflict_v1(
     let conflicts = index.conflicts().expect("no conflicts");
     let mut opts = DiffOptions::new();
     let mut current_conflict: Option<IndexConflict> = None;
-    let mut our_id: Option<Oid> = None;
     for conflict in conflicts {
         if let Ok(conflict) = conflict {
             if let Some(ref our) = conflict.our {
                 if file_path.to_str().unwrap() == String::from_utf8(our.path.clone()).unwrap() {
-                    our_id.replace(our.id);
                     current_conflict.replace(conflict);
                 }
             }
@@ -2078,10 +2076,15 @@ pub fn resolve_conflict_v1(
                     if content.len() >= 3 {
                         match &content[..3] {
                             "<<<" => {
-                                debug!("..start collecting");
-                                collect = true;
+                                debug!("..start collecting OUR SIDE");
+                                // collect = true;
                             },
                             "===" => {
+                                debug!("..stop collecting OR start collecting THEIR side");
+                                // collect = false;
+                                collect = true;
+                            }
+                            ">>>" => {
                                 debug!("..stop collecting");
                                 collect = false;
                             }
@@ -2144,14 +2147,14 @@ pub fn resolve_conflict_v1(
 
     // so. it is not possible to find tree from blob.
     // lets put this blob to index, maybe?
-    let our_entry = current_conflict.our.as_mut().unwrap();
-    let our_original_flags = our_entry.flags;
+    let their_entry = current_conflict.their.as_mut().unwrap();
+    let their_original_flags = their_entry.flags;
 
-    debug!(">>>>> flags before {:?}", our_original_flags);
-    our_entry.flags = our_entry.flags & !STAGE_FLAG;
-    debug!(">>>>> flags after mask {:?}", our_entry.flags);
+    debug!(">>>>> flags before {:?}", their_original_flags);
+    their_entry.flags = their_entry.flags & !STAGE_FLAG;
+    debug!(">>>>> flags after mask {:?}", their_entry.flags);
     
-    index.add(our_entry).expect("cant add entry");
+    index.add(their_entry).expect("cant add entry");
     let mut opts = DiffOptions::new();
     opts.pathspec(file_path.clone());
     // reverse means index will be NEW side cause we are adding hunk to workdir
@@ -2160,23 +2163,13 @@ pub fn resolve_conflict_v1(
         .expect("cant get diff");
     
     // restore stage flag to conflict again
-    our_entry.flags = our_original_flags;
-    debug!(">>>>> flags after restore {:?}", our_entry.flags);
+    their_entry.flags = their_original_flags;
+    debug!(">>>>> flags after restore {:?}", their_entry.flags);
 
-    // tree comparison does not work, cause our_id is blob, not tree
-    // let our_id = our_id.unwrap();
-    // debug!("=========================== {:?}", our_id);
-    // let tree = repo.find_tree(our_id)
-    //     .expect("no working tree");
-
-    // let mut opts = DiffOptions::new();
-    // opts.pathspec(file_path.clone());
-    // let git_diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut opts))
-    //     .expect("cant get diff");
-    let diff = make_diff(&git_diff, DiffKind::Staged);
-    sender
-        .send_blocking(crate::Event::Staged(diff))
-        .expect("Could not send through channel");
+    // let diff = make_diff(&git_diff, DiffKind::Staged);
+    // sender
+    //     .send_blocking(crate::Event::Staged(diff))
+    //     .expect("Could not send through channel");
     
     // vv ~~~~~~~~~~~~~~~~ select hunk header for choosed lines
     let mut hunk_header_to_apply = String::from("");
@@ -2192,6 +2185,7 @@ pub fn resolve_conflict_v1(
         None, // binary cb
         None, // hunk cb
         Some(&mut |_delta: DiffDelta, odh: Option<DiffHunk>, dl: DiffLine| {
+            debug!("..iter");
             if let Some(dh) = odh {
                 if !hunk_header_to_apply.is_empty() {
                     // all done
@@ -2206,21 +2200,26 @@ pub fn resolve_conflict_v1(
                         debug!("!!!!!!!!!!!!!!!!!! match!");
                         hunk_header_to_apply = current_hunk_header.clone();
                         // all done
+                        debug!("allllllllllllll done");
                         return false;
                     }
                     debug!("+++ reset found lines");
                     current_hunk_header = header;
                     found_lines = String::from("");
                 }
-                let content = String::from(
-                    str::from_utf8(dl.content()).unwrap()
-                ).replace("\r\n", "").replace('\n', "");                
-                found_lines.push_str(&content);
-                debug!("++++ thats current line and total found lines {:?} {:?}", &content, &found_lines)
+                if dl.origin_value() == origin {
+                    let content = String::from(
+                        str::from_utf8(dl.content()).unwrap()
+                    ).replace("\r\n", "").replace('\n', "");                
+                    found_lines.push_str(&content);
+                    debug!("++++ thats current line and total found lines {:?} {:?}", &content, &found_lines)
+                }
             }
             true
         })
-    ).expect("cant iter on diff");
+    ).expect_err("cant find THEIR hunk to apply");
+
+    
     // handle case when choosed hunk is last one
     debug!("++++ outside of loop. found lines {:?}", found_lines);
     if found_lines == choosed_lines {
@@ -2257,6 +2256,8 @@ pub fn resolve_conflict_v1(
     sender.send_blocking(crate::Event::LockMonitors(false))
         .expect("Could not send through channel");
 
+    // remove from index again to restore conflict
+    index.remove_path(std::path::Path::new(&file_path)).expect("cant remove path");
 
     // ------------------------------------------
     // restore conflict file in index if not all conflicts were resolved
