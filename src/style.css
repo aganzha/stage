@@ -10,3 +10,7 @@ row:selected {
 banner.error revealer widget {
     background-color: #fbf0f3;
 }
+/* banner.error button { */
+/*     background-color:  @destructive_bg_color; */
+/*     color: @destructive_fg_color; */
+/* } */

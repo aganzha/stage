@@ -224,7 +224,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
 
     let (hb, hb_updater) = headerbar_factory(sender.clone(), settings);
 
-    
+
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt = textview_factory(sender.clone(), text_view_width.clone());
 
@@ -232,7 +232,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
     let scroll = ScrolledWindow::builder()
         .vexpand(true)
         .vexpand_set(true)
-        .hexpand(true)        
+        .hexpand(true)
         .hexpand_set(true)
         .build();
     scroll.set_child(Some(&txt));
@@ -245,16 +245,21 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
         .orientation(Orientation::Vertical)
         .build();
     let banner = Banner::builder()
-        .title("Got conflicts while merging branch master")
-        .css_classes(vec!["error"])
-        .button_label("Abort or Resolve All")
-        .revealed(true)
+        // .title("Got conflicts while merging branch master")
+        // .css_classes(vec!["error"])
+        // .button_label("Abort or Resolve All")
+        .revealed(false)
         .build();
+    let revealer = banner.last_child().unwrap();
+    let gizmo = revealer.last_child().unwrap();
+    let banner_button = gizmo.last_child().unwrap();
+    // banner_button.set_css_classes(&vec!["destructive-action"]);
+
     bx.append(&banner);
     bx.append(&scroll);
-    
+
     let toast_overlay = ToastOverlay::new();
-    toast_overlay.set_child(Some(&bx));// scroll
+    toast_overlay.set_child(Some(&bx));// scroll bs bx
 
     let split = OverlaySplitView::builder()
         .content(&toast_overlay)
@@ -375,6 +380,15 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 Event::Conflicted(d) => {
                     info!("main. conflicted");
                     // hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
+                    if !d.is_empty() {
+                        if !banner.is_revealed() {
+                            banner.set_title("Got conflicts while merging branch master");
+                            banner.set_css_classes(&vec!["error"]);
+                            banner.set_button_label(Some("Abort or Resolve All"));
+                            banner_button.set_css_classes(&vec!["destructive-action"]);
+                            banner.set_revealed(true);
+                        }
+                    }
                     status.update_conflicted(d, &txt);
                 }
                 Event::Staged(d) => {
