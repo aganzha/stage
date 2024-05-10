@@ -416,6 +416,8 @@ pub fn get_current_repo_status(
                 .expect("Could not send through channel");
         }
     });
+    // TODO! not need to call stashes every time when status is required!
+    // call it just once on app start!
     // get stashes
     gio::spawn_blocking({
         let sender = sender.clone();
@@ -2018,14 +2020,9 @@ pub fn revwalk(
 
 pub fn abort_merge(path: OsString, sender: Sender<crate::Event>) {
     info!("git.abort merge");
+    
     let repo = Repository::open(path.clone()).expect("can't open repo");
-    let head_ref = repo.head().expect("can't get head");
-    assert!(head_ref.is_branch());
-    let ob = head_ref
-        .peel(ObjectType::Commit)
-        .expect("can't get commit from ref!");
-    repo.reset(&ob, ResetType::Soft, None)
-        .expect("cant reset soft");
+
     let mut index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
     let mut our_entries: Vec<IndexEntry> = Vec::new();
@@ -2036,12 +2033,33 @@ pub fn abort_merge(path: OsString, sender: Sender<crate::Event>) {
             }
         }
     }
+    let mut paths: HashSet<String> = HashSet::new();
     for mut entry in our_entries {
         let path = String::from_utf8(entry.path.clone()).unwrap();
         index.remove_path(std::path::Path::new(&path)).expect("cant remove path");
+        paths.insert(path);
         entry.flags = entry.flags & !STAGE_FLAG;
         index.add(&entry).expect("cant add entry");
     }
+    index.write().expect("cant write index");
+
+    repo.cleanup_state().expect("cant cleanup_state");
+
+
+    let head_ref = repo.head().expect("can't get head");
+    assert!(head_ref.is_branch());
+    let ob = head_ref
+        .peel(ObjectType::Commit)
+        .expect("can't get commit from ref!");
+
+    let mut checkout_builder = CheckoutBuilder::new();
+
+    for path in paths {
+        checkout_builder.path(path);
+    }
+    repo.reset(&ob, ResetType::Hard, Some(&mut checkout_builder))
+        .expect("cant reset hard");
+
     get_current_repo_status(Some(path), sender);
 }
 
