@@ -191,7 +191,7 @@ impl Hunk {
             }
             return LineKind::None;
         }
-
+        debug!(":::::::::::::::::::::::::::::::: {:?}. prev line kind {:?}", line.content, prev_line_kind);
         if line.content.len() >= 7 {
             match &line.content[..7] {
                 MARKER_OURS | MARKER_THEIRS | MARKER_VS => {
@@ -203,17 +203,18 @@ impl Hunk {
 
         let marker_ours = String::from(MARKER_OURS);
         let marker_vs = String::from(MARKER_VS);
+        let marker_theirs = String::from(MARKER_THEIRS);
         
         match (prev_line_kind, &line.kind) {            
-            (LineKind::Marker(marker_ours), LineKind::None) => {
-                debug!("sec match. ours after ours MARKER");
+            (LineKind::Marker(marker), LineKind::None) if marker == marker_ours => {
+                debug!("sec match. ours after ours MARKER ??????????? {:?}", marker_ours);
                 line.kind = LineKind::Ours
             }
             (LineKind::Ours, LineKind::None) => {
-                debug!("sec match. ours after ours LINEx");
+                debug!("sec match. ours after ours LINE");
                 line.kind = LineKind::Ours
             }
-            (LineKind::Marker(marker_vs), LineKind::None) => {
+            (LineKind::Marker(marker), LineKind::None) if marker == marker_vs => {
                 debug!("sec match. theirs after vs MARKER");
                 line.kind = LineKind::Theirs
             }
@@ -226,6 +227,9 @@ impl Hunk {
             }
             (prev, LineKind::Marker(m)) => {
                 debug!("sec match. pass this marker {:?}", m);
+            }
+            (LineKind::Marker(marker), LineKind::None) if marker == marker_theirs => {
+                debug!("sec match. finish prev their marker {:?}", marker);
             }
             (prev, this) => {
                 // debug!("................ {:?}", LineKind::Marker(marker_ours));
@@ -242,6 +246,9 @@ impl Hunk {
                 self.lines.push(line)
             }
         }
+        debug!("........return this_kind {:?}", this_kind);
+        debug!("");
+        debug!("");
         this_kind
     }
 }
@@ -732,10 +739,12 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                 let hh = Hunk::get_header_from(&diff_hunk);
                 if current_hunk.header.is_empty() {
                     // init hunk
+                    prev_line_kind = LineKind::None;
                     current_hunk.fill_from(&diff_hunk)
                 }
                 if current_hunk.header != hh {
                     // go to next hunk
+                    prev_line_kind = LineKind::None;
                     current_file.push_hunk(current_hunk.clone());
                     current_hunk = Hunk::new(kind.clone());
                     current_hunk.fill_from(&diff_hunk)
