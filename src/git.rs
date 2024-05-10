@@ -44,7 +44,7 @@ pub enum LineKind {
     None,
     Ours,
     Theirs,
-    Marker
+    Marker(String)
 }
 
 #[derive(Debug, Clone)]
@@ -178,10 +178,61 @@ impl Hunk {
         }
     }
 
-    pub fn push_line(&mut self, line: Line) {
-        // if self.kind == DiffKind.Conflicted && !line.content.is_empty() {
-        //     if line.content
-        // }
+    pub fn push_line(&mut self, mut line: Line, prev_line_kind: LineKind) -> LineKind {
+        if self.kind != DiffKind::Conflicted {
+            match line.origin {
+                DiffLineType::FileHeader
+                    | DiffLineType::HunkHeader
+                    | DiffLineType::Binary => {}
+                _ => {
+                    self.handle_max(&line.content);
+                    self.lines.push(line)
+                }
+            }
+            return LineKind::None;
+        }
+
+        if line.content.len() >= 7 {
+            match &line.content[..7] {
+                MARKER_OURS | MARKER_THEIRS | MARKER_VS => {
+                    line.kind = LineKind::Marker(String::from(&line.content[..7]));
+                }
+                _ => {}                    
+            }
+        }
+
+        let marker_ours = String::from(MARKER_OURS);
+        let marker_vs = String::from(MARKER_VS);
+        
+        match (prev_line_kind, &line.kind) {            
+            (LineKind::Marker(marker_ours), LineKind::None) => {
+                debug!("sec match. ours after ours MARKER");
+                line.kind = LineKind::Ours
+            }
+            (LineKind::Ours, LineKind::None) => {
+                debug!("sec match. ours after ours LINEx");
+                line.kind = LineKind::Ours
+            }
+            (LineKind::Marker(marker_vs), LineKind::None) => {
+                debug!("sec match. theirs after vs MARKER");
+                line.kind = LineKind::Theirs
+            }
+            (LineKind::Theirs, LineKind::None) => {
+                debug!("sec match. theirs after theirs LINE");
+                line.kind = LineKind::Theirs
+            }
+            (LineKind::None, LineKind::None) => {
+                debug!("sec match. contenxt????")
+            }
+            (prev, LineKind::Marker(m)) => {
+                debug!("sec match. pass this marker {:?}", m);
+            }
+            (prev, this) => {
+                // debug!("................ {:?}", LineKind::Marker(marker_ours));
+                panic!("whats the case in markers? {:?} {:?}", prev, this)
+            }
+        }
+        let this_kind = line.kind.clone();
         match line.origin {
             DiffLineType::FileHeader
             | DiffLineType::HunkHeader
@@ -191,6 +242,7 @@ impl Hunk {
                 self.lines.push(line)
             }
         }
+        this_kind
     }
 }
 
@@ -507,79 +559,6 @@ pub fn get_conflicted_v1(path: OsString, sender: Sender<crate::Event>) {
 
 }
 
-pub fn get_conflicted(path: OsString, sender: Sender<crate::Event>) {
-    debug!("CONFLICTS");
-    let repo = Repository::open(path.clone()).expect("can't open repo");
-    let index = repo.index().expect("cant get index");
-    let conflicts = index.conflicts().expect("no conflicts");
-
-    let kind = DiffKind::Conflicted;
-    // why do i need kind on file and on hunk at all???
-    let mut diff = Diff::new(kind.clone());
-
-    for conflict in conflicts {
-        let mut current_file = File::new(kind.clone());
-        let mut current_hunk = Hunk::new(kind.clone());
-
-        let conflict = conflict.unwrap();
-        let our = conflict.our.unwrap();
-        let our_oid = our.id;
-        let our_path = String::from_utf8(our.path).unwrap();
-        let our_blob = repo.find_blob(our_oid).expect("cant get blob");
-        let their_oid = conflict.their.unwrap().id;
-        let their_blob = repo.find_blob(their_oid).expect("cant get blob");
-
-        repo.diff_blobs(
-            Some(&our_blob),
-            None,
-            Some(&their_blob),
-            None,
-            Some(DiffOptions::new().reverse(false)),
-            None,
-            None,
-            None,
-            Some(&mut |diff_delta, o_diff_hunk, diff_line|{
-                let file = diff_delta.new_file();
-                if current_file.path.is_empty() {
-                // init new file
-                    current_file = File::from_diff_file(&file, kind.clone());
-                    current_file.path = our_path.clone().into();
-                }
-                if let Some(diff_hunk) = o_diff_hunk {
-                    let hh = Hunk::get_header_from(&diff_hunk);
-                    if current_hunk.header.is_empty() {
-                        // init hunk
-                        current_hunk.fill_from(&diff_hunk)
-                    }
-                    if current_hunk.header != hh {
-                        // go to next hunk
-                        current_file.push_hunk(current_hunk.clone());
-                        current_hunk = Hunk::new(kind.clone());
-                        current_hunk.fill_from(&diff_hunk)
-                    }
-                    current_hunk.push_line(Line::from_diff_line(&diff_line));
-                } else {
-                    // this is file header line.
-                    let line = Line::from_diff_line(&diff_line);
-                    current_hunk.push_line(line)
-                }
-                true
-            })
-        ).expect("cant compare blobs");
-        if !current_hunk.header.is_empty() {
-            current_file.push_hunk(current_hunk);
-        }
-        if !current_file.path.is_empty() {
-            diff.push_file(current_file);
-        }
-    }
-
-    // debug!("++++++++++++++++++++++++++ {:?}", diff);
-    sender
-        .send_blocking(crate::Event::Conflicted(diff))
-        .expect("Could not send through channel");
-}
-
 pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut opts = DiffOptions::new();
@@ -699,6 +678,8 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let mut diff = Diff::new(kind.clone());
     let mut current_file = File::new(kind.clone());
     let mut current_hunk = Hunk::new(kind.clone());
+    let mut prev_line_kind = LineKind::None;
+    
     let _res = git_diff.print(
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
@@ -759,11 +740,11 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                     current_hunk = Hunk::new(kind.clone());
                     current_hunk.fill_from(&diff_hunk)
                 }
-                current_hunk.push_line(Line::from_diff_line(&diff_line));
+                prev_line_kind = current_hunk.push_line(Line::from_diff_line(&diff_line), prev_line_kind.clone());
             } else {
                 // this is file header line.
                 let line = Line::from_diff_line(&diff_line);
-                current_hunk.push_line(line)
+                prev_line_kind = current_hunk.push_line(line, prev_line_kind.clone())
             }
 
             true
@@ -1629,7 +1610,7 @@ pub fn merge(
             }
         });
     };
-    
+
     match repo.merge_analysis(&[&annotated_commit]) {
         Ok((analysis, _)) if analysis.is_up_to_date() => {
             info!("merge.uptodate");
@@ -1639,7 +1620,7 @@ pub fn merge(
             if analysis.is_fast_forward()
                 && !preference.is_no_fast_forward() =>
         {
-            debug!("-----------------------------------> {:?}", analysis);
+            trace!("-----------------------------------> {:?}", analysis);
             info!("merge.fastforward");
             match do_merge() {
                 Ok(true) => {
@@ -1658,7 +1639,7 @@ pub fn merge(
         Ok((analysis, preference))
             if analysis.is_normal() && !preference.is_fastforward_only() =>
         {
-            debug!("-----------------------------------> {:?}", analysis);
+            trace!("-----------------------------------> {:?}", analysis);
             info!("merge.normal");
             match do_merge() {
                 Ok(true) => {
@@ -2064,10 +2045,10 @@ pub fn revwalk(
 
 pub fn abort_merge(path: OsString, sender: Sender<crate::Event>) {
     info!("git.abort merge");
-    
+
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut checkout_builder = CheckoutBuilder::new();
-    
+
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
     let mut has_conflicts = false;
@@ -2087,7 +2068,7 @@ pub fn abort_merge(path: OsString, sender: Sender<crate::Event>) {
     let ob = head_ref
         .peel(ObjectType::Commit)
         .expect("can't get commit from ref!");
-    
+
     repo.reset(&ob, ResetType::Hard, Some(&mut checkout_builder))
         .expect("cant reset hard");
 
@@ -2109,7 +2090,7 @@ pub fn resolve_conflict_v1(
     let mut current_conflict: Option<IndexConflict> = None;
     for conflict in conflicts {
         if let Ok(conflict) = conflict {
-            if let Some(ref our) = conflict.our {    
+            if let Some(ref our) = conflict.our {
                 if file_path.to_str().unwrap() == String::from_utf8(our.path.clone()).unwrap() {
                     current_conflict.replace(conflict);
                 }
@@ -2153,7 +2134,7 @@ pub fn resolve_conflict_v1(
                     let content = String::from(
                         str::from_utf8(dl.content()).unwrap()
                     ).replace("\r\n", "").replace('\n', "");
-                    debug!(".........collect {:?} and line in comparison: {:?}", collect, &content);                    
+                    debug!(".........collect {:?} and line in comparison: {:?}", collect, &content);
                     if content.len() >= 3 {
                         match &content[..3] {
                             "<<<" => {
@@ -2222,7 +2203,7 @@ pub fn resolve_conflict_v1(
     // else todo with this current conflict. changes already were
     // reverted to our side! next part is valid only if chooser
     // used THEIR side!
-    
+
 
     // vv --------------------------- apply hunk from choosed side
 
@@ -2234,7 +2215,7 @@ pub fn resolve_conflict_v1(
     debug!(">>>>> flags before {:?}", their_original_flags);
     their_entry.flags = their_entry.flags & !STAGE_FLAG;
     debug!(">>>>> flags after mask {:?}", their_entry.flags);
-    
+
     index.add(their_entry).expect("cant add entry");
     let mut opts = DiffOptions::new();
     opts.pathspec(file_path.clone());
@@ -2242,7 +2223,7 @@ pub fn resolve_conflict_v1(
     opts.reverse(true);
     let git_diff = repo.diff_index_to_workdir(Some(&index), Some(&mut opts))
         .expect("cant get diff");
-    
+
     // restore stage flag to conflict again
     their_entry.flags = their_original_flags;
     debug!(">>>>> flags after restore {:?}", their_entry.flags);
@@ -2251,7 +2232,7 @@ pub fn resolve_conflict_v1(
     // sender
     //     .send_blocking(crate::Event::Staged(diff))
     //     .expect("Could not send through channel");
-    
+
     // vv ~~~~~~~~~~~~~~~~ select hunk header for choosed lines
     let mut hunk_header_to_apply = String::from("");
     let mut current_hunk_header = String::from("");
@@ -2290,7 +2271,7 @@ pub fn resolve_conflict_v1(
                 if dl.origin_value() == origin {
                     let content = String::from(
                         str::from_utf8(dl.content()).unwrap()
-                    ).replace("\r\n", "").replace('\n', "");                
+                    ).replace("\r\n", "").replace('\n', "");
                     found_lines.push_str(&content);
                     debug!("++++ thats current line and total found lines {:?} {:?}", &content, &found_lines)
                 }
