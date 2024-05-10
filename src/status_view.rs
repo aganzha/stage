@@ -16,7 +16,7 @@ use std::rc::Rc;
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, pull,
     push, reset_hard, stage_untracked, stage_via_apply, stash_changes, merge_dialog_factory,
-    track_changes, resolve_conflict, resolve_conflict_v1, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
+    track_changes, abort_merge, resolve_conflict_v1, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
     State, StatusRenderContext, Untracked, View, OURS, THEIRS, ABORT, PROCEED
 };
 
@@ -649,16 +649,22 @@ impl Status {
                 banner.connect_button_clicked({
                     let sender = sender.clone();
                     let window = window.clone();
+                    let path = self.path.clone();
                     move |_| {
                         glib::spawn_future_local({
                             let window = window.clone();
                             let sender = sender.clone();
+                            let path = path.clone();
                             async move {
                                 let dialog = merge_dialog_factory(&window, sender.clone());
                                 let response = dialog.choose_future().await;                                
                                 match response.as_str() {
                                     ABORT => {
-                                        debug!("=============> abort");
+                                        gio::spawn_blocking({
+                                            move || {
+                                                abort_merge(path.expect("no path"), sender);
+                                            }
+                                        });
                                     }
                                     OURS => {
                                         debug!("=============> ours");
