@@ -36,7 +36,7 @@ use git::{
 };
 use git2::{Oid, DiffLineType};
 mod widgets;
-use widgets::{confirm_dialog_factory, display_error, merge_dialog_factory};
+use widgets::{confirm_dialog_factory, display_error, merge_dialog_factory, OURS, THEIRS, ABORT, PROCEED};
 
 use gdk::Display;
 use glib::{clone, ControlFlow};
@@ -251,7 +251,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
     let gizmo = revealer.last_child().unwrap();
     let banner_button = gizmo.last_child().unwrap();
     let banner_button_handler_id = banner.connect_button_clicked(|_| {});
-    let banner_button_clicked = RefCell::new(Some(banner_button_handler_id));
+    let banner_button_clicked = Rc::new(RefCell::new(Some(banner_button_handler_id)));
     bx.append(&banner);
     bx.append(&scroll);
 
@@ -376,27 +376,14 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Conflicted(d) => {
                     info!("main. conflicted");
-                    // hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
-                    if !d.is_empty() {
-                        if !banner.is_revealed() {
-                            banner.set_title("Got conflicts while merging branch master");
-                            banner.set_css_classes(&vec!["error"]);
-                            banner.set_button_label(Some("Abort or Resolve All"));
-                            banner_button.set_css_classes(&vec!["destructive-action"]);
-                            banner.set_revealed(true);
-                            if let Some(handler_id) = banner_button_clicked.take() {
-                                banner.disconnect(handler_id);
-                            }
-                            banner.connect_button_clicked({
-                                let sender = sender.clone();
-                                let window = window.clone();
-                                move |_| {
-                                    merge_dialog_factory(&window, sender.clone());
-                                }
-                            });
-                        }
-                    }
-                    status.update_conflicted(d, &txt);
+                    // hb_updater(HbUpdateData::Staged(!d.files.is_empty()));                    
+                    status.update_conflicted(d,
+                                             &txt,
+                                             &window,
+                                             sender.clone(),
+                                             &banner,
+                                             &banner_button,
+                                             banner_button_clicked.clone());
                 }
                 Event::Staged(d) => {
                     info!("main. staged");
