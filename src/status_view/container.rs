@@ -456,6 +456,13 @@ impl ViewContainer for Line {
             LineKind::Marker(_) => {
                 return vec![Tag::ConflictMarker]
             }
+            LineKind::Ours => {
+                return vec![Tag::Ours]
+            }
+            LineKind::Theirs => {
+                // return Vec::new();
+                return vec![Tag::Theirs]
+            }
             _ => {}
         }
         match self.origin {
