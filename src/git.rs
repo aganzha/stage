@@ -36,7 +36,6 @@ pub struct View {
     pub transfered: bool,
     pub tags: Vec<String>,
     pub markup: bool,
-    pub hidden: bool,
 }
 
 #[derive(Debug, Clone)]
