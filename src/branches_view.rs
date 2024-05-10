@@ -635,18 +635,20 @@ impl BranchList {
                 let result = gio::spawn_blocking(move || {
                     crate::merge(repo_path, branch_data, sender)
                 }).await;
-
+                trace!("outer error for merge {:?}", &result);
                 if let Ok(result) = result {
+                    trace!("inner error for merge {:?}", &result);
                     match result {
                         Ok(branch_data) => {
                             trace!("just merged and this is branch data {:?}", branch_data);
                             branch_list.update_current_branch(branch_data);
                             window.close();
+                        }                        
+                        Err(crate::MergeError::Conflicts) => {
+                            window.close();
                         }
-                        Err(message) => {
-                            // conflicts
-                            // window.close();
-                            crate::display_error(&window, &message);
+                        Err(crate::MergeError::Analisys(message)) => {
+                            crate::display_error(&window, &message);                            
                         }
                     }
                 } else {

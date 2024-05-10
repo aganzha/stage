@@ -23,6 +23,7 @@ use std::cmp::Ordering;
 //use std::time::SystemTime;
 use std::{collections::HashSet, env, ffi, path, str};
 
+
 #[derive(Debug, Clone)]
 pub struct View {
     pub line_no: i32,
@@ -39,12 +40,21 @@ pub struct View {
 }
 
 #[derive(Debug, Clone)]
+pub enum LineKind {
+    None,
+    Ours,
+    Theirs,
+    Marker
+}
+
+#[derive(Debug, Clone)]
 pub struct Line {
     pub view: View,
     pub origin: DiffLineType,
     pub content: String,
     pub new_line_no: Option<u32>,
     pub old_line_no: Option<u32>,
+    pub kind: LineKind
 }
 
 impl Line {
@@ -57,6 +67,7 @@ impl Line {
             content: String::from(str::from_utf8(l.content()).unwrap())
                 .replace("\r\n", "")
                 .replace('\n', ""),
+            kind: LineKind::None
         };
     }
     pub fn hash(&self) -> String {
@@ -65,6 +76,10 @@ impl Line {
         format!("{}{:?}", self.content, self.origin)
     }
 }
+
+pub const MARKER_OURS: &str = "<<<<<<<";
+pub const MARKER_VS: &str = "=======";
+pub const MARKER_THEIRS: &str = ">>>>>>>";
 
 #[derive(Debug, Clone)]
 pub struct Hunk {
@@ -164,6 +179,9 @@ impl Hunk {
     }
 
     pub fn push_line(&mut self, line: Line) {
+        // if self.kind == DiffKind.Conflicted && !line.content.is_empty() {
+        //     if line.content
+        // }
         match line.origin {
             DiffLineType::FileHeader
             | DiffLineType::HunkHeader
@@ -1554,11 +1572,17 @@ pub fn cherry_pick(
         .expect("cant get branch"))
 }
 
+#[derive(Debug, Clone)]
+pub enum MergeError {
+    Conflicts,
+    Analisys(String)
+}
+
 pub fn merge(
     path: OsString,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
-) -> Result<BranchData, String> {
+) -> Result<BranchData, MergeError> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let annotated_commit = repo
         .find_annotated_commit(branch_data.oid)
@@ -1596,6 +1620,16 @@ pub fn merge(
 
     let mut has_conflicts = false;
 
+    let refresh_status = || {
+        gio::spawn_blocking({
+            let sender = sender.clone();
+            let path = path.clone();
+            move || {
+                get_current_repo_status(Some(path), sender.clone());
+            }
+        });
+    };
+    
     match repo.merge_analysis(&[&annotated_commit]) {
         Ok((analysis, _)) if analysis.is_up_to_date() => {
             info!("merge.uptodate");
@@ -1608,8 +1642,16 @@ pub fn merge(
             debug!("-----------------------------------> {:?}", analysis);
             info!("merge.fastforward");
             match do_merge() {
-                Ok(conflicts) => has_conflicts = conflicts,
-                Err(message) => return Err(message)
+                Ok(true) => {
+                    has_conflicts = true;
+                    debug!("retirning after do merge 0");
+                    refresh_status();
+                    return Err(MergeError::Conflicts)
+                },
+                Ok(false) => {
+                    has_conflicts = false
+                }
+                Err(message) => return Err(MergeError::Analisys(message))
             }
 
         }
@@ -1619,8 +1661,16 @@ pub fn merge(
             debug!("-----------------------------------> {:?}", analysis);
             info!("merge.normal");
             match do_merge() {
-                Ok(conflicts) => has_conflicts = conflicts,
-                Err(message) => return Err(message)
+                Ok(true) => {
+                    has_conflicts = true;
+                    debug!("retirning after do merge 1");
+                    refresh_status();
+                    return Err(MergeError::Conflicts)
+                }
+                Ok(false) => {
+                    has_conflicts = false;
+                }
+                Err(message) => return Err(MergeError::Analisys(message))
             }
         }
         Ok((analysis, preference)) => {
@@ -1631,14 +1681,9 @@ pub fn merge(
         }
     }
     if has_conflicts {
-        gio::spawn_blocking({
-            let sender = sender.clone();
-            let path = path.clone();
-            move || {
-                get_current_repo_status(Some(path), sender.clone());
-            }
-        });
-        return Err(String::from("Conflicts during merge"));
+        panic!("----------------> whats the case? where is other returns?");
+        refresh_status();
+        return Err(MergeError::Conflicts);
     }
     let state = repo.state();
     let head_ref = repo.head().expect("can't get head");

@@ -32,7 +32,7 @@ use git::{
     reset_hard, revwalk, stage_untracked, stage_via_apply, stash_changes,
     track_changes, update_remote, abort_merge, resolve_conflict_v1, ApplyFilter, ApplySubject, BranchData,
     CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
-    State, Untracked, UntrackedFile, View
+    State, Untracked, UntrackedFile, View, MergeError
 };
 use git2::{Oid, DiffLineType};
 mod widgets;
