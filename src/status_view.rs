@@ -15,9 +15,9 @@ use std::rc::Rc;
 
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, pull,
-    push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
+    push, reset_hard, stage_untracked, stage_via_apply, stash_changes, merge_dialog_factory,
     track_changes, resolve_conflict, resolve_conflict_v1, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
-    State, StatusRenderContext, Untracked, View,
+    State, StatusRenderContext, Untracked, View, OURS, THEIRS, ABORT, PROCEED
 };
 
 use async_channel::Sender;
@@ -25,14 +25,16 @@ use async_channel::Sender;
 use gio::{
     Cancellable, File, FileMonitor, FileMonitorEvent, FileMonitorFlags,
 };
-use glib::clone;
+
 use gtk4::prelude::*;
 use gtk4::{
     gio, glib, Box, Label as GtkLabel, ListBox, Orientation, SelectionMode,
-    TextBuffer, TextView,
+    TextBuffer, TextView, Widget
 };
+use glib::clone;
+use glib::signal::SignalHandlerId;
 use libadwaita::prelude::*;
-use libadwaita::{ApplicationWindow, EntryRow, PasswordEntryRow, SwitchRow}; // _Window,
+use libadwaita::{ApplicationWindow, EntryRow, PasswordEntryRow, SwitchRow, Banner}; // _Window,
 use log::{debug, trace};
 
 use std::ffi::OsString;
@@ -617,7 +619,15 @@ impl Status {
         self.render(txt, RenderSource::Git);
     }
 
-    pub fn update_conflicted(&mut self, mut diff: Diff, txt: &TextView) {
+    pub fn update_conflicted(&mut self,
+                             mut diff: Diff,
+                             txt: &TextView,
+                             window: &ApplicationWindow,
+                             sender: Sender<Event>,
+                             banner: &Banner,
+                             banner_button: &Widget,
+                             banner_button_clicked: Rc<RefCell<Option<SignalHandlerId>>>
+    ) {
         self.update_screen_line_width(diff.max_line_len);
         if let Some(s) = &mut self.conflicted {
             // DiffDirection is required here to choose which lines to
@@ -626,10 +636,48 @@ impl Status {
             // to main (during update)
             diff.enrich_view(s, txt, &mut self.context);
         }
+        if !diff.is_empty() {
+            if !banner.is_revealed() {
+                banner.set_title("Got conflicts while merging branch master");
+                banner.set_css_classes(&vec!["error"]);
+                banner.set_button_label(Some("Abort or Resolve All"));
+                banner_button.set_css_classes(&vec!["destructive-action"]);
+                banner.set_revealed(true);
+                if let Some(handler_id) = banner_button_clicked.take() {
+                    banner.disconnect(handler_id);
+                }
+                banner.connect_button_clicked({
+                    let sender = sender.clone();
+                    let window = window.clone();
+                    move |_| {
+                        glib::spawn_future_local({
+                            let window = window.clone();
+                            let sender = sender.clone();
+                            async move {
+                                let dialog = merge_dialog_factory(&window, sender.clone());
+                                let response = dialog.choose_future().await;                                
+                                match response.as_str() {
+                                    ABORT => {
+                                        debug!("=============> abort");
+                                    }
+                                    OURS => {
+                                        debug!("=============> ours");
+                                    }
+                                    THEIRS => {
+                                        debug!("=============> theirs");
+                                    }
+                                    _ => {
+                                        debug!("=============> proceed");
+                                    }
+                                }
+                            }
+                        });                        
+                    }
+                });
+            }
+        }
         self.conflicted.replace(diff);
-
-        self.render(txt, RenderSource::Git);
-
+        self.render(txt, RenderSource::Git);        
     }
 
     pub fn update_staged(&mut self, mut diff: Diff, txt: &TextView) {
