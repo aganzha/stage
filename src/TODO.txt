@@ -1,4 +1,5 @@
 next thing to do with resolve:
+- lets try color font instead of background1
 - introduce IF to ours/theirs in resolve (don not apply theirs if ours is chosen)
 - introduce new line field ours/theirs
 - fill this field in conflicted only according to markers

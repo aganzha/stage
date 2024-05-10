@@ -201,7 +201,7 @@ pub trait ViewContainer {
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
-        debug!("!! erase one signgle view at buffer line > {:?}. orig view line {:?}", line_no, original_line_no);
+        trace!("!! erase one signgle view at buffer line > {:?}. orig view line {:?}", line_no, original_line_no);
         self.render(&buffer, &mut iter, context);
     }
 

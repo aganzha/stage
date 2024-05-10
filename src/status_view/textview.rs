@@ -42,22 +42,22 @@ impl Tag {
             }
             Self::Added => {
                 let tt = self.new_tag();
-                tt.set_background(Some("#ebfcf1"));
+                tt.set_foreground(Some("#2ec27e")); // background #ebfcf1
                 tt
             }
             Self::EnhancedAdded => {
                 let tt = self.new_tag();
-                tt.set_background(Some("#d3fae1"));
+                tt.set_foreground(Some("#26a269"));// background #d3fae1. gnome green #26a269
                 tt
             }
             Self::Removed => {
                 let tt = self.new_tag();
-                tt.set_background(Some("#fbf0f3"));
+                tt.set_foreground(Some("#c01c28")); // background fbf0f3
                 tt
             }
             Self::EnhancedRemoved => {
                 let tt = self.new_tag();
-                tt.set_background(Some("#f4c3d0"));
+                tt.set_foreground(Some("#a51d2d")); // background #f4c3d0
                 tt
             }
             Self::Cursor => {
