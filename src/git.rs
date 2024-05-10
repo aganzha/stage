@@ -44,7 +44,7 @@ pub enum LineKind {
     None,
     Ours,
     Theirs,
-    Marker(String)
+    ConflictMarker(String)
 }
 
 #[derive(Debug, Clone)]
@@ -195,7 +195,7 @@ impl Hunk {
         if line.content.len() >= 7 {
             match &line.content[..7] {
                 MARKER_OURS | MARKER_THEIRS | MARKER_VS => {
-                    line.kind = LineKind::Marker(String::from(&line.content[..7]));
+                    line.kind = LineKind::ConflictMarker(String::from(&line.content[..7]));
                 }
                 _ => {}                    
             }
@@ -206,7 +206,7 @@ impl Hunk {
         let marker_theirs = String::from(MARKER_THEIRS);
         
         match (prev_line_kind, &line.kind) {            
-            (LineKind::Marker(marker), LineKind::None) if marker == marker_ours => {
+            (LineKind::ConflictMarker(marker), LineKind::None) if marker == marker_ours => {
                 debug!("sec match. ours after ours MARKER ??????????? {:?}", marker_ours);
                 line.kind = LineKind::Ours
             }
@@ -214,7 +214,7 @@ impl Hunk {
                 debug!("sec match. ours after ours LINE");
                 line.kind = LineKind::Ours
             }
-            (LineKind::Marker(marker), LineKind::None) if marker == marker_vs => {
+            (LineKind::ConflictMarker(marker), LineKind::None) if marker == marker_vs => {
                 debug!("sec match. theirs after vs MARKER");
                 line.kind = LineKind::Theirs
             }
@@ -225,14 +225,14 @@ impl Hunk {
             (LineKind::None, LineKind::None) => {
                 debug!("sec match. contenxt????")
             }
-            (prev, LineKind::Marker(m)) => {
+            (prev, LineKind::ConflictMarker(m)) => {
                 debug!("sec match. pass this marker {:?}", m);
             }
-            (LineKind::Marker(marker), LineKind::None) if marker == marker_theirs => {
+            (LineKind::ConflictMarker(marker), LineKind::None) if marker == marker_theirs => {
                 debug!("sec match. finish prev their marker {:?}", marker);
             }
             (prev, this) => {
-                // debug!("................ {:?}", LineKind::Marker(marker_ours));
+                // debug!("................ {:?}", LineKind::ConflictMarker(marker_ours));
                 panic!("whats the case in markers? {:?} {:?}", prev, this)
             }
         }

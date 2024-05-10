@@ -453,7 +453,7 @@ impl ViewContainer for Line {
     // Line
     fn tags(&self) -> Vec<Tag> {
         match self.kind {
-            LineKind::Marker(_) => {
+            LineKind::ConflictMarker(_) => {
                 return vec![Tag::ConflictMarker]
             }
             LineKind::Ours => {
