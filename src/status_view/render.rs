@@ -6,7 +6,6 @@ use std::collections::HashSet;
 
 
 pub enum ViewState {
-    Hidden,
     RenderedInPlace,
     Deleted,
     NotRendered,
@@ -30,7 +29,6 @@ impl crate::View {
             transfered: false,
             tags: Vec::new(),
             markup: false,
-            hidden: false,
         }
     }
     pub fn new_markup() -> Self {
@@ -118,10 +116,6 @@ impl crate::View {
             self.line_no
         );
         match self.get_state_for(line_no) {
-            ViewState::Hidden => {
-                trace!("skip hidden view");
-                return self;
-            }
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
                 iter.forward_lines(1);
@@ -280,9 +274,7 @@ impl crate::View {
     }
 
     fn get_state_for(&self, line_no: i32) -> ViewState {
-        if self.hidden {
-            return ViewState::Hidden;
-        }
+
         if self.is_rendered_in(line_no) {
             return ViewState::RenderedInPlace;
         }

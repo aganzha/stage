@@ -636,7 +636,12 @@ impl Status {
             // to main (during update)
             diff.enrich_view(s, txt, &mut self.context);
         }
-        if !diff.is_empty() {
+        if diff.is_empty() {
+            if banner.is_revealed() {
+                banner.set_revealed(false);
+            }
+        }
+        else {
             if !banner.is_revealed() {
                 banner.set_title("Got conflicts while merging branch master");
                 banner.set_css_classes(&vec!["error"]);

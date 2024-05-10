@@ -183,6 +183,7 @@ pub trait ViewContainer {
         // and also put there prev_line length!
         let view = self.get_view();
         let mut line_no = view.line_no;
+        let original_line_no = view.line_no;
         if let Some(ctx) = context {
             if let Some(ec) = ctx.erase_counter {
                 line_no -= ec;
@@ -190,7 +191,6 @@ pub trait ViewContainer {
         }
         view.squashed = true;
         view.child_dirty = true;
-        trace!("erasing ......{:?}", &view);
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let view = vc.get_view();
             view.squashed = true;
@@ -201,7 +201,7 @@ pub trait ViewContainer {
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
-        trace!("erase one signgle view at line > {:?}", line_no);
+        debug!("!! erase one signgle view at buffer line > {:?}. orig view line {:?}", line_no, original_line_no);
         self.render(&buffer, &mut iter, context);
     }
 
