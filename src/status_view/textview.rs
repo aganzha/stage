@@ -85,17 +85,17 @@ impl Tag {
             }
             Self::ConflictMarker => {
                 let tt = self.new_tag();
-                tt.set_foreground(Some("#e5a50a"));
+                tt.set_foreground(Some("#ff0000")); //  orange
                 tt
             }
             Self::Theirs => {
                 let tt = self.new_tag();
-                tt.set_foreground(Some("#813d9c"));
+                tt.set_foreground(Some("#2ec27e")); // "#813d9c" magenta
                 tt
             }
             Self::Ours => {
                 let tt = self.new_tag();
-                tt.set_foreground(Some("#1a5fb4"));
+                tt.set_foreground(Some("#2ec27e")); // "#1a5fb4" blue
                 tt
             }
 
