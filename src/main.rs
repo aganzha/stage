@@ -30,7 +30,7 @@ use git::{
     create_branch, drop_stash, get_branches, get_commit_diff,
     get_current_repo_status, get_directories, kill_branch, merge, pull, push,
     reset_hard, revwalk, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, update_remote, resolve_conflict, resolve_conflict_v1, ApplyFilter, ApplySubject, BranchData,
+    track_changes, update_remote, abort_merge, resolve_conflict_v1, ApplyFilter, ApplySubject, BranchData,
     CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
     State, Untracked, UntrackedFile, View
 };

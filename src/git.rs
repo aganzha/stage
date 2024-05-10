@@ -2016,6 +2016,34 @@ pub fn revwalk(
     result
 }
 
+pub fn abort_merge(path: OsString, sender: Sender<crate::Event>) {
+    info!("git.abort merge");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let head_ref = repo.head().expect("can't get head");
+    assert!(head_ref.is_branch());
+    let ob = head_ref
+        .peel(ObjectType::Commit)
+        .expect("can't get commit from ref!");
+    repo.reset(&ob, ResetType::Soft, None)
+        .expect("cant reset soft");
+    let mut index = repo.index().expect("cant get index");
+    let conflicts = index.conflicts().expect("no conflicts");
+    let mut our_entries: Vec<IndexEntry> = Vec::new();
+    for conflict in conflicts {
+        if let Ok(conflict) = conflict {
+            if let Some(our) = conflict.our {
+                our_entries.push(our);
+            }
+        }
+    }
+    for mut entry in our_entries {
+        let path = String::from_utf8(entry.path.clone()).unwrap();
+        index.remove_path(std::path::Path::new(&path)).expect("cant remove path");
+        entry.flags = entry.flags & !STAGE_FLAG;
+        index.add(&entry).expect("cant add entry");
+    }
+    get_current_repo_status(Some(path), sender);
+}
 
 pub fn resolve_conflict_v1(
     path: OsString,
@@ -2032,7 +2060,7 @@ pub fn resolve_conflict_v1(
     let mut current_conflict: Option<IndexConflict> = None;
     for conflict in conflicts {
         if let Ok(conflict) = conflict {
-            if let Some(ref our) = conflict.our {
+            if let Some(ref our) = conflict.our {    
                 if file_path.to_str().unwrap() == String::from_utf8(our.path.clone()).unwrap() {
                     current_conflict.replace(conflict);
                 }
