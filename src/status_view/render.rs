@@ -244,9 +244,10 @@ impl crate::View {
         let mut fltr: HashSet<Tag> = HashSet::new();
         if self.current {
             self.add_tag(buffer, Tag::Cursor.name());
-            fltr.insert(Tag::Added);
-            fltr.insert(Tag::Removed);
+            // fltr.insert(Tag::Added);
+            // fltr.insert(Tag::Removed);
             fltr.insert(Tag::Region);
+            fltr.insert(Tag::Hunk);
             // it need to filter background tags
         } else {
             self.remove_tag(buffer, Tag::Cursor.name());
