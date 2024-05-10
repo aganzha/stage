@@ -277,7 +277,7 @@ impl State {
     pub fn new(state: RepositoryState) -> Self {
         let mut view = View::new_markup();
         if state == RepositoryState::Clean {
-            view.hidden = true;
+            view.squashed = true;
         }
         Self { state, view }
     }
@@ -2022,41 +2022,28 @@ pub fn abort_merge(path: OsString, sender: Sender<crate::Event>) {
     info!("git.abort merge");
     
     let repo = Repository::open(path.clone()).expect("can't open repo");
-
-    let mut index = repo.index().expect("cant get index");
+    let mut checkout_builder = CheckoutBuilder::new();
+    
+    let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
-    let mut our_entries: Vec<IndexEntry> = Vec::new();
+    let mut has_conflicts = false;
     for conflict in conflicts {
         if let Ok(conflict) = conflict {
             if let Some(our) = conflict.our {
-                our_entries.push(our);
+                checkout_builder.path(our.path);
+                has_conflicts = true;
             }
         }
     }
-    let mut paths: HashSet<String> = HashSet::new();
-    for mut entry in our_entries {
-        let path = String::from_utf8(entry.path.clone()).unwrap();
-        index.remove_path(std::path::Path::new(&path)).expect("cant remove path");
-        paths.insert(path);
-        entry.flags = entry.flags & !STAGE_FLAG;
-        index.add(&entry).expect("cant add entry");
+    if !has_conflicts {
+        panic!("no way to abort merge without conflicts");
     }
-    index.write().expect("cant write index");
-
-    repo.cleanup_state().expect("cant cleanup_state");
-
-
     let head_ref = repo.head().expect("can't get head");
-    assert!(head_ref.is_branch());
+
     let ob = head_ref
         .peel(ObjectType::Commit)
         .expect("can't get commit from ref!");
-
-    let mut checkout_builder = CheckoutBuilder::new();
-
-    for path in paths {
-        checkout_builder.path(path);
-    }
+    
     repo.reset(&ob, ResetType::Hard, Some(&mut checkout_builder))
         .expect("cant reset hard");
 
