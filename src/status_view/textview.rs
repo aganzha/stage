@@ -29,7 +29,8 @@ pub enum Tag {
     Italic,
     Pointer,
     Staged,
-    Unstaged,
+    Unstaged,    
+    ConflictMarker,
     // Link
 }
 impl Tag {
@@ -80,6 +81,11 @@ impl Tag {
                 tt.set_style(Style::Italic);
                 tt
             }
+            Self::ConflictMarker => {
+                let tt = self.new_tag();
+                tt.set_foreground(Some("#e5a50a"));
+                tt
+            }
             // Self::Link => {
             //     let tt = self.new_tag();
             //     tt.set_background(Some("0000ff"));
@@ -109,6 +115,7 @@ impl Tag {
             Self::Pointer => "pointer",
             Self::Staged => "staged",
             Self::Unstaged => "unstaged",
+            Self::ConflictMarker => "conflictmarker"
         }        
     }
     pub fn enhance(&self) -> &Self {
@@ -217,6 +224,7 @@ pub fn factory(
     buffer.tag_table().add(&Tag::Hunk.create());
     buffer.tag_table().add(&staged);
     buffer.tag_table().add(&unstaged);
+    buffer.tag_table().add(&Tag::ConflictMarker.create());
     
     let key_controller = EventControllerKey::new();
     key_controller.connect_key_pressed({

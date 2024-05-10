@@ -1,7 +1,7 @@
 use crate::status_view::{Label, Tag};
 use crate::{
     Diff, File, Head, Hunk, Line, State, StatusRenderContext, Untracked,
-    UntrackedFile, View, DiffKind
+    UntrackedFile, View, DiffKind, LineKind
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
@@ -443,13 +443,21 @@ impl ViewContainer for Line {
         None
     }
 
-    // LIne
+    // Line
     fn is_active_by_parent(&self, active: bool) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
         active
     }
+
+    // Line
     fn tags(&self) -> Vec<Tag> {
+        match self.kind {
+            LineKind::Marker(_) => {
+                return vec![Tag::ConflictMarker]
+            }
+            _ => {}
+        }
         match self.origin {
             DiffLineType::Addition => {
                 vec![Tag::Added]

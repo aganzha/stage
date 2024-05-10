@@ -957,7 +957,6 @@ pub fn item_factory() -> SignalListItemFactory {
                     li.position()
                 );
                 if branch_item.initial_focus() {
-                    debug!("initial_focus..................................");
                     li.child().unwrap().grab_focus();
                     branch_item.set_initial_focus(false)
                 }
