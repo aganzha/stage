@@ -651,7 +651,7 @@ impl Status {
                 if let Some(handler_id) = banner_button_clicked.take() {
                     banner.disconnect(handler_id);
                 }
-                banner.connect_button_clicked({
+                let new_handler_id = banner.connect_button_clicked({
                     let sender = sender.clone();
                     let window = window.clone();
                     let path = self.path.clone();
@@ -685,6 +685,7 @@ impl Status {
                         });                        
                     }
                 });
+                banner_button_clicked.replace(Some(new_handler_id));
             }
         }
         self.conflicted.replace(diff);
