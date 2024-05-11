@@ -995,7 +995,8 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
                 Error => message
             };
             repo.commit(Some("HEAD"), &me, &me, &merge_message, &tree, &[&commit, &merge_commit])
-                 .expect("can't commit");
+                .expect("can't commit");
+            repo.cleanup_state().expect("cant cleanup state");
         }
         _ => {
             todo!("multiple parents")
@@ -1638,8 +1639,7 @@ pub fn merge(
             branch_data.name,
             current_branch.name().unwrap().unwrap()
         );
-        commit(path.clone(), message, sender.clone());
-        repo.cleanup_state().unwrap();
+        commit(path.clone(), message, sender.clone());        
         Ok(false)
     };
 
@@ -2541,4 +2541,10 @@ pub fn resolve_conflict(
     //     .expect("Could not send through channel");
     // Index.add_path - will mark file as resolved
     // now it need somehow organize diff.
+}
+
+
+pub fn debug(path: OsString) {
+    let repo = Repository::open(path.clone()).expect("cant open repo");
+    repo.cleanup_state().expect("cant cleanup state");
 }
