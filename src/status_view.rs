@@ -16,7 +16,8 @@ use std::rc::Rc;
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, pull,
     push, reset_hard, stage_untracked, stage_via_apply, stash_changes, merge_dialog_factory,
-    track_changes, abort_merge, merge_choose_side, resolve_conflict_v1, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
+    track_changes, abort_merge, merge_choose_side, resolve_conflict_v1, git_debug,
+    ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
     State, StatusRenderContext, Untracked, View, OURS, THEIRS, ABORT, PROCEED
 };
 
@@ -1133,6 +1134,12 @@ impl Status {
                 }
             });
         }
+        gio::spawn_blocking({
+            let path = self.path.clone().expect("no path");
+            move || {
+                git_debug(path);
+            }
+        });
     }
 
     pub fn checkout_error(
