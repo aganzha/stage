@@ -77,6 +77,8 @@ thread '<unnamed>' panicked at src/git.rs:1043:18:
 cant create branch: Error { code: -4, klass: 4, message: "failed to write reference 'refs/heads/rc-24.1204': a reference with that name already exists." }
 
 
+let put some writing far from commits
+
 TODO: pull, not just fetch!
 TODO: commit ammend after post push hook
 TODO: whyle branch list is loaded it need to show empty repr
