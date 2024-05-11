@@ -13,7 +13,7 @@ use git2::{
     DiffLine, DiffLineType, DiffOptions, Direction, Error, ErrorClass,
     ErrorCode, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
     Repository, RepositoryState, ResetType, StashFlags, MergeOptions,
-    IndexEntry, IndexEntryFlag, IndexConflict
+    IndexEntry, IndexEntryFlag, IndexConflict, IndexTime
 };
 
 // use libgit2_sys;
@@ -197,15 +197,15 @@ impl Hunk {
                 MARKER_OURS | MARKER_THEIRS | MARKER_VS => {
                     line.kind = LineKind::ConflictMarker(String::from(&line.content[..7]));
                 }
-                _ => {}                    
+                _ => {}
             }
         }
 
         let marker_ours = String::from(MARKER_OURS);
         let marker_vs = String::from(MARKER_VS);
         let marker_theirs = String::from(MARKER_THEIRS);
-        
-        match (prev_line_kind, &line.kind) {            
+
+        match (prev_line_kind, &line.kind) {
             (LineKind::ConflictMarker(marker), LineKind::None) if marker == marker_ours => {
                 trace!("sec match. ours after ours MARKER ??????????? {:?}", marker_ours);
                 line.kind = LineKind::Ours
@@ -684,7 +684,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let mut current_file = File::new(kind.clone());
     let mut current_hunk = Hunk::new(kind.clone());
     let mut prev_line_kind = LineKind::None;
-    
+
     let _res = git_diff.print(
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
@@ -2050,6 +2050,7 @@ pub fn revwalk(
     result
 }
 
+
 pub fn abort_merge(path: OsString, sender: Sender<crate::Event>) {
     info!("git.abort merge");
 
@@ -2347,7 +2348,7 @@ pub fn resolve_conflict_v1(
     get_conflicted_v1(path, sender);
 }
 
-// this one comes from libgit internals
+
 // pub const GIT_INDEX_ENTRY_STAGEMASK: u16 = 0x3000;
 pub const STAGE_FLAG: u16 = 0x3000;
 
@@ -2387,7 +2388,6 @@ pub fn resolve_conflict(
         entry.replace(choosed);
         break;
     }
-    debug!("aaaaaaaaaaaaaaaddd {:?}", entry);
     index.add(&entry.unwrap()).expect("cant add entry");
     for stage in 1..4 {
         index.remove(path::Path::new(my_path), stage).expect("cant remove entry");
