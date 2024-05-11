@@ -1,3 +1,9 @@
+TODO: to highlight  ours/theirs lines it need to hack active_by_parent in line.
+      - it need to refactor view active for enum Active(source: bool)
+      - normal active is ActibeSource::Hunk(true/false)
+        + our/their ActiveSource::LineKind(true/false)
+        it is active in HUNK! then line get it as arg and compare to self active
+        
 next thing to do with resolve:
 - lets try color font instead of background1
 - introduce IF to ours/theirs in resolve (don not apply theirs if ours is chosen)
