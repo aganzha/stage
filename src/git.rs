@@ -2075,13 +2075,12 @@ pub fn merge_choose_side(path: OsString, ours: bool, sender: Sender<crate::Event
     if entries.is_empty() {
         panic!("nothing to resolve in merge_choose_side");
     }
-    // does not needed
-    // let mut checkout_builder = CheckoutBuilder::new();
+
     let mut diff_opts = DiffOptions::new();
     diff_opts.reverse(true);
     
 
-    for mut entry in entries {
+    for mut entry in &mut entries {
         let pth = String::from_utf8(entry.path.clone()).expect("cant get path");
         // checkout_builder.path(pth.clone());
         diff_opts.pathspec(pth.clone());
@@ -2108,7 +2107,6 @@ pub fn merge_choose_side(path: OsString, ours: bool, sender: Sender<crate::Event
                 }
             }
         }
-        debug!("oooooooooooooooooooooooo {:?}", conflicted_headers);
         apply_opts.hunk_callback(move |odh| -> bool {
             if let Some(dh) = odh {
                 let header = Hunk::get_header_from(&dh);
@@ -2129,6 +2127,14 @@ pub fn merge_choose_side(path: OsString, ours: bool, sender: Sender<crate::Event
     sender.send_blocking(crate::Event::LockMonitors(false))
         .expect("Could not send through channel");
 
+    // if their side is choosen, it need to stage all conflicted paths
+    // because resolved conflicts will go to staged area, but other changes
+    // will be on other side of stage (will be +- same hunks on both sides)
+    for mut entry in &entries {
+        let pth = String::from_utf8(entry.path.clone()).expect("cant get path");
+        index.add_path(std::path::Path::new(&pth)).expect("cant add path");
+    }
+    index.write().expect("cant write index");
     // now it need only create merge commit! (+ update state, though it must come with commit);
     get_current_repo_status(Some(path), sender);
 }
