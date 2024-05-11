@@ -92,6 +92,7 @@ pub struct Hunk {
     pub lines: Vec<Line>,
     pub max_line_len: i32,
     pub kind: DiffKind,
+    pub has_conflicts: bool
 }
 
 impl Hunk {
@@ -105,7 +106,8 @@ impl Hunk {
             old_lines: 0,
             new_lines: 0,
             max_line_len: 0,
-            kind,
+            kind: kind,
+            has_conflicts: false
         }
     }
 
@@ -195,6 +197,7 @@ impl Hunk {
         if line.content.len() >= 7 {
             match &line.content[..7] {
                 MARKER_OURS | MARKER_THEIRS | MARKER_VS => {
+                    self.has_conflicts = true;
                     line.kind = LineKind::ConflictMarker(String::from(&line.content[..7]));
                 }
                 _ => {}
@@ -2050,6 +2053,85 @@ pub fn revwalk(
     result
 }
 
+pub fn merge_choose_side(path: OsString, ours: bool, sender: Sender<crate::Event>) {
+    info!("git.choose side");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let mut index = repo.index().expect("cant get index");
+    let conflicts = index.conflicts().expect("no conflicts");
+    let mut entries: Vec<IndexEntry> = Vec::new();
+    for conflict in conflicts {
+        if let Ok(conflict) = conflict {
+            if ours {
+                if let Some(our) = conflict.our {
+                    entries.push(our);
+                }
+            } else {
+                if let Some(their) = conflict.their {
+                    entries.push(their);
+                }
+            }
+        }
+    }
+    if entries.is_empty() {
+        panic!("nothing to resolve in merge_choose_side");
+    }
+    // does not needed
+    // let mut checkout_builder = CheckoutBuilder::new();
+    let mut diff_opts = DiffOptions::new();
+    diff_opts.reverse(true);
+    
+
+    for mut entry in entries {
+        let pth = String::from_utf8(entry.path.clone()).expect("cant get path");
+        // checkout_builder.path(pth.clone());
+        diff_opts.pathspec(pth.clone());
+        index.remove_path(std::path::Path::new(&pth)).expect("cant remove path");
+        entry.flags = entry.flags & !STAGE_FLAG;
+        index.add(&entry).expect("cant add to index");
+    }    
+    index.write().expect("cant write index");
+    let git_diff = repo.diff_index_to_workdir(Some(&index), Some(&mut diff_opts))
+        .expect("cant get diff");
+
+    let mut apply_opts = ApplyOptions::new();
+    
+    if !ours {
+        // if our side - everything will be reset to tree and thats ok.
+        // but if THEIR side is chosen i need here hunk callback to choose only hunks presented in conflicts!
+        // how to filter them?
+        let mut conflicted_headers = HashSet::new();
+        let diff = make_diff(&git_diff, DiffKind::Conflicted);
+        for f in diff.files {
+            for h in f.hunks {
+                if h.has_conflicts {
+                    conflicted_headers.insert(h.header);
+                }
+            }
+        }
+        debug!("oooooooooooooooooooooooo {:?}", conflicted_headers);
+        apply_opts.hunk_callback(move |odh| -> bool {
+            if let Some(dh) = odh {
+                let header = Hunk::get_header_from(&dh);
+                let matched = conflicted_headers.contains(&header);
+                debug!("header in callback  {:?} ??= {:?}", header, matched);
+                return matched;
+            }
+            false
+        });
+    }
+    sender.send_blocking(crate::Event::LockMonitors(true))
+        .expect("Could not send through channel");
+
+
+    repo.apply(&git_diff, ApplyLocation::WorkDir, Some(&mut apply_opts))
+        .expect("can't apply patch");
+
+    sender.send_blocking(crate::Event::LockMonitors(false))
+        .expect("Could not send through channel");
+
+    // now it need only create merge commit! (+ update state, though it must come with commit);
+    get_current_repo_status(Some(path), sender);
+}
 
 pub fn abort_merge(path: OsString, sender: Sender<crate::Event>) {
     info!("git.abort merge");
@@ -2210,7 +2292,8 @@ pub fn resolve_conflict_v1(
     // NOW. if user choosed our side, this means NOTHING
     // else todo with this current conflict. changes already were
     // reverted to our side! next part is valid only if chooser
-    // used THEIR side!
+    // used THEIR side! are you sure? yes. conflicts are removed
+    // and workdir is restored according to the our tree (HEAD in this branch)!
 
 
     // vv --------------------------- apply hunk from choosed side
