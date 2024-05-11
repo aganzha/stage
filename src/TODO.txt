@@ -57,7 +57,8 @@ thread '<unnamed>' panicked at src/git.rs:966:38:
 called `Result::unwrap()` on an `Err` value: Error { code: -3, klass: 7, message: "config value 'branch.rc-24.2132.remote' was not found" }
 fixed manually: git branch --set-upstream-to=origin/rc-24.2132 rc-24.2132
 
-provoke conflict 1
+
+master conflict 2
 
 
 TODO: Cherry-pick - it does copy changes but does not create commit (feature?) refresh button does not cleanu state
@@ -98,7 +99,7 @@ PERFORMANCE: delete ~/docs/client/WHDDemo and open app :)
 Perhaps it need to put path to status. and window to context!!!!
 
 BUG: state Revert was cleared, but refresh btn does not reflect that
-thats provoke 2
+master conflict 2
 BUG: do not know how to reproduse: after creating branch staging was not working cause ApplyFilter was empty!
 BUG: during merge do not create final commit. all changes will be in staged and state will be merge.
      reset --hard from console and then refresh - there is a garbage string on the place of State
@@ -107,6 +108,8 @@ BUG: checkout remote branch. then checkout remote branch again!
 thread '<unnamed>' panicked at src/git.rs:1043:18:
 cant create branch: Error { code: -4, klass: 4, message: "failed to write reference 'refs/heads/rc-24.1204': a reference with that name already exists." }
 
+
+let put some writing far from commits
 
 TODO: pull, not just fetch!
 TODO: commit ammend after post push hook
