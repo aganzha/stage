@@ -358,6 +358,9 @@ impl State {
         }
         Self { state, view }
     }
+    pub fn is_merging(&self) -> bool {
+        return self.state == RepositoryState::Merge
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -919,27 +922,41 @@ pub fn stage_via_apply(
         .expect("Could not send through channel");
 }
 
-pub fn get_parents_for_commit(repo: &Repository) -> Vec<Commit> {
-    let ob = repo
+pub fn get_parents_for_commit(path: OsString) -> Vec<Oid> {        
+
+    let mut repo = Repository::open(path.clone()).expect("can't open repo");
+    let mut result = Vec::new();
+    let id = repo
         .revparse_single("HEAD^{commit}")
-        .expect("fail revparse");
-    let parent = repo.find_commit(ob.id()).expect("can't find commit");
-    // in case of merging we will have 2 parents!
+        .expect("fail revparse")
+        .id();
+    result.push(id);
     match repo.state() {
-        RepositoryState::Clean => return vec![parent],
+        RepositoryState::Clean => {
+        },
         RepositoryState::Merge => {
-            todo!("merge parents")
+            repo.mergehead_foreach(|oid: &Oid| -> bool {
+                result.push(*oid);
+                true
+            }).expect("cant get merge heads");
         },
         _ => {
             todo!("commit in another state")
         }
     }
+    result
 }
 
 
 pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
-    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let mut repo = Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
+
+    // let ob = repo.revparse_single("HEAD^{commit}")
+    //     .expect("fail revparse");
+    // let id = repo.revparse_single("HEAD^{commit}")
+    //     .expect("fail revparse").id();
+    // let parent_commit = repo.find_commit(id).expect("cant find parent commit");        
     // update_ref: Option<&str>,
     // author: &Signature<'_>,
     // committer: &Signature<'_>,
@@ -953,22 +970,37 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
         .expect("can't write tree");
     let tree = repo.find_tree(tree_oid).expect("can't find tree");
 
-    let parents = get_parents_for_commit(&repo);
-    match parents.len() {
-        1 => {
-            repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&parents[0]])
-                .expect("can't commit");
-        },
-        2 => {
-            repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&parents[0], &parents[1]])
-                .expect("can't commit");
 
-        },
+    let commits = get_parents_for_commit(path.clone())
+        .into_iter()
+        .map(|oid| repo.find_commit(oid).unwrap())
+        .collect::<Vec<Commit>>();
+    debug!("oooooooooooooooooooooooo {:?}", commits);
+    
+    match &commits[..] {
+        [commit] => {
+            let tree = repo.find_tree(tree_oid).expect("can't find tree");
+            repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&commit])
+                .expect("can't commit");
+        }
+        [commit, merge_commit] => {
+            let mut merge_message = match repo.message() {
+                Ok(mut msg) => {
+                    if !message.is_empty() {
+                        msg.push_str("\n");
+                        msg.push_str(&message);
+                    }
+                    msg
+                },
+                Error => message
+            };
+            repo.commit(Some("HEAD"), &me, &me, &merge_message, &tree, &[&commit, &merge_commit])
+                 .expect("can't commit");
+        }
         _ => {
-            todo!("more then 2 parents")
+            todo!("multiple parents")
         }
     }
-
     // update staged changes
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
@@ -1575,6 +1607,8 @@ pub fn merge(
     sender: Sender<crate::Event>,
 ) -> Result<BranchData, MergeError> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
+    // i need to store this branch_data.oid somehow,
+    // or i can get merging_head?
     let annotated_commit = repo
         .find_annotated_commit(branch_data.oid)
         .expect("cant find commit");
@@ -2053,6 +2087,7 @@ pub fn revwalk(
     result
 }
 
+
 pub fn merge_choose_side(path: OsString, ours: bool, sender: Sender<crate::Event>) {
     info!("git.choose side");
     let repo = Repository::open(path.clone()).expect("can't open repo");
@@ -2082,7 +2117,6 @@ pub fn merge_choose_side(path: OsString, ours: bool, sender: Sender<crate::Event
 
     for mut entry in &mut entries {
         let pth = String::from_utf8(entry.path.clone()).expect("cant get path");
-        // checkout_builder.path(pth.clone());
         diff_opts.pathspec(pth.clone());
         index.remove_path(std::path::Path::new(&pth)).expect("cant remove path");
         entry.flags = entry.flags & !STAGE_FLAG;
@@ -2094,29 +2128,34 @@ pub fn merge_choose_side(path: OsString, ours: bool, sender: Sender<crate::Event
 
     let mut apply_opts = ApplyOptions::new();
     
-    if !ours {
-        // if our side - everything will be reset to tree and thats ok.
-        // but if THEIR side is chosen i need here hunk callback to choose only hunks presented in conflicts!
-        // how to filter them?
-        let mut conflicted_headers = HashSet::new();
-        let diff = make_diff(&git_diff, DiffKind::Conflicted);
-        for f in diff.files {
-            for h in f.hunks {
-                if h.has_conflicts {
-                    conflicted_headers.insert(h.header);
-                }
+
+    // if our side - everything will be reset to tree and thats ok.
+    // NO. its not ok. i need changes from both trees, btw!
+    // but if THEIR side is chosen i need here hunk callback to choose only hunks presented in conflicts!
+    // lets filter them?
+    let mut conflicted_headers = HashSet::new();
+    let diff = make_diff(&git_diff, DiffKind::Conflicted);
+
+
+    
+    for f in diff.files {
+        for h in f.hunks {
+            if h.has_conflicts {
+                conflicted_headers.insert(h.header);
             }
         }
-        apply_opts.hunk_callback(move |odh| -> bool {
-            if let Some(dh) = odh {
-                let header = Hunk::get_header_from(&dh);
-                let matched = conflicted_headers.contains(&header);
-                debug!("header in callback  {:?} ??= {:?}", header, matched);
-                return matched;
-            }
-            false
-        });
     }
+    
+    apply_opts.hunk_callback(move |odh| -> bool {
+        if let Some(dh) = odh {
+            let header = Hunk::get_header_from(&dh);
+            let matched = conflicted_headers.contains(&header);
+            debug!("header in callback  {:?} ??= {:?}", header, matched);
+            return matched;
+        }
+        false
+    });
+
     sender.send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 

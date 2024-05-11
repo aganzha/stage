@@ -507,7 +507,6 @@ impl Status {
 
     pub fn commit(
         &mut self,
-        _txt: &TextView,
         window: &ApplicationWindow, // &impl IsA<Gtk4Window>,
     ) {
         if self.staged.is_some() {
@@ -640,6 +639,32 @@ impl Status {
             if banner.is_revealed() {
                 banner.set_revealed(false);
             }
+            if let Some(state) = &self.state {
+                if state.is_merging() {
+                    banner.set_title("All conflicts fixed but you are still merging. Commit to conclude merge)");
+                    banner.set_css_classes(&vec!["success"]);
+                    banner.set_button_label(Some("Commit"));
+                    banner_button.set_css_classes(&vec!["suggested-action"]);
+                    banner.set_revealed(true);
+                    if let Some(handler_id) = banner_button_clicked.take() {
+                        banner.disconnect(handler_id);
+                    }
+                    let new_handler_id = banner.connect_button_clicked({
+                        let sender = sender.clone();
+                        let path = self.path.clone();
+                        move |_| {
+                            let sender = sender.clone();
+                            let path = path.clone();
+                            gio::spawn_blocking({                                
+                                move || {
+                                    commit(path.expect("no path"), String::from(""), sender);
+                                }
+                            });
+                        }
+                    });
+                    banner_button_clicked.replace(Some(new_handler_id));
+                }
+            }
         }
         else {
             if !banner.is_revealed() {
@@ -662,7 +687,7 @@ impl Status {
                             let path = path.clone();
                             async move {
                                 let dialog = merge_dialog_factory(&window, sender.clone());
-                                let response = dialog.choose_future().await;                                
+                                let response = dialog.choose_future().await;
                                 match response.as_str() {
                                     ABORT => {
                                         info!("merge. abort");
@@ -693,14 +718,14 @@ impl Status {
                                     }
                                 }
                             }
-                        });                        
+                        });
                     }
                 });
                 banner_button_clicked.replace(Some(new_handler_id));
             }
         }
         self.conflicted.replace(diff);
-        self.render(txt, RenderSource::Git);        
+        self.render(txt, RenderSource::Git);
     }
 
     pub fn update_staged(&mut self, mut diff: Diff, txt: &TextView) {
@@ -952,7 +977,7 @@ impl Status {
                             // if line.origin  == crate::DiffLineType::Addition
                             //     ||
                             //     line.origin == crate::DiffLineType::Deletion {
-                                    gio::spawn_blocking({                                        
+                                    gio::spawn_blocking({
                                         let path = self.path.clone().unwrap();
                                         let sender = self.sender.clone();
                                         let file_path = f.path.clone();
@@ -1085,7 +1110,8 @@ impl Status {
         let buffer = txt.buffer();
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         let current_line = iter.line();
-        println!("debug at line {:?}", current_line);
+
+        debug!("debug at line {:?}", current_line);
         if let Some(diff) = &mut self.staged {
             diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let content = vc.get_content();

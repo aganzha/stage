@@ -29,7 +29,7 @@ use git::{
     apply_stash, checkout_branch, checkout_oid, cherry_pick, commit,
     create_branch, drop_stash, get_branches, get_commit_diff,
     get_current_repo_status, get_directories, kill_branch, merge, pull, push,
-    reset_hard, revwalk, stage_untracked, stage_via_apply, stash_changes,
+    reset_hard, revwalk, stage_untracked, stage_via_apply, stash_changes, 
     track_changes, update_remote, abort_merge, resolve_conflict_v1, merge_choose_side, ApplyFilter, ApplySubject, BranchData,
     CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
     State, Untracked, UntrackedFile, View, MergeError, LineKind
@@ -319,7 +319,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                             "No changes were staged. Stage by hitting 's'",
                         );
                     } else {
-                        status.commit(&txt, &window);
+                        status.commit(&window);
                     }
                 }
                 Event::Untracked(untracked) => {
