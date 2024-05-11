@@ -16,7 +16,7 @@ use std::rc::Rc;
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, pull,
     push, reset_hard, stage_untracked, stage_via_apply, stash_changes, merge_dialog_factory,
-    track_changes, abort_merge, resolve_conflict_v1, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
+    track_changes, abort_merge, merge_choose_side, resolve_conflict_v1, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
     State, StatusRenderContext, Untracked, View, OURS, THEIRS, ABORT, PROCEED
 };
 
@@ -35,7 +35,7 @@ use glib::clone;
 use glib::signal::SignalHandlerId;
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, EntryRow, PasswordEntryRow, SwitchRow, Banner}; // _Window,
-use log::{debug, trace};
+use log::{debug, trace, info};
 
 use std::ffi::OsString;
 
@@ -665,6 +665,7 @@ impl Status {
                                 let response = dialog.choose_future().await;                                
                                 match response.as_str() {
                                     ABORT => {
+                                        info!("merge. abort");
                                         gio::spawn_blocking({
                                             move || {
                                                 abort_merge(path.expect("no path"), sender);
@@ -672,10 +673,20 @@ impl Status {
                                         });
                                     }
                                     OURS => {
-                                        debug!("=============> ours");
+                                        info!("merge. choose ours");
+                                        gio::spawn_blocking({
+                                            move || {
+                                                merge_choose_side(path.expect("no path"), true, sender);
+                                            }
+                                        });
                                     }
                                     THEIRS => {
-                                        debug!("=============> theirs");
+                                        info!("merge. choose theirs");
+                                        gio::spawn_blocking({
+                                            move || {
+                                                merge_choose_side(path.expect("no path"), false, sender);
+                                            }
+                                        });
                                     }
                                     _ => {
                                         debug!("=============> proceed");
