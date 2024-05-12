@@ -1,4 +1,4 @@
-ff2
+let speed up kill by checkout (eg checkout tree and reset hard)
 ff1
 mac
 btw. where is a bug in log. try merge branch and view log - it misses commit from the merged branch, btw
@@ -123,5 +123,5 @@ make it in HUNK row! expand before and expand after!
 TODO: [TRACE stage::git] push_update_reference "refs/heads/24.2100/bugfix/au.ganzha/prevent_tobacco" Some("pre-receive hook declined")
 display hook here
 ------------------------
-what to do with kill?
+kill o kill
 TODO: display killed spaces please
