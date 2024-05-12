@@ -2055,38 +2055,6 @@ pub fn merge_choose_side(path: OsString, ours: bool, sender: Sender<crate::Event
     get_current_repo_status(Some(path), sender);
 }
 
-pub fn abort_merge(path: OsString, sender: Sender<crate::Event>) {
-    info!("git.abort merge");
-
-    let repo = Repository::open(path.clone()).expect("can't open repo");
-    let mut checkout_builder = CheckoutBuilder::new();
-
-    let index = repo.index().expect("cant get index");
-    let conflicts = index.conflicts().expect("no conflicts");
-    let mut has_conflicts = false;
-    for conflict in conflicts {
-        if let Ok(conflict) = conflict {
-            if let Some(our) = conflict.our {
-                checkout_builder.path(our.path);
-                has_conflicts = true;
-            }
-        }
-    }
-    if !has_conflicts {
-        panic!("no way to abort merge without conflicts");
-    }
-    let head_ref = repo.head().expect("can't get head");
-
-    let ob = head_ref
-        .peel(ObjectType::Commit)
-        .expect("can't get commit from ref!");
-
-    repo.reset(&ob, ResetType::Hard, Some(&mut checkout_builder))
-        .expect("cant reset hard");
-
-    get_current_repo_status(Some(path), sender);
-}
-
 pub fn resolve_conflict_v1(
     path: OsString,
     file_path: OsString,

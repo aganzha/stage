@@ -633,7 +633,7 @@ impl BranchList {
                     return;
                 }
                 let result = gio::spawn_blocking(move || {
-                    merge::merge_branch(repo_path, branch_data, sender)
+                    merge::branch(repo_path, branch_data, sender)
                 }).await;
                 trace!("outer error for merge {:?}", &result);
                 if let Ok(result) = result {

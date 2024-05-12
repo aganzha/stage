@@ -2,6 +2,7 @@ pub mod container;
 pub mod headerbar;
 pub mod textview;
 use container::{ViewContainer, ViewKind};
+use crate::git::{merge};
 use core::time::Duration;
 
 pub mod render;
@@ -16,7 +17,7 @@ use std::rc::Rc;
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, pull,
     push, reset_hard, stage_untracked, stage_via_apply, stash_changes, merge_dialog_factory,
-    track_changes, abort_merge, merge_choose_side, resolve_conflict_v1, git_debug,
+    track_changes, merge_choose_side, resolve_conflict_v1, git_debug,
     ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
     State, StatusRenderContext, Untracked, View, OURS, THEIRS, ABORT, PROCEED
 };
@@ -694,7 +695,7 @@ impl Status {
                                         info!("merge. abort");
                                         gio::spawn_blocking({
                                             move || {
-                                                abort_merge(path.expect("no path"), sender);
+                                                merge::abort(path.expect("no path"), sender);
                                             }
                                         });
                                     }

@@ -11,7 +11,7 @@ pub enum MergeError {
     General(String)
 }
 
-pub fn merge_commit(path: OsString, message: Option<String>) {
+pub fn create_commit(path: OsString, message: Option<String>) {
     let mut repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
     let tree_oid = repo
@@ -50,7 +50,7 @@ pub fn merge_commit(path: OsString, message: Option<String>) {
     ).expect("cant create merge commit");
 }
 
-pub fn merge_branch(
+pub fn branch(
     path: OsString,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
@@ -103,7 +103,7 @@ pub fn merge_branch(
                 branch_data.name,
                 git2::Branch::wrap(head_ref).name().unwrap().unwrap()
             );
-            merge_commit(path, Some(message));
+            create_commit(path, Some(message));
             repo.cleanup_state().expect("cant cleanup state");
         }
         Ok((analysis, preference)) => {
@@ -132,4 +132,37 @@ pub fn merge_branch(
 
     Ok(BranchData::from_branch(branch, git2::BranchType::Local)
         .expect("cant get branch"))
+}
+
+
+pub fn abort(path: OsString, sender: Sender<crate::Event>) {
+    info!("git.abort merge");
+
+    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let mut checkout_builder = git2::build::CheckoutBuilder::new();
+
+    let index = repo.index().expect("cant get index");
+    let conflicts = index.conflicts().expect("no conflicts");
+    let mut has_conflicts = false;
+    for conflict in conflicts {
+        if let Ok(conflict) = conflict {
+            if let Some(our) = conflict.our {
+                checkout_builder.path(our.path);
+                has_conflicts = true;
+            }
+        }
+    }
+    if !has_conflicts {
+        panic!("no way to abort merge without conflicts");
+    }
+    let head_ref = repo.head().expect("can't get head");
+
+    let ob = head_ref
+        .peel(git2::ObjectType::Commit)
+        .expect("can't get commit from ref!");
+
+    repo.reset(&ob, git2::ResetType::Hard, Some(&mut checkout_builder))
+        .expect("cant reset hard");
+
+    get_current_repo_status(Some(path), sender);
 }
