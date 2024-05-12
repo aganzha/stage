@@ -55,6 +55,7 @@ pub fn merge(
     branch_data: BranchData,
     sender: Sender<crate::Event>,
 ) -> Result<BranchData, MergeError> {
+    info!("merging {:?}", branch_data.name);
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let annotated_commit = repo
         .find_annotated_commit(branch_data.oid)
@@ -70,9 +71,13 @@ pub fn merge(
                 && !preference.is_no_fast_forward() =>
         {
             info!("merge.fastforward");
-            if let Err(error) = repo.merge(&[&annotated_commit], None, None) {
-                return Err(MergeError::General(String::from(error.message())));
-            }
+            let ob = repo.find_object(branch_data.oid, Some(git2::ObjectType::Commit))
+                .expect("cant find ob for oid");
+            repo.reset(&ob, git2::ResetType::Soft, None)
+                .expect("cant reset to commit");
+            // if let Err(error) = repo.merge(&[&annotated_commit], None, None) {
+            //     return Err(MergeError::General(String::from(error.message())));
+            // }
         }
         Ok((analysis, preference))
             if analysis.is_normal() && !preference.is_fastforward_only() =>
