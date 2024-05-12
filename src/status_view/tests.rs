@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::status_view::{StatusRenderContext, ViewContainer};
-    use crate::{Diff, DiffKind, File, Hunk, Line, View};
+    use crate::{Diff, DiffKind, File, Hunk, Line, View, LineKind};
     use git2::DiffLineType;
     use gtk4::prelude::*;
     use gtk4::TextBuffer;
@@ -14,6 +14,7 @@ mod tests {
             view: View::new(),
             new_line_no: None,
             old_line_no: None,
+            kind: LineKind::None
         };
         line.content = name.to_string();
         line

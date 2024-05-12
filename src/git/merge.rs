@@ -17,8 +17,6 @@ pub fn merge(
     sender: Sender<crate::Event>,
 ) -> Result<BranchData, MergeError> {
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
-    // i need to store this branch_data.oid somehow,
-    // or i can get merging_head?
     let annotated_commit = repo
         .find_annotated_commit(branch_data.oid)
         .expect("cant find commit");
