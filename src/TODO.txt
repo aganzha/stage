@@ -1,6 +1,3 @@
-ff2
-ff1
-mac
 btw. where is a bug in log. try merge branch and view log - it misses commit from the merged branch, btw
 TODO: to highlight  ours/theirs lines it need to hack active_by_parent in line.
       - it need to refactor view active for enum Active(source: bool)
@@ -123,5 +120,5 @@ make it in HUNK row! expand before and expand after!
 TODO: [TRACE stage::git] push_update_reference "refs/heads/24.2100/bugfix/au.ganzha/prevent_tobacco" Some("pre-receive hook declined")
 display hook here
 ------------------------
-what to do with kill?
+kill is realy slow. we can speed it up
 TODO: display killed spaces please
