@@ -1,3 +1,4 @@
+ff2
 ff1
 where is MERGE_MSG comes from?
 btw. where is a bug in log. try merge branch and view log - it misses commit from the merged branch, btw
