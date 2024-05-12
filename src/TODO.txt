@@ -1,3 +1,4 @@
+fast forward 2
 that will be fast forward
 mergerator
 TODO: to highlight  ours/theirs lines it need to hack active_by_parent in line.
