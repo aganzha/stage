@@ -1,18 +1,4 @@
-ff15
-ff14
-ff13
-fast forward 12
-fast forward 11
-fast forward 10
-fast forward 9
-fast forward 8
-fast forward 7
-fast forward 6
-fast forward 5
-fast forward 4
-fast forward 3
-fast forward 2
-that will be fast forward
+no ff
 mergerator
 TODO: to highlight  ours/theirs lines it need to hack active_by_parent in line.
       - it need to refactor view active for enum Active(source: bool)
