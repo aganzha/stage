@@ -16,7 +16,7 @@ use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
 };
-
+use crate::git::{merge};
 use log::{debug, trace};
 
 glib::wrapper! {
@@ -633,7 +633,7 @@ impl BranchList {
                     return;
                 }
                 let result = gio::spawn_blocking(move || {
-                    crate::merge(repo_path, branch_data, sender)
+                    merge::merge(repo_path, branch_data, sender)
                 }).await;
                 trace!("outer error for merge {:?}", &result);
                 if let Ok(result) = result {
@@ -644,10 +644,10 @@ impl BranchList {
                             branch_list.update_current_branch(branch_data);
                             window.close();
                         }                        
-                        Err(crate::MergeError::Conflicts) => {
+                        Err(merge::MergeError::Conflicts) => {
                             window.close();
                         }
-                        Err(crate::MergeError::Analisys(message)) => {
+                        Err(merge::MergeError::Analisys(message)) => {
                             crate::display_error(&window, &message);                            
                         }
                     }

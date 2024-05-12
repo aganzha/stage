@@ -28,13 +28,13 @@ mod git;
 use git::{
     apply_stash, checkout_branch, checkout_oid, cherry_pick, commit,
     create_branch, drop_stash, get_branches, get_commit_diff,
-    get_current_repo_status, get_directories, kill_branch, merge, pull, push,
+    get_current_repo_status, get_directories, kill_branch, pull, push,
     reset_hard, revwalk, stage_untracked, stage_via_apply, stash_changes, 
     track_changes, update_remote, abort_merge, resolve_conflict_v1, merge_choose_side,
     debug as git_debug,
     ApplyFilter, ApplySubject, BranchData,
     CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
-    State, Untracked, UntrackedFile, View, MergeError, LineKind
+    State, Untracked, UntrackedFile, View, LineKind
 };
 use git2::{Oid, DiffLineType};
 mod widgets;
