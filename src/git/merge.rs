@@ -97,6 +97,7 @@ pub fn merge(
                 return Err(MergeError::Conflicts);
             }
             merge_commit(path);
+            repo.cleanup_state().expect("cant cleanup state");
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
