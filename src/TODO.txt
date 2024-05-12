@@ -1,3 +1,4 @@
+ff1
 where is MERGE_MSG comes from?
 btw. where is a bug in log. try merge branch and view log - it misses commit from the merged branch, btw
 TODO: to highlight  ours/theirs lines it need to hack active_by_parent in line.
