@@ -1,6 +1,6 @@
 use gtk4::{gio};
-use std::ffi::OsString;
-use crate::git::{BranchData, Head, State, commit, get_current_repo_status};
+use std::{ffi::OsString, collections::HashSet};
+use crate::git::{BranchData, Head, State, commit, get_current_repo_status, STAGE_FLAG, make_diff, Hunk, DiffKind};
 use async_channel::Sender;
 use log::{debug, info, trace};
 use git2;
@@ -164,5 +164,87 @@ pub fn abort(path: OsString, sender: Sender<crate::Event>) {
     repo.reset(&ob, git2::ResetType::Hard, Some(&mut checkout_builder))
         .expect("cant reset hard");
 
+    get_current_repo_status(Some(path), sender);
+}
+
+pub fn choose_conflict_side(path: OsString, ours: bool, sender: Sender<crate::Event>) {
+    info!("git.choose side");
+    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let mut index = repo.index().expect("cant get index");
+    let conflicts = index.conflicts().expect("no conflicts");
+    let mut entries: Vec<git2::IndexEntry> = Vec::new();
+    for conflict in conflicts {
+        if let Ok(conflict) = conflict {
+            if ours {
+                if let Some(our) = conflict.our {
+                    entries.push(our);
+                }
+            } else {
+                if let Some(their) = conflict.their {
+                    entries.push(their);
+                }
+            }
+        }
+    }
+    if entries.is_empty() {
+        panic!("nothing to resolve in choose_conflict_side");
+    }
+
+    let mut diff_opts = git2::DiffOptions::new();
+    diff_opts.reverse(true);
+
+
+    for entry in &mut entries {
+        let pth = String::from_utf8(entry.path.clone()).expect("cant get path");
+        diff_opts.pathspec(pth.clone());
+        index.remove_path(std::path::Path::new(&pth)).expect("cant remove path");
+        entry.flags = entry.flags & !STAGE_FLAG;
+        index.add(&entry).expect("cant add to index");
+    }
+    index.write().expect("cant write index");
+    let git_diff = repo.diff_index_to_workdir(Some(&index), Some(&mut diff_opts))
+        .expect("cant get diff");
+
+    let mut apply_opts = git2::ApplyOptions::new();
+
+    let mut conflicted_headers = HashSet::new();
+    let diff = make_diff(&git_diff, DiffKind::Conflicted);
+
+    for f in diff.files {
+        for h in f.hunks {
+            if h.has_conflicts {
+                conflicted_headers.insert(h.header);
+            }
+        }
+    }
+
+    apply_opts.hunk_callback(move |odh| -> bool {
+        if let Some(dh) = odh {
+            let header = Hunk::get_header_from(&dh);
+            let matched = conflicted_headers.contains(&header);
+            debug!("header in callback  {:?} ??= {:?}", header, matched);
+            return matched;
+        }
+        false
+    });
+
+    sender.send_blocking(crate::Event::LockMonitors(true))
+        .expect("Could not send through channel");
+
+
+    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut apply_opts))
+        .expect("can't apply patch");
+
+    sender.send_blocking(crate::Event::LockMonitors(false))
+        .expect("Could not send through channel");
+
+    // if their side is choosen, it need to stage all conflicted paths
+    // because resolved conflicts will go to staged area, but other changes
+    // will be on other side of stage (will be +- same hunks on both sides)
+    for entry in &entries {
+        let pth = String::from_utf8(entry.path.clone()).expect("cant get path");
+        index.add_path(std::path::Path::new(&pth)).expect("cant add path");
+    }
+    index.write().expect("cant write index");
     get_current_repo_status(Some(path), sender);
 }
