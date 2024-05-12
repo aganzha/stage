@@ -73,7 +73,7 @@ pub fn merge(
             info!("merge.fastforward");
             let ob = repo.find_object(branch_data.oid, Some(git2::ObjectType::Commit))
                 .expect("cant find ob for oid");
-            repo.reset(&ob, git2::ResetType::Soft, None)
+            repo.reset(&ob, git2::ResetType::Mixed, None)
                 .expect("cant reset to commit");
             // if let Err(error) = repo.merge(&[&annotated_commit], None, None) {
             //     return Err(MergeError::General(String::from(error.message())));
