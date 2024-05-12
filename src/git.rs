@@ -922,7 +922,7 @@ pub fn stage_via_apply(
         .expect("Could not send through channel");
 }
 
-pub fn get_parents_for_commit(path: OsString) -> Vec<Oid> {        
+pub fn get_parents_for_commit(path: OsString) -> Vec<Oid> {
 
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
@@ -956,7 +956,7 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
     //     .expect("fail revparse");
     // let id = repo.revparse_single("HEAD^{commit}")
     //     .expect("fail revparse").id();
-    // let parent_commit = repo.find_commit(id).expect("cant find parent commit");        
+    // let parent_commit = repo.find_commit(id).expect("cant find parent commit");
     // update_ref: Option<&str>,
     // author: &Signature<'_>,
     // committer: &Signature<'_>,
@@ -976,7 +976,7 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
         .map(|oid| repo.find_commit(oid).unwrap())
         .collect::<Vec<Commit>>();
     debug!("oooooooooooooooooooooooo {:?}", commits);
-    
+
     match &commits[..] {
         [commit] => {
             let tree = repo.find_tree(tree_oid).expect("can't find tree");
@@ -1632,14 +1632,14 @@ pub fn merge(
             // just skip commit as it will panic anyways
             return Ok(true);
         }
-
+        // commit(path.clone(), String::from(""), sender.clone());
         let current_branch = Branch::wrap(head_ref);
         let message = format!(
             "merge branch {} into {}",
             branch_data.name,
             current_branch.name().unwrap().unwrap()
         );
-        commit(path.clone(), message, sender.clone());        
+        commit(path.clone(), message, sender.clone());
         Ok(false)
     };
 
@@ -2113,7 +2113,7 @@ pub fn merge_choose_side(path: OsString, ours: bool, sender: Sender<crate::Event
 
     let mut diff_opts = DiffOptions::new();
     diff_opts.reverse(true);
-    
+
 
     for mut entry in &mut entries {
         let pth = String::from_utf8(entry.path.clone()).expect("cant get path");
@@ -2121,13 +2121,13 @@ pub fn merge_choose_side(path: OsString, ours: bool, sender: Sender<crate::Event
         index.remove_path(std::path::Path::new(&pth)).expect("cant remove path");
         entry.flags = entry.flags & !STAGE_FLAG;
         index.add(&entry).expect("cant add to index");
-    }    
+    }
     index.write().expect("cant write index");
     let git_diff = repo.diff_index_to_workdir(Some(&index), Some(&mut diff_opts))
         .expect("cant get diff");
 
     let mut apply_opts = ApplyOptions::new();
-    
+
 
     // if our side - everything will be reset to tree and thats ok.
     // NO. its not ok. i need changes from both trees, btw!
@@ -2137,7 +2137,7 @@ pub fn merge_choose_side(path: OsString, ours: bool, sender: Sender<crate::Event
     let diff = make_diff(&git_diff, DiffKind::Conflicted);
 
 
-    
+
     for f in diff.files {
         for h in f.hunks {
             if h.has_conflicts {
@@ -2145,7 +2145,7 @@ pub fn merge_choose_side(path: OsString, ours: bool, sender: Sender<crate::Event
             }
         }
     }
-    
+
     apply_opts.hunk_callback(move |odh| -> bool {
         if let Some(dh) = odh {
             let header = Hunk::get_header_from(&dh);
