@@ -647,7 +647,7 @@ impl BranchList {
                         Err(merge::MergeError::Conflicts) => {
                             window.close();
                         }
-                        Err(merge::MergeError::Analisys(message)) => {
+                        Err(merge::MergeError::General(message)) => {
                             crate::display_error(&window, &message);                            
                         }
                     }
