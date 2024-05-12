@@ -643,7 +643,7 @@ impl Status {
             }
             if let Some(state) = &self.state {
                 if state.is_merging() {
-                    banner.set_title("All conflicts fixed but you are still merging. Commit to conclude merge)");
+                    banner.set_title("All conflicts fixed but you are still merging. Commit to conclude merge");
                     banner.set_css_classes(&vec!["success"]);
                     banner.set_button_label(Some("Commit"));
                     banner_button.set_css_classes(&vec!["suggested-action"]);
@@ -659,7 +659,8 @@ impl Status {
                             let path = path.clone();
                             gio::spawn_blocking({                                
                                 move || {
-                                    commit(path.expect("no path"), String::from(""), sender);
+                                    merge::commit(path.clone().expect("no path"));
+                                    get_current_repo_status(path, sender);
                                 }
                             });
                         }

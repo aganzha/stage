@@ -2301,5 +2301,5 @@ pub fn resolve_conflict(
 
 pub fn debug(path: OsString) {
     let repo = Repository::open(path.clone()).expect("cant open repo");
-    repo.cleanup_state().expect("cant cleanup state");
+    repo.cleanup_state().expect("cant cleanup state");    
 }
