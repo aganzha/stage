@@ -8,7 +8,46 @@ use git2;
 #[derive(Debug, Clone)]
 pub enum MergeError {
     Conflicts,
-    Analisys(String)
+    General(String)
+}
+
+pub fn merge_commit(path: OsString) {
+    let mut repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let me = repo.signature().expect("can't get signature");
+    let tree_oid = repo
+        .index()
+        .expect("can't get index")
+        .write_tree()
+        .expect("can't write tree");
+
+    let my_oid = repo
+        .revparse_single("HEAD^{commit}")
+        .expect("fail revparse")
+        .id();
+
+    let mut their_oid: Option<git2::Oid> = None;
+    repo.mergehead_foreach(|oid_ref| -> bool {
+        their_oid.replace(*oid_ref);
+        true
+    }).expect("cant get merge heads");
+
+    info!("creating merge commit for {:?} {:?}", my_oid, their_oid);
+
+    let my_commit = repo.find_commit(my_oid).expect("cant get commit");
+    let their_commit = repo.find_commit(their_oid.expect("cant get their oid"))
+        .expect("cant get commit");
+
+    let message = repo.message().expect("cant get merge message");
+    let tree = repo.find_tree(tree_oid).expect("can't find tree");
+
+    repo.commit(
+        Some("HEAD"),
+        &me,
+        &me,
+        &message,
+        &tree,
+        &[&my_commit, &their_commit]
+    ).expect("cant create merge commit");
 }
 
 pub fn merge(
@@ -20,47 +59,6 @@ pub fn merge(
     let annotated_commit = repo
         .find_annotated_commit(branch_data.oid)
         .expect("cant find commit");
-    // let result = repo.merge(&[&annotated_commit], None, None);
-
-    let do_merge = || -> Result<bool, String> {
-
-        let result = repo.merge(&[&annotated_commit], None, None);
-        if result.is_err() {
-            let git_err = result.unwrap_err();
-            return Err(String::from(git_err.message()));
-        }
-
-        // all changes are in index now
-        let head_ref = repo.head().expect("can't get head");
-        assert!(head_ref.is_branch());
-
-        let index = repo.index().expect("cant get index");
-        if index.has_conflicts() {
-            // just skip commit as it will panic anyways
-            return Ok(true);
-        }
-        // commit(path.clone(), String::from(""), sender.clone());
-        let current_branch = git2::Branch::wrap(head_ref);
-        let message = format!(
-            "merge branch {} into {}",
-            branch_data.name,
-            current_branch.name().unwrap().unwrap()
-        );
-        commit(path.clone(), message, sender.clone());
-        Ok(false)
-    };
-
-    let mut has_conflicts = false;
-
-    let refresh_status = || {
-        gio::spawn_blocking({
-            let sender = sender.clone();
-            let path = path.clone();
-            move || {
-                get_current_repo_status(Some(path), sender.clone());
-            }
-        });
-    };
 
     match repo.merge_analysis(&[&annotated_commit]) {
         Ok((analysis, _)) if analysis.is_up_to_date() => {
@@ -71,39 +69,31 @@ pub fn merge(
             if analysis.is_fast_forward()
                 && !preference.is_no_fast_forward() =>
         {
-            trace!("-----------------------------------> {:?}", analysis);
             info!("merge.fastforward");
-            match do_merge() {
-                Ok(true) => {
-                    has_conflicts = true;
-                    debug!("retirning after do merge 0");
-                    refresh_status();
-                    return Err(MergeError::Conflicts)
-                },
-                Ok(false) => {
-                    has_conflicts = false
-                }
-                Err(message) => return Err(MergeError::Analisys(message))
+            if let Err(error) = repo.merge(&[&annotated_commit], None, None) {
+                return Err(MergeError::General(String::from(error.message())));
             }
-
         }
         Ok((analysis, preference))
             if analysis.is_normal() && !preference.is_fastforward_only() =>
         {
-            trace!("-----------------------------------> {:?}", analysis);
+
             info!("merge.normal");
-            match do_merge() {
-                Ok(true) => {
-                    has_conflicts = true;
-                    debug!("retirning after do merge 1");
-                    refresh_status();
-                    return Err(MergeError::Conflicts)
-                }
-                Ok(false) => {
-                    has_conflicts = false;
-                }
-                Err(message) => return Err(MergeError::Analisys(message))
+            if let Err(error) = repo.merge(&[&annotated_commit], None, None) {
+                return Err(MergeError::General(String::from(error.message())));
             }
+            let index = repo.index().expect("cant get index");
+            if index.has_conflicts() {
+                gio::spawn_blocking({
+                    let sender = sender.clone();
+                    let path = path.clone();
+                    move || {
+                        get_current_repo_status(Some(path), sender.clone());
+                    }
+                });
+                return Err(MergeError::Conflicts);
+            }
+            merge_commit(path);
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
@@ -112,11 +102,7 @@ pub fn merge(
             panic!("error in merge_analysis {:?}", err.message());
         }
     }
-    if has_conflicts {
-        panic!("----------------> whats the case? where is other returns?");
-        refresh_status();
-        return Err(MergeError::Conflicts);
-    }
+
     let state = repo.state();
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
