@@ -17,7 +17,7 @@ use std::rc::Rc;
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, pull,
     push, reset_hard, stage_untracked, stage_via_apply, stash_changes, merge_dialog_factory,
-    track_changes, merge_choose_side, resolve_conflict_v1, git_debug,
+    track_changes, resolve_conflict_v1, git_debug,
     ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
     State, StatusRenderContext, Untracked, View, OURS, THEIRS, ABORT, PROCEED
 };
@@ -703,7 +703,7 @@ impl Status {
                                         info!("merge. choose ours");
                                         gio::spawn_blocking({
                                             move || {
-                                                merge_choose_side(path.expect("no path"), true, sender);
+                                                merge::choose_conflict_side(path.expect("no path"), true, sender);
                                             }
                                         });
                                     }
@@ -711,7 +711,7 @@ impl Status {
                                         info!("merge. choose theirs");
                                         gio::spawn_blocking({
                                             move || {
-                                                merge_choose_side(path.expect("no path"), false, sender);
+                                                merge::choose_conflict_side(path.expect("no path"), false, sender);
                                             }
                                         });
                                     }
