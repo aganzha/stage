@@ -1,6 +1,6 @@
 use gtk4::{gio};
 use std::{ffi::OsString, collections::HashSet};
-use crate::git::{BranchData, Head, State, commit, get_current_repo_status, STAGE_FLAG, make_diff, Hunk, DiffKind};
+use crate::git::{BranchData, Head, State, get_current_repo_status, STAGE_FLAG, make_diff, Hunk, DiffKind};
 use async_channel::Sender;
 use log::{debug, info, trace};
 use git2;
@@ -11,14 +11,9 @@ pub enum MergeError {
     General(String)
 }
 
-pub fn create_commit(path: OsString, message: Option<String>) {
+pub fn commit(path: OsString) {
     let mut repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
-    let tree_oid = repo
-        .index()
-        .expect("can't get index")
-        .write_tree()
-        .expect("can't write tree");
 
     let my_oid = repo
         .revparse_single("HEAD^{commit}")
@@ -31,13 +26,42 @@ pub fn create_commit(path: OsString, message: Option<String>) {
         true
     }).expect("cant get merge heads");
 
+    let their_oid = their_oid.unwrap();
     info!("creating merge commit for {:?} {:?}", my_oid, their_oid);
 
     let my_commit = repo.find_commit(my_oid).expect("cant get commit");
-    let their_commit = repo.find_commit(their_oid.expect("cant get their oid"))
+    let their_commit = repo.find_commit(their_oid)
         .expect("cant get commit");
 
-    let message = message.unwrap_or(repo.message().expect("cant get merge message"));
+    // let message = message.unwrap_or(repo.message().expect("cant get merge message"));
+
+    let mut their_branch: Option<git2::Branch> = None;
+    let refs = repo.references().expect("no refs");
+    for r in refs.into_iter() {
+        if let Ok(r) = r {
+            if let Some(oid) = r.target() {
+                if oid == their_oid {
+                    their_branch.replace(git2::Branch::wrap(r));
+                }
+            }
+        }
+    }
+    let their_branch = their_branch.unwrap();
+    
+    let head_ref = repo.head().expect("can't get head");
+    assert!(head_ref.is_branch());
+    let my_branch = git2::Branch::wrap(head_ref);
+    let message = format!(
+        "merge branch {} into {}",
+        their_branch.name().unwrap().unwrap(),
+        my_branch.name().unwrap().unwrap()
+    );
+
+    let tree_oid = repo
+        .index()
+        .expect("can't get index")
+        .write_tree()
+        .expect("can't write tree");
     let tree = repo.find_tree(tree_oid).expect("can't find tree");
 
     repo.commit(
@@ -48,6 +72,7 @@ pub fn create_commit(path: OsString, message: Option<String>) {
         &tree,
         &[&my_commit, &their_commit]
     ).expect("cant create merge commit");
+    repo.cleanup_state().expect("cant cleanup state");
 }
 
 pub fn branch(
@@ -96,15 +121,7 @@ pub fn branch(
                 });
                 return Err(MergeError::Conflicts);
             }
-            let head_ref = repo.head().expect("can't get head");
-            assert!(head_ref.is_branch());
-            let message = format!(
-                "merge branch {} into {}",
-                branch_data.name,
-                git2::Branch::wrap(head_ref).name().unwrap().unwrap()
-            );
-            create_commit(path, Some(message));
-            repo.cleanup_state().expect("cant cleanup state");
+            commit(path);
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
