@@ -11,7 +11,7 @@ pub enum MergeError {
     General(String)
 }
 
-pub fn merge_commit(path: OsString) {
+pub fn merge_commit(path: OsString, message: Option<String>) {
     let mut repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
     let tree_oid = repo
@@ -37,7 +37,7 @@ pub fn merge_commit(path: OsString) {
     let their_commit = repo.find_commit(their_oid.expect("cant get their oid"))
         .expect("cant get commit");
 
-    let message = repo.message().expect("cant get merge message");
+    let message = message.unwrap_or(repo.message().expect("cant get merge message"));
     let tree = repo.find_tree(tree_oid).expect("can't find tree");
 
     repo.commit(
@@ -50,7 +50,7 @@ pub fn merge_commit(path: OsString) {
     ).expect("cant create merge commit");
 }
 
-pub fn merge(
+pub fn merge_branch(
     path: OsString,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
@@ -96,7 +96,14 @@ pub fn merge(
                 });
                 return Err(MergeError::Conflicts);
             }
-            merge_commit(path);
+            let head_ref = repo.head().expect("can't get head");
+            assert!(head_ref.is_branch());
+            let message = format!(
+                "merge branch {} into {}",
+                branch_data.name,
+                git2::Branch::wrap(head_ref).name().unwrap().unwrap()
+            );
+            merge_commit(path, Some(message));
             repo.cleanup_state().expect("cant cleanup state");
         }
         Ok((analysis, preference)) => {
