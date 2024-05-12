@@ -17,7 +17,7 @@ use std::rc::Rc;
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, pull,
     push, reset_hard, stage_untracked, stage_via_apply, stash_changes, merge_dialog_factory,
-    track_changes, resolve_conflict_v1, git_debug,
+    track_changes, git_debug,
     ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
     State, StatusRenderContext, Untracked, View, OURS, THEIRS, ABORT, PROCEED
 };
@@ -987,7 +987,7 @@ impl Status {
                                         let hunk_header = hunk.header.clone();
                                         let origin = line.origin.clone();
                                         move || {
-                                            resolve_conflict_v1(path, file_path, hunk_header, origin, sender);
+                                            merge::choose_conflict_side_once(path, file_path, hunk_header, origin, sender);
                                         }
                                     });
                                     return;

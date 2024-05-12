@@ -30,7 +30,7 @@ use git::{
     create_branch, drop_stash, get_branches, get_commit_diff,
     get_current_repo_status, get_directories, kill_branch, pull, push,
     reset_hard, revwalk, stage_untracked, stage_via_apply, stash_changes, 
-    track_changes, update_remote, resolve_conflict_v1,
+    track_changes, update_remote,
     debug as git_debug,
     ApplyFilter, ApplySubject, BranchData,
     CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
