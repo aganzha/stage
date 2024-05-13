@@ -1,3 +1,8 @@
+[DEBUG stage::git] push_negotiation Some("refs/heads/resolve_v1") Some("refs/heads/resolve_v1")
+thread '<unnamed>' panicked at src/git.rs:1300:13:
+cannot push because a reference that you are trying to update on the remote contains commits that are not present locally.; class=Reference (4); code=NotFastForward (-11)
+stack backtrace:
+
 our side is ready. only unknown way is to displaying conflicted hunk
 after resolve. when it must be finalized - ok. but what about case when
 1 hunk is resolved, but not another one?
