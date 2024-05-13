@@ -2,7 +2,7 @@ pub mod container;
 pub mod headerbar;
 pub mod textview;
 use container::{ViewContainer, ViewKind};
-use crate::git::{merge};
+use crate::git::{merge, LineKind};
 use core::time::Duration;
 
 pub mod render;
@@ -975,19 +975,17 @@ impl Status {
         if let Some(conflicted) = &self.conflicted {
             for f in &conflicted.files {
                 for hunk in &f.hunks {
-                    for line in &hunk.lines {
-                        if line.view.current {
-                            // if line.origin  == crate::DiffLineType::Addition
-                            //     ||
-                            //     line.origin == crate::DiffLineType::Deletion {
+                    for line in &hunk.lines {                        
+                        if line.view.current && (line.kind == LineKind::Ours || line.kind == LineKind::Theirs){
                                     gio::spawn_blocking({
                                         let path = self.path.clone().unwrap();
                                         let sender = self.sender.clone();
                                         let file_path = f.path.clone();
                                         let hunk_header = hunk.header.clone();
-                                        let origin = line.origin.clone();
+                                        let line = line.clone();
                                         move || {
-                                            merge::choose_conflict_side_once(path, file_path, hunk_header, origin, sender);
+                                            merge::choose_conflict_side_of_hunk(path, file_path, hunk_header, line, sender);
+                                            // merge::choose_conflict_side_once(path, file_path, hunk_header, origin, sender);
                                         }
                                     });
                                     return;
