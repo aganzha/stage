@@ -1,3 +1,4 @@
+
 [DEBUG stage::git] push_negotiation Some("refs/heads/resolve_v1") Some("refs/heads/resolve_v1")
 thread '<unnamed>' panicked at src/git.rs:1300:13:
 cannot push because a reference that you are trying to update on the remote contains commits that are not present locally.; class=Reference (4); code=NotFastForward (-11)
@@ -12,6 +13,17 @@ or resolve
 ff1
 mac
 btw. where is a bug in log. try merge branch and view log - it misses commit from the merged branch, btw
+
+thread '<unnamed>' panicked at src/git.rs:1461:10:
+can't checkout tree: Error { code: -13, klass: 20, message: "3774 conflicts prevent checkout" }
+but no god text during checkout in branches view
+
+thread '<unnamed>' panicked at src/git.rs:560:32:
+called `Option::unwrap()` on a `None` value
+!!!!!!!(deleted by us)
+
+
+
 TODO: to highlight  ours/theirs lines it need to hack active_by_parent in line.
       - it need to refactor view active for enum Active(source: bool)
       - normal active is ActibeSource::Hunk(true/false)
