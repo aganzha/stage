@@ -1,5 +1,5 @@
 use gtk4::{gio};
-use std::{ffi::OsString, collections::HashSet, str::from_utf8};
+use std::{ffi::OsString, collections::HashSet, str::from_utf8, path::{PathBuf, Path}};
 use crate::git::{BranchData, Head, State, get_current_repo_status, STAGE_FLAG, make_diff, Hunk, DiffKind, get_conflicted_v1};
 use async_channel::Sender;
 use log::{debug, info, trace};
@@ -214,7 +214,7 @@ pub fn choose_conflict_side(path: OsString, ours: bool, sender: Sender<crate::Ev
     for entry in &mut entries {
         let pth = String::from_utf8(entry.path.clone()).expect("cant get path");
         diff_opts.pathspec(pth.clone());
-        index.remove_path(std::path::Path::new(&pth)).expect("cant remove path");
+        index.remove_path(Path::new(&pth)).expect("cant remove path");
         entry.flags = entry.flags & !STAGE_FLAG;
         index.add(&entry).expect("cant add to index");
     }
@@ -260,10 +260,75 @@ pub fn choose_conflict_side(path: OsString, ours: bool, sender: Sender<crate::Ev
     // will be on other side of stage (will be +- same hunks on both sides)
     for entry in &entries {
         let pth = String::from_utf8(entry.path.clone()).expect("cant get path");
-        index.add_path(std::path::Path::new(&pth)).expect("cant add path");
+        index.add_path(Path::new(&pth)).expect("cant add path");
     }
     index.write().expect("cant write index");
     get_current_repo_status(Some(path), sender);
+}
+
+trait PathHolder {
+    fn get_path(&self) -> PathBuf;
+}
+
+impl PathHolder for git2::IndexConflict {
+    fn get_path(&self) -> PathBuf {
+        PathBuf::from(from_utf8(match (&self.our, &self.their) {
+            (Some(o), _) => {
+                &o.path[..]
+            }
+            (_, Some(t)) => {
+                &t.path[..]
+            }
+            _ => panic!("no path")
+        }).unwrap())
+    }
+}
+
+pub fn choose_conflict_side_of_hunk(
+    path: OsString,
+    file_path: OsString,
+    hunk_header: String,
+    origin: git2::DiffLineType,
+    sender: Sender<crate::Event>,
+) {
+    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let mut index = repo.index().expect("cant get index");
+    let conflicts = index.conflicts().expect("no conflicts");
+
+    let mut current_conflict: git2::IndexConflict;
+
+    let chosen_path = PathBuf::from(&file_path);
+    
+    for conflict in conflicts {
+        if let Ok(conflict) = conflict {            
+            if chosen_path == conflict.get_path() {
+                current_conflict = conflict;
+            }
+        }
+    }
+    index.remove_path(chosen_path.as_path()).expect("cant remove path");
+
+    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    
+    let mut opts = git2::DiffOptions::new();
+    let mut opts = opts.pathspec(file_path).reverse(true);
+    let git_diff = repo.diff_tree_to_workdir(
+        Some(&current_tree),
+        Some(&mut opts)
+    ).expect("cant get diff");
+
+    let reversed_header = Hunk::reverse_header(hunk_header.clone());
+    // TODO - i need only 1 hunk, btw, not whole file diff
+    let diff = make_diff(&git_diff, DiffKind::Conflicted);    
+    let reversed_header = Hunk::reverse_header(hunk_header.clone());
+    let choosed_lines = &diff.files[0].hunks.iter()
+        .filter(|h| h.header == reversed_header)
+        .collect::<Vec<&Hunk>>()[0].lines;
+    let line_hash = choosed_lines.iter().fold(String::from(""), |mut a, l| {
+        a.push_str(&l.content);
+        a
+    });    
 }
 
 pub fn choose_conflict_side_once(
@@ -295,7 +360,7 @@ pub fn choose_conflict_side_once(
     // delete whole conflict hunk and store lines which user
     // choosed to later apply them
     debug!(".........START removing conflicted file from index");
-    index.remove_path(std::path::Path::new(&file_path)).expect("cant remove path");
+    index.remove_path(Path::new(&file_path)).expect("cant remove path");
 
     opts.pathspec(file_path.clone());
     opts.reverse(true);
@@ -303,9 +368,8 @@ pub fn choose_conflict_side_once(
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
     let git_diff = repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
-
+    
     let reversed_header = Hunk::reverse_header(hunk_header.clone());
-
     debug!(".........reverse header to apply to workdir to delete {:?}", &reversed_header);
 
     // ~~~~~~~~~~~~~~~~~~ store choosed lines ~~~~~~~~~~~~~~~~
@@ -509,7 +573,7 @@ pub fn choose_conflict_side_once(
         .expect("Could not send through channel");
 
     // remove from index again to restore conflict
-    index.remove_path(std::path::Path::new(&file_path)).expect("cant remove path");
+    index.remove_path(Path::new(&file_path)).expect("cant remove path");
 
     // ------------------------------------------
     // restore conflict file in index if not all conflicts were resolved
