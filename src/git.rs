@@ -41,7 +41,7 @@ pub struct View {
     pub markup: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum LineKind {
     None,
     Ours,

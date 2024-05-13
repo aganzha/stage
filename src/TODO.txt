@@ -1,3 +1,8 @@
+our side is ready. only unknown way is to displaying conflicted hunk
+after resolve. when it must be finalized - ok. but what about case when
+1 hunk is resolved, but not another one?
+resolved is just disapeared :(
+
 or resolve
 ff1
 mac
