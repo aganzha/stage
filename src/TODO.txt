@@ -99,7 +99,7 @@ stack backtrace:
        thread '<unnamed>' panicked at src/git.rs:1009:13:
        assertion failed: opt_status.is_none()
        stack backtrace:
-moloko
+thats conflict 2
 TODO: mnemonic!
 BUG: after manipulating branches stashes list is empty, and just feeling of stashes in the log
      dot emacs file also apeared in unstaged, and killing it causeing panic
@@ -137,7 +137,7 @@ cant create branch: Error { code: -4, klass: 4, message: "failed to write refere
 
 let put some writing far from commits
 
-TODO: pull, not just fetch!
+thats a conflict 1
 TODO: commit ammend after post push hook
 TODO: whyle branch list is loaded it need to show empty repr
 FEATURE: add expand rows to hunks as in gitlab!
