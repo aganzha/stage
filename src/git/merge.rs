@@ -331,7 +331,6 @@ pub fn choose_conflict_side_of_hunk(
             index.add(&entry).expect("cant add their");
         }
         index.write().expect("cant write index");
-        // ^^ -------------------------------------------
         get_conflicted_v1(path, sender.clone());
     };
     
@@ -371,21 +370,18 @@ pub fn choose_conflict_side_of_hunk(
     }
 
 
-
-
-
     // TODO - i need only 1 hunk, btw, not whole file diff
     let diff = make_diff(&git_diff, DiffKind::Conflicted);
     let choosed_lines = &diff.files[0].hunks.iter()
         .filter(|h| h.header == reversed_header)
-        .collect::<Vec<&Hunk>>()[0].lines;
-    let line_hash = choosed_lines.iter()
+        .map(|h| &h.lines)
+        .flatten()
         .filter(|l| l.kind == line.kind)
         .fold(String::from(""), |mut a, l| {
         a.push_str(&l.content);
         a
     });
-    // line_hash - is all lines concat together to compare to other hunk
+    // choosed_lines - is all lines concat together to compare to other hunk
 
 }
 
