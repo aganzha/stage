@@ -390,12 +390,15 @@ pub fn choose_conflict_side_of_hunk(
         .expect("Could not send through channel");
 
     // remove from index again to restore conflict
+    // and also to clear from other side tree
     index.remove_path(Path::new(&file_path)).expect("cant remove path");
 
-    if let Some(entry) = current_conflict.ancestor {
-        index.add(&entry).expect("cant add ancestor");
-        debug!("ancestor added!");
-    }
+    let mut ancestor = current_conflict.ancestor.unwrap();
+    index.add(&ancestor).expect("cant add ancestor");
+    // if let Some(entry) = current_conflict.ancestor {
+    //     index.add(&entry).expect("cant add ancestor");
+    //     debug!("ancestor added!");
+    // }
     if let Some(entry) = current_conflict.our {
         debug!("our added!");
         index.add(&entry).expect("cant add our");
@@ -405,7 +408,20 @@ pub fn choose_conflict_side_of_hunk(
         index.add(&entry).expect("cant add their");
     }
     index.write().expect("cant write index");
-    get_conflicted_v1(path, sender.clone());
+    
+    let diff = get_conflicted_v1(path);
+    let has_conflicts = diff.files[0].hunks.iter().fold(false, |a, h| {
+        a || hunk.has_conflicts
+    });
+    if !has_conflicts {
+        // cleanup conflicts and show banner
+        index.remove_path(Path::new(&file_path)).expect("cant remove path");
+        ancestor.flags = ancestor.flags & !STAGE_FLAG;
+        index.add(&ancestor).expect("cant add ancestor");
+    }
+    sender
+        .send_blocking(crate::Event::Conflicted(diff))
+        .expect("Could not send through channel");
 
 }
 
@@ -668,6 +684,9 @@ pub fn choose_conflict_side_once(
         index.add(&entry).expect("cant add their");
     }
     index.write().expect("cant write index");
-    // ^^ -------------------------------------------
-    get_conflicted_v1(path, sender);
+    // ^^ -------------------------------------------    
+    let diff = get_conflicted_v1(path);
+    sender
+        .send_blocking(crate::Event::Conflicted(diff))
+        .expect("Could not send through channel");
 }
