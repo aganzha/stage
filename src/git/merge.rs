@@ -407,34 +407,37 @@ pub fn choose_conflict_side_of_hunk(
     }
     index.write().expect("cant write index");
     
-    let diff = get_conflicted_v1(path);
+    let diff = get_conflicted_v1(path.clone());
     let has_conflicts = diff.files[0].hunks.iter().fold(false, |a, h| {
         a || h.has_conflicts
     });
-    debug!("aaaaaaaaaaaaaaaaaaaaaaaaaand!? {:?}", has_conflicts);
-    if !has_conflicts {
-        // cleanup conflicts and show banner
-        index.remove_path(Path::new(&file_path)).expect("cant remove path");
-        if let Some(mut entry) = current_conflict.ancestor {
-            debug!("ancestor replaced!");
-            entry.flags = entry.flags & !STAGE_FLAG;
-            index.add(&entry).expect("cant add ancestor");
-        }
-        if let Some(mut entry) = current_conflict.our {
-            debug!("our replaced!");
-            entry.flags = entry.flags & !STAGE_FLAG;
-            index.add(&entry).expect("cant add our");
-        }
-        if let Some(mut entry) = current_conflict.their {
-            debug!("their replaced!");
-            entry.flags = entry.flags & !STAGE_FLAG;
-            index.add(&entry).expect("cant add their");
-        }
-        index.write().expect("cant write index");
+
+    if has_conflicts {
+        sender
+            .send_blocking(crate::Event::Conflicted(diff))
+            .expect("Could not send through channel");
+        return;
     }
-    sender
-        .send_blocking(crate::Event::Conflicted(diff))
-        .expect("Could not send through channel");
+
+    // cleanup conflicts and show banner
+    index.remove_path(Path::new(&file_path)).expect("cant remove path");
+    if let Some(mut entry) = current_conflict.ancestor {
+        debug!("ancestor replaced!");
+        entry.flags = entry.flags & !STAGE_FLAG;
+        index.add(&entry).expect("cant add ancestor");
+    }
+    if let Some(mut entry) = current_conflict.our {
+        debug!("our replaced!");
+        entry.flags = entry.flags & !STAGE_FLAG;
+        index.add(&entry).expect("cant add our");
+    }
+    if let Some(mut entry) = current_conflict.their {
+        debug!("their replaced!");
+        entry.flags = entry.flags & !STAGE_FLAG;
+        index.add(&entry).expect("cant add their");
+    }
+    index.write().expect("cant write index");
+    get_current_repo_status(Some(path), sender);
 
 }
 
@@ -485,7 +488,7 @@ pub fn choose_conflict_side_once(
     let mut choosed_lines = String::from("");
     let mut collect: bool = false;
     git_diff.foreach(
-        &mut |delta: git2::DiffDelta, _num| { // file cb
+        &mut |_delta: git2::DiffDelta, _num| { // file cb
             true
         },
         None, // binary cb
