@@ -183,9 +183,11 @@ pub trait ViewContainer {
         // and also put there prev_line length!
         let view = self.get_view();
         let mut line_no = view.line_no;
+        debug!("original line_no {:?}", line_no);
         let original_line_no = view.line_no;
         if let Some(ctx) = context {
             if let Some(ec) = ctx.erase_counter {
+                debug!("erase counter {:?}", ec);
                 line_no -= ec;
             }
         }
@@ -198,6 +200,7 @@ pub trait ViewContainer {
         });
         let buffer = txt.buffer();
         // GOT BUG HERE DURING STAGING SAME FILES!
+        debug!("line finally {:?}", line_no);
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
