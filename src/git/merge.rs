@@ -393,19 +393,17 @@ pub fn choose_conflict_side_of_hunk(
     // and also to clear from other side tree
     index.remove_path(Path::new(&file_path)).expect("cant remove path");
 
-    let mut ancestor = current_conflict.ancestor.unwrap();
-    index.add(&ancestor).expect("cant add ancestor");
-    // if let Some(entry) = current_conflict.ancestor {
-    //     index.add(&entry).expect("cant add ancestor");
-    //     debug!("ancestor added!");
-    // }
-    if let Some(entry) = current_conflict.our {
-        debug!("our added!");
-        index.add(&entry).expect("cant add our");
+    if let Some(entry) = &current_conflict.ancestor {
+        index.add(entry).expect("cant add ancestor");
+        debug!("ancestor restored!");
     }
-    if let Some(entry) = current_conflict.their {
-        debug!("their added!");
-        index.add(&entry).expect("cant add their");
+    if let Some(entry) = &current_conflict.our {
+        debug!("our restored!");
+        index.add(entry).expect("cant add our");
+    }
+    if let Some(entry) = &current_conflict.their {
+        debug!("their restored!");
+        index.add(entry).expect("cant add their");
     }
     index.write().expect("cant write index");
     
@@ -413,12 +411,25 @@ pub fn choose_conflict_side_of_hunk(
     let has_conflicts = diff.files[0].hunks.iter().fold(false, |a, h| {
         a || h.has_conflicts
     });
-
+    debug!("aaaaaaaaaaaaaaaaaaaaaaaaaand!? {:?}", has_conflicts);
     if !has_conflicts {
         // cleanup conflicts and show banner
         index.remove_path(Path::new(&file_path)).expect("cant remove path");
-        ancestor.flags = ancestor.flags & !STAGE_FLAG;
-        index.add(&ancestor).expect("cant add ancestor");
+        if let Some(mut entry) = current_conflict.ancestor {
+            debug!("ancestor replaced!");
+            entry.flags = entry.flags & !STAGE_FLAG;
+            index.add(&entry).expect("cant add ancestor");
+        }
+        if let Some(mut entry) = current_conflict.our {
+            debug!("our replaced!");
+            entry.flags = entry.flags & !STAGE_FLAG;
+            index.add(&entry).expect("cant add our");
+        }
+        if let Some(mut entry) = current_conflict.their {
+            debug!("their replaced!");
+            entry.flags = entry.flags & !STAGE_FLAG;
+            index.add(&entry).expect("cant add their");
+        }
         index.write().expect("cant write index");
     }
     sender
