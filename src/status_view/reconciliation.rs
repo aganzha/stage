@@ -178,9 +178,13 @@ impl File {
             let r_delta = r_hunk.delta_in_lines();
 
             if let Some(ctx) = context {
+                // why kind here is required?????
+                // it is required to compare old_new/new_lines and thats it
+                // it could be refactored to some method, which will return
+                // proper start to compare to
                 if let Some(knd) = &ctx.diff_kind {
                     if (n_hunk.new_start == r_hunk.new_start
-                        && knd == &DiffKind::Staged)
+                        && (knd == &DiffKind::Staged || knd == &DiffKind::Conflicted))
                         || (n_hunk.old_start == r_hunk.old_start
                             && knd == &DiffKind::Unstaged)
                     {
@@ -194,7 +198,7 @@ impl File {
                         m_n_hunk.enrich_view(m_r_hunk, txt, context);
                         n_ind += 1;
                         r_ind += 1;
-                    } else if knd == &DiffKind::Staged
+                    } else if (knd == &DiffKind::Staged || knd == &DiffKind::Conflicted)
                         && n_hunk.new_start < r_hunk.new_start
                     {
                         trace!("^^^^^^^^new hunk is BEFORE rendered hunk in STAGED");
@@ -209,7 +213,7 @@ impl File {
                                 as u32;
                         }
                         n_ind += 1;
-                    } else if knd == &DiffKind::Staged
+                    } else if (knd == &DiffKind::Staged || knd == &DiffKind::Conflicted)
                         && n_hunk.new_start > r_hunk.new_start
                     {
                         trace!("^^^^^^^^new hunk is AFTER rendered hunk in STAGED");
