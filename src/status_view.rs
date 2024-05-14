@@ -981,10 +981,10 @@ impl Status {
                                         let path = self.path.clone().unwrap();
                                         let sender = self.sender.clone();
                                         let file_path = f.path.clone();
-                                        let hunk_header = hunk.header.clone();
+                                        let hunk = hunk.clone();
                                         let line = line.clone();
                                         move || {
-                                            merge::choose_conflict_side_of_hunk(path, file_path, hunk_header, line, sender);
+                                            merge::choose_conflict_side_of_hunk(path, file_path, hunk, line, sender);
                                             // merge::choose_conflict_side_once(path, file_path, hunk_header, origin, sender);
                                         }
                                     });

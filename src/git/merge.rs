@@ -287,7 +287,7 @@ impl PathHolder for git2::IndexConflict {
 pub fn choose_conflict_side_of_hunk(
     path: OsString,
     file_path: OsString,
-    hunk_header: String,
+    hunk: Hunk,
     line: Line,
     sender: Sender<crate::Event>,
 ) {
@@ -299,11 +299,11 @@ pub fn choose_conflict_side_of_hunk(
 
     let chosen_path = PathBuf::from(&file_path);
 
-    let current_conflict = conflicts.filter(|c| c.as_ref().unwrap().get_path() == chosen_path)
+    let mut current_conflict = conflicts.filter(|c| c.as_ref().unwrap().get_path() == chosen_path)
         .next()
         .unwrap()
         .unwrap();
-    
+
     index.remove_path(chosen_path.as_path()).expect("cant remove path");
 
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
@@ -311,35 +311,19 @@ pub fn choose_conflict_side_of_hunk(
 
     let mut opts = git2::DiffOptions::new();
     let mut opts = opts.pathspec(&file_path).reverse(true);
-    let git_diff = repo.diff_tree_to_workdir(
+    let mut git_diff = repo.diff_tree_to_workdir(
         Some(&current_tree),
         Some(&mut opts)
     ).expect("cant get diff");
 
-    let finalize = || {
-        // restore conflict file in index if not all conflicts were resolved
-        if let Some(entry) = current_conflict.ancestor {
-            index.add(&entry).expect("cant add ancestor");
-            debug!("ancestor added!");
-        }
-        if let Some(entry) = current_conflict.our {
-            debug!("our added!");
-            index.add(&entry).expect("cant add our");
-        }
-        if let Some(entry) = current_conflict.their {
-            debug!("their added!");
-            index.add(&entry).expect("cant add their");
-        }
-        index.write().expect("cant write index");
-        get_conflicted_v1(path, sender.clone());
-    };
+
+    let reversed_header = Hunk::reverse_header(hunk.header);    
+
+    let mut options = git2::ApplyOptions::new();
     
-    let reversed_header = Hunk::reverse_header(hunk_header.clone());
     if line.kind == LineKind::Ours {
         // just kill all hunk from diff.
         // our tree is all that required
-        let mut options = git2::ApplyOptions::new();
-
         options.hunk_callback(|odh| -> bool {
             if let Some(dh) = odh {
                 let header = Hunk::get_header_from(&dh);
@@ -355,33 +339,73 @@ pub fn choose_conflict_side_of_hunk(
             todo!("diff without delta");
         });
 
+    } else {
+        let their_entry = current_conflict.their.as_mut().unwrap();
+        let their_original_flags = their_entry.flags;
 
-        sender.send_blocking(crate::Event::LockMonitors(true))
-            .expect("Could not send through channel");
+        their_entry.flags = their_entry.flags & !STAGE_FLAG;
 
-        repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))
-            .expect("can't apply patch");
+        index.add(their_entry).expect("cant add entry");
 
-        sender.send_blocking(crate::Event::LockMonitors(false))
-            .expect("Could not send through channel");
+        let mut opts = git2::DiffOptions::new();
+        opts.pathspec(file_path.clone());
+        // reverse means index will be NEW side cause we are adding hunk to workdir
+        opts.reverse(true);
 
-        finalize();
-        return
+        // ANOTHER DIFF!
+        git_diff = repo.diff_index_to_workdir(Some(&index), Some(&mut opts))
+            .expect("cant get diff");
+
+        // restore stage flag to conflict again
+        their_entry.flags = their_original_flags;
+
+
+        // passed hunk is from diff_tree_to_workdir. workdir is NEW side
+        // for this hunks NEW side is workdir
+        // so it need to compare NEW side of passed hunk with OLD side of this diff
+        // (cause new side is index side, where hunk headers will differ a lot)
+        options.hunk_callback(|odh| -> bool {
+            if let Some(dh) = odh {
+                return hunk.new_start == dh.old_start();
+            }
+            false
+        });
+        options.delta_callback(|odd| -> bool {
+            if let Some(dd) = odd {
+                let path: OsString = dd.new_file().path().unwrap().into();
+                return file_path == path;
+            }
+            todo!("diff without delta");
+        });
     }
 
 
-    // TODO - i need only 1 hunk, btw, not whole file diff
-    let diff = make_diff(&git_diff, DiffKind::Conflicted);
-    let choosed_lines = &diff.files[0].hunks.iter()
-        .filter(|h| h.header == reversed_header)
-        .map(|h| &h.lines)
-        .flatten()
-        .filter(|l| l.kind == line.kind)
-        .fold(String::from(""), |mut a, l| {
-        a.push_str(&l.content);
-        a
-    });
-    // choosed_lines - is all lines concat together to compare to other hunk
+    sender.send_blocking(crate::Event::LockMonitors(true))
+        .expect("Could not send through channel");
+
+    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))
+        .expect("can't apply patch");
+
+    sender.send_blocking(crate::Event::LockMonitors(false))
+        .expect("Could not send through channel");
+
+    // remove from index again to restore conflict
+    index.remove_path(Path::new(&file_path)).expect("cant remove path");
+
+    if let Some(entry) = current_conflict.ancestor {
+        index.add(&entry).expect("cant add ancestor");
+        debug!("ancestor added!");
+    }
+    if let Some(entry) = current_conflict.our {
+        debug!("our added!");
+        index.add(&entry).expect("cant add our");
+    }
+    if let Some(entry) = current_conflict.their {
+        debug!("their added!");
+        index.add(&entry).expect("cant add their");
+    }
+    index.write().expect("cant write index");
+    get_conflicted_v1(path, sender.clone());
 
 }
 
