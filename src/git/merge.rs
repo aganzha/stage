@@ -411,13 +411,15 @@ pub fn choose_conflict_side_of_hunk(
     
     let diff = get_conflicted_v1(path);
     let has_conflicts = diff.files[0].hunks.iter().fold(false, |a, h| {
-        a || hunk.has_conflicts
+        a || h.has_conflicts
     });
+
     if !has_conflicts {
         // cleanup conflicts and show banner
         index.remove_path(Path::new(&file_path)).expect("cant remove path");
         ancestor.flags = ancestor.flags & !STAGE_FLAG;
         index.add(&ancestor).expect("cant add ancestor");
+        index.write().expect("cant write index");
     }
     sender
         .send_blocking(crate::Event::Conflicted(diff))
