@@ -535,6 +535,8 @@ impl BranchList {
 
     pub fn get_selected_branch(&self) -> crate::BranchData {
         let pos = self.selected_pos();
+        // TODO! got panic here while opening large
+        // list of branches and clicking create
         let item = self.item(pos).unwrap();
         let branch_item = item.downcast_ref::<BranchItem>().unwrap();
         let data = branch_item.imp().branch.borrow().clone();

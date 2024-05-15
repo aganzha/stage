@@ -802,54 +802,28 @@ pub fn stage_via_apply(
     filter: ApplyFilter,
     sender: Sender<crate::Event>,
 ) {
+    // TODO! destruct filter to args. put file in pathspec for diff opts
     let repo = Repository::open(path.clone()).expect("can't open repo");
 
+    let mut opts = DiffOptions::new();
+    opts.pathspec(&filter.file_id);
+
     let git_diff = match filter.subject {
-        // The index will be used for the “old_file” side of the delta,
-        // and the working directory will be used
-        // for the “new_file” side of the delta.
         ApplySubject::Stage => repo
-            .diff_index_to_workdir(None, None)
+            .diff_index_to_workdir(None, Some(&mut opts))
             .expect("can't get diff"),
-        // The tree you pass will be used for the “old_file”
-        // side of the delta, and the index???
-        // will be used for the “new_file” side of the delta.
-        // !!!!! SEE reverse below. Means tree will be new side
-        // and index will be old side. Means changes from tree come to index!
         ApplySubject::Unstage => {
+            opts.reverse(true);
             let ob =
                 repo.revparse_single("HEAD^{tree}").expect("fail revparse");
             let current_tree =
                 repo.find_tree(ob.id()).expect("no working tree");
-            repo.diff_tree_to_index(
-                Some(&current_tree),
-                None,
-                Some(DiffOptions::new().reverse(true)), // reverse!!!
-            )
-            .expect("can't get diff")
+            repo.diff_tree_to_index(Some(&current_tree), None, Some(&mut opts))
+                .expect("can't get diff")
         }
         ApplySubject::Kill => {
-            // diff_index_to_workdir with reverse does not work: it is empty :(
-            // if index is empty and workdir changed - straight index (reverse=false)
-            // shows unstaged hunk. BUT if reverse - it does show NOTHING for some reason.
-            // why????
-            let mut opts = DiffOptions::new();
             opts.reverse(true);
-            // allow empty chunks!
-            opts.include_unmodified(true);
-            repo.diff_index_to_workdir(None, Some(&mut opts))
-            // reverse doesn work either, it is empty!
-            // let ob =
-            //     repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-            // let current_tree =
-            //     repo.find_tree(ob.id()).expect("no working tree");
-            // problem here: this diff is incorrect, when stage part of file
-            // and want to kill another part. hunks headers are different!
-            // repo.diff_tree_to_workdir(
-            //     Some(&current_tree),
-            //     Some(DiffOptions::new().reverse(true)), // reverse!!!
-            // )
-            .expect("can't get diff in kill")
+            repo.diff_index_to_workdir(None, Some(&mut opts)).expect("cant get diff")
         }
     };
 
