@@ -1,6 +1,6 @@
 use crate::status_view::{Label, Tag};
 use crate::{
-    Diff, File, Head, Hunk, Line, State, StatusRenderContext, Untracked,
+    Diff, File, Head, Hunk, Line, State, StatusRenderContext, UnderCursor, Untracked,
     UntrackedFile, View, DiffKind, LineKind
 };
 use git2::{DiffLineType, RepositoryState};
@@ -76,6 +76,9 @@ pub trait ViewContainer {
 
         let view_expanded = view.expanded;
         let current = view.is_rendered_in(line_no);
+        if current {
+            self.fill_under_cursor(context)
+        }
         let active_by_parent = self.is_active_by_parent(parent_active, context);
         let mut active_by_child = false;
 
@@ -109,11 +112,14 @@ pub trait ViewContainer {
         result
     }
 
-    fn is_active_by_child(&self, _child_active: bool, context: &mut Option<StatusRenderContext>) -> bool {
+    fn fill_under_cursor(&self, _context: &mut Option<StatusRenderContext>) {
+    }
+    
+    fn is_active_by_child(&self, _child_active: bool, _context: &mut Option<StatusRenderContext>) -> bool {
         false
     }
 
-    fn is_active_by_parent(&self, _parent_active: bool, context: &mut Option<StatusRenderContext>) -> bool {
+    fn is_active_by_parent(&self, _parent_active: bool, _context: &mut Option<StatusRenderContext>) -> bool {
         false
     }
 
@@ -272,6 +278,18 @@ impl ViewContainer for Diff {
             result = file.cursor(line_no, parent_active, context) || result;
         }
         result
+    }
+
+    fn fill_under_cursor(&self, context: &mut Option<StatusRenderContext>) {
+        if let Some(context) = context {
+            match &mut context.under_cursor {
+                UnderCursor::None => {
+                },
+                UnderCursor::Some{ref mut diff, hunk: _, line: _} => {
+                    diff.replace(self.clone());
+                }
+            }
+        }
     }
 
     // Diff
@@ -450,6 +468,11 @@ impl ViewContainer for Line {
     fn is_active_by_parent(&self, active: bool, context: &mut Option<StatusRenderContext>) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
+        // if active {
+        //     if context.diff_kind == DiffKind.Conflicted {
+                
+        //     }
+        // }
         active
     }
 

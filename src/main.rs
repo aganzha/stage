@@ -1,5 +1,5 @@
 mod context;
-use context::StatusRenderContext;
+use context::{StatusRenderContext, UnderCursor};
 
 mod status_view;
 use status_view::{
