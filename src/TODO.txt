@@ -99,7 +99,7 @@ stack backtrace:
        thread '<unnamed>' panicked at src/git.rs:1009:13:
        assertion failed: opt_status.is_none()
        stack backtrace:
-master of puppets1
+master of puppetsA
 TODO: mnemonic!
 BUG: after manipulating branches stashes list is empty, and just feeling of stashes in the log
      dot emacs file also apeared in unstaged, and killing it causeing panic
@@ -135,7 +135,7 @@ thread '<unnamed>' panicked at src/git.rs:1043:18:
 cant create branch: Error { code: -4, klass: 4, message: "failed to write reference 'refs/heads/rc-24.1204': a reference with that name already exists." }
 
 
-master of puppets2
+master of puppetsA
 TODO: commit ammend after post push hook
 TODO: whyle branch list is loaded it need to show empty repr
 FEATURE: add expand rows to hunks as in gitlab!
