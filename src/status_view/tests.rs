@@ -78,7 +78,7 @@ mod tests {
     // tests
     pub fn cursor(diff: &mut Diff, line_no: i32) {
         for (_, file) in diff.files.iter_mut().enumerate() {
-            file.cursor(line_no, false);
+            file.cursor(line_no, false, &mut None);
         }
         // some views will be rerenderred cause highlight changes
         mock_render(diff);
@@ -313,7 +313,7 @@ mod tests {
         let ctx = &mut Some(StatusRenderContext::new());
         diff.render(&buffer, &mut iter, ctx);
         // if cursor returns true it need to rerender as in Status!
-        if diff.cursor(1, false) {
+        if diff.cursor(1, false, &mut None) {
             diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
         }
 
@@ -342,7 +342,7 @@ mod tests {
 
         let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no;
         // put cursor inside first hunk
-        if diff.cursor(line_of_line, false) {
+        if diff.cursor(line_of_line, false, &mut None) {
             // if comment out next line the line_of_line will be not sqashed
             diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
         }

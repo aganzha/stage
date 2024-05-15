@@ -134,7 +134,7 @@ pub fn show_commit_window(
                 }
                 Event::Cursor(_offset, line_no) => {
                     if let Some(d) = &mut main_diff {
-                        if d.diff.cursor(line_no, false) {
+                        if d.diff.cursor(line_no, false, &mut None) {
                             let buffer = txt.buffer();
                             let mut iter = buffer.iter_at_offset(0);
                             d.diff.render(&buffer, &mut iter, &mut Some(ctx));
