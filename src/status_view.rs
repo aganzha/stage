@@ -767,16 +767,16 @@ impl Status {
     pub fn cursor(&mut self, txt: &TextView, line_no: i32, offset: i32) {
         let mut changed = false;
         if let Some(untracked) = &mut self.untracked {
-            changed = untracked.cursor(line_no, false) || changed;
+            changed = untracked.cursor(line_no, false, &mut self.context) || changed;
         }
         if let Some(conflicted) = &mut self.conflicted {
-            changed = conflicted.cursor(line_no, false) || changed;
+            changed = conflicted.cursor(line_no, false, &mut self.context) || changed;
         }
         if let Some(unstaged) = &mut self.unstaged {
-            changed = unstaged.cursor(line_no, false) || changed;
+            changed = unstaged.cursor(line_no, false, &mut self.context) || changed;
         }
         if let Some(staged) = &mut self.staged {
-            changed = staged.cursor(line_no, false) || changed;
+            changed = staged.cursor(line_no, false, &mut self.context) || changed;
         }
         if changed {
             self.render(txt, RenderSource::Cursor(line_no));

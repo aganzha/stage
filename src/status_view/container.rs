@@ -66,7 +66,7 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
+    fn cursor(&mut self, line_no: i32, parent_active: bool, context: &mut Option<StatusRenderContext>) -> bool {
         // returns if view is changed during cursor move
         let mut result = false;
         let view = self.get_view();
@@ -76,7 +76,7 @@ pub trait ViewContainer {
 
         let view_expanded = view.expanded;
         let current = view.is_rendered_in(line_no);
-        let active_by_parent = self.is_active_by_parent(parent_active);
+        let active_by_parent = self.is_active_by_parent(parent_active, context);
         let mut active_by_child = false;
 
         if view_expanded {
@@ -87,7 +87,7 @@ pub trait ViewContainer {
                 }
             }
         }
-        active_by_child = self.is_active_by_child(active_by_child);
+        active_by_child = self.is_active_by_child(active_by_child, context);
 
         let self_active = active_by_parent || current || active_by_child;
 
@@ -102,18 +102,18 @@ pub trait ViewContainer {
             result = view.dirty;
         }
         for child in self.get_children() {
-            result = child.cursor(line_no, self_active) || result;
+            result = child.cursor(line_no, self_active, context) || result;
         }
         // result here just means view is changed
         // it does not actually means that view is under cursor
         result
     }
 
-    fn is_active_by_child(&self, _child_active: bool) -> bool {
+    fn is_active_by_child(&self, _child_active: bool, context: &mut Option<StatusRenderContext>) -> bool {
         false
     }
 
-    fn is_active_by_parent(&self, _parent_active: bool) -> bool {
+    fn is_active_by_parent(&self, _parent_active: bool, context: &mut Option<StatusRenderContext>) -> bool {
         false
     }
 
@@ -266,10 +266,10 @@ impl ViewContainer for Diff {
     }
 
     // diff
-    fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
+    fn cursor(&mut self, line_no: i32, parent_active: bool, context: &mut Option<StatusRenderContext>) -> bool {
         let mut result = false;
         for file in &mut self.files {
-            result = file.cursor(line_no, parent_active) || result;
+            result = file.cursor(line_no, parent_active, context) || result;
         }
         result
     }
@@ -390,14 +390,14 @@ impl ViewContainer for Hunk {
             .collect()
     }
     // Hunk
-    fn is_active_by_parent(&self, active: bool) -> bool {
+    fn is_active_by_parent(&self, active: bool, context: &mut Option<StatusRenderContext>) -> bool {
         // if file is active (cursor on it)
         // whole hunk is active
         active
     }
 
     // Hunk
-    fn is_active_by_child(&self, active: bool) -> bool {
+    fn is_active_by_child(&self, active: bool, context: &mut Option<StatusRenderContext>) -> bool {
         // if line is active (cursor on it)
         // whole hunk is active
         active
@@ -447,7 +447,7 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn is_active_by_parent(&self, active: bool) -> bool {
+    fn is_active_by_parent(&self, active: bool, context: &mut Option<StatusRenderContext>) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
         active
@@ -613,7 +613,7 @@ impl ViewContainer for Untracked {
         None
     }
 
-    fn is_active_by_parent(&self, active: bool) -> bool {
+    fn is_active_by_parent(&self, active: bool, context: &mut Option<StatusRenderContext>) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
         active
@@ -636,10 +636,10 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked
-    fn cursor(&mut self, line_no: i32, parent_active: bool) -> bool {
+    fn cursor(&mut self, line_no: i32, parent_active: bool, context: &mut Option<StatusRenderContext>) -> bool {
         let mut result = false;
         for file in &mut self.files {
-            result = file.cursor(line_no, parent_active) || result;
+            result = file.cursor(line_no, parent_active, context) || result;
         }
         result
     }
@@ -673,7 +673,7 @@ impl ViewContainer for UntrackedFile {
         None
     }
 
-    fn is_active_by_parent(&self, active: bool) -> bool {
+    fn is_active_by_parent(&self, active: bool, context: &mut Option<StatusRenderContext>) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
         active
