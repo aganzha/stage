@@ -412,7 +412,6 @@ pub fn choose_conflict_side_of_hunk(
         a || h.has_conflicts
     });
 
-    debug!("?????????????????????????? {:?}", has_conflicts);
     if has_conflicts {
         sender
             .send_blocking(crate::Event::Conflicted(diff))
@@ -422,21 +421,22 @@ pub fn choose_conflict_side_of_hunk(
 
     // cleanup conflicts and show banner
     index.remove_path(Path::new(&file_path)).expect("cant remove path");
-    if let Some(mut entry) = current_conflict.ancestor {
-        debug!("ancestor replaced!");
-        entry.flags = entry.flags & !STAGE_FLAG;
-        index.add(&entry).expect("cant add ancestor");
-    }
-    if let Some(mut entry) = current_conflict.our {
-        debug!("our replaced!");
-        entry.flags = entry.flags & !STAGE_FLAG;
-        index.add(&entry).expect("cant add our");
-    }
-    if let Some(mut entry) = current_conflict.their {
-        debug!("their replaced!");
-        entry.flags = entry.flags & !STAGE_FLAG;
-        index.add(&entry).expect("cant add their");
-    }
+    index.add_path(Path::new(&file_path)).expect("cant add path");
+    // if let Some(mut entry) = current_conflict.ancestor {
+    //     debug!("ancestor replaced!");
+    //     entry.flags = entry.flags & !STAGE_FLAG;
+    //     index.add(&entry).expect("cant add ancestor");
+    // }
+    // if let Some(mut entry) = current_conflict.our {
+    //     debug!("our replaced!");
+    //     entry.flags = entry.flags & !STAGE_FLAG;
+    //     index.add(&entry).expect("cant add our");
+    // }
+    // if let Some(mut entry) = current_conflict.their {
+    //     debug!("their replaced!");
+    //     entry.flags = entry.flags & !STAGE_FLAG;
+    //     index.add(&entry).expect("cant add their");
+    // }
     index.write().expect("cant write index");
     get_current_repo_status(Some(path), sender);
 
