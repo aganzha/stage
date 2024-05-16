@@ -37,4 +37,12 @@ impl StatusRenderContext {
             }
         }
     }
+
+    pub fn update_screen_line_width(&mut self, max_line_len: i32) {        
+        if let Some(sw) = self.screen_width {
+            if sw.1 < max_line_len {
+                self.screen_width.replace((sw.0, max_line_len));
+            }
+        }        
+    }
 }

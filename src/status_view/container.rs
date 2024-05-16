@@ -43,14 +43,14 @@ pub trait ViewContainer {
         Vec::new()
     }
 
-    fn fill_context(&self, _: &mut Option<StatusRenderContext>) {}
+    fn fill_context(&self, _: &mut Option<&mut StatusRenderContext>) {}
 
     // ViewContainer
     fn render(
         &mut self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
-        context: &mut Option<StatusRenderContext>,
+        context: &mut Option<&mut StatusRenderContext>,
     ) {
         self.fill_context(context);
         let content = self.get_content();
@@ -66,7 +66,7 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn cursor(&mut self, line_no: i32, parent_active: bool, context: &mut Option<StatusRenderContext>) -> bool {
+    fn cursor(&mut self, line_no: i32, parent_active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
         // returns if view is changed during cursor move
         let mut result = false;
         let view = self.get_view();
@@ -112,14 +112,14 @@ pub trait ViewContainer {
         result
     }
 
-    fn fill_under_cursor(&self, _context: &mut Option<StatusRenderContext>) {
+    fn fill_under_cursor(&self, _context: &mut Option<&mut StatusRenderContext>) {
     }
     
-    fn is_active_by_child(&self, _child_active: bool, _context: &mut Option<StatusRenderContext>) -> bool {
+    fn is_active_by_child(&self, _child_active: bool, _context: &mut Option<&mut StatusRenderContext>) -> bool {
         false
     }
 
-    fn is_active_by_parent(&self, _parent_active: bool, _context: &mut Option<StatusRenderContext>) -> bool {
+    fn is_active_by_parent(&self, _parent_active: bool, _context: &mut Option<&mut StatusRenderContext>) -> bool {
         false
     }
 
@@ -166,7 +166,7 @@ pub trait ViewContainer {
     fn erase(
         &mut self,
         txt: &TextView,
-        context: &mut Option<StatusRenderContext>,
+        context: &mut Option<&mut StatusRenderContext>,
     ) {
         // CAUTION. ATTENTION. IMPORTANT
         // this ONLY rendering. the data remains
@@ -217,7 +217,7 @@ pub trait ViewContainer {
     fn resize(
         &mut self,
         txt: &TextView,
-        context: &mut Option<StatusRenderContext>,
+        context: &mut Option<&mut StatusRenderContext>,
     ) {
         trace!("+++++++++++++++++++++ resize {:?}", context);
         let view = self.get_view();
@@ -272,7 +272,7 @@ impl ViewContainer for Diff {
     }
 
     // diff
-    fn cursor(&mut self, line_no: i32, parent_active: bool, context: &mut Option<StatusRenderContext>) -> bool {
+    fn cursor(&mut self, line_no: i32, parent_active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
         let mut result = false;
         for file in &mut self.files {
             result = file.cursor(line_no, parent_active, context) || result;
@@ -280,7 +280,7 @@ impl ViewContainer for Diff {
         result
     }
 
-    fn fill_under_cursor(&self, context: &mut Option<StatusRenderContext>) {
+    fn fill_under_cursor(&self, context: &mut Option<&mut StatusRenderContext>) {
         if let Some(context) = context {
             match &mut context.under_cursor {
                 UnderCursor::None => {
@@ -297,7 +297,7 @@ impl ViewContainer for Diff {
         &mut self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
-        context: &mut Option<StatusRenderContext>,
+        context: &mut Option<&mut StatusRenderContext>,
     ) {
         // why do i need it at all?
         self.view.line_no = iter.line();
@@ -355,7 +355,7 @@ impl ViewContainer for File {
         vec![Tag::Bold, Tag::Pointer]
     }
 
-    fn fill_context(&self, context: &mut Option<StatusRenderContext>) {
+    fn fill_context(&self, context: &mut Option<&mut StatusRenderContext>) {
         if let Some(ctx) = context {
             if let Some(len) = ctx.max_len {
                 if len < self.max_line_len {
@@ -408,14 +408,14 @@ impl ViewContainer for Hunk {
             .collect()
     }
     // Hunk
-    fn is_active_by_parent(&self, active: bool, context: &mut Option<StatusRenderContext>) -> bool {
+    fn is_active_by_parent(&self, active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
         // if file is active (cursor on it)
         // whole hunk is active
         active
     }
 
     // Hunk
-    fn is_active_by_child(&self, active: bool, context: &mut Option<StatusRenderContext>) -> bool {
+    fn is_active_by_child(&self, active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
         // if line is active (cursor on it)
         // whole hunk is active
         active
@@ -465,7 +465,7 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn is_active_by_parent(&self, active: bool, context: &mut Option<StatusRenderContext>) -> bool {
+    fn is_active_by_parent(&self, active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
         // if active {
@@ -636,7 +636,7 @@ impl ViewContainer for Untracked {
         None
     }
 
-    fn is_active_by_parent(&self, active: bool, context: &mut Option<StatusRenderContext>) -> bool {
+    fn is_active_by_parent(&self, active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
         active
@@ -650,7 +650,7 @@ impl ViewContainer for Untracked {
         &mut self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
-        context: &mut Option<StatusRenderContext>,
+        context: &mut Option<&mut StatusRenderContext>,
     ) {
         self.view.line_no = iter.line();
         for file in &mut self.files {
@@ -659,7 +659,7 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked
-    fn cursor(&mut self, line_no: i32, parent_active: bool, context: &mut Option<StatusRenderContext>) -> bool {
+    fn cursor(&mut self, line_no: i32, parent_active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
         let mut result = false;
         for file in &mut self.files {
             result = file.cursor(line_no, parent_active, context) || result;
@@ -696,7 +696,7 @@ impl ViewContainer for UntrackedFile {
         None
     }
 
-    fn is_active_by_parent(&self, active: bool, context: &mut Option<StatusRenderContext>) -> bool {
+    fn is_active_by_parent(&self, active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
         active

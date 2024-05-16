@@ -16,7 +16,7 @@ impl Line {
     pub fn enrich_view(
         &mut self,
         rendered: &Line,
-        _context: &mut Option<crate::StatusRenderContext>,
+        _context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         self.view = rendered.transfer_view();
         if self.content != rendered.content || self.origin != rendered.origin {
@@ -52,7 +52,7 @@ impl Hunk {
         &mut self,
         rendered: &mut Hunk,
         txt: &TextView,
-        context: &mut Option<crate::StatusRenderContext>,
+        context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         self.view = rendered.transfer_view();
         if self.lines.len() == rendered.lines.len() {
@@ -147,7 +147,7 @@ impl File {
         &mut self,
         rendered: &mut File,
         txt: &TextView,
-        context: &mut Option<crate::StatusRenderContext>,
+        context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         self.view = rendered.transfer_view();
 
@@ -331,7 +331,7 @@ impl Diff {
         &mut self,
         rendered: &mut Diff,
         txt: &TextView,
-        context: &mut Option<crate::StatusRenderContext>,
+        context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         if let Some(ctx) = context {
             ctx.diff_kind.replace(self.kind.clone());
@@ -370,7 +370,7 @@ impl UntrackedFile {
     pub fn enrich_view(
         &mut self,
         rendered: &UntrackedFile,
-        _context: &mut Option<crate::StatusRenderContext>,
+        _context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         self.view = rendered.transfer_view();
     }
@@ -387,7 +387,7 @@ impl Untracked {
         &mut self,
         rendered: &mut Untracked,
         txt: &TextView,
-        context: &mut Option<crate::StatusRenderContext>,
+        context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         let mut replaces_by_new = HashSet::new();
         for file in &mut self.files {
