@@ -86,6 +86,7 @@ pub trait ViewContainer {
             for child in self.get_children() {
                 active_by_child = child.get_view().is_rendered_in(line_no);
                 if active_by_child {
+                    child.fill_under_cursor(context);
                     break;
                 }
             }
