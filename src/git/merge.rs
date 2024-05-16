@@ -338,6 +338,8 @@ pub fn choose_conflict_side_of_hunk(
     let reversed_header = Hunk::reverse_header(hunk.header);    
 
     let mut options = git2::ApplyOptions::new();
+
+    let file_path_clone = file_path.clone();
     
     if line.kind == LineKind::Ours {
         // just kill all hunk from diff.
@@ -409,7 +411,7 @@ pub fn choose_conflict_side_of_hunk(
 
     // remove from index again to restore conflict
     // and also to clear from other side tree
-    index.remove_path(Path::new(&file_path)).expect("cant remove path");
+    index.remove_path(Path::new(&file_path.clone())).expect("cant remove path");
 
     if let Some(entry) = &current_conflict.ancestor {
         index.add(entry).expect("cant add ancestor");
@@ -424,24 +426,58 @@ pub fn choose_conflict_side_of_hunk(
         index.add(entry).expect("cant add their");
     }
     index.write().expect("cant write index");
+
+
+    cleanup_last_conflict_for_file(path, file_path_clone, sender);
     
+    // let diff = get_conflicted_v1(path.clone());
+    // // why where is [0]!!!!!!!!!!!!!!!!!!
+    // // i have 1 file, but diff could have many of them!
+    // let has_conflicts = diff.files[0].hunks.iter().fold(false, |a, h| {
+    //     a || h.has_conflicts
+    // });
+
+    // // TODO! what about multiple files?
+    // // this code asumes that this is only 1 file has conflicts!
+    // // but, possibly, there will be multiple files!
+    // if has_conflicts {
+    //     sender
+    //         .send_blocking(crate::Event::Conflicted(diff))
+    //         .expect("Could not send through channel");
+    //     return;
+    // }
+
+    // // cleanup conflicts and show banner
+    // index.remove_path(Path::new(&file_path)).expect("cant remove path");
+    // index.add_path(Path::new(&file_path)).expect("cant add path");
+
+    // index.write().expect("cant write index");
+    // get_current_repo_status(Some(path), sender);
+
+}
+
+pub fn cleanup_last_conflict_for_file(path: OsString, file_path: OsString, sender: Sender<crate::Event>) {
+
     let diff = get_conflicted_v1(path.clone());
-    let has_conflicts = diff.files[0].hunks.iter().fold(false, |a, h| {
+    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let mut index = repo.index().expect("cant get index");
+
+    let has_conflicts = diff.files.iter().map(|f| &f.hunks).flatten().fold(false, |a, h| {
         a || h.has_conflicts
     });
-
-    if has_conflicts {
-        sender
-            .send_blocking(crate::Event::Conflicted(diff))
-            .expect("Could not send through channel");
+    if !has_conflicts {
+        // file is clear now
+        // stage it!
+        index.remove_path(Path::new(&file_path)).expect("cant remove path");
+        index.add_path(Path::new(&file_path)).expect("cant add path");
+        index.write().expect("cant write index");
+        // perhaps it will be another files with conflicts
+        // perhaps not
+        // it need to rerender everything
+        get_current_repo_status(Some(path), sender);
         return;
     }
-
-    // cleanup conflicts and show banner
-    index.remove_path(Path::new(&file_path)).expect("cant remove path");
-    index.add_path(Path::new(&file_path)).expect("cant add path");
-
-    index.write().expect("cant write index");
-    get_current_repo_status(Some(path), sender);
-
+    sender
+        .send_blocking(crate::Event::Conflicted(diff))
+        .expect("Could not send through channel");
 }
