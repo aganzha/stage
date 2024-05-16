@@ -84,7 +84,7 @@ called `Result::unwrap()` on an `Err` value: Error { code: -3, klass: 7, message
 fixed manually: git branch --set-upstream-to=origin/rc-24.2132 rc-24.2132
 
 
-mine conflict 1
+thats mine conflict 1
 
 
 TODO: Cherry-pick - it does copy changes but does not create commit (feature?) refresh button does not cleanu state
@@ -125,7 +125,7 @@ PERFORMANCE: delete ~/docs/client/WHDDemo and open app :)
 Perhaps it need to put path to status. and window to context!!!!
 
 BUG: state Revert was cleared, but refresh btn does not reflect that
-mine conflict 2
+thats mine conflict 2
 BUG: do not know how to reproduse: after creating branch staging was not working cause ApplyFilter was empty!
 BUG: during merge do not create final commit. all changes will be in staged and state will be merge.
      reset --hard from console and then refresh - there is a garbage string on the place of State
