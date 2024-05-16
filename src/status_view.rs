@@ -641,7 +641,7 @@ impl Status {
                         move |_| {
                             let sender = sender.clone();
                             let path = path.clone();
-                            gio::spawn_blocking({                                
+                            gio::spawn_blocking({
                                 move || {
                                     merge::commit(path.clone().expect("no path"));
                                     get_current_repo_status(path, sender);
@@ -754,19 +754,16 @@ impl Status {
             changed = untracked.cursor(line_no, false, &mut Some(context)) || changed;
         }
         if let Some(conflicted) = &mut self.conflicted {
-            match context.under_cursor {
-                UnderCursor::None => {
-                },
-                UnderCursor::Some{diff: mut d, hunk: _, line: _} => {
-                    d.replace(conflicted);
-                }
-            }
+            context.under_cursor_diff(&conflicted.kind);
             changed = conflicted.cursor(line_no, false, &mut Some(context)) || changed;
         }
         if let Some(unstaged) = &mut self.unstaged {
+            context.under_cursor_diff(&unstaged.kind);
             changed = unstaged.cursor(line_no, false, &mut Some(context)) || changed;
+            debug!("+++++++++++++++++++++++ > {:?}", context);
         }
         if let Some(staged) = &mut self.staged {
+            context.under_cursor_diff(&staged.kind);
             changed = staged.cursor(line_no, false, &mut Some(context)) || changed;
         }
         if changed {
@@ -967,7 +964,7 @@ impl Status {
         if let Some(conflicted) = &self.conflicted {
             for f in &conflicted.files {
                 for hunk in &f.hunks {
-                    for line in &hunk.lines {                        
+                    for line in &hunk.lines {
                         if line.view.current && (line.kind == LineKind::Ours || line.kind == LineKind::Theirs){
                                     gio::spawn_blocking({
                                         let path = self.path.clone().unwrap();

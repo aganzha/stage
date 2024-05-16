@@ -76,10 +76,9 @@ pub trait ViewContainer {
 
         let view_expanded = view.expanded;
         let current = view.is_rendered_in(line_no);
-        // if current {
-        //     link to self
-        //     self.fill_under_cursor(context)
-        // }
+        if current {
+            self.fill_under_cursor(context)
+        }
         let active_by_parent = self.is_active_by_parent(parent_active, context);
         let mut active_by_child = false;
 
@@ -116,8 +115,8 @@ pub trait ViewContainer {
         result
     }
 
-    // fn fill_under_cursor(&self, child: &dyn ViewContainer, _context: &mut Option<&mut StatusRenderContext>) {
-    // }
+    fn fill_under_cursor(&self, _context: &mut Option<&mut StatusRenderContext>) {
+    }
     
     fn is_active_by_child(&self, _child_active: bool, _context: &mut Option<&mut StatusRenderContext>) -> bool {
         false
@@ -285,17 +284,11 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    // fn fill_under_cursor(&self, child: &dyn ViewContainer, context: &mut Option<&mut StatusRenderContext>) {
-    //     if let Some(context) = context {
-    //         match &mut context.under_cursor {
-    //             UnderCursor::None => {
-    //             },
-    //             UnderCursor::Some{diff, hunk: _, line: _} => {
-    //                 diff.replace(self); // self.clone()
-    //             }
-    //         }
-    //     }
-    // }
+    fn fill_under_cursor(&self, context: &mut Option<&mut StatusRenderContext>) {
+        if let Some(context) = context {
+            context.under_cursor_diff(&self.kind)
+        }
+    }
 
     // Diff
     fn render(
@@ -460,7 +453,7 @@ impl ViewContainer for Line {
         Vec::new()
     }
 
-    // line
+    // Line
     fn expand(&mut self, line_no: i32) -> Option<i32> {
         // here we want to expand hunk
         if self.get_view().line_no == line_no {
@@ -470,6 +463,13 @@ impl ViewContainer for Line {
     }
 
     // Line
+    fn fill_under_cursor(&self, context: &mut Option<&mut StatusRenderContext>) {
+        if let Some(context) = context {
+            context.under_cursor_line(&self.kind)
+        }
+    }
+    
+    // Line
     fn is_active_by_parent(&self, active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
@@ -478,6 +478,7 @@ impl ViewContainer for Line {
                 
         //     }
         // }
+        // debug!("----------------------------- > {:?}", context);
         active
     }
 
