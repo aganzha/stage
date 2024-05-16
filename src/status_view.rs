@@ -621,7 +621,7 @@ impl Status {
             // to main (during update)
             diff.enrich_view(s, txt, &mut Some(context));
         }
-        if diff.is_empty() {
+        if !diff.has_conflicts()  {
             if banner.is_revealed() {
                 banner.set_revealed(false);
             }
@@ -843,6 +843,11 @@ impl Status {
             }
             self.conflicted_spacer
                 .render(&buffer, &mut iter, &mut Some(context));
+            if conflicted.has_conflicts() {
+                self.conflicted_label.content = String::from("<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>");
+            } else {
+                self.conflicted_label.content = String::from("<span weight=\"bold\" color=\"#1c71d8\">Conflicts</span>");
+            }
             self.conflicted_label
                 .render(&buffer, &mut iter, &mut Some(context));
             conflicted.render(&buffer, &mut iter, &mut Some(context));

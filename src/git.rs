@@ -344,6 +344,12 @@ impl Diff {
     pub fn is_empty(&self) -> bool {
         return self.files.is_empty()
     }
+
+    pub fn has_conflicts(&self) -> bool {
+        self.files.iter().map(|f| &f.hunks).flatten().fold(false, |a, h| {
+            a || h.has_conflicts
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1740,9 +1746,12 @@ pub fn track_changes(
     for entry in index.iter() {
         let entry_path = format!("{}", String::from_utf8_lossy(&entry.path));
         if file_path.ends_with(&entry_path) {
-            trace!("got modifeied file {:?}", file_path);
+            trace!("got modified file {:?}", file_path);
+            // TODO. so. here ir need to collect dif only for 1 file.
+            // why all? but there way not, ti update just 1 file!
+            // but it is easy, really (just use existent diff and update only 1 file in it!)
             let git_diff = repo
-                .diff_index_to_workdir(None, None)
+                .diff_index_to_workdir(Some(&index), None)
                 .expect("cant' get diff index to workdir");
             let diff = make_diff(&git_diff, DiffKind::Unstaged);
             sender
@@ -1750,6 +1759,13 @@ pub fn track_changes(
                 .expect("Could not send through channel");
             break;
         }
+    }
+    if index.has_conflicts() {
+        // same here - update just 1 file, please
+        let diff = get_conflicted_v1(path);
+        sender
+            .send_blocking(crate::Event::Conflicted(diff))
+            .expect("Could not send through channel");
     }
 }
 
