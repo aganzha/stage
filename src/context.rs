@@ -46,9 +46,20 @@ impl StatusRenderContext {
     }
 
     pub fn under_cursor_diff(&mut self, kind: &DiffKind) {
-        // diff kind is set on top of cursor, when line_kind
-        // is empty
-        // but if line_kind is not empty - do not change diff_kind!
+        match &self.under_cursor {
+            UnderCursor::None => {
+                LineKind::None
+            }
+            UnderCursor::Some{diff_kind: _, line_kind: LineKind::None} => {
+                LineKind::None
+            }
+            UnderCursor::Some{diff_kind: _, line_kind: _} => {
+                // diff kind is set on top of cursor, when line_kind
+                // is empty
+                // but if line_kind is not empty - do not change diff_kind!
+                return;
+            }
+        };
         self.under_cursor = UnderCursor::Some{diff_kind: kind.clone(), line_kind: LineKind::None};
     }
     

@@ -760,7 +760,6 @@ impl Status {
         if let Some(unstaged) = &mut self.unstaged {
             context.under_cursor_diff(&unstaged.kind);
             changed = unstaged.cursor(line_no, false, &mut Some(context)) || changed;
-            debug!("+++++++++++++++++++++++ > {:?}", context);
         }
         if let Some(staged) = &mut self.staged {
             context.under_cursor_diff(&staged.kind);

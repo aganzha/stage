@@ -284,13 +284,6 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn fill_under_cursor(&self, context: &mut Option<&mut StatusRenderContext>) {
-        if let Some(context) = context {
-            context.under_cursor_diff(&self.kind)
-        }
-    }
-
-    // Diff
     fn render(
         &mut self,
         buffer: &TextBuffer,
@@ -465,7 +458,7 @@ impl ViewContainer for Line {
     // Line
     fn fill_under_cursor(&self, context: &mut Option<&mut StatusRenderContext>) {
         if let Some(context) = context {
-            context.under_cursor_line(&self.kind)
+            context.under_cursor_line(&self.kind);
         }
     }
     
@@ -473,12 +466,21 @@ impl ViewContainer for Line {
     fn is_active_by_parent(&self, active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
-        // if active {
-        //     if context.diff_kind == DiffKind.Conflicted {
-                
-        //     }
-        // }
-        // debug!("----------------------------- > {:?}", context);
+        // Except conflicted lines
+        if let Some(context) = context {
+            match context.under_cursor {
+                UnderCursor::Some{diff_kind: DiffKind::Conflicted, line_kind: LineKind::Ours} => {
+                    return active && self.kind == LineKind::Ours;
+                }
+                UnderCursor::Some{diff_kind: DiffKind::Conflicted, line_kind: LineKind::Theirs} => {
+                    return active && self.kind == LineKind::Theirs;
+                }
+                UnderCursor::Some{diff_kind: DiffKind::Conflicted, line_kind: _} => {
+                    return false;
+                }
+                _ => {}
+            }
+        }
         active
     }
 
