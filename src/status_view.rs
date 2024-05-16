@@ -17,7 +17,7 @@ use std::rc::Rc;
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, pull,
     push, reset_hard, stage_untracked, stage_via_apply, stash_changes, merge_dialog_factory,
-    track_changes, git_debug,
+    track_changes, git_debug, UnderCursor,
     ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
     State, StatusRenderContext, Untracked, View, OURS, THEIRS, ABORT, PROCEED
 };
@@ -478,24 +478,6 @@ impl Status {
         });
     }
 
-    // pub fn context_factory(
-    //     &mut self,
-    //     text_view_width: Rc<RefCell<(i32, i32)>>,
-    // ) {
-    //     let mut ctx = StatusRenderContext::new();
-    //     ctx.screen_width.replace(*text_view_width.borrow());
-    //     self.context.replace(ctx);
-    // }
-
-    // pub fn update_screen_line_width(&mut self, max_line_len: i32) {
-    //     if let Some(ctx) = &mut self.context {
-    //         if let Some(sw) = ctx.screen_width {
-    //             if sw.1 < max_line_len {
-    //                 ctx.screen_width.replace((sw.0, max_line_len));
-    //             }
-    //         }
-    //     }
-    // }
 
     pub fn choose_remote(&self) -> String {
         if let Some(upstream) = &self.upstream {
@@ -772,6 +754,13 @@ impl Status {
             changed = untracked.cursor(line_no, false, &mut Some(context)) || changed;
         }
         if let Some(conflicted) = &mut self.conflicted {
+            match context.under_cursor {
+                UnderCursor::None => {
+                },
+                UnderCursor::Some{diff: mut d, hunk: _, line: _} => {
+                    d.replace(conflicted);
+                }
+            }
             changed = conflicted.cursor(line_no, false, &mut Some(context)) || changed;
         }
         if let Some(unstaged) = &mut self.unstaged {
