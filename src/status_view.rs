@@ -965,30 +965,47 @@ impl Status {
                 }
             }
         }
+
+        // it need to implement method for diff, which will return current Hunk, Line and File and use it in stage.
+        // also it must return indicator what of this 3 is current.            
         if let Some(conflicted) = &self.conflicted {
+            // also someone can press stage on label!
             for f in &conflicted.files {
+                // also someone can press stage on file!
                 for hunk in &f.hunks {
+                    // also someone can press stage on hunk!
                     for line in &hunk.lines {
-                        if line.view.current && (line.kind == LineKind::Ours || line.kind == LineKind::Theirs){
-                                    gio::spawn_blocking({
-                                        let path = self.path.clone().unwrap();
-                                        let sender = self.sender.clone();
-                                        let file_path = f.path.clone();
-                                        let hunk = hunk.clone();
-                                        let line = line.clone();
-                                        move || {
-                                            merge::choose_conflict_side_of_hunk(path, file_path, hunk, line, sender);
-                                            // merge::choose_conflict_side_once(path, file_path, hunk_header, origin, sender);
-                                        }
-                                    });
-                                    return;
-                            // }
+                        if line.view.current {
+                            if hunk.has_conflicts && (line.kind == LineKind::Ours || line.kind == LineKind::Theirs) {
+                                gio::spawn_blocking({
+                                    let path = self.path.clone().unwrap();
+                                    let sender = self.sender.clone();
+                                    let file_path = f.path.clone();
+                                    let hunk = hunk.clone();
+                                    let line = line.clone();
+                                    move || {
+                                        merge::choose_conflict_side_of_hunk(path, file_path, hunk, line, sender);
+                                    }
+                                });
+                            } else {
+                                // check both: manual and in stage resolving
+                                gio::spawn_blocking({
+                                    let path = self.path.clone().unwrap();
+                                    let file_path = f.path.clone();
+                                    let sender = self.sender.clone();
+                                    move || {
+                                        merge::cleanup_last_conflict_for_file(path, file_path, sender);
+                                    }
+                                });
+                            }
+                            debug!("noooooooooooo way {:?}", hunk.has_conflicts);
+                            return;
                         }
                     }
                 }
             }
         }
-
+        debug!("proceeeed");
         // just a check
         match subject {
             ApplySubject::Stage | ApplySubject::Kill => {
@@ -1041,6 +1058,7 @@ impl Status {
                 _ => (),
             }
         });
+        debug!("apply filter ----------------------> {:?}", filter);
         if !filter.file_id.is_empty() {
             if hunks_staged > 1 {
                 // stage all hunks in file
