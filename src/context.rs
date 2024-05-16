@@ -1,31 +1,31 @@
 use crate::{DiffKind, Diff, Hunk, Line};
 
 #[derive(Debug, Clone)]
-pub enum UnderCursor {
+pub enum UnderCursor<'ctx>{
     None,
     // btw before also could be implemented!
-    Some{diff: Option<Diff>, hunk: Option<Hunk>, line: Option<Line>}
+    Some{diff: Option<&'ctx Diff>, hunk: Option<&'ctx Hunk>, line: Option<&'ctx Line>}
 }
 
 #[derive(Debug, Clone)]
-pub struct StatusRenderContext {
+pub struct StatusRenderContext<'ctx> {
     pub erase_counter: Option<i32>,
     // diff_kind is used by reconcilation
     // it just passes DiffKind down to hunks
     // and lines
     pub diff_kind: Option<DiffKind>,
     pub max_len: Option<i32>,
-    pub under_cursor: UnderCursor,
+    pub under_cursor: UnderCursor<'ctx>,
     pub screen_width: Option<(i32, i32)>,
 }
 
-impl Default for StatusRenderContext {
+impl Default for StatusRenderContext<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl StatusRenderContext {
+impl StatusRenderContext<'_> {
     pub fn new() -> Self {
         {
             Self {
