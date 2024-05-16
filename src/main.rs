@@ -280,7 +280,11 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
-            status.context_factory(text_view_width.clone());
+            // status.context_factory(text_view_width.clone());
+
+            let mut ctx = StatusRenderContext::new();
+            ctx.screen_width.replace(*text_view_width.borrow());
+            
             match event {
                 Event::OpenRepo(path) => {
                     info!("info.open repo {:?}", path);
@@ -307,7 +311,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::State(state) => {
                     info!("main. state");
-                    status.update_state(state, &txt);
+                    status.update_state(state, &txt, &mut ctx);
                 }
                 Event::Debug => {
                     info!("main. debug");
@@ -326,7 +330,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Untracked(untracked) => {
                     info!("main. untracked");
-                    status.update_untracked(untracked, &txt);
+                    status.update_untracked(untracked, &txt, &mut ctx);
                 }
                 Event::Push => {
                     info!("main.push");
@@ -362,7 +366,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                     } else {
                         hb_updater(HbUpdateData::Unsynced(true));
                     }
-                    status.update_head(h, &txt);
+                    status.update_head(h, &txt, &mut ctx);
                 }
                 Event::Upstream(h) => {
                     info!("main. upstream");
@@ -373,8 +377,8 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                             ));
                         }
                         _ => {}
-                    }
-                    status.update_upstream(h, &txt);
+                    }                    
+                    status.update_upstream(h, &txt, &mut ctx);
                 }
                 Event::Conflicted(d) => {
                     info!("main. conflicted");
@@ -385,22 +389,23 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                                              sender.clone(),
                                              &banner,
                                              &banner_button,
-                                             banner_button_clicked.clone());
+                                             banner_button_clicked.clone(),
+                                             &mut ctx);
                 }
                 Event::Staged(d) => {
                     info!("main. staged");
                     hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
-                    status.update_staged(d, &txt);
+                    status.update_staged(d, &txt, &mut ctx);
                 }
                 Event::Unstaged(d) => {
                     info!("main. unstaged");
-                    status.update_unstaged(d, &txt);
+                    status.update_unstaged(d, &txt, &mut ctx);
                 }
                 Event::Expand(offset, line_no) => {
-                    status.expand(&txt, line_no, offset);
+                    status.expand(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Cursor(offset, line_no) => {
-                    status.cursor(&txt, line_no, offset);
+                    status.cursor(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Stage(_offset, line_no) => {
                     info!("main. stage");
@@ -416,10 +421,10 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Ignore(offset, line_no) => {
                     info!("main.ignore");
-                    status.ignore(&txt, line_no, offset);
+                    status.ignore(&txt, line_no, offset, &mut ctx);
                 }
                 Event::TextViewResize => {
-                    status.resize(&txt);
+                    status.resize(&txt, &mut ctx);
                 }
                 Event::Toast(title) => {
                     info!("toast");
@@ -444,7 +449,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                             }
                         },
                     );
-                    status.resize(&txt);
+                    status.resize(&txt, &mut ctx);
                 }
                 Event::Stashes(stashes) => {
                     info!("stashes data");

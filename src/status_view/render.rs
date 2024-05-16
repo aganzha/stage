@@ -65,7 +65,7 @@ impl crate::View {
     fn build_up(
         &self,
         content: &String,
-        context: &mut Option<crate::StatusRenderContext>,
+        context: &mut Option<&mut crate::StatusRenderContext>,
     ) -> String {
         let line_content = content.to_string();
         if let Some(ctx) = context {
@@ -103,7 +103,7 @@ impl crate::View {
         iter: &mut TextIter,
         content: String,
         content_tags: Vec<Tag>,
-        context: &mut Option<crate::StatusRenderContext>,
+        context: &mut Option<&mut crate::StatusRenderContext>,
     ) -> &mut Self {
         // important. self.line_no is assigned only in 2 cases
         // below!!!!
