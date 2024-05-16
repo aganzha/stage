@@ -231,7 +231,7 @@ impl Status {
                             let patterns_to_exclude: Vec<&str> =
                                 vec!["/.#", "/mout", "flycheck_", "/sed"];
                             match event {
-                                FileMonitorEvent::ChangesDoneHint => {
+                                FileMonitorEvent::Changed => { // ChangesDoneHint is not fired for small changes :(
                                     let file_path = file
                                         .path()
                                         .expect("no file path")
@@ -284,8 +284,8 @@ impl Status {
                                 }
                                 _ => {
                                     trace!(
-                                        "file event in monitor {:?}",
-                                        event
+                                        "file event in monitor {:?} {:?}",
+                                        event, file.path()
                                     );
                                 }
                             }

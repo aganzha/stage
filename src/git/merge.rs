@@ -172,6 +172,24 @@ pub fn abort(path: OsString, sender: Sender<crate::Event>) {
     if !has_conflicts {
         panic!("no way to abort merge without conflicts");
     }
+    
+    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    let current_tree =
+        repo.find_tree(ob.id()).expect("no working tree");
+    let git_diff = repo
+        .diff_tree_to_index(Some(&current_tree), None, None)
+        .expect("can't get diff tree to index");
+    git_diff.foreach(
+        &mut |d: git2::DiffDelta, _| {
+            let path = d.new_file().path().expect("cant get path");
+            checkout_builder.path(path);
+            true
+        },
+        None,
+        None,
+        None            
+    ).expect("cant foreach on diff");
+    
     let head_ref = repo.head().expect("can't get head");
 
     let ob = head_ref
@@ -426,270 +444,4 @@ pub fn choose_conflict_side_of_hunk(
     index.write().expect("cant write index");
     get_current_repo_status(Some(path), sender);
 
-}
-
-pub fn choose_conflict_side_once(
-    path: OsString,
-    file_path: OsString,
-    hunk_header: String,
-    origin: git2::DiffLineType,
-    sender: Sender<crate::Event>,
-) {
-    info!("choose_conflict_side_once");
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
-    let index = repo.index().expect("cant get index");
-    let conflicts = index.conflicts().expect("no conflicts");
-    let mut opts = git2::DiffOptions::new();
-    let mut current_conflict: Option<git2::IndexConflict> = None;
-    for conflict in conflicts {
-        if let Ok(conflict) = conflict {
-            if let Some(ref our) = conflict.our {
-                if file_path.to_str().unwrap() == String::from_utf8(our.path.clone()).unwrap() {
-                    current_conflict.replace(conflict);
-                }
-            }
-        }
-    }
-    let mut current_conflict = current_conflict.unwrap();
-    let mut index = repo.index().expect("cant get index");
-
-    // vv --------------------------------------------------------
-    // delete whole conflict hunk and store lines which user
-    // choosed to later apply them
-    debug!(".........START removing conflicted file from index");
-    index.remove_path(Path::new(&file_path)).expect("cant remove path");
-
-    opts.pathspec(file_path.clone());
-    opts.reverse(true);
-    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
-    let git_diff = repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
-        .expect("cant get diff");
-
-    let reversed_header = Hunk::reverse_header(hunk_header.clone());
-    debug!(".........reverse header to apply to workdir to delete {:?}", &reversed_header);
-
-    // ~~~~~~~~~~~~~~~~~~ store choosed lines ~~~~~~~~~~~~~~~~
-    // lets store hunk lines, which will be removed from diff
-    // TODO! replace it with new collecting procedure fro conflicting hunk!!!!!!!!!!!!
-    let mut choosed_lines = String::from("");
-    let mut collect: bool = false;
-    git_diff.foreach(
-        &mut |_delta: git2::DiffDelta, _num| { // file cb
-            true
-        },
-        None, // binary cb
-        None, // hunk cb
-        Some(&mut |_delta: git2::DiffDelta, odh: Option<git2::DiffHunk>, dl: git2::DiffLine| {
-            if let Some(dh) = odh {
-                let header = Hunk::get_header_from(&dh);
-                if header == reversed_header {
-                    let content = String::from(
-                        from_utf8(dl.content()).unwrap()
-                    ).replace("\r\n", "").replace('\n', "");
-                    debug!(".........collect {:?} and line in comparison: {:?}", collect, &content);
-                    if content.len() >= 3 {
-                        match &content[..3] {
-                            "<<<" => {
-                                debug!("..start collecting OUR SIDE");
-                                // collect = true;
-                            },
-                            "===" => {
-                                debug!("..stop collecting OR start collecting THEIR side");
-                                // collect = false;
-                                collect = true;
-                            }
-                            ">>>" => {
-                                debug!("..stop collecting");
-                                collect = false;
-                            }
-                            _ => {
-                                if collect {
-                                    debug!("collect this line!");
-                                    choosed_lines.push_str(&content);
-                                }
-                            }
-                        }
-                    } else {
-                        if collect {
-                            debug!("collect this line!");
-                            choosed_lines.push_str(&content);
-                        }
-                    }
-                }
-            }
-            true
-        })
-    ).expect("cant iter on diff");
-    debug!("~~~~~~~ choosed lines before delete: {}", choosed_lines);
-    // ~~~~~~~~~~~~~~~~~~ store choosed lines ~~~~~~~~~~~~~~~~
-
-
-    let mut options = git2::ApplyOptions::new();
-
-    options.hunk_callback(|odh| -> bool {
-        if let Some(dh) = odh {
-            let header = Hunk::get_header_from(&dh);
-            debug!("--apply delete patch. hunk callback {:?} {:?} == {:?}", header, Hunk::reverse_header(hunk_header.clone()), header == Hunk::reverse_header(hunk_header.clone()));
-            return header == reversed_header
-        }
-        false
-    });
-    options.delta_callback(|odd| -> bool {
-        if let Some(dd) = odd {
-            let path: OsString = dd.new_file().path().unwrap().into();
-            debug!("--apply delete patch. delta callback {:?} {:?} {:?}", file_path, path, file_path == path);
-            return file_path == path;
-        }
-        todo!("diff without delta");
-    });
-
-
-    sender.send_blocking(crate::Event::LockMonitors(true))
-        .expect("Could not send through channel");
-
-    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))
-        .expect("can't apply patch");
-    // ^^ -----------------------------------------------------
-    debug!("..... conflict removed from workdir");
-
-
-    // NOW. if user choosed our side, this means NOTHING
-    // else todo with this current conflict. changes already were
-    // reverted to our side! next part is valid only if chooser
-    // used THEIR side! are you sure? yes. conflicts are removed
-    // and workdir is restored according to the our tree (HEAD in this branch)!
-
-
-    // vv --------------------------- apply hunk from choosed side
-
-    // so. it is not possible to find tree from blob.
-    // lets put this blob to index, maybe?
-    let their_entry = current_conflict.their.as_mut().unwrap();
-    let their_original_flags = their_entry.flags;
-
-    debug!(">>>>> flags before {:?}", their_original_flags);
-    their_entry.flags = their_entry.flags & !STAGE_FLAG;
-    debug!(">>>>> flags after mask {:?}", their_entry.flags);
-
-    index.add(their_entry).expect("cant add entry");
-    let mut opts = git2::DiffOptions::new();
-    opts.pathspec(file_path.clone());
-    // reverse means index will be NEW side cause we are adding hunk to workdir
-    opts.reverse(true);
-    let git_diff = repo.diff_index_to_workdir(Some(&index), Some(&mut opts))
-        .expect("cant get diff");
-
-    // restore stage flag to conflict again
-    their_entry.flags = their_original_flags;
-    debug!(">>>>> flags after restore {:?}", their_entry.flags);
-
-    // vv ~~~~~~~~~~~~~~~~ select hunk header for choosed lines
-    let mut hunk_header_to_apply = String::from("");
-    let mut current_hunk_header = String::from("");
-    let mut found_lines = String::from("");
-
-    debug!("..... choosing hunk to apply for choosed lines");
-
-    let result = git_diff.foreach(
-        &mut |_delta: git2::DiffDelta, _num| { // file cb
-            true
-        },
-        None, // binary cb
-        None, // hunk cb
-        Some(&mut |_delta: git2::DiffDelta, odh: Option<git2::DiffHunk>, dl: git2::DiffLine| {
-            if let Some(dh) = odh {
-                if !hunk_header_to_apply.is_empty() {
-                    // all done
-                    debug!("+++ all good. return");
-                    return false;
-                }
-                let header = Hunk::get_header_from(&dh);
-                if header != current_hunk_header {
-                    // handle next header (or first one)
-                    debug!("++++ thats new hunk header and current one {:?} {:?}", header, current_hunk_header);
-                    if found_lines == choosed_lines {
-                        debug!("!!!!!!!!!!!!!!!!!! match!");
-                        hunk_header_to_apply = current_hunk_header.clone();
-                        // all done
-                        debug!("allllllllllllll done");
-                        return false;
-                    }
-                    debug!("+++ reset found lines");
-                    current_hunk_header = header;
-                    found_lines = String::from("");
-                }
-                if dl.origin_value() == origin {
-                    let content = String::from(
-                        from_utf8(dl.content()).unwrap()
-                    ).replace("\r\n", "").replace('\n', "");
-                    found_lines.push_str(&content);
-                    debug!("++++ thats current line and total found lines {:?} {:?}", &content, &found_lines)
-                }
-            }
-            true
-        })
-    );
-    if result.is_ok() {
-        // handle case when choosed hunk is last one
-        assert!(hunk_header_to_apply.is_empty());
-        debug!("++++ outside of loop. found lines {:?}", found_lines);
-        if found_lines == choosed_lines {
-            hunk_header_to_apply = current_hunk_header;
-        }
-    }
-    if hunk_header_to_apply.is_empty() {
-        panic!("cant find header for choosed_lines {:?}", choosed_lines);
-    }
-    // ^^ ~~~~~~~~~~~~~~~~ select hunk header for choosed lines
-
-    let mut options = git2::ApplyOptions::new();
-
-    options.hunk_callback(|odh| -> bool {
-        if let Some(dh) = odh {
-            let header = Hunk::get_header_from(&dh);
-            debug!("**** apply hunk callback {:?} {:?} == {:?}", header, hunk_header_to_apply, header == hunk_header_to_apply);
-            return header == hunk_header_to_apply
-        }
-        false
-    });
-    options.delta_callback(|odd| -> bool {
-        if let Some(dd) = odd {
-            let path: OsString = dd.new_file().path().unwrap().into();
-            debug!("**** apply delta callback {:?} {:?} {:?}", file_path, path, file_path == path);
-            return file_path == path;
-        }
-        todo!("diff without delta");
-    });
-    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))
-        .expect("can't apply patch");
-    // ^^ ----------------------------
-
-
-    sender.send_blocking(crate::Event::LockMonitors(false))
-        .expect("Could not send through channel");
-
-    // remove from index again to restore conflict
-    index.remove_path(Path::new(&file_path)).expect("cant remove path");
-
-    // ------------------------------------------
-    // restore conflict file in index if not all conflicts were resolved
-    if let Some(entry) = current_conflict.ancestor {
-        index.add(&entry).expect("cant add ancestor");
-        debug!("ancestor added!");
-    }
-    if let Some(entry) = current_conflict.our {
-        debug!("our added!");
-        index.add(&entry).expect("cant add our");
-    }
-    if let Some(entry) = current_conflict.their {
-        debug!("their added!");
-        index.add(&entry).expect("cant add their");
-    }
-    index.write().expect("cant write index");
-    // ^^ -------------------------------------------    
-    let diff = get_conflicted_v1(path);
-    sender
-        .send_blocking(crate::Event::Conflicted(diff))
-        .expect("Could not send through channel");
 }
