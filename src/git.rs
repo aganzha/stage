@@ -480,7 +480,7 @@ pub fn get_current_repo_status(
     });
 
     gio::spawn_blocking({
-        // get staged
+        // get_staged
         let sender = sender.clone();
         let path = path.clone();
         move || {
