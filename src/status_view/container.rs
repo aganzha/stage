@@ -1,12 +1,12 @@
 use crate::status_view::{Label, Tag};
 use crate::{
-    Diff, File, Head, Hunk, Line, State, StatusRenderContext, UnderCursor, Untracked,
-    UntrackedFile, View, DiffKind, LineKind
+    Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
+    StatusRenderContext, UnderCursor, Untracked, UntrackedFile, View,
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter, TextView};
-use log::{trace, debug};
+use log::{debug, trace};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
@@ -66,7 +66,12 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn cursor(&mut self, line_no: i32, parent_active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
+    fn cursor(
+        &mut self,
+        line_no: i32,
+        parent_active: bool,
+        context: &mut Option<&mut StatusRenderContext>,
+    ) -> bool {
         // returns if view is changed during cursor move
         let mut result = false;
         let view = self.get_view();
@@ -79,7 +84,8 @@ pub trait ViewContainer {
         if current {
             self.fill_under_cursor(context)
         }
-        let active_by_parent = self.is_active_by_parent(parent_active, context);
+        let active_by_parent =
+            self.is_active_by_parent(parent_active, context);
         let mut active_by_child = false;
 
         if view_expanded {
@@ -116,14 +122,25 @@ pub trait ViewContainer {
         result
     }
 
-    fn fill_under_cursor(&self, _context: &mut Option<&mut StatusRenderContext>) {
+    fn fill_under_cursor(
+        &self,
+        _context: &mut Option<&mut StatusRenderContext>,
+    ) {
     }
-    
-    fn is_active_by_child(&self, _child_active: bool, _context: &mut Option<&mut StatusRenderContext>) -> bool {
+
+    fn is_active_by_child(
+        &self,
+        _child_active: bool,
+        _context: &mut Option<&mut StatusRenderContext>,
+    ) -> bool {
         false
     }
 
-    fn is_active_by_parent(&self, _parent_active: bool, _context: &mut Option<&mut StatusRenderContext>) -> bool {
+    fn is_active_by_parent(
+        &self,
+        _parent_active: bool,
+        _context: &mut Option<&mut StatusRenderContext>,
+    ) -> bool {
         false
     }
 
@@ -276,7 +293,12 @@ impl ViewContainer for Diff {
     }
 
     // diff
-    fn cursor(&mut self, line_no: i32, parent_active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
+    fn cursor(
+        &mut self,
+        line_no: i32,
+        parent_active: bool,
+        context: &mut Option<&mut StatusRenderContext>,
+    ) -> bool {
         let mut result = false;
         for file in &mut self.files {
             result = file.cursor(line_no, parent_active, context) || result;
@@ -309,9 +331,7 @@ impl ViewContainer for Diff {
 
     fn tags(&self) -> Vec<Tag> {
         match self.kind {
-            DiffKind::Staged => {
-                return vec![Tag::Staged]
-            },
+            DiffKind::Staged => return vec![Tag::Staged],
             // TODO! create separate tag for conflicted!
             DiffKind::Unstaged | DiffKind::Conflicted => {
                 return vec![Tag::Unstaged]
@@ -400,14 +420,22 @@ impl ViewContainer for Hunk {
             .collect()
     }
     // Hunk
-    fn is_active_by_parent(&self, active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
+    fn is_active_by_parent(
+        &self,
+        active: bool,
+        context: &mut Option<&mut StatusRenderContext>,
+    ) -> bool {
         // if file is active (cursor on it)
         // whole hunk is active
         active
     }
 
     // Hunk
-    fn is_active_by_child(&self, active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
+    fn is_active_by_child(
+        &self,
+        active: bool,
+        context: &mut Option<&mut StatusRenderContext>,
+    ) -> bool {
         // if line is active (cursor on it)
         // whole hunk is active
         active
@@ -457,26 +485,42 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn fill_under_cursor(&self, context: &mut Option<&mut StatusRenderContext>) {
+    fn fill_under_cursor(
+        &self,
+        context: &mut Option<&mut StatusRenderContext>,
+    ) {
         if let Some(context) = context {
             context.under_cursor_line(&self.kind);
         }
     }
-    
+
     // Line
-    fn is_active_by_parent(&self, active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
+    fn is_active_by_parent(
+        &self,
+        active: bool,
+        context: &mut Option<&mut StatusRenderContext>,
+    ) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
         // Except conflicted lines
         if let Some(context) = context {
             match context.under_cursor {
-                UnderCursor::Some{diff_kind: DiffKind::Conflicted, line_kind: LineKind::Ours} => {
+                UnderCursor::Some {
+                    diff_kind: DiffKind::Conflicted,
+                    line_kind: LineKind::Ours,
+                } => {
                     return active && self.kind == LineKind::Ours;
                 }
-                UnderCursor::Some{diff_kind: DiffKind::Conflicted, line_kind: LineKind::Theirs} => {
+                UnderCursor::Some {
+                    diff_kind: DiffKind::Conflicted,
+                    line_kind: LineKind::Theirs,
+                } => {
                     return active && self.kind == LineKind::Theirs;
                 }
-                UnderCursor::Some{diff_kind: DiffKind::Conflicted, line_kind: _} => {
+                UnderCursor::Some {
+                    diff_kind: DiffKind::Conflicted,
+                    line_kind: _,
+                } => {
                     return false;
                 }
                 _ => {}
@@ -488,15 +532,11 @@ impl ViewContainer for Line {
     // Line
     fn tags(&self) -> Vec<Tag> {
         match self.kind {
-            LineKind::ConflictMarker(_) => {
-                return vec![Tag::ConflictMarker]
-            }
-            LineKind::Ours => {
-                return vec![Tag::Ours]
-            }
+            LineKind::ConflictMarker(_) => return vec![Tag::ConflictMarker],
+            LineKind::Ours => return vec![Tag::Ours],
             LineKind::Theirs => {
                 // return Vec::new();
-                return vec![Tag::Theirs]
+                return vec![Tag::Theirs];
             }
             _ => {}
         }
@@ -645,7 +685,11 @@ impl ViewContainer for Untracked {
         None
     }
 
-    fn is_active_by_parent(&self, active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
+    fn is_active_by_parent(
+        &self,
+        active: bool,
+        context: &mut Option<&mut StatusRenderContext>,
+    ) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
         active
@@ -668,7 +712,12 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked
-    fn cursor(&mut self, line_no: i32, parent_active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
+    fn cursor(
+        &mut self,
+        line_no: i32,
+        parent_active: bool,
+        context: &mut Option<&mut StatusRenderContext>,
+    ) -> bool {
         let mut result = false;
         for file in &mut self.files {
             result = file.cursor(line_no, parent_active, context) || result;
@@ -705,7 +754,11 @@ impl ViewContainer for UntrackedFile {
         None
     }
 
-    fn is_active_by_parent(&self, active: bool, context: &mut Option<&mut StatusRenderContext>) -> bool {
+    fn is_active_by_parent(
+        &self,
+        active: bool,
+        context: &mut Option<&mut StatusRenderContext>,
+    ) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
         active

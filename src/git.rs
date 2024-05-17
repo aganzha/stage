@@ -13,9 +13,9 @@ use git2::{
     CertificateCheckStatus, CherrypickOptions, Commit, Cred, CredentialType,
     Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat, DiffHunk,
     DiffLine, DiffLineType, DiffOptions, Direction, Error, ErrorClass,
-    ErrorCode, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
-    Repository, RepositoryState, ResetType, StashFlags, MergeOptions,
-    IndexEntry, IndexEntryFlag, IndexConflict, IndexTime
+    ErrorCode, FetchOptions, IndexConflict, IndexEntry, IndexEntryFlag,
+    IndexTime, MergeOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
+    Repository, RepositoryState, ResetType, StashFlags,
 };
 
 // use libgit2_sys;
@@ -24,7 +24,6 @@ use regex::Regex;
 use std::cmp::Ordering;
 //use std::time::SystemTime;
 use std::{collections::HashSet, env, ffi, path, str};
-
 
 #[derive(Debug, Clone)]
 pub struct View {
@@ -46,7 +45,7 @@ pub enum LineKind {
     None,
     Ours,
     Theirs,
-    ConflictMarker(String)
+    ConflictMarker(String),
 }
 
 #[derive(Debug, Clone)]
@@ -56,7 +55,7 @@ pub struct Line {
     pub content: String,
     pub new_line_no: Option<u32>,
     pub old_line_no: Option<u32>,
-    pub kind: LineKind
+    pub kind: LineKind,
 }
 
 impl Line {
@@ -69,7 +68,7 @@ impl Line {
             content: String::from(str::from_utf8(l.content()).unwrap())
                 .replace("\r\n", "")
                 .replace('\n', ""),
-            kind: LineKind::None
+            kind: LineKind::None,
         };
     }
     pub fn hash(&self) -> String {
@@ -94,7 +93,7 @@ pub struct Hunk {
     pub lines: Vec<Line>,
     pub max_line_len: i32,
     pub kind: DiffKind,
-    pub has_conflicts: bool
+    pub has_conflicts: bool,
 }
 
 impl Hunk {
@@ -109,7 +108,7 @@ impl Hunk {
             new_lines: 0,
             max_line_len: 0,
             kind: kind,
-            has_conflicts: false
+            has_conflicts: false,
         }
     }
 
@@ -182,12 +181,16 @@ impl Hunk {
         }
     }
 
-    pub fn push_line(&mut self, mut line: Line, prev_line_kind: LineKind) -> LineKind {
+    pub fn push_line(
+        &mut self,
+        mut line: Line,
+        prev_line_kind: LineKind,
+    ) -> LineKind {
         if self.kind != DiffKind::Conflicted {
             match line.origin {
                 DiffLineType::FileHeader
-                    | DiffLineType::HunkHeader
-                    | DiffLineType::Binary => {}
+                | DiffLineType::HunkHeader
+                | DiffLineType::Binary => {}
                 _ => {
                     self.handle_max(&line.content);
                     self.lines.push(line)
@@ -195,12 +198,18 @@ impl Hunk {
             }
             return LineKind::None;
         }
-        trace!(":::::::::::::::::::::::::::::::: {:?}. prev line kind {:?}", line.content, prev_line_kind);
+        trace!(
+            ":::::::::::::::::::::::::::::::: {:?}. prev line kind {:?}",
+            line.content,
+            prev_line_kind
+        );
         if line.content.len() >= 7 {
             match &line.content[..7] {
                 MARKER_OURS | MARKER_THEIRS | MARKER_VS => {
                     self.has_conflicts = true;
-                    line.kind = LineKind::ConflictMarker(String::from(&line.content[..7]));
+                    line.kind = LineKind::ConflictMarker(String::from(
+                        &line.content[..7],
+                    ));
                 }
                 _ => {}
             }
@@ -211,15 +220,22 @@ impl Hunk {
         let marker_theirs = String::from(MARKER_THEIRS);
 
         match (prev_line_kind, &line.kind) {
-            (LineKind::ConflictMarker(marker), LineKind::None) if marker == marker_ours => {
-                trace!("sec match. ours after ours MARKER ??????????? {:?}", marker_ours);
+            (LineKind::ConflictMarker(marker), LineKind::None)
+                if marker == marker_ours =>
+            {
+                trace!(
+                    "sec match. ours after ours MARKER ??????????? {:?}",
+                    marker_ours
+                );
                 line.kind = LineKind::Ours
             }
             (LineKind::Ours, LineKind::None) => {
                 trace!("sec match. ours after ours LINE");
                 line.kind = LineKind::Ours
             }
-            (LineKind::ConflictMarker(marker), LineKind::None) if marker == marker_vs => {
+            (LineKind::ConflictMarker(marker), LineKind::None)
+                if marker == marker_vs =>
+            {
                 trace!("sec match. theirs after vs MARKER");
                 line.kind = LineKind::Theirs
             }
@@ -233,7 +249,9 @@ impl Hunk {
             (prev, LineKind::ConflictMarker(m)) => {
                 trace!("sec match. pass this marker {:?}", m);
             }
-            (LineKind::ConflictMarker(marker), LineKind::None) if marker == marker_theirs => {
+            (LineKind::ConflictMarker(marker), LineKind::None)
+                if marker == marker_theirs =>
+            {
                 trace!("sec match. finish prev their marker {:?}", marker);
             }
             (prev, this) => {
@@ -306,7 +324,7 @@ impl File {
 pub enum DiffKind {
     Staged,
     Unstaged,
-    Conflicted
+    Conflicted,
 }
 
 #[derive(Debug, Clone)]
@@ -342,13 +360,15 @@ impl Diff {
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.files.is_empty()
+        return self.files.is_empty();
     }
 
     pub fn has_conflicts(&self) -> bool {
-        self.files.iter().map(|f| &f.hunks).flatten().fold(false, |a, h| {
-            a || h.has_conflicts
-        })
+        self.files
+            .iter()
+            .map(|f| &f.hunks)
+            .flatten()
+            .fold(false, |a, h| a || h.has_conflicts)
     }
 }
 
@@ -367,7 +387,7 @@ impl State {
         Self { state, view }
     }
     pub fn is_merging(&self) -> bool {
-        return self.state == RepositoryState::Merge
+        return self.state == RepositoryState::Merge;
     }
 }
 
@@ -524,7 +544,6 @@ pub fn get_current_repo_status(
         }
     });
 
-
     let index = repo.index().expect("cant get index");
     if index.has_conflicts() {
         // https://github.com/libgit2/libgit2/issues/6232
@@ -542,7 +561,9 @@ pub fn get_current_repo_status(
         });
     } else {
         sender
-            .send_blocking(crate::Event::Conflicted(Diff::new(DiffKind::Conflicted)))
+            .send_blocking(crate::Event::Conflicted(Diff::new(
+                DiffKind::Conflicted,
+            )))
             .expect("Could not send through channel");
     }
 
@@ -553,7 +574,6 @@ pub fn get_current_repo_status(
     sender
         .send_blocking(crate::Event::Unstaged(diff))
         .expect("Could not send through channel");
-
 }
 
 pub fn get_conflicted_v1(path: OsString) -> Diff {
@@ -572,10 +592,11 @@ pub fn get_conflicted_v1(path: OsString) -> Diff {
     }
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
-    let git_diff = repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
+    let git_diff = repo
+        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
     let diff = make_diff(&git_diff, DiffKind::Conflicted);
-    
+
     diff
 }
 
@@ -693,7 +714,6 @@ impl ApplyFilter {
     }
 }
 
-
 pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let mut diff = Diff::new(kind.clone());
     let mut current_file = File::new(kind.clone());
@@ -716,7 +736,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                     DiffKind::Staged => diff_delta.new_file(),
                     DiffKind::Unstaged => {
                         todo!("delta added in unstaged {:?}", diff_delta)
-                    },
+                    }
                     DiffKind::Conflicted => {
                         todo!("delta added in conflicted {:?}", diff_delta)
                     }
@@ -762,11 +782,15 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                     current_hunk = Hunk::new(kind.clone());
                     current_hunk.fill_from(&diff_hunk)
                 }
-                prev_line_kind = current_hunk.push_line(Line::from_diff_line(&diff_line), prev_line_kind.clone());
+                prev_line_kind = current_hunk.push_line(
+                    Line::from_diff_line(&diff_line),
+                    prev_line_kind.clone(),
+                );
             } else {
                 // this is file header line.
                 let line = Line::from_diff_line(&diff_line);
-                prev_line_kind = current_hunk.push_line(line, prev_line_kind.clone())
+                prev_line_kind =
+                    current_hunk.push_line(line, prev_line_kind.clone())
             }
 
             true
@@ -792,11 +816,11 @@ pub fn stage_untracked(
     let pth = path::Path::new(&file.path);
     if pth.is_file() {
         index.add_path(pth).expect("cant add path");
-    }
-    else if pth.is_dir() {
-        index.add_all([pth], git2::IndexAddOption::DEFAULT, None).expect("cant add path");
-    }
-    else {
+    } else if pth.is_dir() {
+        index
+            .add_all([pth], git2::IndexAddOption::DEFAULT, None)
+            .expect("cant add path");
+    } else {
         panic!("unknown path {:?}", pth);
     }
     index.write().expect("cant write index");
@@ -829,7 +853,8 @@ pub fn stage_via_apply(
         }
         ApplySubject::Kill => {
             opts.reverse(true);
-            repo.diff_index_to_workdir(None, Some(&mut opts)).expect("cant get diff")
+            repo.diff_index_to_workdir(None, Some(&mut opts))
+                .expect("cant get diff")
         }
     };
 
@@ -914,7 +939,6 @@ pub fn stage_via_apply(
 }
 
 pub fn get_parents_for_commit(path: OsString) -> Vec<Oid> {
-
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
     let id = repo
@@ -923,21 +947,20 @@ pub fn get_parents_for_commit(path: OsString) -> Vec<Oid> {
         .id();
     result.push(id);
     match repo.state() {
-        RepositoryState::Clean => {
-        },
+        RepositoryState::Clean => {}
         RepositoryState::Merge => {
             repo.mergehead_foreach(|oid: &Oid| -> bool {
                 result.push(*oid);
                 true
-            }).expect("cant get merge heads");
-        },
+            })
+            .expect("cant get merge heads");
+        }
         _ => {
             todo!("commit in another state")
         }
     }
     result
 }
-
 
 pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
@@ -961,7 +984,6 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
         .expect("can't write tree");
     let tree = repo.find_tree(tree_oid).expect("can't find tree");
 
-
     let commits = get_parents_for_commit(path.clone())
         .into_iter()
         .map(|oid| repo.find_commit(oid).unwrap())
@@ -982,11 +1004,18 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
                         msg.push_str(&message);
                     }
                     msg
-                },
-                Error => message
+                }
+                Error => message,
             };
-            repo.commit(Some("HEAD"), &me, &me, &merge_message, &tree, &[&commit, &merge_commit])
-                .expect("can't commit");
+            repo.commit(
+                Some("HEAD"),
+                &me,
+                &me,
+                &merge_message,
+                &tree,
+                &[&commit, &merge_commit],
+            )
+            .expect("can't commit");
             repo.cleanup_state().expect("cant cleanup state");
         }
         _ => {
@@ -1279,7 +1308,9 @@ pub fn push(
         }
         Err(error) => {
             sender
-                .send_blocking(crate::Event::Toast(String::from(error.message())))
+                .send_blocking(crate::Event::Toast(String::from(
+                    error.message(),
+                )))
                 .expect("cant send through channel");
         }
     }
@@ -1588,7 +1619,6 @@ pub fn cherry_pick(
     Ok(BranchData::from_branch(branch, BranchType::Local)
         .expect("cant get branch"))
 }
-
 
 #[derive(Debug, Clone)]
 pub struct StashData {
@@ -1937,8 +1967,10 @@ pub fn revwalk(
         let commit = repo.find_commit(oid).expect("can't find commit");
         if let Some(ref term) = search_term {
             let mut found = false;
-            for el in [commit.message().unwrap_or("").to_lowercase(),
-                commit.author().name().unwrap_or("").to_lowercase()] {
+            for el in [
+                commit.message().unwrap_or("").to_lowercase(),
+                commit.author().name().unwrap_or("").to_lowercase(),
+            ] {
                 if el.contains(term) {
                     found = true;
                     break;
@@ -1957,7 +1989,6 @@ pub fn revwalk(
     result
 }
 
-
 // pub const GIT_INDEX_ENTRY_STAGEMASK: u16 = 0x3000;
 pub const STAGE_FLAG: u16 = 0x3000;
 
@@ -1972,7 +2003,11 @@ pub fn resolve_conflict(
     let mut index = repo.index().expect("cant get index");
 
     for entry in index.iter() {
-        debug!(".. {:?} {:?}", entry.flags, String::from_utf8_lossy(&entry.path));
+        debug!(
+            ".. {:?} {:?}",
+            entry.flags,
+            String::from_utf8_lossy(&entry.path)
+        );
     }
     debug!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee {:?}", file_path);
 
@@ -1991,7 +2026,7 @@ pub fn resolve_conflict(
             }
         };
         if String::from_utf8_lossy(&choosed.path) != my_path {
-            continue
+            continue;
         }
         choosed.flags = choosed.flags & !STAGE_FLAG;
         entry.replace(choosed);
@@ -1999,10 +2034,16 @@ pub fn resolve_conflict(
     }
     index.add(&entry.unwrap()).expect("cant add entry");
     for stage in 1..4 {
-        index.remove(path::Path::new(my_path), stage).expect("cant remove entry");
+        index
+            .remove(path::Path::new(my_path), stage)
+            .expect("cant remove entry");
     }
     for entry in index.iter() {
-        debug!(".. {:?} {:?}", entry.flags, String::from_utf8_lossy(&entry.path));
+        debug!(
+            ".. {:?} {:?}",
+            entry.flags,
+            String::from_utf8_lossy(&entry.path)
+        );
     }
     index.write().expect("cant write index");
     let mut options = DiffOptions::new();
@@ -2024,8 +2065,7 @@ pub fn resolve_conflict(
     // now it need somehow organize diff.
 }
 
-
 pub fn debug(path: OsString) {
     let repo = Repository::open(path.clone()).expect("cant open repo");
-    repo.cleanup_state().expect("cant cleanup state");    
+    repo.cleanup_state().expect("cant cleanup state");
 }

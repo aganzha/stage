@@ -1,9 +1,12 @@
 use crate::{DiffKind, LineKind};
 
 #[derive(Debug, Clone)]
-pub enum UnderCursor{
+pub enum UnderCursor {
     None,
-    Some{diff_kind: DiffKind, line_kind: LineKind}
+    Some {
+        diff_kind: DiffKind,
+        line_kind: LineKind,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -47,31 +50,40 @@ impl StatusRenderContext {
 
     pub fn under_cursor_diff(&mut self, kind: &DiffKind) {
         match &self.under_cursor {
-            UnderCursor::None => {
-                LineKind::None
-            }
-            UnderCursor::Some{diff_kind: _, line_kind: LineKind::None} => {
-                LineKind::None
-            }
-            UnderCursor::Some{diff_kind: _, line_kind: _} => {
+            UnderCursor::None => LineKind::None,
+            UnderCursor::Some {
+                diff_kind: _,
+                line_kind: LineKind::None,
+            } => LineKind::None,
+            UnderCursor::Some {
+                diff_kind: _,
+                line_kind: _,
+            } => {
                 // diff kind is set on top of cursor, when line_kind
                 // is empty
                 // but if line_kind is not empty - do not change diff_kind!
                 return;
             }
         };
-        self.under_cursor = UnderCursor::Some{diff_kind: kind.clone(), line_kind: LineKind::None};
+        self.under_cursor = UnderCursor::Some {
+            diff_kind: kind.clone(),
+            line_kind: LineKind::None,
+        };
     }
-    
+
     pub fn under_cursor_line(&mut self, kind: &LineKind) {
         let diff_kind = match &self.under_cursor {
-            UnderCursor::Some{diff_kind: dk, line_kind: _} => {
-                dk.clone()
-            },
+            UnderCursor::Some {
+                diff_kind: dk,
+                line_kind: _,
+            } => dk.clone(),
             UnderCursor::None => {
                 panic!("diff kind must be set already");
             }
         };
-        self.under_cursor = UnderCursor::Some{diff_kind: diff_kind, line_kind: kind.clone()};
+        self.under_cursor = UnderCursor::Some {
+            diff_kind: diff_kind,
+            line_kind: kind.clone(),
+        };
     }
 }

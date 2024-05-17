@@ -27,30 +27,31 @@ use std::time::SystemTime;
 mod git;
 use git::{
     apply_stash, checkout_branch, checkout_oid, cherry_pick, commit,
-    create_branch, drop_stash, get_branches, get_commit_diff,
-    get_current_repo_status, get_directories, kill_branch, pull, push,
-    reset_hard, revwalk, stage_untracked, stage_via_apply, stash_changes, 
-    track_changes, update_remote,
-    debug as git_debug,
-    ApplyFilter, ApplySubject, BranchData,
-    CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
-    State, Untracked, UntrackedFile, View, LineKind
+    create_branch, debug as git_debug, drop_stash, get_branches,
+    get_commit_diff, get_current_repo_status, get_directories, kill_branch,
+    pull, push, reset_hard, revwalk, stage_untracked, stage_via_apply,
+    stash_changes, track_changes, update_remote, ApplyFilter, ApplySubject,
+    BranchData, CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, LineKind,
+    StashData, Stashes, State, Untracked, UntrackedFile, View,
 };
-use git2::{Oid, DiffLineType};
+use git2::{DiffLineType, Oid};
 mod widgets;
-use widgets::{confirm_dialog_factory, display_error, merge_dialog_factory, OURS, THEIRS, ABORT, PROCEED};
+use widgets::{
+    confirm_dialog_factory, display_error, merge_dialog_factory, ABORT, OURS,
+    PROCEED, THEIRS,
+};
 
 use gdk::Display;
 use glib::{clone, ControlFlow};
 use libadwaita::prelude::*;
 use libadwaita::{
-    Application, ApplicationWindow, OverlaySplitView, Toast, ToastOverlay,
-    ToolbarStyle, ToolbarView, Banner
+    Application, ApplicationWindow, Banner, OverlaySplitView, Toast,
+    ToastOverlay, ToolbarStyle, ToolbarView,
 };
 
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Align,
-    CssProvider, ScrolledWindow, Settings, Box, Orientation,
+    gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
+    CssProvider, Orientation, ScrolledWindow, Settings,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
@@ -226,10 +227,8 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
 
     let (hb, hb_updater) = headerbar_factory(sender.clone(), settings);
 
-
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt = textview_factory(sender.clone(), text_view_width.clone());
-
 
     let scroll = ScrolledWindow::builder()
         .vexpand(true)
@@ -246,19 +245,18 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
         .hexpand_set(true)
         .orientation(Orientation::Vertical)
         .build();
-    let banner = Banner::builder()
-        .revealed(false)
-        .build();
+    let banner = Banner::builder().revealed(false).build();
     let revealer = banner.last_child().unwrap();
     let gizmo = revealer.last_child().unwrap();
     let banner_button = gizmo.last_child().unwrap();
     let banner_button_handler_id = banner.connect_button_clicked(|_| {});
-    let banner_button_clicked = Rc::new(RefCell::new(Some(banner_button_handler_id)));
+    let banner_button_clicked =
+        Rc::new(RefCell::new(Some(banner_button_handler_id)));
     bx.append(&banner);
     bx.append(&scroll);
 
     let toast_overlay = ToastOverlay::new();
-    toast_overlay.set_child(Some(&bx));// scroll bs bx
+    toast_overlay.set_child(Some(&bx)); // scroll bs bx
 
     let split = OverlaySplitView::builder()
         .content(&toast_overlay)
@@ -284,7 +282,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
 
             let mut ctx = StatusRenderContext::new();
             ctx.screen_width.replace(*text_view_width.borrow());
-            
+
             match event {
                 Event::OpenRepo(path) => {
                     info!("info.open repo {:?}", path);
@@ -377,20 +375,22 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                             ));
                         }
                         _ => {}
-                    }                    
+                    }
                     status.update_upstream(h, &txt, &mut ctx);
                 }
                 Event::Conflicted(d) => {
                     info!("main. conflicted");
-                    // hb_updater(HbUpdateData::Staged(!d.files.is_empty()));                    
-                    status.update_conflicted(d,
-                                             &txt,
-                                             &window,
-                                             sender.clone(),
-                                             &banner,
-                                             &banner_button,
-                                             banner_button_clicked.clone(),
-                                             &mut ctx);
+                    // hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
+                    status.update_conflicted(
+                        d,
+                        &txt,
+                        &window,
+                        sender.clone(),
+                        &banner,
+                        &banner_button,
+                        banner_button_clicked.clone(),
+                        &mut ctx,
+                    );
                 }
                 Event::Staged(d) => {
                     info!("main. staged");

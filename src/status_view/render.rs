@@ -1,9 +1,8 @@
+use crate::status_view::Tag;
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use crate::status_view::Tag;
 use log::trace;
 use std::collections::HashSet;
-
 
 pub enum ViewState {
     RenderedInPlace,
@@ -275,7 +274,6 @@ impl crate::View {
     }
 
     fn get_state_for(&self, line_no: i32) -> ViewState {
-
         if self.is_rendered_in(line_no) {
             return ViewState::RenderedInPlace;
         }
