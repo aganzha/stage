@@ -1,18 +1,27 @@
-use gtk4::{gio};
-use std::{ffi::OsString, collections::HashSet, str::from_utf8, path::{PathBuf, Path}};
-use crate::git::{BranchData, Head, State, get_current_repo_status, STAGE_FLAG, make_diff, Hunk, DiffKind, get_conflicted_v1, Line, LineKind};
+use crate::git::{
+    get_conflicted_v1, get_current_repo_status, make_diff, BranchData,
+    DiffKind, Head, Hunk, Line, LineKind, State, STAGE_FLAG,
+};
 use async_channel::Sender;
-use log::{debug, info, trace};
 use git2;
+use gtk4::gio;
+use log::{debug, info, trace};
+use std::{
+    collections::HashSet,
+    ffi::OsString,
+    path::{Path, PathBuf},
+    str::from_utf8,
+};
 
 #[derive(Debug, Clone)]
 pub enum MergeError {
     Conflicts,
-    General(String)
+    General(String),
 }
 
 pub fn commit(path: OsString) {
-    let mut repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let mut repo =
+        git2::Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
 
     let my_oid = repo
@@ -24,14 +33,14 @@ pub fn commit(path: OsString) {
     repo.mergehead_foreach(|oid_ref| -> bool {
         their_oid.replace(*oid_ref);
         true
-    }).expect("cant get merge heads");
+    })
+    .expect("cant get merge heads");
 
     let their_oid = their_oid.unwrap();
     info!("creating merge commit for {:?} {:?}", my_oid, their_oid);
 
     let my_commit = repo.find_commit(my_oid).expect("cant get commit");
-    let their_commit = repo.find_commit(their_oid)
-        .expect("cant get commit");
+    let their_commit = repo.find_commit(their_oid).expect("cant get commit");
 
     // let message = message.unwrap_or(repo.message().expect("cant get merge message"));
 
@@ -70,8 +79,9 @@ pub fn commit(path: OsString) {
         &me,
         &message,
         &tree,
-        &[&my_commit, &their_commit]
-    ).expect("cant create merge commit");
+        &[&my_commit, &their_commit],
+    )
+    .expect("cant create merge commit");
     repo.cleanup_state().expect("cant cleanup state");
 }
 
@@ -96,19 +106,25 @@ pub fn branch(
                 && !preference.is_no_fast_forward() =>
         {
             info!("merge.fastforward");
-            let ob = repo.find_object(branch_data.oid, Some(git2::ObjectType::Commit))
+            let ob = repo
+                .find_object(branch_data.oid, Some(git2::ObjectType::Commit))
                 .expect("cant find ob for oid");
-            repo.checkout_tree(&ob, Some(git2::build::CheckoutBuilder::new().safe())).expect("cant checkout tree");
+            repo.checkout_tree(
+                &ob,
+                Some(git2::build::CheckoutBuilder::new().safe()),
+            )
+            .expect("cant checkout tree");
             repo.reset(&ob, git2::ResetType::Soft, None)
                 .expect("cant reset to commit");
         }
         Ok((analysis, preference))
             if analysis.is_normal() && !preference.is_fastforward_only() =>
         {
-
             info!("merge.normal");
             if let Err(error) = repo.merge(&[&annotated_commit], None, None) {
-                return Err(MergeError::General(String::from(error.message())));
+                return Err(MergeError::General(String::from(
+                    error.message(),
+                )));
             }
             let index = repo.index().expect("cant get index");
             if index.has_conflicts() {
@@ -151,7 +167,6 @@ pub fn branch(
         .expect("cant get branch"))
 }
 
-
 pub fn abort(path: OsString, sender: Sender<crate::Event>) {
     info!("git.abort merge");
 
@@ -172,24 +187,25 @@ pub fn abort(path: OsString, sender: Sender<crate::Event>) {
     if !has_conflicts {
         panic!("no way to abort merge without conflicts");
     }
-    
+
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    let current_tree =
-        repo.find_tree(ob.id()).expect("no working tree");
+    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
     let git_diff = repo
         .diff_tree_to_index(Some(&current_tree), None, None)
         .expect("can't get diff tree to index");
-    git_diff.foreach(
-        &mut |d: git2::DiffDelta, _| {
-            let path = d.new_file().path().expect("cant get path");
-            checkout_builder.path(path);
-            true
-        },
-        None,
-        None,
-        None            
-    ).expect("cant foreach on diff");
-    
+    git_diff
+        .foreach(
+            &mut |d: git2::DiffDelta, _| {
+                let path = d.new_file().path().expect("cant get path");
+                checkout_builder.path(path);
+                true
+            },
+            None,
+            None,
+            None,
+        )
+        .expect("cant foreach on diff");
+
     let head_ref = repo.head().expect("can't get head");
 
     let ob = head_ref
@@ -202,7 +218,11 @@ pub fn abort(path: OsString, sender: Sender<crate::Event>) {
     get_current_repo_status(Some(path), sender);
 }
 
-pub fn choose_conflict_side(path: OsString, ours: bool, sender: Sender<crate::Event>) {
+pub fn choose_conflict_side(
+    path: OsString,
+    ours: bool,
+    sender: Sender<crate::Event>,
+) {
     info!("git.choose side");
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let mut index = repo.index().expect("cant get index");
@@ -228,16 +248,19 @@ pub fn choose_conflict_side(path: OsString, ours: bool, sender: Sender<crate::Ev
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts.reverse(true);
 
-
     for entry in &mut entries {
-        let pth = String::from_utf8(entry.path.clone()).expect("cant get path");
+        let pth =
+            String::from_utf8(entry.path.clone()).expect("cant get path");
         diff_opts.pathspec(pth.clone());
-        index.remove_path(Path::new(&pth)).expect("cant remove path");
+        index
+            .remove_path(Path::new(&pth))
+            .expect("cant remove path");
         entry.flags = entry.flags & !STAGE_FLAG;
         index.add(&entry).expect("cant add to index");
     }
     index.write().expect("cant write index");
-    let git_diff = repo.diff_index_to_workdir(Some(&index), Some(&mut diff_opts))
+    let git_diff = repo
+        .diff_index_to_workdir(Some(&index), Some(&mut diff_opts))
         .expect("cant get diff");
 
     let mut apply_opts = git2::ApplyOptions::new();
@@ -263,21 +286,27 @@ pub fn choose_conflict_side(path: OsString, ours: bool, sender: Sender<crate::Ev
         false
     });
 
-    sender.send_blocking(crate::Event::LockMonitors(true))
+    sender
+        .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 
+    repo.apply(
+        &git_diff,
+        git2::ApplyLocation::WorkDir,
+        Some(&mut apply_opts),
+    )
+    .expect("can't apply patch");
 
-    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut apply_opts))
-        .expect("can't apply patch");
-
-    sender.send_blocking(crate::Event::LockMonitors(false))
+    sender
+        .send_blocking(crate::Event::LockMonitors(false))
         .expect("Could not send through channel");
 
     // if their side is choosen, it need to stage all conflicted paths
     // because resolved conflicts will go to staged area, but other changes
     // will be on other side of stage (will be +- same hunks on both sides)
     for entry in &entries {
-        let pth = String::from_utf8(entry.path.clone()).expect("cant get path");
+        let pth =
+            String::from_utf8(entry.path.clone()).expect("cant get path");
         index.add_path(Path::new(&pth)).expect("cant add path");
     }
     index.write().expect("cant write index");
@@ -290,15 +319,14 @@ trait PathHolder {
 
 impl PathHolder for git2::IndexConflict {
     fn get_path(&self) -> PathBuf {
-        PathBuf::from(from_utf8(match (&self.our, &self.their) {
-            (Some(o), _) => {
-                &o.path[..]
-            }
-            (_, Some(t)) => {
-                &t.path[..]
-            }
-            _ => panic!("no path")
-        }).unwrap())
+        PathBuf::from(
+            from_utf8(match (&self.our, &self.their) {
+                (Some(o), _) => &o.path[..],
+                (_, Some(t)) => &t.path[..],
+                _ => panic!("no path"),
+            })
+            .unwrap(),
+        )
     }
 }
 
@@ -317,37 +345,38 @@ pub fn choose_conflict_side_of_hunk(
 
     let chosen_path = PathBuf::from(&file_path);
 
-    let mut current_conflict = conflicts.filter(|c| c.as_ref().unwrap().get_path() == chosen_path)
+    let mut current_conflict = conflicts
+        .filter(|c| c.as_ref().unwrap().get_path() == chosen_path)
         .next()
         .unwrap()
         .unwrap();
 
-    index.remove_path(chosen_path.as_path()).expect("cant remove path");
+    index
+        .remove_path(chosen_path.as_path())
+        .expect("cant remove path");
 
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
 
     let mut opts = git2::DiffOptions::new();
     let mut opts = opts.pathspec(&file_path).reverse(true);
-    let mut git_diff = repo.diff_tree_to_workdir(
-        Some(&current_tree),
-        Some(&mut opts)
-    ).expect("cant get diff");
+    let mut git_diff = repo
+        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
+        .expect("cant get diff");
 
-
-    let reversed_header = Hunk::reverse_header(hunk.header);    
+    let reversed_header = Hunk::reverse_header(hunk.header);
 
     let mut options = git2::ApplyOptions::new();
 
     let file_path_clone = file_path.clone();
-    
+
     if line.kind == LineKind::Ours {
         // just kill all hunk from diff.
         // our tree is all that required
         options.hunk_callback(|odh| -> bool {
             if let Some(dh) = odh {
                 let header = Hunk::get_header_from(&dh);
-                return header == reversed_header
+                return header == reversed_header;
             }
             false
         });
@@ -358,7 +387,6 @@ pub fn choose_conflict_side_of_hunk(
             }
             todo!("diff without delta");
         });
-
     } else {
         let their_entry = current_conflict.their.as_mut().unwrap();
         let their_original_flags = their_entry.flags;
@@ -373,12 +401,12 @@ pub fn choose_conflict_side_of_hunk(
         opts.reverse(true);
 
         // ANOTHER DIFF!
-        git_diff = repo.diff_index_to_workdir(Some(&index), Some(&mut opts))
+        git_diff = repo
+            .diff_index_to_workdir(Some(&index), Some(&mut opts))
             .expect("cant get diff");
 
         // restore stage flag to conflict again
         their_entry.flags = their_original_flags;
-
 
         // passed hunk is from diff_tree_to_workdir. workdir is NEW side
         // for this hunks NEW side is workdir
@@ -399,19 +427,22 @@ pub fn choose_conflict_side_of_hunk(
         });
     }
 
-
-    sender.send_blocking(crate::Event::LockMonitors(true))
+    sender
+        .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 
     repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))
         .expect("can't apply patch");
 
-    sender.send_blocking(crate::Event::LockMonitors(false))
+    sender
+        .send_blocking(crate::Event::LockMonitors(false))
         .expect("Could not send through channel");
 
     // remove from index again to restore conflict
     // and also to clear from other side tree
-    index.remove_path(Path::new(&file_path.clone())).expect("cant remove path");
+    index
+        .remove_path(Path::new(&file_path.clone()))
+        .expect("cant remove path");
 
     if let Some(entry) = &current_conflict.ancestor {
         index.add(entry).expect("cant add ancestor");
@@ -427,9 +458,8 @@ pub fn choose_conflict_side_of_hunk(
     }
     index.write().expect("cant write index");
 
-
     cleanup_last_conflict_for_file(path, file_path_clone, sender);
-    
+
     // let diff = get_conflicted_v1(path.clone());
     // // why where is [0]!!!!!!!!!!!!!!!!!!
     // // i have 1 file, but diff could have many of them!
@@ -453,23 +483,32 @@ pub fn choose_conflict_side_of_hunk(
 
     // index.write().expect("cant write index");
     // get_current_repo_status(Some(path), sender);
-
 }
 
-pub fn cleanup_last_conflict_for_file(path: OsString, file_path: OsString, sender: Sender<crate::Event>) {
-
+pub fn cleanup_last_conflict_for_file(
+    path: OsString,
+    file_path: OsString,
+    sender: Sender<crate::Event>,
+) {
     let diff = get_conflicted_v1(path.clone());
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let mut index = repo.index().expect("cant get index");
 
-    let has_conflicts = diff.files.iter().map(|f| &f.hunks).flatten().fold(false, |a, h| {
-        a || h.has_conflicts
-    });
+    let has_conflicts = diff
+        .files
+        .iter()
+        .map(|f| &f.hunks)
+        .flatten()
+        .fold(false, |a, h| a || h.has_conflicts);
     if !has_conflicts {
         // file is clear now
         // stage it!
-        index.remove_path(Path::new(&file_path)).expect("cant remove path");
-        index.add_path(Path::new(&file_path)).expect("cant add path");
+        index
+            .remove_path(Path::new(&file_path))
+            .expect("cant remove path");
+        index
+            .add_path(Path::new(&file_path))
+            .expect("cant add path");
         index.write().expect("cant write index");
         // perhaps it will be another files with conflicts
         // perhaps not

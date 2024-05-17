@@ -110,7 +110,7 @@ pub fn show_commit_window(
                     if let Some(d) = &mut main_diff {
                         let buffer = txt.buffer();
                         let mut iter = buffer.iter_at_offset(0);
-                        let ctx = &mut Some(&mut ctx);                        
+                        let ctx = &mut Some(&mut ctx);
                         commit_diff.diff.enrich_view(&mut d.diff, &txt, ctx);
                         d.diff.render(&buffer, &mut iter, ctx);
                     }
@@ -128,7 +128,11 @@ pub fn show_commit_window(
                             }
                         }
                         if need_render {
-                            d.diff.render(&buffer, &mut iter, &mut Some(&mut ctx));
+                            d.diff.render(
+                                &buffer,
+                                &mut iter,
+                                &mut Some(&mut ctx),
+                            );
                         }
                     }
                 }
@@ -137,7 +141,11 @@ pub fn show_commit_window(
                         if d.diff.cursor(line_no, false, &mut None) {
                             let buffer = txt.buffer();
                             let mut iter = buffer.iter_at_offset(0);
-                            d.diff.render(&buffer, &mut iter, &mut Some(&mut ctx));
+                            d.diff.render(
+                                &buffer,
+                                &mut iter,
+                                &mut Some(&mut ctx),
+                            );
                         }
                     }
                 }

@@ -5,7 +5,7 @@ use crate::{
 };
 use git2::RepositoryState;
 use gtk4::TextView;
-use log::{trace};
+use log::trace;
 use std::collections::HashSet;
 use std::iter::zip;
 
@@ -184,7 +184,8 @@ impl File {
                 // proper start to compare to
                 if let Some(knd) = &ctx.diff_kind {
                     if (n_hunk.new_start == r_hunk.new_start
-                        && (knd == &DiffKind::Staged || knd == &DiffKind::Conflicted))
+                        && (knd == &DiffKind::Staged
+                            || knd == &DiffKind::Conflicted))
                         || (n_hunk.old_start == r_hunk.old_start
                             && knd == &DiffKind::Unstaged)
                     {
@@ -198,7 +199,8 @@ impl File {
                         m_n_hunk.enrich_view(m_r_hunk, txt, context);
                         n_ind += 1;
                         r_ind += 1;
-                    } else if (knd == &DiffKind::Staged || knd == &DiffKind::Conflicted)
+                    } else if (knd == &DiffKind::Staged
+                        || knd == &DiffKind::Conflicted)
                         && n_hunk.new_start < r_hunk.new_start
                     {
                         trace!("^^^^^^^^new hunk is BEFORE rendered hunk in STAGED");
@@ -213,7 +215,8 @@ impl File {
                                 as u32;
                         }
                         n_ind += 1;
-                    } else if (knd == &DiffKind::Staged || knd == &DiffKind::Conflicted)
+                    } else if (knd == &DiffKind::Staged
+                        || knd == &DiffKind::Conflicted)
                         && n_hunk.new_start > r_hunk.new_start
                     {
                         trace!("^^^^^^^^new hunk is AFTER rendered hunk in STAGED");

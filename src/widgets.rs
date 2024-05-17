@@ -1,18 +1,12 @@
 use async_channel::Sender;
 use libadwaita::prelude::*;
-use libadwaita::{
-    MessageDialog, ResponseAppearance,
-};
-use log::{debug};
+use libadwaita::{MessageDialog, ResponseAppearance};
+use log::debug;
 
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 
-
-use gtk4::{
-    AlertDialog, Widget,
-    Window as Gtk4Window,
-};
+use gtk4::{AlertDialog, Widget, Window as Gtk4Window};
 
 pub fn display_error(
     w: &impl IsA<Gtk4Window>, // Application
@@ -59,9 +53,11 @@ pub const OURS: &str = "ours";
 pub const THEIRS: &str = "theirs";
 pub const ABORT: &str = "abort";
 pub const PROCEED: &str = "proceed";
-    
-pub fn merge_dialog_factory(window: &impl IsA<Gtk4Window>, _sender: Sender<crate::Event>) -> MessageDialog {
 
+pub fn merge_dialog_factory(
+    window: &impl IsA<Gtk4Window>,
+    _sender: Sender<crate::Event>,
+) -> MessageDialog {
     // let abort = "abort";
     // let merge_ours = "ours";
     // let merge_theirs = "theirs";
@@ -84,13 +80,7 @@ pub fn merge_dialog_factory(window: &impl IsA<Gtk4Window>, _sender: Sender<crate
         (PROCEED, "Proceed"),
     ]);
 
-    dialog.set_response_appearance(
-        PROCEED,
-        ResponseAppearance::Suggested,
-    );
-    dialog.set_response_appearance(
-        ABORT,
-        ResponseAppearance::Destructive,
-    );
+    dialog.set_response_appearance(PROCEED, ResponseAppearance::Suggested);
+    dialog.set_response_appearance(ABORT, ResponseAppearance::Destructive);
     dialog
 }
