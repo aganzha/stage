@@ -1,6 +1,6 @@
 use crate::git::{
     get_conflicted_v1, get_current_repo_status, make_diff, BranchData,
-    DiffKind, Head, Hunk, Line, LineKind, State, STAGE_FLAG,
+    DiffKind, Head, Hunk, Line, LineKind, State,
 };
 use async_channel::Sender;
 use git2;
@@ -12,6 +12,9 @@ use std::{
     path::{Path, PathBuf},
     str::from_utf8,
 };
+
+
+pub const STAGE_FLAG: u16 = 0x3000;
 
 #[derive(Debug, Clone)]
 pub enum MergeError {

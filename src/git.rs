@@ -13,7 +13,7 @@ use git2::{
     CertificateCheckStatus, CherrypickOptions, Commit, Cred, CredentialType,
     Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat, DiffHunk,
     DiffLine, DiffLineType, DiffOptions, Direction, Error, ErrorClass,
-    ErrorCode, FetchOptions, IndexEntry, ObjectType, Oid, PushOptions, RemoteCallbacks,
+    ErrorCode, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
     Repository, RepositoryState, ResetType, StashFlags,
 };
 
@@ -475,8 +475,8 @@ pub fn get_current_repo_status(
     // path could came from command args or from choosing path
     // by user
     let path = {
-        if current_path.is_some() {
-            current_path.unwrap()
+        if let Some(path) = current_path {
+            path
         } else {
             OsString::from(
                 env::current_exe().expect("cant't get exe path").as_path(),
@@ -1001,7 +1001,7 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
                     }
                     msg
                 }
-                _Error => message,
+                _error => message,
             };
             repo.commit(
                 Some("HEAD"),
@@ -1983,82 +1983,6 @@ pub fn revwalk(
         }
     }
     result
-}
-
-// pub const GIT_INDEX_ENTRY_STAGEMASK: u16 = 0x3000;
-pub const STAGE_FLAG: u16 = 0x3000;
-
-pub fn resolve_conflict(
-    path: OsString,
-    file_path: OsString,
-    _hunk_header: String,
-    origin: DiffLineType,
-    sender: Sender<crate::Event>,
-) {
-    let repo = Repository::open(path.clone()).expect("cant open repo");
-    let mut index = repo.index().expect("cant get index");
-
-    for entry in index.iter() {
-        debug!(
-            ".. {:?} {:?}",
-            entry.flags,
-            String::from_utf8_lossy(&entry.path)
-        );
-    }
-    debug!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee {:?}", file_path);
-
-    let conflicts = index.conflicts().expect("no conflicts");
-    let mut entry: Option<IndexEntry> = None;
-    let my_path = "src/TODO.txt";
-    for conflict in conflicts {
-        let conflict = conflict.unwrap();
-        let mut choosed = {
-            // deletion is our side due to blob diff:
-            // our is old side and merged branch is new side
-            if origin == DiffLineType::Deletion {
-                conflict.our.unwrap()
-            } else {
-                conflict.their.unwrap()
-            }
-        };
-        if String::from_utf8_lossy(&choosed.path) != my_path {
-            continue;
-        }
-        choosed.flags &= !STAGE_FLAG;
-        entry.replace(choosed);
-        break;
-    }
-    index.add(&entry.unwrap()).expect("cant add entry");
-    for stage in 1..4 {
-        index
-            .remove(path::Path::new(my_path), stage)
-            .expect("cant remove entry");
-    }
-    for entry in index.iter() {
-        debug!(
-            ".. {:?} {:?}",
-            entry.flags,
-            String::from_utf8_lossy(&entry.path)
-        );
-    }
-    index.write().expect("cant write index");
-    let mut options = DiffOptions::new();
-    options.reverse(true);
-    options.pathspec(my_path);
-    // allow empty chunks!
-    options.include_unmodified(true);
-    let git_diff = repo
-        .diff_index_to_workdir(Some(&index), Some(&mut options))
-        .expect("cant' get diff index to workdir");
-    repo.apply(&git_diff, ApplyLocation::WorkDir, None)
-        .expect("can't apply patch");
-    get_current_repo_status(Some(path), sender)
-    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
-    // sender
-    //     .send_blocking(crate::Event::Unstaged(diff))
-    //     .expect("Could not send through channel");
-    // Index.add_path - will mark file as resolved
-    // now it need somehow organize diff.
 }
 
 pub fn debug(path: OsString) {
