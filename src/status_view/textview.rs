@@ -6,12 +6,12 @@ use core::time::Duration;
 use glib::ControlFlow;
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, glib, pango, EventControllerKey, EventSequenceState, GestureClick,
-    MovementStep, TextIter, TextView, TextWindowType, EventControllerMotion,
-    TextTag
+    gdk, glib, pango, EventControllerKey, EventControllerMotion,
+    EventSequenceState, GestureClick, MovementStep, TextIter, TextTag,
+    TextView, TextWindowType,
 };
+use log::{debug, trace};
 use pango::Style;
-use log::{trace, debug};
 
 const CURSOR_TAG: &str = "CursorTag";
 
@@ -30,7 +30,9 @@ pub enum Tag {
     Pointer,
     Staged,
     Unstaged,
-    // Link
+    ConflictMarker,
+    Ours,
+    Theirs, // Link
 }
 impl Tag {
     pub fn create(&self) -> TextTag {
@@ -42,22 +44,22 @@ impl Tag {
             }
             Self::Added => {
                 let tt = self.new_tag();
-                tt.set_background(Some("#ebfcf1"));
+                tt.set_foreground(Some("#2ec27e")); // background #ebfcf1
                 tt
             }
             Self::EnhancedAdded => {
                 let tt = self.new_tag();
-                tt.set_background(Some("#d3fae1"));
+                tt.set_foreground(Some("#26a269")); // background #d3fae1. gnome green #26a269
                 tt
             }
             Self::Removed => {
                 let tt = self.new_tag();
-                tt.set_background(Some("#fbf0f3"));
+                tt.set_foreground(Some("#c01c28")); // background fbf0f3
                 tt
             }
             Self::EnhancedRemoved => {
                 let tt = self.new_tag();
-                tt.set_background(Some("#f4c3d0"));
+                tt.set_foreground(Some("#a51d2d")); // background #f4c3d0
                 tt
             }
             Self::Cursor => {
@@ -80,6 +82,22 @@ impl Tag {
                 tt.set_style(Style::Italic);
                 tt
             }
+            Self::ConflictMarker => {
+                let tt = self.new_tag();
+                tt.set_foreground(Some("#ff0000")); //  orange
+                tt
+            }
+            Self::Theirs => {
+                let tt = self.new_tag();
+                tt.set_foreground(Some("#2ec27e")); // "#813d9c" magenta
+                tt
+            }
+            Self::Ours => {
+                let tt = self.new_tag();
+                tt.set_foreground(Some("#2ec27e")); // "#1a5fb4" blue
+                tt
+            }
+
             // Self::Link => {
             //     let tt = self.new_tag();
             //     tt.set_background(Some("0000ff"));
@@ -109,7 +127,10 @@ impl Tag {
             Self::Pointer => "pointer",
             Self::Staged => "staged",
             Self::Unstaged => "unstaged",
-        }        
+            Self::ConflictMarker => "conflictmarker",
+            Self::Ours => "ours",
+            Self::Theirs => "theirs",
+        }
     }
     pub fn enhance(&self) -> &Self {
         match self {
@@ -217,7 +238,11 @@ pub fn factory(
     buffer.tag_table().add(&Tag::Hunk.create());
     buffer.tag_table().add(&staged);
     buffer.tag_table().add(&unstaged);
-    
+
+    buffer.tag_table().add(&Tag::ConflictMarker.create());
+    buffer.tag_table().add(&Tag::Theirs.create());
+    buffer.tag_table().add(&Tag::Ours.create());
+
     let key_controller = EventControllerKey::new();
     key_controller.connect_key_pressed({
         let buffer = buffer.clone();
@@ -306,7 +331,7 @@ pub fn factory(
                         .expect("cant send through channel");
                 }
                 (gdk::Key::d, _) => {
-                    let iter = buffer.iter_at_offset(buffer.cursor_position());
+                    let _iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Debug)
                         .expect("Could not send through channel");
                 }
@@ -332,13 +357,13 @@ pub fn factory(
     txt.add_controller(key_controller);
 
     let num_clicks = Rc::new(Cell::new(0));
-    
+
     let gesture_controller = GestureClick::new();
     gesture_controller.connect_released({
         let sndr = sndr.clone();
         let txt = txt.clone();
         let pointer = pointer.clone();
-        move |gesture, n_clicks, wx, wy| {            
+        move |gesture, n_clicks, wx, wy| {
             gesture.set_state(EventSequenceState::Claimed);
             let (x, y) = txt.window_to_buffer_coords(
                 TextWindowType::Text,
@@ -383,7 +408,7 @@ pub fn factory(
                                                 iter.line(),
                                             )).expect("Could not send through channel");
                                         }
-                                        
+
                                     },
                                     _ => {
                                         todo!("how many clicks? {:?}", n_clicks);
@@ -395,7 +420,7 @@ pub fn factory(
                         }
                     });
 
-                }            
+                }
             }
         }
     });
@@ -443,10 +468,10 @@ pub fn factory(
                     current_line,
                 ))
                 .expect("Could not send through channel");
-            }//  else {
-            //     let mut cnt = latest_char_offset.borrow_mut();
-            //     *cnt = 0;
-            // }
+            } //  else {
+              //     let mut cnt = latest_char_offset.borrow_mut();
+              //     *cnt = 0;
+              // }
         }
     });
 
@@ -498,15 +523,19 @@ pub fn factory(
             );
             if let Some(iter) = txt.iter_at_location(x, y) {
                 if iter.has_tag(&pointer) {
-                    txt.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
+                    txt.set_cursor(Some(
+                        &gdk::Cursor::from_name("pointer", None).unwrap(),
+                    ));
                 } else {
-                    txt.set_cursor(Some(&gdk::Cursor::from_name("text", None).unwrap()));
+                    txt.set_cursor(Some(
+                        &gdk::Cursor::from_name("text", None).unwrap(),
+                    ));
                 }
             }
         }
     });
     txt.add_controller(motion_controller);
-        
+
     txt.add_css_class("stage");
     txt.set_monospace(true);
     txt.set_editable(false);

@@ -112,8 +112,10 @@ impl OidRow {
         glib::spawn_future_local({
             clone!(@weak self as row,
             @strong window as window => async move {
-                let stash = row.imp().stash.borrow();
-                let lbl = Label::new(Some(&format!("Drop stash {}", stash.title)));
+                let lbl = {
+                    let stash = row.imp().stash.borrow();
+                    Label::new(Some(&format!("Drop stash {}", stash.title)))
+                };
                 let dialog = confirm_dialog_factory(
                     &window,
                     Some(&lbl),
@@ -123,7 +125,7 @@ impl OidRow {
                 let result = dialog.choose_future().await;
                 if result == "confirm" {
                     let result = gio::spawn_blocking({
-                        let stash = stash.clone();
+                        let stash = row.imp().stash.borrow().clone();
                         let sender = sender.clone();
                         move || {
                             drop_stash(path.clone(), stash, sender.clone())
@@ -154,8 +156,10 @@ impl OidRow {
         glib::spawn_future_local({
             clone!(@weak self as row,
             @strong window as window => async move {
-                let stash = row.imp().stash.borrow();
-                let lbl = Label::new(Some(&format!("Apply stash {}", stash.title)));
+                let lbl = {
+                    let stash = row.imp().stash.borrow();
+                    Label::new(Some(&format!("Apply stash {}", stash.title)))
+                };
                 let dialog = confirm_dialog_factory(
                     &window,
                     Some(&lbl),
@@ -165,7 +169,7 @@ impl OidRow {
                 let result = dialog.choose_future().await;
                 if result == "confirm" {
                     gio::spawn_blocking({
-                        let stash = stash.clone();
+                        let stash = row.imp().stash.borrow().clone();
                         let sender = sender.clone();
                         move || {
                             git_apply_stash(path.clone(), stash, sender.clone());

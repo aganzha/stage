@@ -4,16 +4,13 @@ use glib::{clone, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, EventControllerKey,
-    GestureClick, Label, ListItem, ListView, Orientation, PositionType, ScrolledWindow,
-    SearchBar, SearchEntry,
-    SignalListItemFactory, SingleSelection, Widget,
+    gdk, gio, glib, pango, Box, EventControllerKey, GestureClick, Label,
+    ListItem, ListView, Orientation, PositionType, ScrolledWindow, SearchBar,
+    SearchEntry, SignalListItemFactory, SingleSelection, Widget,
 };
 use libadwaita::prelude::*;
-use libadwaita::{
-    ApplicationWindow, HeaderBar, ToolbarView, Window,
-};
-use log::{debug, info, trace};
+use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
+use log::{info, trace};
 
 glib::wrapper! {
     pub struct CommitItem(ObjectSubclass<commit_item::CommitItem>);

@@ -1,6 +1,7 @@
 pub mod container;
 pub mod headerbar;
 pub mod textview;
+use crate::git::{merge, LineKind};
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
 
@@ -14,10 +15,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::{
-    checkout_oid, commit, get_current_repo_status, get_directories, pull,
-    push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, resolve_conflict, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
-    State, StatusRenderContext, Untracked, View,
+    checkout_oid, commit, get_current_repo_status, get_directories, git_debug,
+    merge_dialog_factory, pull, push, reset_hard, stage_untracked,
+    stage_via_apply, stash_changes, track_changes, ApplyFilter, ApplySubject,
+    Diff, Event, Head, Stashes, State, StatusRenderContext,
+    Untracked, View, ABORT, OURS, THEIRS,
 };
 
 use async_channel::Sender;
@@ -25,15 +27,19 @@ use async_channel::Sender;
 use gio::{
     Cancellable, File, FileMonitor, FileMonitorEvent, FileMonitorFlags,
 };
+
 use glib::clone;
+use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
     gio, glib, Box, Label as GtkLabel, ListBox, Orientation, SelectionMode,
-    TextBuffer, TextView,
+    TextBuffer, TextView, Widget,
 };
 use libadwaita::prelude::*;
-use libadwaita::{ApplicationWindow, EntryRow, PasswordEntryRow, SwitchRow}; // _Window,
-use log::{debug, trace};
+use libadwaita::{
+    ApplicationWindow, Banner, EntryRow, PasswordEntryRow, SwitchRow,
+}; // _Window,
+use log::{debug, info, trace};
 
 use std::ffi::OsString;
 
@@ -84,7 +90,7 @@ pub struct Status {
     pub conflicted: Option<Diff>,
 
     pub rendered: bool, // what it is for ????
-    pub context: Option<StatusRenderContext>,
+    // pub context: Option<StatusRenderContext>,
     pub stashes: Option<Stashes>,
     pub monitor_lock: Rc<RefCell<bool>>,
     pub settings: gio::Settings,
@@ -123,7 +129,7 @@ impl Status {
             ),
             conflicted: None,
             rendered: false,
-            context: None::<StatusRenderContext>,
+            // context: None::<StatusRenderContext>,
             stashes: None,
             monitor_lock: Rc::new(RefCell::<bool>::new(false)),
             settings
@@ -227,7 +233,8 @@ impl Status {
                             let patterns_to_exclude: Vec<&str> =
                                 vec!["/.#", "/mout", "flycheck_", "/sed"];
                             match event {
-                                FileMonitorEvent::ChangesDoneHint => {
+                                FileMonitorEvent::Changed => {
+                                    // ChangesDoneHint is not fired for small changes :(
                                     let file_path = file
                                         .path()
                                         .expect("no file path")
@@ -280,8 +287,9 @@ impl Status {
                                 }
                                 _ => {
                                     trace!(
-                                        "file event in monitor {:?}",
-                                        event
+                                        "file event in monitor {:?} {:?}",
+                                        event,
+                                        file.path()
                                     );
                                 }
                             }
@@ -474,25 +482,6 @@ impl Status {
         });
     }
 
-    pub fn context_factory(
-        &mut self,
-        text_view_width: Rc<RefCell<(i32, i32)>>,
-    ) {
-        let mut ctx = StatusRenderContext::new();
-        ctx.screen_width.replace(*text_view_width.borrow());
-        self.context.replace(ctx);
-    }
-
-    pub fn update_screen_line_width(&mut self, max_line_len: i32) {
-        if let Some(ctx) = &mut self.context {
-            if let Some(sw) = ctx.screen_width {
-                if sw.1 < max_line_len {
-                    ctx.screen_width.replace((sw.0, max_line_len));
-                }
-            }
-        }
-    }
-
     pub fn choose_remote(&self) -> String {
         if let Some(upstream) = &self.upstream {
             return upstream.branch.clone();
@@ -505,7 +494,6 @@ impl Status {
 
     pub fn commit(
         &mut self,
-        _txt: &TextView,
         window: &ApplicationWindow, // &impl IsA<Gtk4Window>,
     ) {
         if self.staged.is_some() {
@@ -552,38 +540,48 @@ impl Status {
         }
     }
 
-    pub fn update_head(&mut self, mut head: Head, txt: &TextView) {
+    pub fn update_head(
+        &mut self,
+        mut head: Head,
+        txt: &TextView,
+        context: &mut StatusRenderContext,
+    ) {
         // refactor.enrich
         if let Some(current_head) = &self.head {
             head.enrich_view(current_head);
         }
         self.head.replace(head);
-        self.render(txt, RenderSource::Git);
+        self.render(txt, RenderSource::Git, context);
     }
 
     pub fn update_upstream(
         &mut self,
         mut upstream: Option<Head>,
         txt: &TextView,
+        context: &mut StatusRenderContext,
     ) {
         if let Some(rendered) = &mut self.upstream {
             if let Some(new) = upstream.as_mut() {
                 new.enrich_view(rendered);
             } else {
-                rendered.erase(txt, &mut self.context);
+                rendered.erase(txt, &mut Some(context));
             }
         }
-
         self.upstream = upstream;
-        self.render(txt, RenderSource::Git);
+        self.render(txt, RenderSource::Git, context);
     }
 
-    pub fn update_state(&mut self, mut state: State, txt: &TextView) {
+    pub fn update_state(
+        &mut self,
+        mut state: State,
+        txt: &TextView,
+        context: &mut StatusRenderContext,
+    ) {
         if let Some(current_state) = &self.state {
             state.enrich_view(current_state)
         }
         self.state.replace(state);
-        self.render(txt, RenderSource::Git);
+        self.render(txt, RenderSource::Git, context);
     }
 
     fn path_as_string(&self) -> String {
@@ -598,6 +596,7 @@ impl Status {
         &mut self,
         mut untracked: Untracked,
         txt: &TextView,
+        context: &mut StatusRenderContext,
     ) {
         let mut settings =
             self.settings.get::<HashMap<String, Vec<String>>>("ignored");
@@ -609,78 +608,218 @@ impl Status {
                 !ignored.contains(&str_path)
             });
         }
-        self.update_screen_line_width(untracked.max_line_len);
+        context.update_screen_line_width(untracked.max_line_len);
         if let Some(u) = &mut self.untracked {
-            untracked.enrich_view(u, txt, &mut self.context);
+            untracked.enrich_view(u, txt, &mut Some(context));
         }
         self.untracked.replace(untracked);
-        self.render(txt, RenderSource::Git);
+        self.render(txt, RenderSource::Git, context);
     }
 
-    pub fn update_conflicted(&mut self, mut diff: Diff, txt: &TextView) {
-        self.update_screen_line_width(diff.max_line_len);
+    pub fn update_conflicted(
+        &mut self,
+        mut diff: Diff,
+        txt: &TextView,
+        window: &ApplicationWindow,
+        sender: Sender<Event>,
+        banner: &Banner,
+        banner_button: &Widget,
+        banner_button_clicked: Rc<RefCell<Option<SignalHandlerId>>>,
+        context: &mut StatusRenderContext,
+    ) {
+        context.update_screen_line_width(diff.max_line_len);
         if let Some(s) = &mut self.conflicted {
-            // DiffDirection is required here to choose which lines to
-            // compare - new_ or old_
-            // perhaps need to move to git.rs during sending event
-            // to main (during update)
-            diff.enrich_view(s, txt, &mut self.context);
+            if s.has_conflicts() && !diff.has_conflicts() {
+                self.conflicted_label.content = String::from("<span weight=\"bold\" color=\"#1c71d8\">Conflicts resolved</span> stage changes to complete merge");
+                self.conflicted_label.view.dirty = true;
+            }
+            diff.enrich_view(s, txt, &mut Some(context));
+        }
+
+        if diff.is_empty() {
+            if banner.is_revealed() {
+                banner.set_revealed(false);
+            }
+            if let Some(state) = &self.state {
+                if state.is_merging() {
+                    banner.set_title("All conflicts fixed but you are still merging. Commit to conclude merge");
+                    banner.set_css_classes(&["success"]);
+                    banner.set_button_label(Some("Commit"));
+                    banner_button.set_css_classes(&["suggested-action"]);
+                    banner.set_revealed(true);
+                    if let Some(handler_id) = banner_button_clicked.take() {
+                        banner.disconnect(handler_id);
+                    }
+                    let new_handler_id = banner.connect_button_clicked({
+                        let sender = sender.clone();
+                        let path = self.path.clone();
+                        move |_| {
+                            let sender = sender.clone();
+                            let path = path.clone();
+                            gio::spawn_blocking({
+                                move || {
+                                    merge::commit(
+                                        path.clone().expect("no path"),
+                                    );
+                                    get_current_repo_status(path, sender);
+                                }
+                            });
+                        }
+                    });
+                    banner_button_clicked.replace(Some(new_handler_id));
+                }
+            }
+        } else if !banner.is_revealed() {
+            banner.set_title("Got conflicts while merging branch master");
+            banner.set_css_classes(&["error"]);
+            banner.set_button_label(Some("Abort or Resolve All"));
+            banner_button.set_css_classes(&["destructive-action"]);
+            banner.set_revealed(true);
+            if let Some(handler_id) = banner_button_clicked.take() {
+                banner.disconnect(handler_id);
+            }
+            let new_handler_id = banner.connect_button_clicked({
+                let sender = sender.clone();
+                let window = window.clone();
+                let path = self.path.clone();
+                move |_| {
+                    glib::spawn_future_local({
+                        let window = window.clone();
+                        let sender = sender.clone();
+                        let path = path.clone();
+                        async move {
+                            let dialog = merge_dialog_factory(
+                                &window,
+                                sender.clone(),
+                            );
+                            let response = dialog.choose_future().await;
+                            match response.as_str() {
+                                ABORT => {
+                                    info!("merge. abort");
+                                    gio::spawn_blocking({
+                                        move || {
+                                            merge::abort(
+                                                path.expect("no path"),
+                                                sender,
+                                            );
+                                        }
+                                    });
+                                }
+                                OURS => {
+                                    info!("merge. choose ours");
+                                    gio::spawn_blocking({
+                                        move || {
+                                            merge::choose_conflict_side(
+                                                path.expect("no path"),
+                                                true,
+                                                sender,
+                                            );
+                                        }
+                                    });
+                                }
+                                THEIRS => {
+                                    info!("merge. choose theirs");
+                                    gio::spawn_blocking({
+                                        move || {
+                                            merge::choose_conflict_side(
+                                                path.expect("no path"),
+                                                false,
+                                                sender,
+                                            );
+                                        }
+                                    });
+                                }
+                                _ => {
+                                    debug!("=============> proceed");
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+            banner_button_clicked.replace(Some(new_handler_id));
         }
         self.conflicted.replace(diff);
-
-        self.render(txt, RenderSource::Git);
-
+        self.render(txt, RenderSource::Git, context);
+        // restore original label for future conflicts
+        self.conflicted_label.content = String::from(
+            "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>",
+        );
+        self.conflicted_label.view.dirty = true;
     }
 
-    pub fn update_staged(&mut self, mut diff: Diff, txt: &TextView) {
-        self.update_screen_line_width(diff.max_line_len);
+    pub fn update_staged(
+        &mut self,
+        mut diff: Diff,
+        txt: &TextView,
+        context: &mut StatusRenderContext,
+    ) {
+        context.update_screen_line_width(diff.max_line_len);
         if let Some(s) = &mut self.staged {
             // DiffDirection is required here to choose which lines to
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(s, txt, &mut self.context);
+            diff.enrich_view(s, txt, &mut Some(context));
         }
         self.staged.replace(diff);
         // why check both??? perhaps just for very first render
         if self.staged.is_some() && self.unstaged.is_some() {
-            self.render(txt, RenderSource::Git);
+            self.render(txt, RenderSource::Git, context);
         }
     }
 
-    pub fn update_unstaged(&mut self, mut diff: Diff, txt: &TextView) {
-        self.update_screen_line_width(diff.max_line_len);
+    pub fn update_unstaged(
+        &mut self,
+        mut diff: Diff,
+        txt: &TextView,
+        context: &mut StatusRenderContext,
+    ) {
+        context.update_screen_line_width(diff.max_line_len);
         if let Some(u) = &mut self.unstaged {
             // hide untracked for now
             // DiffDirection is required here to choose which lines to
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(u, txt, &mut self.context);
+            diff.enrich_view(u, txt, &mut Some(context));
         }
         self.unstaged.replace(diff);
         // why check both??? perhaps just for very first render
         if self.staged.is_some() && self.unstaged.is_some() {
-            self.render(txt, RenderSource::Git);
+            self.render(txt, RenderSource::Git, context);
         }
     }
     // status
-    pub fn cursor(&mut self, txt: &TextView, line_no: i32, offset: i32) {
+    pub fn cursor(
+        &mut self,
+        txt: &TextView,
+        line_no: i32,
+        offset: i32,
+        context: &mut StatusRenderContext,
+    ) {
         let mut changed = false;
         if let Some(untracked) = &mut self.untracked {
-            changed = untracked.cursor(line_no, false) || changed;
+            changed = untracked.cursor(line_no, false, &mut Some(context))
+                || changed;
         }
         if let Some(conflicted) = &mut self.conflicted {
-            changed = conflicted.cursor(line_no, false) || changed;
+            context.under_cursor_diff(&conflicted.kind);
+            changed = conflicted.cursor(line_no, false, &mut Some(context))
+                || changed;
         }
         if let Some(unstaged) = &mut self.unstaged {
-            changed = unstaged.cursor(line_no, false) || changed;
+            context.under_cursor_diff(&unstaged.kind);
+            changed =
+                unstaged.cursor(line_no, false, &mut Some(context)) || changed;
         }
         if let Some(staged) = &mut self.staged {
-            changed = staged.cursor(line_no, false) || changed;
+            context.under_cursor_diff(&staged.kind);
+            changed =
+                staged.cursor(line_no, false, &mut Some(context)) || changed;
         }
         if changed {
-            self.render(txt, RenderSource::Cursor(line_no));
+            self.render(txt, RenderSource::Cursor(line_no), context);
             let buffer = txt.buffer();
             trace!("put cursor on line {:?} in CURSOR", line_no);
             buffer.place_cursor(&buffer.iter_at_offset(offset));
@@ -688,13 +827,23 @@ impl Status {
     }
 
     // Status
-    pub fn expand(&mut self, txt: &TextView, line_no: i32, _offset: i32) {
+    pub fn expand(
+        &mut self,
+        txt: &TextView,
+        line_no: i32,
+        _offset: i32,
+        context: &mut StatusRenderContext,
+    ) {
         // let mut changed = false;
 
         if let Some(conflicted) = &mut self.conflicted {
             for file in &mut conflicted.files {
                 if let Some(expanded_line) = file.expand(line_no) {
-                    self.render(txt, RenderSource::Expand(expanded_line));
+                    self.render(
+                        txt,
+                        RenderSource::Expand(expanded_line),
+                        context,
+                    );
                     return;
                 }
             }
@@ -703,7 +852,11 @@ impl Status {
         if let Some(unstaged) = &mut self.unstaged {
             for file in &mut unstaged.files {
                 if let Some(expanded_line) = file.expand(line_no) {
-                    self.render(txt, RenderSource::Expand(expanded_line));
+                    self.render(
+                        txt,
+                        RenderSource::Expand(expanded_line),
+                        context,
+                    );
                     return;
                 }
             }
@@ -711,7 +864,11 @@ impl Status {
         if let Some(staged) = &mut self.staged {
             for file in &mut staged.files {
                 if let Some(expanded_line) = file.expand(line_no) {
-                    self.render(txt, RenderSource::Expand(expanded_line));
+                    self.render(
+                        txt,
+                        RenderSource::Expand(expanded_line),
+                        context,
+                    );
                     return;
                 }
             }
@@ -719,20 +876,25 @@ impl Status {
     }
 
     // Status
-    pub fn render(&mut self, txt: &TextView, source: RenderSource) {
+    pub fn render(
+        &mut self,
+        txt: &TextView,
+        source: RenderSource,
+        context: &mut StatusRenderContext,
+    ) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
 
         if let Some(head) = &mut self.head {
-            head.render(&buffer, &mut iter, &mut self.context);
+            head.render(&buffer, &mut iter, &mut Some(context));
         }
 
         if let Some(upstream) = &mut self.upstream {
-            upstream.render(&buffer, &mut iter, &mut self.context);
+            upstream.render(&buffer, &mut iter, &mut Some(context));
         }
 
         if let Some(state) = &mut self.state {
-            state.render(&buffer, &mut iter, &mut self.context);
+            state.render(&buffer, &mut iter, &mut Some(context));
         }
 
         if let Some(untracked) = &mut self.untracked {
@@ -743,11 +905,14 @@ impl Status {
             self.untracked_spacer.render(
                 &buffer,
                 &mut iter,
-                &mut self.context,
+                &mut Some(context),
             );
-            self.untracked_label
-                .render(&buffer, &mut iter, &mut self.context);
-            untracked.render(&buffer, &mut iter, &mut self.context);
+            self.untracked_label.render(
+                &buffer,
+                &mut iter,
+                &mut Some(context),
+            );
+            untracked.render(&buffer, &mut iter, &mut Some(context));
         }
 
         if let Some(conflicted) = &mut self.conflicted {
@@ -755,11 +920,17 @@ impl Status {
                 self.conflicted_spacer.view.squashed = true;
                 self.conflicted_label.view.squashed = true;
             }
-            self.conflicted_spacer
-                .render(&buffer, &mut iter, &mut self.context);
-            self.conflicted_label
-                .render(&buffer, &mut iter, &mut self.context);
-            conflicted.render(&buffer, &mut iter, &mut self.context);
+            self.conflicted_spacer.render(
+                &buffer,
+                &mut iter,
+                &mut Some(context),
+            );
+            self.conflicted_label.render(
+                &buffer,
+                &mut iter,
+                &mut Some(context),
+            );
+            conflicted.render(&buffer, &mut iter, &mut Some(context));
         }
 
         if let Some(unstaged) = &mut self.unstaged {
@@ -767,11 +938,14 @@ impl Status {
                 self.unstaged_spacer.view.squashed = true;
                 self.unstaged_label.view.squashed = true;
             }
-            self.unstaged_spacer
-                .render(&buffer, &mut iter, &mut self.context);
+            self.unstaged_spacer.render(
+                &buffer,
+                &mut iter,
+                &mut Some(context),
+            );
             self.unstaged_label
-                .render(&buffer, &mut iter, &mut self.context);
-            unstaged.render(&buffer, &mut iter, &mut self.context);
+                .render(&buffer, &mut iter, &mut Some(context));
+            unstaged.render(&buffer, &mut iter, &mut Some(context));
         }
 
         if let Some(staged) = &mut self.staged {
@@ -780,10 +954,10 @@ impl Status {
                 self.staged_label.view.squashed = true;
             }
             self.staged_spacer
-                .render(&buffer, &mut iter, &mut self.context);
+                .render(&buffer, &mut iter, &mut Some(context));
             self.staged_label
-                .render(&buffer, &mut iter, &mut self.context);
-            staged.render(&buffer, &mut iter, &mut self.context);
+                .render(&buffer, &mut iter, &mut Some(context));
+            staged.render(&buffer, &mut iter, &mut Some(context));
         }
         trace!("render source {:?}", source);
         match source {
@@ -792,28 +966,43 @@ impl Status {
                 trace!("avoid cursor position on cursor");
             }
             RenderSource::Expand(line_no) => {
-                self.choose_cursor_position(txt, &buffer, Some(line_no));
+                self.choose_cursor_position(
+                    txt,
+                    &buffer,
+                    Some(line_no),
+                    context,
+                );
             }
             RenderSource::Git => {
-                self.choose_cursor_position(txt, &buffer, None);
+                self.choose_cursor_position(txt, &buffer, None, context);
             }
             RenderSource::Resize => {}
         };
     }
 
-    pub fn resize(&mut self, txt: &TextView) {
+    pub fn resize(
+        &mut self,
+        txt: &TextView,
+        context: &mut StatusRenderContext,
+    ) {
         // it need to rerender all highlights and
         // background to match new window size
         if let Some(diff) = &mut self.staged {
-            diff.resize(txt, &mut self.context)
+            diff.resize(txt, &mut Some(context))
         }
         if let Some(diff) = &mut self.unstaged {
-            diff.resize(txt, &mut self.context)
+            diff.resize(txt, &mut Some(context))
         }
-        self.render(txt, RenderSource::Resize);
+        self.render(txt, RenderSource::Resize, context);
     }
 
-    pub fn ignore(&mut self, txt: &TextView, line_no: i32, _offset: i32) {
+    pub fn ignore(
+        &mut self,
+        txt: &TextView,
+        line_no: i32,
+        _offset: i32,
+        context: &mut StatusRenderContext,
+    ) {
         if let Some(untracked) = &mut self.untracked {
             for file in &mut untracked.files {
                 // TODO!
@@ -841,6 +1030,7 @@ impl Status {
                     self.update_untracked(
                         self.untracked.clone().unwrap(),
                         txt,
+                        context,
                     );
                     break;
                 }
@@ -873,32 +1063,58 @@ impl Status {
                 }
             }
         }
+
+        // it need to implement method for diff, which will return current Hunk, Line and File and use it in stage.
+        // also it must return indicator what of this 3 is current.
         if let Some(conflicted) = &self.conflicted {
+            // also someone can press stage on label!
             for f in &conflicted.files {
+                // also someone can press stage on file!
                 for hunk in &f.hunks {
+                    // also someone can press stage on hunk!
                     for line in &hunk.lines {
                         if line.view.current {
-                            if line.origin  == crate::DiffLineType::Addition
-                                ||
-                                line.origin == crate::DiffLineType::Deletion {
-                                    gio::spawn_blocking({                                        
-                                        let path = self.path.clone().unwrap();
-                                        let sender = self.sender.clone();
-                                        let file_path = f.path.clone();
-                                        let hunk_header = hunk.header.clone();
-                                        let origin = line.origin.clone();
-                                        move || {
-                                            resolve_conflict(path, file_path, hunk_header, origin, sender);
-                                        }
-                                    });
-                                    return;
+                            if hunk.has_conflicts
+                                && (line.kind == LineKind::Ours
+                                    || line.kind == LineKind::Theirs)
+                            {
+                                gio::spawn_blocking({
+                                    let path = self.path.clone().unwrap();
+                                    let sender = self.sender.clone();
+                                    let file_path = f.path.clone();
+                                    let hunk = hunk.clone();
+                                    let line = line.clone();
+                                    move || {
+                                        merge::choose_conflict_side_of_hunk(
+                                            path, file_path, hunk, line,
+                                            sender,
+                                        );
+                                    }
+                                });
+                            } else {
+                                // check both: manual and in stage resolving
+                                gio::spawn_blocking({
+                                    let path = self.path.clone().unwrap();
+                                    let file_path = f.path.clone();
+                                    let sender = self.sender.clone();
+                                    move || {
+                                        merge::cleanup_last_conflict_for_file(
+                                            path, file_path, sender,
+                                        );
+                                    }
+                                });
                             }
+                            debug!(
+                                "noooooooooooo way {:?}",
+                                hunk.has_conflicts
+                            );
+                            return;
                         }
                     }
                 }
             }
         }
-
+        debug!("proceeeed");
         // just a check
         match subject {
             ApplySubject::Stage | ApplySubject::Kill => {
@@ -951,6 +1167,7 @@ impl Status {
                 _ => (),
             }
         });
+        debug!("apply filter ----------------------> {:?}", filter);
         if !filter.file_id.is_empty() {
             if hunks_staged > 1 {
                 // stage all hunks in file
@@ -972,6 +1189,7 @@ impl Status {
         txt: &TextView,
         buffer: &TextBuffer,
         line_no: Option<i32>,
+        context: &mut StatusRenderContext,
     ) {
         let offset = buffer.cursor_position();
         trace!("choose_cursor_position. optional line {:?}. offset {:?}, line at offset {:?}",
@@ -989,7 +1207,7 @@ impl Status {
                         "choose cursor at first unstaged file {:?}",
                         line_no
                     );
-                    self.cursor(txt, line_no, iter.offset());
+                    self.cursor(txt, line_no, iter.offset(), context);
                     return;
                 }
             }
@@ -1001,7 +1219,7 @@ impl Status {
         // cursor is on place and it is visually current,
         // but view under it is not current, cause line_no differs
         trace!("choose cursor when NOT on eof {:?}", iter.line());
-        self.cursor(txt, iter.line(), iter.offset());
+        self.cursor(txt, iter.line(), iter.offset(), context);
     }
 
     pub fn has_staged(&self) -> bool {
@@ -1014,14 +1232,19 @@ impl Status {
         let buffer = txt.buffer();
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         let current_line = iter.line();
-        println!("debug at line {:?}", current_line);
+
+        debug!("debug at line {:?}", current_line);
         if let Some(diff) = &mut self.staged {
             diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let content = vc.get_content();
                 let view = vc.get_view();
                 if view.line_no == current_line && view.rendered {
                     debug!("view under line {:?} {:?}", view.line_no, content);
-                    debug!("is rendered in {:?} {:?}", view.is_rendered_in(current_line), current_line);
+                    debug!(
+                        "is rendered in {:?} {:?}",
+                        view.is_rendered_in(current_line),
+                        current_line
+                    );
                     dbg!(view);
                 }
             });
@@ -1036,6 +1259,12 @@ impl Status {
                 }
             });
         }
+        gio::spawn_blocking({
+            let path = self.path.clone().expect("no path");
+            move || {
+                git_debug(path);
+            }
+        });
     }
 
     pub fn checkout_error(

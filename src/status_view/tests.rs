@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::status_view::{StatusRenderContext, ViewContainer};
-    use crate::{Diff, DiffKind, File, Hunk, Line, View};
+    use crate::{Diff, DiffKind, File, Hunk, Line, LineKind, View};
     use git2::DiffLineType;
     use gtk4::prelude::*;
     use gtk4::TextBuffer;
@@ -14,6 +14,7 @@ mod tests {
             view: View::new(),
             new_line_no: None,
             old_line_no: None,
+            kind: LineKind::None,
         };
         line.content = name.to_string();
         line
@@ -77,7 +78,7 @@ mod tests {
     // tests
     pub fn cursor(diff: &mut Diff, line_no: i32) {
         for (_, file) in diff.files.iter_mut().enumerate() {
-            file.cursor(line_no, false);
+            file.cursor(line_no, false, &mut None);
         }
         // some views will be rerenderred cause highlight changes
         mock_render(diff);
@@ -235,7 +236,8 @@ mod tests {
         let mut view2 = View::new();
         let mut view3 = View::new();
 
-        let ctx = &mut Some(StatusRenderContext::new());
+        let mut context = StatusRenderContext::new();
+        let ctx = &mut Some(&mut context);
 
         view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), ctx);
         view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), ctx);
@@ -309,10 +311,11 @@ mod tests {
         let mut iter = buffer.iter_at_line(0).unwrap();
         buffer.insert(&mut iter, "begin\n");
         let mut diff = create_diff();
-        let ctx = &mut Some(StatusRenderContext::new());
+        let mut context = StatusRenderContext::new();
+        let ctx = &mut Some(&mut context);
         diff.render(&buffer, &mut iter, ctx);
         // if cursor returns true it need to rerender as in Status!
-        if diff.cursor(1, false) {
+        if diff.cursor(1, false, &mut None) {
             diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
         }
 
@@ -321,8 +324,8 @@ mod tests {
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
 
         let content = buffer.slice(
-            &mut buffer.start_iter(),
-            &mut buffer.end_iter(),
+            &buffer.start_iter(),
+            &buffer.end_iter(),
             true,
         );
         let content_lines = content.split('\n');
@@ -341,7 +344,7 @@ mod tests {
 
         let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no;
         // put cursor inside first hunk
-        if diff.cursor(line_of_line, false) {
+        if diff.cursor(line_of_line, false, &mut None) {
             // if comment out next line the line_of_line will be not sqashed
             diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
         }
@@ -350,8 +353,8 @@ mod tests {
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
 
         let content = buffer.slice(
-            &mut buffer.start_iter(),
-            &mut buffer.end_iter(),
+            &buffer.start_iter(),
+            &buffer.end_iter(),
             true,
         );
         let content_lines = content.split('\n');
