@@ -1,16 +1,11 @@
 use libadwaita::prelude::*;
-use libadwaita::{
-    ButtonContent, HeaderBar, SplitButton,
-    Window,
-};
+use libadwaita::{ButtonContent, HeaderBar, SplitButton, Window};
 use std::ffi::OsString;
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
 
-use gtk4::{
-    gio, Align, Button, FileDialog, Label, PopoverMenu,
-};
+use gtk4::{gio, Align, Button, FileDialog, Label, PopoverMenu};
 
 pub enum HbUpdateData {
     Path(OsString),

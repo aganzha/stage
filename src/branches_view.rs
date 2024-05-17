@@ -1,9 +1,10 @@
 use async_channel::Sender;
 
-use core::time::Duration;
 
+
+use crate::git::merge;
 use git2::BranchType;
-use glib::{clone, closure, Object, ControlFlow};
+use glib::{clone, closure, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
@@ -16,7 +17,6 @@ use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
 };
-
 use log::{debug, trace};
 
 glib::wrapper! {
@@ -485,7 +485,6 @@ impl BranchList {
     }
 
     pub fn deactivate_current_branch(&self) {
-
         // it does not need to set branch_data in original_list cause
         // items in list are clones of each other and setting branch_data
         // in item in one list affects branch data in cloned item in another list
@@ -506,14 +505,17 @@ impl BranchList {
     }
 
     pub fn update_current_branch(&self, branch_data: crate::BranchData) {
-
         for branch_item in self.imp().original_list.borrow().iter() {
-            debug!("HEAD in original list {:?} {:?}", branch_item.imp().branch.borrow().name, branch_item.is_head());
+            debug!(
+                "HEAD in original list {:?} {:?}",
+                branch_item.imp().branch.borrow().name,
+                branch_item.is_head()
+            );
             if branch_item.is_head() {
                 branch_item.imp().branch.replace(branch_data.clone());
                 // to trigger render for avatar icon
                 branch_item.set_is_head(branch_item.is_head());
-                return
+                return;
             }
         }
 
@@ -523,7 +525,11 @@ impl BranchList {
         // BUT it need to trigger item property to rerender avatar icon
 
         for branch_item in self.imp().list.borrow().iter() {
-            debug!("HEAD in list {:?} {:?}", branch_item.imp().branch.borrow().name, branch_item.is_head());
+            debug!(
+                "HEAD in list {:?} {:?}",
+                branch_item.imp().branch.borrow().name,
+                branch_item.is_head()
+            );
             if branch_item.is_head() {
                 branch_item.imp().branch.replace(branch_data.clone());
                 // to trigger render for avatar icon
@@ -535,6 +541,8 @@ impl BranchList {
 
     pub fn get_selected_branch(&self) -> crate::BranchData {
         let pos = self.selected_pos();
+        // TODO! got panic here while opening large
+        // list of branches and clicking create
         let item = self.item(pos).unwrap();
         let branch_item = item.downcast_ref::<BranchItem>().unwrap();
         let data = branch_item.imp().branch.borrow().clone();
@@ -633,19 +641,21 @@ impl BranchList {
                     return;
                 }
                 let result = gio::spawn_blocking(move || {
-                    crate::merge(repo_path, branch_data, sender)
+                    merge::branch(repo_path, branch_data, sender)
                 }).await;
-
+                trace!("outer error for merge {:?}", &result);
                 if let Ok(result) = result {
+                    trace!("inner error for merge {:?}", &result);
                     match result {
                         Ok(branch_data) => {
                             trace!("just merged and this is branch data {:?}", branch_data);
                             branch_list.update_current_branch(branch_data);
                             window.close();
                         }
-                        Err(message) => {
-                            // conflicts
-                            // window.close();
+                        Err(merge::MergeError::Conflicts) => {
+                            window.close();
+                        }
+                        Err(merge::MergeError::General(message)) => {
                             crate::display_error(&window, &message);
                         }
                     }
@@ -811,7 +821,6 @@ impl BranchList {
     }
 
     fn add_new_branch_item(&self, branch_data: crate::BranchData) {
-
         let new_item = BranchItem::new(branch_data);
 
         let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
@@ -955,7 +964,6 @@ pub fn item_factory() -> SignalListItemFactory {
                     li.position()
                 );
                 if branch_item.initial_focus() {
-                    debug!("initial_focus..................................");
                     li.child().unwrap().grab_focus();
                     branch_item.set_initial_focus(false)
                 }
@@ -1070,20 +1078,22 @@ pub fn headerbar_factory(
     });
     let branch_list = get_branch_list(list_view);
 
-    entry.connect_search_changed(clone!(@weak branch_list, @weak list_view => move |e| {
-        let term = e.text();
-        if !term.is_empty() && term.len() < 3 {
-            return;
-        }
-        let selection_model = list_view.model().unwrap();
+    entry.connect_search_changed(
+        clone!(@weak branch_list, @weak list_view => move |e| {
+            let term = e.text();
+            if !term.is_empty() && term.len() < 3 {
+                return;
+            }
+            let selection_model = list_view.model().unwrap();
 
-        let single_selection =
-            selection_model.downcast_ref::<SingleSelection>().unwrap();
+            let single_selection =
+                selection_model.downcast_ref::<SingleSelection>().unwrap();
 
-        single_selection.set_can_unselect(false);
-        branch_list.search_new(term.into());
-        single_selection.set_can_unselect(false);
-    }));
+            single_selection.set_can_unselect(false);
+            branch_list.search_new(term.into());
+            single_selection.set_can_unselect(false);
+        }),
+    );
     let search = SearchBar::builder()
         .tooltip_text("search branches")
         .search_mode_enabled(true)

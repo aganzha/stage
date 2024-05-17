@@ -5,7 +5,7 @@ use crate::{
 };
 use git2::RepositoryState;
 use gtk4::TextView;
-use log::{trace};
+use log::trace;
 use std::collections::HashSet;
 use std::iter::zip;
 
@@ -16,7 +16,7 @@ impl Line {
     pub fn enrich_view(
         &mut self,
         rendered: &Line,
-        _context: &mut Option<crate::StatusRenderContext>,
+        _context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         self.view = rendered.transfer_view();
         if self.content != rendered.content || self.origin != rendered.origin {
@@ -52,7 +52,7 @@ impl Hunk {
         &mut self,
         rendered: &mut Hunk,
         txt: &TextView,
-        context: &mut Option<crate::StatusRenderContext>,
+        context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         self.view = rendered.transfer_view();
         if self.lines.len() == rendered.lines.len() {
@@ -147,7 +147,7 @@ impl File {
         &mut self,
         rendered: &mut File,
         txt: &TextView,
-        context: &mut Option<crate::StatusRenderContext>,
+        context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         self.view = rendered.transfer_view();
 
@@ -178,9 +178,14 @@ impl File {
             let r_delta = r_hunk.delta_in_lines();
 
             if let Some(ctx) = context {
+                // why kind here is required?????
+                // it is required to compare old_new/new_lines and thats it
+                // it could be refactored to some method, which will return
+                // proper start to compare to
                 if let Some(knd) = &ctx.diff_kind {
                     if (n_hunk.new_start == r_hunk.new_start
-                        && knd == &DiffKind::Staged)
+                        && (knd == &DiffKind::Staged
+                            || knd == &DiffKind::Conflicted))
                         || (n_hunk.old_start == r_hunk.old_start
                             && knd == &DiffKind::Unstaged)
                     {
@@ -194,7 +199,8 @@ impl File {
                         m_n_hunk.enrich_view(m_r_hunk, txt, context);
                         n_ind += 1;
                         r_ind += 1;
-                    } else if knd == &DiffKind::Staged
+                    } else if (knd == &DiffKind::Staged
+                        || knd == &DiffKind::Conflicted)
                         && n_hunk.new_start < r_hunk.new_start
                     {
                         trace!("^^^^^^^^new hunk is BEFORE rendered hunk in STAGED");
@@ -209,7 +215,8 @@ impl File {
                                 as u32;
                         }
                         n_ind += 1;
-                    } else if knd == &DiffKind::Staged
+                    } else if (knd == &DiffKind::Staged
+                        || knd == &DiffKind::Conflicted)
                         && n_hunk.new_start > r_hunk.new_start
                     {
                         trace!("^^^^^^^^new hunk is AFTER rendered hunk in STAGED");
@@ -327,7 +334,7 @@ impl Diff {
         &mut self,
         rendered: &mut Diff,
         txt: &TextView,
-        context: &mut Option<crate::StatusRenderContext>,
+        context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         if let Some(ctx) = context {
             ctx.diff_kind.replace(self.kind.clone());
@@ -366,7 +373,7 @@ impl UntrackedFile {
     pub fn enrich_view(
         &mut self,
         rendered: &UntrackedFile,
-        _context: &mut Option<crate::StatusRenderContext>,
+        _context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         self.view = rendered.transfer_view();
     }
@@ -383,7 +390,7 @@ impl Untracked {
         &mut self,
         rendered: &mut Untracked,
         txt: &TextView,
-        context: &mut Option<crate::StatusRenderContext>,
+        context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         let mut replaces_by_new = HashSet::new();
         for file in &mut self.files {
@@ -426,7 +433,7 @@ impl State {
     // state
     pub fn enrich_view(&mut self, rendered: &Self) {
         self.view = rendered.transfer_view();
-        self.view.hidden = self.state == RepositoryState::Clean;
+        self.view.squashed = self.state == RepositoryState::Clean;
     }
     // state
     pub fn transfer_view(&self) -> View {

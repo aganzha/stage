@@ -1,5 +1,5 @@
 mod context;
-use context::StatusRenderContext;
+use context::{StatusRenderContext, UnderCursor};
 
 mod status_view;
 use status_view::{
@@ -22,33 +22,35 @@ use commit_view::show_commit_window;
 use core::time::Duration;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::SystemTime;
+
 
 mod git;
 use git::{
     apply_stash, checkout_branch, checkout_oid, cherry_pick, commit,
-    create_branch, drop_stash, get_branches, get_commit_diff,
-    get_current_repo_status, get_directories, kill_branch, merge, pull, push,
-    reset_hard, revwalk, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, update_remote, resolve_conflict, ApplyFilter, ApplySubject, BranchData,
-    CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, StashData, Stashes,
-    State, Untracked, UntrackedFile, View
+    create_branch, debug as git_debug, drop_stash, get_branches,
+    get_commit_diff, get_current_repo_status, get_directories, kill_branch,
+    pull, push, reset_hard, revwalk, stage_untracked, stage_via_apply,
+    stash_changes, track_changes, update_remote, ApplyFilter, ApplySubject,
+    BranchData, CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, LineKind,
+    StashData, Stashes, State, Untracked, UntrackedFile, View,
 };
-use git2::{Oid, DiffLineType};
+use git2::{Oid};
 mod widgets;
-use widgets::{confirm_dialog_factory, display_error};
+use widgets::{
+    confirm_dialog_factory, display_error, merge_dialog_factory, ABORT, OURS, THEIRS,
+};
 
 use gdk::Display;
 use glib::{clone, ControlFlow};
 use libadwaita::prelude::*;
 use libadwaita::{
-    Application, ApplicationWindow, OverlaySplitView, Toast, ToastOverlay,
-    ToolbarStyle, ToolbarView,
+    Application, ApplicationWindow, Banner, OverlaySplitView, Toast,
+    ToastOverlay, ToolbarStyle, ToolbarView,
 };
 
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Align,
-    CssProvider, ScrolledWindow, Settings,
+    gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
+    CssProvider, Orientation, ScrolledWindow, Settings,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
@@ -195,8 +197,13 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
     let mut status =
         Status::new(initial_path, settings.clone(), sender.clone());
 
-    let window = ApplicationWindow::new(app);
-    window.set_default_size(1280, 960);
+    let window = ApplicationWindow::builder()
+        .application(app)
+        .default_width(1280)
+        .default_height(960)
+        //.css_classes(vec!["devel"])
+        .build();
+    // window.set_default_size(1280, 960);
 
     let action_close = gio::SimpleAction::new("close", None);
     action_close.connect_activate(clone!(@weak window => move |_, _| {
@@ -222,11 +229,33 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt = textview_factory(sender.clone(), text_view_width.clone());
 
-    let scroll = ScrolledWindow::new();
+    let scroll = ScrolledWindow::builder()
+        .vexpand(true)
+        .vexpand_set(true)
+        .hexpand(true)
+        .hexpand_set(true)
+        .build();
     scroll.set_child(Some(&txt));
 
+    let bx = Box::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .vexpand_set(true)
+        .hexpand_set(true)
+        .orientation(Orientation::Vertical)
+        .build();
+    let banner = Banner::builder().revealed(false).build();
+    let revealer = banner.last_child().unwrap();
+    let gizmo = revealer.last_child().unwrap();
+    let banner_button = gizmo.last_child().unwrap();
+    let banner_button_handler_id = banner.connect_button_clicked(|_| {});
+    let banner_button_clicked =
+        Rc::new(RefCell::new(Some(banner_button_handler_id)));
+    bx.append(&banner);
+    bx.append(&scroll);
+
     let toast_overlay = ToastOverlay::new();
-    toast_overlay.set_child(Some(&scroll));
+    toast_overlay.set_child(Some(&bx)); // scroll bs bx
 
     let split = OverlaySplitView::builder()
         .content(&toast_overlay)
@@ -248,7 +277,11 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
-            status.context_factory(text_view_width.clone());
+            // status.context_factory(text_view_width.clone());
+
+            let mut ctx = StatusRenderContext::new();
+            ctx.screen_width.replace(*text_view_width.borrow());
+
             match event {
                 Event::OpenRepo(path) => {
                     info!("info.open repo {:?}", path);
@@ -275,7 +308,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::State(state) => {
                     info!("main. state");
-                    status.update_state(state, &txt);
+                    status.update_state(state, &txt, &mut ctx);
                 }
                 Event::Debug => {
                     info!("main. debug");
@@ -289,12 +322,12 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                             "No changes were staged. Stage by hitting 's'",
                         );
                     } else {
-                        status.commit(&txt, &window);
+                        status.commit(&window);
                     }
                 }
                 Event::Untracked(untracked) => {
                     info!("main. untracked");
-                    status.update_untracked(untracked, &txt);
+                    status.update_untracked(untracked, &txt, &mut ctx);
                 }
                 Event::Push => {
                     info!("main.push");
@@ -330,39 +363,45 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                     } else {
                         hb_updater(HbUpdateData::Unsynced(true));
                     }
-                    status.update_head(h, &txt);
+                    status.update_head(h, &txt, &mut ctx);
                 }
                 Event::Upstream(h) => {
                     info!("main. upstream");
-                    match (&status.head, &h) {
-                        (Some(head), Some(upstream)) => {
-                            hb_updater(HbUpdateData::Unsynced(
-                                head.oid != upstream.oid,
-                            ));
-                        }
-                        _ => {}
-                    }
-                    status.update_upstream(h, &txt);
+                    if let (Some(head), Some(upstream)) = (&status.head, &h) {
+                        hb_updater(HbUpdateData::Unsynced(
+                            head.oid != upstream.oid,
+                        ));
+                    }                    
+                    status.update_upstream(h, &txt, &mut ctx);
                 }
                 Event::Conflicted(d) => {
                     info!("main. conflicted");
                     // hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
-                    status.update_conflicted(d, &txt);
+                    status.update_conflicted(
+                        d,
+                        &txt,
+                        &window,
+                        sender.clone(),
+                        &banner,
+                        &banner_button,
+                        banner_button_clicked.clone(),
+                        &mut ctx,
+                    );
                 }
                 Event::Staged(d) => {
                     info!("main. staged");
                     hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
-                    status.update_staged(d, &txt);
+                    status.update_staged(d, &txt, &mut ctx);
                 }
                 Event::Unstaged(d) => {
                     info!("main. unstaged");
-                    status.update_unstaged(d, &txt);
+                    status.update_unstaged(d, &txt, &mut ctx);
                 }
                 Event::Expand(offset, line_no) => {
-                    status.expand(&txt, line_no, offset);
+                    status.expand(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Cursor(offset, line_no) => {
-                    status.cursor(&txt, line_no, offset);
+                    status.cursor(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Stage(_offset, line_no) => {
                     info!("main. stage");
@@ -378,10 +417,10 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                 }
                 Event::Ignore(offset, line_no) => {
                     info!("main.ignore");
-                    status.ignore(&txt, line_no, offset);
+                    status.ignore(&txt, line_no, offset, &mut ctx);
                 }
                 Event::TextViewResize => {
-                    status.resize(&txt);
+                    status.resize(&txt, &mut ctx);
                 }
                 Event::Toast(title) => {
                     info!("toast");
@@ -406,7 +445,7 @@ fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
                             }
                         },
                     );
-                    status.resize(&txt);
+                    status.resize(&txt, &mut ctx);
                 }
                 Event::Stashes(stashes) => {
                     info!("stashes data");

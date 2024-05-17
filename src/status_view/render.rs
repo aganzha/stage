@@ -1,12 +1,10 @@
+use crate::status_view::Tag;
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use crate::status_view::Tag;
 use log::trace;
 use std::collections::HashSet;
 
-
 pub enum ViewState {
-    Hidden,
     RenderedInPlace,
     Deleted,
     NotRendered,
@@ -30,7 +28,6 @@ impl crate::View {
             transfered: false,
             tags: Vec::new(),
             markup: false,
-            hidden: false,
         }
     }
     pub fn new_markup() -> Self {
@@ -67,7 +64,7 @@ impl crate::View {
     fn build_up(
         &self,
         content: &String,
-        context: &mut Option<crate::StatusRenderContext>,
+        context: &mut Option<&mut crate::StatusRenderContext>,
     ) -> String {
         let line_content = content.to_string();
         if let Some(ctx) = context {
@@ -105,7 +102,7 @@ impl crate::View {
         iter: &mut TextIter,
         content: String,
         content_tags: Vec<Tag>,
-        context: &mut Option<crate::StatusRenderContext>,
+        context: &mut Option<&mut crate::StatusRenderContext>,
     ) -> &mut Self {
         // important. self.line_no is assigned only in 2 cases
         // below!!!!
@@ -118,10 +115,6 @@ impl crate::View {
             self.line_no
         );
         match self.get_state_for(line_no) {
-            ViewState::Hidden => {
-                trace!("skip hidden view");
-                return self;
-            }
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
                 iter.forward_lines(1);
@@ -250,9 +243,10 @@ impl crate::View {
         let mut fltr: HashSet<Tag> = HashSet::new();
         if self.current {
             self.add_tag(buffer, Tag::Cursor.name());
-            fltr.insert(Tag::Added);
-            fltr.insert(Tag::Removed);
+            // fltr.insert(Tag::Added);
+            // fltr.insert(Tag::Removed);
             fltr.insert(Tag::Region);
+            fltr.insert(Tag::Hunk);
             // it need to filter background tags
         } else {
             self.remove_tag(buffer, Tag::Cursor.name());
@@ -280,9 +274,6 @@ impl crate::View {
     }
 
     fn get_state_for(&self, line_no: i32) -> ViewState {
-        if self.hidden {
-            return ViewState::Hidden;
-        }
         if self.is_rendered_in(line_no) {
             return ViewState::RenderedInPlace;
         }
