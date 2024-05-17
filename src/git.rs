@@ -13,8 +13,7 @@ use git2::{
     CertificateCheckStatus, CherrypickOptions, Commit, Cred, CredentialType,
     Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat, DiffHunk,
     DiffLine, DiffLineType, DiffOptions, Direction, Error, ErrorClass,
-    ErrorCode, FetchOptions, IndexConflict, IndexEntry, IndexEntryFlag,
-    IndexTime, MergeOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
+    ErrorCode, FetchOptions, IndexEntry, ObjectType, Oid, PushOptions, RemoteCallbacks,
     Repository, RepositoryState, ResetType, StashFlags,
 };
 
@@ -107,7 +106,7 @@ impl Hunk {
             old_lines: 0,
             new_lines: 0,
             max_line_len: 0,
-            kind: kind,
+            kind,
             has_conflicts: false,
         }
     }
@@ -246,7 +245,7 @@ impl Hunk {
             (LineKind::None, LineKind::None) => {
                 trace!("sec match. contenxt????")
             }
-            (prev, LineKind::ConflictMarker(m)) => {
+            (_prev, LineKind::ConflictMarker(m)) => {
                 trace!("sec match. pass this marker {:?}", m);
             }
             (LineKind::ConflictMarker(marker), LineKind::None)
@@ -360,15 +359,14 @@ impl Diff {
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.files.is_empty();
+        self.files.is_empty()
     }
 
     pub fn has_conflicts(&self) -> bool {
         self.files
             .iter()
-            .map(|f| &f.hunks)
-            .flatten()
-            .fold(false, |a, h| a || h.has_conflicts)
+            .flat_map(|f| &f.hunks)
+            .any(|h| h.has_conflicts)
     }
 }
 
@@ -387,7 +385,7 @@ impl State {
         Self { state, view }
     }
     pub fn is_merging(&self) -> bool {
-        return self.state == RepositoryState::Merge;
+        self.state == RepositoryState::Merge
     }
 }
 
@@ -595,9 +593,9 @@ pub fn get_conflicted_v1(path: OsString) -> Diff {
     let git_diff = repo
         .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
-    let diff = make_diff(&git_diff, DiffKind::Conflicted);
+    
 
-    diff
+    make_diff(&git_diff, DiffKind::Conflicted)
 }
 
 pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
@@ -724,10 +722,8 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
             let status = diff_delta.status();
-            if status == Delta::Conflicted {
-                if kind == DiffKind::Staged || kind == DiffKind::Unstaged {
-                    return true;
-                }
+            if status == Delta::Conflicted && (kind == DiffKind::Staged || kind == DiffKind::Unstaged) {
+                return true;
             }
             let file: DiffFile = match status {
                 Delta::Modified | Delta::Conflicted => diff_delta.new_file(),
@@ -963,7 +959,7 @@ pub fn get_parents_for_commit(path: OsString) -> Vec<Oid> {
 }
 
 pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
-    let mut repo = Repository::open(path.clone()).expect("can't open repo");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
 
     // let ob = repo.revparse_single("HEAD^{commit}")
@@ -997,15 +993,15 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
                 .expect("can't commit");
         }
         [commit, merge_commit] => {
-            let mut merge_message = match repo.message() {
+            let merge_message = match repo.message() {
                 Ok(mut msg) => {
                     if !message.is_empty() {
-                        msg.push_str("\n");
+                        msg.push('\n');
                         msg.push_str(&message);
                     }
                     msg
                 }
-                Error => message,
+                _Error => message,
             };
             repo.commit(
                 Some("HEAD"),
@@ -1995,7 +1991,7 @@ pub const STAGE_FLAG: u16 = 0x3000;
 pub fn resolve_conflict(
     path: OsString,
     file_path: OsString,
-    hunk_header: String,
+    _hunk_header: String,
     origin: DiffLineType,
     sender: Sender<crate::Event>,
 ) {
@@ -2028,7 +2024,7 @@ pub fn resolve_conflict(
         if String::from_utf8_lossy(&choosed.path) != my_path {
             continue;
         }
-        choosed.flags = choosed.flags & !STAGE_FLAG;
+        choosed.flags &= !STAGE_FLAG;
         entry.replace(choosed);
         break;
     }

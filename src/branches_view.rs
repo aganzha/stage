@@ -1,10 +1,10 @@
 use async_channel::Sender;
 
-use core::time::Duration;
+
 
 use crate::git::merge;
 use git2::BranchType;
-use glib::{clone, closure, ControlFlow, Object};
+use glib::{clone, closure, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{

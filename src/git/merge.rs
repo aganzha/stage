@@ -5,7 +5,7 @@ use crate::git::{
 use async_channel::Sender;
 use git2;
 use gtk4::gio;
-use log::{debug, info, trace};
+use log::{debug, info};
 use std::{
     collections::HashSet,
     ffi::OsString,
@@ -234,10 +234,8 @@ pub fn choose_conflict_side(
                 if let Some(our) = conflict.our {
                     entries.push(our);
                 }
-            } else {
-                if let Some(their) = conflict.their {
-                    entries.push(their);
-                }
+            } else if let Some(their) = conflict.their {
+                entries.push(their);
             }
         }
     }
@@ -255,8 +253,8 @@ pub fn choose_conflict_side(
         index
             .remove_path(Path::new(&pth))
             .expect("cant remove path");
-        entry.flags = entry.flags & !STAGE_FLAG;
-        index.add(&entry).expect("cant add to index");
+        entry.flags &= !STAGE_FLAG;
+        index.add(entry).expect("cant add to index");
     }
     index.write().expect("cant write index");
     let git_diff = repo
@@ -391,7 +389,7 @@ pub fn choose_conflict_side_of_hunk(
         let their_entry = current_conflict.their.as_mut().unwrap();
         let their_original_flags = their_entry.flags;
 
-        their_entry.flags = their_entry.flags & !STAGE_FLAG;
+        their_entry.flags &= !STAGE_FLAG;
 
         index.add(their_entry).expect("cant add entry");
 
@@ -497,9 +495,8 @@ pub fn cleanup_last_conflict_for_file(
     let has_conflicts = diff
         .files
         .iter()
-        .map(|f| &f.hunks)
-        .flatten()
-        .fold(false, |a, h| a || h.has_conflicts);
+        .flat_map(|f| &f.hunks)
+        .any(|h| h.has_conflicts);
     if !has_conflicts {
         // file is clear now
         // stage it!
