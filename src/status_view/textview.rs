@@ -411,7 +411,6 @@ pub fn factory(
 
                                     },
                                     _ => {
-                                        todo!("how many clicks? {:?}", n_clicks);
                                     }
                                 }
                                 debug!("PERFORM REAL CLICK {:?}", n_clicks);
