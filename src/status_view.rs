@@ -615,13 +615,14 @@ impl Status {
     ) {
         context.update_screen_line_width(diff.max_line_len);
         if let Some(s) = &mut self.conflicted {
-            // DiffDirection is required here to choose which lines to
-            // compare - new_ or old_
-            // perhaps need to move to git.rs during sending event
-            // to main (during update)
+            if s.has_conflicts() && !diff.has_conflicts() {
+                self.conflicted_label.content = String::from("<span weight=\"bold\" color=\"#1c71d8\">Conflicts resolved</span> stage changes to complete merge");
+                self.conflicted_label.view.dirty = true;
+            }
             diff.enrich_view(s, txt, &mut Some(context));
         }
-        if !diff.has_conflicts()  {
+        
+        if diff.is_empty()  {
             if banner.is_revealed() {
                 banner.set_revealed(false);
             }
@@ -713,6 +714,9 @@ impl Status {
         }
         self.conflicted.replace(diff);
         self.render(txt, RenderSource::Git, context);
+        // restore original label for future conflicts
+        self.conflicted_label.content = String::from("<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>");
+        self.conflicted_label.view.dirty = true;
     }
 
     pub fn update_staged(&mut self, mut diff: Diff, txt: &TextView, context: &mut StatusRenderContext) {
@@ -843,11 +847,6 @@ impl Status {
             }
             self.conflicted_spacer
                 .render(&buffer, &mut iter, &mut Some(context));
-            if conflicted.has_conflicts() {
-                self.conflicted_label.content = String::from("<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>");
-            } else {
-                self.conflicted_label.content = String::from("<span weight=\"bold\" color=\"#1c71d8\">Conflicts</span>");
-            }
             self.conflicted_label
                 .render(&buffer, &mut iter, &mut Some(context));
             conflicted.render(&buffer, &mut iter, &mut Some(context));
