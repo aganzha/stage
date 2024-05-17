@@ -1,7 +1,7 @@
 use async_channel::Sender;
 use libadwaita::prelude::*;
 use libadwaita::{MessageDialog, ResponseAppearance};
-use log::debug;
+
 
 // use glib::Sender;
 // use std::sync::mpsc::Sender;

@@ -22,7 +22,7 @@ use commit_view::show_commit_window;
 use core::time::Duration;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::SystemTime;
+
 
 mod git;
 use git::{
@@ -34,11 +34,10 @@ use git::{
     BranchData, CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, LineKind,
     StashData, Stashes, State, Untracked, UntrackedFile, View,
 };
-use git2::{DiffLineType, Oid};
+use git2::{Oid};
 mod widgets;
 use widgets::{
-    confirm_dialog_factory, display_error, merge_dialog_factory, ABORT, OURS,
-    PROCEED, THEIRS,
+    confirm_dialog_factory, display_error, merge_dialog_factory, ABORT, OURS, THEIRS,
 };
 
 use gdk::Display;

@@ -331,10 +331,10 @@ impl ViewContainer for Diff {
 
     fn tags(&self) -> Vec<Tag> {
         match self.kind {
-            DiffKind::Staged => return vec![Tag::Staged],
+            DiffKind::Staged => vec![Tag::Staged],
             // TODO! create separate tag for conflicted!
             DiffKind::Unstaged | DiffKind::Conflicted => {
-                return vec![Tag::Unstaged]
+                vec![Tag::Unstaged]
             }
         }
     }
@@ -423,7 +423,7 @@ impl ViewContainer for Hunk {
     fn is_active_by_parent(
         &self,
         active: bool,
-        context: &mut Option<&mut StatusRenderContext>,
+        _context: &mut Option<&mut StatusRenderContext>,
     ) -> bool {
         // if file is active (cursor on it)
         // whole hunk is active
@@ -434,7 +434,7 @@ impl ViewContainer for Hunk {
     fn is_active_by_child(
         &self,
         active: bool,
-        context: &mut Option<&mut StatusRenderContext>,
+        _context: &mut Option<&mut StatusRenderContext>,
     ) -> bool {
         // if line is active (cursor on it)
         // whole hunk is active
@@ -688,7 +688,7 @@ impl ViewContainer for Untracked {
     fn is_active_by_parent(
         &self,
         active: bool,
-        context: &mut Option<&mut StatusRenderContext>,
+        _context: &mut Option<&mut StatusRenderContext>,
     ) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active
@@ -757,7 +757,7 @@ impl ViewContainer for UntrackedFile {
     fn is_active_by_parent(
         &self,
         active: bool,
-        context: &mut Option<&mut StatusRenderContext>,
+        _context: &mut Option<&mut StatusRenderContext>,
     ) -> bool {
         // if HUNK is active (cursor on some line in it or on it)
         // this line is active

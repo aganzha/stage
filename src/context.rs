@@ -82,7 +82,7 @@ impl StatusRenderContext {
             }
         };
         self.under_cursor = UnderCursor::Some {
-            diff_kind: diff_kind,
+            diff_kind,
             line_kind: kind.clone(),
         };
     }

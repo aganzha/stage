@@ -331,7 +331,7 @@ pub fn factory(
                         .expect("cant send through channel");
                 }
                 (gdk::Key::d, _) => {
-                    let iter = buffer.iter_at_offset(buffer.cursor_position());
+                    let _iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Debug)
                         .expect("Could not send through channel");
                 }

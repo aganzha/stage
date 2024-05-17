@@ -18,8 +18,8 @@ use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, git_debug,
     merge_dialog_factory, pull, push, reset_hard, stage_untracked,
     stage_via_apply, stash_changes, track_changes, ApplyFilter, ApplySubject,
-    Diff, Event, Head, Stashes, State, StatusRenderContext, UnderCursor,
-    Untracked, View, ABORT, OURS, PROCEED, THEIRS,
+    Diff, Event, Head, Stashes, State, StatusRenderContext,
+    Untracked, View, ABORT, OURS, THEIRS,
 };
 
 use async_channel::Sender;
@@ -643,9 +643,9 @@ impl Status {
             if let Some(state) = &self.state {
                 if state.is_merging() {
                     banner.set_title("All conflicts fixed but you are still merging. Commit to conclude merge");
-                    banner.set_css_classes(&vec!["success"]);
+                    banner.set_css_classes(&["success"]);
                     banner.set_button_label(Some("Commit"));
-                    banner_button.set_css_classes(&vec!["suggested-action"]);
+                    banner_button.set_css_classes(&["suggested-action"]);
                     banner.set_revealed(true);
                     if let Some(handler_id) = banner_button_clicked.take() {
                         banner.disconnect(handler_id);
@@ -669,77 +669,75 @@ impl Status {
                     banner_button_clicked.replace(Some(new_handler_id));
                 }
             }
-        } else {
-            if !banner.is_revealed() {
-                banner.set_title("Got conflicts while merging branch master");
-                banner.set_css_classes(&vec!["error"]);
-                banner.set_button_label(Some("Abort or Resolve All"));
-                banner_button.set_css_classes(&vec!["destructive-action"]);
-                banner.set_revealed(true);
-                if let Some(handler_id) = banner_button_clicked.take() {
-                    banner.disconnect(handler_id);
-                }
-                let new_handler_id = banner.connect_button_clicked({
-                    let sender = sender.clone();
-                    let window = window.clone();
-                    let path = self.path.clone();
-                    move |_| {
-                        glib::spawn_future_local({
-                            let window = window.clone();
-                            let sender = sender.clone();
-                            let path = path.clone();
-                            async move {
-                                let dialog = merge_dialog_factory(
-                                    &window,
-                                    sender.clone(),
-                                );
-                                let response = dialog.choose_future().await;
-                                match response.as_str() {
-                                    ABORT => {
-                                        info!("merge. abort");
-                                        gio::spawn_blocking({
-                                            move || {
-                                                merge::abort(
-                                                    path.expect("no path"),
-                                                    sender,
-                                                );
-                                            }
-                                        });
-                                    }
-                                    OURS => {
-                                        info!("merge. choose ours");
-                                        gio::spawn_blocking({
-                                            move || {
-                                                merge::choose_conflict_side(
-                                                    path.expect("no path"),
-                                                    true,
-                                                    sender,
-                                                );
-                                            }
-                                        });
-                                    }
-                                    THEIRS => {
-                                        info!("merge. choose theirs");
-                                        gio::spawn_blocking({
-                                            move || {
-                                                merge::choose_conflict_side(
-                                                    path.expect("no path"),
-                                                    false,
-                                                    sender,
-                                                );
-                                            }
-                                        });
-                                    }
-                                    _ => {
-                                        debug!("=============> proceed");
-                                    }
+        } else if !banner.is_revealed() {
+            banner.set_title("Got conflicts while merging branch master");
+            banner.set_css_classes(&["error"]);
+            banner.set_button_label(Some("Abort or Resolve All"));
+            banner_button.set_css_classes(&["destructive-action"]);
+            banner.set_revealed(true);
+            if let Some(handler_id) = banner_button_clicked.take() {
+                banner.disconnect(handler_id);
+            }
+            let new_handler_id = banner.connect_button_clicked({
+                let sender = sender.clone();
+                let window = window.clone();
+                let path = self.path.clone();
+                move |_| {
+                    glib::spawn_future_local({
+                        let window = window.clone();
+                        let sender = sender.clone();
+                        let path = path.clone();
+                        async move {
+                            let dialog = merge_dialog_factory(
+                                &window,
+                                sender.clone(),
+                            );
+                            let response = dialog.choose_future().await;
+                            match response.as_str() {
+                                ABORT => {
+                                    info!("merge. abort");
+                                    gio::spawn_blocking({
+                                        move || {
+                                            merge::abort(
+                                                path.expect("no path"),
+                                                sender,
+                                            );
+                                        }
+                                    });
+                                }
+                                OURS => {
+                                    info!("merge. choose ours");
+                                    gio::spawn_blocking({
+                                        move || {
+                                            merge::choose_conflict_side(
+                                                path.expect("no path"),
+                                                true,
+                                                sender,
+                                            );
+                                        }
+                                    });
+                                }
+                                THEIRS => {
+                                    info!("merge. choose theirs");
+                                    gio::spawn_blocking({
+                                        move || {
+                                            merge::choose_conflict_side(
+                                                path.expect("no path"),
+                                                false,
+                                                sender,
+                                            );
+                                        }
+                                    });
+                                }
+                                _ => {
+                                    debug!("=============> proceed");
                                 }
                             }
-                        });
-                    }
-                });
-                banner_button_clicked.replace(Some(new_handler_id));
-            }
+                        }
+                    });
+                }
+            });
+            banner_button_clicked.replace(Some(new_handler_id));
         }
         self.conflicted.replace(diff);
         self.render(txt, RenderSource::Git, context);

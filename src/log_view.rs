@@ -10,7 +10,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
-use log::{debug, info, trace};
+use log::{info, trace};
 
 glib::wrapper! {
     pub struct CommitItem(ObjectSubclass<commit_item::CommitItem>);
