@@ -324,8 +324,8 @@ mod tests {
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
 
         let content = buffer.slice(
-            &mut buffer.start_iter(),
-            &mut buffer.end_iter(),
+            &buffer.start_iter(),
+            &buffer.end_iter(),
             true,
         );
         let content_lines = content.split('\n');
@@ -353,8 +353,8 @@ mod tests {
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
 
         let content = buffer.slice(
-            &mut buffer.start_iter(),
-            &mut buffer.end_iter(),
+            &buffer.start_iter(),
+            &buffer.end_iter(),
             true,
         );
         let content_lines = content.split('\n');
