@@ -11,7 +11,7 @@ use gtk4::{
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
 use log::{info, trace};
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 
 glib::wrapper! {
     pub struct CommitItem(ObjectSubclass<commit_item::CommitItem>);

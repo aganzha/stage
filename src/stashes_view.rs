@@ -9,7 +9,7 @@ use gtk4::{
     ScrolledWindow, SelectionMode, Window as Gtk4Window,
 };
 use std::collections::HashMap;
-use std::path::{PathBuf, Path};
+use std::path::{PathBuf};
 
 use crate::{
     apply_stash as git_apply_stash, confirm_dialog_factory, display_error,

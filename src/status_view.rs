@@ -12,15 +12,15 @@ pub mod tests;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::path::{PathBuf};
 use std::rc::Rc;
-use std::path::{Path, PathBuf};
 
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, git_debug,
     merge_dialog_factory, pull, push, reset_hard, stage_untracked,
     stage_via_apply, stash_changes, track_changes, ApplyFilter, ApplySubject,
-    Diff, Event, Head, Stashes, State, StatusRenderContext,
-    Untracked, View, ABORT, OURS, THEIRS,
+    Diff, Event, Head, Stashes, State, StatusRenderContext, Untracked, View,
+    ABORT, OURS, THEIRS,
 };
 
 use async_channel::Sender;
@@ -163,7 +163,8 @@ impl Status {
             assert!(path.ends_with(".git/"));
             if self.path.is_none() || path != self.path.clone().unwrap() {
                 let mut paths = self.settings.get::<Vec<String>>("paths");
-                let str_path = String::from(path.to_str().unwrap()).replace(".git/", "");
+                let str_path =
+                    String::from(path.to_str().unwrap()).replace(".git/", "");
                 self.settings
                     .set("lastpath", str_path.clone())
                     .expect("cant set lastpath");
@@ -232,9 +233,8 @@ impl Status {
                             match event {
                                 FileMonitorEvent::Changed => {
                                     // ChangesDoneHint is not fired for small changes :(
-                                    let file_path = file
-                                        .path()
-                                        .expect("no file path");
+                                    let file_path =
+                                        file.path().expect("no file path");
                                     let str_file_path = file_path
                                         .clone()
                                         .into_os_string()
@@ -589,11 +589,21 @@ impl Status {
     ) {
         let mut settings =
             self.settings.get::<HashMap<String, Vec<String>>>("ignored");
-        let repo_path = self.path.clone().expect("no path").into_os_string().into_string().expect("wrong path");
+        let repo_path = self
+            .path
+            .clone()
+            .expect("no path")
+            .into_os_string()
+            .into_string()
+            .expect("wrong path");
         if let Some(ignored) = settings.get_mut(&repo_path) {
             untracked.files.retain(|f| {
-                let str_path =
-                    f.path.clone().into_os_string().into_string().expect("wrong string");
+                let str_path = f
+                    .path
+                    .clone()
+                    .into_os_string()
+                    .into_string()
+                    .expect("wrong string");
                 !ignored.contains(&str_path)
             });
         }
@@ -677,10 +687,8 @@ impl Status {
                         let sender = sender.clone();
                         let path = path.clone();
                         async move {
-                            let dialog = merge_dialog_factory(
-                                &window,
-                                sender.clone(),
-                            );
+                            let dialog =
+                                merge_dialog_factory(&window, sender.clone());
                             let response = dialog.choose_future().await;
                             match response.as_str() {
                                 ABORT => {
@@ -999,13 +1007,23 @@ impl Status {
                 // why other elements do not using this?
                 let view = file.get_view();
                 if view.current && view.line_no == line_no {
-                    let ignore_path =
-                        file.path.clone().into_os_string().into_string().expect("wrong string");
+                    let ignore_path = file
+                        .path
+                        .clone()
+                        .into_os_string()
+                        .into_string()
+                        .expect("wrong string");
                     trace!("ignore path! {:?}", ignore_path);
                     let mut settings =
                         self.settings
                             .get::<HashMap<String, Vec<String>>>("ignored");
-                    let repo_path = self.path.clone().expect("no path").into_os_string().into_string().expect("wrong path");
+                    let repo_path = self
+                        .path
+                        .clone()
+                        .expect("no path")
+                        .into_os_string()
+                        .into_string()
+                        .expect("wrong path");
                     if let Some(stored) = settings.get_mut(&repo_path) {
                         stored.push(ignore_path);
                         trace!("added ignore {:?}", settings);

@@ -323,11 +323,8 @@ mod tests {
         diff.files[0].expand(1);
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
 
-        let content = buffer.slice(
-            &buffer.start_iter(),
-            &buffer.end_iter(),
-            true,
-        );
+        let content =
+            buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
         let content_lines = content.split('\n');
 
         for (i, cl) in content_lines.enumerate() {
@@ -352,11 +349,8 @@ mod tests {
         diff.files[0].expand(line_of_line);
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
 
-        let content = buffer.slice(
-            &buffer.start_iter(),
-            &buffer.end_iter(),
-            true,
-        );
+        let content =
+            buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
         let content_lines = content.split('\n');
         // ensure that hunk1 is collapsed eg hunk2 follows hunk1 (no lines between)
         let hunk1_content = diff.files[0].hunks[0].get_content();
