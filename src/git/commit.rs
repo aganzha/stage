@@ -65,21 +65,16 @@ impl CommitDiff {
 }
 
 
-pub fn get_commit_diff(path: PathBuf, oid: git2::Oid, sender: Sender<crate::Event>) {
-    let repo = git2::Repository::open(path).expect("can't open repo");
-    let commit = repo.find_commit(oid).expect("cant find commit");
-    let tree = commit.tree().expect("no get tree from commit");
-    let parent = commit.parent(0).expect("cant get commit parent");
+pub fn get_commit_diff(path: PathBuf, oid: git2::Oid) -> Result<CommitDiff, git2::Error>{
+    let repo = git2::Repository::open(path)?;
+    let commit = repo.find_commit(oid)?;
+    let tree = commit.tree()?;
+    let parent = commit.parent(0)?;
 
-    let parent_tree = parent.tree().expect("no get tree from PARENT commit");
+    let parent_tree = parent.tree()?;
     let git_diff = repo
-        .diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)
-        .expect("can't get diff tree to index");
-    let commit_diff =
-        CommitDiff::new(commit, make_diff(&git_diff, DiffKind::Staged));
-    sender
-        .send_blocking(crate::Event::CommitDiff(commit_diff))
-        .expect("Could not send through channel");
+        .diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)?;
+    Ok(CommitDiff::new(commit, make_diff(&git_diff, DiffKind::Staged)))
 }
 
 const COMMIT_PAGE_SIZE: i32 = 500;

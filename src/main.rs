@@ -315,7 +315,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 Event::Debug => {
                     info!("main. debug");
                     // status.debug(&txt);
-                    let oid = Oid::from_str("52b545f1440642aa1da26c573af6a54627a8420").expect("no oid");// a
+                    let oid = Oid::from_str("52b545f1440642aa1da26c573af6a54627a8420a").expect("no oid");// a
                     
                     show_commit_window(
                         status.path.clone().expect("no path"),
