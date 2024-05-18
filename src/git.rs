@@ -548,7 +548,7 @@ pub fn get_current_repo_status(
             )))
             .expect("Could not send through channel");
     }
-
+    // get_unstaged
     let git_diff = repo
         .diff_index_to_workdir(None, None)
         .expect("cant' get diff index to workdir");
@@ -781,7 +781,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     if !current_hunk.header.is_empty() {
         current_file.push_hunk(current_hunk);
     }
-    if !current_file.path.capacity() == 0 {
+    if current_file.path.capacity() != 0 {
         diff.push_file(current_file);
     }
     diff
@@ -1019,7 +1019,7 @@ pub fn create_commit(path: PathBuf, message: String, sender: Sender<crate::Event
         )))
         .expect("Could not send through channel");
 
-    // get unstaged
+    // get_unstaged
     gio::spawn_blocking({
         let sender = sender.clone();
         let path = path.clone();
