@@ -8,7 +8,6 @@ use gtk4::gio;
 use log::{debug, info};
 use std::{
     collections::HashSet,
-    ffi::OsString,
     path::{Path, PathBuf},
     str::from_utf8,
 };
@@ -333,7 +332,7 @@ impl PathHolder for git2::IndexConflict {
 
 pub fn choose_conflict_side_of_hunk(
     path: PathBuf,
-    file_path: OsString,
+    file_path: PathBuf,
     hunk: Hunk,
     line: Line,
     sender: Sender<crate::Event>,
@@ -383,7 +382,7 @@ pub fn choose_conflict_side_of_hunk(
         });
         options.delta_callback(|odd| -> bool {
             if let Some(dd) = odd {
-                let path: OsString = dd.new_file().path().unwrap().into();
+                let path: PathBuf = dd.new_file().path().unwrap().into();
                 return file_path == path;
             }
             todo!("diff without delta");
@@ -421,7 +420,7 @@ pub fn choose_conflict_side_of_hunk(
         });
         options.delta_callback(|odd| -> bool {
             if let Some(dd) = odd {
-                let path: OsString = dd.new_file().path().unwrap().into();
+                let path: PathBuf = dd.new_file().path().unwrap().into();
                 return file_path == path;
             }
             todo!("diff without delta");
@@ -488,7 +487,7 @@ pub fn choose_conflict_side_of_hunk(
 
 pub fn cleanup_last_conflict_for_file(
     path: PathBuf,
-    file_path: OsString,
+    file_path: PathBuf,
     sender: Sender<crate::Event>,
 ) {
     let diff = get_conflicted_v1(path.clone());

@@ -6,7 +6,6 @@ use crate::gio;
 use async_channel::Sender;
 
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
-use ffi::OsString;
 use git2::build::CheckoutBuilder;
 use git2::{
     ApplyLocation, ApplyOptions, AutotagOption, Branch, BranchType,
@@ -277,7 +276,7 @@ impl Hunk {
 #[derive(Debug, Clone)]
 pub struct File {
     pub view: View,
-    pub path: OsString,
+    pub path: PathBuf,
     // pub id: Oid,
     pub hunks: Vec<Hunk>,
     pub max_line_len: i32,
@@ -288,7 +287,7 @@ impl File {
     pub fn new(kind: DiffKind) -> Self {
         Self {
             view: View::new(),
-            path: OsString::new(),
+            path: PathBuf::new(),
             // id: Oid::zero(),
             hunks: Vec::new(),
             max_line_len: 0,
@@ -296,8 +295,8 @@ impl File {
         }
     }
     pub fn from_diff_file(f: &DiffFile, kind: DiffKind) -> Self {
-        let path: OsString = f.path().unwrap().into();
-        let len = path.len();
+        let path: PathBuf = f.path().unwrap().into();
+        let len = path.as_os_str().len();
         File {
             view: View::new(),
             path,
@@ -612,7 +611,7 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
     let _ = git_diff.foreach(
         &mut |delta: DiffDelta, _num| {
             if delta.status() == Delta::Untracked {
-                let path: OsString = delta.new_file().path().unwrap().into();
+                let path: PathBuf = delta.new_file().path().unwrap().into();
                 untracked.push_file(path);
             }
             true
@@ -628,7 +627,7 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
 
 #[derive(Debug, Clone)]
 pub struct UntrackedFile {
-    pub path: OsString,
+    pub path: PathBuf,
     pub view: View,
 }
 
@@ -641,11 +640,11 @@ impl Default for UntrackedFile {
 impl UntrackedFile {
     pub fn new() -> Self {
         Self {
-            path: OsString::new(),
+            path: PathBuf::new(),
             view: View::new(),
         }
     }
-    pub fn from_path(path: OsString) -> Self {
+    pub fn from_path(path: PathBuf) -> Self {
         Self {
             path,
             view: View::new(),
@@ -678,9 +677,10 @@ impl Untracked {
             max_line_len: 0,
         }
     }
-    pub fn push_file(&mut self, path: OsString) {
-        if path.len() as i32 > self.max_line_len {
-            self.max_line_len = path.len() as i32;
+    pub fn push_file(&mut self, path: PathBuf) {
+        let le = path.as_os_str().len();
+        if le as i32 > self.max_line_len {
+            self.max_line_len = le as i32;
         }
         let file = UntrackedFile::from_path(path);
         self.files.push(file);
@@ -750,7 +750,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                 todo!();
             }
             // build up diff structure
-            if current_file.path.is_empty() {
+            if current_file.path.capacity() == 0 {
                 // init new file
                 current_file = File::from_diff_file(&file, kind.clone());
             }
@@ -794,7 +794,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     if !current_hunk.header.is_empty() {
         current_file.push_hunk(current_hunk);
     }
-    if !current_file.path.is_empty() {
+    if !current_file.path.capacity() == 0 {
         diff.push_file(current_file);
     }
     diff
@@ -876,8 +876,8 @@ pub fn stage_via_apply(
 
     options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
-            let path: OsString = dd.new_file().path().unwrap().into();
-            return filter.file_id == path.into_string().unwrap();
+            let path: PathBuf = dd.new_file().path().unwrap().into();
+            return filter.file_id == path.into_os_string().into_string().unwrap();
         }
         todo!("diff without delta");
     });
@@ -1762,13 +1762,13 @@ pub fn get_directories(path: PathBuf) -> HashSet<String> {
 
 pub fn track_changes(
     path: PathBuf,
-    file_path: OsString,
+    file_path: PathBuf,
     sender: Sender<crate::Event>,
 ) {
     // TODO throttle!
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let index = repo.index().expect("cant get index");
-    let file_path = file_path.into_string().expect("wrong path");
+    let file_path = file_path.into_os_string().into_string().expect("wrong path");
     for entry in index.iter() {
         let entry_path = format!("{}", String::from_utf8_lossy(&entry.path));
         if file_path.ends_with(&entry_path) {
