@@ -1,4 +1,6 @@
 pub mod merge;
+pub mod commit;
+use crate::commit::{commit_dt, commit_string};
 
 use crate::gio;
 // use crate::glib::Sender;
@@ -407,22 +409,6 @@ impl Head {
             view: View::new_markup(),
             remote: false,
         }
-    }
-}
-
-pub fn commit_string(c: &Commit) -> String {
-    let message = c.message().unwrap_or("").replace('\n', "");
-    let mut encoded = String::new();
-    html_escape::encode_safe_to_string(&message, &mut encoded);
-    format!("{} {}", &c.id().to_string()[..7], encoded)
-}
-
-pub fn commit_dt(c: &Commit) -> DateTime<FixedOffset> {
-    let tz = FixedOffset::east_opt(c.time().offset_minutes() * 60).unwrap();
-    match tz.timestamp_opt(c.time().seconds(), 0) {
-        LocalResult::Single(dt) => dt,
-        LocalResult::Ambiguous(dt, _) => dt,
-        _ => todo!("not implemented"),
     }
 }
 
@@ -960,7 +946,7 @@ pub fn get_parents_for_commit(path: PathBuf) -> Vec<Oid> {
     result
 }
 
-pub fn commit(path: PathBuf, message: String, sender: Sender<crate::Event>) {
+pub fn create_commit(path: PathBuf, message: String, sender: Sender<crate::Event>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
 
@@ -1800,64 +1786,6 @@ pub fn track_changes(
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct CommitDiff {
-    pub oid: Oid,
-    pub message: String,
-    pub commit_dt: DateTime<FixedOffset>,
-    pub author: String,
-    pub diff: Diff,
-}
-
-impl Default for CommitDiff {
-    fn default() -> Self {
-        CommitDiff {
-            oid: Oid::zero(),
-            message: String::from(""),
-            commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
-            author: String::from(""),
-            diff: Diff::new(DiffKind::Unstaged),
-        }
-    }
-}
-
-impl CommitDiff {
-    pub fn new(commit: Commit, diff: Diff) -> Self {
-        CommitDiff {
-            oid: commit.id(),
-            message: commit.message().unwrap_or("").replace('\n', ""),
-            commit_dt: commit_dt(&commit),
-            author: String::from(commit.author().name().unwrap_or("")),
-            diff,
-        }
-    }
-    pub fn from_commit(commit: Commit) -> Self {
-        CommitDiff {
-            oid: commit.id(),
-            message: commit.message().unwrap_or("").replace('\n', ""),
-            commit_dt: commit_dt(&commit),
-            author: String::from(commit.author().name().unwrap_or("")),
-            diff: Diff::new(DiffKind::Unstaged),
-        }
-    }
-}
-
-pub fn get_commit_diff(path: PathBuf, oid: Oid, sender: Sender<crate::Event>) {
-    let repo = Repository::open(path).expect("can't open repo");
-    let commit = repo.find_commit(oid).expect("cant find commit");
-    let tree = commit.tree().expect("no get tree from commit");
-    let parent = commit.parent(0).expect("cant get commit parent");
-
-    let parent_tree = parent.tree().expect("no get tree from PARENT commit");
-    let git_diff = repo
-        .diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)
-        .expect("can't get diff tree to index");
-    let commit_diff =
-        CommitDiff::new(commit, make_diff(&git_diff, DiffKind::Staged));
-    sender
-        .send_blocking(crate::Event::CommitDiff(commit_diff))
-        .expect("Could not send through channel");
-}
 
 pub fn update_remote(
     path: PathBuf,
@@ -1942,49 +1870,7 @@ pub fn checkout_oid(
     get_current_repo_status(Some(path), sender);
 }
 
-const COMMIT_PAGE_SIZE: i32 = 500;
 
-pub fn revwalk(
-    path: PathBuf,
-    start: Option<Oid>,
-    search_term: Option<String>,
-) -> Vec<CommitDiff> {
-    let repo = Repository::open(path.clone()).expect("cant open repo");
-    let mut revwalk = repo.revwalk().expect("cant get revwalk");
-    revwalk.simplify_first_parent().expect("cant simplify");
-    let mut i = 0;
-    if let Some(oid) = start {
-        revwalk.push(oid).expect("cant push oid to revlog");
-    } else {
-        revwalk.push_head().expect("no head for refwalk?");
-    }
-    let mut result: Vec<CommitDiff> = Vec::new();
-    for oid in revwalk {
-        let oid = oid.expect("no oid in rev");
-        let commit = repo.find_commit(oid).expect("can't find commit");
-        if let Some(ref term) = search_term {
-            let mut found = false;
-            for el in [
-                commit.message().unwrap_or("").to_lowercase(),
-                commit.author().name().unwrap_or("").to_lowercase(),
-            ] {
-                if el.contains(term) {
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                continue;
-            }
-        }
-        result.push(CommitDiff::from_commit(commit));
-        i += 1;
-        if i == COMMIT_PAGE_SIZE {
-            break;
-        }
-    }
-    result
-}
 
 pub fn debug(path: PathBuf) {
     let repo = Repository::open(path.clone()).expect("cant open repo");

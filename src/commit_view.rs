@@ -1,7 +1,10 @@
 use crate::status_view::container::ViewContainer;
-use crate::{get_commit_diff, CommitDiff, Event, StatusRenderContext};
+use crate::git::commit;
+use crate::Event;
+
+// use crate::{get_commit_diff, CommitDiff, Event, StatusRenderContext};
 use async_channel::Sender;
-use git2::Oid;
+use git2::{Oid, Error as GitError};
 
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
@@ -90,18 +93,24 @@ pub fn show_commit_window(
 
     window.present();
 
-    let mut main_diff: Option<CommitDiff> = None;
-
-    gio::spawn_blocking({
-        let path = repo_path.clone();
-        move || {
-            get_commit_diff(path, oid, sender);
-        }
-    });
+    let mut main_diff: Option<commit::CommitDiff> = None;
 
     glib::spawn_future_local(async move {
+        let some = gio::spawn_blocking({
+            let path = repo_path.clone();
+            move || {
+                commit::get_commit_diff(path, oid, sender);
+            }
+        }).await.map_err(|e| {
+            let git_err = e.downcast_ref::<String>();
+            debug!("iiiiiiiiiiiiiiiiiii-> {:?}", git_err);
+        });
+        debug!("____________________ {:?}", some);
+    });
+    
+    glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
-            let mut ctx = StatusRenderContext::new();
+            let mut ctx = crate::StatusRenderContext::new();
             ctx.screen_width.replace(*text_view_width.borrow());
             match event {
                 Event::CommitDiff(mut commit_diff) => {

@@ -16,7 +16,7 @@ use std::path::{PathBuf};
 use std::rc::Rc;
 
 use crate::{
-    checkout_oid, commit, get_current_repo_status, get_directories, git_debug,
+    checkout_oid, create_commit, get_current_repo_status, get_directories, git_debug,
     merge_dialog_factory, pull, push, reset_hard, stage_untracked,
     stage_via_apply, stash_changes, track_changes, ApplyFilter, ApplySubject,
     Diff, Event, Head, Stashes, State, StatusRenderContext, Untracked, View,
@@ -529,7 +529,7 @@ impl Status {
                     gio::spawn_blocking({
                         let message = format!("{}", input.text());
                         move || {
-                            commit(path.expect("no path"), message, sender);
+                            create_commit(path.expect("no path"), message, sender);
                         }
                     });
                 }
