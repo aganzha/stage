@@ -23,6 +23,7 @@ use regex::Regex;
 use std::cmp::Ordering;
 //use std::time::SystemTime;
 use std::{collections::HashSet, env, ffi, path, str};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct View {
@@ -426,7 +427,7 @@ pub fn commit_dt(c: &Commit) -> DateTime<FixedOffset> {
     }
 }
 
-pub fn get_head(path: OsString, sender: Sender<crate::Event>) {
+pub fn get_head(path: PathBuf, sender: Sender<crate::Event>) {
     let repo = Repository::open(path).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
@@ -441,7 +442,7 @@ pub fn get_head(path: OsString, sender: Sender<crate::Event>) {
         .expect("Could not send through channel");
 }
 
-pub fn get_upstream(path: OsString, sender: Sender<crate::Event>) {
+pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) {
     trace!("get upstream");
     let repo = Repository::open(path).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
@@ -469,7 +470,7 @@ pub fn get_upstream(path: OsString, sender: Sender<crate::Event>) {
 }
 
 pub fn get_current_repo_status(
-    current_path: Option<OsString>,
+    current_path: Option<PathBuf>,
     sender: Sender<crate::Event>,
 ) {
     // path could came from command args or from choosing path
@@ -478,13 +479,11 @@ pub fn get_current_repo_status(
         if let Some(path) = current_path {
             path
         } else {
-            OsString::from(
-                env::current_exe().expect("cant't get exe path").as_path(),
-            )
+            env::current_exe().expect("cant't get exe path")
         }
     };
     let repo = Repository::discover(path.clone()).expect("can't open repo");
-    let path = OsString::from(repo.path());
+    let path = PathBuf::from(repo.path());
     sender
         .send_blocking(crate::Event::CurrentRepo(path.clone()))
         .expect("Could not send through channel");
@@ -574,11 +573,11 @@ pub fn get_current_repo_status(
         .expect("Could not send through channel");
 }
 
-pub fn get_conflicted_v1(path: OsString) -> Diff {
+pub fn get_conflicted_v1(path: PathBuf) -> Diff {
     // so, when file is in conflictduring merge, this means nothing
     // was staged to that file, cause mergeing in such state is PROHIBITED!
     // sure? Yes, it must be true!
-    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let repo = Repository::open(path).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
     let mut opts = DiffOptions::new();
@@ -593,12 +592,12 @@ pub fn get_conflicted_v1(path: OsString) -> Diff {
     let git_diff = repo
         .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
-    
+
 
     make_diff(&git_diff, DiffKind::Conflicted)
 }
 
-pub fn get_untracked(path: OsString, sender: Sender<crate::Event>) {
+pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut opts = DiffOptions::new();
 
@@ -802,7 +801,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
 }
 
 pub fn stage_untracked(
-    path: OsString,
+    path: PathBuf,
     file: UntrackedFile,
     sender: Sender<crate::Event>,
 ) {
@@ -824,7 +823,7 @@ pub fn stage_untracked(
 }
 
 pub fn stage_via_apply(
-    path: OsString,
+    path: PathBuf,
     filter: ApplyFilter,
     sender: Sender<crate::Event>,
 ) {
@@ -874,6 +873,7 @@ pub fn stage_via_apply(
         }
         true
     });
+
     options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
             let path: OsString = dd.new_file().path().unwrap().into();
@@ -934,7 +934,7 @@ pub fn stage_via_apply(
         .expect("Could not send through channel");
 }
 
-pub fn get_parents_for_commit(path: OsString) -> Vec<Oid> {
+pub fn get_parents_for_commit(path: PathBuf) -> Vec<Oid> {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
     let id = repo
@@ -958,7 +958,7 @@ pub fn get_parents_for_commit(path: OsString) -> Vec<Oid> {
     result
 }
 
-pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
+pub fn commit(path: PathBuf, message: String, sender: Sender<crate::Event>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
 
@@ -1050,7 +1050,7 @@ pub fn commit(path: OsString, message: String, sender: Sender<crate::Event>) {
 }
 
 pub fn pull(
-    path: OsString,
+    path: PathBuf,
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
 ) {
@@ -1242,7 +1242,7 @@ pub fn set_remote_callbacks(
 }
 
 pub fn push(
-    path: OsString,
+    path: PathBuf,
     remote_branch: String,
     tracking_remote: bool,
     sender: Sender<crate::Event>,
@@ -1394,7 +1394,7 @@ impl BranchData {
     }
 }
 
-pub fn get_branches(path: OsString) -> Vec<BranchData> {
+pub fn get_branches(path: PathBuf) -> Vec<BranchData> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
     let branches = repo.branches(None).expect("can't get branches");
@@ -1431,7 +1431,7 @@ pub fn get_branches(path: OsString) -> Vec<BranchData> {
 }
 
 pub fn checkout_branch(
-    path: OsString,
+    path: PathBuf,
     mut branch_data: BranchData,
     sender: Sender<crate::Event>,
 ) -> BranchData {
@@ -1503,7 +1503,7 @@ pub fn checkout_branch(
 }
 
 pub fn create_branch(
-    path: OsString,
+    path: PathBuf,
     new_branch_name: String,
     need_checkout: bool,
     branch_data: BranchData,
@@ -1524,7 +1524,7 @@ pub fn create_branch(
 }
 
 pub fn kill_branch(
-    path: OsString,
+    path: PathBuf,
     branch_data: BranchData,
     _sender: Sender<crate::Event>,
 ) -> Result<(), String> {
@@ -1570,7 +1570,7 @@ pub fn kill_branch(
 }
 
 pub fn cherry_pick(
-    path: OsString,
+    path: PathBuf,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
 ) -> Result<BranchData, String> {
@@ -1649,7 +1649,7 @@ impl Stashes {
     }
 }
 
-pub fn get_stashes(path: OsString, sender: Sender<crate::Event>) -> Stashes {
+pub fn get_stashes(path: PathBuf, sender: Sender<crate::Event>) -> Stashes {
     let mut repo = Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
     repo.stash_foreach(|num, title, oid| {
@@ -1665,7 +1665,7 @@ pub fn get_stashes(path: OsString, sender: Sender<crate::Event>) -> Stashes {
 }
 
 pub fn stash_changes(
-    path: OsString,
+    path: PathBuf,
     stash_message: String,
     stash_staged: bool,
     sender: Sender<crate::Event>,
@@ -1691,7 +1691,7 @@ pub fn stash_changes(
 }
 
 pub fn apply_stash(
-    path: OsString,
+    path: PathBuf,
     stash_data: StashData,
     sender: Sender<crate::Event>,
 ) {
@@ -1713,7 +1713,7 @@ pub fn apply_stash(
 }
 
 pub fn drop_stash(
-    path: OsString,
+    path: PathBuf,
     stash_data: StashData,
     sender: Sender<crate::Event>,
 ) -> Stashes {
@@ -1722,7 +1722,7 @@ pub fn drop_stash(
     get_stashes(path, sender)
 }
 
-pub fn reset_hard(path: OsString, sender: Sender<crate::Event>) {
+pub fn reset_hard(path: PathBuf, sender: Sender<crate::Event>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
@@ -1744,8 +1744,8 @@ pub fn reset_hard(path: OsString, sender: Sender<crate::Event>) {
     });
 }
 
-pub fn get_directories(path: OsString) -> HashSet<String> {
-    let repo = Repository::open(path.clone()).expect("can't open repo");
+pub fn get_directories(path: PathBuf) -> HashSet<String> {
+    let repo = Repository::open(path).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let mut directories = HashSet::new();
     for entry in index.iter() {
@@ -1761,7 +1761,7 @@ pub fn get_directories(path: OsString) -> HashSet<String> {
 }
 
 pub fn track_changes(
-    path: OsString,
+    path: PathBuf,
     file_path: OsString,
     sender: Sender<crate::Event>,
 ) {
@@ -1838,7 +1838,7 @@ impl CommitDiff {
 }
 
 pub fn get_commit_diff(
-    path: OsString,
+    path: PathBuf,
     oid: Oid,
     sender: Sender<crate::Event>,
 ) {
@@ -1859,7 +1859,7 @@ pub fn get_commit_diff(
 }
 
 pub fn update_remote(
-    path: OsString,
+    path: PathBuf,
     _sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
 ) -> Result<(), ()> {
@@ -1905,7 +1905,7 @@ pub fn update_remote(
 }
 
 pub fn checkout_oid(
-    path: OsString,
+    path: PathBuf,
     sender: Sender<crate::Event>,
     oid: Oid,
     ref_log_msg: Option<String>,
@@ -1944,7 +1944,7 @@ pub fn checkout_oid(
 const COMMIT_PAGE_SIZE: i32 = 500;
 
 pub fn revwalk(
-    path: OsString,
+    path: PathBuf,
     start: Option<Oid>,
     search_term: Option<String>,
 ) -> Vec<CommitDiff> {
@@ -1985,7 +1985,7 @@ pub fn revwalk(
     result
 }
 
-pub fn debug(path: OsString) {
+pub fn debug(path: PathBuf) {
     let repo = Repository::open(path.clone()).expect("cant open repo");
     repo.cleanup_state().expect("cant cleanup state");
 }

@@ -13,6 +13,7 @@ pub mod tests;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::path::{Path, PathBuf};
 
 use crate::{
     checkout_oid, commit, get_current_repo_status, get_directories, git_debug,
@@ -67,7 +68,7 @@ pub enum RenderSource {
 
 #[derive(Debug, Clone)]
 pub struct Status {
-    pub path: Option<OsString>,
+    pub path: Option<PathBuf>,
     pub sender: Sender<Event>,
     pub head: Option<Head>,
     pub upstream: Option<Head>,
@@ -98,7 +99,7 @@ pub struct Status {
 
 impl Status {
     pub fn new(
-        path: Option<OsString>,
+        path: Option<PathBuf>,
         settings: gio::Settings,
         sender: Sender<Event>,
     ) -> Self {
@@ -145,7 +146,7 @@ impl Status {
 
     pub fn update_path(
         &mut self,
-        path: OsString,
+        path: PathBuf,
         monitors: Rc<RefCell<Vec<FileMonitor>>>,
         user_action: bool,
     ) {
@@ -154,7 +155,7 @@ impl Status {
         // came from git with /.git/ suffix
         // but the 'dirty' path will be used first
         // for querying repo status and investigate real one
-        let str_path = path.clone().into_string().unwrap();
+        // let str_path = path.clone().into_string().unwrap();
         if user_action {
             monitors.borrow_mut().retain(|fm: &FileMonitor| {
                 fm.cancel();
@@ -162,21 +163,20 @@ impl Status {
             });
         } else {
             // investigated path
-            assert!(str_path.contains("/.git/"));
+            assert!(path.ends_with(".git/"));
             if self.path.is_none() || path != self.path.clone().unwrap() {
                 let mut paths = self.settings.get::<Vec<String>>("paths");
-                let str_path =
-                    path.clone().into_string().unwrap().replace(".git/", "");
+                let str_path = String::from(path.to_str().unwrap()).replace(".git/", "");
                 self.settings
                     .set("lastpath", str_path.clone())
                     .expect("cant set lastpath");
                 if !paths.contains(&str_path) {
-                    paths.push(str_path);
+                    paths.push(str_path.clone());
                     self.settings
                         .set("paths", paths)
                         .expect("cant set settings");
                 }
-                self.setup_monitors(monitors, path.clone());
+                self.setup_monitors(monitors, PathBuf::from(str_path));
             }
         }
         self.path.replace(path.clone());
@@ -189,7 +189,7 @@ impl Status {
     pub fn setup_monitors(
         &mut self,
         monitors: Rc<RefCell<Vec<FileMonitor>>>,
-        path: OsString,
+        path: PathBuf,
     ) {
         glib::spawn_future_local({
             let sender = self.sender.clone();
@@ -584,14 +584,6 @@ impl Status {
         self.render(txt, RenderSource::Git, context);
     }
 
-    fn path_as_string(&self) -> String {
-        self.path
-            .clone()
-            .expect("no path")
-            .into_string()
-            .expect("wrong string")
-    }
-
     pub fn update_untracked(
         &mut self,
         mut untracked: Untracked,
@@ -600,7 +592,7 @@ impl Status {
     ) {
         let mut settings =
             self.settings.get::<HashMap<String, Vec<String>>>("ignored");
-        let repo_path = self.path_as_string();
+        let repo_path = self.path.clone().expect("no path").into_os_string().into_string().expect("wrong path");
         if let Some(ignored) = settings.get_mut(&repo_path) {
             untracked.files.retain(|f| {
                 let str_path =
@@ -1016,7 +1008,7 @@ impl Status {
                     let mut settings =
                         self.settings
                             .get::<HashMap<String, Vec<String>>>("ignored");
-                    let repo_path = self.path_as_string();
+                    let repo_path = self.path.clone().expect("no path").into_os_string().into_string().expect("wrong path");
                     if let Some(stored) = settings.get_mut(&repo_path) {
                         stored.push(ignore_path);
                         trace!("added ignore {:?}", settings);

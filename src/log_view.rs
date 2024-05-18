@@ -11,6 +11,7 @@ use gtk4::{
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
 use log::{info, trace};
+use std::path::{Path, PathBuf};
 
 glib::wrapper! {
     pub struct CommitItem(ObjectSubclass<commit_item::CommitItem>);
@@ -149,7 +150,7 @@ impl CommitList {
     pub fn new() -> Self {
         Object::builder().build()
     }
-    pub fn get_commits_inside(&self, repo_path: std::ffi::OsString) {
+    pub fn get_commits_inside(&self, repo_path: PathBuf) {
         glib::spawn_future_local({
             let commit_list = self.clone();
             let repo_path = repo_path.clone();
@@ -203,7 +204,7 @@ impl CommitList {
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
     }
 
-    pub fn search(&self, term: String, repo_path: std::ffi::OsString) {
+    pub fn search(&self, term: String, repo_path: PathBuf) {
         glib::spawn_future_local({
             let commit_list = self.clone();
             let repo_path = repo_path.clone();
@@ -399,7 +400,7 @@ pub enum Event {
 
 pub fn headerbar_factory(
     list_view: &ListView,
-    repo_path: std::ffi::OsString,
+    repo_path: PathBuf,
 ) -> HeaderBar {
     let entry = SearchEntry::builder()
         .search_delay(300)
@@ -442,7 +443,7 @@ pub fn headerbar_factory(
 }
 
 pub fn show_log_window(
-    repo_path: std::ffi::OsString,
+    repo_path: PathBuf,
     app_window: &ApplicationWindow,
     _head: String,
     main_sender: Sender<crate::Event>,

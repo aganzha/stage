@@ -22,7 +22,7 @@ pub enum MergeError {
     General(String),
 }
 
-pub fn commit(path: OsString) {
+pub fn commit(path: PathBuf) {
     let mut repo =
         git2::Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
@@ -89,7 +89,7 @@ pub fn commit(path: OsString) {
 }
 
 pub fn branch(
-    path: OsString,
+    path: PathBuf,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
 ) -> Result<BranchData, MergeError> {
@@ -170,7 +170,7 @@ pub fn branch(
         .expect("cant get branch"))
 }
 
-pub fn abort(path: OsString, sender: Sender<crate::Event>) {
+pub fn abort(path: PathBuf, sender: Sender<crate::Event>) {
     info!("git.abort merge");
 
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
@@ -222,7 +222,7 @@ pub fn abort(path: OsString, sender: Sender<crate::Event>) {
 }
 
 pub fn choose_conflict_side(
-    path: OsString,
+    path: PathBuf,
     ours: bool,
     sender: Sender<crate::Event>,
 ) {
@@ -332,7 +332,7 @@ impl PathHolder for git2::IndexConflict {
 }
 
 pub fn choose_conflict_side_of_hunk(
-    path: OsString,
+    path: PathBuf,
     file_path: OsString,
     hunk: Hunk,
     line: Line,
@@ -487,7 +487,7 @@ pub fn choose_conflict_side_of_hunk(
 }
 
 pub fn cleanup_last_conflict_for_file(
-    path: OsString,
+    path: PathBuf,
     file_path: OsString,
     sender: Sender<crate::Event>,
 ) {
