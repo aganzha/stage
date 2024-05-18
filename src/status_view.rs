@@ -42,8 +42,6 @@ use libadwaita::{
 }; // _Window,
 use log::{debug, info, trace};
 
-use std::ffi::OsString;
-
 #[derive(Debug, Clone, Default)]
 pub struct Label {
     content: String,
@@ -155,7 +153,6 @@ impl Status {
         // came from git with /.git/ suffix
         // but the 'dirty' path will be used first
         // for querying repo status and investigate real one
-        // let str_path = path.clone().into_string().unwrap();
         if user_action {
             monitors.borrow_mut().retain(|fm: &FileMonitor| {
                 fm.cancel();
@@ -237,10 +234,10 @@ impl Status {
                                     // ChangesDoneHint is not fired for small changes :(
                                     let file_path = file
                                         .path()
-                                        .expect("no file path")
-                                        .into_os_string();
+                                        .expect("no file path");
                                     let str_file_path = file_path
                                         .clone()
+                                        .into_os_string()
                                         .into_string()
                                         .expect("no file path");
                                     for pat in patterns_to_exclude {
@@ -596,7 +593,7 @@ impl Status {
         if let Some(ignored) = settings.get_mut(&repo_path) {
             untracked.files.retain(|f| {
                 let str_path =
-                    f.path.clone().into_string().expect("wrong string");
+                    f.path.clone().into_os_string().into_string().expect("wrong string");
                 !ignored.contains(&str_path)
             });
         }
@@ -1003,7 +1000,7 @@ impl Status {
                 let view = file.get_view();
                 if view.current && view.line_no == line_no {
                     let ignore_path =
-                        file.path.clone().into_string().expect("wrong string");
+                        file.path.clone().into_os_string().into_string().expect("wrong string");
                     trace!("ignore path! {:?}", ignore_path);
                     let mut settings =
                         self.settings
