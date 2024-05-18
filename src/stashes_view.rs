@@ -9,7 +9,7 @@ use gtk4::{
     ScrolledWindow, SelectionMode, Window as Gtk4Window,
 };
 use std::collections::HashMap;
-use std::ffi::OsString;
+use std::path::{PathBuf, Path};
 
 use crate::{
     apply_stash as git_apply_stash, confirm_dialog_factory, display_error,
@@ -105,7 +105,7 @@ impl OidRow {
 
     pub fn kill(
         &self,
-        path: OsString,
+        path: PathBuf,
         window: &impl IsA<Gtk4Window>,
         sender: Sender<Event>,
     ) {
@@ -148,7 +148,7 @@ impl OidRow {
 
     pub fn apply_stash(
         &self,
-        path: OsString,
+        path: PathBuf,
         window: &impl IsA<Gtk4Window>,
         sender: Sender<Event>,
     ) {
@@ -191,7 +191,7 @@ impl Default for OidRow {
 }
 
 pub fn add_stash(
-    path: OsString,
+    path: PathBuf,
     window: &impl IsA<Gtk4Window>,
     stashes_box: &ListBox,
     sender: Sender<Event>,

@@ -22,7 +22,7 @@ use commit_view::show_commit_window;
 use core::time::Duration;
 use std::cell::RefCell;
 use std::rc::Rc;
-
+use std::path::{Path, PathBuf};
 
 mod git;
 use git::{
@@ -96,8 +96,8 @@ fn load_css() {
 #[derive(Debug)]
 pub enum Event {
     Debug,
-    OpenRepo(std::ffi::OsString),
-    CurrentRepo(std::ffi::OsString),
+    OpenRepo(PathBuf),
+    CurrentRepo(PathBuf),
     Conflicted(Diff),
     Unstaged(Diff),
     Staged(Diff),
@@ -158,7 +158,7 @@ fn run_with_args(app: &Application, files: &[gio::File], _blah: &str) {
     let le = files.len();
     if le > 0 {
         if let Some(path) = files[0].path() {
-            run_app(app, Some(path.into_os_string()));
+            run_app(app, Some(path));
             return;
         }
     }
@@ -180,7 +180,7 @@ pub fn get_settings() -> gio::Settings {
     gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None)
 }
 
-fn run_app(app: &Application, mut initial_path: Option<std::ffi::OsString>) {
+fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     env_logger::builder().format_timestamp(None).init();
 
     let (sender, receiver) = async_channel::unbounded();

@@ -14,9 +14,10 @@ use libadwaita::{HeaderBar, ToolbarView, Window};
 use log::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::path::{Path, PathBuf};
 
 pub fn headerbar_factory(
-    _repo_path: std::ffi::OsString,
+    _repo_path: PathBuf,
     _oid: Oid,
     _sender: Sender<Event>,
 ) -> HeaderBar {
@@ -33,7 +34,7 @@ pub fn headerbar_factory(
 }
 
 pub fn show_commit_window(
-    repo_path: std::ffi::OsString,
+    repo_path: PathBuf,
     oid: Oid,
     app_window: &impl IsA<Gtk4Window>,
     _main_sender: Sender<Event>,

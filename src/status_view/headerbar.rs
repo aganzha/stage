@@ -4,11 +4,12 @@ use std::ffi::OsString;
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
+use std::path::PathBuf;
 
 use gtk4::{gio, Align, Button, FileDialog, Label, PopoverMenu};
 
 pub enum HbUpdateData {
-    Path(OsString),
+    Path(PathBuf),
     Staged(bool),
     Unsynced(bool),
     RepoOpen,
@@ -216,7 +217,7 @@ pub fn factory(
                 let repo_opener_label =
                     repo_opener_label.downcast_ref::<Label>().unwrap();
                 let clean_path =
-                    path.into_string().unwrap().replace(".git/", "");
+                    path.into_os_string().into_string().expect("wrog path").replace(".git/", "");
                 repo_opener_label.set_markup(&format!(
                     "<span weight=\"normal\">{}</span>",
                     clean_path

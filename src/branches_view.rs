@@ -18,6 +18,7 @@ use libadwaita::{
     ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
 };
 use log::{debug, trace};
+use std::path::{PathBuf, Path};
 
 glib::wrapper! {
     pub struct BranchItem(ObjectSubclass<branch_item::BranchItem>);
@@ -382,7 +383,7 @@ impl BranchList {
         // self.items_changed(1, 0, le as u32);
     }
 
-    pub fn get_branches(&self, repo_path: std::ffi::OsString) {
+    pub fn get_branches(&self, repo_path: PathBuf) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list => async move {
                 let branches: Vec<crate::BranchData> = gio::spawn_blocking(move || {
@@ -427,7 +428,7 @@ impl BranchList {
 
     pub fn checkout(
         &self,
-        repo_path: std::ffi::OsString,
+        repo_path: PathBuf,
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
@@ -561,7 +562,7 @@ impl BranchList {
 
     pub fn cherry_pick(
         &self,
-        repo_path: std::ffi::OsString,
+        repo_path: PathBuf,
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
@@ -589,7 +590,7 @@ impl BranchList {
 
     pub fn update_remote(
         &self,
-        repo_path: std::ffi::OsString,
+        repo_path: PathBuf,
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
@@ -611,7 +612,7 @@ impl BranchList {
 
     pub fn merge(
         &self,
-        repo_path: std::ffi::OsString,
+        repo_path: PathBuf,
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
@@ -668,7 +669,7 @@ impl BranchList {
 
     pub fn kill_branch(
         &self,
-        repo_path: std::ffi::OsString,
+        repo_path: PathBuf,
         window: &Window,
         sender: Sender<crate::Event>,
     ) {
@@ -751,7 +752,7 @@ impl BranchList {
 
     pub fn create_branch(
         &self,
-        repo_path: std::ffi::OsString,
+        repo_path: PathBuf,
         window: &Window,
         _branch_sender: Sender<Event>,
         sender: Sender<crate::Event>,
@@ -1011,7 +1012,7 @@ pub fn item_factory() -> SignalListItemFactory {
 }
 
 pub fn listview_factory(
-    repo_path: std::ffi::OsString,
+    repo_path: PathBuf,
     sender: Sender<crate::Event>,
 ) -> ListView {
     let header_factory = header_factory();
@@ -1062,7 +1063,7 @@ pub fn listview_factory(
 }
 
 pub fn headerbar_factory(
-    _repo_path: std::ffi::OsString,
+    _repo_path: PathBuf,
     list_view: &ListView,
     sender: Sender<Event>,
 ) -> HeaderBar {
@@ -1235,7 +1236,7 @@ pub fn branches_in_use(
 }
 
 pub fn show_branches_window(
-    repo_path: std::ffi::OsString,
+    repo_path: PathBuf,
     app_window: &ApplicationWindow,
     main_sender: Sender<crate::Event>,
 ) {
