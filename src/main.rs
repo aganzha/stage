@@ -21,8 +21,8 @@ use commit_view::show_commit_window;
 
 use core::time::Duration;
 use std::cell::RefCell;
+use std::path::{PathBuf};
 use std::rc::Rc;
-use std::path::{Path, PathBuf};
 
 mod git;
 use git::{
@@ -34,10 +34,11 @@ use git::{
     BranchData, CommitDiff, Diff, DiffKind, File, Head, Hunk, Line, LineKind,
     StashData, Stashes, State, Untracked, UntrackedFile, View,
 };
-use git2::{Oid};
+use git2::Oid;
 mod widgets;
 use widgets::{
-    confirm_dialog_factory, display_error, merge_dialog_factory, ABORT, OURS, THEIRS,
+    confirm_dialog_factory, display_error, merge_dialog_factory, ABORT, OURS,
+    THEIRS,
 };
 
 use gdk::Display;
@@ -371,7 +372,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         hb_updater(HbUpdateData::Unsynced(
                             head.oid != upstream.oid,
                         ));
-                    }                    
+                    }
                     status.update_upstream(h, &txt, &mut ctx);
                 }
                 Event::Conflicted(d) => {

@@ -12,7 +12,6 @@ use std::{
     str::from_utf8,
 };
 
-
 pub const STAGE_FLAG: u16 = 0x3000;
 
 #[derive(Debug, Clone)]

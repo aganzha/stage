@@ -13,8 +13,8 @@ use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
 use log::debug;
 use std::cell::RefCell;
+use std::path::{PathBuf};
 use std::rc::Rc;
-use std::path::{Path, PathBuf};
 
 pub fn headerbar_factory(
     _repo_path: PathBuf,

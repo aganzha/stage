@@ -1,6 +1,5 @@
 use libadwaita::prelude::*;
 use libadwaita::{ButtonContent, HeaderBar, SplitButton, Window};
-use std::ffi::OsString;
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
@@ -216,8 +215,11 @@ pub fn factory(
                 let repo_opener_label = repo_opener.last_child().unwrap();
                 let repo_opener_label =
                     repo_opener_label.downcast_ref::<Label>().unwrap();
-                let clean_path =
-                    path.into_os_string().into_string().expect("wrog path").replace(".git/", "");
+                let clean_path = path
+                    .into_os_string()
+                    .into_string()
+                    .expect("wrog path")
+                    .replace(".git/", "");
                 repo_opener_label.set_markup(&format!(
                     "<span weight=\"normal\">{}</span>",
                     clean_path
@@ -275,7 +277,7 @@ pub fn factory(
                             if let Some(path) = file.path() {
                                 sender
                                     .send_blocking(crate::Event::OpenRepo(
-                                        path.into(),
+                                        path,
                                     ))
                                     .expect("Could not send through channel");
                             }

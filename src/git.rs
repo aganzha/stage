@@ -21,8 +21,8 @@ use log::{debug, info, trace};
 use regex::Regex;
 use std::cmp::Ordering;
 //use std::time::SystemTime;
-use std::{collections::HashSet, env, ffi, path, str};
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
+use std::{collections::HashSet, env, path, str};
 
 #[derive(Debug, Clone)]
 pub struct View {
@@ -592,7 +592,6 @@ pub fn get_conflicted_v1(path: PathBuf) -> Diff {
         .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
 
-
     make_diff(&git_diff, DiffKind::Conflicted)
 }
 
@@ -721,7 +720,9 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
             let status = diff_delta.status();
-            if status == Delta::Conflicted && (kind == DiffKind::Staged || kind == DiffKind::Unstaged) {
+            if status == Delta::Conflicted
+                && (kind == DiffKind::Staged || kind == DiffKind::Unstaged)
+            {
                 return true;
             }
             let file: DiffFile = match status {
@@ -877,7 +878,8 @@ pub fn stage_via_apply(
     options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
             let path: PathBuf = dd.new_file().path().unwrap().into();
-            return filter.file_id == path.into_os_string().into_string().unwrap();
+            return filter.file_id
+                == path.into_os_string().into_string().unwrap();
         }
         todo!("diff without delta");
     });
@@ -1768,7 +1770,10 @@ pub fn track_changes(
     // TODO throttle!
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let index = repo.index().expect("cant get index");
-    let file_path = file_path.into_os_string().into_string().expect("wrong path");
+    let file_path = file_path
+        .into_os_string()
+        .into_string()
+        .expect("wrong path");
     for entry in index.iter() {
         let entry_path = format!("{}", String::from_utf8_lossy(&entry.path));
         if file_path.ends_with(&entry_path) {
@@ -1837,11 +1842,7 @@ impl CommitDiff {
     }
 }
 
-pub fn get_commit_diff(
-    path: PathBuf,
-    oid: Oid,
-    sender: Sender<crate::Event>,
-) {
+pub fn get_commit_diff(path: PathBuf, oid: Oid, sender: Sender<crate::Event>) {
     let repo = Repository::open(path).expect("can't open repo");
     let commit = repo.find_commit(oid).expect("cant find commit");
     let tree = commit.tree().expect("no get tree from commit");

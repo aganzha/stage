@@ -1,7 +1,5 @@
 use async_channel::Sender;
 
-
-
 use crate::git::merge;
 use git2::BranchType;
 use glib::{clone, closure, Object};
@@ -18,7 +16,7 @@ use libadwaita::{
     ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
 };
 use log::{debug, trace};
-use std::path::{PathBuf, Path};
+use std::path::{PathBuf};
 
 glib::wrapper! {
     pub struct BranchItem(ObjectSubclass<branch_item::BranchItem>);
