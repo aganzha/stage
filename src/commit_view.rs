@@ -1,7 +1,7 @@
 use crate::status_view::container::ViewContainer;
 use crate::git::commit;
 use crate::Event;
-
+use std::cell::RefCell;
 // use crate::{get_commit_diff, CommitDiff, Event, StatusRenderContext};
 use async_channel::Sender;
 use git2::{Oid, Error as GitError};
@@ -15,7 +15,7 @@ use gtk4::{
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
 use log::debug;
-use std::cell::RefCell;
+
 use std::path::{PathBuf};
 use std::rc::Rc;
 
@@ -40,7 +40,7 @@ pub fn show_commit_window(
     repo_path: PathBuf,
     oid: Oid,
     app_window: &impl IsA<Gtk4Window>,
-    _main_sender: Sender<Event>,
+    _main_sender: Sender<Event>,// i need that to trigger revert and cherry-pick.
 ) {
     let (sender, receiver) = async_channel::unbounded();
 
@@ -96,18 +96,31 @@ pub fn show_commit_window(
     let mut main_diff: Option<commit::CommitDiff> = None;
 
     glib::spawn_future_local(async move {
-        let some = gio::spawn_blocking({
+        let result = gio::spawn_blocking({
             let path = repo_path.clone();
-            move || {
-                commit::get_commit_diff(path, oid, sender);
+            move || {                
+                commit::get_commit_diff(path, oid)
             }
-        }).await.map_err(|e| {
-            let git_err = e.downcast_ref::<String>();
-            debug!("iiiiiiiiiiiiiiiiiii-> {:?}", git_err);
-        });
-        debug!("____________________ {:?}", some);
+        }).await;
+        if let Ok(result) = result {
+            match result {
+                Ok(diff) => {
+                    // CommitDiff
+                    debug!("ooooooooook {:?}", diff);
+                    sender
+                        .send_blocking(Event::CommitDiff(diff))
+                        .expect("Could not send through channel");
+                },
+                Err(err) => {
+                    // git2::Error
+                    crate::display_error(&window, err.message());
+                }
+            }
+        } else {
+            crate::display_error(&window, "Error while display commit view");
+        }
     });
-    
+
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             let mut ctx = crate::StatusRenderContext::new();
