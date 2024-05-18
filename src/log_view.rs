@@ -12,6 +12,7 @@ use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
 use log::{info, trace};
 use std::path::{PathBuf};
+use crate::git::commit;
 
 glib::wrapper! {
     pub struct CommitItem(ObjectSubclass<commit_item::CommitItem>);
@@ -23,11 +24,12 @@ mod commit_item {
     use gtk4::prelude::*;
     use gtk4::subclass::prelude::*;
     use std::cell::RefCell;
-
+    use crate::git::commit;
+    
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::CommitItem)]
     pub struct CommitItem {
-        pub commit: RefCell<crate::CommitDiff>,
+        pub commit: RefCell<commit::CommitDiff>,
 
         #[property(get = Self::get_author)]
         pub author: String,
@@ -75,7 +77,7 @@ mod commit_item {
 }
 
 impl CommitItem {
-    pub fn new(commit: crate::CommitDiff) -> Self {
+    pub fn new(commit: commit::CommitDiff) -> Self {
         let ob = Object::builder::<CommitItem>().build();
         ob.imp().commit.replace(commit);
         ob
@@ -166,7 +168,7 @@ impl CommitList {
                 }
 
                 let commits = gio::spawn_blocking(move || {
-                    crate::revwalk(repo_path, start_oid, None)
+                    commit::revwalk(repo_path, start_oid, None)
                 })
                 .await
                 .expect("cant get commits");
@@ -210,7 +212,7 @@ impl CommitList {
             let repo_path = repo_path.clone();
             async move {
                 let commits = gio::spawn_blocking(move || {
-                    crate::revwalk(repo_path, None, Some(term))
+                    commit::revwalk(repo_path, None, Some(term))
                 })
                 .await
                 .expect("cant get commits");
