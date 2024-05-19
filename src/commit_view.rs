@@ -62,7 +62,7 @@ pub fn show_commit_window(
     let (sender, receiver) = async_channel::unbounded();
 
     let window = Window::builder()
-        .application(&app_window.application().unwrap())
+        // .application(&app_window.application().unwrap())
         .transient_for(app_window)
         .default_width(640)
         .default_height(480)
