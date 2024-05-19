@@ -131,8 +131,7 @@ pub enum Event {
     PushUserPass(String, bool),
     PullUserPass,
     CheckoutError(Oid, String, String),
-    LockMonitors(bool),
-    OverlayClosed
+    LockMonitors(bool)
 }
 
 fn zoom(dir: bool) {
@@ -350,32 +349,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 Event::Pull => {
                     info!("main.pull");
                     status.pull(&window, None);
-                }
-                Event::OverlayClosed => {
-                    if let Some(overlay) = &overlay {
-                        info!("grab focus for overlay ====================> {:?}", overlay);
-                        // overlay.grab_focus();
-                        let li = GtkWindowExt::focus(overlay).unwrap();
-                        // let li =
-                        //     li.downcast_ref::<Widget>().unwrap();
-                        // let first_child = li.last_child().unwrap();
-                        // let first_child =
-                        //     first_child.downcast_ref::<Widget>().unwrap();
-                        // let row = first_child.parent().unwrap();
-                        //GtkWindowExt::set_focus(overlay, Some(&li));
-                        // overlay.set_focus(Some(&li));
-                        //li.grab_focus();
-                        // GtkWindowExt::emit_activate_focus(overlay);
-                        // GtkWindowExt::emit_activate_default(overlay);
-                        // GtkWindowExt::grab_focus(overlay);
-                        overlay.present();
-                        info!("GRAB!=================> {:?}", li);
-                        // let branch_list = get_branch_list(overlay);
-                        // branch_list.set_focus();
-                        // // info!("----------- {:?}", overlay.model().unwrap().selected_item());
-                        // overlay.grab_focus();
-                    }
-                }
+                }                
                 Event::Branches => {
                     info!("main.braches");
                     let w = show_branches_window(
@@ -383,16 +357,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         &window,
                         sender.clone(),
                     );
-                    info!("overlay ------------------------> {:?}", &w);
                     overlay.replace(w);                    
                 }
                 Event::Log(ooid) => {
                     info!("main.log");
-                    // let w = if let Some(overlay) = overlay{
-                    //     overlay
-                    // } else {
-                    //     window as Window
-                    // };
                     if let Some(ref overlay) = overlay{
                         show_log_window(
                             status.path.clone().expect("no path"),

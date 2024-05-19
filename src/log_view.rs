@@ -515,19 +515,15 @@ pub fn show_log_window(
     let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
         let window = window.clone();
-        let main_sender = main_sender.clone();
+        // let main_sender = main_sender.clone();
         // let sender = sender.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
                     window.close();
-                    // main_sender.send_blocking(crate::Event::OverlayClosed)
-                    //     .expect("cant send through channel");
                 }
                 (gdk::Key::Escape, _) => {
                     window.close();
-                    // main_sender.send_blocking(crate::Event::OverlayClosed)
-                    //     .expect("cant send through channel");
                 }
                 (gdk::Key::s, _) => {
                     let search_bar = hb.title_widget().unwrap();
