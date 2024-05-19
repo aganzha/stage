@@ -155,19 +155,20 @@ impl CommitList {
     pub fn new() -> Self {
         Object::builder().build()
     }
-    pub fn get_commits_inside(&self, repo_path: PathBuf) {
+    pub fn get_commits_inside(&self, repo_path: PathBuf, mut start_oid: Option<Oid>) {
         glib::spawn_future_local({
             let commit_list = self.clone();
             let repo_path = repo_path.clone();
             async move {
                 let list_le = commit_list.imp().list.borrow().len() as u32;
-                let mut start_oid: Option<Oid> = None;
+                let mut scroll = false;
                 if list_le > 0 {
                     let item = commit_list.item(list_le - 1).unwrap();
                     let commit_item =
                         item.downcast_ref::<CommitItem>().unwrap();
                     let oid = commit_item.imp().commit.borrow().oid;
                     start_oid.replace(oid);
+                    scroll = true;
                 }
 
                 let commits = gio::spawn_blocking(move || {
@@ -177,9 +178,11 @@ impl CommitList {
                 .expect("cant get commits");
                 let mut added = 0;
                 for item in commits.into_iter().map(CommitItem::new) {
-                    if let Some(oid) = start_oid {
-                        if item.imp().commit.borrow().oid == oid {
-                            break;
+                    if scroll {
+                        if let Some(oid) = start_oid {
+                            if item.imp().commit.borrow().oid == oid {
+                                continue;
+                            }
                         }
                     }
                     commit_list.imp().list.borrow_mut().push(item.clone());
@@ -355,7 +358,6 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
                 let focus = focus.clone();
                 let li = li.clone();
                 move || {
-                    debug!("item selected {:?}", *focus.borrow());
                     if !*focus.borrow() {
                         let first_child = li.child().unwrap();
                         let first_child =
@@ -472,6 +474,7 @@ pub fn show_log_window(
     app_window: &ApplicationWindow,
     _head: String,
     main_sender: Sender<crate::Event>,
+    start_oid: Option<Oid>
 ) {
     let (sender, receiver) = async_channel::unbounded();
 
@@ -496,7 +499,7 @@ pub fn show_log_window(
             }
             let list_view = scroll.child().unwrap();
             let list_view = list_view.downcast_ref::<ListView>().unwrap();
-            get_commit_list(list_view).get_commits_inside(repo_path.clone());
+            get_commit_list(list_view).get_commits_inside(repo_path.clone(), None);
         }
     });
     scroll.set_child(Some(&list_view));
@@ -541,7 +544,7 @@ pub fn show_log_window(
     window.present();
     debug!("grab list focus");
     list_view.grab_focus();
-    get_commit_list(&list_view).get_commits_inside(repo_path.clone());
+    get_commit_list(&list_view).get_commits_inside(repo_path.clone(), start_oid);
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             match event {

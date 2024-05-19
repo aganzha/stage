@@ -311,7 +311,7 @@ pub fn factory(
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::l, _) => {
-                    sndr.send_blocking(crate::Event::Log)
+                    sndr.send_blocking(crate::Event::Log(None))
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::g, _) => {

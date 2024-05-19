@@ -197,190 +197,6 @@ impl BranchList {
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
     }
 
-    pub fn search(&self, term: String) {
-        let selected_name = self.get_selected_branch().name;
-        let mut current_position = 0;
-        let mut deleted = 0;
-        // while deleting item section does not called at all
-        loop {
-            let name = self.imp().list.borrow()[current_position]
-                .imp()
-                .branch
-                .borrow()
-                .name
-                .clone();
-            match name {
-                n if n == selected_name => {
-                    trace!("this branch is selected!. pos {:?}. will call items changed. deleted {:?}", current_position, deleted);
-                    if deleted > 0 {
-                        self.items_changed(
-                            current_position as u32,
-                            deleted,
-                            0,
-                        );
-                    }
-                    current_position += 1;
-                    deleted = 0;
-                }
-                n if n.contains(&term) => {
-                    trace!("this branch is found!. pos {:?}. will call items changed. deleted {:?}", current_position, deleted);
-                    if deleted > 0 {
-                        self.items_changed(
-                            current_position as u32,
-                            deleted,
-                            0,
-                        );
-                    }
-                    current_position += 1;
-                    deleted = 0;
-                }
-                n => {
-                    self.imp().list.borrow_mut().remove(current_position);
-                    deleted += 1;
-                    trace!(
-                        "remove from list {:?}. tot deleted {:?}",
-                        n,
-                        deleted
-                    );
-                }
-            }
-            if current_position == self.imp().list.borrow().len() {
-                trace!(
-                    "looop is over! ============= {:?}",
-                    self.imp().remote_start_pos
-                );
-                if deleted > 0 {
-                    trace!(
-                        "call final delete. pos {:?} deleted {:?}",
-                        current_position,
-                        deleted
-                    );
-                    self.items_changed(current_position as u32, deleted, 0);
-                }
-                break;
-            }
-            trace!("");
-        }
-    }
-
-    pub fn reset_search(&self) {
-        // this works because both list are
-        // filled up initially
-        if self.imp().list.borrow().len()
-            == self.imp().original_list.borrow().len()
-        {
-            return;
-        }
-        let names: Vec<String> = self
-            .imp()
-            .list
-            .borrow()
-            .iter()
-            .map(|bi| bi.imp().branch.borrow().name.clone())
-            .collect();
-        trace!("reset search in list. items in current list {:?}", names);
-        let mut added = 0;
-        let mut changed_pos = 0;
-        let mut current_pos = 0;
-        // it need to set remote section properly
-        let mut pos = 0;
-        for item in self.imp().list.borrow().iter() {
-            if item.imp().branch.borrow().branch_type == BranchType::Remote {
-                self.imp().remote_start_pos.replace(Some(pos));
-                break;
-            }
-            pos += 1;
-        }
-
-        let mut remote_tracked: bool = false;
-        for item in self.imp().original_list.borrow().iter() {
-            trace!(
-                "looooooooop current_pos {:?} changed_pos {:?}",
-                current_pos,
-                changed_pos
-            );
-            let name = &item.imp().branch.borrow().name;
-            if names.contains(name) {
-                // do not add this item. will step over it"
-                // but it need to signal about all added items before it
-                // since last changed.
-                trace!("!!!!!!!!!!!!!!existing item name {:?} cureent pos {:?} changed pos {:?} added {:?}",
-                       name,
-                       current_pos,
-                       changed_pos,
-                       added);
-                self.items_changed(changed_pos, 0, added);
-                added = 0;
-                // next changed position wil be after this item
-                changed_pos = current_pos + 1;
-            } else {
-                let is_remote = item.imp().branch.borrow().branch_type
-                    == BranchType::Remote;
-                if is_remote {
-                    if !remote_tracked && is_remote {
-                        trace!(
-                            "track remote position prev {:?}, new {:?}",
-                            self.imp().remote_start_pos,
-                            current_pos
-                        );
-                        self.imp().remote_start_pos.replace(Some(current_pos));
-                        remote_tracked = true;
-                        // lets try update items here
-                        // but it does now work also :(
-                        self.items_changed(changed_pos, 0, added);
-                        changed_pos = current_pos;
-                        added = 0;
-                    }
-                } else {
-                    trace!(
-                        "insert local. remote start pos {:?}",
-                        self.imp().remote_start_pos
-                    );
-                    if self.imp().remote_start_pos.borrow().is_some() {
-                        let current =
-                            self.imp().remote_start_pos.borrow().unwrap();
-                        trace!("................increment remote!");
-                        self.imp().remote_start_pos.replace(Some(current + 1));
-                    }
-                }
-                self.imp()
-                    .list
-                    .borrow_mut()
-                    .insert(current_pos as usize, item.clone());
-                added += 1;
-                trace!(
-                    "just inserted new item {:?}. total added {:?}",
-                    name,
-                    added
-                );
-            }
-            current_pos += 1;
-            trace!("");
-        }
-        if added > 0 {
-            trace!("fiiiiiiiiiiiiiiiiinal add {:?} {:?}", changed_pos, added);
-            self.items_changed(changed_pos, 0, added);
-        }
-        // trace!("1");
-        // self.sections_changed(8, 1);
-        trace!("++++++++++++++++++++++++++++++++++++++++");
-        // trace!("2");
-        // self.sections_changed(6, 1;)
-
-        // self.imp().list.borrow_mut().retian(|item: &BranchItem| {
-        //     item.is_head()
-        // });
-        // let mut le = 0;
-        // for item in self.imp().original_list.borrow().iter() {
-        //     if item.is_head() {
-        //         continue
-        //     }
-        //     self.imp().list.borrow_mut().push(item.clone());
-        //     le += 1;
-        // }
-        // self.items_changed(1, 0, le as u32);
-    }
-
     pub fn get_branches(&self, repo_path: PathBuf) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list => async move {
@@ -1064,6 +880,7 @@ pub fn headerbar_factory(
     _repo_path: PathBuf,
     list_view: &ListView,
     sender: Sender<Event>,
+    main_sender: Sender<crate::Event>
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
 
@@ -1189,10 +1006,33 @@ pub fn headerbar_factory(
         }
     });
 
+    let log_btn = Button::builder()
+        .label("Log")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Log")
+        .icon_name("org.gnome.Logs-symbolic")
+        .can_shrink(true)
+        .build();
+    log_btn.connect_clicked(clone!(@weak list_view => move |e| {
+        let (_current_branch, selected_branch) =
+            branches_in_use(&list_view);
+        let oid = selected_branch.oid;
+        main_sender.send_blocking(crate::Event::Log(Some(oid)))
+            .expect("cant send through channel");
+        }
+    ));
+
+    let _ = branch_list
+        .bind_property("selected-pos", &log_btn, "sensitive")
+        .transform_to(set_sensitive)
+        .build();
+
     hb.set_title_widget(Some(&search));
     hb.pack_end(&new_btn);
     hb.pack_end(&merge_btn);
     hb.pack_end(&kill_btn);
+    hb.pack_end(&log_btn);
     hb.pack_end(&refresh_btn);
     hb.set_show_end_title_buttons(true);
     hb.set_show_back_button(true);
@@ -1206,6 +1046,7 @@ pub enum Event {
     Merge,
     CherryPickRequest,
     UpdateRemote,
+    Log
 }
 
 pub fn get_branch_list(list_view: &ListView) -> BranchList {
@@ -1252,7 +1093,7 @@ pub fn show_branches_window(
 
     let list_view = listview_factory(repo_path.clone(), main_sender.clone());
 
-    let hb = headerbar_factory(repo_path.clone(), &list_view, sender.clone());
+    let hb = headerbar_factory(repo_path.clone(), &list_view, sender.clone(), main_sender.clone());
 
     scroll.set_child(Some(&list_view));
 
@@ -1265,6 +1106,7 @@ pub fn show_branches_window(
     event_controller.connect_key_pressed({
         let window = window.clone();
         let sender = sender.clone();
+        let main_sender = main_sender.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
@@ -1286,6 +1128,11 @@ pub fn show_branches_window(
                 (gdk::Key::m, _) => {
                     sender
                         .send_blocking(Event::Merge)
+                        .expect("Could not send through channel");
+                }
+                (gdk::Key::l, _) => {
+                    sender
+                        .send_blocking(Event::Log)
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::a, _) => {
@@ -1363,6 +1210,14 @@ pub fn show_branches_window(
                         &window,
                         main_sender.clone(),
                     )
+                }
+                Event::Log => {
+                    let (_current_branch, selected_branch) =
+                        branches_in_use(&list_view);
+                    let oid = selected_branch.oid;
+                    main_sender
+                        .send_blocking(crate::Event::Log(Some(oid)))
+                        .expect("cant send through sender");
                 }
                 Event::CherryPickRequest => {
                     trace!("branches. cherry-pick request");
