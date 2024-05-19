@@ -1,6 +1,7 @@
 use async_channel::Sender;
 
-use crate::git::merge;
+use crate::git::{merge, branch};
+use crate::widgets::alert;
 use git2::BranchType;
 use glib::{clone, closure, Object};
 use gtk4::prelude::*;
@@ -15,7 +16,7 @@ use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
 };
-use log::{debug, trace};
+use log::{debug, trace, info};
 use std::path::PathBuf;
 
 glib::wrapper! {
@@ -28,11 +29,11 @@ mod branch_item {
     use gtk4::prelude::*;
     use gtk4::subclass::prelude::*;
     use std::cell::RefCell;
-
+    
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::BranchItem)]
     pub struct BranchItem {
-        pub branch: RefCell<crate::branch::BranchData>,
+        pub branch: RefCell<super::branch::BranchData>,
 
         #[property(get, set)]
         pub initial_focus: RefCell<bool>,
@@ -76,7 +77,7 @@ mod branch_item {
 }
 
 impl BranchItem {
-    pub fn new(branch: crate::branch::BranchData) -> Self {
+    pub fn new(branch: branch::BranchData) -> Self {
         let ref_kind = {
             match branch.branch_type {
                 BranchType::Local => String::from("Branches"),
@@ -200,8 +201,8 @@ impl BranchList {
     pub fn get_branches(&self, repo_path: PathBuf) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list => async move {
-                let branches: Vec<crate::branch::BranchData> = gio::spawn_blocking(move || {
-                    crate::branch::get_branches(repo_path)
+                let branches: Vec<branch::BranchData> = gio::spawn_blocking(move || {
+                    branch::get_branches(repo_path)
                 }).await.expect("Task needs to finish successfully.");
 
                 let items: Vec<BranchItem> = branches.into_iter()
@@ -256,45 +257,53 @@ impl BranchList {
                 let local = branch_data.branch_type == BranchType::Local;
                 // aganzha
                 let new_branch_data = gio::spawn_blocking(move || {
-                    crate::branch::checkout_branch(repo_path, branch_data, sender)
-                }).await;
-                if let Ok(new_branch_data) = new_branch_data {
-                    if local {
-                        branch_list.deactivate_current_branch();
-                        selected_item.imp().branch.replace(new_branch_data);
-                        selected_item.set_is_head(true);
-                    } else {
-                        // local branch already could be in list
-                        assert!(new_branch_data.branch_type == BranchType::Local);
-                        let new_name = &new_branch_data.name;
-                        // lets check all items in list
-                        for i in 0..branch_list.n_items() {
-                            if let Some(item) = branch_list.item(i) {
-                                let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                                if &branch_item.imp().branch.borrow().name == new_name {
+                    branch::checkout_branch(repo_path, branch_data, sender)
+                }).await.unwrap_or_else(|e| {
+                    alert(format!("{:?}", e), &window);
+                    Ok(branch::BranchData::default())
+                }).unwrap_or_else(|e| {
+                    alert(e, &window);
+                    branch::BranchData::default()
+                });
+                if new_branch_data.oid == git2::Oid::zero() {
+                    info!("branch. exit after error");
+                    return;
+                }
 
-                                    if !branch_item.is_head() {
-                                        // new head will be set
-                                        branch_list.deactivate_current_branch();
-                                    } else {
-                                        // e.g. current branch is master and
-                                        // user chekout origin master
-                                    }
-                                    branch_item.imp().branch.replace(new_branch_data);
-                                    branch_item.set_initial_focus(true);
-                                    branch_item.set_is_head(true);
-                                    branch_list.set_selected_pos(i);
-                                    return;
+                if local {
+                    branch_list.deactivate_current_branch();
+                    selected_item.imp().branch.replace(new_branch_data);
+                    selected_item.set_is_head(true);
+                } else {
+                    // local branch already could be in list
+                    assert!(new_branch_data.branch_type == BranchType::Local);
+                    let new_name = &new_branch_data.name;
+                    // lets check all items in list
+                    for i in 0..branch_list.n_items() {
+                        if let Some(item) = branch_list.item(i) {
+                            let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+                            if &branch_item.imp().branch.borrow().name == new_name {
+
+                                if !branch_item.is_head() {
+                                    // new head will be set
+                                    branch_list.deactivate_current_branch();
+                                } else {
+                                    // e.g. current branch is master and
+                                    // user chekout origin master
                                 }
+                                branch_item.imp().branch.replace(new_branch_data);
+                                branch_item.set_initial_focus(true);
+                                branch_item.set_is_head(true);
+                                branch_list.set_selected_pos(i);
+                                return;
                             }
                         }
-                        branch_list.deactivate_current_branch();
-                        // create new branch
-                        branch_list.add_new_branch_item(new_branch_data);
                     }
-                } else {
-                    crate::display_error(&window, "can't checkout branch");
+                    branch_list.deactivate_current_branch();
+                    // create new branch
+                    branch_list.add_new_branch_item(new_branch_data);
                 }
+
             })
         });
     }
@@ -319,7 +328,7 @@ impl BranchList {
         }
     }
 
-    pub fn update_current_branch(&self, branch_data: crate::branch::BranchData) {
+    pub fn update_current_branch(&self, branch_data: branch::BranchData) {
         for branch_item in self.imp().original_list.borrow().iter() {
             debug!(
                 "HEAD in original list {:?} {:?}",
@@ -354,7 +363,7 @@ impl BranchList {
         }
     }
 
-    pub fn get_selected_branch(&self) -> crate::branch::BranchData {
+    pub fn get_selected_branch(&self) -> branch::BranchData {
         let pos = self.selected_pos();
         // TODO! got panic here while opening large
         // list of branches and clicking create
@@ -364,7 +373,7 @@ impl BranchList {
         data
     }
 
-    pub fn get_current_branch(&self) -> Option<crate::branch::BranchData> {
+    pub fn get_current_branch(&self) -> Option<branch::BranchData> {
         let mut result = None;
         for branch_item in self.imp().list.borrow().iter() {
             if branch_item.is_head() {
@@ -497,7 +506,7 @@ impl BranchList {
                 let kind = branch_data.branch_type;
                 let name = branch_data.name.clone();
                 let result = gio::spawn_blocking(move || {
-                    crate::branch::kill_branch(repo_path, branch_data, sender)
+                    branch::kill_branch(repo_path, branch_data, sender)
                 }).await;
                 let mut err_message = String::from("git error");
                 if let Ok(git_result) = result {
@@ -622,20 +631,26 @@ impl BranchList {
                 }
                 let new_branch_name = format!("{}", input.text());
                 let need_checkout = checkout.is_active();
-                let result = gio::spawn_blocking(move || {
-                    crate::branch::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
-                }).await;
-                if let Ok(branch_data) = result {
-                    branch_list.deactivate_current_branch();
-                    branch_list.add_new_branch_item(branch_data);
-                } else {
-                    crate::display_error(&window, "cant create branch");
+                let branch_data = gio::spawn_blocking(move || {
+                    branch::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
+                }).await.unwrap_or_else(|e| {
+                    alert(format!("{:?}", e), &window);
+                    Ok(branch::BranchData::default())
+                }).unwrap_or_else(|e| {
+                    alert(e, &window);
+                    branch::BranchData::default()
+                });
+                if branch_data.oid == git2::Oid::zero() {
+                    info!("branch. exit after error");
+                    return;
                 }
+                branch_list.deactivate_current_branch();
+                branch_list.add_new_branch_item(branch_data);
             })
         });
     }
 
-    fn add_new_branch_item(&self, branch_data: crate::branch::BranchData) {
+    fn add_new_branch_item(&self, branch_data: branch::BranchData) {
         let new_item = BranchItem::new(branch_data);
 
         let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
@@ -1064,7 +1079,7 @@ pub fn get_branch_list(list_view: &ListView) -> BranchList {
 
 pub fn branches_in_use(
     list_view: &ListView,
-) -> (crate::branch::BranchData, crate::branch::BranchData) {
+) -> (branch::BranchData, branch::BranchData) {
     let selection_model = list_view.model().unwrap();
     let single_selection =
         selection_model.downcast_ref::<SingleSelection>().unwrap();
