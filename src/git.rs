@@ -1,13 +1,13 @@
+pub mod branch;
 pub mod commit;
 pub mod merge;
-pub mod branch;
-use crate::commit::{commit_dt, commit_string};
-use crate::branch::{BranchData};
+use crate::branch::BranchData;
+use crate::commit::{commit_string};
 
 use crate::gio;
 use async_channel::Sender;
 
-use chrono::{DateTime, FixedOffset};
+
 use git2::build::CheckoutBuilder;
 use git2::{
     ApplyLocation, ApplyOptions, AutotagOption, Branch, BranchType,
@@ -19,7 +19,7 @@ use git2::{
 };
 
 // use libgit2_sys;
-use log::{debug, info, trace};
+use log::{debug, trace};
 use regex::Regex;
 //use std::time::SystemTime;
 use std::path::PathBuf;
@@ -1302,7 +1302,6 @@ pub fn push(
         }
     }
 }
-
 
 pub fn cherry_pick(
     path: PathBuf,

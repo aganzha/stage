@@ -1,14 +1,13 @@
-use git2;
+use crate::commit::{commit_dt, commit_string};
 use crate::get_current_repo_status;
 use crate::git::set_remote_callbacks;
-use crate::commit::{commit_dt, commit_string};
-use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
-use std::path::PathBuf;
-use log::{trace, info, debug};
-use std::cmp::Ordering;
 use async_channel::Sender;
+use chrono::{DateTime, FixedOffset};
+use git2;
 use gtk4::gio;
-
+use log::{debug, info, trace};
+use std::cmp::Ordering;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct BranchData {
@@ -135,20 +134,16 @@ pub fn checkout_branch(
 ) -> Result<BranchData, git2::Error> {
     info!("checkout branch");
     let repo = git2::Repository::open(path.clone())?;
-    let commit = repo
-        .find_commit(branch_data.oid)?;
+    let commit = repo.find_commit(branch_data.oid)?;
 
     if branch_data.branch_type == git2::BranchType::Remote {
         // handle case when checkout remote branch and local branch
         // is ahead of remote
         let head_ref = repo.head()?;
         assert!(head_ref.is_branch());
-        let ob = head_ref
-            .peel(git2::ObjectType::Commit)?;
+        let ob = head_ref.peel(git2::ObjectType::Commit)?;
         let commit = ob.peel_to_commit()?;
-        if repo
-            .graph_descendant_of(commit.id(), branch_data.oid)?
-        {
+        if repo.graph_descendant_of(commit.id(), branch_data.oid)? {
             debug!("skip checkout ancestor tree");
             let branch = git2::Branch::wrap(head_ref);
             return BranchData::from_branch(branch, git2::BranchType::Local);
@@ -161,7 +156,7 @@ pub fn checkout_branch(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
 
-    repo.checkout_tree(commit.as_object(), Some(opts))?;        
+    repo.checkout_tree(commit.as_object(), Some(opts))?;
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
@@ -173,15 +168,14 @@ pub fn checkout_branch(
                 repo.branch(&branch_data.local_name(), &commit, false);
             let mut branch = match created {
                 Ok(branch) => branch,
-                Err(_) => 
-                    repo.find_branch(
-                        &branch_data.local_name(),
-                        git2::BranchType::Local
-                    )?                
+                Err(_) => repo.find_branch(
+                    &branch_data.local_name(),
+                    git2::BranchType::Local,
+                )?,
             };
-            branch
-                .set_upstream(Some(&branch_data.remote_name()))?;
-            branch_data = BranchData::from_branch(branch, git2::BranchType::Local)?;
+            branch.set_upstream(Some(&branch_data.remote_name()))?;
+            branch_data =
+                BranchData::from_branch(branch, git2::BranchType::Local)?;
         }
     }
     repo.set_head(&branch_data.refname)?;
@@ -203,9 +197,9 @@ pub fn create_branch(
 ) -> Result<BranchData, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(branch_data.oid)?;
-    let branch = repo
-        .branch(&new_branch_name, &commit, false)?;
-    let branch_data = BranchData::from_branch(branch, git2::BranchType::Local)?;
+    let branch = repo.branch(&new_branch_name, &commit, false)?;
+    let branch_data =
+        BranchData::from_branch(branch, git2::BranchType::Local)?;
     if need_checkout {
         checkout_branch(path, branch_data, sender)
     } else {
@@ -227,8 +221,8 @@ pub fn kill_branch(
             let path = path.clone();
             let name = name.clone();
             move || {
-                let repo =
-                    git2::Repository::open(path.clone()).expect("can't open repo");
+                let repo = git2::Repository::open(path.clone())
+                    .expect("can't open repo");
                 let mut remote = repo
                     .find_remote("origin") // TODO here is hardcode
                     .expect("no remote");

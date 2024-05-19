@@ -8,7 +8,7 @@ use status_view::{
 };
 
 mod branches_view;
-use branches_view::{show_branches_window, get_branch_list};
+use branches_view::{show_branches_window};
 
 mod log_view;
 use log_view::show_log_window;
@@ -26,19 +26,18 @@ use std::rc::Rc;
 
 mod git;
 use git::{
-    apply_stash, checkout_oid, cherry_pick, commit, branch,
-    create_commit, debug as git_debug, drop_stash,
-    get_current_repo_status, get_directories, pull,
-    push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, update_remote, ApplyFilter, ApplySubject, Diff,
-    DiffKind, File, Head, Hunk, Line, LineKind, StashData, Stashes, State,
-    Untracked, UntrackedFile, View,
+    apply_stash, branch, checkout_oid, cherry_pick, commit, create_commit,
+    debug as git_debug, drop_stash, get_current_repo_status, get_directories,
+    pull, push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
+    track_changes, update_remote, ApplyFilter, ApplySubject, Diff, DiffKind,
+    File, Head, Hunk, Line, LineKind, StashData, Stashes, State, Untracked,
+    UntrackedFile, View,
 };
 use git2::Oid;
 mod widgets;
 use widgets::{
-    confirm_dialog_factory, merge_dialog_factory, ABORT, OURS, display_error, 
-    THEIRS, alert
+    alert, confirm_dialog_factory, display_error, merge_dialog_factory, ABORT,
+    OURS, THEIRS,
 };
 
 use gdk::Display;
@@ -46,13 +45,12 @@ use glib::{clone, ControlFlow};
 use libadwaita::prelude::*;
 use libadwaita::{
     Application, ApplicationWindow, Banner, OverlaySplitView, Toast,
-    ToastOverlay, ToolbarStyle, ToolbarView, Window
+    ToastOverlay, ToolbarStyle, ToolbarView, Window,
 };
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
-    CssProvider, Orientation, ScrolledWindow, Settings,
-    STYLE_PROVIDER_PRIORITY_APPLICATION, ListView, ListItem, Widget
+    CssProvider, Orientation, ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
 use log::info;
@@ -131,7 +129,7 @@ pub enum Event {
     PushUserPass(String, bool),
     PullUserPass,
     CheckoutError(Oid, String, String),
-    LockMonitors(bool)
+    LockMonitors(bool),
 }
 
 fn zoom(dir: bool) {
@@ -330,7 +328,12 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 Event::Commit => {
                     info!("main.commit");
                     if !status.has_staged() {
-                        alert(String::from("No changes were staged. Stage by hitting 's'"), &txt);
+                        alert(
+                            String::from(
+                                "No changes were staged. Stage by hitting 's'",
+                            ),
+                            &txt,
+                        );
                         // display_error(
                         //     &window,
                         //     "No changes were staged. Stage by hitting 's'",
@@ -350,7 +353,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 Event::Pull => {
                     info!("main.pull");
                     status.pull(&window, None);
-                }                
+                }
                 Event::Branches => {
                     info!("main.braches");
                     let w = show_branches_window(
@@ -358,17 +361,17 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         &window,
                         sender.clone(),
                     );
-                    overlay.replace(w);                    
+                    overlay.replace(w);
                 }
                 Event::Log(ooid) => {
                     info!("main.log");
-                    if let Some(ref overlay) = overlay{
+                    if let Some(ref overlay) = overlay {
                         show_log_window(
                             status.path.clone().expect("no path"),
                             overlay,
                             status.head_title(),
                             sender.clone(),
-                            ooid
+                            ooid,
                         );
                     } else {
                         show_log_window(
@@ -376,7 +379,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                             &window,
                             status.head_title(),
                             sender.clone(),
-                            ooid
+                            ooid,
                         );
                     }
                 }
