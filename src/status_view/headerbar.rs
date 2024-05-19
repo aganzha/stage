@@ -150,7 +150,7 @@ pub fn factory(
         let sender = sender.clone();
         move |_| {
             sender
-                .send_blocking(crate::Event::Log)
+                .send_blocking(crate::Event::Log(None))
                 .expect("cant send through channel");
         }
     });

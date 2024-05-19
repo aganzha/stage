@@ -117,7 +117,7 @@ pub enum Event {
     Push,
     Pull,
     Branches,
-    Log,
+    Log(Option<Oid>),
     ShowOid(Oid),
     TextViewResize,
     Toast(String),
@@ -357,13 +357,14 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         sender.clone(),
                     );
                 }
-                Event::Log => {
+                Event::Log(ooid) => {
                     info!("main.log");
                     show_log_window(
                         status.path.clone().expect("no path"),
                         &window,
                         status.head_title(),
                         sender.clone(),
+                        ooid
                     );
                 }
                 Event::Head(h) => {
