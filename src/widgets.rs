@@ -90,18 +90,20 @@ macro_rules! with_git2ui_error {
     ($func: expr, $success: expr, $window: expr) => {
         glib::spawn_future_local(async move {
             let result = gio::spawn_blocking($func).await;
+            let mut detail = String::from("Error while access repository");
             if let Ok(result) = result {
                 match result {
                     Ok(some) => {
                         $success(some);
+                        return
                     }
                     Err(err) => {
-                        crate::display_error($window, err.message());
+                        
+                        detail = String::from(format!("class: {:?}\ncode: {:?}\n{}", err.class(), err.code(), err.message()));
                     }
                 }
-            } else {
-                crate::display_error($window, "Error while access repository");
-            }
+            }            
+            AlertDialog::builder().message("Git error").detail(detail).build().show(None::<&Window>);
         });
     }
 }
