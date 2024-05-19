@@ -84,44 +84,6 @@ pub fn merge_dialog_factory(
     dialog
 }
 
-#[macro_export]
-macro_rules! with_git2ui_error {
-    ($func: expr, $success: expr, $window: expr) => {
-        glib::spawn_future_local(async move {
-            let result = gio::spawn_blocking($func).await;
-            let mut detail = String::from("Error while access repository");
-            if let Ok(result) = result {
-                match result {
-                    Ok(some) => {
-                        $success(some);
-                        return;
-                    }
-                    Err(err) => {
-                        detail = String::from(format!(
-                            "class: {:?}\ncode: {:?}\n{}",
-                            err.class(),
-                            err.code(),
-                            err.message()
-                        ));
-                    }
-                }
-            }
-            let dialog = AlertDialog::builder()
-                .heading_use_markup(true)
-                .heading("<span color=\"#ff0000\">Git error</span>")
-                .body_use_markup(true)
-                .body(detail)
-                .build();
-            dialog.add_response("close", "close");
-            dialog.set_response_appearance(
-                "close",
-                ResponseAppearance::Destructive,
-            );
-            dialog.choose($window, None::<&gio::Cancellable>, |_response| {});
-        });
-    };
-}
-
 
 pub trait AlertError {
     fn error(&self) -> (String, String);

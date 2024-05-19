@@ -1,7 +1,8 @@
 use crate::context::StatusRenderContext;
 use crate::git::commit;
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
-use crate::{with_git2ui_error, Event};
+use crate::{Event};
+use crate::widgets::alert;
 use async_channel::Sender;
 use git2::{Oid};
 use std::cell::RefCell;
@@ -113,16 +114,27 @@ pub fn show_commit_window(
     let mut main_diff: Option<commit::CommitDiff> = None;
 
     let path = repo_path.clone();
-    with_git2ui_error!(
-        move || commit::get_commit_diff(path, oid),
-        |diff| {
-            sender
-                .send_blocking(Event::CommitDiff(diff))
-                .expect("Could not send through channel");
-        },
-        &window.clone()
-    );
 
+    glib::spawn_future_local({
+        let window = window.clone();
+        async move {
+            let commit_diff = gio::spawn_blocking(move || {
+                commit::get_commit_diff(path, oid)
+            }).await.unwrap_or_else(|e| {
+                alert(format!("{:?}", e), &window);
+                Ok(commit::CommitDiff::default())
+            }).unwrap_or_else(|e| {
+                alert(e, &window);
+                commit::CommitDiff::default()
+            });
+            if !commit_diff.is_empty() {
+                sender
+                    .send_blocking(Event::CommitDiff(commit_diff))
+                    .expect("Could not send through channel");
+            }
+        }
+    });
+    
     let mut labels: [TextViewLabel; 6] = [
         TextViewLabel::from_string(&format!("commit: {:?}", oid)),
         TextViewLabel::from_string(""),
