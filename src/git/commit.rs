@@ -65,6 +65,10 @@ impl CommitDiff {
             diff: Diff::new(DiffKind::Unstaged),
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        return self.diff.is_empty();
+    }
 }
 
 pub fn get_commit_diff(
