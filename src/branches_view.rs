@@ -772,7 +772,10 @@ pub fn item_factory() -> SignalListItemFactory {
             if let Some(item) = li.item() {
                 // li.child().expect("no child").set_css_classes(&vec!["branch_row"]);
                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                debug!(
+                // looks like it works only first time.
+                // set_selected_pos from outside does not
+                // trigger it
+                trace!(
                     "item in connect selected {:?} {:?} {:?}",
                     branch_item.title(),
                     branch_item.initial_focus(),
