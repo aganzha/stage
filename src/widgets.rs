@@ -1,11 +1,11 @@
 use async_channel::Sender;
 use libadwaita::prelude::*;
-use libadwaita::{MessageDialog, ResponseAppearance};
+use libadwaita::{MessageDialog, ResponseAppearance, AlertDialog};
 
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
-
-use gtk4::{AlertDialog as GTK4AlertDialog, Widget, Window as Gtk4Window};
+use gtk4::prelude::*;
+use gtk4::{AlertDialog as GTK4AlertDialog, Widget, Window as Gtk4Window, gio};
 
 pub fn display_error(
     w: &impl IsA<Gtk4Window>, // Application
@@ -120,4 +120,50 @@ macro_rules! with_git2ui_error {
             dialog.choose($window, None::<&gio::Cancellable>, |_response| {});
         });
     };
+}
+
+
+pub trait AlertError {
+    fn error(&self) -> (String, String);
+}
+
+impl AlertError for git2::Error {
+    fn error(&self) -> (String, String) {
+        (
+            String::from("<span color=\"#ff0000\">Git error</span>"),
+            String::from(format!(
+                "class: {:?}\ncode: {:?}\n{}",
+                self.class(),
+                self.code(),
+                self.message()
+            ))  
+        )
+    }    
+}
+impl AlertError for String {
+    fn error(&self) -> (String, String) {
+        (
+            String::from("<span color=\"#ff0000\">Error</span>"),
+            String::from(self)
+        )
+    }
+}
+
+pub fn alert<E>(
+    err: E,
+    window: &impl IsA<Widget>,
+) where E: AlertError {
+    let (heading, body) = err.error();
+    let dialog = AlertDialog::builder()
+        .heading_use_markup(true)
+        .heading(heading)
+        .body_use_markup(true)
+        .body(body)
+        .build();
+    dialog.add_response("close", "close");
+    dialog.set_response_appearance(
+        "close",
+        ResponseAppearance::Destructive,
+    );
+    dialog.choose(window, None::<&gio::Cancellable>, |_response| {});
 }

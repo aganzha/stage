@@ -1,4 +1,5 @@
 use crate::git::commit;
+use crate::widgets::alert;
 use async_channel::Sender;
 use core::time::Duration;
 use git2::Oid;
@@ -155,10 +156,11 @@ impl CommitList {
     pub fn new() -> Self {
         Object::builder().build()
     }
-    pub fn get_commits_inside(&self, repo_path: PathBuf, mut start_oid: Option<Oid>) {
+    pub fn get_commits_inside(&self, repo_path: PathBuf, mut start_oid: Option<Oid>, widget: &impl IsA<Widget>) {
         glib::spawn_future_local({
             let commit_list = self.clone();
             let repo_path = repo_path.clone();
+            let widget = widget.clone();
             async move {
                 let list_le = commit_list.imp().list.borrow().len() as u32;
                 let mut scroll = false;
@@ -173,9 +175,16 @@ impl CommitList {
 
                 let commits = gio::spawn_blocking(move || {
                     commit::revwalk(repo_path, start_oid, None)
-                })
-                .await
-                .expect("cant get commits");
+                }).await.unwrap_or_else(|e| {
+                    alert(format!("{:?}", e), &widget);
+                    Ok(Vec::new())
+                }).unwrap_or_else(|e| {
+                    alert(e, &widget);
+                    Vec::new()
+                });
+                if commits.is_empty() {
+                    return;
+                }
                 let mut added = 0;
                 for item in commits.into_iter().map(CommitItem::new) {
                     if scroll {
@@ -212,16 +221,25 @@ impl CommitList {
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
     }
 
-    pub fn search(&self, term: String, repo_path: PathBuf) {
+    pub fn search(&self, term: String, repo_path: PathBuf, widget: &impl IsA<Widget>) {
         glib::spawn_future_local({
             let commit_list = self.clone();
             let repo_path = repo_path.clone();
+            let widget = widget.clone();
             async move {
                 let commits = gio::spawn_blocking(move || {
                     commit::revwalk(repo_path, None, Some(term))
-                })
-                .await
-                .expect("cant get commits");
+                }).await.unwrap_or_else(|e| {
+                    alert(format!("{:?}", e), &widget);
+                    Ok(Vec::new())
+                }).unwrap_or_else(|e| {
+                    alert(e, &widget);
+                    Vec::new()
+                });
+                // check commit len!
+                if commits.is_empty() {
+                    return;
+                }
                 let orig_le = commit_list.imp().list.borrow().len();
                 commit_list
                     .imp()
@@ -460,7 +478,7 @@ pub fn headerbar_factory(
                 commit_list.reset_search();
                 single_selection.set_can_unselect(false);
             } else {
-                commit_list.search(term, repo_path.clone());
+                commit_list.search(term, repo_path.clone(), &list_view);
             }
         }),
     );
@@ -500,7 +518,7 @@ pub fn show_log_window(
             }
             let list_view = scroll.child().unwrap();
             let list_view = list_view.downcast_ref::<ListView>().unwrap();
-            get_commit_list(list_view).get_commits_inside(repo_path.clone(), None);
+            get_commit_list(list_view).get_commits_inside(repo_path.clone(), None, list_view);
         }
     });
     scroll.set_child(Some(&list_view));
@@ -546,7 +564,7 @@ pub fn show_log_window(
     window.present();
     debug!("grab list focus");
     list_view.grab_focus();
-    get_commit_list(&list_view).get_commits_inside(repo_path.clone(), start_oid);
+    get_commit_list(&list_view).get_commits_inside(repo_path.clone(), start_oid, &list_view);
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             match event {

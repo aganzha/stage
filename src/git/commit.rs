@@ -91,20 +91,20 @@ pub fn revwalk(
     path: PathBuf,
     start: Option<git2::Oid>,
     search_term: Option<String>,
-) -> Vec<CommitDiff> {
-    let repo = git2::Repository::open(path.clone()).expect("cant open repo");
-    let mut revwalk = repo.revwalk().expect("cant get revwalk");
-    revwalk.simplify_first_parent().expect("cant simplify");
+) -> Result<Vec<CommitDiff>, git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
+    let mut revwalk = repo.revwalk()?;
+    revwalk.simplify_first_parent()?;
     let mut i = 0;
     if let Some(oid) = start {
-        revwalk.push(oid).expect("cant push oid to revlog");
+        revwalk.push(oid)?;
     } else {
-        revwalk.push_head().expect("no head for refwalk?");
+        revwalk.push_head()?;
     }
     let mut result: Vec<CommitDiff> = Vec::new();
     for oid in revwalk {
         let oid = oid.expect("no oid in rev");
-        let commit = repo.find_commit(oid).expect("can't find commit");
+        let commit = repo.find_commit(oid)?;
         if let Some(ref term) = search_term {
             let mut found = false;
             for el in [
@@ -126,7 +126,7 @@ pub fn revwalk(
             break;
         }
     }
-    result
+    Ok(result)
 }
 
 pub fn macro_test() -> Result<String, git2::Error> {
