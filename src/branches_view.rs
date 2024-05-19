@@ -267,7 +267,7 @@ impl BranchList {
                     passed = false;
                     branch::BranchData::default()
                 });
-                if passed {
+                if !passed {
                     info!("branch. exit after error");
                     return;
                 }
