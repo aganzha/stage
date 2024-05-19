@@ -8,7 +8,7 @@ use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, Box, EventControllerKey, GestureClick, Label,
     ListItem, ListView, Orientation, PositionType, ScrolledWindow, SearchBar,
-    SearchEntry, SignalListItemFactory, SingleSelection, Widget,
+    SearchEntry, SignalListItemFactory, SingleSelection, Widget, Window as Gtk4Window
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
@@ -471,7 +471,8 @@ pub fn headerbar_factory(
 
 pub fn show_log_window(
     repo_path: PathBuf,
-    app_window: &ApplicationWindow,
+    app_window: &impl IsA<Gtk4Window>,
+    // app_window: &ApplicationWindow,
     _head: String,
     main_sender: Sender<crate::Event>,
     start_oid: Option<Oid>
@@ -514,14 +515,19 @@ pub fn show_log_window(
     let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
         let window = window.clone();
+        let main_sender = main_sender.clone();
         // let sender = sender.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
                     window.close();
+                    // main_sender.send_blocking(crate::Event::OverlayClosed)
+                    //     .expect("cant send through channel");
                 }
                 (gdk::Key::Escape, _) => {
                     window.close();
+                    // main_sender.send_blocking(crate::Event::OverlayClosed)
+                    //     .expect("cant send through channel");
                 }
                 (gdk::Key::s, _) => {
                     let search_bar = hb.title_widget().unwrap();
