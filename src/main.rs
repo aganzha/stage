@@ -39,7 +39,7 @@ use git2::Oid;
 mod widgets;
 use widgets::{
     confirm_dialog_factory, display_error, merge_dialog_factory, ABORT, OURS,
-    THEIRS,
+    THEIRS
 };
 
 use gdk::Display;

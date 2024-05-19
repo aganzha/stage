@@ -85,3 +85,23 @@ pub fn merge_dialog_factory(
     dialog
 }
 
+#[macro_export]
+macro_rules! with_git2ui_error {
+    ($func: expr, $success: expr, $window: expr) => {
+        glib::spawn_future_local(async move {
+            let result = gio::spawn_blocking($func).await;
+            if let Ok(result) = result {
+                match result {
+                    Ok(some) => {
+                        $success(some);
+                    }
+                    Err(err) => {
+                        crate::display_error($window, err.message());
+                    }
+                }
+            } else {
+                crate::display_error($window, "Error while access repository");
+            }
+        });
+    }
+}

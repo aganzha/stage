@@ -1876,3 +1876,4 @@ pub fn debug(path: PathBuf) {
     let repo = Repository::open(path.clone()).expect("cant open repo");
     repo.cleanup_state().expect("cant cleanup state");
 }
+

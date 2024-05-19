@@ -3,6 +3,7 @@ use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use crate::git::{Diff, DiffKind, make_diff};
 use git2;
+use log::debug;
 
 pub fn commit_dt(c: &git2::Commit) -> DateTime<FixedOffset> {
     let tz = FixedOffset::east_opt(c.time().offset_minutes() * 60).unwrap();
@@ -119,4 +120,11 @@ pub fn revwalk(
         }
     }
     result
+}
+
+
+pub fn macro_test() -> Result<String, git2::Error> {
+    debug!("thats macro test!");
+    // Ok(String::from("return from macro"))
+    Err(git2::Error::from_str("thats git error"))
 }

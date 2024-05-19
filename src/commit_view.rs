@@ -1,6 +1,6 @@
 use crate::status_view::container::ViewContainer;
 use crate::git::commit;
-use crate::Event;
+use crate::{Event, with_git2ui_error};
 use std::cell::RefCell;
 // use crate::{get_commit_diff, CommitDiff, Event, StatusRenderContext};
 use async_channel::Sender;
@@ -99,28 +99,16 @@ pub fn show_commit_window(
 
     let mut main_diff: Option<commit::CommitDiff> = None;
 
-    glib::spawn_future_local(async move {
-        let result = gio::spawn_blocking({
-            let path = repo_path.clone();
-            move || {                
-                commit::get_commit_diff(path, oid)
-            }
-        }).await;
-        if let Ok(result) = result {
-            match result {
-                Ok(diff) => {
-                    sender
-                        .send_blocking(Event::CommitDiff(diff))
-                        .expect("Could not send through channel");
-                },
-                Err(err) => {
-                    crate::display_error(&window, err.message());
-                }
-            }
-        } else {
-            crate::display_error(&window, "Error while display commit view");
-        }
-    });
+    let path = repo_path.clone();
+    with_git2ui_error!(
+        move || commit::get_commit_diff(path, oid),
+        |diff| {
+            sender
+                .send_blocking(Event::CommitDiff(diff))
+                .expect("Could not send through channel");
+        },
+        &window.clone()
+    );
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
