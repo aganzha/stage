@@ -22,7 +22,7 @@ use std::rc::Rc;
 pub fn headerbar_factory(
     _repo_path: PathBuf,
     _oid: Oid,
-    _sender: Sender<Event>,
+    // _sender: Sender<Event>,
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
     let lbl = Label::builder()
@@ -34,6 +34,10 @@ pub fn headerbar_factory(
     hb.set_show_end_title_buttons(true);
     hb.set_show_back_button(true);
     hb
+}
+
+pub enum CommitViewEvent {
+    CommitDiff(commit::CommitDiff)
 }
 
 pub fn show_commit_window(
@@ -54,7 +58,7 @@ pub fn show_commit_window(
 
     let scroll = ScrolledWindow::new();
 
-    let hb = headerbar_factory(repo_path.clone(), oid, sender.clone());
+    let hb = headerbar_factory(repo_path.clone(), oid);
 
     let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
     let txt = crate::textview_factory(sender.clone(), text_view_width.clone());
@@ -105,14 +109,11 @@ pub fn show_commit_window(
         if let Ok(result) = result {
             match result {
                 Ok(diff) => {
-                    // CommitDiff
-                    debug!("ooooooooook {:?}", diff);
                     sender
                         .send_blocking(Event::CommitDiff(diff))
                         .expect("Could not send through channel");
                 },
                 Err(err) => {
-                    // git2::Error
                     crate::display_error(&window, err.message());
                 }
             }
