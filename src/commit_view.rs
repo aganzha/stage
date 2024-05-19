@@ -10,10 +10,10 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, EventControllerKey, Label, ScrolledWindow,
-    Window as Gtk4Window,
+    Window as Gtk4Window, AlertDialog
 };
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, ToolbarView, Window};
+use libadwaita::{HeaderBar, ToolbarView, Window};//AlertDialog
 use log::debug;
 
 use std::path::{PathBuf};
