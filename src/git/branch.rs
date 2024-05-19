@@ -211,11 +211,11 @@ pub fn kill_branch(
     path: PathBuf,
     branch_data: BranchData,
     _sender: Sender<crate::Event>,
-) -> Result<(), String> {
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
+) -> Result<(), git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
     let name = &branch_data.name;
     let kind = branch_data.branch_type;
-    let mut branch = repo.find_branch(name, kind).expect("can't find branch");
+    let mut branch = repo.find_branch(name, kind)?;
     if kind == git2::BranchType::Remote {
         gio::spawn_blocking({
             let path = path.clone();
@@ -239,16 +239,6 @@ pub fn kill_branch(
             }
         });
     }
-
-    let result = branch.delete();
-    if let Err(err) = result {
-        trace!(
-            "err on checkout {:?} {:?} {:?}",
-            err.code(),
-            err.class(),
-            err.message()
-        );
-        return Err(String::from(err.message()));
-    }
+    branch.delete()?;
     Ok(())
 }

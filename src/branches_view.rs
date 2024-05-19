@@ -505,70 +505,67 @@ impl BranchList {
                 }
                 let kind = branch_data.branch_type;
                 let name = branch_data.name.clone();
-                let result = gio::spawn_blocking(move || {
+                gio::spawn_blocking(move || {
                     branch::kill_branch(repo_path, branch_data, sender)
-                }).await;
-                let mut err_message = String::from("git error");
-                if let Ok(git_result) = result {
-                    match git_result {
-                        Ok(_) => {
-                            {
-                                // put borrow in block
-                                branch_list.imp().list.borrow_mut().remove(pos as usize);
-                                branch_list.imp().original_list.borrow_mut().retain(|bi| {
-                                    bi.imp().branch.borrow().name != name
-                                });
-                                if kind == BranchType::Local {
-                                    let mut pos = branch_list.imp().remote_start_pos.borrow_mut();
-                                    if let Some(mut rem_pos) = *pos {
-                                        rem_pos -= 1;
-                                        pos.replace(rem_pos);
-                                        debug!("branches.replace rem pos {:?} {:?}", rem_pos, pos);
-                                    }
-                                }
-                            }
-                            let shifted_item = branch_list.item(pos);
-                            debug!("branches. removed item at pos {:?}", pos);
-                            let mut new_pos = pos;
-                            if let Some(item) = shifted_item {
-                                debug!("branches.shift item");
-                                // next item in list will shift to this position
-                                // and must get focus
-                                let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                                branch_item.set_initial_focus(true);
-                                // if not select new_pos there will be panic in transform_to
-                                // there will be no value (no item) in selected-item
-                                // during items_changed
-                                branch_list.set_selected_pos(0);
-                            } else {
-                                new_pos = {
-                                    if pos > 1 {
-                                        pos - 1
-                                    } else {
-                                        0
-                                    }
-                                };
-                                debug!("branches.got last item. decrement pos {:?}", new_pos);
-                                let prev_item = branch_list.item(new_pos).unwrap();
-                                let branch_item = prev_item.downcast_ref::<BranchItem>().unwrap();
-                                branch_item.set_initial_focus(true);
-                                branch_list.set_selected_pos(new_pos);
-                            }
-                            debug!("call items cganged with pos {:?}. new pos will be {:?}", pos, new_pos);
-                            branch_list.items_changed(pos, 1, 0);
-                            // restore selected position to next one
-                            // will will get focus
-                            // when delete LAST list item, next expr has no effect:
-                            // there will be item with overflown position
-                            // connect_selected_notify and cursor will jump
-                            // to first position
-                            branch_list.set_selected_pos(new_pos);
-                            return;
+                }).await.unwrap_or_else(|e| {
+                    alert(format!("{:?}", e), &window);
+                    Ok(())
+                }).unwrap_or_else(|e| {
+                    alert(e, &window);
+                    ()
+                });
+                // how to return?
+                {
+                    // put borrow in block
+                    branch_list.imp().list.borrow_mut().remove(pos as usize);
+                    branch_list.imp().original_list.borrow_mut().retain(|bi| {
+                        bi.imp().branch.borrow().name != name
+                    });
+                    if kind == BranchType::Local {
+                        let mut pos = branch_list.imp().remote_start_pos.borrow_mut();
+                        if let Some(mut rem_pos) = *pos {
+                            rem_pos -= 1;
+                            pos.replace(rem_pos);
+                            debug!("branches.replace rem pos {:?} {:?}", rem_pos, pos);
                         }
-                        Err(err) => err_message = err
                     }
                 }
-                crate::display_error(&window, &err_message);
+                let shifted_item = branch_list.item(pos);
+                debug!("branches. removed item at pos {:?}", pos);
+                let mut new_pos = pos;
+                if let Some(item) = shifted_item {
+                    debug!("branches.shift item");
+                    // next item in list will shift to this position
+                    // and must get focus
+                    let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+                    branch_item.set_initial_focus(true);
+                    // if not select new_pos there will be panic in transform_to
+                    // there will be no value (no item) in selected-item
+                    // during items_changed
+                    branch_list.set_selected_pos(0);
+                } else {
+                    new_pos = {
+                        if pos > 1 {
+                            pos - 1
+                        } else {
+                            0
+                        }
+                    };
+                    debug!("branches.got last item. decrement pos {:?}", new_pos);
+                    let prev_item = branch_list.item(new_pos).unwrap();
+                    let branch_item = prev_item.downcast_ref::<BranchItem>().unwrap();
+                    branch_item.set_initial_focus(true);
+                    branch_list.set_selected_pos(new_pos);
+                }
+                debug!("call items cganged with pos {:?}. new pos will be {:?}", pos, new_pos);
+                branch_list.items_changed(pos, 1, 0);
+                // restore selected position to next one
+                // will will get focus
+                // when delete LAST list item, next expr has no effect:
+                // there will be item with overflown position
+                // connect_selected_notify and cursor will jump
+                // to first position
+                branch_list.set_selected_pos(new_pos);                
             })
         });
     }
