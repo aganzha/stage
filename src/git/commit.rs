@@ -67,7 +67,7 @@ impl CommitDiff {
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.diff.is_empty();
+        self.diff.is_empty()
     }
 }
 

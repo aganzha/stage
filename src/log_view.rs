@@ -9,10 +9,11 @@ use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, Box, EventControllerKey, GestureClick, Label,
     ListItem, ListView, Orientation, PositionType, ScrolledWindow, SearchBar,
-    SearchEntry, SignalListItemFactory, SingleSelection, Widget, Window as Gtk4Window
+    SearchEntry, SignalListItemFactory, SingleSelection, Widget,
+    Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
-use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
+use libadwaita::{HeaderBar, ToolbarView, Window};
 use log::{debug, info, trace};
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -156,7 +157,12 @@ impl CommitList {
     pub fn new() -> Self {
         Object::builder().build()
     }
-    pub fn get_commits_inside(&self, repo_path: PathBuf, mut start_oid: Option<Oid>, widget: &impl IsA<Widget>) {
+    pub fn get_commits_inside(
+        &self,
+        repo_path: PathBuf,
+        mut start_oid: Option<Oid>,
+        widget: &impl IsA<Widget>,
+    ) {
         glib::spawn_future_local({
             let commit_list = self.clone();
             let repo_path = repo_path.clone();
@@ -175,10 +181,13 @@ impl CommitList {
 
                 let commits = gio::spawn_blocking(move || {
                     commit::revwalk(repo_path, start_oid, None)
-                }).await.unwrap_or_else(|e| {
+                })
+                .await
+                .unwrap_or_else(|e| {
                     alert(format!("{:?}", e), &widget);
                     Ok(Vec::new())
-                }).unwrap_or_else(|e| {
+                })
+                .unwrap_or_else(|e| {
                     alert(e, &widget);
                     Vec::new()
                 });
@@ -221,7 +230,12 @@ impl CommitList {
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
     }
 
-    pub fn search(&self, term: String, repo_path: PathBuf, widget: &impl IsA<Widget>) {
+    pub fn search(
+        &self,
+        term: String,
+        repo_path: PathBuf,
+        widget: &impl IsA<Widget>,
+    ) {
         glib::spawn_future_local({
             let commit_list = self.clone();
             let repo_path = repo_path.clone();
@@ -229,10 +243,13 @@ impl CommitList {
             async move {
                 let commits = gio::spawn_blocking(move || {
                     commit::revwalk(repo_path, None, Some(term))
-                }).await.unwrap_or_else(|e| {
+                })
+                .await
+                .unwrap_or_else(|e| {
                     alert(format!("{:?}", e), &widget);
                     Ok(Vec::new())
-                }).unwrap_or_else(|e| {
+                })
+                .unwrap_or_else(|e| {
                     alert(e, &widget);
                     Vec::new()
                 });
@@ -493,7 +510,7 @@ pub fn show_log_window(
     // app_window: &ApplicationWindow,
     _head: String,
     main_sender: Sender<crate::Event>,
-    start_oid: Option<Oid>
+    start_oid: Option<Oid>,
 ) {
     let (sender, receiver) = async_channel::unbounded();
 
@@ -518,7 +535,11 @@ pub fn show_log_window(
             }
             let list_view = scroll.child().unwrap();
             let list_view = list_view.downcast_ref::<ListView>().unwrap();
-            get_commit_list(list_view).get_commits_inside(repo_path.clone(), None, list_view);
+            get_commit_list(list_view).get_commits_inside(
+                repo_path.clone(),
+                None,
+                list_view,
+            );
         }
     });
     scroll.set_child(Some(&list_view));
@@ -564,7 +585,11 @@ pub fn show_log_window(
     window.present();
     debug!("grab list focus");
     list_view.grab_focus();
-    get_commit_list(&list_view).get_commits_inside(repo_path.clone(), start_oid, &list_view);
+    get_commit_list(&list_view).get_commits_inside(
+        repo_path.clone(),
+        start_oid,
+        &list_view,
+    );
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             match event {

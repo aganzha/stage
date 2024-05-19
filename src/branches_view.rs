@@ -1,6 +1,6 @@
 use async_channel::Sender;
 
-use crate::git::{merge, branch};
+use crate::git::{branch, merge};
 use crate::widgets::alert;
 use git2::BranchType;
 use glib::{clone, closure, Object};
@@ -16,7 +16,7 @@ use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
 };
-use log::{debug, trace, info};
+use log::{debug, info, trace};
 use std::path::PathBuf;
 
 glib::wrapper! {
@@ -29,7 +29,7 @@ mod branch_item {
     use gtk4::prelude::*;
     use gtk4::subclass::prelude::*;
     use std::cell::RefCell;
-    
+
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::BranchItem)]
     pub struct BranchItem {
@@ -177,7 +177,7 @@ impl BranchList {
     pub fn new(_sender: Sender<crate::Event>) -> Self {
         Object::builder().build()
     }
-    
+
     pub fn search_new(&self, term: String) {
         let orig_le = self.imp().list.borrow().len();
         self.imp().list.borrow_mut().clear();
@@ -899,7 +899,7 @@ pub fn headerbar_factory(
     _repo_path: PathBuf,
     list_view: &ListView,
     sender: Sender<Event>,
-    main_sender: Sender<crate::Event>
+    main_sender: Sender<crate::Event>,
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
 
@@ -1033,7 +1033,7 @@ pub fn headerbar_factory(
         .icon_name("org.gnome.Logs-symbolic")
         .can_shrink(true)
         .build();
-    log_btn.connect_clicked(clone!(@weak list_view => move |e| {
+    log_btn.connect_clicked(clone!(@weak list_view => move |_e| {
         let (_current_branch, selected_branch) =
             branches_in_use(&list_view);
         let oid = selected_branch.oid;
@@ -1065,7 +1065,7 @@ pub enum Event {
     Merge,
     CherryPickRequest,
     UpdateRemote,
-    Log
+    Log,
 }
 
 pub fn get_branch_list(list_view: &ListView) -> BranchList {
@@ -1112,7 +1112,12 @@ pub fn show_branches_window(
 
     let list_view = listview_factory(repo_path.clone(), main_sender.clone());
 
-    let hb = headerbar_factory(repo_path.clone(), &list_view, sender.clone(), main_sender.clone());
+    let hb = headerbar_factory(
+        repo_path.clone(),
+        &list_view,
+        sender.clone(),
+        main_sender.clone(),
+    );
 
     scroll.set_child(Some(&list_view));
 
@@ -1204,7 +1209,11 @@ pub fn show_branches_window(
                     }
                     Event::Scroll(pos) => {
                         trace!("branches. scroll {:?}", pos);
-                        list_view.scroll_to(pos, ListScrollFlags::empty(), None);
+                        list_view.scroll_to(
+                            pos,
+                            ListScrollFlags::empty(),
+                            None,
+                        );
                     }
                     Event::Kill => {
                         trace!("branches. kill request");
@@ -1255,22 +1264,26 @@ pub fn show_branches_window(
                             ))
                             .build();
                         let branch_list = get_branch_list(&list_view);
-                        alert.choose(Some(&window), None::<&gio::Cancellable>, {
-                            let path = repo_path.clone();
-                            let window = window.clone();
-                            let sender = main_sender.clone();
-                            clone!(@weak branch_list => move |result| {
-                                if let Ok(ind) = result {
-                                    if ind == 1 {
-                                        branch_list.cherry_pick(
-                                            path,
-                                            &window,
-                                            sender
-                                        )
+                        alert.choose(
+                            Some(&window),
+                            None::<&gio::Cancellable>,
+                            {
+                                let path = repo_path.clone();
+                                let window = window.clone();
+                                let sender = main_sender.clone();
+                                clone!(@weak branch_list => move |result| {
+                                    if let Ok(ind) = result {
+                                        if ind == 1 {
+                                            branch_list.cherry_pick(
+                                                path,
+                                                &window,
+                                                sender
+                                            )
+                                        }
                                     }
-                                }
-                            })
-                        });
+                                })
+                            },
+                        );
                     }
                 }
             }

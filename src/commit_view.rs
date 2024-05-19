@@ -1,20 +1,21 @@
 use crate::context::StatusRenderContext;
 use crate::git::commit;
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
-use crate::{Event};
 use crate::widgets::alert;
+use crate::Event;
 use async_channel::Sender;
-use git2::{Oid};
+use git2::Oid;
 use std::cell::RefCell;
 
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, EventControllerKey, Label, ScrolledWindow, TextView, Window as Gtk4Window,
+    gdk, gio, glib, EventControllerKey, Label, ScrolledWindow, TextView,
+    Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    AlertDialog, HeaderBar, ResponseAppearance, ToolbarView, Window,
+    HeaderBar, ToolbarView, Window,
 };
 use log::debug;
 
@@ -120,10 +121,13 @@ pub fn show_commit_window(
         async move {
             let commit_diff = gio::spawn_blocking(move || {
                 commit::get_commit_diff(path, oid)
-            }).await.unwrap_or_else(|e| {
+            })
+            .await
+            .unwrap_or_else(|e| {
                 alert(format!("{:?}", e), &window);
                 Ok(commit::CommitDiff::default())
-            }).unwrap_or_else(|e| {
+            })
+            .unwrap_or_else(|e| {
                 alert(e, &window);
                 commit::CommitDiff::default()
             });
@@ -134,7 +138,7 @@ pub fn show_commit_window(
             }
         }
     });
-    
+
     let mut labels: [TextViewLabel; 6] = [
         TextViewLabel::from_string(&format!("commit: {:?}", oid)),
         TextViewLabel::from_string(""),
