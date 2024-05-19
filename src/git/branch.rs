@@ -132,30 +132,26 @@ pub fn checkout_branch(
     path: PathBuf,
     mut branch_data: BranchData,
     sender: Sender<crate::Event>,
-) -> BranchData {
+) -> Result<BranchData, git2::Error> {
     info!("checkout branch");
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let repo = git2::Repository::open(path.clone())?;
     let commit = repo
-        .find_commit(branch_data.oid)
-        .expect("can't find commit");
+        .find_commit(branch_data.oid)?;
 
     if branch_data.branch_type == git2::BranchType::Remote {
         // handle case when checkout remote branch and local branch
         // is ahead of remote
-        let head_ref = repo.head().expect("can't get head");
+        let head_ref = repo.head()?;
         assert!(head_ref.is_branch());
         let ob = head_ref
-            .peel(git2::ObjectType::Commit)
-            .expect("can't get commit from ref!");
-        let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+            .peel(git2::ObjectType::Commit)?;
+        let commit = ob.peel_to_commit()?;
         if repo
-            .graph_descendant_of(commit.id(), branch_data.oid)
-            .expect("error comparing commits")
+            .graph_descendant_of(commit.id(), branch_data.oid)?
         {
             debug!("skip checkout ancestor tree");
             let branch = git2::Branch::wrap(head_ref);
-            return BranchData::from_branch(branch, git2::BranchType::Local)
-                .expect("cant get branch");
+            return BranchData::from_branch(branch, git2::BranchType::Local);
         }
     }
     let mut builder = git2::build::CheckoutBuilder::new();
@@ -165,8 +161,7 @@ pub fn checkout_branch(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
 
-    repo.checkout_tree(commit.as_object(), Some(opts))
-        .expect("can't checkout tree");
+    repo.checkout_tree(commit.as_object(), Some(opts))?;        
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
@@ -178,26 +173,25 @@ pub fn checkout_branch(
                 repo.branch(&branch_data.local_name(), &commit, false);
             let mut branch = match created {
                 Ok(branch) => branch,
-                Err(_) => repo.find_branch(
-                    &branch_data.local_name(),
-                    git2::BranchType::Local
-                ).expect("branch was not created and not found among local branches")
+                Err(_) => 
+                    repo.find_branch(
+                        &branch_data.local_name(),
+                        git2::BranchType::Local
+                    )?                
             };
             branch
-                .set_upstream(Some(&branch_data.remote_name()))
-                .expect("cant set upstream");
-            branch_data = BranchData::from_branch(branch, git2::BranchType::Local)
-                .expect("cant get branch");
+                .set_upstream(Some(&branch_data.remote_name()))?;
+            branch_data = BranchData::from_branch(branch, git2::BranchType::Local)?;
         }
     }
-    repo.set_head(&branch_data.refname).expect("can't set head");
+    repo.set_head(&branch_data.refname)?;
     gio::spawn_blocking({
         move || {
             get_current_repo_status(Some(path), sender);
         }
     });
     branch_data.is_head = true;
-    branch_data
+    Ok(branch_data)
 }
 
 pub fn create_branch(
@@ -206,18 +200,16 @@ pub fn create_branch(
     need_checkout: bool,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
-) -> BranchData {
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
-    let commit = repo.find_commit(branch_data.oid).expect("cant find commit");
+) -> Result<BranchData, git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
+    let commit = repo.find_commit(branch_data.oid)?;
     let branch = repo
-        .branch(&new_branch_name, &commit, false)
-        .expect("cant create branch");
-    let branch_data = BranchData::from_branch(branch, git2::BranchType::Local)
-        .expect("cant get branch");
+        .branch(&new_branch_name, &commit, false)?;
+    let branch_data = BranchData::from_branch(branch, git2::BranchType::Local)?;
     if need_checkout {
         checkout_branch(path, branch_data, sender)
     } else {
-        branch_data
+        Ok(branch_data)
     }
 }
 
