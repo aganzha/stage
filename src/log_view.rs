@@ -1,9 +1,10 @@
+use crate::git::commit;
 use async_channel::Sender;
+use core::time::Duration;
 use git2::Oid;
 use glib::{clone, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
-use core::time::Duration;
 use gtk4::{
     gdk, gio, glib, pango, Box, EventControllerKey, GestureClick, Label,
     ListItem, ListView, Orientation, PositionType, ScrolledWindow, SearchBar,
@@ -11,23 +12,22 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
-use log::{info, trace, debug};
-use std::path::{PathBuf};
+use log::{debug, info, trace};
 use std::cell::RefCell;
+use std::path::PathBuf;
 use std::rc::Rc;
-use crate::git::commit;
 
 glib::wrapper! {
     pub struct CommitItem(ObjectSubclass<commit_item::CommitItem>);
 }
 
 mod commit_item {
+    use crate::git::commit;
     use glib::Properties;
     use gtk4::glib;
     use gtk4::prelude::*;
     use gtk4::subclass::prelude::*;
     use std::cell::RefCell;
-    use crate::git::commit;
 
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::CommitItem)]
@@ -181,7 +181,7 @@ impl CommitList {
                         if item.imp().commit.borrow().oid == oid {
                             break;
                         }
-                    }                    
+                    }
                     commit_list.imp().list.borrow_mut().push(item.clone());
                     added += 1;
                 }
@@ -351,23 +351,22 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
         );
         let focus = focus.clone();
         list_item.connect_selected_notify(move |li: &ListItem| {
-            glib::source::timeout_add_local(
-                Duration::from_millis(300),
-                {
-                    let focus = focus.clone();
-                    let li = li.clone();
-                    move || {
-                        debug!("item selected {:?}", *focus.borrow());
-                        if !*focus.borrow() {
-                            let first_child = li.child().unwrap();
-                            let first_child = first_child.downcast_ref::<Widget>().unwrap();
-                            let row = first_child.parent().unwrap();
-                            row.grab_focus();
-                            *focus.borrow_mut() = true;
-                        }
-                        glib::ControlFlow::Break
+            glib::source::timeout_add_local(Duration::from_millis(300), {
+                let focus = focus.clone();
+                let li = li.clone();
+                move || {
+                    debug!("item selected {:?}", *focus.borrow());
+                    if !*focus.borrow() {
+                        let first_child = li.child().unwrap();
+                        let first_child =
+                            first_child.downcast_ref::<Widget>().unwrap();
+                        let row = first_child.parent().unwrap();
+                        row.grab_focus();
+                        *focus.borrow_mut() = true;
                     }
-                });
+                    glib::ControlFlow::Break
+                }
+            });
         });
     });
 

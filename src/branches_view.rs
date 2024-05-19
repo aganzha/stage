@@ -16,7 +16,7 @@ use libadwaita::{
     ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
 };
 use log::{debug, trace};
-use std::path::{PathBuf};
+use std::path::PathBuf;
 
 glib::wrapper! {
     pub struct BranchItem(ObjectSubclass<branch_item::BranchItem>);

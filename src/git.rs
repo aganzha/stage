@@ -1,5 +1,5 @@
-pub mod merge;
 pub mod commit;
+pub mod merge;
 use crate::commit::{commit_dt, commit_string};
 
 use crate::gio;
@@ -7,7 +7,7 @@ use crate::gio;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
 
-use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
+use chrono::{DateTime, FixedOffset};
 use git2::build::CheckoutBuilder;
 use git2::{
     ApplyLocation, ApplyOptions, AutotagOption, Branch, BranchType,
@@ -23,7 +23,7 @@ use log::{debug, info, trace};
 use regex::Regex;
 use std::cmp::Ordering;
 //use std::time::SystemTime;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::{collections::HashSet, env, path, str};
 
 #[derive(Debug, Clone)]
@@ -946,7 +946,11 @@ pub fn get_parents_for_commit(path: PathBuf) -> Vec<Oid> {
     result
 }
 
-pub fn create_commit(path: PathBuf, message: String, sender: Sender<crate::Event>) {
+pub fn create_commit(
+    path: PathBuf,
+    message: String,
+    sender: Sender<crate::Event>,
+) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
 
@@ -1786,7 +1790,6 @@ pub fn track_changes(
     }
 }
 
-
 pub fn update_remote(
     path: PathBuf,
     _sender: Sender<crate::Event>,
@@ -1870,10 +1873,7 @@ pub fn checkout_oid(
     get_current_repo_status(Some(path), sender);
 }
 
-
-
 pub fn debug(path: PathBuf) {
     let repo = Repository::open(path.clone()).expect("cant open repo");
     repo.cleanup_state().expect("cant cleanup state");
 }
-

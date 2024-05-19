@@ -1,22 +1,23 @@
-use crate::status_view::{Label as TextViewLabel, container::ViewContainer};
-use crate::git::commit;
 use crate::context::StatusRenderContext;
-use crate::{Event, with_git2ui_error};
-use std::cell::RefCell;
+use crate::git::commit;
+use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
+use crate::{with_git2ui_error, Event};
 use async_channel::Sender;
-use git2::{Oid, Error as GitError};
+use git2::{Oid};
+use std::cell::RefCell;
 
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, EventControllerKey, Label, ScrolledWindow,
-    Window as Gtk4Window, TextBuffer, TextIter, TextView
+    gdk, gio, glib, EventControllerKey, Label, ScrolledWindow, TextView, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, ToolbarView, Window, AlertDialog, ResponseAppearance};
+use libadwaita::{
+    AlertDialog, HeaderBar, ResponseAppearance, ToolbarView, Window,
+};
 use log::debug;
 
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 
 pub fn headerbar_factory(
@@ -37,10 +38,11 @@ pub fn headerbar_factory(
 }
 
 impl commit::CommitDiff {
-    fn render(&mut self,
-              txt: &TextView,
-              ctx: &mut Option<&mut StatusRenderContext>,
-              labels: &mut[TextViewLabel]
+    fn render(
+        &mut self,
+        txt: &TextView,
+        ctx: &mut Option<&mut StatusRenderContext>,
+        labels: &mut [TextViewLabel],
     ) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
@@ -55,7 +57,7 @@ pub fn show_commit_window(
     repo_path: PathBuf,
     oid: Oid,
     app_window: &impl IsA<Gtk4Window>,
-    _main_sender: Sender<Event>,// i need that to trigger revert and cherry-pick.
+    _main_sender: Sender<Event>, // i need that to trigger revert and cherry-pick.
 ) {
     let (sender, receiver) = async_channel::unbounded();
 
@@ -134,10 +136,12 @@ pub fn show_commit_window(
             let mut ctx = crate::StatusRenderContext::new();
             ctx.screen_width.replace(*text_view_width.borrow());
             match event {
-                Event::CommitDiff(mut commit_diff) => {                    
-                    labels[1].content = format!("Author: {}", commit_diff.author);
-                    labels[2].content = format!("Date: {}", commit_diff.commit_dt);
-                    labels[4].content = format!("{}", commit_diff.message);
+                Event::CommitDiff(mut commit_diff) => {
+                    labels[1].content =
+                        format!("Author: {}", commit_diff.author);
+                    labels[2].content =
+                        format!("Date: {}", commit_diff.commit_dt);
+                    labels[4].content = commit_diff.message.to_string();
                     // hack to setup cursor
                     if !commit_diff.diff.files.is_empty() {
                         commit_diff.diff.files[0].view.current = true;
@@ -145,7 +149,8 @@ pub fn show_commit_window(
                     commit_diff.render(&txt, &mut Some(&mut ctx), &mut labels);
                     if !commit_diff.diff.files.is_empty() {
                         let buffer = txt.buffer();
-                        let iter = buffer.iter_at_line(labels.len() as i32).unwrap();
+                        let iter =
+                            buffer.iter_at_line(labels.len() as i32).unwrap();
                         buffer.place_cursor(&iter);
                     }
                     main_diff.replace(commit_diff);
@@ -154,7 +159,8 @@ pub fn show_commit_window(
                     if let Some(d) = &mut main_diff {
                         let mut need_render = false;
                         for file in &mut d.diff.files {
-                            need_render = need_render || file.expand(line_no).is_some();
+                            need_render =
+                                need_render || file.expand(line_no).is_some();
                             if need_render {
                                 break;
                             }
