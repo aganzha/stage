@@ -103,7 +103,7 @@ macro_rules! with_git2ui_error {
                     }
                 }
             }            
-            AlertDialog::builder().message("Git error").detail(detail).build().show(None::<&Window>);
+            AlertDialog::builder().message("Git error").detail(detail).build().show(Some($window));
         });
     }
 }
