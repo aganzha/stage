@@ -1,8 +1,8 @@
-use crate::status_view::container::ViewContainer;
+use crate::status_view::{Label as TextViewLabel, container::ViewContainer};
 use crate::git::commit;
+use crate::context::StatusRenderContext;
 use crate::{Event, with_git2ui_error};
 use std::cell::RefCell;
-// use crate::{get_commit_diff, CommitDiff, Event, StatusRenderContext};
 use async_channel::Sender;
 use git2::{Oid, Error as GitError};
 
@@ -10,7 +10,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, EventControllerKey, Label, ScrolledWindow,
-    Window as Gtk4Window
+    Window as Gtk4Window, TextBuffer, TextIter, TextView
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window, AlertDialog, ResponseAppearance};
@@ -34,6 +34,21 @@ pub fn headerbar_factory(
     hb.set_show_end_title_buttons(true);
     hb.set_show_back_button(true);
     hb
+}
+
+impl commit::CommitDiff {
+    fn render(&mut self,
+              txt: &TextView,
+              ctx: &mut Option<&mut StatusRenderContext>,
+              labels: &mut[TextViewLabel]
+    ) {
+        let buffer = txt.buffer();
+        let mut iter = buffer.iter_at_offset(0);
+        for l in labels {
+            l.render(&buffer, &mut iter, ctx)
+        }
+        self.diff.render(&buffer, &mut iter, ctx);
+    }
 }
 
 pub fn show_commit_window(
@@ -106,54 +121,44 @@ pub fn show_commit_window(
         &window.clone()
     );
 
+    let mut labels: [TextViewLabel; 6] = [
+        TextViewLabel::from_string(&format!("commit: {:?}", oid)),
+        TextViewLabel::from_string(""),
+        TextViewLabel::from_string(""),
+        TextViewLabel::from_string(""),
+        TextViewLabel::from_string(""),
+        TextViewLabel::from_string(""),
+    ];
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             let mut ctx = crate::StatusRenderContext::new();
             ctx.screen_width.replace(*text_view_width.borrow());
             match event {
-                Event::CommitDiff(mut commit_diff) => {
-                    if main_diff.is_none() {
-                        main_diff.replace(commit_diff.clone());
-                    }
-                    if let Some(d) = &mut main_diff {
-                        let buffer = txt.buffer();
-                        let mut iter = buffer.iter_at_offset(0);
-                        let ctx = &mut Some(&mut ctx);
-                        commit_diff.diff.enrich_view(&mut d.diff, &txt, ctx);
-                        d.diff.render(&buffer, &mut iter, ctx);
-                    }
+                Event::CommitDiff(mut commit_diff) => {                    
+                    labels[1].content = format!("Author: {}", commit_diff.author);
+                    labels[2].content = format!("Date: {}", commit_diff.commit_dt);
+                    labels[4].content = format!("{}", commit_diff.message);
+                    commit_diff.render(&txt, &mut Some(&mut ctx), &mut labels);
+                    main_diff.replace(commit_diff);
                 }
                 Event::Expand(_offset, line_no) => {
                     if let Some(d) = &mut main_diff {
-                        let buffer = txt.buffer();
-                        let mut iter = buffer.iter_at_offset(0);
                         let mut need_render = false;
                         for file in &mut d.diff.files {
-                            if let Some(_expanded_line) = file.expand(line_no)
-                            {
-                                need_render = true;
+                            need_render = need_render || file.expand(line_no).is_some();
+                            if need_render {
                                 break;
                             }
                         }
                         if need_render {
-                            d.diff.render(
-                                &buffer,
-                                &mut iter,
-                                &mut Some(&mut ctx),
-                            );
+                            d.render(&txt, &mut Some(&mut ctx), &mut labels);
                         }
                     }
                 }
                 Event::Cursor(_offset, line_no) => {
                     if let Some(d) = &mut main_diff {
                         if d.diff.cursor(line_no, false, &mut None) {
-                            let buffer = txt.buffer();
-                            let mut iter = buffer.iter_at_offset(0);
-                            d.diff.render(
-                                &buffer,
-                                &mut iter,
-                                &mut Some(&mut ctx),
-                            );
+                            d.render(&txt, &mut Some(&mut ctx), &mut labels);
                         }
                     }
                 }

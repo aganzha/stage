@@ -50,7 +50,9 @@ impl CommitDiff {
             oid: commit.id(),
             message: commit.message().unwrap_or("").replace('\n', ""),
             commit_dt: commit_dt(&commit),
-            author: String::from(commit.author().name().unwrap_or("")),
+            author: String::from(
+                format!("{} {}", commit.author().name().unwrap_or(""), commit.author().email().unwrap_or(""))
+            ),
             diff,
         }
     }
