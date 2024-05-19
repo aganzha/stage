@@ -44,7 +44,7 @@ use log::{debug, info, trace};
 
 #[derive(Debug, Clone, Default)]
 pub struct Label {
-    content: String,
+    pub content: String,
     view: View,
 }
 impl Label {
