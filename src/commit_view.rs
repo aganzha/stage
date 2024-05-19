@@ -138,7 +138,16 @@ pub fn show_commit_window(
                     labels[1].content = format!("Author: {}", commit_diff.author);
                     labels[2].content = format!("Date: {}", commit_diff.commit_dt);
                     labels[4].content = format!("{}", commit_diff.message);
+                    // hack to setup cursor
+                    if !commit_diff.diff.files.is_empty() {
+                        commit_diff.diff.files[0].view.current = true;
+                    }
                     commit_diff.render(&txt, &mut Some(&mut ctx), &mut labels);
+                    if !commit_diff.diff.files.is_empty() {
+                        let buffer = txt.buffer();
+                        let iter = buffer.iter_at_line(labels.len() as i32).unwrap();
+                        buffer.place_cursor(&iter);
+                    }
                     main_diff.replace(commit_diff);
                 }
                 Event::Expand(_offset, line_no) => {
