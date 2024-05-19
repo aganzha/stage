@@ -176,20 +176,6 @@ impl BranchList {
     pub fn new(_sender: Sender<crate::Event>) -> Self {
         Object::builder().build()
     }
-
-    pub fn set_focus(&self) {
-        debug!("EEEEEEEEEEEEEEEEEEEEEEEEEEEE set focus");
-        let selected_pos = self.selected_pos();
-        let selected_item = self.item(selected_pos).unwrap();
-        let selected_item = selected_item.downcast_ref::<BranchItem>().unwrap();
-        selected_item.set_initial_focus(true);
-        self.set_selected_pos(selected_pos);        
-        // let first_child = selected_item.child().unwrap();
-        // let first_child =
-        //     first_child.downcast_ref::<Widget>().unwrap();
-        // let row = first_child.parent().unwrap();
-        debug!("wtf?????????????? {:?}", selected_item);
-    }
     
     pub fn search_new(&self, term: String) {
         let orig_le = self.imp().list.borrow().len();
