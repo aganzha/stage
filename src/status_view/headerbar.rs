@@ -212,7 +212,8 @@ pub fn factory(
         let repo_selector = repo_selector.clone();
         move |data: HbUpdateData| match data {
             HbUpdateData::Path(path) => {
-                let repo_opener_label = repo_opener.last_child().unwrap();
+                let some_box = repo_opener.last_child().unwrap();
+                let repo_opener_label = some_box.last_child().unwrap();
                 let repo_opener_label =
                     repo_opener_label.downcast_ref::<Label>().unwrap();
                 let clean_path = path
