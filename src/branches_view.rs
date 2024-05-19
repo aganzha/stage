@@ -177,6 +177,20 @@ impl BranchList {
         Object::builder().build()
     }
 
+    pub fn set_focus(&self) {
+        debug!("EEEEEEEEEEEEEEEEEEEEEEEEEEEE set focus");
+        let selected_pos = self.selected_pos();
+        let selected_item = self.item(selected_pos).unwrap();
+        let selected_item = selected_item.downcast_ref::<BranchItem>().unwrap();
+        selected_item.set_initial_focus(true);
+        self.set_selected_pos(selected_pos);        
+        // let first_child = selected_item.child().unwrap();
+        // let first_child =
+        //     first_child.downcast_ref::<Widget>().unwrap();
+        // let row = first_child.parent().unwrap();
+        debug!("wtf?????????????? {:?}", selected_item);
+    }
+    
     pub fn search_new(&self, term: String) {
         let orig_le = self.imp().list.borrow().len();
         self.imp().list.borrow_mut().clear();
@@ -772,13 +786,14 @@ pub fn item_factory() -> SignalListItemFactory {
             if let Some(item) = li.item() {
                 // li.child().expect("no child").set_css_classes(&vec!["branch_row"]);
                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                trace!(
+                debug!(
                     "item in connect selected {:?} {:?} {:?}",
                     branch_item.title(),
                     branch_item.initial_focus(),
                     li.position()
                 );
                 if branch_item.initial_focus() {
+                    debug!(".......................................");
                     li.child().unwrap().grab_focus();
                     branch_item.set_initial_focus(false)
                 }
@@ -1078,7 +1093,7 @@ pub fn show_branches_window(
     repo_path: PathBuf,
     app_window: &ApplicationWindow,
     main_sender: Sender<crate::Event>,
-) {
+) -> Window {
     let (sender, receiver) = async_channel::unbounded();
 
     let window = Window::builder()
@@ -1106,7 +1121,7 @@ pub fn show_branches_window(
     event_controller.connect_key_pressed({
         let window = window.clone();
         let sender = sender.clone();
-        let main_sender = main_sender.clone();
+        // let main_sender = main_sender.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
@@ -1167,90 +1182,95 @@ pub fn show_branches_window(
     window.present();
     list_view.grab_focus();
 
-    glib::spawn_future_local(async move {
-        while let Ok(event) = receiver.recv().await {
-            match event {
-                Event::Create => {
-                    trace!("branches. got new branch name");
-                    let branch_list = get_branch_list(&list_view);
-                    branch_list.create_branch(
-                        repo_path.clone(),
-                        &window,
-                        sender.clone(),
-                        main_sender.clone(),
-                    );
-                }
-                Event::Scroll(pos) => {
-                    trace!("branches. scroll {:?}", pos);
-                    list_view.scroll_to(pos, ListScrollFlags::empty(), None);
-                }
-                Event::Kill => {
-                    trace!("branches. kill request");
-                    let branch_list = get_branch_list(&list_view);
-                    branch_list.kill_branch(
-                        repo_path.clone(),
-                        &window,
-                        main_sender.clone(),
-                    );
-                }
-                Event::Merge => {
-                    trace!("branches. merge");
-                    let branch_list = get_branch_list(&list_view);
-                    branch_list.merge(
-                        repo_path.clone(),
-                        &window,
-                        main_sender.clone(),
-                    )
-                }
-                Event::UpdateRemote => {
-                    trace!("branches. update remote");
-                    let branch_list = get_branch_list(&list_view);
-                    branch_list.update_remote(
-                        repo_path.clone(),
-                        &window,
-                        main_sender.clone(),
-                    )
-                }
-                Event::Log => {
-                    let (_current_branch, selected_branch) =
-                        branches_in_use(&list_view);
-                    let oid = selected_branch.oid;
-                    main_sender
-                        .send_blocking(crate::Event::Log(Some(oid)))
-                        .expect("cant send through sender");
-                }
-                Event::CherryPickRequest => {
-                    trace!("branches. cherry-pick request");
-                    let (current_branch, selected_branch) =
-                        branches_in_use(&list_view);
-                    let btns = vec!["Cancel", "Cherry-pick"];
-                    let alert = AlertDialog::builder()
-                        .buttons(btns)
-                        .message("Cherry picking")
-                        .detail(format!(
-                            "Cherry picing commit {:?} from branch {:?} onto branch {:?}",
-                            selected_branch.commit_string, selected_branch.name, current_branch.name
-                        ))
-                        .build();
-                    let branch_list = get_branch_list(&list_view);
-                    alert.choose(Some(&window), None::<&gio::Cancellable>, {
-                        let path = repo_path.clone();
-                        let window = window.clone();
-                        let sender = main_sender.clone();
-                        clone!(@weak branch_list => move |result| {
-                            if let Ok(ind) = result {
-                                if ind == 1 {
-                                    branch_list.cherry_pick(
-                                        path,
-                                        &window,
-                                        sender
-                                    )
+    glib::spawn_future_local({
+        let window = window.clone();
+        // let list_view = list_view.clone();
+        async move {
+            while let Ok(event) = receiver.recv().await {
+                match event {
+                    Event::Create => {
+                        trace!("branches. got new branch name");
+                        let branch_list = get_branch_list(&list_view);
+                        branch_list.create_branch(
+                            repo_path.clone(),
+                            &window,
+                            sender.clone(),
+                            main_sender.clone(),
+                        );
+                    }
+                    Event::Scroll(pos) => {
+                        trace!("branches. scroll {:?}", pos);
+                        list_view.scroll_to(pos, ListScrollFlags::empty(), None);
+                    }
+                    Event::Kill => {
+                        trace!("branches. kill request");
+                        let branch_list = get_branch_list(&list_view);
+                        branch_list.kill_branch(
+                            repo_path.clone(),
+                            &window,
+                            main_sender.clone(),
+                        );
+                    }
+                    Event::Merge => {
+                        trace!("branches. merge");
+                        let branch_list = get_branch_list(&list_view);
+                        branch_list.merge(
+                            repo_path.clone(),
+                            &window,
+                            main_sender.clone(),
+                        )
+                    }
+                    Event::UpdateRemote => {
+                        trace!("branches. update remote");
+                        let branch_list = get_branch_list(&list_view);
+                        branch_list.update_remote(
+                            repo_path.clone(),
+                            &window,
+                            main_sender.clone(),
+                        )
+                    }
+                    Event::Log => {
+                        let (_current_branch, selected_branch) =
+                            branches_in_use(&list_view);
+                        let oid = selected_branch.oid;
+                        main_sender
+                            .send_blocking(crate::Event::Log(Some(oid)))
+                            .expect("cant send through sender");
+                    }
+                    Event::CherryPickRequest => {
+                        trace!("branches. cherry-pick request");
+                        let (current_branch, selected_branch) =
+                            branches_in_use(&list_view);
+                        let btns = vec!["Cancel", "Cherry-pick"];
+                        let alert = AlertDialog::builder()
+                            .buttons(btns)
+                            .message("Cherry picking")
+                            .detail(format!(
+                                "Cherry picing commit {:?} from branch {:?} onto branch {:?}",
+                                selected_branch.commit_string, selected_branch.name, current_branch.name
+                            ))
+                            .build();
+                        let branch_list = get_branch_list(&list_view);
+                        alert.choose(Some(&window), None::<&gio::Cancellable>, {
+                            let path = repo_path.clone();
+                            let window = window.clone();
+                            let sender = main_sender.clone();
+                            clone!(@weak branch_list => move |result| {
+                                if let Ok(ind) = result {
+                                    if ind == 1 {
+                                        branch_list.cherry_pick(
+                                            path,
+                                            &window,
+                                            sender
+                                        )
+                                    }
                                 }
-                            }
-                        })
-                    });
+                            })
+                        });
+                    }
                 }
             }
         }
     });
+    window
 }

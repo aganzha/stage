@@ -8,7 +8,7 @@ use status_view::{
 };
 
 mod branches_view;
-use branches_view::show_branches_window;
+use branches_view::{show_branches_window, get_branch_list};
 
 mod log_view;
 use log_view::show_log_window;
@@ -46,13 +46,13 @@ use glib::{clone, ControlFlow};
 use libadwaita::prelude::*;
 use libadwaita::{
     Application, ApplicationWindow, Banner, OverlaySplitView, Toast,
-    ToastOverlay, ToolbarStyle, ToolbarView,
+    ToastOverlay, ToolbarStyle, ToolbarView, Window
 };
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
     CssProvider, Orientation, ScrolledWindow, Settings,
-    STYLE_PROVIDER_PRIORITY_APPLICATION,
+    STYLE_PROVIDER_PRIORITY_APPLICATION, ListView, ListItem, Widget
 };
 
 use log::info;
@@ -132,6 +132,7 @@ pub enum Event {
     PullUserPass,
     CheckoutError(Oid, String, String),
     LockMonitors(bool),
+    OverlayClosed
 }
 
 fn zoom(dir: bool) {
@@ -275,6 +276,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     status.get_status();
     window.present();
 
+    let mut overlay: Option<Window> = None;
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
@@ -349,23 +351,65 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     info!("main.pull");
                     status.pull(&window, None);
                 }
+                Event::OverlayClosed => {
+                    if let Some(overlay) = &overlay {
+                        info!("grab focus for overlay ====================> {:?}", overlay);
+                        // overlay.grab_focus();
+                        let li = GtkWindowExt::focus(overlay).unwrap();
+                        // let li =
+                        //     li.downcast_ref::<Widget>().unwrap();
+                        // let first_child = li.last_child().unwrap();
+                        // let first_child =
+                        //     first_child.downcast_ref::<Widget>().unwrap();
+                        // let row = first_child.parent().unwrap();
+                        //GtkWindowExt::set_focus(overlay, Some(&li));
+                        // overlay.set_focus(Some(&li));
+                        //li.grab_focus();
+                        // GtkWindowExt::emit_activate_focus(overlay);
+                        // GtkWindowExt::emit_activate_default(overlay);
+                        // GtkWindowExt::grab_focus(overlay);
+                        overlay.present();
+                        info!("GRAB!=================> {:?}", li);
+                        // let branch_list = get_branch_list(overlay);
+                        // branch_list.set_focus();
+                        // // info!("----------- {:?}", overlay.model().unwrap().selected_item());
+                        // overlay.grab_focus();
+                    }
+                }
                 Event::Branches => {
                     info!("main.braches");
-                    show_branches_window(
+                    let w = show_branches_window(
                         status.path.clone().expect("no path"),
                         &window,
                         sender.clone(),
                     );
+                    info!("overlay ------------------------> {:?}", &w);
+                    overlay.replace(w);                    
                 }
                 Event::Log(ooid) => {
                     info!("main.log");
-                    show_log_window(
-                        status.path.clone().expect("no path"),
-                        &window,
-                        status.head_title(),
-                        sender.clone(),
-                        ooid
-                    );
+                    // let w = if let Some(overlay) = overlay{
+                    //     overlay
+                    // } else {
+                    //     window as Window
+                    // };
+                    if let Some(ref overlay) = overlay{
+                        show_log_window(
+                            status.path.clone().expect("no path"),
+                            overlay,
+                            status.head_title(),
+                            sender.clone(),
+                            ooid
+                        );
+                    } else {
+                        show_log_window(
+                            status.path.clone().expect("no path"),
+                            &window,
+                            status.head_title(),
+                            sender.clone(),
+                            ooid
+                        );
+                    }
                 }
                 Event::Head(h) => {
                     info!("main. head");
