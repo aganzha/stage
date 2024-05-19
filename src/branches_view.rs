@@ -255,17 +255,19 @@ impl BranchList {
 
                 let branch_data = selected_item.imp().branch.borrow().clone();
                 let local = branch_data.branch_type == BranchType::Local;
-                // aganzha
+                let mut passed = true;
                 let new_branch_data = gio::spawn_blocking(move || {
                     branch::checkout_branch(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
                     alert(format!("{:?}", e), &window);
+                    passed = false;
                     Ok(branch::BranchData::default())
                 }).unwrap_or_else(|e| {
                     alert(e, &window);
+                    passed = false;
                     branch::BranchData::default()
                 });
-                if new_branch_data.oid == git2::Oid::zero() {
+                if passed {
                     info!("branch. exit after error");
                     return;
                 }
@@ -505,16 +507,21 @@ impl BranchList {
                 }
                 let kind = branch_data.branch_type;
                 let name = branch_data.name.clone();
+                let mut passed: bool = true;
                 gio::spawn_blocking(move || {
                     branch::kill_branch(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
                     alert(format!("{:?}", e), &window);
+                    passed = false;
                     Ok(())
                 }).unwrap_or_else(|e| {
                     alert(e, &window);
+                    passed = false;
                     ()
                 });
-                // how to return?
+                if !passed {
+                    return
+                }
                 {
                     // put borrow in block
                     branch_list.imp().list.borrow_mut().remove(pos as usize);
@@ -628,15 +635,21 @@ impl BranchList {
                 }
                 let new_branch_name = format!("{}", input.text());
                 let need_checkout = checkout.is_active();
+                let mut passed = true;
                 let branch_data = gio::spawn_blocking(move || {
                     branch::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
                     alert(format!("{:?}", e), &window);
+                    passed = false;
                     Ok(branch::BranchData::default())
                 }).unwrap_or_else(|e| {
                     alert(e, &window);
+                    passed = false;
                     branch::BranchData::default()
                 });
+                if !passed {
+                    return;
+                }
                 if branch_data.oid == git2::Oid::zero() {
                     info!("branch. exit after error");
                     return;
