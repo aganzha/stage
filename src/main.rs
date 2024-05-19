@@ -21,25 +21,24 @@ use commit_view::show_commit_window;
 
 use core::time::Duration;
 use std::cell::RefCell;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 
 mod git;
 use git::{
     apply_stash, checkout_branch, checkout_oid, cherry_pick, commit,
-    create_commit,
-    create_branch, debug as git_debug, drop_stash, get_branches,
-    get_current_repo_status, get_directories, kill_branch,
-    pull, push, reset_hard, stage_untracked, stage_via_apply,
-    stash_changes, track_changes, update_remote, ApplyFilter, ApplySubject,
-    BranchData, Diff, DiffKind, File, Head, Hunk, Line, LineKind,
-    StashData, Stashes, State, Untracked, UntrackedFile, View,
+    create_branch, create_commit, debug as git_debug, drop_stash,
+    get_branches, get_current_repo_status, get_directories, kill_branch, pull,
+    push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
+    track_changes, update_remote, ApplyFilter, ApplySubject, BranchData, Diff,
+    DiffKind, File, Head, Hunk, Line, LineKind, StashData, Stashes, State,
+    Untracked, UntrackedFile, View,
 };
 use git2::Oid;
 mod widgets;
 use widgets::{
     confirm_dialog_factory, display_error, merge_dialog_factory, ABORT, OURS,
-    THEIRS
+    THEIRS,
 };
 
 use gdk::Display;
@@ -315,8 +314,11 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 Event::Debug => {
                     info!("main. debug");
                     // status.debug(&txt);
-                    let oid = Oid::from_str("52b545f1440642aa1da26c573af6a54627a8420a").expect("no oid");// a
-                    
+                    let oid = Oid::from_str(
+                        "52b545f1440642aa1da26c573af6a54627a8420a",
+                    )
+                    .expect("no oid"); // a
+
                     show_commit_window(
                         status.path.clone().expect("no path"),
                         oid,

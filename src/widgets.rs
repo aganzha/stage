@@ -2,7 +2,6 @@ use async_channel::Sender;
 use libadwaita::prelude::*;
 use libadwaita::{MessageDialog, ResponseAppearance};
 
-
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 
@@ -95,14 +94,18 @@ macro_rules! with_git2ui_error {
                 match result {
                     Ok(some) => {
                         $success(some);
-                        return
+                        return;
                     }
                     Err(err) => {
-                        
-                        detail = String::from(format!("class: {:?}\ncode: {:?}\n{}", err.class(), err.code(), err.message()));
+                        detail = String::from(format!(
+                            "class: {:?}\ncode: {:?}\n{}",
+                            err.class(),
+                            err.code(),
+                            err.message()
+                        ));
                     }
                 }
-            }            
+            }
             let dialog = AlertDialog::builder()
                 .heading_use_markup(true)
                 .heading("<span color=\"#ff0000\">Git error</span>")
@@ -110,9 +113,11 @@ macro_rules! with_git2ui_error {
                 .body(detail)
                 .build();
             dialog.add_response("close", "close");
-            dialog.set_response_appearance("close", ResponseAppearance::Destructive);
-            dialog.choose($window, None::<&gio::Cancellable>, |_response| {
-            });
+            dialog.set_response_appearance(
+                "close",
+                ResponseAppearance::Destructive,
+            );
+            dialog.choose($window, None::<&gio::Cancellable>, |_response| {});
         });
-    }
+    };
 }
