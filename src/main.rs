@@ -26,19 +26,19 @@ use std::rc::Rc;
 
 mod git;
 use git::{
-    apply_stash, checkout_branch, checkout_oid, cherry_pick, commit,
-    create_branch, create_commit, debug as git_debug, drop_stash,
-    get_branches, get_current_repo_status, get_directories, kill_branch, pull,
+    apply_stash, checkout_oid, cherry_pick, commit, branch,
+    create_commit, debug as git_debug, drop_stash,
+    get_current_repo_status, get_directories, pull,
     push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, update_remote, ApplyFilter, ApplySubject, BranchData, Diff,
+    track_changes, update_remote, ApplyFilter, ApplySubject, Diff,
     DiffKind, File, Head, Hunk, Line, LineKind, StashData, Stashes, State,
     Untracked, UntrackedFile, View,
 };
 use git2::Oid;
 mod widgets;
 use widgets::{
-    confirm_dialog_factory, display_error, merge_dialog_factory, ABORT, OURS,
-    THEIRS,
+    confirm_dialog_factory, merge_dialog_factory, ABORT, OURS, display_error, 
+    THEIRS, alert
 };
 
 use gdk::Display;
@@ -330,10 +330,11 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 Event::Commit => {
                     info!("main.commit");
                     if !status.has_staged() {
-                        display_error(
-                            &window,
-                            "No changes were staged. Stage by hitting 's'",
-                        );
+                        alert(String::from("No changes were staged. Stage by hitting 's'"), &txt);
+                        // display_error(
+                        //     &window,
+                        //     "No changes were staged. Stage by hitting 's'",
+                        // );
                     } else {
                         status.commit(&window);
                     }

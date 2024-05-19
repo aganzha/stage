@@ -32,7 +32,7 @@ mod branch_item {
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::BranchItem)]
     pub struct BranchItem {
-        pub branch: RefCell<crate::BranchData>,
+        pub branch: RefCell<crate::branch::BranchData>,
 
         #[property(get, set)]
         pub initial_focus: RefCell<bool>,
@@ -76,7 +76,7 @@ mod branch_item {
 }
 
 impl BranchItem {
-    pub fn new(branch: crate::BranchData) -> Self {
+    pub fn new(branch: crate::branch::BranchData) -> Self {
         let ref_kind = {
             match branch.branch_type {
                 BranchType::Local => String::from("Branches"),
@@ -200,8 +200,8 @@ impl BranchList {
     pub fn get_branches(&self, repo_path: PathBuf) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list => async move {
-                let branches: Vec<crate::BranchData> = gio::spawn_blocking(move || {
-                    crate::get_branches(repo_path)
+                let branches: Vec<crate::branch::BranchData> = gio::spawn_blocking(move || {
+                    crate::branch::get_branches(repo_path)
                 }).await.expect("Task needs to finish successfully.");
 
                 let items: Vec<BranchItem> = branches.into_iter()
@@ -254,8 +254,9 @@ impl BranchList {
 
                 let branch_data = selected_item.imp().branch.borrow().clone();
                 let local = branch_data.branch_type == BranchType::Local;
+                // aganzha
                 let new_branch_data = gio::spawn_blocking(move || {
-                    crate::checkout_branch(repo_path, branch_data, sender)
+                    crate::branch::checkout_branch(repo_path, branch_data, sender)
                 }).await;
                 if let Ok(new_branch_data) = new_branch_data {
                     if local {
@@ -282,7 +283,6 @@ impl BranchList {
                                     branch_item.imp().branch.replace(new_branch_data);
                                     branch_item.set_initial_focus(true);
                                     branch_item.set_is_head(true);
-                                    debug!("sselected pos 222222222222222222 {:?}", i);
                                     branch_list.set_selected_pos(i);
                                     return;
                                 }
@@ -319,7 +319,7 @@ impl BranchList {
         }
     }
 
-    pub fn update_current_branch(&self, branch_data: crate::BranchData) {
+    pub fn update_current_branch(&self, branch_data: crate::branch::BranchData) {
         for branch_item in self.imp().original_list.borrow().iter() {
             debug!(
                 "HEAD in original list {:?} {:?}",
@@ -354,7 +354,7 @@ impl BranchList {
         }
     }
 
-    pub fn get_selected_branch(&self) -> crate::BranchData {
+    pub fn get_selected_branch(&self) -> crate::branch::BranchData {
         let pos = self.selected_pos();
         // TODO! got panic here while opening large
         // list of branches and clicking create
@@ -364,7 +364,7 @@ impl BranchList {
         data
     }
 
-    pub fn get_current_branch(&self) -> Option<crate::BranchData> {
+    pub fn get_current_branch(&self) -> Option<crate::branch::BranchData> {
         let mut result = None;
         for branch_item in self.imp().list.borrow().iter() {
             if branch_item.is_head() {
@@ -497,7 +497,7 @@ impl BranchList {
                 let kind = branch_data.branch_type;
                 let name = branch_data.name.clone();
                 let result = gio::spawn_blocking(move || {
-                    crate::kill_branch(repo_path, branch_data, sender)
+                    crate::branch::kill_branch(repo_path, branch_data, sender)
                 }).await;
                 let mut err_message = String::from("git error");
                 if let Ok(git_result) = result {
@@ -623,7 +623,7 @@ impl BranchList {
                 let new_branch_name = format!("{}", input.text());
                 let need_checkout = checkout.is_active();
                 let result = gio::spawn_blocking(move || {
-                    crate::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
+                    crate::branch::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
                 }).await;
                 if let Ok(branch_data) = result {
                     branch_list.deactivate_current_branch();
@@ -635,7 +635,7 @@ impl BranchList {
         });
     }
 
-    fn add_new_branch_item(&self, branch_data: crate::BranchData) {
+    fn add_new_branch_item(&self, branch_data: crate::branch::BranchData) {
         let new_item = BranchItem::new(branch_data);
 
         let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
@@ -1064,7 +1064,7 @@ pub fn get_branch_list(list_view: &ListView) -> BranchList {
 
 pub fn branches_in_use(
     list_view: &ListView,
-) -> (crate::BranchData, crate::BranchData) {
+) -> (crate::branch::BranchData, crate::branch::BranchData) {
     let selection_model = list_view.model().unwrap();
     let single_selection =
         selection_model.downcast_ref::<SingleSelection>().unwrap();

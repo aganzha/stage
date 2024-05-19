@@ -12,9 +12,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::{
-    apply_stash as git_apply_stash, confirm_dialog_factory, display_error,
+    apply_stash as git_apply_stash, confirm_dialog_factory, // display_error,
     drop_stash, stash_changes, Event, StashData, Stashes, Status,
 };
+use crate::widgets::alert;
 use libadwaita::prelude::*;
 use libadwaita::{
     ActionRow, EntryRow, HeaderBar, PreferencesRow, SwitchRow, ToolbarStyle,
@@ -200,45 +201,45 @@ pub fn add_stash(
         clone!(@strong window as window,
                @strong stashes_box as stashes_box,
                @strong sender as sender => async move {
-            let lb = ListBox::builder()
-                .selection_mode(SelectionMode::None)
-                .css_classes(vec![
-                    String::from("boxed-list"),
-                ])
-                .build();
-            let input = EntryRow::builder()
-                .title("Stash message:")
-                .css_classes(vec!["input_field"])
-                .build();
-            let staged = SwitchRow::builder()
-             .title("Include staged changes")
-             .css_classes(vec!["input_field"])
-             .active(true)
-                .build();
+                   let lb = ListBox::builder()
+                       .selection_mode(SelectionMode::None)
+                       .css_classes(vec![
+                           String::from("boxed-list"),
+                       ])
+                       .build();
+                   let input = EntryRow::builder()
+                       .title("Stash message:")
+                       .css_classes(vec!["input_field"])
+                       .build();
+                   let staged = SwitchRow::builder()
+                       .title("Include staged changes")
+                       .css_classes(vec!["input_field"])
+                       .active(true)
+                       .build();
 
-            lb.append(&input);
-            lb.append(&staged);
+                   lb.append(&input);
+                   lb.append(&staged);
 
-            let dialog = confirm_dialog_factory(
-                &window,
-                Some(&lb),
-                "Stash changes",
-                "Stash changes"
-            );
-            input.connect_apply(clone!(@strong dialog as dialog => move |_| {
-                // someone pressed enter
-                dialog.response("confirm");
-                dialog.close();
-            }));
-            input.connect_entry_activated(clone!(@strong dialog as dialog => move |_| {
-                // someone pressed enter
-                dialog.response("confirm");
-                dialog.close();
-            }));
-            if "confirm" != dialog.choose_future().await {
-                return;
-            }
-            let stash_message = format!("{}", input.text());
+                   let dialog = confirm_dialog_factory(
+                       &window,
+                       Some(&lb),
+                       "Stash changes",
+                       "Stash changes"
+                   );
+                   input.connect_apply(clone!(@strong dialog as dialog => move |_| {
+                       // someone pressed enter
+                       dialog.response("confirm");
+                       dialog.close();
+                   }));
+                   input.connect_entry_activated(clone!(@strong dialog as dialog => move |_| {
+                       // someone pressed enter
+                       dialog.response("confirm");
+                       dialog.close();
+                   }));
+                   if "confirm" != dialog.choose_future().await {
+                       return;
+                   }
+                   let stash_message = format!("{}", input.text());
                    let stash_staged = staged.is_active();
                    let result = gio::spawn_blocking({
                        let sender = sender.clone();
@@ -249,9 +250,10 @@ pub fn add_stash(
                    if let Ok(stashes) = result {
                        adopt_stashes(&stashes_box, stashes, sender, None);
                    } else {
-                       display_error(&window, "cant create stash");
+                       alert(String::from("cant create stash"), &stashes_box);
+                       // display_error(&window, "cant create stash");
                    }
-        })
+               })
     });
 }
 
