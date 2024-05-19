@@ -6,13 +6,13 @@ use libadwaita::{MessageDialog, ResponseAppearance};
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 
-use gtk4::{AlertDialog, Widget, Window as Gtk4Window};
+use gtk4::{AlertDialog as GTK4AlertDialog, Widget, Window as Gtk4Window};
 
 pub fn display_error(
     w: &impl IsA<Gtk4Window>, // Application
     message: &str,
 ) {
-    let d = AlertDialog::builder().message(message).build();
+    let d = GTK4AlertDialog::builder().message(message).build();
     d.show(Some(w));
 }
 
@@ -103,7 +103,19 @@ macro_rules! with_git2ui_error {
                     }
                 }
             }            
-            AlertDialog::builder().message("Git error").detail(detail).build().show(Some($window));
+            let dialog = AlertDialog::builder()
+                .heading_use_markup(true)
+                .heading("<span color=\"#ff0000\">Git error</span>")
+                .body_use_markup(true)
+                .body(detail)
+                .close_response("close")
+                .default_response("close")
+                .build();
+            dialog.add_response("close", "close");
+            dialog.set_response_appearance("close", ResponseAppearance::Destructive);
+            dialog.choose($window, None::<&gio::Cancellable>, |response| {
+                    debug!("whaaaaaaaaaaaaaaat? {:?}", response);
+                });
         });
     }
 }

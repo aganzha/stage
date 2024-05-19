@@ -10,10 +10,10 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, EventControllerKey, Label, ScrolledWindow,
-    Window as Gtk4Window, AlertDialog
+    Window as Gtk4Window
 };
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, ToolbarView, Window};//AlertDialog
+use libadwaita::{HeaderBar, ToolbarView, Window, AlertDialog, ResponseAppearance};
 use log::debug;
 
 use std::path::{PathBuf};
@@ -34,10 +34,6 @@ pub fn headerbar_factory(
     hb.set_show_end_title_buttons(true);
     hb.set_show_back_button(true);
     hb
-}
-
-pub enum CommitViewEvent {
-    CommitDiff(commit::CommitDiff)
 }
 
 pub fn show_commit_window(
