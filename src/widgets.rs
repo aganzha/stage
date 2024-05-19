@@ -84,3 +84,4 @@ pub fn merge_dialog_factory(
     dialog.set_response_appearance(ABORT, ResponseAppearance::Destructive);
     dialog
 }
+
