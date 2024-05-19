@@ -108,14 +108,11 @@ macro_rules! with_git2ui_error {
                 .heading("<span color=\"#ff0000\">Git error</span>")
                 .body_use_markup(true)
                 .body(detail)
-                .close_response("close")
-                .default_response("close")
                 .build();
             dialog.add_response("close", "close");
             dialog.set_response_appearance("close", ResponseAppearance::Destructive);
-            dialog.choose($window, None::<&gio::Cancellable>, |response| {
-                    debug!("whaaaaaaaaaaaaaaat? {:?}", response);
-                });
+            dialog.choose($window, None::<&gio::Cancellable>, |_response| {
+            });
         });
     }
 }

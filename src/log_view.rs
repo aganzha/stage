@@ -3,6 +3,7 @@ use git2::Oid;
 use glib::{clone, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
+use core::time::Duration;
 use gtk4::{
     gdk, gio, glib, pango, Box, EventControllerKey, GestureClick, Label,
     ListItem, ListView, Orientation, PositionType, ScrolledWindow, SearchBar,
@@ -10,8 +11,10 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, HeaderBar, ToolbarView, Window};
-use log::{info, trace};
+use log::{info, trace, debug};
 use std::path::{PathBuf};
+use std::cell::RefCell;
+use std::rc::Rc;
 use crate::git::commit;
 
 glib::wrapper! {
@@ -25,7 +28,7 @@ mod commit_item {
     use gtk4::subclass::prelude::*;
     use std::cell::RefCell;
     use crate::git::commit;
-    
+
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::CommitItem)]
     pub struct CommitItem {
@@ -178,7 +181,7 @@ impl CommitList {
                         if item.imp().commit.borrow().oid == oid {
                             break;
                         }
-                    }
+                    }                    
                     commit_list.imp().list.borrow_mut().push(item.clone());
                     added += 1;
                 }
@@ -237,6 +240,7 @@ impl CommitList {
 
 pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
+    let focus = Rc::new(RefCell::new(false));
     factory.connect_setup(move |_, list_item| {
         let oid_label = Label::builder()
             .label("")
@@ -345,6 +349,26 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
             "label",
             Widget::NONE,
         );
+        let focus = focus.clone();
+        list_item.connect_selected_notify(move |li: &ListItem| {
+            glib::source::timeout_add_local(
+                Duration::from_millis(300),
+                {
+                    let focus = focus.clone();
+                    let li = li.clone();
+                    move || {
+                        debug!("item selected {:?}", *focus.borrow());
+                        if !*focus.borrow() {
+                            let first_child = li.child().unwrap();
+                            let first_child = first_child.downcast_ref::<Widget>().unwrap();
+                            let row = first_child.parent().unwrap();
+                            row.grab_focus();
+                            *focus.borrow_mut() = true;
+                        }
+                        glib::ControlFlow::Break
+                    }
+                });
+        });
     });
 
     factory
@@ -516,6 +540,7 @@ pub fn show_log_window(
     });
     window.add_controller(event_controller);
     window.present();
+    debug!("grab list focus");
     list_view.grab_focus();
     get_commit_list(&list_view).get_commits_inside(repo_path.clone());
     glib::spawn_future_local(async move {
