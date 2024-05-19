@@ -198,13 +198,21 @@ impl BranchList {
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
     }
 
-    pub fn get_branches(&self, repo_path: PathBuf) {
+    pub fn get_branches(&self, repo_path: PathBuf, window: &Window) {
         glib::spawn_future_local({
-            clone!(@weak self as branch_list => async move {
+            clone!(@weak self as branch_list, @weak window => async move {                
                 let branches: Vec<branch::BranchData> = gio::spawn_blocking(move || {
                     branch::get_branches(repo_path)
-                }).await.expect("Task needs to finish successfully.");
-
+                }).await.unwrap_or_else(|e| {
+                    alert(format!("{:?}", e), &window);
+                    Ok(Vec::new())
+                }).unwrap_or_else(|e| {
+                    alert(e, &window);
+                    Vec::new()
+                });
+                if branches.is_empty() {
+                    return;
+                }
                 let items: Vec<BranchItem> = branches.into_iter()
                     .map(BranchItem::new)
                     .collect();
@@ -430,7 +438,7 @@ impl BranchList {
                 let _ = gio::spawn_blocking(move || {
                     crate::update_remote(repo_path, sender, None)
                 }).await;
-                branch_list.get_branches(path);
+                branch_list.get_branches(path, &window);
             })
         });
     }
@@ -857,6 +865,7 @@ pub fn item_factory() -> SignalListItemFactory {
 pub fn listview_factory(
     repo_path: PathBuf,
     sender: Sender<crate::Event>,
+    window: &Window
 ) -> ListView {
     let header_factory = header_factory();
     let factory = item_factory();
@@ -899,7 +908,7 @@ pub fn listview_factory(
         }
     });
 
-    branch_list.get_branches(repo_path.clone());
+    branch_list.get_branches(repo_path.clone(), &window);
 
     list_view.add_css_class("stage");
     list_view
@@ -1120,7 +1129,7 @@ pub fn show_branches_window(
 
     let scroll = ScrolledWindow::new();
 
-    let list_view = listview_factory(repo_path.clone(), main_sender.clone());
+    let list_view = listview_factory(repo_path.clone(), main_sender.clone(), &window);
 
     let hb = headerbar_factory(
         repo_path.clone(),

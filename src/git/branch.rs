@@ -91,10 +91,10 @@ impl BranchData {
     }
 }
 
-pub fn get_branches(path: PathBuf) -> Vec<BranchData> {
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
+pub fn get_branches(path: PathBuf) -> Result<Vec<BranchData>, git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
     let mut result = Vec::new();
-    let branches = repo.branches(None).expect("can't get branches");
+    let branches = repo.branches(None)?;
     branches.for_each(|item| {
         let (branch, branch_type) = item.unwrap();
         if let Ok(branch_data) = BranchData::from_branch(branch, branch_type) {
@@ -124,7 +124,7 @@ pub fn get_branches(path: PathBuf) -> Vec<BranchData> {
         }
         b.commit_dt.cmp(&a.commit_dt)
     });
-    result
+    Ok(result)
 }
 
 pub fn checkout_branch(
