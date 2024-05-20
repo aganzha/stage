@@ -133,15 +133,7 @@ pub fn branch(
                         get_current_repo_status(Some(path), sender.clone());
                     }
                 });
-                // todo! separate conflict prevent checkout and conflicts AFTER checkout
-                return Err(
-                    git2::Error::new(
-                        git2::ErrorCode::Conflict,
-                        git2::ErrorClass::Index,
-                        "Conflicts during merge"
-                    )
-                );
-                // return Err(MergeError::Conflicts);
+                return Ok(None);
             }
             commit(path);
         }
