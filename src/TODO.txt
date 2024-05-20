@@ -1,5 +1,5 @@
 
-[DEBUG stage::git] push_negotiation Some("refs/heads/resolve_v1") Some("refs/heads/resolve_v1")
+[here DEBUG stage::git] push_negotiation Some("refs/heads/resolve_v1") Some("refs/heads/resolve_v1")
 thread '<unnamed>' panicked at src/git.rs:1300:13:
 cannot push because a reference that you are trying to update on the remote contains commits that are not present locally.; class=Reference (4); code=NotFastForward (-11)
 stack backtrace:
