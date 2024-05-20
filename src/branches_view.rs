@@ -474,45 +474,14 @@ impl BranchList {
                     alert(format!("{:?}", e), &window);
                     Ok(None)
                 }).unwrap_or_else(|e| {
-                    debug!(">>>>>>>>>>>>>> {:?} {:?}", e, window);
-                    if e.class() == git2::ErrorClass::Index {
-                        // merge in process
-                    } else {
-                        // merge prevented
-                        alert(e, &window);
-                    }
-                    debug!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+                    alert(e, &window);
                     None
                 });
-                debug!("just merged! {:?}", &branch_data);
                 if let Some(branch_data) = branch_data {
                     debug!("just merged and this is branch data {:?}", branch_data);
                     branch_list.update_current_branch(branch_data);
                 }
-                debug!("....................................close window {:?}", window);
                 window.close();
-                // let result = gio::spawn_blocking(move || {
-                //     merge::branch(repo_path, branch_data, sender)
-                // }).await;
-                // trace!("outer error for merge {:?}", &result);
-                // if let Ok(result) = result {
-                //     trace!("inner error for merge {:?}", &result);
-                //     match result {
-                //         Ok(branch_data) => {
-                //             trace!("just merged and this is branch data {:?}", branch_data);
-                //             branch_list.update_current_branch(branch_data);
-                //             window.close();
-                //         }
-                //         Err(merge::MergeError::Conflicts) => {
-                //             window.close();
-                //         }
-                //         Err(merge::MergeError::General(message)) => {
-                //             crate::display_error(&window, &message);
-                //         }
-                //     }
-                // } else {
-                //     crate::display_error(&window, "error in merge");
-                // }
             })
         });
     }
