@@ -137,7 +137,7 @@ pub fn branch(
                 return Err(
                     git2::Error::new(
                         git2::ErrorCode::Conflict,
-                        git2::ErrorClass::Merge,
+                        git2::ErrorClass::Index,
                         "Conflicts during merge"
                     )
                 );
