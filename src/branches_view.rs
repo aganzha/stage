@@ -474,13 +474,22 @@ impl BranchList {
                     alert(format!("{:?}", e), &window);
                     Ok(None)
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    debug!(">>>>>>>>>>>>>> {:?} {:?}", e, window);
+                    if e.class() == git2::ErrorClass::Index {
+                        // merge in process
+                    } else {
+                        // merge prevented
+                        alert(e, &window);
+                    }
+                    debug!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
                     None
                 });
+                debug!("just merged! {:?}", &branch_data);
                 if let Some(branch_data) = branch_data {
-                    trace!("just merged and this is branch data {:?}", branch_data);
+                    debug!("just merged and this is branch data {:?}", branch_data);
                     branch_list.update_current_branch(branch_data);
                 }
+                debug!("....................................close window {:?}", window);
                 window.close();
                 // let result = gio::spawn_blocking(move || {
                 //     merge::branch(repo_path, branch_data, sender)
