@@ -40,7 +40,7 @@ impl BranchData {
     pub fn from_branch(
         branch: git2::Branch,
         branch_type: git2::BranchType,
-    ) -> Result<Self, git2::Error> {
+    ) -> Result<Option<Self>, git2::Error> {
         let name = branch.name().unwrap().unwrap().to_string();
         let mut upstream_name: Option<String> = None;
         if let Ok(upstream) = branch.upstream() {
@@ -49,38 +49,25 @@ impl BranchData {
         }
         let is_head = branch.is_head();
         let bref = branch.get();
-        // can't get commit from ref!: Error { code: -3, klass: 3, message: "the reference 'refs/remotes/origin/HEAD' cannot be peeled - Cannot resolve reference" }
         let refname = bref.name().unwrap().to_string();
         let ob = bref.peel(git2::ObjectType::Commit)?;
         let commit = ob.peel_to_commit().expect("can't get commit from ob!");
         let commit_string = commit_string(&commit);
-        let target = branch.get().target();
-        let mut oid = git2::Oid::zero();
-        if let Some(t) = target {
-            // this could be
-            // name: "origin/HEAD" refname: "refs/remotes/origin/HEAD"
-            oid = t;
-        } else {
-            trace!(
-                "ZERO OID -----------------------------> {:?} {:?} {:?} {:?}",
-                target,
+        let commit_dt = commit_dt(&commit);
+        if let Some(oid) = branch.get().target() {
+            Ok(Some(BranchData {
                 name,
                 refname,
-                ob.id()
-            );
+                branch_type,
+                oid,
+                commit_string,
+                is_head,
+                upstream_name,
+                commit_dt,
+            }))
+        } else {
+            Ok(None)
         }
-
-        let commit_dt = commit_dt(&commit);
-        Ok(BranchData {
-            name,
-            refname,
-            branch_type,
-            oid,
-            commit_string,
-            is_head,
-            upstream_name,
-            commit_dt,
-        })
     }
 
     pub fn local_name(&self) -> String {
@@ -97,10 +84,8 @@ pub fn get_branches(path: PathBuf) -> Result<Vec<BranchData>, git2::Error> {
     let branches = repo.branches(None)?;
     branches.for_each(|item| {
         let (branch, branch_type) = item.unwrap();
-        if let Ok(branch_data) = BranchData::from_branch(branch, branch_type) {
-            if branch_data.oid != git2::Oid::zero() {
-                result.push(branch_data);
-            }
+        if let Ok(Some(branch_data)) = BranchData::from_branch(branch, branch_type) {
+            result.push(branch_data);
         }
     });
     result.sort_by(|a, b| {
@@ -131,7 +116,7 @@ pub fn checkout_branch(
     path: PathBuf,
     mut branch_data: BranchData,
     sender: Sender<crate::Event>,
-) -> Result<BranchData, git2::Error> {
+) -> Result<Option<BranchData>, git2::Error> {
     info!("checkout branch");
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(branch_data.oid)?;
@@ -174,8 +159,9 @@ pub fn checkout_branch(
                 )?,
             };
             branch.set_upstream(Some(&branch_data.remote_name()))?;
-            branch_data =
-                BranchData::from_branch(branch, git2::BranchType::Local)?;
+            if let Some(new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)? {
+                branch_data = new_branch_data;
+            }
         }
     }
     repo.set_head(&branch_data.refname)?;
@@ -185,7 +171,7 @@ pub fn checkout_branch(
         }
     });
     branch_data.is_head = true;
-    Ok(branch_data)
+    Ok(Some(branch_data))
 }
 
 pub fn create_branch(
@@ -194,24 +180,25 @@ pub fn create_branch(
     need_checkout: bool,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
-) -> Result<BranchData, git2::Error> {
+) -> Result<Option<BranchData>, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(branch_data.oid)?;
     let branch = repo.branch(&new_branch_name, &commit, false)?;
-    let branch_data =
-        BranchData::from_branch(branch, git2::BranchType::Local)?;
-    if need_checkout {
-        checkout_branch(path, branch_data, sender)
-    } else {
-        Ok(branch_data)
+    if let Some(new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)? {
+        if need_checkout {
+            return checkout_branch(path, new_branch_data, sender)
+        } else {
+            return Ok(Some(new_branch_data));
+        }
     }
+    Ok(None)
 }
 
 pub fn kill_branch(
     path: PathBuf,
     branch_data: BranchData,
     _sender: Sender<crate::Event>,
-) -> Result<(), git2::Error> {
+) -> Result<Option<()>, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let name = &branch_data.name;
     let kind = branch_data.branch_type;
@@ -240,5 +227,5 @@ pub fn kill_branch(
         });
     }
     branch.delete()?;
-    Ok(())
+    Ok(Some(()))
 }
