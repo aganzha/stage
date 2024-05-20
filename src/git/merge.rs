@@ -90,12 +90,11 @@ pub fn branch(
     path: PathBuf,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
-) -> Result<BranchData, MergeError> {
+) -> Result<Option<BranchData>, git2::Error> {
     info!("merging {:?}", branch_data.name);
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let repo = git2::Repository::open(path.clone())?;
     let annotated_commit = repo
-        .find_annotated_commit(branch_data.oid)
-        .expect("cant find commit");
+        .find_annotated_commit(branch_data.oid)?;
 
     match repo.merge_analysis(&[&annotated_commit]) {
         Ok((analysis, _)) if analysis.is_up_to_date() => {
@@ -108,26 +107,24 @@ pub fn branch(
         {
             info!("merge.fastforward");
             let ob = repo
-                .find_object(branch_data.oid, Some(git2::ObjectType::Commit))
-                .expect("cant find ob for oid");
+                .find_object(branch_data.oid, Some(git2::ObjectType::Commit))?;
             repo.checkout_tree(
                 &ob,
                 Some(git2::build::CheckoutBuilder::new().safe()),
-            )
-            .expect("cant checkout tree");
-            repo.reset(&ob, git2::ResetType::Soft, None)
-                .expect("cant reset to commit");
+            )?;
+            repo.reset(&ob, git2::ResetType::Soft, None)?;
         }
         Ok((analysis, preference))
             if analysis.is_normal() && !preference.is_fastforward_only() =>
         {
             info!("merge.normal");
-            if let Err(error) = repo.merge(&[&annotated_commit], None, None) {
-                return Err(MergeError::General(String::from(
-                    error.message(),
-                )));
-            }
-            let index = repo.index().expect("cant get index");
+            repo.merge(&[&annotated_commit], None, None)?;
+            // if let Err(error) = repo.merge(&[&annotated_commit], None, None) {
+            //     return Err(MergeError::General(String::from(
+            //         error.message(),
+            //     )));
+            // }
+            let index = repo.index()?;
             if index.has_conflicts() {
                 gio::spawn_blocking({
                     let sender = sender.clone();
@@ -136,7 +133,15 @@ pub fn branch(
                         get_current_repo_status(Some(path), sender.clone());
                     }
                 });
-                return Err(MergeError::Conflicts);
+                // todo! separate conflict prevent checkout and conflicts AFTER checkout
+                return Err(
+                    git2::Error::new(
+                        git2::ErrorCode::Conflict,
+                        git2::ErrorClass::Merge,
+                        "Conflicts during merge"
+                    )
+                );
+                // return Err(MergeError::Conflicts);
             }
             commit(path);
         }
@@ -149,12 +154,11 @@ pub fn branch(
     }
 
     let state = repo.state();
-    let head_ref = repo.head().expect("can't get head");
+    let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
     let ob = head_ref
-        .peel(git2::ObjectType::Commit)
-        .expect("can't get commit from ref!");
-    let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+        .peel(git2::ObjectType::Commit)?;
+    let commit = ob.peel_to_commit()?;
     let branch = git2::Branch::wrap(head_ref);
     let new_head = Head::new(&branch, &commit);
     sender
@@ -163,9 +167,7 @@ pub fn branch(
     sender
         .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
-
-    Ok(BranchData::from_branch(branch, git2::BranchType::Local)
-        .expect("cant get branch"))
+    BranchData::from_branch(branch, git2::BranchType::Local)
 }
 
 pub fn abort(path: PathBuf, sender: Sender<crate::Event>) {

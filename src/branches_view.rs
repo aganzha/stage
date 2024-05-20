@@ -263,23 +263,20 @@ impl BranchList {
 
                 let branch_data = selected_item.imp().branch.borrow().clone();
                 let local = branch_data.branch_type == BranchType::Local;
-                let mut passed = true;
                 let new_branch_data = gio::spawn_blocking(move || {
                     branch::checkout_branch(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
                     alert(format!("{:?}", e), &window);
-                    passed = false;
-                    Ok(branch::BranchData::default())
+                    Ok(None)
                 }).unwrap_or_else(|e| {
                     alert(e, &window);
-                    passed = false;
-                    branch::BranchData::default()
+                    None
                 });
-                if !passed {
+                if new_branch_data.is_none() {
                     info!("branch. exit after error");
                     return;
                 }
-
+                let new_branch_data = new_branch_data.unwrap();
                 if local {
                     branch_list.deactivate_current_branch();
                     selected_item.imp().branch.replace(new_branch_data);
@@ -402,21 +399,18 @@ impl BranchList {
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window => async move {
                 let branch_data = branch_list.get_selected_branch();
-                let result = gio::spawn_blocking(move || {
+                let branch_data = gio::spawn_blocking(move || {
                     crate::cherry_pick(repo_path, branch_data, sender)
-                }).await;
-                let mut err_message = String::from("git error");
-                if let Ok(git_result) = result {
-                    match git_result {
-                        Ok(branch_data) => {
-                            trace!("just cherry picked and this is branch data {:?}", branch_data);
-                            branch_list.update_current_branch(branch_data);
-                            return;
-                        }
-                        Err(err) => err_message = err
-                    }
+                }).await.unwrap_or_else(|e| {
+                    alert(format!("{:?}", e), &window);
+                    Ok(None)
+                }).unwrap_or_else(|e| {
+                    alert(e, &window);
+                    None
+                });
+                if let Some(branch_data) = branch_data {
+                    branch_list.update_current_branch(branch_data);
                 }
-                crate::display_error(&window, &err_message);
             })
         });
     }
@@ -474,28 +468,42 @@ impl BranchList {
                 if "confirm" != result {
                     return;
                 }
-                let result = gio::spawn_blocking(move || {
+                let branch_data = gio::spawn_blocking(move || {
                     merge::branch(repo_path, branch_data, sender)
-                }).await;
-                trace!("outer error for merge {:?}", &result);
-                if let Ok(result) = result {
-                    trace!("inner error for merge {:?}", &result);
-                    match result {
-                        Ok(branch_data) => {
-                            trace!("just merged and this is branch data {:?}", branch_data);
-                            branch_list.update_current_branch(branch_data);
-                            window.close();
-                        }
-                        Err(merge::MergeError::Conflicts) => {
-                            window.close();
-                        }
-                        Err(merge::MergeError::General(message)) => {
-                            crate::display_error(&window, &message);
-                        }
-                    }
-                } else {
-                    crate::display_error(&window, "error in merge");
+                }).await.unwrap_or_else(|e| {
+                    alert(format!("{:?}", e), &window);
+                    Ok(None)
+                }).unwrap_or_else(|e| {
+                    alert(e, &window);
+                    None
+                });
+                if let Some(branch_data) = branch_data {
+                    trace!("just merged and this is branch data {:?}", branch_data);
+                    branch_list.update_current_branch(branch_data);
                 }
+                window.close();
+                // let result = gio::spawn_blocking(move || {
+                //     merge::branch(repo_path, branch_data, sender)
+                // }).await;
+                // trace!("outer error for merge {:?}", &result);
+                // if let Ok(result) = result {
+                //     trace!("inner error for merge {:?}", &result);
+                //     match result {
+                //         Ok(branch_data) => {
+                //             trace!("just merged and this is branch data {:?}", branch_data);
+                //             branch_list.update_current_branch(branch_data);
+                //             window.close();
+                //         }
+                //         Err(merge::MergeError::Conflicts) => {
+                //             window.close();
+                //         }
+                //         Err(merge::MergeError::General(message)) => {
+                //             crate::display_error(&window, &message);
+                //         }
+                //     }
+                // } else {
+                //     crate::display_error(&window, "error in merge");
+                // }
             })
         });
     }
@@ -515,19 +523,16 @@ impl BranchList {
                 }
                 let kind = branch_data.branch_type;
                 let name = branch_data.name.clone();
-                let mut passed: bool = true;
-                gio::spawn_blocking(move || {
+                let result = gio::spawn_blocking(move || {
                     branch::kill_branch(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
                     alert(format!("{:?}", e), &window);
-                    passed = false;
-                    Ok(())
+                    Ok(None)
                 }).unwrap_or_else(|e| {
                     alert(e, &window);
-                    passed = false;
-                    ()
+                    None
                 });
-                if !passed {
+                if result.is_none() {
                     return
                 }
                 {
@@ -605,11 +610,6 @@ impl BranchList {
                     .selection_mode(SelectionMode::None)
                     .css_classes(vec![String::from("boxed-list")])
                     .build();
-                // let title = ActionRow::builder()
-                //     .activatable(false)
-                //     .selectable(false)
-                //     .title(title)
-                //     .build();
                 let input = EntryRow::builder()
                     .title("New branch name:")
                     .css_classes(vec!["input_field"])
@@ -643,27 +643,19 @@ impl BranchList {
                 }
                 let new_branch_name = format!("{}", input.text());
                 let need_checkout = checkout.is_active();
-                let mut passed = true;
                 let branch_data = gio::spawn_blocking(move || {
                     branch::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
                     alert(format!("{:?}", e), &window);
-                    passed = false;
-                    Ok(branch::BranchData::default())
+                    Ok(None)
                 }).unwrap_or_else(|e| {
                     alert(e, &window);
-                    passed = false;
-                    branch::BranchData::default()
+                    None
                 });
-                if !passed {
-                    return;
-                }
-                if branch_data.oid == git2::Oid::zero() {
-                    info!("branch. exit after error");
-                    return;
-                }
-                branch_list.deactivate_current_branch();
-                branch_list.add_new_branch_item(branch_data);
+                if let Some(branch_data) = branch_data {
+                    branch_list.deactivate_current_branch();
+                    branch_list.add_new_branch_item(branch_data);
+                }                
             })
         });
     }

@@ -1307,36 +1307,26 @@ pub fn cherry_pick(
     path: PathBuf,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
-) -> Result<BranchData, String> {
-    let repo = Repository::open(path.clone()).expect("can't open repo");
-    let commit = repo.find_commit(branch_data.oid).expect("cant find commit");
+) -> Result<Option<BranchData>, Error> {
+    let repo = Repository::open(path.clone())?;
+    let commit = repo.find_commit(branch_data.oid)?;
 
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
-    let result = repo.cherrypick(&commit, Some(&mut CherrypickOptions::new()));
+    repo.cherrypick(&commit, Some(&mut CherrypickOptions::new()))?;
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
 
-    if let Err(err) = result {
-        trace!(
-            "err on checkout {:?} {:?} {:?}",
-            err.code(),
-            err.class(),
-            err.message()
-        );
-        return Err(String::from(err.message()));
-    }
     debug!("cherry pick could not change the current branch, cause of merge conflict.
           So it need also update status.");
     let state = repo.state();
-    let head_ref = repo.head().expect("can't get head");
+    let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
     let ob = head_ref
-        .peel(ObjectType::Commit)
-        .expect("can't get commit from ref!");
-    let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+        .peel(ObjectType::Commit)?;
+    let commit = ob.peel_to_commit()?;
     let branch = Branch::wrap(head_ref);
     let new_head = Head::new(&branch, &commit);
     sender
@@ -1346,8 +1336,7 @@ pub fn cherry_pick(
         .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
 
-    Ok(BranchData::from_branch(branch, BranchType::Local)
-        .expect("cant get branch"))
+    BranchData::from_branch(branch, BranchType::Local)
 }
 
 #[derive(Debug, Clone)]
