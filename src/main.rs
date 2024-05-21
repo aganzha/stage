@@ -1,5 +1,5 @@
 mod context;
-use context::{StatusRenderContext, UnderCursor};
+use context::{StatusRenderContext, UnderCursor, TextViewWidth};
 
 mod status_view;
 use status_view::{
@@ -225,7 +225,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
 
     let (hb, hb_updater) = headerbar_factory(sender.clone(), settings);
 
-    let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
+    let text_view_width = Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
     let txt = textview_factory(sender.clone(), text_view_width.clone());
 
     let scroll = ScrolledWindow::builder()
@@ -277,10 +277,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
-            // status.context_factory(text_view_width.clone());
-
             let mut ctx = StatusRenderContext::new();
-            ctx.screen_width.replace(*text_view_width.borrow());
+            ctx.screen_width.replace(text_view_width.clone());
 
             match event {
                 Event::OpenRepo(path) => {

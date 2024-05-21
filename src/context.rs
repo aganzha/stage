@@ -1,4 +1,7 @@
 use crate::{DiffKind, LineKind};
+use std::rc::Rc;
+use std::cell::RefCell;
+use log::debug;
 
 #[derive(Debug, Clone)]
 pub enum UnderCursor {
@@ -10,6 +13,18 @@ pub enum UnderCursor {
 }
 
 #[derive(Debug, Clone)]
+pub struct CursorPos {
+    pub line_no: i32,
+    pub offset: i32
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TextViewWidth {
+    pub pixels: i32,
+    pub chars: i32
+}
+
+#[derive(Debug, Clone)]
 pub struct StatusRenderContext {
     pub erase_counter: Option<i32>,
     // diff_kind is used by reconcilation
@@ -18,7 +33,8 @@ pub struct StatusRenderContext {
     pub diff_kind: Option<DiffKind>,
     pub max_len: Option<i32>,
     pub under_cursor: UnderCursor,
-    pub screen_width: Option<(i32, i32)>,
+    pub screen_width: Option<Rc<RefCell<TextViewWidth>>>,
+    pub cursor_pos: Option<CursorPos>
 }
 
 impl Default for StatusRenderContext {
@@ -36,14 +52,19 @@ impl StatusRenderContext {
                 max_len: None,
                 under_cursor: UnderCursor::None,
                 screen_width: None,
+                cursor_pos: None
             }
         }
     }
 
+    pub fn update_cursor_pos(&mut self, line_no: i32, offset: i32) {
+        self.cursor_pos.replace(CursorPos{line_no, offset});
+    }
+    
     pub fn update_screen_line_width(&mut self, max_line_len: i32) {
-        if let Some(sw) = self.screen_width {
-            if sw.1 < max_line_len {
-                self.screen_width.replace((sw.0, max_line_len));
+        if let Some(sw) = &self.screen_width {
+            if sw.borrow().chars < max_line_len {
+                sw.borrow_mut().chars = max_line_len;
             }
         }
     }
