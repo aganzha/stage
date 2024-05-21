@@ -214,7 +214,7 @@ impl CharView for TextView {
 
 pub fn factory(
     sndr: Sender<crate::Event>,
-    text_view_width: Rc<RefCell<(i32, i32)>>,
+    text_view_width: Rc<RefCell<crate::context::TextViewWidth>>,
 ) -> TextView {
     let txt = TextView::builder()
         .margin_start(12)
@@ -445,13 +445,7 @@ pub fn factory(
                     start_iter.forward_word_end();
                 }
                 MovementStep::DisplayLines => {
-                    // let loffset = start_iter.line_offset();
                     start_iter.forward_lines(count);
-                    // handle_line_offset(
-                    //     &mut start_iter,
-                    //     loffset,
-                    //     &latest_char_offset,
-                    // );
                 }
                 MovementStep::DisplayLineEnds
                 | MovementStep::Paragraphs
@@ -478,14 +472,16 @@ pub fn factory(
     txt.add_tick_callback({
         move |view, _clock| {
             let width = view.width();
-            let stored_width = text_view_width.borrow().0;
+            let stored_width = text_view_width.borrow().pixels;
             if width > 0 && width != stored_width {
                 // resizing window. handle both cases: initial render and further resizing
-                text_view_width.replace((width, 0));
+                text_view_width.borrow_mut().pixels = width;
                 if stored_width == 0 {
                     // initial render
-                    if let Some(char_width) = view.calc_max_char_width() {
-                        text_view_width.replace((width, char_width));
+                    if let Some(char_width) = view.calc_max_char_width() {                        
+                        if char_width > text_view_width.borrow().chars {                            
+                            text_view_width.borrow_mut().chars = char_width;
+                        }
                     }
                 } else {
                     // resizing window by user action
@@ -497,10 +493,11 @@ pub fn factory(
                         let view = view.clone();
                         let sndr = sndr.clone();
                         move || {
-                            if width == text_view_width.borrow().0 {
-                                if let Some(char_width) = view.calc_max_char_width() {
-                                    trace!("text view char width IN resize {:?} {:?}", text_view_width, char_width);
-                                    text_view_width.replace((width, char_width));
+                            if width == text_view_width.borrow().pixels {
+                                if let Some(char_width) = view.calc_max_char_width() {                                    
+                                    if char_width > text_view_width.borrow_mut().chars {
+                                        text_view_width.borrow_mut().chars = char_width;
+                                    }
                                     sndr.send_blocking(crate::Event::TextViewResize).expect("could not sent through channel");
                                 }
                             }

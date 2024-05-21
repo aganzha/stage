@@ -165,6 +165,7 @@ pub trait ViewContainer {
             });
         } else if v.expanded && v.rendered {
             // go deeper for self.children
+            debug!("expand. ____________ go deeper");
             for child in self.get_children() {
                 found_line = child.expand(line_no);
                 if found_line.is_some() {
@@ -186,7 +187,7 @@ pub trait ViewContainer {
     // ViewContainer
     fn erase(
         &mut self,
-        txt: &TextView,
+        buffer: &TextBuffer,
         context: &mut Option<&mut StatusRenderContext>,
     ) {
         // CAUTION. ATTENTION. IMPORTANT
@@ -225,7 +226,6 @@ pub trait ViewContainer {
             view.squashed = true;
             view.child_dirty = true;
         });
-        let buffer = txt.buffer();
         // GOT BUG HERE DURING STAGING SAME FILES!
         debug!("line finally {:?}", line_no);
         let mut iter = buffer
@@ -237,7 +237,7 @@ pub trait ViewContainer {
 
     fn resize(
         &mut self,
-        txt: &TextView,
+        buffer: &TextBuffer,
         context: &mut Option<&mut StatusRenderContext>,
     ) {
         trace!("+++++++++++++++++++++ resize {:?}", context);
@@ -253,7 +253,6 @@ pub trait ViewContainer {
             view.dirty = true;
             view.child_dirty = true;
         });
-        let buffer = txt.buffer();
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");

@@ -1,9 +1,10 @@
 use crate::status_view::Tag;
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::trace;
+use log::{trace, debug};
 use std::collections::HashSet;
 
+#[derive(Debug, Clone)]
 pub enum ViewState {
     RenderedInPlace,
     Deleted,
@@ -64,13 +65,16 @@ impl crate::View {
     fn build_up(
         &self,
         content: &String,
+        line_no: i32,
         context: &mut Option<&mut crate::StatusRenderContext>,
     ) -> String {
         let line_content = content.to_string();
         if let Some(ctx) = context {
-            if let Some((pixels, chars)) = ctx.screen_width {
+            if let Some(width) = &ctx.screen_width {                
+                let pixels = width.borrow().pixels;
+                let chars = width.borrow().chars;
                 trace!(
-                    "build_up. context width in pixels and chars{:?} {:?}",
+                    "build_up. context width in pixels and chars {:?} {:?}",
                     pixels,
                     chars
                 );
@@ -82,7 +86,6 @@ impl crate::View {
                     );
                     if chars as usize > line_content.len() {
                         let spaces = chars as usize - line_content.len();
-                        trace!("build_up. spaces {:?}", spaces);
                         return format!(
                             "{}{}",
                             line_content,
@@ -126,7 +129,7 @@ impl crate::View {
             }
             ViewState::NotRendered => {
                 trace!("..render MATCH insert {:?}", line_no);
-                let content = self.build_up(&content, context);
+                let content = self.build_up(&content, line_no, context);
                 if self.markup {
                     // let mut encoded = String::new();
                     // html_escape::encode_safe_to_string(&content, &mut encoded);
@@ -143,7 +146,7 @@ impl crate::View {
             ViewState::RenderedDirtyInPlace => {
                 trace!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
                 if !content.is_empty() {
-                    let content = self.build_up(&content, context);
+                    let content = self.build_up(&content, line_no, context);
                     self.replace_dirty_content(buffer, iter, &content);
                     self.apply_tags(buffer, &content_tags);
                 } else {
@@ -176,7 +179,7 @@ impl crate::View {
             ViewState::RenderedDirtyNotInPlace(l) => {
                 trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
                 self.line_no = line_no;
-                let content = self.build_up(&content, context);
+                let content = self.build_up(&content, line_no, context);
                 self.replace_dirty_content(buffer, iter, &content);
                 self.apply_tags(buffer, &content_tags);
                 self.force_forward(buffer, iter);

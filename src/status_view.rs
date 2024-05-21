@@ -565,7 +565,7 @@ impl Status {
             if let Some(new) = upstream.as_mut() {
                 new.enrich_view(rendered);
             } else {
-                rendered.erase(txt, &mut Some(context));
+                rendered.erase(&txt.buffer(), &mut Some(context));
             }
         }
         self.upstream = upstream;
@@ -613,7 +613,7 @@ impl Status {
         }
         context.update_screen_line_width(untracked.max_line_len);
         if let Some(u) = &mut self.untracked {
-            untracked.enrich_view(u, txt, &mut Some(context));
+            untracked.enrich_view(u, &txt.buffer(), &mut Some(context));
         }
         self.untracked.replace(untracked);
         self.render(txt, RenderSource::Git, context);
@@ -636,7 +636,7 @@ impl Status {
                 self.conflicted_label.content = String::from("<span weight=\"bold\" color=\"#1c71d8\">Conflicts resolved</span> stage changes to complete merge");
                 self.conflicted_label.view.dirty = true;
             }
-            diff.enrich_view(s, txt, &mut Some(context));
+            diff.enrich_view(s, &txt.buffer(), &mut Some(context));
         }
 
         if diff.is_empty() {
@@ -761,7 +761,7 @@ impl Status {
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(s, txt, &mut Some(context));
+            diff.enrich_view(s, &txt.buffer(), &mut Some(context));
         }
         self.staged.replace(diff);
         // why check both??? perhaps just for very first render
@@ -783,7 +783,7 @@ impl Status {
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(u, txt, &mut Some(context));
+            diff.enrich_view(u, &txt.buffer(), &mut Some(context));
         }
         self.unstaged.replace(diff);
         // why check both??? perhaps just for very first render
@@ -799,6 +799,7 @@ impl Status {
         offset: i32,
         context: &mut StatusRenderContext,
     ) {
+        context.update_cursor_pos(line_no, offset);
         let mut changed = false;
         if let Some(untracked) = &mut self.untracked {
             changed = untracked.cursor(line_no, false, &mut Some(context))
@@ -822,8 +823,8 @@ impl Status {
         if changed {
             self.render(txt, RenderSource::Cursor(line_no), context);
             let buffer = txt.buffer();
-            trace!("put cursor on line {:?} in CURSOR", line_no);
-            buffer.place_cursor(&buffer.iter_at_offset(offset));
+            let iter = &buffer.iter_at_offset(offset);
+            buffer.place_cursor(iter);
         }
     }
 
@@ -989,10 +990,10 @@ impl Status {
         // it need to rerender all highlights and
         // background to match new window size
         if let Some(diff) = &mut self.staged {
-            diff.resize(txt, &mut Some(context))
+            diff.resize(&txt.buffer(), &mut Some(context))
         }
         if let Some(diff) = &mut self.unstaged {
-            diff.resize(txt, &mut Some(context))
+            diff.resize(&txt.buffer(), &mut Some(context))
         }
         self.render(txt, RenderSource::Resize, context);
     }

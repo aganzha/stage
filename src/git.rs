@@ -118,7 +118,7 @@ impl Hunk {
             .replace('\n', "")
     }
 
-    pub fn handle_max(&mut self, line: &String) {
+    pub fn handle_max(&mut self, line: &str) {
         let le = line.len() as i32;
         if le > self.max_line_len {
             self.max_line_len = le;

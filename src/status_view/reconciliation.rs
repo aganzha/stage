@@ -4,7 +4,7 @@ use crate::{
     View,
 };
 use git2::RepositoryState;
-use gtk4::TextView;
+use gtk4::{TextBuffer};
 use log::trace;
 use std::collections::HashSet;
 use std::iter::zip;
@@ -51,7 +51,7 @@ impl Hunk {
     pub fn enrich_view(
         &mut self,
         rendered: &mut Hunk,
-        txt: &TextView,
+        buffer: &TextBuffer,
         context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         self.view = rendered.transfer_view();
@@ -108,7 +108,7 @@ impl Hunk {
                     );
                     trace!("r_no n_no _ {:?}", n_no);
                     let m_r_line = &mut rendered.lines[r_ind];
-                    m_r_line.erase(txt, context);
+                    m_r_line.erase(buffer, context);
                     r_ind += 1;
                 }
                 (None, None) => {
@@ -133,7 +133,7 @@ impl Hunk {
                 trace!("new lines are over");
                 for r_line in &mut rendered.lines[r_ind..] {
                     trace!("erase remainign rendered lines!");
-                    r_line.erase(txt, context);
+                    r_line.erase(buffer, context);
                 }
                 break;
             }
@@ -146,7 +146,7 @@ impl File {
     pub fn enrich_view(
         &mut self,
         rendered: &mut File,
-        txt: &TextView,
+        buffer: &TextBuffer,
         context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         self.view = rendered.transfer_view();
@@ -156,7 +156,7 @@ impl File {
 
         if self.hunks.len() == rendered.hunks.len() {
             for pair in zip(&mut self.hunks, &mut rendered.hunks) {
-                pair.0.enrich_view(pair.1, txt, context);
+                pair.0.enrich_view(pair.1, buffer, context);
             }
             return;
         }
@@ -196,7 +196,7 @@ impl File {
                         );
                         let m_n_hunk = &mut self.hunks[n_ind];
                         let m_r_hunk = &mut rendered.hunks[r_ind];
-                        m_n_hunk.enrich_view(m_r_hunk, txt, context);
+                        m_n_hunk.enrich_view(m_r_hunk, buffer, context);
                         n_ind += 1;
                         r_ind += 1;
                     } else if (knd == &DiffKind::Staged
@@ -240,7 +240,7 @@ impl File {
                             "erase AFTER rendered hunk {:?}",
                             m_r_hunk.header
                         );
-                        m_r_hunk.erase(txt, context);
+                        m_r_hunk.erase(buffer, context);
                         r_ind += 1;
                     } else if knd == &DiffKind::Unstaged
                         && n_hunk.old_start < r_hunk.old_start
@@ -287,7 +287,7 @@ impl File {
                             "erase AFTER rendered hunk {:?}",
                             m_r_hunk.header
                         );
-                        m_r_hunk.erase(txt, context);
+                        m_r_hunk.erase(buffer, context);
                         r_ind += 1;
                     } else {
                         panic!(
@@ -308,7 +308,7 @@ impl File {
                         "erase remaining rendered hunk {:?}",
                         r_hunk.header
                     );
-                    r_hunk.erase(txt, context);
+                    r_hunk.erase(buffer, context);
                 }
                 break;
             }
@@ -333,7 +333,7 @@ impl Diff {
     pub fn enrich_view(
         &mut self,
         rendered: &mut Diff,
-        txt: &TextView,
+        buffer: &TextBuffer,
         context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         if let Some(ctx) = context {
@@ -348,7 +348,7 @@ impl Diff {
         for file in &mut self.files {
             for of in &mut rendered.files {
                 if file.path == of.path {
-                    file.enrich_view(of, txt, context);
+                    file.enrich_view(of, buffer, context);
                     replaces_by_new.insert(file.path.clone());
                 }
             }
@@ -364,7 +364,7 @@ impl Diff {
                     "context on final lines of diff render view {:?}",
                     context
                 );
-                f.erase(txt, context)
+                f.erase(buffer, context)
             });
     }
 }
@@ -389,7 +389,7 @@ impl Untracked {
     pub fn enrich_view(
         &mut self,
         rendered: &mut Untracked,
-        txt: &TextView,
+        buffer: &TextBuffer,
         context: &mut Option<&mut crate::StatusRenderContext>,
     ) {
         let mut replaces_by_new = HashSet::new();
@@ -410,7 +410,7 @@ impl Untracked {
                     "context on final lines of diff render view {:?}",
                     context
                 );
-                f.erase(txt, context)
+                f.erase(buffer, context)
             });
     }
 }

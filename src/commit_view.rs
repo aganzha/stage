@@ -1,4 +1,4 @@
-use crate::context::StatusRenderContext;
+use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::git::commit;
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
 use crate::widgets::alert;
@@ -75,7 +75,7 @@ pub fn show_commit_window(
 
     let hb = headerbar_factory(repo_path.clone(), oid);
 
-    let text_view_width = Rc::new(RefCell::<(i32, i32)>::new((0, 0)));
+    let text_view_width = Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
     let txt = crate::textview_factory(sender.clone(), text_view_width.clone());
 
     scroll.set_child(Some(&txt));
@@ -150,7 +150,7 @@ pub fn show_commit_window(
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             let mut ctx = crate::StatusRenderContext::new();
-            ctx.screen_width.replace(*text_view_width.borrow());
+            ctx.screen_width.replace(text_view_width.clone());
             match event {
                 Event::CommitDiff(mut commit_diff) => {
                     labels[1].content =
@@ -196,7 +196,7 @@ pub fn show_commit_window(
                 Event::TextViewResize => {
                     if let Some(d) = &mut main_diff {
                         debug!("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
-                        d.diff.resize(&txt, &mut Some(&mut ctx));
+                        d.diff.resize(&txt.buffer(), &mut Some(&mut ctx));
                     }
                 }
                 _ => {
