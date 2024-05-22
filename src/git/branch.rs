@@ -51,7 +51,7 @@ impl BranchData {
         let bref = branch.get();
         let refname = bref.name().unwrap().to_string();
         let ob = bref.peel(git2::ObjectType::Commit)?;
-        let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+        let commit = ob.peel_to_commit()?;
         let commit_string = commit_string(&commit);
         let commit_dt = commit_dt(&commit);
         if let Some(oid) = branch.get().target() {

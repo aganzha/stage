@@ -3,7 +3,7 @@ pub mod commit;
 pub mod merge;
 use crate::branch::BranchData;
 use crate::commit::{commit_string};
-
+use std::collections::HashMap;
 use crate::gio;
 use async_channel::Sender;
 
@@ -1187,8 +1187,19 @@ pub fn set_remote_callbacks(
         debug!("push_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
     });
 
-    callbacks.transfer_progress(|progress| {
-        debug!("transfer progress {:?}", progress.received_bytes());
+    let mut progress_counts: HashMap<usize, usize> = HashMap::new();
+    callbacks.transfer_progress(move |progress| {
+        let bytes = progress.received_bytes();
+        if let Some(cnt) = progress_counts.get(&bytes) {
+            if cnt > &100 {
+                panic!("infinite loop in progress");
+            }
+            progress_counts.insert(bytes, cnt + 1);
+        } else {
+            progress_counts.insert(bytes, 1);
+        }
+        // progress_counts[] = 1;
+        debug!("transfer progress {:?}", bytes);
         true
     });
 
