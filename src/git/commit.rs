@@ -107,7 +107,7 @@ pub fn revwalk(
     }
     let mut result: Vec<CommitDiff> = Vec::new();
     for oid in revwalk {
-        let oid = oid.expect("no oid in rev");
+        let oid = oid?;
         let commit = repo.find_commit(oid)?;
         if let Some(ref term) = search_term {
             let mut found = false;
