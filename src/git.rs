@@ -975,7 +975,6 @@ pub fn create_commit(
         .into_iter()
         .map(|oid| repo.find_commit(oid).unwrap())
         .collect::<Vec<Commit>>();
-    debug!("oooooooooooooooooooooooo {:?}", commits);
 
     match &commits[..] {
         [commit] => {

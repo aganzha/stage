@@ -611,7 +611,6 @@ impl Status {
                 !ignored.contains(&str_path)
             });
         }
-        context.update_screen_line_width(untracked.max_line_len);
         if let Some(u) = &mut self.untracked {
             untracked.enrich_view(u, &txt.buffer(), &mut Some(context));
         }
@@ -630,7 +629,6 @@ impl Status {
         banner_button_clicked: Rc<RefCell<Option<SignalHandlerId>>>,
         context: &mut StatusRenderContext,
     ) {
-        context.update_screen_line_width(diff.max_line_len);
         if let Some(s) = &mut self.conflicted {
             if s.has_conflicts() && !diff.has_conflicts() {
                 self.conflicted_label.content = String::from("<span weight=\"bold\" color=\"#1c71d8\">Conflicts resolved</span> stage changes to complete merge");
@@ -755,7 +753,6 @@ impl Status {
         txt: &TextView,
         context: &mut StatusRenderContext,
     ) {
-        context.update_screen_line_width(diff.max_line_len);
         if let Some(s) = &mut self.staged {
             // DiffDirection is required here to choose which lines to
             // compare - new_ or old_
@@ -776,7 +773,6 @@ impl Status {
         txt: &TextView,
         context: &mut StatusRenderContext,
     ) {
-        context.update_screen_line_width(diff.max_line_len);
         if let Some(u) = &mut self.unstaged {
             // hide untracked for now
             // DiffDirection is required here to choose which lines to
@@ -1116,10 +1112,6 @@ impl Status {
                                     }
                                 });
                             }
-                            debug!(
-                                "noooooooooooo way {:?}",
-                                hunk.has_conflicts
-                            );
                             return;
                         }
                     }

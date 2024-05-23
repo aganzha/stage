@@ -314,6 +314,9 @@ impl ViewContainer for Diff {
     ) {
         // why do i need it at all?
         self.view.line_no = iter.line();
+        if let Some(ctx) = context {
+            ctx.update_screen_line_width(self.max_line_len);
+        }
         for file in &mut self.files {
             file.render(buffer, iter, context);
         }
