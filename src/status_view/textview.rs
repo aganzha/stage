@@ -476,11 +476,13 @@ pub fn factory(
             if width > 0 && width != stored_width {
                 // resizing window. handle both cases: initial render and further resizing
                 text_view_width.borrow_mut().pixels = width;
+                debug!("replaced! {:?}", text_view_width);
                 if stored_width == 0 {
                     // initial render
                     if let Some(char_width) = view.calc_max_char_width() {                        
                         if char_width > text_view_width.borrow().chars {                            
                             text_view_width.borrow_mut().chars = char_width;
+                            sndr.send_blocking(crate::Event::TextViewResize).expect("could not sent through channel");
                         }
                     }
                 } else {

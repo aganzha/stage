@@ -240,7 +240,6 @@ pub trait ViewContainer {
         buffer: &TextBuffer,
         context: &mut Option<&mut StatusRenderContext>,
     ) {
-        trace!("+++++++++++++++++++++ resize {:?}", context);
         let view = self.get_view();
         let line_no = view.line_no;
         if view.rendered {
@@ -249,14 +248,15 @@ pub trait ViewContainer {
         }
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let view = vc.get_view();
-            view.squashed = true;
+            // why squashed is here???????????????
+            // view.squashed = true;
             view.dirty = true;
-            view.child_dirty = true;
+            // child dirty triggers expand?
+            // view.child_dirty = true;
         });
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
-        trace!("render after reisze at line {:?}", iter.line());
         self.render(&buffer, &mut iter, context);
     }
 

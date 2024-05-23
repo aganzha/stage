@@ -1,3 +1,7 @@
+TODO: build_up always work on cursor. (2 lines - from which cursor go and when it go).
+      does it necessery at all?
+      it is not even needed to place_cursor!
+      
 when swicth repo and stashes is open - they still show stashes from previous repo
 
 [here DEBUG stage::git] push_negotiation Some("refs/heads/resolve_v1") Some("refs/heads/resolve_v1")
