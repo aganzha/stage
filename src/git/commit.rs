@@ -46,7 +46,7 @@ impl CommitDiff {
     pub fn new(commit: git2::Commit, diff: Diff) -> Self {
         CommitDiff {
             oid: commit.id(),
-            message: commit.message().unwrap_or("").replace('\n', ""),
+            message: commit_string(&commit),
             commit_dt: commit_dt(&commit),
             author: format!(
                 "{} {}",
