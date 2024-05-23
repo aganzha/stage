@@ -1,3 +1,4 @@
+when swicth repo and stashes is open - they still show stashes from previous repo
 
 [here DEBUG stage::git] push_negotiation Some("refs/heads/resolve_v1") Some("refs/heads/resolve_v1")
 thread '<unnamed>' panicked at src/git.rs:1300:13:
