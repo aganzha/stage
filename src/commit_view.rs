@@ -186,21 +186,27 @@ pub fn show_commit_window(
                         }
                     }
                 }
-                Event::Cursor(_offset, line_no) => {
+                Event::Cursor(offset, line_no) => {
                     if let Some(d) = &mut main_diff {
                         if d.diff.cursor(line_no, false, &mut None) {
                             d.render(&txt, &mut Some(&mut ctx), &mut labels);
+                            let buffer = txt.buffer();
+                            let iter = &buffer.iter_at_offset(offset);
+                            buffer.place_cursor(iter);
                         }
                     }
                 }
                 Event::TextViewResize => {
                     if let Some(d) = &mut main_diff {
-                        debug!("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
+                        debug!("...................before resize");
+                        dbg!(&d.diff.files[0].view);
                         d.diff.resize(&txt.buffer(), &mut Some(&mut ctx));
+                        debug!("___________________before resize");
+                        dbg!(&d.diff.files[0].view);
                     }
                 }
                 _ => {
-                    debug!("meeeeeeeeeeeeeeeeeeeeeerr {:?}", event);
+                    debug!("unhandled event in commit_view {:?}", event);
                 }
             }
         }
