@@ -1,3 +1,7 @@
+TODO: in branch list please show remote status somehow
+TODO: push with declined hook. show linter errors
+BUG: conflict with file deletion. there are no our conflict!
+
 TODO: build_up always work on cursor. (2 lines - from which cursor go and when it go).
       does it necessery at all?
       it is not even needed to place_cursor!
