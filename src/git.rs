@@ -1190,7 +1190,7 @@ pub fn set_remote_callbacks(
     callbacks.transfer_progress(move |progress| {
         let bytes = progress.received_bytes();
         if let Some(cnt) = progress_counts.get(&bytes) {
-            if cnt > &10000 {
+            if cnt > &100000 {
                 panic!("infinite loop in progress");
             }
             progress_counts.insert(bytes, cnt + 1);
@@ -1220,7 +1220,10 @@ pub fn set_remote_callbacks(
             debug!("push status {:?}", opt_status);
             // TODO - if status is not None
             // it will need to interact with user
-            assert!(opt_status.is_none());
+            debug!("==============================> {:?}", opt_status);
+            if let Some(status) = opt_status {
+                return Err(Error::from_str(status));
+            }
             Ok(())
         }
     });
@@ -1294,7 +1297,13 @@ pub fn push(
     opts.remote_callbacks(callbacks);
 
     match remote.push(&[refspec], Some(&mut opts)) {
-        Ok(_) => {}
+        Ok(_) => {
+            sender
+                .send_blocking(crate::Event::Toast(String::from(
+                    "Pushed to remote",
+                )))
+                .expect("cant send through channel");
+        }
         Err(error) if error.message() == PLAIN_PASSWORD => {
             sender
                 .send_blocking(crate::Event::PushUserPass(
@@ -1304,6 +1313,7 @@ pub fn push(
                 .expect("cant send through channel");
         }
         Err(error) => {
+            // TODO! make it AlertDialog, please
             sender
                 .send_blocking(crate::Event::Toast(String::from(
                     error.message(),
