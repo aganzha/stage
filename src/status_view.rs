@@ -1211,6 +1211,7 @@ impl Status {
                         "choose cursor at first unstaged file {:?}",
                         line_no
                     );
+                    buffer.place_cursor(&iter);
                     self.cursor(txt, line_no, iter.offset(), context);
                     return;
                 }
@@ -1223,6 +1224,7 @@ impl Status {
         // cursor is on place and it is visually current,
         // but view under it is not current, cause line_no differs
         trace!("choose cursor when NOT on eof {:?}", iter.line());
+        buffer.place_cursor(&iter);
         self.cursor(txt, iter.line(), iter.offset(), context);
     }
 
