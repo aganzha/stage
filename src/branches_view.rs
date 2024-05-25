@@ -1,6 +1,6 @@
 use async_channel::Sender;
 
-use crate::git::{branch, merge, remote};
+use crate::git::{branch, merge, remote, commit};
 use crate::widgets::alert;
 use git2::BranchType;
 use glib::{clone, closure, Object};
@@ -400,7 +400,7 @@ impl BranchList {
             clone!(@weak self as branch_list, @weak window as window => async move {
                 let branch_data = branch_list.get_selected_branch();
                 let branch_data = gio::spawn_blocking(move || {
-                    crate::cherry_pick(repo_path, branch_data, sender)
+                    commit::cherry_pick(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
                     alert(format!("{:?}", e), &window);
                     Ok(None)
