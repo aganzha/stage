@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use log::debug;
 use crate::git::{commit::CommitDiff};
 
 const COMMIT_PAGE_SIZE: i32 = 500;
@@ -18,9 +19,38 @@ pub fn revwalk(
         revwalk.push_head()?;
     }
     let mut result: Vec<CommitDiff> = Vec::new();
-    for oid in revwalk {
-        let oid = oid?;
-        let commit = repo.find_commit(oid)?;
+    for commit in revwalk.filter_map(|oid| {
+        if let Ok(oid) = oid {
+            if let Ok(commit) = repo.find_commit(oid) {
+                match commit.parent_count() {
+                    1 => {
+                        return Some(commit);
+                    }
+                    2 => {
+                        let mut result: Option<git2::Commit> = None;
+                        if let Ok(commit) = commit.parent(0) {
+                            if commit.parent_count() == 1 {
+                                result.replace(commit);
+                            }
+                        }
+                        if let Ok(commit) = commit.parent(1) {
+                            if commit.parent_count() == 1 {
+                                if let Some(found) = result {
+                                    panic!("FOUND------------------> {:?} vs {:?}", found, commit)
+                                }
+                                result.replace(commit);
+                            }
+                        }
+                        return result;
+                    }
+                    _ => {
+                        panic!("more then 2 commits");
+                    }
+                }
+            }
+        }        
+        None
+    }) {
         if let Some(ref term) = search_term {
             let mut found = false;
             for el in [
