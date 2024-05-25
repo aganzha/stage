@@ -4,6 +4,7 @@ pub mod merge;
 pub mod remote;
 use crate::branch::BranchData;
 use crate::commit::{commit_string};
+use crate::status_view::render::View;
 use crate::gio;
 use async_channel::Sender;
 
@@ -25,20 +26,6 @@ use regex::Regex;
 use std::path::PathBuf;
 use std::{collections::HashSet, env, path, str};
 
-#[derive(Debug, Clone)]
-pub struct View {
-    pub line_no: i32,
-    pub expanded: bool,
-    pub squashed: bool,
-    pub rendered: bool,
-    pub dirty: bool,
-    pub child_dirty: bool,
-    pub active: bool,
-    pub current: bool,
-    pub transfered: bool,
-    pub tags: Vec<String>,
-    pub markup: bool,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LineKind {

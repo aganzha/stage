@@ -20,10 +20,10 @@ use crate::{
     checkout_oid, create_commit, get_current_repo_status, get_directories,
     git_debug, merge_dialog_factory, reset_hard, stage_untracked,
     stage_via_apply, stash_changes, track_changes, ApplyFilter, ApplySubject,
-    Diff, Event, Head, Stashes, State, StatusRenderContext, Untracked, View,
+    Diff, Event, Head, Stashes, State, StatusRenderContext, Untracked,
     ABORT, OURS, THEIRS,
 };
-
+use crate::status_view::render::View;
 use async_channel::Sender;
 
 use gio::{

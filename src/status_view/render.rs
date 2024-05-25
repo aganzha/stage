@@ -15,9 +15,24 @@ pub enum ViewState {
     RenderedNotInPlace(i32),
 }
 
-impl crate::View {
+#[derive(Debug, Clone)]
+pub struct View {
+    pub line_no: i32,
+    pub expanded: bool,
+    pub squashed: bool,
+    pub rendered: bool,
+    pub dirty: bool,
+    pub child_dirty: bool,
+    pub active: bool,
+    pub current: bool,
+    pub transfered: bool,
+    pub tags: Vec<String>,
+    pub markup: bool,
+}
+
+impl View {
     pub fn new() -> Self {
-        crate::View {
+        View {
             line_no: 0,
             expanded: false,
             squashed: false,
@@ -333,7 +348,7 @@ impl crate::View {
     }
 }
 
-impl Default for crate::View {
+impl Default for View {
     fn default() -> Self {
         Self::new()
     }

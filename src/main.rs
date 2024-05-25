@@ -31,7 +31,7 @@ use git::{
     reset_hard, stage_untracked, stage_via_apply, stash_changes,
     track_changes, ApplyFilter, ApplySubject, Diff, DiffKind,
     File, Head, Hunk, Line, LineKind, StashData, Stashes, State, Untracked,
-    UntrackedFile, View,
+    UntrackedFile,
 };
 use git2::Oid;
 mod widgets;

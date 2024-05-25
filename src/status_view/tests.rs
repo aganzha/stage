@@ -1,5 +1,6 @@
 use crate::status_view::{StatusRenderContext, ViewContainer};
-use crate::{Diff, DiffKind, File, Hunk, Line, LineKind, View};
+use crate::{Diff, DiffKind, File, Hunk, Line, LineKind};
+use crate::status_view::render::View;
 use git2::DiffLineType;
 use gtk4::prelude::*;
 use gtk4::TextBuffer;
