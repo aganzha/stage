@@ -224,7 +224,7 @@ pub fn push(
     opts.remote_callbacks(callbacks);
 
     let result = remote.push(&[refspec], Some(&mut opts));
-    debug!("wtf?????????????????????? {:?} {:?}", result, response);
+
     match &result {
         Ok(_) => {
             sender
@@ -244,11 +244,9 @@ pub fn push(
         }
         _ => {}
     }
-    // let {response.body, response.error} = response.borrow_mut() {
-    // }
+
     let rr = response.borrow();
     if let Some(error) = &rr.error {
-        debug!("----------------------------- error message {:?}", error);
         let mut result = RemoteResponse::default();
         result.error.replace(error.clone());
         if let Some(body) = &rr.body {
@@ -256,13 +254,6 @@ pub fn push(
         }
         return Err(result);
     }
-    // if let Some(body) = &rr.body {
-    //     debug!("----------------------------- error body {:?}", body);
-    // }
-        // return Err(RemoteResponse {
-        //     body: rr.body.take(),
-        //     error: Some(error.clone())
-        // })    
     Ok(())
 }
 
