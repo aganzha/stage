@@ -121,7 +121,7 @@ impl View {
                     );
                     if chars as usize > line_content.len() {
                         let spaces = chars as usize - line_content.len();
-                        debug!("build up spaces {:?}", spaces);
+                        trace!("build up spaces {:?}", spaces);
                         return format!(
                             "{}{}",
                             line_content,
@@ -180,7 +180,7 @@ impl View {
                 }
             }
             ViewState::RenderedDirtyInPlace => {
-                debug!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
+                trace!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
                 // this means only tags are changed.
                 if self.does_not_match_width(buffer, context) {
                     // here is the case: view is rendered before resize event.
@@ -190,15 +190,6 @@ impl View {
                     self.replace_dirty_content(buffer, iter, &content);
                 }
                 self.apply_tags(buffer, &content_tags);
-                // event is came. rerendering occurs here, but there are no build_up :(
-                // perhaps it need to force build_up here.
-                // if !content.is_empty() {
-                //     let content = self.build_up(&content, line_no, context);
-                //     self.replace_dirty_content(buffer, iter, &content);
-                //     self.apply_tags(buffer, &content_tags);
-                // } else {
-                //     self.apply_tags(buffer, &content_tags);
-                // }
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
                 }
