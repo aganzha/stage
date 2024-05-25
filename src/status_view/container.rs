@@ -1,8 +1,9 @@
 use crate::status_view::{Label, Tag};
 use crate::{
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
-    StatusRenderContext, UnderCursor, Untracked, UntrackedFile, View,
+    StatusRenderContext, UnderCursor, Untracked, UntrackedFile,
 };
+use crate::status_view::render::View;
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter, TextView};
