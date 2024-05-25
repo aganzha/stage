@@ -1,29 +1,10 @@
 TODO: measure line length for each line under cursor is not effective. perhaps introduce one
 more flag to view and during resize event reset those flags to perform buildup?
 TODO: in branch list please show remote status somehow
-TODO: push with declined hook. show linter errors
 BUG: conflict with file deletion. there are no our conflict!
       
 when swicth repo and stashes is open - they still show stashes from previous repo
 
-[here DEBUG stage::git] push_negotiation Some("refs/heads/resolve_v1") Some("refs/heads/resolve_v1")
-thread '<unnamed>' panicked at src/git.rs:1300:13:
-cannot push because a reference that you are trying to update on the remote contains commits that are not present locally.; class=Reference (4); code=NotFastForward (-11)
-stack backtrace:
-
-our side is ready. only unknown way is to displaying conflicted hunk
-after resolve. when it must be finalized - ok. but what about case when
-1 hunk is resolved, but not another one?
-resolved is just disapeared :(
-
-or resolve
-ff1
-mac
-btw. where is a bug in log. try merge branch and view log - it misses commit from the merged branch, btw
-
-thread '<unnamed>' panicked at src/git.rs:1461:10:
-can't checkout tree: Error { code: -13, klass: 20, message: "3774 conflicts prevent checkout" }
-but no god text during checkout in branches view
 
 thread '<unnamed>' panicked at src/git.rs:560:32:
 called `Option::unwrap()` on a `None` value
@@ -31,69 +12,9 @@ called `Option::unwrap()` on a `None` value
 
 
 
-TODO: to highlight  ours/theirs lines it need to hack active_by_parent in line.
-      - it need to refactor view active for enum Active(source: bool)
-      - normal active is ActibeSource::Hunk(true/false)
-        + our/their ActiveSource::LineKind(true/false)
-        it is active in HUNK! then line get it as arg and compare to self active
-        
-next thing to do with resolve:
-- lets try color font instead of background1
-- introduce IF to ours/theirs in resolve (don not apply theirs if ours is chosen)
-- introduce new line field ours/theirs
-- fill this field in conflicted only according to markers
-- paint lines according to that field
-- pass this field as argument to resolve
-- if conflicted present - show red banner with abort button if new field is present
-- show green banner with stage button if no field is present
-- implement abort and stage-conflicted buttons
-
-so. after adding file to index during resolving all changes come to index. patch could not be applied.
-and conflicts are resolved! i do not want to resolve them yet!
-what it need to do! choose what the user is selected. there are 2 cases:
- - he edited file manually - and there is nothing to choose from :( all changes must be applied in that hunk.
-   but how to apply? it does not needed. just display it, it is already applied by the user!
-   
- - he did not edited file - just choose either ours or theirs. in this case only part of hunk should be applied!
-how to do that? directly: when prepairing conflict hunk track markers. all lines between markers must be
-supplied with original origin. if user choosed that origin - get the conflict. match hunks line by line with choosed
-origin. if matched - apply that to workdir. but how????
-
-finally: llok for the markers. if all markers are gone - stage that file!
-
-just a text
-
-also, just for info - apply to workdir panics when conflicts are not resolved!
-
-so. conflicted file should be marked as conflicted - ok (though it could be on unstaged like in magit).
-all other files will be staged, right? and this file must also go to staged... for what?
-unstaging it does what? nothing. why do i need it there? just to unstage. then commit staged changes
-without conflicts? hmm....
-
-see conflicted_v1 - much cleaner.
-BUT! one more thing - conflicted file is not shown on staged!
-thats bad, cause it prevents to commit other staged changes during merge. there is a panic during commit -
-cant write tree from unmerged index. and it is not possible to unstage it, because it is not in the index!
-it need to show it. just a filename with possibility to unstage!
-also - panic in commit must be shown to user.
-something like unknown error or such.
-
-
-BUG: state is not updated: when state is Merge and changing it outside of Stage it does not changed.
-     looks like it need to mark it as dirty
 
 BUG: when kill untracked file from magit (when it was visible in stage), it remains visible and even changing repo does not help
 # pull branch whithout remote
-[INFO  stage] toast
-[INFO  stage] main. upstream
-thread '<unnamed>' panicked at src/git.rs:966:38:
-called `Result::unwrap()` on an `Err` value: Error { code: -3, klass: 7, message: "config value 'branch.rc-24.2132.remote' was not found" }
-fixed manually: git branch --set-upstream-to=origin/rc-24.2132 rc-24.2132
-
-
-
-here comes the conflict
-
 
 TODO: Cherry-pick - it does copy changes but does not create commit (feature?) refresh button does not cleanu state
       feature - add popup while click on state suggest cleanup. 
