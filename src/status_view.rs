@@ -818,9 +818,9 @@ impl Status {
         }
         if changed {
             self.render(txt, RenderSource::Cursor(line_no), context);
-            let buffer = txt.buffer();
-            let iter = &buffer.iter_at_offset(offset);
-            buffer.place_cursor(iter);
+            // let buffer = txt.buffer();
+            // let iter = &buffer.iter_at_offset(offset);
+            // buffer.place_cursor(iter);
         }
     }
 
