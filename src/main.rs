@@ -447,6 +447,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     status.ignore(&txt, line_no, offset, &mut ctx);
                 }
                 Event::TextViewResize => {
+                    info!("main.resize");
                     status.resize(&txt, &mut ctx);
                 }
                 Event::Toast(title) => {

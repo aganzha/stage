@@ -17,7 +17,7 @@ use libadwaita::prelude::*;
 use libadwaita::{
     HeaderBar, ToolbarView, Window,
 };
-use log::debug;
+use log::{debug, info};
 
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -153,6 +153,7 @@ pub fn show_commit_window(
             ctx.screen_width.replace(text_view_width.clone());
             match event {
                 Event::CommitDiff(mut commit_diff) => {
+                    info!("commit_diff");
                     labels[1].content =
                         format!("Author: {}", commit_diff.author);
                     labels[2].content =
@@ -172,6 +173,7 @@ pub fn show_commit_window(
                     main_diff.replace(commit_diff);
                 }
                 Event::Expand(_offset, line_no) => {
+                    info!("expand");
                     if let Some(d) = &mut main_diff {
                         let mut need_render = false;
                         for file in &mut d.diff.files {
@@ -187,22 +189,20 @@ pub fn show_commit_window(
                     }
                 }
                 Event::Cursor(offset, line_no) => {
+                    info!("cursor");
                     if let Some(d) = &mut main_diff {
                         if d.diff.cursor(line_no, false, &mut None) {
                             d.render(&txt, &mut Some(&mut ctx), &mut labels);
                             let buffer = txt.buffer();
                             let iter = &buffer.iter_at_offset(offset);
-                            buffer.place_cursor(iter);
+                            // buffer.place_cursor(iter);
                         }
                     }
                 }
                 Event::TextViewResize => {
+                    info!("resize");
                     if let Some(d) = &mut main_diff {
-                        debug!("...................before resize");
-                        dbg!(&d.diff.files[0].view);
                         d.diff.resize(&txt.buffer(), &mut Some(&mut ctx));
-                        debug!("___________________before resize");
-                        dbg!(&d.diff.files[0].view);
                     }
                 }
                 _ => {

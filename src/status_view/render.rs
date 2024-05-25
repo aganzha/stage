@@ -86,6 +86,7 @@ impl crate::View {
                     );
                     if chars as usize > line_content.len() {
                         let spaces = chars as usize - line_content.len();
+                        debug!("build up spaces {:?}", spaces);
                         return format!(
                             "{}{}",
                             line_content,
@@ -144,14 +145,15 @@ impl crate::View {
                 }
             }
             ViewState::RenderedDirtyInPlace => {
-                trace!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
-                if !content.is_empty() {
-                    let content = self.build_up(&content, line_no, context);
-                    self.replace_dirty_content(buffer, iter, &content);
-                    self.apply_tags(buffer, &content_tags);
-                } else {
-                    self.apply_tags(buffer, &content_tags);
-                }
+                debug!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
+                self.apply_tags(buffer, &content_tags);
+                // if !content.is_empty() {
+                //     let content = self.build_up(&content, line_no, context);
+                //     self.replace_dirty_content(buffer, iter, &content);
+                //     self.apply_tags(buffer, &content_tags);
+                // } else {
+                //     self.apply_tags(buffer, &content_tags);
+                // }
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
                 }
@@ -246,11 +248,11 @@ impl crate::View {
         let mut fltr: HashSet<Tag> = HashSet::new();
         if self.current {
             self.add_tag(buffer, Tag::Cursor.name());
-            // fltr.insert(Tag::Added);
-            // fltr.insert(Tag::Removed);
+            // it need to filter background tags
+            self.remove_tag(buffer, Tag::Region.name());
+            self.remove_tag(buffer, Tag::Hunk.name());
             fltr.insert(Tag::Region);
             fltr.insert(Tag::Hunk);
-            // it need to filter background tags
         } else {
             self.remove_tag(buffer, Tag::Cursor.name());
         }
