@@ -2,6 +2,7 @@ pub mod container;
 pub mod headerbar;
 pub mod textview;
 use crate::git::{merge, remote, LineKind};
+use crate::widgets::alert;
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
 
@@ -464,15 +465,24 @@ impl Status {
                         format!("{}", password.text()),
                     ));
                 }
-                gio::spawn_blocking({
-                    move || {
-                        remote::push(
-                            path.expect("no path"),
-                            remote_branch_name,
-                            track_remote,
-                            sender,
-                            user_pass,
-                        );
+                glib::spawn_future_local({
+                    async move {
+                        gio::spawn_blocking({
+                            move || {
+                                remote::push(
+                                    path.expect("no path"),
+                                    remote_branch_name,
+                                    track_remote,
+                                    sender,
+                                    user_pass,
+                                )
+                            }
+                        }).await.unwrap_or_else(|e| {
+                            alert(format!("{:?}", e), &window);
+                            Ok(())
+                        }).unwrap_or_else(|e| {
+                            alert(e, &window);
+                        });
                     }
                 });
             }

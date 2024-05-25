@@ -9,13 +9,6 @@ use gtk4::{
     gio, AlertDialog as GTK4AlertDialog, Widget, Window as Gtk4Window,
 };
 
-pub fn display_error(
-    w: &impl IsA<Gtk4Window>, // Application
-    message: &str,
-) {
-    let d = GTK4AlertDialog::builder().message(message).build();
-    d.show(Some(w));
-}
 
 pub fn confirm_dialog_factory(
     window: &impl IsA<Gtk4Window>,
