@@ -1,4 +1,4 @@
-use log::debug;
+use log::{trace, debug};
 use std::path::PathBuf;
 use async_channel::Sender;
 use std::collections::HashMap;
@@ -156,18 +156,18 @@ pub fn push(
     tracking_remote: bool,
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
-) {
-    debug!("remote branch {:?}", remote_branch);
+) -> Result<(), git2::Error> { 
+    trace!("remote branch {:?}", remote_branch);
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
-    debug!("push.head ref name {:?}", head_ref.name());
+    trace!("push.head ref name {:?}", head_ref.name());
     assert!(head_ref.is_branch());
     let refspec = format!(
         "{}:refs/heads/{}",
         head_ref.name().unwrap(),
         remote_branch.replace("origin/", "")
     );
-    debug!("push. refspec {}", refspec);
+    trace!("push. refspec {}", refspec);
     let mut branch = git2::Branch::wrap(head_ref);
     let mut remote = repo
         .find_remote("origin") // TODO here is hardcode
@@ -180,7 +180,7 @@ pub fn push(
         let remote_branch = remote_branch.clone();
         let sender = sender.clone();
         move |updated_ref, oid1, oid2| {
-            debug!(
+            trace!(
                 "updated local references {:?} {:?} {:?}",
                 updated_ref, oid1, oid2
             );
@@ -201,7 +201,8 @@ pub fn push(
     set_remote_callbacks(&mut callbacks, &user_pass);
     opts.remote_callbacks(callbacks);
 
-    match remote.push(&[refspec], Some(&mut opts)) {
+    let result = remote.push(&[refspec], Some(&mut opts));
+    match &result {
         Ok(_) => {
             sender
                 .send_blocking(crate::Event::Toast(String::from(
@@ -217,15 +218,9 @@ pub fn push(
                 ))
                 .expect("cant send through channel");
         }
-        Err(error) => {
-            // TODO! make it AlertDialog, please
-            sender
-                .send_blocking(crate::Event::Toast(String::from(
-                    error.message(),
-                )))
-                .expect("cant send through channel");
-        }
+        _ => {}
     }
+    result
 }
 
 pub fn pull(
