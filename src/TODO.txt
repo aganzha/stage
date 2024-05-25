@@ -1,3 +1,5 @@
+TODO: measure line length for eac line under cursor is not effective. perhaps introduce one
+more flag to view and during resize event reset those flags to perform buildup?
 BUG, related: just got cursor placed at end of line in main view. looks like it happens when lines in diff are short!
 TODO: in branch list please show remote status somehow
 TODO: push with declined hook. show linter errors

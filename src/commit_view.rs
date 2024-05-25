@@ -188,13 +188,13 @@ pub fn show_commit_window(
                         }
                     }
                 }
-                Event::Cursor(offset, line_no) => {
+                Event::Cursor(_offset, line_no) => {
                     info!("cursor");
                     if let Some(d) = &mut main_diff {
                         if d.diff.cursor(line_no, false, &mut None) {
                             d.render(&txt, &mut Some(&mut ctx), &mut labels);
-                            let buffer = txt.buffer();
-                            let iter = &buffer.iter_at_offset(offset);
+                            // let buffer = txt.buffer();
+                            // let iter = &buffer.iter_at_offset(offset);
                             // buffer.place_cursor(iter);
                         }
                     }
@@ -202,7 +202,14 @@ pub fn show_commit_window(
                 Event::TextViewResize => {
                     info!("resize");
                     if let Some(d) = &mut main_diff {
-                        d.diff.resize(&txt.buffer(), &mut Some(&mut ctx));
+                        let buffer = &txt.buffer();
+                        // during resize some views are build up
+                        // and cursor could move
+                        let cursor_before = buffer.cursor_position();
+                        d.diff.resize(buffer, &mut Some(&mut ctx));
+                        // restore it
+                        // TODO! perhaps move it to common render method???
+                        buffer.place_cursor(&buffer.iter_at_offset(cursor_before));
                     }
                 }
                 _ => {

@@ -44,6 +44,26 @@ impl crate::View {
             && !self.squashed
     }
 
+    fn does_not_match_width(&self,
+                            buffer: &TextBuffer,
+                            context: &mut Option<&mut crate::StatusRenderContext>) -> bool {
+
+        if let Some(ctx) = context {
+            if let Some(width) = &ctx.screen_width {
+                let chars = width.borrow().chars;
+                if chars >  0 {
+                    let (start, end) = self.start_end_iters(buffer);
+                    let len = buffer.slice(&start, &end, true).len() as i32;
+                    if chars - 1 > len {
+                        trace!("rendered content is less then screen width");
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
     fn replace_dirty_content(
         &mut self,
         buffer: &TextBuffer,
@@ -70,7 +90,7 @@ impl crate::View {
     ) -> String {
         let line_content = content.to_string();
         if let Some(ctx) = context {
-            if let Some(width) = &ctx.screen_width {                
+            if let Some(width) = &ctx.screen_width {
                 let pixels = width.borrow().pixels;
                 let chars = width.borrow().chars;
                 trace!(
@@ -146,7 +166,17 @@ impl crate::View {
             }
             ViewState::RenderedDirtyInPlace => {
                 debug!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
+                // this means only tags are changed.
+                if self.does_not_match_width(buffer, context) {
+                    // here is the case: view is rendered before resize event.
+                    // max width is detected by diff max width and then resize
+                    // event is come with larger with
+                    let content = self.build_up(&content, line_no, context);
+                    self.replace_dirty_content(buffer, iter, &content);
+                }
                 self.apply_tags(buffer, &content_tags);
+                // event is came. rerendering occurs here, but there are no build_up :(
+                // perhaps it need to force build_up here.
                 // if !content.is_empty() {
                 //     let content = self.build_up(&content, line_no, context);
                 //     self.replace_dirty_content(buffer, iter, &content);
@@ -293,6 +323,7 @@ impl crate::View {
         }
         if self.dirty && self.transfered {
             // why not in place? it is in place, just transfered!
+            // TODO rename this state. and think about it!
             return ViewState::RenderedDirtyNotInPlace(self.line_no);
         }
         if self.squashed {

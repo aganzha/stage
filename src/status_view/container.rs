@@ -244,12 +244,11 @@ pub trait ViewContainer {
         let line_no = view.line_no;
         if view.rendered {
             view.dirty = true;
+            // TODO! why i need child dirty here?
             view.child_dirty = true;
         }
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let view = vc.get_view();
-            // why squashed is here???????????????
-            // view.squashed = true;
             view.dirty = true;
             // child dirty triggers expand?
             // view.child_dirty = true;
