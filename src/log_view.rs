@@ -1,4 +1,4 @@
-use crate::git::commit;
+use crate::git::{git_log::revwalk, commit};
 use crate::widgets::alert;
 use async_channel::Sender;
 use core::time::Duration;
@@ -180,7 +180,7 @@ impl CommitList {
                 }
 
                 let commits = gio::spawn_blocking(move || {
-                    commit::revwalk(repo_path, start_oid, None)
+                    revwalk(repo_path, start_oid, None)
                 })
                 .await
                 .unwrap_or_else(|e| {
@@ -242,7 +242,7 @@ impl CommitList {
             let widget = widget.clone();
             async move {
                 let commits = gio::spawn_blocking(move || {
-                    commit::revwalk(repo_path, None, Some(term))
+                    revwalk(repo_path, None, Some(term))
                 })
                 .await
                 .unwrap_or_else(|e| {

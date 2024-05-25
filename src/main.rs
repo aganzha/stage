@@ -26,7 +26,7 @@ use std::rc::Rc;
 
 mod git;
 use git::{
-    apply_stash, branch, checkout_oid, cherry_pick, commit, create_commit,
+    apply_stash, branch, checkout_oid, commit,
     debug as git_debug, drop_stash, get_current_repo_status, get_directories,
     reset_hard, stage_untracked, stage_via_apply, stash_changes,
     track_changes, ApplyFilter, ApplySubject, Diff, DiffKind,
