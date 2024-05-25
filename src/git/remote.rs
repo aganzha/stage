@@ -3,14 +3,22 @@ use std::path::PathBuf;
 use async_channel::Sender;
 use std::collections::HashMap;
 use git2;
+use std::rc::Rc;
+use std::cell::RefCell;
 use crate::git::{get_head, get_upstream};
 
 const PLAIN_PASSWORD: &str = "plain text password required";
 
+#[derive(Debug, Default)]
+pub struct RemoteResponse {
+    pub body: Option<Vec<String>>,
+    pub error: Option<String>
+}
+
 pub fn set_remote_callbacks(
     callbacks: &mut git2::RemoteCallbacks,
     user_pass: &Option<(String, String)>,
-) {
+) -> Rc<RefCell<RemoteResponse>> {
     // const PLAIN_PASSWORD: &str = "plain text password required";
     callbacks.credentials({
         let user_pass = user_pass.clone();
@@ -65,22 +73,35 @@ pub fn set_remote_callbacks(
         debug!("pack progress {:?} {:?} {:?}", stage, s1, s2);
     });
 
-    callbacks.sideband_progress(|response| {
-        debug!(
-            "push.sideband progress {:?}",
-            String::from_utf8_lossy(response)
-        );
-        true
-    });
+    let response = Rc::new(RefCell::new(RemoteResponse::default()));
+
+    callbacks.sideband_progress({
+        let r = response.clone();
+        move |response| {
+            let str_resp = String::from_utf8_lossy(response).into_owned();
+            debug!(
+                "push.sideband progress {:?}",
+                str_resp
+            );
+            let mut rr = r.borrow_mut();
+            if let Some(body) = &mut rr.body {
+                body.push(str_resp);
+            } else {
+                let mut body = Vec::new();
+                body.push(str_resp);
+                rr.body.replace(body);
+            }            
+            true
+        }});
 
     callbacks.push_update_reference({
+        let r = response.clone();
         move |ref_name, opt_status| {
-            debug!("push update ref {:?}", ref_name);
-            debug!("push status {:?}", opt_status);
-            // TODO - if status is not None
-            // it will need to interact with user
-            debug!("==============================> {:?}", opt_status);
+            trace!("push update ref {:?}", ref_name);
+            trace!("push status {:?}", opt_status);
             if let Some(status) = opt_status {
+                let mut rr = r.borrow_mut();
+                rr.error.replace(String::from(status));
                 return Err(git2::Error::from_str(status));
             }
             Ok(())
@@ -102,6 +123,7 @@ pub fn set_remote_callbacks(
         }
         Ok(())
     });
+    response
 }
 
 pub fn update_remote(
@@ -156,7 +178,7 @@ pub fn push(
     tracking_remote: bool,
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
-) -> Result<(), git2::Error> { 
+) -> Result<(), RemoteResponse> { 
     trace!("remote branch {:?}", remote_branch);
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
@@ -198,10 +220,11 @@ pub fn push(
         }
     });
 
-    set_remote_callbacks(&mut callbacks, &user_pass);
+    let response = set_remote_callbacks(&mut callbacks, &user_pass);
     opts.remote_callbacks(callbacks);
 
     let result = remote.push(&[refspec], Some(&mut opts));
+    debug!("wtf?????????????????????? {:?} {:?}", result, response);
     match &result {
         Ok(_) => {
             sender
@@ -217,10 +240,30 @@ pub fn push(
                     tracking_remote,
                 ))
                 .expect("cant send through channel");
+            return Ok(());
         }
         _ => {}
     }
-    result
+    // let {response.body, response.error} = response.borrow_mut() {
+    // }
+    let rr = response.borrow();
+    if let Some(error) = &rr.error {
+        debug!("----------------------------- error message {:?}", error);
+        let mut result = RemoteResponse::default();
+        result.error.replace(error.clone());
+        if let Some(body) = &rr.body {
+            result.body.replace(body.clone());
+        }
+        return Err(result);
+    }
+    // if let Some(body) = &rr.body {
+    //     debug!("----------------------------- error body {:?}", body);
+    // }
+        // return Err(RemoteResponse {
+        //     body: rr.body.take(),
+        //     error: Some(error.clone())
+        // })    
+    Ok(())
 }
 
 pub fn pull(
