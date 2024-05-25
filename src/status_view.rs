@@ -1,7 +1,7 @@
 pub mod container;
 pub mod headerbar;
 pub mod textview;
-use crate::git::{merge, LineKind};
+use crate::git::{merge, remote, LineKind};
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
 
@@ -17,7 +17,7 @@ use std::rc::Rc;
 
 use crate::{
     checkout_oid, create_commit, get_current_repo_status, get_directories,
-    git_debug, merge_dialog_factory, pull, push, reset_hard, stage_untracked,
+    git_debug, merge_dialog_factory, reset_hard, stage_untracked,
     stage_via_apply, stash_changes, track_changes, ApplyFilter, ApplySubject,
     Diff, Event, Head, Stashes, State, StatusRenderContext, Untracked, View,
     ABORT, OURS, THEIRS,
@@ -364,7 +364,7 @@ impl Status {
                 }
                 gio::spawn_blocking({
                     move || {
-                        pull(path, sender, user_pass);
+                        remote::pull(path, sender, user_pass);
                     }
                 });
             }
@@ -466,7 +466,7 @@ impl Status {
                 }
                 gio::spawn_blocking({
                     move || {
-                        push(
+                        remote::push(
                             path.expect("no path"),
                             remote_branch_name,
                             track_remote,

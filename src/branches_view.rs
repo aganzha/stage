@@ -1,6 +1,6 @@
 use async_channel::Sender;
 
-use crate::git::{branch, merge};
+use crate::git::{branch, merge, remote};
 use crate::widgets::alert;
 use git2::BranchType;
 use glib::{clone, closure, Object};
@@ -430,7 +430,7 @@ impl BranchList {
             let path = repo_path.clone();
             clone!(@weak self as branch_list, @weak window as window => async move {
                 let _ = gio::spawn_blocking(move || {
-                    crate::update_remote(repo_path, sender, None)
+                    remote::update_remote(repo_path, sender, None)
                 }).await;
                 branch_list.get_branches(path, &window);
             })

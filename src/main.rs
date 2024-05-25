@@ -28,15 +28,15 @@ mod git;
 use git::{
     apply_stash, branch, checkout_oid, cherry_pick, commit, create_commit,
     debug as git_debug, drop_stash, get_current_repo_status, get_directories,
-    pull, push, reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, update_remote, ApplyFilter, ApplySubject, Diff, DiffKind,
+    reset_hard, stage_untracked, stage_via_apply, stash_changes,
+    track_changes, ApplyFilter, ApplySubject, Diff, DiffKind,
     File, Head, Hunk, Line, LineKind, StashData, Stashes, State, Untracked,
     UntrackedFile, View,
 };
 use git2::Oid;
 mod widgets;
 use widgets::{
-    alert, confirm_dialog_factory, display_error, merge_dialog_factory, ABORT,
+    alert, confirm_dialog_factory, merge_dialog_factory, ABORT,
     OURS, THEIRS,
 };
 
