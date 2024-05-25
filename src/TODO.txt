@@ -1,3 +1,4 @@
+BUG, related: just got cursor placed at end of line in main view. looks like it happens when lines in diff are short!
 TODO: in branch list please show remote status somehow
 TODO: push with declined hook. show linter errors
 BUG: conflict with file deletion. there are no our conflict!

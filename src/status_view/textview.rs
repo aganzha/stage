@@ -16,7 +16,7 @@ use pango::Style;
 const CURSOR_TAG: &str = "CursorTag";
 
 // gnome colors https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/named-colors.html
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq, Debug)]
 pub enum Tag {
     Bold,
     Added,
