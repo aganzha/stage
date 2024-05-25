@@ -1,6 +1,6 @@
 use crate::commit::{commit_dt, commit_string};
 use crate::get_current_repo_status;
-use crate::git::set_remote_callbacks;
+use crate::git::remote::set_remote_callbacks;
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset};
 use git2;
