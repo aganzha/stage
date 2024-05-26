@@ -1,7 +1,7 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::git::commit;
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
-use crate::widgets::alert;
+use crate::widgets::{alert, YesNoString};
 use crate::Event;
 use async_channel::Sender;
 use git2::Oid;
@@ -11,7 +11,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, EventControllerKey, Label, ScrolledWindow, TextView,
-    Window as Gtk4Window,
+    Window as Gtk4Window, Button, Widget
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -23,8 +23,10 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 pub fn headerbar_factory(
-    _repo_path: PathBuf,
-    _oid: Oid,
+    repo_path: PathBuf,    
+    window: &impl IsA<Widget>,
+    sender: Sender<Event>,
+    oid: Oid,
     // _sender: Sender<Event>,
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
@@ -34,8 +36,37 @@ pub fn headerbar_factory(
         .build();
 
     hb.set_title_widget(Some(&lbl));
-    hb.set_show_end_title_buttons(true);
-    hb.set_show_back_button(true);
+
+    let cherry_pick_btn = Button::builder()
+        .icon_name("emblem-shared-symbolic")
+        .can_shrink(true)
+        .tooltip_text("Cherry-pick")
+        .sensitive(true)
+        .use_underline(true)
+        .build();
+    cherry_pick_btn.connect_clicked({
+        let sender = sender.clone();
+        let path = repo_path.clone();
+        let window = window.clone();
+        move |_btn| {
+            glib::spawn_future_local({
+                let window = window.clone();
+                async move {
+                    alert(YesNoString{0:"Cherry pick commit?".to_string(), 1:format!("{}", oid)}, &window);
+                }
+            });
+            // commit::cherry_pick()
+        }});
+    
+    let revert_btn = Button::builder()
+        .icon_name("edit-undo-symbolic")
+        .can_shrink(true)
+        .tooltip_text("Revert")
+        .sensitive(true)
+        .use_underline(true)
+        .build();
+    hb.pack_end(&cherry_pick_btn);
+    hb.pack_end(&revert_btn);
     hb
 }
 
@@ -59,7 +90,7 @@ pub fn show_commit_window(
     repo_path: PathBuf,
     oid: Oid,
     app_window: &impl IsA<Gtk4Window>,
-    _main_sender: Sender<Event>, // i need that to trigger revert and cherry-pick.
+    main_sender: Sender<Event>, // i need that to trigger revert and cherry-pick.
 ) {
     let (sender, receiver) = async_channel::unbounded();
 
@@ -73,7 +104,7 @@ pub fn show_commit_window(
 
     let scroll = ScrolledWindow::new();
 
-    let hb = headerbar_factory(repo_path.clone(), oid);
+    let hb = headerbar_factory(repo_path.clone(), &window.clone(), main_sender.clone(), oid);
 
     let text_view_width = Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
     let txt = crate::textview_factory(sender.clone(), text_view_width.clone());
