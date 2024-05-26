@@ -1,4 +1,4 @@
-use crate::git::{git_log::revwalk, commit};
+use crate::git::{git_log, commit};
 use crate::widgets::alert;
 use async_channel::Sender;
 use core::time::Duration;
@@ -34,13 +34,16 @@ mod commit_item {
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::CommitItem)]
     pub struct CommitItem {
-        pub commit: RefCell<commit::CommitDiff>,
+        pub commit: RefCell<commit::CommitLog>,
 
         #[property(get = Self::get_author)]
         pub author: String,
 
         #[property(get = Self::get_oid)]
         pub oid: String,
+
+        #[property(get = Self::get_from)]
+        pub from: String,
 
         #[property(get = Self::get_message)]
         pub message: String,
@@ -64,6 +67,9 @@ mod commit_item {
                 self.commit.borrow().oid
             )
         }
+        pub fn get_from(&self) -> String {
+            format!("{}", self.commit.borrow().from)
+        }
         pub fn get_author(&self) -> String {
             self.commit.borrow().author.to_string()
         }
@@ -82,7 +88,7 @@ mod commit_item {
 }
 
 impl CommitItem {
-    pub fn new(commit: commit::CommitDiff) -> Self {
+    pub fn new(commit: commit::CommitLog) -> Self {
         let ob = Object::builder::<CommitItem>().build();
         ob.imp().commit.replace(commit);
         ob
@@ -180,7 +186,7 @@ impl CommitList {
                 }
 
                 let commits = gio::spawn_blocking(move || {
-                    revwalk(repo_path, start_oid, None)
+                    git_log::revwalk(repo_path, start_oid, None)
                 })
                 .await
                 .unwrap_or_else(|e| {
@@ -191,6 +197,7 @@ impl CommitList {
                     alert(e, &widget);
                     Vec::new()
                 });
+                debug!("----------------------------> {:?}", commits.len());
                 if commits.is_empty() {
                     return;
                 }
@@ -242,7 +249,7 @@ impl CommitList {
             let widget = widget.clone();
             async move {
                 let commits = gio::spawn_blocking(move || {
-                    revwalk(repo_path, None, Some(term))
+                    git_log::revwalk(repo_path, None, Some(term))
                 })
                 .await
                 .unwrap_or_else(|e| {
@@ -306,6 +313,14 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
         });
         oid_label.add_controller(gesture_controller);
 
+        let from_label = Label::builder()
+            .label("")
+            .width_chars(10)
+            .max_width_chars(10)
+            .xalign(0.0)
+            .ellipsize(pango::EllipsizeMode::End)
+            .build();
+
         let author_label = Label::builder()
             .label("")
             .width_chars(18)
@@ -353,6 +368,7 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
             .build();
 
         bx.append(&oid_label);
+        bx.append(&from_label);
         bx.append(&author_label);
         bx.append(&label_commit);
         bx.append(&label_dt);
@@ -371,6 +387,13 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
             "label",
             Widget::NONE,
         );
+
+        item.chain_property::<CommitItem>("from").bind(
+            &from_label,
+            "label",
+            Widget::NONE,
+        );
+
         item.chain_property::<CommitItem>("author").bind(
             &author_label,
             "label",
