@@ -23,16 +23,23 @@ pub fn commit_string(c: &git2::Commit) -> String {
 }
 
 #[derive(Debug, Clone)]
+pub enum CommitRelation {
+    Right,
+    Left,
+    None
+}
+
+#[derive(Debug, Clone)]
 pub struct CommitLog {
     pub oid: git2::Oid,
     pub message: String,
     pub commit_dt: DateTime<FixedOffset>,
     pub author: String,
-    pub from: String,
+    pub from: CommitRelation,
 }
 
 impl CommitLog {
-    pub fn from_log(commit: git2::Commit, from: String) -> Self {
+    pub fn from_log(commit: git2::Commit, from: CommitRelation) -> Self {
         Self {
             oid: commit.id(),
             message: commit.message().unwrap_or("").replace('\n', ""),
@@ -49,7 +56,7 @@ impl Default for CommitLog {
             message: String::from(""),
             commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
             author: String::from(""),
-            from: String::from(""),
+            from: CommitRelation::None,
         }
     }
 }

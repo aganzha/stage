@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use log::debug;
 use std::collections::HashSet;
-use crate::git::{commit::CommitLog};
+use crate::git::{commit::{CommitLog, CommitRelation}};
 
 const COMMIT_PAGE_SIZE: usize = 500;
 
@@ -19,35 +19,57 @@ pub fn revwalk(
         revwalk.push_head()?;
     }
 
-    let commits = revwalk.enumerate().scan(HashSet::<git2::Oid>::new(), |right_commits, (i, oid)| {
-        if i == COMMIT_PAGE_SIZE {
-            return None;
-        }
-        if let Ok(oid) = oid {
-            if let Ok(commit) = repo.find_commit(oid) {
-                match commit.parent_count() {
-                    0 => {
-                        // in the begining there was darkness
-                        return Some((Some(commit), right_commits.clone()));
-                    }
-                    1 => {
-                        return Some((Some(commit), right_commits.clone()));
-                    }
-                    2 => {
-                        if let Ok(right) = commit.parent_id(1) {
-                            right_commits.insert(right);
-                            debug!("FOUND RIGHT =========== {:?}", right);
+    let commits = revwalk.enumerate().scan(
+        (HashSet::<git2::Oid>::new(), HashSet::<git2::Oid>::new()),
+        |(left_commits, right_commits), (i, oid)| {
+            if i == COMMIT_PAGE_SIZE {
+                return None;
+            }
+            if let Ok(oid) = oid {
+                if let Ok(commit) = repo.find_commit(oid) {
+                    match commit.parent_count() {
+                        0 => {
+                            // in the begining there was darkness
+                            return Some(
+                                (Some(commit), (left_commits.clone(), right_commits.clone()))
+                            );
                         }
-                        return Some((None, right_commits.clone()));
+                        1 => {
+                            if let Ok(parent) = commit.parent_id(0) {
+                                if left_commits.contains(&commit.id()) {
+                                    left_commits.insert(parent);
+                                }
+                                if right_commits.contains(&commit.id()) {
+                                    right_commits.insert(parent);
+                                }
+                                // if parent got to left and right
+                                // this means root of both branhes
+                                if left_commits.contains(&parent) && right_commits.contains(&parent) {
+                                    left_commits.remove(&parent);
+                                    right_commits.remove(&parent);
+                                }
+                            }
+                            return Some(
+                                (Some(commit), (left_commits.clone(), right_commits.clone()))
+                            );
+                        }
+                        2 => {
+                            if let Ok(left) = commit.parent_id(0) {
+                                left_commits.insert(left);              
+                            }
+                            if let Ok(right) = commit.parent_id(1) {
+                                right_commits.insert(right);              
+                            }
+                            return Some((None, (left_commits.clone(), right_commits.clone())));
+                        }
+                        _ => {
+                            panic!("got nor 1 nor 2 parents !!!!!!!!!!!! {:?}", commit);
+                        }                        
                     }
-                    _ => {
-                        panic!("got nor 1 nor 2 parents !!!!!!!!!!!! {:?}", commit);
-                    }                        
                 }
             }
-        }
-        Some((None, right_commits.clone()))
-    }).filter_map(|(commit, right_commits)| {
+            Some((None, (HashSet::new(), HashSet::new())))
+        }).filter_map(|(commit, (left_commits, right_commits))| {
         if let Some(commit) = commit {
             // search by oid and author
             if let Some(ref term) = search_term {
@@ -66,13 +88,16 @@ pub fn revwalk(
                 }
             }
             let from = {
-                if right_commits.contains(&commit.id()) {
-                    "right"
-                } else {
-                    ""
+                if left_commits.contains(&commit.id()) {
+                    CommitRelation::Left
+                } else if right_commits.contains(&commit.id()) {
+                    CommitRelation::Right
+                }
+                else {
+                    CommitRelation::None
                 }
             };
-            return Some(CommitLog::from_log(commit, from.to_string()));
+            return Some(CommitLog::from_log(commit, from));
         }
         None
     }).collect::<Vec<CommitLog>>();
