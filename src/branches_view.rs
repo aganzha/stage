@@ -400,7 +400,7 @@ impl BranchList {
             clone!(@weak self as branch_list, @weak window as window => async move {
                 let branch_data = branch_list.get_selected_branch();
                 let branch_data = gio::spawn_blocking(move || {
-                    commit::cherry_pick(repo_path, branch_data, sender)
+                    commit::cherry_pick(repo_path, branch_data.oid, sender)
                 }).await.unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(&window);
                     Ok(None)
