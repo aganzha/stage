@@ -11,7 +11,7 @@ pub fn revwalk(
 ) -> Result<Vec<CommitDiff>, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let mut revwalk = repo.revwalk()?;
-    revwalk.simplify_first_parent()?;
+    // revwalk.simplify_first_parent()?;
     let mut i = 0;
     if let Some(oid) = start {
         revwalk.push(oid)?;
@@ -28,17 +28,20 @@ pub fn revwalk(
                     }
                     2 => {
                         let mut result: Option<git2::Commit> = None;
-                        if let Ok(commit) = commit.parent(0) {
-                            if commit.parent_count() == 1 {
-                                result.replace(commit);
+                        if let Ok(left) = commit.parent(0) {
+                            if left.parent_count() == 1 {
+                                debug!("FOUND LEFT single parent commit parent  ------------------> PARENT {:?} LEFT {:?}", commit, left);
+                                result.replace(left);
                             }
                         }
-                        if let Ok(commit) = commit.parent(1) {
-                            if commit.parent_count() == 1 {
-                                if let Some(found) = result {
-                                    panic!("FOUND------------------> {:?} vs {:?}", found, commit)
+                        if let Ok(right) = commit.parent(1) {
+                            if right.parent_count() == 1 {
+                                if let Some(left) = &result {
+                                    debug!("FOUND BOTH parents to be single-parent commit  ------------------> PARENT {:?} LEFT {:?} RIGHT {:?}", commit, left, right)
+                                } else {
+                                    debug!("FOUND RIGHT single parent commit parent  ------------------> PARENT {:?} RIGHT {:?}", commit, right);
+                                    result.replace(right);                                    
                                 }
-                                result.replace(commit);
                             }
                         }
                         return result;
