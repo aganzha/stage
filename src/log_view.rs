@@ -205,11 +205,11 @@ impl CommitList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &widget);
+                    alert(format!("{:?}", e)).present(&widget);
                     Ok(Vec::new())
                 })
                 .unwrap_or_else(|e| {
-                    alert(e, &widget);
+                    alert(e).present(&widget);
                     Vec::new()
                 });                
                 if commits.is_empty() {
@@ -267,11 +267,11 @@ impl CommitList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &widget);
+                    alert(format!("{:?}", e)).present(&widget);
                     Ok(Vec::new())
                 })
                 .unwrap_or_else(|e| {
-                    alert(e, &widget);
+                    alert(e).present(&widget);
                     Vec::new()
                 });
                 // check commit len!

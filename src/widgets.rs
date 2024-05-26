@@ -135,7 +135,7 @@ impl AlertMessage for YesNoString {
     }
 }
 
-pub fn alert<E>(err: E, window: &impl IsA<Widget>)
+pub fn alert<E>(err: E) -> AlertDialog
 where
     E: AlertMessage,
 {
@@ -173,5 +173,5 @@ where
     dialog.add_response("close", "close");
     dialog.set_response_appearance("close", ResponseAppearance::Destructive);
     dialog.set_default_response(Some("close"));
-    dialog.present(window);
+    dialog
 }
