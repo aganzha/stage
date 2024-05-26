@@ -976,7 +976,7 @@ pub fn headerbar_factory(
         }
     });
     let merge_btn = Button::builder()
-        .icon_name("org.gtk.gtk4.NodeEditor-symbolic")
+        .icon_name("system-switch-user-symbolic")
         .use_underline(true)
         .tooltip_text("Merge branch (M)")
         .sensitive(false)
@@ -1244,6 +1244,7 @@ pub fn show_branches_window(
                         let (current_branch, selected_branch) =
                             branches_in_use(&list_view);
                         let btns = vec!["Cancel", "Cherry-pick"];
+                        // TODO! common dialog
                         let alert = AlertDialog::builder()
                             .buttons(btns)
                             .message("Cherry picking")

@@ -80,12 +80,14 @@ pub fn merge_dialog_factory(
     dialog
 }
 
-pub trait AlertError {
+pub trait AlertMessage {
     fn heading_and_message(&self) -> (String, String);
-    fn body(&self) -> Option<Vec<String>>;
+    fn body(&self) -> Option<Vec<String>> {
+        None
+    }
 }
 
-impl AlertError for git2::Error {
+impl AlertMessage for git2::Error {
     fn heading_and_message(&self) -> (String, String) {
         (
             String::from("<span color=\"#ff0000\">Git error</span>"),
@@ -96,12 +98,9 @@ impl AlertError for git2::Error {
                 self.message()
             ),
         )
-    }
-    fn body(&self) -> Option<Vec<String>> {
-        None
-    }
+    }    
 }
-impl AlertError for String {
+impl AlertMessage for String {
     fn heading_and_message(&self) -> (String, String) {
         (
             String::from("<span color=\"#ff0000\">Error</span>"),
@@ -112,7 +111,7 @@ impl AlertError for String {
         None
     }
 }
-impl AlertError for RemoteResponse {
+impl AlertMessage for RemoteResponse {
     fn heading_and_message(&self) -> (String, String) {
         (
             String::from("<span color=\"#ff0000\">Error</span>"),
@@ -124,9 +123,21 @@ impl AlertError for RemoteResponse {
     }
 }
 
+#[derive(Default, Clone)]
+pub struct YesNoString(pub String, pub String);
+
+impl AlertMessage for YesNoString {
+    fn heading_and_message(&self) -> (String, String) {
+        (
+            format!("<span color=\"#303030\">{}</span>", self.0),
+            format!("{}", self.1),
+        )
+    }
+}
+
 pub fn alert<E>(err: E, window: &impl IsA<Widget>)
 where
-    E: AlertError,
+    E: AlertMessage,
 {
     let (heading, message) = err.heading_and_message();
     let mut dialog = AlertDialog::builder()

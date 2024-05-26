@@ -476,7 +476,7 @@ pub fn factory(
             if width > 0 && width != stored_width {
                 // resizing window. handle both cases: initial render and further resizing
                 text_view_width.borrow_mut().pixels = width;
-                debug!("replaced! {:?}", text_view_width);
+                trace!("replaced screen width {:?}", text_view_width);
                 if stored_width == 0 {
                     // initial render
                     if let Some(char_width) = view.calc_max_char_width() {                        
