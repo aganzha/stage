@@ -115,7 +115,7 @@ pub enum Event {
     Push,
     Pull,
     Branches,
-    Log(Option<Oid>),
+    Log(Option<Oid>, Option<String>),
     ShowOid(Oid),
     TextViewResize,
     Toast(String),
@@ -361,13 +361,13 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     );
                     overlay.replace(w);
                 }
-                Event::Log(ooid) => {
+                Event::Log(ooid, obranch_name) => {
                     info!("main.log");
                     if let Some(ref overlay) = overlay {
                         show_log_window(
                             status.path.clone().expect("no path"),
                             overlay,
-                            status.head_title(),
+                            obranch_name.unwrap_or("unknown branch".to_string()),
                             sender.clone(),
                             ooid,
                         );
@@ -375,7 +375,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         show_log_window(
                             status.path.clone().expect("no path"),
                             &window,
-                            status.head_title(),
+                            status.branch_name(),
                             sender.clone(),
                             ooid,
                         );

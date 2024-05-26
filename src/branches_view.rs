@@ -1026,7 +1026,7 @@ pub fn headerbar_factory(
         let (_current_branch, selected_branch) =
             branches_in_use(&list_view);
         let oid = selected_branch.oid;
-        main_sender.send_blocking(crate::Event::Log(Some(oid)))
+        main_sender.send_blocking(crate::Event::Log(Some(oid), Some(selected_branch.name)))
             .expect("cant send through channel");
         }
     ));
@@ -1236,7 +1236,7 @@ pub fn show_branches_window(
                             branches_in_use(&list_view);
                         let oid = selected_branch.oid;
                         main_sender
-                            .send_blocking(crate::Event::Log(Some(oid)))
+                            .send_blocking(crate::Event::Log(Some(oid), Some(selected_branch.name)))
                             .expect("cant send through sender");
                     }
                     Event::CherryPickRequest => {
