@@ -45,6 +45,9 @@ mod commit_item {
         #[property(get = Self::get_from)]
         pub from: String,
 
+        #[property(get = Self::get_from_tooltip)]
+        pub from_tooltip: String,
+
         #[property(get = Self::get_message)]
         pub message: String,
 
@@ -70,10 +73,18 @@ mod commit_item {
         pub fn get_from(&self) -> String {
             match self.commit.borrow().from {
                 commit::CommitRelation::None => "".to_string(),
-                commit::CommitRelation::Left => "mail-forward-symbolic".to_string(),
-                commit::CommitRelation::Right => "mail-reply-sender-symbolic".to_string(),
+                commit::CommitRelation::Left(_) => "mail-forward-symbolic".to_string(),
+                commit::CommitRelation::Right(_) => "mail-reply-sender-symbolic".to_string(),
             }
         }
+        pub fn get_from_tooltip(&self) -> String {
+            match &self.commit.borrow().from {
+                commit::CommitRelation::None => "".to_string(),
+                commit::CommitRelation::Left(m) => m.to_string(),
+                commit::CommitRelation::Right(m) => m.to_string(),
+            }
+        }
+
         pub fn get_author(&self) -> String {
             self.commit.borrow().author.to_string()
         }
@@ -317,13 +328,6 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
         oid_label.add_controller(gesture_controller);
 
         let from = Image::new();
-        // let from_label = Label::builder()
-        //     .label("")
-        //     .width_chars(10)
-        //     .max_width_chars(10)
-        //     .xalign(0.0)
-        //     .ellipsize(pango::EllipsizeMode::End)
-        //     .build();
 
         let author_label = Label::builder()
             .label("")
@@ -394,6 +398,11 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
         item.chain_property::<CommitItem>("from").bind(
             &from,
             "icon-name",
+            Widget::NONE,
+        );
+        item.chain_property::<CommitItem>("from_tooltip").bind(
+            &from,
+            "tooltip-text",
             Widget::NONE,
         );
 

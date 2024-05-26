@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use log::debug;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use crate::git::{commit::{CommitLog, CommitRelation}};
 
 const COMMIT_PAGE_SIZE: usize = 500;
@@ -20,7 +20,7 @@ pub fn revwalk(
     }
 
     let commits = revwalk.enumerate().scan(
-        (HashSet::<git2::Oid>::new(), HashSet::<git2::Oid>::new()),
+        (HashMap::<git2::Oid, String>::new(), HashMap::<git2::Oid, String>::new()),
         |(left_commits, right_commits), (i, oid)| {
             if i == COMMIT_PAGE_SIZE {
                 return None;
@@ -36,15 +36,15 @@ pub fn revwalk(
                         }
                         1 => {
                             if let Ok(parent) = commit.parent_id(0) {
-                                if left_commits.contains(&commit.id()) {
-                                    left_commits.insert(parent);
+                                if let Some(message) = left_commits.get(&commit.id()) {
+                                    left_commits.insert(parent, message.to_string());
                                 }
-                                if right_commits.contains(&commit.id()) {
-                                    right_commits.insert(parent);
+                                if let Some(message) = right_commits.get(&commit.id()) {
+                                    right_commits.insert(parent, message.to_string());
                                 }
                                 // if parent got to left and right
                                 // this means root of both branhes
-                                if left_commits.contains(&parent) && right_commits.contains(&parent) {
+                                if left_commits.contains_key(&parent) && right_commits.contains_key(&parent) {
                                     left_commits.remove(&parent);
                                     right_commits.remove(&parent);
                                 }
@@ -55,20 +55,20 @@ pub fn revwalk(
                         }
                         2 => {
                             if let Ok(left) = commit.parent_id(0) {
-                                left_commits.insert(left);              
+                                left_commits.insert(left, commit.message().unwrap_or("").to_string());
                             }
                             if let Ok(right) = commit.parent_id(1) {
-                                right_commits.insert(right);              
+                                right_commits.insert(right, commit.message().unwrap_or("").to_string());
                             }
                             return Some((None, (left_commits.clone(), right_commits.clone())));
                         }
                         _ => {
                             panic!("got nor 1 nor 2 parents !!!!!!!!!!!! {:?}", commit);
-                        }                        
+                        }
                     }
                 }
             }
-            Some((None, (HashSet::new(), HashSet::new())))
+            Some((None, (HashMap::new(), HashMap::new())))
         }).filter_map(|(commit, (left_commits, right_commits))| {
         if let Some(commit) = commit {
             // search by oid and author
@@ -87,16 +87,14 @@ pub fn revwalk(
                     return None;
                 }
             }
-            let from = {
-                if left_commits.contains(&commit.id()) {
-                    CommitRelation::Left
-                } else if right_commits.contains(&commit.id()) {
-                    CommitRelation::Right
-                }
-                else {
-                    CommitRelation::None
-                }
-            };
+            let mut from = CommitRelation::None;
+
+            if let Some(message) = left_commits.get(&commit.id()) {
+                from = CommitRelation::Left(message.to_string())
+            }
+            if let Some(message) = right_commits.get(&commit.id()) {
+                from = CommitRelation::Right(message.to_string())
+            }
             return Some(CommitLog::from_log(commit, from));
         }
         None

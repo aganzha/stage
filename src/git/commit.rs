@@ -24,8 +24,8 @@ pub fn commit_string(c: &git2::Commit) -> String {
 
 #[derive(Debug, Clone)]
 pub enum CommitRelation {
-    Right,
-    Left,
+    Right(String),
+    Left(String),
     None
 }
 
