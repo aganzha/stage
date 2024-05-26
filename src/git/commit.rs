@@ -23,6 +23,38 @@ pub fn commit_string(c: &git2::Commit) -> String {
 }
 
 #[derive(Debug, Clone)]
+pub struct CommitLog {
+    pub oid: git2::Oid,
+    pub message: String,
+    pub commit_dt: DateTime<FixedOffset>,
+    pub author: String,
+    pub from: String,
+}
+
+impl CommitLog {
+    pub fn from_log(commit: git2::Commit, from: String) -> Self {
+        Self {
+            oid: commit.id(),
+            message: commit.message().unwrap_or("").replace('\n', ""),
+            commit_dt: commit_dt(&commit),
+            author: String::from(commit.author().name().unwrap_or("")),
+            from: from,
+        }
+    }
+}
+impl Default for CommitLog {
+    fn default() -> Self {
+        Self {
+            oid: git2::Oid::zero(),
+            message: String::from(""),
+            commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
+            author: String::from(""),
+            from: String::from(""),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct CommitDiff {
     pub oid: git2::Oid,
     pub message: String,
@@ -33,7 +65,7 @@ pub struct CommitDiff {
 
 impl Default for CommitDiff {
     fn default() -> Self {
-        CommitDiff {
+        Self {
             oid: git2::Oid::zero(),
             message: String::from(""),
             commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
@@ -45,7 +77,7 @@ impl Default for CommitDiff {
 
 impl CommitDiff {
     pub fn new(commit: git2::Commit, diff: Diff) -> Self {
-        CommitDiff {
+        Self {
             oid: commit.id(),
             message: commit_string(&commit),
             commit_dt: commit_dt(&commit),
@@ -55,15 +87,6 @@ impl CommitDiff {
                 commit.author().email().unwrap_or("")
             ),
             diff,
-        }
-    }
-    pub fn from_commit(commit: git2::Commit) -> Self {
-        CommitDiff {
-            oid: commit.id(),
-            message: commit.message().unwrap_or("").replace('\n', ""),
-            commit_dt: commit_dt(&commit),
-            author: String::from(commit.author().name().unwrap_or("")),
-            diff: Diff::new(DiffKind::Unstaged),
         }
     }
 
