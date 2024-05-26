@@ -3,11 +3,11 @@ use crate::widgets::alert;
 use async_channel::Sender;
 use core::time::Duration;
 use git2::Oid;
-use glib::{clone, Object};
+use glib::{clone, Object, closure};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, EventControllerKey, GestureClick, Label,
+    gdk, gio, glib, pango, Box, EventControllerKey, GestureClick, Label, Image,
     ListItem, ListView, Orientation, PositionType, ScrolledWindow, SearchBar,
     SearchEntry, SignalListItemFactory, SingleSelection, Widget,
     Window as Gtk4Window,
@@ -68,7 +68,11 @@ mod commit_item {
             )
         }
         pub fn get_from(&self) -> String {
-            format!("{}", self.commit.borrow().from)
+            match self.commit.borrow().from {
+                commit::CommitRelation::None => "".to_string(),
+                commit::CommitRelation::Left => "mail-forward-symbolic".to_string(),
+                commit::CommitRelation::Right => "mail-reply-sender-symbolic".to_string(),
+            }
         }
         pub fn get_author(&self) -> String {
             self.commit.borrow().author.to_string()
@@ -196,8 +200,7 @@ impl CommitList {
                 .unwrap_or_else(|e| {
                     alert(e, &widget);
                     Vec::new()
-                });
-                debug!("----------------------------> {:?}", commits.len());
+                });                
                 if commits.is_empty() {
                     return;
                 }
@@ -313,13 +316,14 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
         });
         oid_label.add_controller(gesture_controller);
 
-        let from_label = Label::builder()
-            .label("")
-            .width_chars(10)
-            .max_width_chars(10)
-            .xalign(0.0)
-            .ellipsize(pango::EllipsizeMode::End)
-            .build();
+        let from = Image::new();
+        // let from_label = Label::builder()
+        //     .label("")
+        //     .width_chars(10)
+        //     .max_width_chars(10)
+        //     .xalign(0.0)
+        //     .ellipsize(pango::EllipsizeMode::End)
+        //     .build();
 
         let author_label = Label::builder()
             .label("")
@@ -368,7 +372,7 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
             .build();
 
         bx.append(&oid_label);
-        bx.append(&from_label);
+        bx.append(&from);
         bx.append(&author_label);
         bx.append(&label_commit);
         bx.append(&label_dt);
@@ -387,10 +391,9 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
             "label",
             Widget::NONE,
         );
-
         item.chain_property::<CommitItem>("from").bind(
-            &from_label,
-            "label",
+            &from,
+            "icon-name",
             Widget::NONE,
         );
 
