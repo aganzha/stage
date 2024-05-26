@@ -52,7 +52,7 @@ pub fn headerbar_factory(
             glib::spawn_future_local({
                 let window = window.clone();
                 async move {
-                    alert(YesNoString{0:"Cherry pick commit?".to_string(), 1:format!("{}", oid)}, &window);
+                    alert(YesNoString{0:"Cherry pick commit?".to_string(), 1:format!("{}", oid)}).present(&window);
                 }
             });
             // commit::cherry_pick()
@@ -155,11 +155,11 @@ pub fn show_commit_window(
             })
             .await
             .unwrap_or_else(|e| {
-                alert(format!("{:?}", e), &window);
+                alert(format!("{:?}", e)).present(&window);
                 Ok(commit::CommitDiff::default())
             })
             .unwrap_or_else(|e| {
-                alert(e, &window);
+                alert(e).present(&window);
                 commit::CommitDiff::default()
             });
             if !commit_diff.is_empty() {

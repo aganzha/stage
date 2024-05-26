@@ -204,10 +204,10 @@ impl BranchList {
                 let branches: Vec<branch::BranchData> = gio::spawn_blocking(move || {
                     branch::get_branches(repo_path)
                 }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &window);
+                    alert(format!("{:?}", e)).present(&window);
                     Ok(Vec::new())
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    alert(e).present(&window);
                     Vec::new()
                 });
                 if branches.is_empty() {
@@ -266,10 +266,10 @@ impl BranchList {
                 let new_branch_data = gio::spawn_blocking(move || {
                     branch::checkout_branch(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &window);
+                    alert(format!("{:?}", e)).present(&window);
                     Ok(None)
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    alert(e).present(&window);
                     None
                 });
                 if new_branch_data.is_none() {
@@ -402,10 +402,10 @@ impl BranchList {
                 let branch_data = gio::spawn_blocking(move || {
                     commit::cherry_pick(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &window);
+                    alert(format!("{:?}", e)).present(&window);
                     Ok(None)
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    alert(e).present(&window);
                     None
                 });
                 if let Some(branch_data) = branch_data {
@@ -471,10 +471,10 @@ impl BranchList {
                 let branch_data = gio::spawn_blocking(move || {
                     merge::branch(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &window);
+                    alert(format!("{:?}", e)).present(&window);
                     Ok(None)
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    alert(e).present(&window);
                     None
                 });
                 if let Some(branch_data) = branch_data {
@@ -504,10 +504,10 @@ impl BranchList {
                 let result = gio::spawn_blocking(move || {
                     branch::kill_branch(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &window);
+                    alert(format!("{:?}", e)).present(&window);
                     Ok(None)
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    alert(e).present(&window);
                     None
                 });
                 if result.is_none() {
@@ -624,10 +624,10 @@ impl BranchList {
                 let branch_data = gio::spawn_blocking(move || {
                     branch::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &window);
+                    alert(format!("{:?}", e)).present(&window);
                     Ok(None)
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    alert(e).present(&window);
                     None
                 });
                 if let Some(branch_data) = branch_data {

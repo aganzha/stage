@@ -256,7 +256,7 @@ pub fn add_stash(
             if let Ok(stashes) = result {
                 adopt_stashes(&stashes_box, stashes, sender, None);
             } else {
-                alert(String::from("cant create stash"), &stashes_box);
+                alert(String::from("cant create stash")).present(&stashes_box);
                 // display_error(&window, "cant create stash");
             }
         })

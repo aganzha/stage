@@ -329,9 +329,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         alert(
                             String::from(
                                 "No changes were staged. Stage by hitting 's'",
-                            ),
-                            &txt,
-                        );
+                            )                            
+                        ).present(&txt);
                         // display_error(
                         //     &window,
                         //     "No changes were staged. Stage by hitting 's'",
