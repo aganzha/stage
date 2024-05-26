@@ -1,7 +1,7 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::git::commit;
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
-use crate::widgets::{alert, YesNoString};
+use crate::widgets::{alert, YesNoString, YES, NO};
 use crate::Event;
 use async_channel::Sender;
 use git2::Oid;
@@ -50,9 +50,41 @@ pub fn headerbar_factory(
         let window = window.clone();
         move |_btn| {
             glib::spawn_future_local({
+                let sender = sender.clone();
+                let path = path.clone();                
                 let window = window.clone();
                 async move {
-                    alert(YesNoString{0:"Cherry pick commit?".to_string(), 1:format!("{}", oid)}).present(&window);
+                    let response = alert(
+                        YesNoString{
+                            0:"Cherry pick commit?".to_string(),
+                            1:format!("{}", oid)
+                        }
+                    ).choose_future(&window).await;
+                    match response.as_str() {
+                        YES => {
+                            gio::spawn_blocking({
+                                let sender = sender.clone();
+                                let path = path.clone();
+                                move || {
+                                    commit::cherry_pick(path, oid, sender)
+                                }}).await
+                                .unwrap_or_else(|e| {
+                                    alert(format!("{:?}", e)).present(&window);
+                                    Ok(None)
+                                })
+                                .unwrap_or_else(|e| {
+                                    alert(e).present(&window);
+                                    None
+                                });
+                        },
+                        NO => {
+                            return;
+                        },
+                        &_ => {
+                            panic!("unknown response")
+                        }
+                    }
+                    debug!("-------------------> {:?}", response);                    
                 }
             });
             // commit::cherry_pick()

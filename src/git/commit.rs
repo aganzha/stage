@@ -240,11 +240,11 @@ pub fn create_commit(
 
 pub fn cherry_pick(
     path: PathBuf,
-    branch_data: branch::BranchData,
+    oid: git2::Oid,
     sender: Sender<crate::Event>,
 ) -> Result<Option<branch::BranchData>, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
-    let commit = repo.find_commit(branch_data.oid)?;
+    let commit = repo.find_commit(oid)?;
 
     sender
         .send_blocking(crate::Event::LockMonitors(true))

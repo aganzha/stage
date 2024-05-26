@@ -80,10 +80,18 @@ pub fn merge_dialog_factory(
     dialog
 }
 
+
+pub const YES: &str = "yes";
+pub const NO: &str = "no";
+const CLOSE: &str = "close";
+
 pub trait AlertMessage {
     fn heading_and_message(&self) -> (String, String);
     fn body(&self) -> Option<Vec<String>> {
         None
+    }
+    fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
+        vec!((CLOSE, CLOSE, ResponseAppearance::Destructive))
     }
 }
 
@@ -133,19 +141,23 @@ impl AlertMessage for YesNoString {
             format!("{}", self.1),
         )
     }
+    fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
+        vec!((NO, NO, ResponseAppearance::Default),
+             (YES, YES, ResponseAppearance::Suggested))
+    }
 }
 
-pub fn alert<E>(err: E) -> AlertDialog
+pub fn alert<E>(alert_message: E) -> AlertDialog
 where
     E: AlertMessage,
 {
-    let (heading, message) = err.heading_and_message();
+    let (heading, message) = alert_message.heading_and_message();
     let mut dialog = AlertDialog::builder()
         .heading_use_markup(true)
         .heading(heading)
         .body_use_markup(true)
         .body(message);
-    if let Some(body) = err.body() {
+    if let Some(body) = alert_message.body() {
         let txt = TextView::builder()
             .margin_start(12)
             .margin_end(12)
@@ -170,8 +182,11 @@ where
         dialog = dialog.extra_child(&scroll);
     }
     let dialog = dialog.build();
-    dialog.add_response("close", "close");
-    dialog.set_response_appearance("close", ResponseAppearance::Destructive);
-    dialog.set_default_response(Some("close"));
+    
+    for (id, label, appearance) in alert_message.get_response() {
+        dialog.add_response(&id, &label);
+        dialog.set_response_appearance(&id, appearance);
+    }
+    // dialog.set_default_response(Some("close"));
     dialog
 }
