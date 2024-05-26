@@ -23,17 +23,17 @@ pub fn set_remote_callbacks(
     callbacks.credentials({
         let user_pass = user_pass.clone();
         move |url, username_from_url, allowed_types| {
-            debug!("auth credentials url {:?}", url);
+            trace!("auth credentials url {:?}", url);
             // "git@github.com:aganzha/stage.git"
             debug!(
                 "auth credentials username_from_url {:?}",
                 username_from_url
             );
-            debug!("auth credentials allowed_types {:?}", allowed_types);
+            trace!("auth credentials allowed_types {:?}", allowed_types);
             if allowed_types.contains(git2::CredentialType::SSH_KEY) {
                 let result =
                     git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
-                debug!(
+                trace!(
                     "got auth memory result. is it ok? {:?}",
                     result.is_ok()
                 );
@@ -179,10 +179,10 @@ pub fn push(
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
 ) -> Result<(), RemoteResponse> { 
-    trace!("remote branch {:?}", remote_branch);
+    debug!("remote branch {:?}", remote_branch);
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
-    trace!("push.head ref name {:?}", head_ref.name());
+    debug!("push.head ref name {:?}", head_ref.name());
     assert!(head_ref.is_branch());
     let refspec = format!(
         "{}:refs/heads/{}",
@@ -202,7 +202,7 @@ pub fn push(
         let remote_branch = remote_branch.clone();
         let sender = sender.clone();
         move |updated_ref, oid1, oid2| {
-            trace!(
+            debug!(
                 "updated local references {:?} {:?} {:?}",
                 updated_ref, oid1, oid2
             );
@@ -224,9 +224,15 @@ pub fn push(
     opts.remote_callbacks(callbacks);
 
     let result = remote.push(&[refspec], Some(&mut opts));
+    let mut rr = response.borrow_mut();
+
+    // there are possibly 2 errors
+    // 1. - in result, when error happened before event response
+    // 2. - error during response
 
     match &result {
         Ok(_) => {
+            // push result is Ok
             sender
                 .send_blocking(crate::Event::Toast(String::from(
                     "Pushed to remote",
@@ -234,6 +240,7 @@ pub fn push(
                 .expect("cant send through channel");
         }
         Err(error) if error.message() == PLAIN_PASSWORD => {
+            // asks for password
             sender
                 .send_blocking(crate::Event::PushUserPass(
                     remote_branch,
@@ -242,17 +249,23 @@ pub fn push(
                 .expect("cant send through channel");
             return Ok(());
         }
-        _ => {}
-    }
-
-    let rr = response.borrow();
-    if let Some(error) = &rr.error {
-        let mut result = RemoteResponse::default();
-        result.error.replace(error.clone());
-        if let Some(body) = &rr.body {
-            result.body.replace(body.clone());
+        Err(error) => {
+            // error in rr - this is error from hooks.
+            // it is more important
+            if rr.error.is_none() {
+                // push result is not ok
+                rr.error.replace(error.message().to_string());
+            }
         }
-        return Err(result);
+    }
+    if let Some(error) = &rr.error {
+        let mut response_result = RemoteResponse::default();
+        response_result.error.replace(error.clone());
+        if let Some(body) = &rr.body {
+            // error containing response body
+            response_result.body.replace(body.clone());
+        }
+        return Err(response_result);
     }
     Ok(())
 }
@@ -275,7 +288,7 @@ pub fn pull(
         let path = path.clone();
         let sender = sender.clone();
         move |updated_ref, oid1, oid2| {
-            debug!(
+            trace!(
                 "updated local references {:?} {:?} {:?}",
                 updated_ref, oid1, oid2
             );
@@ -342,7 +355,7 @@ pub fn pull(
             get_head(path.clone(), sender.clone());
         }
         Err(err) => {
-            debug!(
+            trace!(
                 "errrrrrrrrrrror {:?} {:?} {:?}",
                 err,
                 err.code(),
