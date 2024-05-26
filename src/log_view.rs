@@ -497,6 +497,7 @@ pub enum Event {
 
 pub fn headerbar_factory(
     list_view: &ListView,
+    branch_name: String,
     repo_path: PathBuf,
 ) -> HeaderBar {
     let entry = SearchEntry::builder()
@@ -534,8 +535,14 @@ pub fn headerbar_factory(
             }
         }),
     );
+    let title = Label::builder()
+        .margin_start(12)
+        .use_markup(true)
+        .label(format!("Commits in <span color=\"#4a708b\">{}</span>", branch_name))
+        .build();
     let hb = HeaderBar::builder().build();
     hb.set_title_widget(Some(&search));
+    hb.pack_start(&title);
     hb
 }
 
@@ -543,7 +550,7 @@ pub fn show_log_window(
     repo_path: PathBuf,
     app_window: &impl IsA<Gtk4Window>,
     // app_window: &ApplicationWindow,
-    _head: String,
+    branch_name: String,
     main_sender: Sender<crate::Event>,
     start_oid: Option<Oid>,
 ) {
@@ -581,7 +588,7 @@ pub fn show_log_window(
 
     let tb = ToolbarView::builder().content(&scroll).build();
 
-    let hb = headerbar_factory(&list_view, repo_path.clone());
+    let hb = headerbar_factory(&list_view, branch_name, repo_path.clone());
 
     tb.add_top_bar(&hb);
     window.set_content(Some(&tb));

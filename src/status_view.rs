@@ -136,6 +136,12 @@ impl Status {
         }
     }
 
+    pub fn branch_name(&self) -> String {
+        if let Some(head) = &self.head {
+            return head.branch.to_string()
+        }
+        "".to_string()
+    }
     pub fn head_title(&self) -> String {
         if let Some(head) = &self.head {
             return format!("On {}: {}", &head.branch, &head.commit);
