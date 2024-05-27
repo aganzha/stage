@@ -1,5 +1,6 @@
 use crate::git::{
     get_conflicted_v1, get_current_repo_status, make_diff, BranchData,
+    make_diff_options,
     DiffKind, Head, Hunk, Line, LineKind, State, MARKER_OURS, MARKER_VS, MARKER_THEIRS
 };
 use async_channel::Sender;
@@ -238,7 +239,7 @@ pub fn choose_conflict_side(
         panic!("nothing to resolve in choose_conflict_side");
     }
 
-    let mut diff_opts = git2::DiffOptions::new();
+    let mut diff_opts = make_diff_options();
     diff_opts.reverse(true);
 
     for entry in &mut entries {
@@ -352,7 +353,7 @@ pub fn choose_conflict_side_of_hunk(
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
 
-    let mut opts = git2::DiffOptions::new();
+    let mut opts = make_diff_options();
     let mut opts = opts.pathspec(&file_path).reverse(true);
 
         
@@ -360,25 +361,11 @@ pub fn choose_conflict_side_of_hunk(
         .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
 
-    let reversed_header = Hunk::reverse_header(hunk.header);
+    let mut reversed_header = Hunk::reverse_header(hunk.header);
 
     let mut options = git2::ApplyOptions::new();
 
     let file_path_clone = file_path.clone();
-    options.hunk_callback(|odh| -> bool {
-        if let Some(dh) = odh {
-            let header = Hunk::get_header_from(&dh);
-            return header == reversed_header;
-        }
-        false
-    });
-    options.delta_callback(|odd| -> bool {
-        if let Some(dd) = odd {
-            let path: PathBuf = dd.new_file().path().unwrap().into();
-            return file_path == path;
-        }
-        todo!("diff without delta");
-    });
     if line.kind == LineKind::Ours {
         // just kill all hunk from diff.
         // our tree is all that required
@@ -386,39 +373,7 @@ pub fn choose_conflict_side_of_hunk(
     } else {
         // here we will puth theirs changes in index and compare it with working directory
         // the problem is - hunk could be completelly different!!!!!!!!!!!!!!!!
-        // eg, now in the working dir there is 2 hunks with conflicts.
-        // and in resulting diff after this comparison could be 1 or x hunks!
-        // and everything goes wrong.
 
-        // .. -------------- NOOOOOOOOOOOOOOOOOOOOOOOO
-        // lets make another diff and merge to this diff!
-        // let mut merge_opts = git2::DiffOptions::new();
-        // let mut merge_opts = opts.pathspec(&file_path).reverse(true);
-        // let mut merge_diff = repo
-        //     .diff_tree_to_workdir(Some(&current_tree), Some(&mut merge_opts))
-        //     .expect("cant get diff");
-        // debug!("MEEEEEEEEEEEEEEEERGE!");
-        // merge_diff.merge(&git_diff).expect("cant merge");
-        // let diff = make_diff(&git_diff, DiffKind::Staged);
-        // sender
-        //     .send_blocking(crate::Event::Staged(diff))
-        //     .expect("Could not send through channel");
-
-        // panic!("STOP");
-        // What to do instead? THEIR lines is here.
-        // It need to create completelly another diff with THEIR lines instead of whole hunk!
-        // 1. create patch from diff.
-        // 2. find hunk in patch
-        // somehow replace whole hunk with THEIR choosed lines. hm....
-        // .. -------------- NOOOOOOOOOOOOOOOOOOOOOOOO
-        // how to add those choosen lines?????????????????????????????
-        // i know them exactely. it need not only to apply above diff
-        // it is also need to kill OUR lines!
-        // the initial idea was ok. bit fucken hunks brake everything.
-        // the hunk in theirs is wrong! it include other conflicts!
-
-        // perhaps it need to print it tu buff...
-        // i can get those to ines exactly. but how to apply them. hm
         let mut patch = git2::Patch::from_diff(&git_diff, 0).expect("cant get patch").unwrap();
         let buff = patch.to_buf().expect("cant get buff");
 
@@ -429,6 +384,7 @@ pub fn choose_conflict_side_of_hunk(
         let mut acc = Vec::new();        
 
         let mut new_lines_delta: i32 = 0;
+        
         for line in raw.lines() {
             debug!("{}", line);
             if line  == reversed_header {
@@ -453,7 +409,12 @@ pub fn choose_conflict_side_of_hunk(
             if !line.is_empty() && line[1..].contains(MARKER_THEIRS) {
                 ours = false;
                 theirs = false;
-                collect = false;
+                // collect = false;
+                // will it be problem in next hunk?
+                // apply will work only on 1 hunk
+                // but delta will wrong.
+                // lets try apply altogether first
+                // later i will need line offset!!!!!!
                 acc.push(line);
                 acc.push("\n");
                 continue
@@ -476,74 +437,45 @@ pub fn choose_conflict_side_of_hunk(
             acc.push(line);
             acc.push("\n");
         }
-
+        acc.push("\n");
         let mut new_body = acc.iter().fold("".to_string(), |cur, nxt| cur + nxt);
-        new_body = new_body.replace(&reversed_header, &Hunk::replace_new_lines(&reversed_header, new_lines_delta));
+        debug!("..................................");
+        let new_header = Hunk::replace_new_lines(&reversed_header, new_lines_delta);
+        new_body = new_body.replace(&reversed_header, &new_header);
+        reversed_header = new_header;
+        for line in new_body.lines() {
+            debug!("{}", line);
+        }
         git_diff = git2::Diff::from_buffer(new_body.as_bytes()).expect("cant create diff");
-
-
-        // 1. introduce offset to lines to detecte em perfectly
-        // 2. find all choosen lines.
-        // detect their number in patch!
-        // go to that number and switch origin. hm....
-
-        // the problem is i have no tools to
-        // intercept printing. :(
-        
-        // works but incorrect!!!!!!!!!!!!!!!!!!!!!!
-        
-        // let their_entry = current_conflict.their.as_mut().unwrap();
-        // let their_original_flags = their_entry.flags;
-
-        // their_entry.flags &= !STAGE_FLAG;
-
-        // index.add(their_entry).expect("cant add entry");
-
-        // let mut opts = git2::DiffOptions::new();
-        // opts.pathspec(file_path.clone());
-        // // reverse means index will be NEW side cause we are adding hunk to workdir
-        // opts.reverse(true);
-
-        // // ANOTHER DIFF!
-
-        // git_diff = repo
-        //     .diff_index_to_workdir(Some(&index), Some(&mut opts))
-        //     .expect("cant get diff");
-        
-        // // restore stage flag to conflict again
-        // their_entry.flags = their_original_flags;
-
-        // let diff = make_diff(&git_diff, DiffKind::Staged);
-        // sender
-        //     .send_blocking(crate::Event::Staged(diff))
-        //     .expect("Could not send through channel");
-        // panic!("STOP");
-        // // passed hunk is from diff_tree_to_workdir. workdir is NEW side
-        // // for this hunks NEW side is workdir
-        // // so it need to compare NEW side of passed hunk with OLD side of this diff
-        // // (cause new side is index side, where hunk headers will differ a lot)
-        // options.hunk_callback(|odh| -> bool {
-        //     if let Some(dh) = odh {
-        //         debug!("??????????????????????????? {:?} {:?}", hunk.new_start, dh.old_start());
-        //         return hunk.new_start == dh.old_start();
-        //     }
-        //     false
-        // });
-        // options.delta_callback(|odd| -> bool {
-        //     if let Some(dd) = odd {
-        //         let path: PathBuf = dd.new_file().path().unwrap().into();
-        //         return file_path == path;
-        //     }
-        //     todo!("diff without delta");
-        // });
+        let patch = git_diff.patchid(None);
+        debug!("_____________________________> {:?}", patch);
     }
+
+    options.hunk_callback(|odh| -> bool {
+        if let Some(dh) = odh {
+            let header = Hunk::get_header_from(&dh);
+            debug!("++++++++++++++++++++++++++ {:?}", header == reversed_header);
+            return header == reversed_header;
+        }
+        false
+    });
+    options.delta_callback(|odd| -> bool {
+        if let Some(dd) = odd {
+            let path: PathBuf = dd.new_file().path().unwrap().into();
+            return file_path == path;
+        }
+        todo!("diff without delta");
+    });
 
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
-    debug!("AAAAAAAAAAAAAAAAAAAPPLY!");
-    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))
-        .expect("can't apply patch");
+
+    let some = repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options));
+    if some.is_err() {
+        debug!("========================> {:?}", some);
+        panic!("STOP");
+    }
 
     sender
         .send_blocking(crate::Event::LockMonitors(false))
@@ -571,29 +503,6 @@ pub fn choose_conflict_side_of_hunk(
 
     cleanup_last_conflict_for_file(path, file_path_clone, sender);
 
-    // let diff = get_conflicted_v1(path.clone());
-    // // why where is [0]!!!!!!!!!!!!!!!!!!
-    // // i have 1 file, but diff could have many of them!
-    // let has_conflicts = diff.files[0].hunks.iter().fold(false, |a, h| {
-    //     a || h.has_conflicts
-    // });
-
-    // // TODO! what about multiple files?
-    // // this code asumes that this is only 1 file has conflicts!
-    // // but, possibly, there will be multiple files!
-    // if has_conflicts {
-    //     sender
-    //         .send_blocking(crate::Event::Conflicted(diff))
-    //         .expect("Could not send through channel");
-    //     return;
-    // }
-
-    // // cleanup conflicts and show banner
-    // index.remove_path(Path::new(&file_path)).expect("cant remove path");
-    // index.add_path(Path::new(&file_path)).expect("cant add path");
-
-    // index.write().expect("cant write index");
-    // get_current_repo_status(Some(path), sender);
 }
 
 pub fn cleanup_last_conflict_for_file(
