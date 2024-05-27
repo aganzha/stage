@@ -27,6 +27,12 @@ use regex::Regex;
 use std::path::PathBuf;
 use std::{collections::HashSet, env, path, str};
 
+pub fn make_diff_options() -> DiffOptions {
+    let mut opts = DiffOptions::new();
+    opts.indent_heuristic(true);
+    opts.interhunk_lines(3);
+    return opts;
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LineKind {
@@ -129,9 +135,10 @@ impl Hunk {
         if let Some((_, [nums])) =
             re.captures_iter(&header).map(|c| c.extract()).next()
         {
-            let mut inums: i32 = nums.parse().expect("cant parse nums");
-            inums += delta;
-            return header.replace(nums, &inums.to_string());
+            let old_nums: i32 = nums.parse().expect("cant parse nums");
+            let new_nums: i32 = old_nums + delta;
+
+            return header.replace(&format!(",{} @@", old_nums), &format!(",{} @@", new_nums));
         }
         panic!("cant replace num in header")
     }
@@ -566,7 +573,7 @@ pub fn get_conflicted_v1(path: PathBuf) -> Diff {
     let repo = Repository::open(path).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
-    let mut opts = DiffOptions::new();
+    let mut opts = make_diff_options();
     for conflict in conflicts {
         let conflict = conflict.unwrap();
         let our = conflict.our.unwrap();
@@ -584,7 +591,7 @@ pub fn get_conflicted_v1(path: PathBuf) -> Diff {
 
 pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
-    let mut opts = DiffOptions::new();
+    let mut opts = make_diff_options();
 
     let opts = opts.show_untracked_content(true);
 
@@ -706,7 +713,8 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let _res = git_diff.print(
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
-            let status = diff_delta.status();
+            
+            let status = diff_delta.status();            
             if status == Delta::Conflicted
                 && (kind == DiffKind::Staged || kind == DiffKind::Unstaged)
             {
@@ -818,7 +826,7 @@ pub fn stage_via_apply(
     // TODO! destruct filter to args. put file in pathspec for diff opts
     let repo = Repository::open(path.clone()).expect("can't open repo");
 
-    let mut opts = DiffOptions::new();
+    let mut opts = make_diff_options();
     opts.pathspec(&filter.file_id);
 
     let git_diff = match filter.subject {
