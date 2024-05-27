@@ -330,6 +330,7 @@ pub fn choose_conflict_side_of_hunk(
     line: Line,
     sender: Sender<crate::Event>,
 ) {
+    info!("choose_conflict_side_of_hunk {:?} Line: {:?}", hunk.header, line.content);
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let mut index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
@@ -356,7 +357,7 @@ pub fn choose_conflict_side_of_hunk(
     let mut git_diff = repo
         .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
-
+    
     let reversed_header = Hunk::reverse_header(hunk.header);
 
     let mut options = git2::ApplyOptions::new();
@@ -381,6 +382,10 @@ pub fn choose_conflict_side_of_hunk(
             todo!("diff without delta");
         });
     } else {
+        // here we will puth theirs changes in index and compare it with working directory
+        // the problem is - hunk could be completelly different!!!!!!!!!!!!!!!!
+        // eg, now in the working dir there is 2 hunks with conflicts.
+        // and in resulting diff after this comparison could be 1 or x hunks!
         let their_entry = current_conflict.their.as_mut().unwrap();
         let their_original_flags = their_entry.flags;
 
@@ -394,9 +399,15 @@ pub fn choose_conflict_side_of_hunk(
         opts.reverse(true);
 
         // ANOTHER DIFF!
+
         git_diff = repo
             .diff_index_to_workdir(Some(&index), Some(&mut opts))
             .expect("cant get diff");
+
+        let diff = make_diff(&git_diff, DiffKind::Staged);
+        sender
+            .send_blocking(crate::Event::Staged(diff))
+            .expect("Could not send through channel");
 
         // restore stage flag to conflict again
         their_entry.flags = their_original_flags;
@@ -407,6 +418,7 @@ pub fn choose_conflict_side_of_hunk(
         // (cause new side is index side, where hunk headers will differ a lot)
         options.hunk_callback(|odh| -> bool {
             if let Some(dh) = odh {
+                debug!("??????????????????????????? {:?} {:?}", hunk.new_start, dh.old_start());
                 return hunk.new_start == dh.old_start();
             }
             false
@@ -423,7 +435,7 @@ pub fn choose_conflict_side_of_hunk(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
-
+    debug!("AAAAAAAAAAAAAAAAAAAPPLY!");
     repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))
         .expect("can't apply patch");
 
