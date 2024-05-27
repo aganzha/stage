@@ -3,6 +3,8 @@ use libadwaita::prelude::*;
 use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance};
 use log::debug;
 use crate::git::remote::RemoteResponse;
+use std::collections::HashMap;
+
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 
@@ -85,9 +87,11 @@ pub const YES: &str = "yes";
 pub const NO: &str = "no";
 const CLOSE: &str = "close";
 
-pub trait AlertMessage {
+pub trait AlertConversation {
+
     fn heading_and_message(&self) -> (String, String);
-    fn body(&self) -> Option<Vec<String>> {
+
+    fn extra_child(&self) -> Option<Widget> {
         None
     }
     fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
@@ -95,7 +99,7 @@ pub trait AlertMessage {
     }
 }
 
-impl AlertMessage for git2::Error {
+impl AlertConversation for git2::Error {
     fn heading_and_message(&self) -> (String, String) {
         (
             String::from("<span color=\"#ff0000\">Git error</span>"),
@@ -108,33 +112,52 @@ impl AlertMessage for git2::Error {
         )
     }    
 }
-impl AlertMessage for String {
+impl AlertConversation for String {
     fn heading_and_message(&self) -> (String, String) {
         (
             String::from("<span color=\"#ff0000\">Error</span>"),
             String::from(self),
         )
     }
-    fn body(&self) -> Option<Vec<String>> {
-        None
-    }
 }
-impl AlertMessage for RemoteResponse {
+impl AlertConversation for RemoteResponse {
     fn heading_and_message(&self) -> (String, String) {
         (
             String::from("<span color=\"#ff0000\">Error</span>"),
             String::from(self.error.clone().unwrap().clone()),
         )
     }
-    fn body(&self) -> Option<Vec<String>> {
-        self.body.clone()
+    fn extra_child(&self) -> Option<Widget> {
+        if let Some(body) = &self.body {
+            let txt = TextView::builder()
+                .margin_start(12)
+                .margin_end(12)
+                .margin_top(12)
+                .margin_bottom(12)
+                .build();
+            let buffer = txt.buffer();
+            let mut iter = buffer.iter_at_offset(0);
+            let body: String = body.iter().fold("".to_string(), |cur, nxt| cur + nxt);
+            buffer.insert(&mut iter, &body);
+
+            let scroll = ScrolledWindow::builder()
+                .vexpand(true)
+                .vexpand_set(true)
+                .hexpand(true)
+                .hexpand_set(true)
+                .min_content_width(800)
+                .min_content_height(600)
+                .build();
+            scroll.set_child(Some(&txt));        
+            return Some(scroll.into());
+        }
+        None    
     }
 }
-
 #[derive(Default, Clone)]
 pub struct YesNoString(pub String, pub String);
 
-impl AlertMessage for YesNoString {
+impl AlertConversation for YesNoString {
     fn heading_and_message(&self) -> (String, String) {
         (
             format!("<span color=\"#303030\">{}</span>", self.0),
@@ -147,46 +170,35 @@ impl AlertMessage for YesNoString {
     }
 }
 
-pub fn alert<E>(alert_message: E) -> AlertDialog
-where
-    E: AlertMessage,
+pub struct YesNoWithVariants(YesNoString, HashMap<String, bool>);
+
+impl AlertConversation for YesNoWithVariants {
+    fn heading_and_message(&self) -> (String, String) {
+        self.0.heading_and_message()
+    }
+    fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
+        self.0.get_response()
+    }
+}
+
+
+pub fn alert<AC>(conversation: AC) -> AlertDialog
+    where AC: AlertConversation
 {
-    let (heading, message) = alert_message.heading_and_message();
+    let (heading, message) = conversation.heading_and_message();
     let mut dialog = AlertDialog::builder()
         .heading_use_markup(true)
         .heading(heading)
         .body_use_markup(true)
         .body(message);
-    if let Some(body) = alert_message.body() {
-        let txt = TextView::builder()
-            .margin_start(12)
-            .margin_end(12)
-            .margin_top(12)
-            .margin_bottom(12)
-            .build();
-        let buffer = txt.buffer();
-        let mut iter = buffer.iter_at_offset(0);
-        let body: String = body.iter().fold("".to_string(), |cur, nxt| cur + nxt);
-        buffer.insert(&mut iter, &body);
-
-        let scroll = ScrolledWindow::builder()
-            .vexpand(true)
-            .vexpand_set(true)
-            .hexpand(true)
-            .hexpand_set(true)
-            .min_content_width(800)
-            .min_content_height(600)
-            .build();
-        scroll.set_child(Some(&txt));
-        
-        dialog = dialog.extra_child(&scroll);
+    if let Some(body) = conversation.extra_child() {
+        dialog = dialog.extra_child(&body);
     }
     let dialog = dialog.build();
     
-    for (id, label, appearance) in alert_message.get_response() {
+    for (id, label, appearance) in conversation.get_response() {
         dialog.add_response(&id, &label);
         dialog.set_response_appearance(&id, appearance);
     }
-    // dialog.set_default_response(Some("close"));
     dialog
 }
