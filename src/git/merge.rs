@@ -340,7 +340,7 @@ pub fn choose_conflict_side_of_hunk(
 
     let chosen_path = PathBuf::from(&file_path);
 
-    let mut current_conflict = conflicts
+    let current_conflict = conflicts
         .filter(|c| c.as_ref().unwrap().get_path() == chosen_path)
         .next()
         .unwrap()
@@ -384,7 +384,12 @@ pub fn choose_conflict_side_of_hunk(
         let mut acc = Vec::new();        
 
         let mut new_lines_delta: i32 = 0;
-        
+
+        let mut lines = raw.lines();
+        while let Some(line) =  lines.next() {
+            if line == reversed_header {
+            }
+        }
         for line in raw.lines() {
             debug!("{}", line);
             if line  == reversed_header {
@@ -400,6 +405,7 @@ pub fn choose_conflict_side_of_hunk(
                 continue;
             }
             if !line.is_empty() && line[1..].contains(MARKER_VS) {
+                // i need my conflict!
                 ours = false;
                 theirs = true;
                 acc.push(line);
@@ -447,14 +453,11 @@ pub fn choose_conflict_side_of_hunk(
             debug!("{}", line);
         }
         git_diff = git2::Diff::from_buffer(new_body.as_bytes()).expect("cant create diff");
-        let patch = git_diff.patchid(None);
-        debug!("_____________________________> {:?}", patch);
     }
 
     options.hunk_callback(|odh| -> bool {
         if let Some(dh) = odh {
             let header = Hunk::get_header_from(&dh);
-            debug!("++++++++++++++++++++++++++ {:?}", header == reversed_header);
             return header == reversed_header;
         }
         false
@@ -471,11 +474,7 @@ pub fn choose_conflict_side_of_hunk(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 
-    let some = repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options));
-    if some.is_err() {
-        debug!("========================> {:?}", some);
-        panic!("STOP");
-    }
+    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options)).expect("cant apply");
 
     sender
         .send_blocking(crate::Event::LockMonitors(false))
