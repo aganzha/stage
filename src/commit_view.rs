@@ -1,7 +1,8 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::git::commit;
+use std::collections::HashMap;
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
-use crate::widgets::{alert, YesNoString, YES, NO};
+use crate::widgets::{alert, YesNoString, YesNoWithVariants, YES, NO};
 use crate::Event;
 use async_channel::Sender;
 use git2::Oid;
@@ -55,11 +56,15 @@ pub fn headerbar_factory(
                 let window = window.clone();
                 async move {
                     let response = alert(
-                        YesNoString{
-                            0:"Cherry pick commit?".to_string(),
-                            1:format!("{}", oid)
-                        }
-                    ).choose_future(&window).await;
+                        YesNoWithVariants {
+                            0: YesNoString{
+                                0:"Cherry pick commit?".to_string(),
+                                1:format!("{}", oid)
+                            },
+                            1: HashMap::from([
+                                ("Do not commit. Only apply changes".to_string(), true)
+                            ])
+                        }).choose_future(&window).await;
                     match response.as_str() {
                         YES => {
                             gio::spawn_blocking({
@@ -77,14 +82,10 @@ pub fn headerbar_factory(
                                     None
                                 });
                         },
-                        NO => {
+                        _ => {
                             return;
-                        },
-                        &_ => {
-                            panic!("unknown response")
                         }
                     }
-                    debug!("-------------------> {:?}", response);                    
                 }
             });
             // commit::cherry_pick()

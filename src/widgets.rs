@@ -1,6 +1,6 @@
 use async_channel::Sender;
 use libadwaita::prelude::*;
-use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance};
+use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance, SwitchRow};
 use log::debug;
 use crate::git::remote::RemoteResponse;
 use std::collections::HashMap;
@@ -9,7 +9,7 @@ use std::collections::HashMap;
 // use std::sync::mpsc::Sender;
 
 use gtk4::{
-    gio, AlertDialog as GTK4AlertDialog, Widget, Window as Gtk4Window, TextView, ScrolledWindow
+    gio, AlertDialog as GTK4AlertDialog, Widget, Window as Gtk4Window, TextView, ScrolledWindow, ListBox, SelectionMode
 };
 
 
@@ -91,7 +91,7 @@ pub trait AlertConversation {
 
     fn heading_and_message(&self) -> (String, String);
 
-    fn extra_child(&self) -> Option<Widget> {
+    fn extra_child(&mut self) -> Option<Widget> {
         None
     }
     fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
@@ -127,7 +127,7 @@ impl AlertConversation for RemoteResponse {
             String::from(self.error.clone().unwrap().clone()),
         )
     }
-    fn extra_child(&self) -> Option<Widget> {
+    fn extra_child(&mut self) -> Option<Widget> {
         if let Some(body) = &self.body {
             let txt = TextView::builder()
                 .margin_start(12)
@@ -170,7 +170,7 @@ impl AlertConversation for YesNoString {
     }
 }
 
-pub struct YesNoWithVariants(YesNoString, HashMap<String, bool>);
+pub struct YesNoWithVariants(pub YesNoString, pub HashMap<String, bool>);
 
 impl AlertConversation for YesNoWithVariants {
     fn heading_and_message(&self) -> (String, String) {
@@ -179,10 +179,31 @@ impl AlertConversation for YesNoWithVariants {
     fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
         self.0.get_response()
     }
+    fn extra_child(&mut self) -> Option<Widget> {
+        let lb = ListBox::builder()
+            .selection_mode(SelectionMode::None)
+            .css_classes(vec![String::from("boxed-list")])
+            .build();
+        let kv = self.1.clone();
+        for (key, value) in &kv {
+            let row = SwitchRow::builder()
+                .title(key)
+                .css_classes(vec!["input_field"])
+                .active(*value)
+                .build();
+            // row.bind_property("selected", &model, "selected_pos");
+            // row.connect_active_notify(|sw_row| {
+            //     // self.1.insert(key.to_string(), sw_row.is_active());
+            //     debug!("-------------------> {:?}", self.1);
+            // });
+            lb.append(&row);
+        }
+        Some(lb.into())
+    }
 }
 
 
-pub fn alert<AC>(conversation: AC) -> AlertDialog
+pub fn alert<AC>(mut conversation: AC) -> AlertDialog
     where AC: AlertConversation
 {
     let (heading, message) = conversation.heading_and_message();
