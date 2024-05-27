@@ -356,7 +356,7 @@ pub fn choose_conflict_side_of_hunk(
     let mut opts = make_diff_options();
     let mut opts = opts.pathspec(&file_path).reverse(true);
 
-        
+
     let mut git_diff = repo
         .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
@@ -366,9 +366,132 @@ pub fn choose_conflict_side_of_hunk(
     let mut options = git2::ApplyOptions::new();
 
     let file_path_clone = file_path.clone();
+    // so, the problem is: there could be multiple conflicts inside
+    // 1 hunk. Both sides must be affected
+
+    let mut patch = git2::Patch::from_diff(&git_diff, 0).expect("cant get patch").unwrap();
+    let buff = patch.to_buf().expect("cant get buff");
+
+    let raw = buff.as_str().unwrap();
+    debug!("*************************************");
+    for line in raw.lines() {
+        debug!("{}", line);
+    }
+    let mut theirs = false;
+    let mut ours = false;
+    let mut collect = false;
+    let mut acc = Vec::new();
+
+    let mut new_lines_delta: i32 = 0;
+
+    let mut lines = raw.lines();
+    let mut first = true;
+    let kind = line.kind;
+    while let Some(line) = lines.next() {
+        if !line.is_empty() && line[1..].contains(MARKER_OURS) {
+            // is it marker that we need?
+            let mut found = false;
+            if first {
+                // this marker will be deleted
+                acc.push(line);
+                acc.push("\n");
+                found = true;
+                first = false;
+            } else {
+                // do not delete it for now
+                acc.push(" ");
+                acc.push(&line[1..]);
+                acc.push("\n");
+            }
+            // go deeper inside OURS
+            'ours: while let Some(line) = lines.next() {
+                if !line.is_empty() && line[1..].contains(MARKER_VS) {
+                    if found {
+                        // this marker will be deleted
+                        acc.push(line);
+                        acc.push("\n");
+                    } else {
+                        // do not delete it for now
+                        acc.push(" ");
+                        acc.push(&line[1..]);
+                        acc.push("\n");
+                    }
+                    // go deeper inside THEIRS
+                    'theirs: while let Some(line) =  lines.next() {
+                        if !line.is_empty() && line[1..].contains(MARKER_THEIRS) {
+                            if found {
+                                // this marker will be deleted
+                                acc.push(line);
+                                acc.push("\n");
+                            } else {
+                                // do not delete it for now
+                                acc.push(" ");
+                                acc.push(&line[1..]);
+                                acc.push("\n");
+                            }
+                            // conflict is over
+                            // go out to next conflict
+                            break 'ours;
+                        } else {
+                            // THEIR lines between === and >>>>
+                            // this lines are deleted in this diff
+                            // lets adjust it
+                            if found {
+                                if kind == LineKind::Ours {
+                                    // theirs will be deleted
+                                    acc.push(line);
+                                    acc.push("\n");
+                                } else {
+                                    // do not delete theirs!
+                                    acc.push(" ");
+                                    acc.push(&line[1..]);
+                                    acc.push("\n");
+                                }
+                            } else {
+                                // do not delete for now
+                                acc.push(" ");
+                                acc.push(&line[1..]);
+                                acc.push("\n");
+                            }
+                        }
+                    }
+                } else {
+                    // OUR lines between <<< and ====
+                    // in this diff they are not deleted
+                    if found {
+                        if kind == LineKind::Ours {
+                            // remain our lines
+                            acc.push(line);
+                            acc.push("\n");
+                        } else {
+                            // delete our lines!
+                            acc.push("-");
+                            acc.push(&line[1..]);
+                            acc.push("\n");
+                        }                        
+                    } else {
+                        // remain our lines
+                        acc.push(line);
+                        acc.push("\n");
+                    }
+                }
+            }
+        } else {
+            // just a regular line
+            acc.push(line);
+            acc.push("\n");
+        }
+    }
+    debug!("+++++++++++++++++++++++++++++++++++++++++++");
+    debug!("+++++++++++++++++++++++++++++++++++++++++++");
+    debug!("+++++++++++++++++++++++++++++++++++++++++++");
+    let mut new_body = acc.iter().fold("".to_string(), |cur, nxt| cur + nxt);
+    for line in new_body.lines() {
+        debug!("{}", line);
+    }    
+    panic!("STOP");
+    
     if line.kind == LineKind::Ours {
-        // just kill all hunk from diff.
-        // our tree is all that required
 
     } else {
         // here we will puth theirs changes in index and compare it with working directory
@@ -381,15 +504,16 @@ pub fn choose_conflict_side_of_hunk(
         let mut theirs = false;
         let mut ours = false;
         let mut collect = false;
-        let mut acc = Vec::new();        
+        let mut acc = Vec::new();
 
         let mut new_lines_delta: i32 = 0;
 
-        let mut lines = raw.lines();
-        while let Some(line) =  lines.next() {
-            if line == reversed_header {
-            }
-        }
+        // let mut lines = raw.lines();
+        // while let Some(line) =  lines.next() {
+        //     if line == reversed_header {
+        //     }
+        // }
+
         for line in raw.lines() {
             debug!("{}", line);
             if line  == reversed_header {
@@ -425,7 +549,7 @@ pub fn choose_conflict_side_of_hunk(
                 acc.push("\n");
                 continue
             }
-            if collect && ours {                
+            if collect && ours {
                 acc.push("-");
                 acc.push(&line[1..]);
                 acc.push("\n");
