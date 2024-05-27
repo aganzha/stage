@@ -123,7 +123,21 @@ impl Hunk {
         self.new_lines = dh.new_lines();
     }
 
-    pub fn reverse_header(header: String) -> String {
+    pub fn replace_new_lines(header: &String, delta: i32) -> String {
+        let re = Regex::new(r"@@ [+-][0-9]+,[0-9]+ [+-][0-9]+,([0-9]+) @@")
+            .unwrap();
+        if let Some((_, [nums])) =
+            re.captures_iter(&header).map(|c| c.extract()).next()
+        {
+            let mut inums: i32 = nums.parse().expect("cant parse nums");
+            inums += delta;
+            return header.replace(nums, &inums.to_string());
+        }
+        panic!("cant replace num in header")
+    }
+
+    // THE REGEX IS WRONG! remove .* !!!!!!!!!!!!! for +
+    pub fn reverse_header(header: String) -> String {        
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
         // "@@ -20,10 +24,11 @@ STAGING LINE..." -> "@@ -24,11 +20,10 @@ STAGING LINE..."
         // "@@ -54,7 +59,6 @@ do not call..." -> "@@ -59,6 +54,7 @@ do not call..."
