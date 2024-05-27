@@ -53,7 +53,7 @@ The conflic it need to update list in such a way, that selected position is alwa
 PERFORMANCE: delete ~/docs/client/WHDDemo and open app :)
 Perhaps it need to put path to status. and window to context!!!!
 
-BUG: state Revert was cleared, but refresh btn does not reflect that
+BUG: state Revert1 was cleared, but refresh btn does not reflect that
 thats mine conflict 2
 BUG: do not know how to reproduse: after creating branch staging was not working cause ApplyFilter was empty!
 BUG: during merge do not create final commit. all changes will be in staged and state will be merge.
