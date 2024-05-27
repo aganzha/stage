@@ -387,6 +387,7 @@ pub fn choose_conflict_side_of_hunk(
     let mut lines = raw.lines();
     let mut first = true;
     let kind = line.kind;
+    let mut delta: i32 = 0;
     while let Some(line) = lines.next() {
         if !line.is_empty() && line[1..].contains(MARKER_OURS) {
             // is it marker that we need?
@@ -402,6 +403,7 @@ pub fn choose_conflict_side_of_hunk(
                 acc.push(" ");
                 acc.push(&line[1..]);
                 acc.push("\n");
+                delta += 1;
             }
             // go deeper inside OURS
             'ours: while let Some(line) = lines.next() {
@@ -415,6 +417,7 @@ pub fn choose_conflict_side_of_hunk(
                         acc.push(" ");
                         acc.push(&line[1..]);
                         acc.push("\n");
+                        delta += 1;
                     }
                     // go deeper inside THEIRS
                     'theirs: while let Some(line) =  lines.next() {
@@ -428,6 +431,7 @@ pub fn choose_conflict_side_of_hunk(
                                 acc.push(" ");
                                 acc.push(&line[1..]);
                                 acc.push("\n");
+                                delta += 1;
                             }
                             // conflict is over
                             // go out to next conflict
@@ -446,12 +450,14 @@ pub fn choose_conflict_side_of_hunk(
                                     acc.push(" ");
                                     acc.push(&line[1..]);
                                     acc.push("\n");
+                                    delta += 1;
                                 }
                             } else {
                                 // do not delete for now
                                 acc.push(" ");
                                 acc.push(&line[1..]);
                                 acc.push("\n");
+                                delta += 1;
                             }
                         }
                     }
@@ -468,6 +474,7 @@ pub fn choose_conflict_side_of_hunk(
                             acc.push("-");
                             acc.push(&line[1..]);
                             acc.push("\n");
+                            delta -= 1;
                         }                        
                     } else {
                         // remain our lines
@@ -482,102 +489,110 @@ pub fn choose_conflict_side_of_hunk(
             acc.push("\n");
         }
     }
+    
+    let mut new_body = acc.iter().fold("".to_string(), |cur, nxt| cur + nxt);        
+    let new_header = Hunk::replace_new_lines(&reversed_header, delta);
+    new_body = new_body.replace(&reversed_header, &new_header);
+    reversed_header = new_header;
+
+
     debug!("+++++++++++++++++++++++++++++++++++++++++++");
     debug!("+++++++++++++++++++++++++++++++++++++++++++");
     debug!("+++++++++++++++++++++++++++++++++++++++++++");
-    let mut new_body = acc.iter().fold("".to_string(), |cur, nxt| cur + nxt);
     for line in new_body.lines() {
         debug!("{}", line);
-    }    
-    panic!("STOP");
-    
-    if line.kind == LineKind::Ours {
-
-    } else {
-        // here we will puth theirs changes in index and compare it with working directory
-        // the problem is - hunk could be completelly different!!!!!!!!!!!!!!!!
-
-        let mut patch = git2::Patch::from_diff(&git_diff, 0).expect("cant get patch").unwrap();
-        let buff = patch.to_buf().expect("cant get buff");
-
-        let raw = buff.as_str().unwrap();
-        let mut theirs = false;
-        let mut ours = false;
-        let mut collect = false;
-        let mut acc = Vec::new();
-
-        let mut new_lines_delta: i32 = 0;
-
-        // let mut lines = raw.lines();
-        // while let Some(line) =  lines.next() {
-        //     if line == reversed_header {
-        //     }
-        // }
-
-        for line in raw.lines() {
-            debug!("{}", line);
-            if line  == reversed_header {
-                collect = true;
-                acc.push(line);
-                acc.push("\n");
-                continue;
-            }
-            if !line.is_empty() && line[1..].contains(MARKER_OURS) {
-                ours = true;
-                acc.push(line);
-                acc.push("\n");
-                continue;
-            }
-            if !line.is_empty() && line[1..].contains(MARKER_VS) {
-                // i need my conflict!
-                ours = false;
-                theirs = true;
-                acc.push(line);
-                acc.push("\n");
-                continue;
-            }
-            if !line.is_empty() && line[1..].contains(MARKER_THEIRS) {
-                ours = false;
-                theirs = false;
-                // collect = false;
-                // will it be problem in next hunk?
-                // apply will work only on 1 hunk
-                // but delta will wrong.
-                // lets try apply altogether first
-                // later i will need line offset!!!!!!
-                acc.push(line);
-                acc.push("\n");
-                continue
-            }
-            if collect && ours {
-                acc.push("-");
-                acc.push(&line[1..]);
-                acc.push("\n");
-                new_lines_delta -= 1;
-                continue
-            }
-            if collect && theirs {
-                assert!(line.starts_with("-"));
-                acc.push(" ");
-                acc.push(&line[1..]);
-                acc.push("\n");
-                new_lines_delta += 1;
-                continue;
-            }
-            acc.push(line);
-            acc.push("\n");
-        }
-        acc.push("\n");
-        let mut new_body = acc.iter().fold("".to_string(), |cur, nxt| cur + nxt);
-        debug!("..................................");
-        let new_header = Hunk::replace_new_lines(&reversed_header, new_lines_delta);
-        new_body = new_body.replace(&reversed_header, &new_header);
-        reversed_header = new_header;
-        for line in new_body.lines() {
-            debug!("{}", line);
-        }
-        git_diff = git2::Diff::from_buffer(new_body.as_bytes()).expect("cant create diff");
     }
+    
+    git_diff = git2::Diff::from_buffer(new_body.as_bytes()).expect("cant create diff");
+    // panic!("STOP");
+    
+    // if line.kind == LineKind::Ours {
+
+    // } else {
+    //     // here we will puth theirs changes in index and compare it with working directory
+    //     // the problem is - hunk could be completelly different!!!!!!!!!!!!!!!!
+
+    //     let mut patch = git2::Patch::from_diff(&git_diff, 0).expect("cant get patch").unwrap();
+    //     let buff = patch.to_buf().expect("cant get buff");
+
+    //     let raw = buff.as_str().unwrap();
+    //     let mut theirs = false;
+    //     let mut ours = false;
+    //     let mut collect = false;
+    //     let mut acc = Vec::new();
+
+    //     let mut new_lines_delta: i32 = 0;
+
+    //     // let mut lines = raw.lines();
+    //     // while let Some(line) =  lines.next() {
+    //     //     if line == reversed_header {
+    //     //     }
+    //     // }
+
+    //     for line in raw.lines() {
+    //         debug!("{}", line);
+    //         if line  == reversed_header {
+    //             collect = true;
+    //             acc.push(line);
+    //             acc.push("\n");
+    //             continue;
+    //         }
+    //         if !line.is_empty() && line[1..].contains(MARKER_OURS) {
+    //             ours = true;
+    //             acc.push(line);
+    //             acc.push("\n");
+    //             continue;
+    //         }
+    //         if !line.is_empty() && line[1..].contains(MARKER_VS) {
+    //             // i need my conflict!
+    //             ours = false;
+    //             theirs = true;
+    //             acc.push(line);
+    //             acc.push("\n");
+    //             continue;
+    //         }
+    //         if !line.is_empty() && line[1..].contains(MARKER_THEIRS) {
+    //             ours = false;
+    //             theirs = false;
+    //             // collect = false;
+    //             // will it be problem in next hunk?
+    //             // apply will work only on 1 hunk
+    //             // but delta will wrong.
+    //             // lets try apply altogether first
+    //             // later i will need line offset!!!!!!
+    //             acc.push(line);
+    //             acc.push("\n");
+    //             continue
+    //         }
+    //         if collect && ours {
+    //             acc.push("-");
+    //             acc.push(&line[1..]);
+    //             acc.push("\n");
+    //             new_lines_delta -= 1;
+    //             continue
+    //         }
+    //         if collect && theirs {
+    //             assert!(line.starts_with("-"));
+    //             acc.push(" ");
+    //             acc.push(&line[1..]);
+    //             acc.push("\n");
+    //             new_lines_delta += 1;
+    //             continue;
+    //         }
+    //         acc.push(line);
+    //         acc.push("\n");
+    //     }
+    //     acc.push("\n");
+    //     let mut new_body = acc.iter().fold("".to_string(), |cur, nxt| cur + nxt);
+    //     debug!("..................................");
+    //     let new_header = Hunk::replace_new_lines(&reversed_header, new_lines_delta);
+    //     new_body = new_body.replace(&reversed_header, &new_header);
+    //     reversed_header = new_header;
+    //     for line in new_body.lines() {
+    //         debug!("{}", line);
+    //     }
+    //     git_diff = git2::Diff::from_buffer(new_body.as_bytes()).expect("cant create diff");
+    // }
 
     options.hunk_callback(|odh| -> bool {
         if let Some(dh) = odh {
