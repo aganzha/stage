@@ -49,7 +49,7 @@ BUG: unstaging 1 untracked unstage all untracked (perhaps in libgit)
 
 
 so, about search - the head is does not matter. what matter is selected position.
-it need to update list in such a way, that selected position is always visible
+The conflic it need to update list in such a way, that selected position is always visible
 PERFORMANCE: delete ~/docs/client/WHDDemo and open app :)
 Perhaps it need to put path to status. and window to context!!!!
 
@@ -65,7 +65,7 @@ cant create branch: Error { code: -4, klass: 4, message: "failed to write refere
 
 
 TODO: commit ammend after post push hook
-TODO: whyle branch list is loaded it need to show empty repr
+TODO: while branch list is loaded it need to show empty repr
 FEATURE: add expand rows to hunks as in gitlab!
 make it in HUNK row! expand before and expand after!
 TODO: [TRACE stage::git] push_update_reference "refs/heads/24.2100/bugfix/au.ganzha/prevent_tobacco" Some("pre-receive hook declined")
