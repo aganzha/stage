@@ -42,7 +42,7 @@ pub enum LineKind {
     ConflictMarker(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Line {
     pub view: View,
     pub origin: DiffLineType,
