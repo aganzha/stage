@@ -27,6 +27,12 @@ use regex::Regex;
 use std::path::PathBuf;
 use std::{collections::HashSet, env, path, str};
 
+pub fn make_diff_options() -> DiffOptions {
+    let mut opts = DiffOptions::new();
+    opts.indent_heuristic(true);
+    opts.interhunk_lines(3);
+    return opts;
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LineKind {
@@ -36,7 +42,7 @@ pub enum LineKind {
     ConflictMarker(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Line {
     pub view: View,
     pub origin: DiffLineType,
@@ -69,6 +75,7 @@ impl Line {
 pub const MARKER_OURS: &str = "<<<<<<<";
 pub const MARKER_VS: &str = "=======";
 pub const MARKER_THEIRS: &str = ">>>>>>>";
+pub const MARKER_HUNK: &str = "@@";
 
 #[derive(Debug, Clone)]
 pub struct Hunk {
@@ -123,7 +130,40 @@ impl Hunk {
         self.new_lines = dh.new_lines();
     }
 
-    pub fn reverse_header(header: String) -> String {
+    // TODO! use it in reconciliation!!!!!!!!!
+    pub fn replace_new_start_and_lines(header: &str, delta: i32, prev_delta: i32) -> String {
+        let re = Regex::new(r"@@ [+-][0-9]+,[0-9]+ [+-]([0-9]+),([0-9]+) @@")
+            .unwrap();
+        if let Some((_, [new_start, new_lines])) =
+            re.captures_iter(&header).map(|c| c.extract()).next()
+        {
+            let i_new_start: i32 = new_start.parse().expect("cant parse nums");
+            let i_new_lines: i32 = new_lines.parse().expect("cant parse nums");
+            
+            return header.replace(
+                &format!("{},{} @@", i_new_start, i_new_lines),
+                &format!("{},{} @@", i_new_start + prev_delta, i_new_lines + delta)
+            );
+        }
+        panic!("cant replace num in header")
+    }
+
+    pub fn replace_new_lines(header: &str, delta: i32) -> String {
+        let re = Regex::new(r"@@ [+-][0-9]+,[0-9]+ [+-][0-9]+,([0-9]+) @@")
+            .unwrap();
+        if let Some((_, [nums])) =
+            re.captures_iter(&header).map(|c| c.extract()).next()
+        {
+            let old_nums: i32 = nums.parse().expect("cant parse nums");
+            let new_nums: i32 = old_nums + delta;
+
+            return header.replace(&format!(",{} @@", old_nums), &format!(",{} @@", new_nums));
+        }
+        panic!("cant replace num in header")
+    }
+
+    // THE REGEX IS WRONG! remove .* !!!!!!!!!!!!! for +
+    pub fn reverse_header(header: String) -> String {        
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
         // "@@ -20,10 +24,11 @@ STAGING LINE..." -> "@@ -24,11 +20,10 @@ STAGING LINE..."
         // "@@ -54,7 +59,6 @@ do not call..." -> "@@ -59,6 +54,7 @@ do not call..."
@@ -552,7 +592,7 @@ pub fn get_conflicted_v1(path: PathBuf) -> Diff {
     let repo = Repository::open(path).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
-    let mut opts = DiffOptions::new();
+    let mut opts = make_diff_options();
     for conflict in conflicts {
         let conflict = conflict.unwrap();
         let our = conflict.our.unwrap();
@@ -570,7 +610,7 @@ pub fn get_conflicted_v1(path: PathBuf) -> Diff {
 
 pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
-    let mut opts = DiffOptions::new();
+    let mut opts = make_diff_options();
 
     let opts = opts.show_untracked_content(true);
 
@@ -692,7 +732,8 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let _res = git_diff.print(
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
-            let status = diff_delta.status();
+            
+            let status = diff_delta.status();            
             if status == Delta::Conflicted
                 && (kind == DiffKind::Staged || kind == DiffKind::Unstaged)
             {
@@ -804,7 +845,7 @@ pub fn stage_via_apply(
     // TODO! destruct filter to args. put file in pathspec for diff opts
     let repo = Repository::open(path.clone()).expect("can't open repo");
 
-    let mut opts = DiffOptions::new();
+    let mut opts = make_diff_options();
     opts.pathspec(&filter.file_id);
 
     let git_diff = match filter.subject {

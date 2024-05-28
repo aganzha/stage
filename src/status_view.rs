@@ -484,10 +484,10 @@ impl Status {
                                 )
                             }
                         }).await.unwrap_or_else(|e| {
-                            alert(format!("{:?}", e), &window);
+                            alert(format!("{:?}", e)).present(&window);
                             Ok(())
                         }).unwrap_or_else(|e| {
-                            alert(e, &window);
+                            alert(e).present(&window);
                         });
                     }
                 });

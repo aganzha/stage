@@ -1,13 +1,15 @@
 use async_channel::Sender;
 use libadwaita::prelude::*;
-use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance};
+use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance, SwitchRow};
 use log::debug;
 use crate::git::remote::RemoteResponse;
+use std::collections::HashMap;
+
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 
 use gtk4::{
-    gio, AlertDialog as GTK4AlertDialog, Widget, Window as Gtk4Window, TextView, ScrolledWindow
+    gio, AlertDialog as GTK4AlertDialog, Widget, Window as Gtk4Window, TextView, ScrolledWindow, ListBox, SelectionMode
 };
 
 
@@ -80,12 +82,24 @@ pub fn merge_dialog_factory(
     dialog
 }
 
-pub trait AlertError {
+
+pub const YES: &str = "yes";
+pub const NO: &str = "no";
+const CLOSE: &str = "close";
+
+pub trait AlertConversation {
+
     fn heading_and_message(&self) -> (String, String);
-    fn body(&self) -> Option<Vec<String>>;
+
+    fn extra_child(&mut self) -> Option<Widget> {
+        None
+    }
+    fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
+        vec!((CLOSE, CLOSE, ResponseAppearance::Destructive))
+    }
 }
 
-impl AlertError for git2::Error {
+impl AlertConversation for git2::Error {
     fn heading_and_message(&self) -> (String, String) {
         (
             String::from("<span color=\"#ff0000\">Git error</span>"),
@@ -96,71 +110,116 @@ impl AlertError for git2::Error {
                 self.message()
             ),
         )
-    }
-    fn body(&self) -> Option<Vec<String>> {
-        None
-    }
+    }    
 }
-impl AlertError for String {
+impl AlertConversation for String {
     fn heading_and_message(&self) -> (String, String) {
         (
             String::from("<span color=\"#ff0000\">Error</span>"),
             String::from(self),
         )
     }
-    fn body(&self) -> Option<Vec<String>> {
-        None
-    }
 }
-impl AlertError for RemoteResponse {
+impl AlertConversation for RemoteResponse {
     fn heading_and_message(&self) -> (String, String) {
         (
             String::from("<span color=\"#ff0000\">Error</span>"),
             String::from(self.error.clone().unwrap().clone()),
         )
     }
-    fn body(&self) -> Option<Vec<String>> {
-        self.body.clone()
+    fn extra_child(&mut self) -> Option<Widget> {
+        if let Some(body) = &self.body {
+            let txt = TextView::builder()
+                .margin_start(12)
+                .margin_end(12)
+                .margin_top(12)
+                .margin_bottom(12)
+                .build();
+            let buffer = txt.buffer();
+            let mut iter = buffer.iter_at_offset(0);
+            let body: String = body.iter().fold("".to_string(), |cur, nxt| cur + nxt);
+            buffer.insert(&mut iter, &body);
+
+            let scroll = ScrolledWindow::builder()
+                .vexpand(true)
+                .vexpand_set(true)
+                .hexpand(true)
+                .hexpand_set(true)
+                .min_content_width(800)
+                .min_content_height(600)
+                .build();
+            scroll.set_child(Some(&txt));        
+            return Some(scroll.into());
+        }
+        None    
+    }
+}
+#[derive(Default, Clone)]
+pub struct YesNoString(pub String, pub String);
+
+impl AlertConversation for YesNoString {
+    fn heading_and_message(&self) -> (String, String) {
+        (
+            format!("<span color=\"#303030\">{}</span>", self.0),
+            format!("{}", self.1),
+        )
+    }
+    fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
+        vec!((NO, NO, ResponseAppearance::Default),
+             (YES, YES, ResponseAppearance::Suggested))
     }
 }
 
-pub fn alert<E>(err: E, window: &impl IsA<Widget>)
-where
-    E: AlertError,
+pub struct YesNoWithVariants(pub YesNoString, pub HashMap<String, bool>);
+
+impl AlertConversation for YesNoWithVariants {
+    fn heading_and_message(&self) -> (String, String) {
+        self.0.heading_and_message()
+    }
+    fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
+        self.0.get_response()
+    }
+    fn extra_child(&mut self) -> Option<Widget> {
+        let lb = ListBox::builder()
+            .selection_mode(SelectionMode::None)
+            .css_classes(vec![String::from("boxed-list")])
+            .build();
+        let kv = self.1.clone();
+        for (key, value) in &kv {
+            let row = SwitchRow::builder()
+                .title(key)
+                .css_classes(vec!["input_field"])
+                .active(*value)
+                .build();
+            // row.bind_property("selected", &model, "selected_pos");
+            // row.connect_active_notify(|sw_row| {
+            //     // self.1.insert(key.to_string(), sw_row.is_active());
+            //     debug!("-------------------> {:?}", self.1);
+            // });
+            lb.append(&row);
+        }
+        Some(lb.into())
+    }
+}
+
+
+pub fn alert<AC>(mut conversation: AC) -> AlertDialog
+    where AC: AlertConversation
 {
-    let (heading, message) = err.heading_and_message();
+    let (heading, message) = conversation.heading_and_message();
     let mut dialog = AlertDialog::builder()
         .heading_use_markup(true)
         .heading(heading)
         .body_use_markup(true)
         .body(message);
-    if let Some(body) = err.body() {
-        let txt = TextView::builder()
-            .margin_start(12)
-            .margin_end(12)
-            .margin_top(12)
-            .margin_bottom(12)
-            .build();
-        let buffer = txt.buffer();
-        let mut iter = buffer.iter_at_offset(0);
-        let body: String = body.iter().fold("".to_string(), |cur, nxt| cur + nxt);
-        buffer.insert(&mut iter, &body);
-
-        let scroll = ScrolledWindow::builder()
-            .vexpand(true)
-            .vexpand_set(true)
-            .hexpand(true)
-            .hexpand_set(true)
-            .min_content_width(800)
-            .min_content_height(600)
-            .build();
-        scroll.set_child(Some(&txt));
-        
-        dialog = dialog.extra_child(&scroll);
+    if let Some(body) = conversation.extra_child() {
+        dialog = dialog.extra_child(&body);
     }
     let dialog = dialog.build();
-    dialog.add_response("close", "close");
-    dialog.set_response_appearance("close", ResponseAppearance::Destructive);
-    dialog.set_default_response(Some("close"));
-    dialog.present(window);
+    
+    for (id, label, appearance) in conversation.get_response() {
+        dialog.add_response(&id, &label);
+        dialog.set_response_appearance(&id, appearance);
+    }
+    dialog
 }

@@ -204,10 +204,10 @@ impl BranchList {
                 let branches: Vec<branch::BranchData> = gio::spawn_blocking(move || {
                     branch::get_branches(repo_path)
                 }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &window);
+                    alert(format!("{:?}", e)).present(&window);
                     Ok(Vec::new())
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    alert(e).present(&window);
                     Vec::new()
                 });
                 if branches.is_empty() {
@@ -266,10 +266,10 @@ impl BranchList {
                 let new_branch_data = gio::spawn_blocking(move || {
                     branch::checkout_branch(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &window);
+                    alert(format!("{:?}", e)).present(&window);
                     Ok(None)
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    alert(e).present(&window);
                     None
                 });
                 if new_branch_data.is_none() {
@@ -374,6 +374,7 @@ impl BranchList {
         let pos = self.selected_pos();
         // TODO! got panic here while opening large
         // list of branches and clicking create
+        // got it twice!
         let item = self.item(pos).unwrap();
         let branch_item = item.downcast_ref::<BranchItem>().unwrap();
         let data = branch_item.imp().branch.borrow().clone();
@@ -400,12 +401,12 @@ impl BranchList {
             clone!(@weak self as branch_list, @weak window as window => async move {
                 let branch_data = branch_list.get_selected_branch();
                 let branch_data = gio::spawn_blocking(move || {
-                    commit::cherry_pick(repo_path, branch_data, sender)
+                    commit::cherry_pick(repo_path, branch_data.oid, sender)
                 }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &window);
+                    alert(format!("{:?}", e)).present(&window);
                     Ok(None)
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    alert(e).present(&window);
                     None
                 });
                 if let Some(branch_data) = branch_data {
@@ -471,10 +472,10 @@ impl BranchList {
                 let branch_data = gio::spawn_blocking(move || {
                     merge::branch(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &window);
+                    alert(format!("{:?}", e)).present(&window);
                     Ok(None)
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    alert(e).present(&window);
                     None
                 });
                 if let Some(branch_data) = branch_data {
@@ -504,10 +505,10 @@ impl BranchList {
                 let result = gio::spawn_blocking(move || {
                     branch::kill_branch(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &window);
+                    alert(format!("{:?}", e)).present(&window);
                     Ok(None)
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    alert(e).present(&window);
                     None
                 });
                 if result.is_none() {
@@ -624,10 +625,10 @@ impl BranchList {
                 let branch_data = gio::spawn_blocking(move || {
                     branch::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e), &window);
+                    alert(format!("{:?}", e)).present(&window);
                     Ok(None)
                 }).unwrap_or_else(|e| {
-                    alert(e, &window);
+                    alert(e).present(&window);
                     None
                 });
                 if let Some(branch_data) = branch_data {
@@ -976,7 +977,7 @@ pub fn headerbar_factory(
         }
     });
     let merge_btn = Button::builder()
-        .icon_name("org.gtk.gtk4.NodeEditor-symbolic")
+        .icon_name("system-switch-user-symbolic")
         .use_underline(true)
         .tooltip_text("Merge branch (M)")
         .sensitive(false)
@@ -1244,6 +1245,7 @@ pub fn show_branches_window(
                         let (current_branch, selected_branch) =
                             branches_in_use(&list_view);
                         let btns = vec!["Cancel", "Cherry-pick"];
+                        // TODO! common dialog
                         let alert = AlertDialog::builder()
                             .buttons(btns)
                             .message("Cherry picking")

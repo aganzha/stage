@@ -1,3 +1,8 @@
+BUG: panic when apply stage: thread '<unnamed>' panicked at src/git.rs:1039:10:
+cant apply stash: Error { code: -22, klass: 19, message: "4 uncommitted changes exist in the index" }
+
+
+
 TODO: measure line length for each line under cursor is not effective. perhaps introduce one
 more flag to view and during resize event reset those flags to perform buildup?
 TODO: in branch list please show remote status somehow
@@ -39,7 +44,8 @@ BUG: thread 'main' panicked at src/status_view/container.rs:199:14:
      stack backtrace:
 
      
-provoke co
+thread '<unnamed>' panicked at src/git.rs:1114:14:
+can't get commit from ref!: thats a conflict
 
 BUG: kill in untracked stages it + what if it is a directory???
 BUG: unstaging 1 untracked unstage all untracked (perhaps in libgit)
@@ -63,11 +69,11 @@ cant create branch: Error { code: -4, klass: 4, message: "failed to write refere
 
 
 TODO: commit ammend after post push hook
-TODO: whyle branch list is loaded it need to show empty repr
+TODO: while branch list is loaded it need to show empty repr
 FEATURE: add expand rows to hunks as in gitlab!
 make it in HUNK row! expand before and expand after!
 TODO: [TRACE stage::git] push_update_reference "refs/heads/24.2100/bugfix/au.ganzha/prevent_tobacco" Some("pre-receive hook declined")
-display hook here
+display hook here agai
 ------------------------
 and resolve
 TODO: display killed spaces please

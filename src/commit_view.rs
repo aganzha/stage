@@ -1,7 +1,8 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::git::commit;
+use std::collections::HashMap;
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
-use crate::widgets::alert;
+use crate::widgets::{alert, YesNoString, YesNoWithVariants, YES, NO};
 use crate::Event;
 use async_channel::Sender;
 use git2::Oid;
@@ -11,7 +12,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, EventControllerKey, Label, ScrolledWindow, TextView,
-    Window as Gtk4Window,
+    Window as Gtk4Window, Button, Widget
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -23,8 +24,10 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 pub fn headerbar_factory(
-    _repo_path: PathBuf,
-    _oid: Oid,
+    repo_path: PathBuf,    
+    window: &impl IsA<Widget>,
+    sender: Sender<Event>,
+    oid: Oid,
     // _sender: Sender<Event>,
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
@@ -34,8 +37,69 @@ pub fn headerbar_factory(
         .build();
 
     hb.set_title_widget(Some(&lbl));
-    hb.set_show_end_title_buttons(true);
-    hb.set_show_back_button(true);
+
+    let cherry_pick_btn = Button::builder()
+        .icon_name("emblem-shared-symbolic")
+        .can_shrink(true)
+        .tooltip_text("Cherry-pick")
+        .sensitive(true)
+        .use_underline(true)
+        .build();
+    cherry_pick_btn.connect_clicked({
+        let sender = sender.clone();
+        let path = repo_path.clone();
+        let window = window.clone();
+        move |_btn| {
+            glib::spawn_future_local({
+                let sender = sender.clone();
+                let path = path.clone();                
+                let window = window.clone();
+                async move {
+                    let response = alert(
+                        YesNoWithVariants {
+                            0: YesNoString{
+                                0:"Cherry pick commit?".to_string(),
+                                1:format!("{}", oid)
+                            },
+                            1: HashMap::from([
+                                ("Do not commit. Only apply changes".to_string(), true)
+                            ])
+                        }).choose_future(&window).await;
+                    match response.as_str() {
+                        YES => {
+                            gio::spawn_blocking({
+                                let sender = sender.clone();
+                                let path = path.clone();
+                                move || {
+                                    commit::cherry_pick(path, oid, sender)
+                                }}).await
+                                .unwrap_or_else(|e| {
+                                    alert(format!("{:?}", e)).present(&window);
+                                    Ok(None)
+                                })
+                                .unwrap_or_else(|e| {
+                                    alert(e).present(&window);
+                                    None
+                                });
+                        },
+                        _ => {
+                            return;
+                        }
+                    }
+                }
+            });
+            // commit::cherry_pick()
+        }});
+    
+    let revert_btn = Button::builder()
+        .icon_name("edit-undo-symbolic")
+        .can_shrink(true)
+        .tooltip_text("Revert")
+        .sensitive(true)
+        .use_underline(true)
+        .build();
+    hb.pack_end(&cherry_pick_btn);
+    hb.pack_end(&revert_btn);
     hb
 }
 
@@ -59,7 +123,7 @@ pub fn show_commit_window(
     repo_path: PathBuf,
     oid: Oid,
     app_window: &impl IsA<Gtk4Window>,
-    _main_sender: Sender<Event>, // i need that to trigger revert and cherry-pick.
+    main_sender: Sender<Event>, // i need that to trigger revert and cherry-pick.
 ) {
     let (sender, receiver) = async_channel::unbounded();
 
@@ -73,7 +137,7 @@ pub fn show_commit_window(
 
     let scroll = ScrolledWindow::new();
 
-    let hb = headerbar_factory(repo_path.clone(), oid);
+    let hb = headerbar_factory(repo_path.clone(), &window.clone(), main_sender.clone(), oid);
 
     let text_view_width = Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
     let txt = crate::textview_factory(sender.clone(), text_view_width.clone());
@@ -124,11 +188,11 @@ pub fn show_commit_window(
             })
             .await
             .unwrap_or_else(|e| {
-                alert(format!("{:?}", e), &window);
+                alert(format!("{:?}", e)).present(&window);
                 Ok(commit::CommitDiff::default())
             })
             .unwrap_or_else(|e| {
-                alert(e, &window);
+                alert(e).present(&window);
                 commit::CommitDiff::default()
             });
             if !commit_diff.is_empty() {
