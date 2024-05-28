@@ -130,6 +130,24 @@ impl Hunk {
         self.new_lines = dh.new_lines();
     }
 
+    // TODO! use it in reconciliation!!!!!!!!!
+    pub fn replace_new_start_and_lines(header: &str, delta: i32, prev_delta: i32) -> String {
+        let re = Regex::new(r"@@ [+-][0-9]+,[0-9]+ [+-]([0-9]+),([0-9]+) @@")
+            .unwrap();
+        if let Some((_, [new_start, new_lines])) =
+            re.captures_iter(&header).map(|c| c.extract()).next()
+        {
+            let i_new_start: i32 = new_start.parse().expect("cant parse nums");
+            let i_new_lines: i32 = new_lines.parse().expect("cant parse nums");
+            
+            return header.replace(
+                &format!("{},{} @@", i_new_start, i_new_lines),
+                &format!("{},{} @@", i_new_start + prev_delta, i_new_lines + delta)
+            );
+        }
+        panic!("cant replace num in header")
+    }
+
     pub fn replace_new_lines(header: &str, delta: i32) -> String {
         let re = Regex::new(r"@@ [+-][0-9]+,[0-9]+ [+-][0-9]+,([0-9]+) @@")
             .unwrap();
