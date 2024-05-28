@@ -20,7 +20,7 @@ TODO: Cherry-pick - it does copy changes but does not create commit (feature?) r
       feature - add popup while click on state suggest cleanup. 
       
 thread '<unnamed>' panicked at src/git.rs:585:21:
-not yet implemented: unhandled status ---> Conflicted === DiffDelta { nfiles: 2, status: Conflicted, old_file: DiffFile { id: 0000000000000000000000000000000000000000, path_bytes: [99, 108, 105, 101, 110, 116, 47, 87, 72, 68, 47, 67, 111, 110, 116, 114, 111, 108, 115, 47, 77, 97, 114, 107, 105, 110, 103, 47, 95, 109, 97, 114, 107, 105, 110, 103, 67, 111, 109, 109, 111, 110, 47, 73, 110, 105, 116, 105, 97, 108, 80, 104, 97, 115, 101, 46, 116, 115], path: "client/WHD/Controls/Marking/_markingCommon/InitialPhase.ts", size: 0 }, new_file: DiffFile { id: 0000000000000000000000000000000000000000, path_bytes: [99, 108, 105, 101, 110, 116, 47, 87, 72, 68, 47, 67, 111, 110, 116, 114, 111, 108, 115, 47, 77, 97, 114, 107, 105, 110, 103, 47, 95, 109, 97, 114, 107, 105, 110, 103, 67, 111, 109, 109, 111, 110, 47, 73, 110, 105, 116, 105, 97, 108, 80, 104, 97, 115, 101, 46, 116, 115], path: "client/WHD/Controls/Marking/_markingCommon/InitialPhase.ts", size: 16552 } }, kind === Unstaged
+not yet implemented: unhandled status ---> provoke conflict in cherry pick
 stack backtrace:
 
 
@@ -41,7 +41,7 @@ BUG: thread 'main' panicked at src/status_view/container.rs:199:14:
 
      
 thread '<unnamed>' panicked at src/git.rs:1114:14:
-can't get commit from ref!: Error { code: -3, klass: 3, message: "the reference 'refs/remotes/origin/HEAD' cannot be peeled - Cannot resolve reference" }
+can't get commit from ref!: thats a conflict
 
 BUG: kill in untracked stages it + what if it is a directory???
 BUG: unstaging 1 untracked unstage all untracked (perhaps in libgit)
