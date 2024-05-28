@@ -377,18 +377,31 @@ pub fn choose_conflict_side_of_hunk(
     for line in raw.lines() {
         debug!("{}", line);
     }
+
+
     let mut acc = Vec::new();
 
     let mut lines = raw.lines();
     let mut first = true;
-    let kind = line.kind;
-
+    let kind = &line.kind;
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
 
+    let mut conflict_offset_inside_hunk: i32 = 0;
+    for (i,l) in hunk.lines.iter().enumerate() {
+        if l.content.starts_with(MARKER_OURS) {
+            conflict_offset_inside_hunk = i as i32;
+        }
+        if l == &line {
+            break;
+        }
+    }
+    let mut line_offset_inside_hunk: i32 = 0;
+    
     // this handles all hunks, not just selected one
     while let Some(line) = lines.next() {
-        if !line.is_empty() && line[1..].contains(MARKER_OURS) {
+        if !line.is_empty() && line[1..].starts_with(MARKER_OURS) {
             // is it marker that we need?
+            line_offset_inside_hunk += 1;
             let mut found = false;
             if first {
                 // this marker will be deleted
@@ -409,7 +422,9 @@ pub fn choose_conflict_side_of_hunk(
             }
             // go deeper inside OURS
             'ours: while let Some(line) = lines.next() {
-                if !line.is_empty() && line[1..].contains(MARKER_VS) {
+                line_offset_inside_hunk += 1;
+                debug!("||||||||||||||||||||||||||||||||||| look for offset {:?}, this offset {:?}", conflict_offset_inside_hunk, line_offset_inside_hunk);
+                if !line.is_empty() && line[1..].starts_with(MARKER_VS) {
                     if found {
                         // this marker will be deleted
                         acc.push(line);
@@ -427,7 +442,8 @@ pub fn choose_conflict_side_of_hunk(
                     }
                     // go deeper inside THEIRS
                     while let Some(line) =  lines.next() {
-                        if !line.is_empty() && line[1..].contains(MARKER_THEIRS) {
+                        line_offset_inside_hunk += 1;
+                        if !line.is_empty() && line[1..].starts_with(MARKER_THEIRS) {
                             if found {
                                 // this marker will be deleted
                                 acc.push(line);
@@ -451,7 +467,7 @@ pub fn choose_conflict_side_of_hunk(
                             // this lines are deleted in this diff
                             // lets adjust it
                             if found {
-                                if kind == LineKind::Ours {
+                                if *kind == LineKind::Ours {
                                     // theirs will be deleted
                                     acc.push(line);
                                     acc.push("\n");
@@ -483,7 +499,7 @@ pub fn choose_conflict_side_of_hunk(
                     // OUR lines between <<< and ====
                     // in this diff they are not deleted
                     if found {
-                        if kind == LineKind::Ours {
+                        if *kind == LineKind::Ours {
                             // remain our lines
                             acc.push(line);
                             acc.push("\n");
@@ -509,6 +525,7 @@ pub fn choose_conflict_side_of_hunk(
             // line not belonging to conflict
             if !line.is_empty() && line[1..].contains(MARKER_HUNK) {
                 hunk_deltas.push((line, 0));
+                line_offset_inside_hunk = 0;
             }
             acc.push(line);
             acc.push("\n");
