@@ -1,3 +1,8 @@
+BUG: panic when apply stage: thread '<unnamed>' panicked at src/git.rs:1039:10:
+cant apply stash: Error { code: -22, klass: 19, message: "4 uncommitted changes exist in the index" }
+
+
+
 TODO: measure line length for each line under cursor is not effective. perhaps introduce one
 more flag to view and during resize event reset those flags to perform buildup?
 TODO: in branch list please show remote status somehow

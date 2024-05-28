@@ -374,6 +374,7 @@ impl BranchList {
         let pos = self.selected_pos();
         // TODO! got panic here while opening large
         // list of branches and clicking create
+        // got it twice!
         let item = self.item(pos).unwrap();
         let branch_item = item.downcast_ref::<BranchItem>().unwrap();
         let data = branch_item.imp().branch.borrow().clone();
