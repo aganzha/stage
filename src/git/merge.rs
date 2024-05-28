@@ -1,14 +1,14 @@
 use crate::git::{
     get_conflicted_v1, get_current_repo_status, make_diff, BranchData,
     make_diff_options,
-    DiffKind, Head, Hunk, Line, LineKind, State, MARKER_OURS, MARKER_VS, MARKER_THEIRS
+    DiffKind, Head, Hunk, Line, LineKind, State, MARKER_OURS, MARKER_VS, MARKER_THEIRS, MARKER_HUNK
 };
 use async_channel::Sender;
 use git2;
 use gtk4::gio;
 use log::{debug, info};
 use std::{
-    collections::HashSet,
+    collections::{HashSet, HashMap},
     path::{Path, PathBuf},
     str::from_utf8,
 };
@@ -377,17 +377,15 @@ pub fn choose_conflict_side_of_hunk(
     for line in raw.lines() {
         debug!("{}", line);
     }
-    let mut theirs = false;
-    let mut ours = false;
-    let mut collect = false;
     let mut acc = Vec::new();
-
-    let mut new_lines_delta: i32 = 0;
 
     let mut lines = raw.lines();
     let mut first = true;
     let kind = line.kind;
-    let mut delta: i32 = 0;
+
+    let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
+
+    // this handles all hunks, not just selected one
     while let Some(line) = lines.next() {
         if !line.is_empty() && line[1..].contains(MARKER_OURS) {
             // is it marker that we need?
@@ -403,7 +401,11 @@ pub fn choose_conflict_side_of_hunk(
                 acc.push(" ");
                 acc.push(&line[1..]);
                 acc.push("\n");
-                delta += 1;
+                // delta += 1;
+                let hd = hunk_deltas.last().unwrap();
+                let le = hunk_deltas.len();
+                hunk_deltas[le -1] = (hd.0, hd.1 + 1);
+                debug!("......remain marker ours when not found {:?}", hunk_deltas);
             }
             // go deeper inside OURS
             'ours: while let Some(line) = lines.next() {
@@ -417,10 +419,14 @@ pub fn choose_conflict_side_of_hunk(
                         acc.push(" ");
                         acc.push(&line[1..]);
                         acc.push("\n");
-                        delta += 1;
+                        // delta += 1;
+                        let hd = hunk_deltas.last().unwrap();
+                        let le = hunk_deltas.len();
+                        hunk_deltas[le -1] = (hd.0, hd.1 + 1);
+                        debug!("......remain marker vs when not found {:?}", hunk_deltas);
                     }
                     // go deeper inside THEIRS
-                    'theirs: while let Some(line) =  lines.next() {
+                    while let Some(line) =  lines.next() {
                         if !line.is_empty() && line[1..].contains(MARKER_THEIRS) {
                             if found {
                                 // this marker will be deleted
@@ -431,7 +437,11 @@ pub fn choose_conflict_side_of_hunk(
                                 acc.push(" ");
                                 acc.push(&line[1..]);
                                 acc.push("\n");
-                                delta += 1;
+                                // delta += 1;
+                                let hd = hunk_deltas.last().unwrap();
+                                let le = hunk_deltas.len();
+                                hunk_deltas[le -1] = (hd.0, hd.1 + 1);
+                                debug!("......remain marker theirs when not found {:?}", hunk_deltas);
                             }
                             // conflict is over
                             // go out to next conflict
@@ -450,14 +460,22 @@ pub fn choose_conflict_side_of_hunk(
                                     acc.push(" ");
                                     acc.push(&line[1..]);
                                     acc.push("\n");
-                                    delta += 1;
+                                    // delta += 1;
+                                    let hd = hunk_deltas.last().unwrap();
+                                    let le = hunk_deltas.len();
+                                    hunk_deltas[le -1] = (hd.0, hd.1 + 1);
+                                    debug!("......remain theirs in found {:?}", hunk_deltas);
                                 }
                             } else {
                                 // do not delete for now
                                 acc.push(" ");
                                 acc.push(&line[1..]);
                                 acc.push("\n");
-                                delta += 1;
+                                // delta += 1;
+                                let hd = hunk_deltas.last().unwrap();
+                                let le = hunk_deltas.len();
+                                hunk_deltas[le -1] = (hd.0, hd.1 + 1);
+                                debug!("......remain theirs when not in found {:?}", hunk_deltas);
                             }
                         }
                     }
@@ -474,7 +492,11 @@ pub fn choose_conflict_side_of_hunk(
                             acc.push("-");
                             acc.push(&line[1..]);
                             acc.push("\n");
-                            delta -= 1;
+                            // delta -= 1;
+                            let hd = hunk_deltas.last().unwrap();
+                            let le = hunk_deltas.len();
+                            hunk_deltas[le -1] = (hd.0, hd.1 - 1);
+                            debug!("......delete ours in found {:?}", hunk_deltas);
                         }                        
                     } else {
                         // remain our lines
@@ -484,16 +506,29 @@ pub fn choose_conflict_side_of_hunk(
                 }
             }
         } else {
-            // just a regular line
+            // line not belonging to conflict
+            if !line.is_empty() && line[1..].contains(MARKER_HUNK) {
+                hunk_deltas.push((line, 0));
+            }
             acc.push(line);
             acc.push("\n");
         }
     }
     
     let mut new_body = acc.iter().fold("".to_string(), |cur, nxt| cur + nxt);        
-    let new_header = Hunk::replace_new_lines(&reversed_header, delta);
-    new_body = new_body.replace(&reversed_header, &new_header);
-    reversed_header = new_header;
+
+    debug!("xxxxxxxxxxxxxxxx deltas {:?}", &hunk_deltas);
+    
+    for (hh, delta) in hunk_deltas {        
+        let new_header = Hunk::replace_new_lines(hh, delta);
+        new_body = new_body.replace(hh, &new_header);
+        if hh == reversed_header {
+            reversed_header = new_header;
+        }
+    }
+    // let new_header = Hunk::replace_new_lines(&reversed_header, delta);
+    // new_body = new_body.replace(&reversed_header, &new_header);
+    // reversed_header = new_header;
 
 
     debug!("+++++++++++++++++++++++++++++++++++++++++++");

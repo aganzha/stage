@@ -75,6 +75,7 @@ impl Line {
 pub const MARKER_OURS: &str = "<<<<<<<";
 pub const MARKER_VS: &str = "=======";
 pub const MARKER_THEIRS: &str = ">>>>>>>";
+pub const MARKER_HUNK: &str = "@@";
 
 #[derive(Debug, Clone)]
 pub struct Hunk {
@@ -129,7 +130,7 @@ impl Hunk {
         self.new_lines = dh.new_lines();
     }
 
-    pub fn replace_new_lines(header: &String, delta: i32) -> String {
+    pub fn replace_new_lines(header: &str, delta: i32) -> String {
         let re = Regex::new(r"@@ [+-][0-9]+,[0-9]+ [+-][0-9]+,([0-9]+) @@")
             .unwrap();
         if let Some((_, [nums])) =
