@@ -395,20 +395,24 @@ pub fn choose_conflict_side_of_hunk(
             break;
         }
     }
-    let mut line_offset_inside_hunk: i32 = 0;
+    let mut line_offset_inside_hunk: i32 = -1; // first line in hunk will be 0
     
     // this handles all hunks, not just selected one
     while let Some(line) = lines.next() {
         if !line.is_empty() && line[1..].starts_with(MARKER_OURS) {
             // is it marker that we need?
             line_offset_inside_hunk += 1;
-            let mut found = false;
-            if first {
+            let mut this_is_current_conflict = false;
+            if conflict_offset_inside_hunk == line_offset_inside_hunk
+                &&
+                hunk_deltas.last().unwrap().0 == reversed_header {
+                    debug!("||||||||||||||||||||||||||||||||||| look for offset {:?}, this offset {:?} for line {:?}", conflict_offset_inside_hunk, line_offset_inside_hunk, line);
+                    this_is_current_conflict = true;
+                }
+            if this_is_current_conflict {
                 // this marker will be deleted
                 acc.push(line);
                 acc.push("\n");
-                found = true;
-                first = false;
             } else {
                 // do not delete it for now
                 acc.push(" ");
@@ -422,10 +426,9 @@ pub fn choose_conflict_side_of_hunk(
             }
             // go deeper inside OURS
             'ours: while let Some(line) = lines.next() {
-                line_offset_inside_hunk += 1;
-                debug!("||||||||||||||||||||||||||||||||||| look for offset {:?}, this offset {:?}", conflict_offset_inside_hunk, line_offset_inside_hunk);
+                line_offset_inside_hunk += 1;                
                 if !line.is_empty() && line[1..].starts_with(MARKER_VS) {
-                    if found {
+                    if this_is_current_conflict {
                         // this marker will be deleted
                         acc.push(line);
                         acc.push("\n");
@@ -444,7 +447,7 @@ pub fn choose_conflict_side_of_hunk(
                     while let Some(line) =  lines.next() {
                         line_offset_inside_hunk += 1;
                         if !line.is_empty() && line[1..].starts_with(MARKER_THEIRS) {
-                            if found {
+                            if this_is_current_conflict {
                                 // this marker will be deleted
                                 acc.push(line);
                                 acc.push("\n");
@@ -466,7 +469,7 @@ pub fn choose_conflict_side_of_hunk(
                             // THEIR lines between === and >>>>
                             // this lines are deleted in this diff
                             // lets adjust it
-                            if found {
+                            if this_is_current_conflict {
                                 if *kind == LineKind::Ours {
                                     // theirs will be deleted
                                     acc.push(line);
@@ -498,7 +501,7 @@ pub fn choose_conflict_side_of_hunk(
                 } else {
                     // OUR lines between <<< and ====
                     // in this diff they are not deleted
-                    if found {
+                    if this_is_current_conflict {
                         if *kind == LineKind::Ours {
                             // remain our lines
                             acc.push(line);
@@ -525,7 +528,11 @@ pub fn choose_conflict_side_of_hunk(
             // line not belonging to conflict
             if !line.is_empty() && line[1..].contains(MARKER_HUNK) {
                 hunk_deltas.push((line, 0));
-                line_offset_inside_hunk = 0;
+                debug!("----------->reset oggset for hunk {:?} {:?}", line_offset_inside_hunk, line);
+                line_offset_inside_hunk = -1;
+            } else {
+                debug!("increment iffset for line {:?} {:?}", line_offset_inside_hunk, line);
+                line_offset_inside_hunk += 1;
             }
             acc.push(line);
             acc.push("\n");
