@@ -396,7 +396,7 @@ pub fn choose_conflict_side_of_hunk(
         }
     }
     let mut line_offset_inside_hunk: i32 = -1; // first line in hunk will be 0
-    
+
     // this handles all hunks, not just selected one
     while let Some(line) = lines.next() {
         if !line.is_empty() && line[1..].starts_with(MARKER_OURS) {
@@ -426,7 +426,7 @@ pub fn choose_conflict_side_of_hunk(
             }
             // go deeper inside OURS
             'ours: while let Some(line) = lines.next() {
-                line_offset_inside_hunk += 1;                
+                line_offset_inside_hunk += 1;
                 if !line.is_empty() && line[1..].starts_with(MARKER_VS) {
                     if this_is_current_conflict {
                         // this marker will be deleted
@@ -516,7 +516,7 @@ pub fn choose_conflict_side_of_hunk(
                             let le = hunk_deltas.len();
                             hunk_deltas[le -1] = (hd.0, hd.1 - 1);
                             debug!("......delete ours in found {:?}", hunk_deltas);
-                        }                        
+                        }
                     } else {
                         // remain our lines
                         acc.push(line);
@@ -538,19 +538,21 @@ pub fn choose_conflict_side_of_hunk(
             acc.push("\n");
         }
     }
-    
-    let mut new_body = acc.iter().fold("".to_string(), |cur, nxt| cur + nxt);        
+
+    let mut new_body = acc.iter().fold("".to_string(), |cur, nxt| cur + nxt);
 
     debug!("xxxxxxxxxxxxxxxx deltas {:?}", &hunk_deltas);
 
     // so. not only new lines are changed. new_start are changed also!!!!!!
     // it need to add delta of prev hunk int new start of next hunk!!!!!!!!
-    for (hh, delta) in hunk_deltas {        
-        let new_header = Hunk::replace_new_lines(hh, delta);
+    let mut prev_delta = 0;
+    for (hh, delta) in hunk_deltas {
+        let new_header = Hunk::replace_new_start_and_lines(hh, delta, prev_delta);        
         new_body = new_body.replace(hh, &new_header);
         if hh == reversed_header {
             reversed_header = new_header;
         }
+        prev_delta = delta;
     }
     // let new_header = Hunk::replace_new_lines(&reversed_header, delta);
     // new_body = new_body.replace(&reversed_header, &new_header);
@@ -563,10 +565,10 @@ pub fn choose_conflict_side_of_hunk(
     for line in new_body.lines() {
         debug!("{}", line);
     }
-    
+
     git_diff = git2::Diff::from_buffer(new_body.as_bytes()).expect("cant create diff");
     // panic!("STOP");
-    
+
     // if line.kind == LineKind::Ours {
 
     // } else {
