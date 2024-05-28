@@ -542,7 +542,9 @@ pub fn choose_conflict_side_of_hunk(
     let mut new_body = acc.iter().fold("".to_string(), |cur, nxt| cur + nxt);        
 
     debug!("xxxxxxxxxxxxxxxx deltas {:?}", &hunk_deltas);
-    
+
+    // so. not only new lines are changed. new_start are changed also!!!!!!
+    // it need to add delta of prev hunk int new start of next hunk!!!!!!!!
     for (hh, delta) in hunk_deltas {        
         let new_header = Hunk::replace_new_lines(hh, delta);
         new_body = new_body.replace(hh, &new_header);
