@@ -15,7 +15,7 @@ pub enum ViewState {
     RenderedNotInPlace(i32),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct View {
     pub line_no: i32,
     pub expanded: bool,
