@@ -1,3 +1,4 @@
+TODO: ammend!
 BUG: monitors sometimes are off, when switch to other repo
 BUG: panic when apply stage: thread '<unnamed>' panicked at src/git.rs:1039:10:
 cant apply stash: Error { code: -22, klass: 19, message: "4 uncommitted changes exist in the index" }
