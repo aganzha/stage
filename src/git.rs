@@ -30,7 +30,12 @@ use std::{collections::HashSet, env, path, str};
 pub fn make_diff_options() -> DiffOptions {
     let mut opts = DiffOptions::new();
     opts.indent_heuristic(true);
-    opts.interhunk_lines(3);
+    // fo conflicts, when the conflict size is large
+    // git will make only the shor hunk for <<<< HEAD
+    // not full one. perhaps it need to increate that position
+    // to something big. actually it must be larger
+    // line count between <<<< and =========
+    opts.interhunk_lines(0);
     return opts;
 }
 
