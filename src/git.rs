@@ -1034,14 +1034,13 @@ pub fn apply_stash(
     path: PathBuf,
     stash_data: StashData,
     sender: Sender<crate::Event>,
-) {
-    let mut repo = Repository::open(path.clone()).expect("can't open repo");
+) -> Result<(), Error> {
+    let mut repo = Repository::open(path.clone())?;
     // let opts = StashApplyOptions::new();
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
-    repo.stash_apply(stash_data.num, None)
-        .expect("cant apply stash");
+    repo.stash_apply(stash_data.num, None)?;
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
@@ -1050,6 +1049,7 @@ pub fn apply_stash(
             get_current_repo_status(Some(path), sender);
         }
     });
+    Ok(())
 }
 
 pub fn drop_stash(
