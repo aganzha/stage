@@ -1,3 +1,4 @@
+BUG: refresh branches must react to user login! what about pull? connect it to push/pull from branches view!
 TODO: ammend!
 BUG: monitors sometimes are off, when switch to other repo
 BUG: panic when apply stage: thread '<unnamed>' panicked at src/git.rs:1039:10:
