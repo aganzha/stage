@@ -361,7 +361,6 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     w.connect_close_request( {
                         let stacked_window = stacked_window.clone();
                         move |_| {
-                            info!("cloooooooooooooooooose branches view");
                             stacked_window.replace(None);
                             glib::signal::Propagation::Proceed
                         }});
@@ -370,17 +369,15 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::Log(ooid, obranch_name) => {
                     info!("main.log");
-                    info!("meeeeeeeeeeeeeeeeeeeeeeeeeen {:?}", stacked_window);
-                    if let Some(overlay) = (*stacked_window.borrow()).clone() {
+                    if let Some(stacked_window) = &(*stacked_window.borrow()) {
                         show_log_window(
                             status.path.clone().expect("no path"),
-                            &overlay,
+                            stacked_window,
                             obranch_name.unwrap_or("unknown branch".to_string()),
                             sender.clone(),
                             ooid,
                         );
                     } else {
-                        info!("ooooooooooooooooooooooooooo {:?}", status.branch_name());
                         show_log_window(
                             status.path.clone().expect("no path"),
                             &window,
