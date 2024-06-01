@@ -273,7 +273,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     status.get_status();
     window.present();
 
-    let mut overlay: Option<Window> = None;
+    let mut stacked_window: Rc<RefCell<Option<Window>>> = Rc::new(RefCell::new(None));
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
@@ -358,19 +358,29 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         &window,
                         sender.clone(),
                     );
-                    overlay.replace(w);
+                    w.connect_close_request( {
+                        let stacked_window = stacked_window.clone();
+                        move |_| {
+                            info!("cloooooooooooooooooose branches view");
+                            stacked_window.replace(None);
+                            glib::signal::Propagation::Proceed
+                        }});
+                    stacked_window.replace(Some(w));
+                    
                 }
                 Event::Log(ooid, obranch_name) => {
                     info!("main.log");
-                    if let Some(ref overlay) = overlay {
+                    info!("meeeeeeeeeeeeeeeeeeeeeeeeeen {:?}", stacked_window);
+                    if let Some(overlay) = (*stacked_window.borrow()).clone() {
                         show_log_window(
                             status.path.clone().expect("no path"),
-                            overlay,
+                            &overlay,
                             obranch_name.unwrap_or("unknown branch".to_string()),
                             sender.clone(),
                             ooid,
                         );
                     } else {
+                        info!("ooooooooooooooooooooooooooo {:?}", status.branch_name());
                         show_log_window(
                             status.path.clone().expect("no path"),
                             &window,
