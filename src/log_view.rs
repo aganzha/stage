@@ -128,7 +128,8 @@ mod commit_list {
     #[properties(wrapper_type = super::CommitList)]
     pub struct CommitList {
         pub list: RefCell<Vec<super::CommitItem>>,
-        pub original_list: RefCell<Vec<super::CommitItem>>,
+        pub original_list: RefCell<Vec<super::commit::CommitLog>>,
+        pub search_term: RefCell<String>,
 
         #[property(get, set)]
         pub selected_pos: RefCell<u32>,
@@ -188,6 +189,16 @@ impl CommitList {
             let commit_list = self.clone();
             let repo_path = repo_path.clone();
             let widget = widget.clone();
+            let search_term = {
+                let term = self.imp().search_term.borrow();
+                if term.is_empty() {
+                    None
+                } else {
+                    Some(String::from(&(*term)))
+                }
+
+            };
+            debug!("...................................... {:?}", search_term);
             async move {
                 let list_le = commit_list.imp().list.borrow().len() as u32;
                 let mut scroll = false;
@@ -199,10 +210,11 @@ impl CommitList {
                     start_oid.replace(oid);
                     scroll = true;
                 }
-
-                let commits = gio::spawn_blocking(move || {
-                    git_log::revwalk(repo_path, start_oid, None)
-                })
+                let commits = gio::spawn_blocking({
+                    let search_term = search_term.clone();
+                    move || {
+                        git_log::revwalk(repo_path, start_oid, search_term)
+                    }})
                 .await
                 .unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(&widget);
@@ -211,12 +223,18 @@ impl CommitList {
                 .unwrap_or_else(|e| {
                     alert(e).present(&widget);
                     Vec::new()
-                });                
+                });
+                debug!("CCCCCCCCCCCCCCCCCCCCCCCCCCC {:?}", commits.len());
                 if commits.is_empty() {
                     return;
                 }
                 let mut added = 0;
-                for item in commits.into_iter().map(CommitItem::new) {
+                for item in commits.into_iter().map(|commit| {
+                    if search_term.is_none() {
+                        commit_list.imp().original_list.borrow_mut().push(commit.clone());
+                    }
+                    commit
+                }).map(CommitItem::new) {
                     if scroll {
                         if let Some(oid) = start_oid {
                             if item.imp().commit.borrow().oid == oid {
@@ -239,6 +257,7 @@ impl CommitList {
     }
 
     pub fn reset_search(&self) {
+        self.imp().search_term.take();
         let orig_le = self.imp().original_list.borrow().len();
         if orig_le == 0 {
             // this is hack for the first triggered event.
@@ -247,7 +266,14 @@ impl CommitList {
         }
         let searched = self.imp().list.take();
         self.items_changed(0, searched.len() as u32, 0);
-        self.imp().list.replace(self.imp().original_list.take());
+        self.imp().list.replace(
+            self.imp().original_list
+                .borrow()
+                .iter()
+                .map(|c| c.clone())
+                .map(CommitItem::new)
+                .collect()
+        );
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
     }
 
@@ -257,43 +283,11 @@ impl CommitList {
         repo_path: PathBuf,
         widget: &impl IsA<Widget>,
     ) {
-        glib::spawn_future_local({
-            let commit_list = self.clone();
-            let repo_path = repo_path.clone();
-            let widget = widget.clone();
-            async move {
-                let commits = gio::spawn_blocking(move || {
-                    git_log::revwalk(repo_path, None, Some(term))
-                })
-                .await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&widget);
-                    Ok(Vec::new())
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(&widget);
-                    Vec::new()
-                });
-                // check commit len!
-                if commits.is_empty() {
-                    return;
-                }
-                let orig_le = commit_list.imp().list.borrow().len();
-                commit_list
-                    .imp()
-                    .original_list
-                    .replace(commit_list.imp().list.take());
-                commit_list.items_changed(0, orig_le as u32, 0);
-                let mut added = 0;
-                for item in commits.into_iter().map(CommitItem::new) {
-                    commit_list.imp().list.borrow_mut().push(item.clone());
-                    added += 1;
-                }
-                if added > 0 {
-                    commit_list.items_changed(0, 0, added);
-                }
-            }
-        });
+        self.imp().search_term.replace(term);
+        let current_length = self.imp().list.borrow().len();
+        self.imp().list.borrow_mut().clear();
+        self.items_changed(0, current_length as u32, 0);
+        self.get_commits_inside(repo_path, None, widget);
     }
 }
 
@@ -517,8 +511,9 @@ pub fn headerbar_factory(
         .show_close_button(false)
         .child(&entry)
         .build();
+    let very_first_search = Rc::new(RefCell::new(true));
     entry.connect_search_changed(
-        clone!(@weak commit_list, @weak list_view => move |e| {
+        clone!(@weak commit_list, @weak list_view, @strong very_first_search => move |e| {
             let term = e.text().to_lowercase();
             if !term.is_empty() && term.len() < 3 {
                 return;
@@ -528,8 +523,12 @@ pub fn headerbar_factory(
                 let single_selection =
                     selection_model.downcast_ref::<SingleSelection>().unwrap();
                 single_selection.set_can_unselect(true);
-                commit_list.reset_search();
-                single_selection.set_can_unselect(false);
+                if *very_first_search.borrow() {
+                    very_first_search.replace(false);
+                } else {
+                    commit_list.reset_search();
+                    single_selection.set_can_unselect(false);
+                }
             } else {
                 commit_list.search(term, repo_path.clone(), &list_view);
             }
