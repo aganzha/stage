@@ -126,10 +126,15 @@ pub fn checkout_branch(
         // is ahead of remote
         let head_ref = repo.head()?;
         assert!(head_ref.is_branch());
+
+        // wtf? when checkout 24.2155 and head is 24.3100
+        // SO. here it need to check branch names!!!!!!        
+        // it just skips altogether and returns head. why???
         let ob = head_ref.peel(git2::ObjectType::Commit)?;
         let commit = ob.peel_to_commit()?;
+        
         if repo.graph_descendant_of(commit.id(), branch_data.oid)? {
-            debug!("skip checkout ancestor tree");
+            panic!("skip checkout ancestor tree");
             let branch = git2::Branch::wrap(head_ref);
             return BranchData::from_branch(branch, git2::BranchType::Local);
         }
