@@ -232,12 +232,6 @@ pub fn push(
 
     match &result {
         Ok(_) => {
-            // push result is Ok
-            sender
-                .send_blocking(crate::Event::Toast(String::from(
-                    "Pushed to remote",
-                )))
-                .expect("cant send through channel");
         }
         Err(error) if error.message() == PLAIN_PASSWORD => {
             // asks for password
