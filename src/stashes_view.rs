@@ -6,7 +6,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, Button, EventControllerKey, Label, ListBox,
-    ScrolledWindow, SelectionMode, Window as Gtk4Window,
+    ScrolledWindow, SelectionMode, Window as Gtk4Window, Widget
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -25,7 +25,7 @@ use crate::{
 use libadwaita::prelude::*;
 use libadwaita::{
     ActionRow, EntryRow, HeaderBar, PreferencesRow, SwitchRow, ToolbarStyle,
-    ToolbarView,
+    ToolbarView, ApplicationWindow
 };
 
 use log::{debug, trace};
@@ -113,7 +113,7 @@ impl OidRow {
     pub fn kill(
         &self,
         path: PathBuf,
-        window: &impl IsA<Gtk4Window>,
+        window: &ApplicationWindow,
         sender: Sender<Event>,
     ) {
         glib::spawn_future_local({
@@ -156,7 +156,7 @@ impl OidRow {
     pub fn apply_stash(
         &self,
         path: PathBuf,
-        window: &impl IsA<Gtk4Window>,
+        window: &ApplicationWindow,
         sender: Sender<Event>,
     ) {
         trace!("...........apply stash {:?}", self.imp().stash);
@@ -179,9 +179,16 @@ impl OidRow {
                         let stash = row.imp().stash.borrow().clone();
                         let sender = sender.clone();
                         move || {
-                            git_apply_stash(path.clone(), stash, sender.clone());
+                            git_apply_stash(path.clone(), stash, sender.clone())
                         }
-                    });
+                    }).await
+                        .unwrap_or_else(|e| {
+                            alert(format!("{:?}", e)).present(&window);
+                            Ok(())
+                        })
+                        .unwrap_or_else(|e| {
+                            alert(e).present(&window);
+                        });
                     sender
                         .send_blocking(Event::StashesPanel)
                         .expect("cant send through channel");
@@ -296,7 +303,7 @@ pub fn adopt_stashes(
 }
 
 pub fn factory(
-    window: &impl IsA<Gtk4Window>,
+    window: &ApplicationWindow,//&impl IsA<Gtk4Window>,
     status: &Status,
 ) -> (ToolbarView, impl FnOnce()) {
     let scroll = ScrolledWindow::new();
