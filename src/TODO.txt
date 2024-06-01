@@ -1,3 +1,6 @@
+BUGS in commit view: look for commit in 3100 - 12dc. no commits found. then look for ad.cherepanov.
+it is found, but try to reset search then.            
+
 BUG: refresh branches must react to user login! what about pull? connect it to push/pull from branches view!
 TODO: ammend!
 BUG: monitors sometimes are off, when switch to other repo

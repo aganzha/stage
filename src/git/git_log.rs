@@ -3,7 +3,7 @@ use log::debug;
 use std::collections::{HashSet, HashMap};
 use crate::git::{commit::{CommitLog, CommitRelation}};
 
-const COMMIT_PAGE_SIZE: usize = 500;
+pub const COMMIT_PAGE_SIZE: usize = 500;
 
 pub fn revwalk(
     path: PathBuf,
@@ -19,12 +19,20 @@ pub fn revwalk(
         revwalk.push_head()?;
     }
 
-    let commits = revwalk.enumerate().scan(
-        (HashMap::<git2::Oid, String>::new(), HashMap::<git2::Oid, String>::new()),
-        |(left_commits, right_commits), (i, oid)| {
-            if i == COMMIT_PAGE_SIZE {
-                return None;
+    let limit = {
+        if search_term.is_some() {
+            if start.is_some() {
+                2
+            } else {
+                1
             }
+        } else {
+            COMMIT_PAGE_SIZE
+        }
+    };
+    let commits = revwalk.scan(
+        (HashMap::<git2::Oid, String>::new(), HashMap::<git2::Oid, String>::new()),
+        |(left_commits, right_commits), oid| {      
             if let Ok(oid) = oid {
                 if let Ok(commit) = repo.find_commit(oid) {
                     match commit.parent_count() {
@@ -77,6 +85,7 @@ pub fn revwalk(
                 for el in [
                     commit.message().unwrap_or("").to_lowercase(),
                     commit.author().name().unwrap_or("").to_lowercase(),
+                    commit.id().to_string()
                 ] {
                     if el.contains(term) {
                         found = true;
@@ -87,6 +96,7 @@ pub fn revwalk(
                     return None;
                 }
             }
+
             let mut from = CommitRelation::None;
 
             if let Some(message) = left_commits.get(&commit.id()) {
@@ -98,6 +108,6 @@ pub fn revwalk(
             return Some(CommitLog::from_log(commit, from));
         }
         None
-    }).collect::<Vec<CommitLog>>();
+    }).take(limit).collect::<Vec<CommitLog>>();
     Ok(commits)
 }

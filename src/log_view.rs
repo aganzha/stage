@@ -198,7 +198,7 @@ impl CommitList {
                 }
 
             };
-            debug!("...................................... {:?}", search_term);
+            debug!("search term before query {:?}", search_term);
             async move {
                 let list_le = commit_list.imp().list.borrow().len() as u32;
                 let mut scroll = false;
@@ -212,6 +212,7 @@ impl CommitList {
                 }
                 let commits = gio::spawn_blocking({
                     let search_term = search_term.clone();
+                    let repo_path = repo_path.clone();
                     move || {
                         git_log::revwalk(repo_path, start_oid, search_term)
                     }})
@@ -224,11 +225,12 @@ impl CommitList {
                     alert(e).present(&widget);
                     Vec::new()
                 });
-                debug!("CCCCCCCCCCCCCCCCCCCCCCCCCCC {:?}", commits.len());
+                debug!("commits in response {:?}", commits.len());
                 if commits.is_empty() {
                     return;
                 }
                 let mut added = 0;
+                let first_oid = commits[0].oid;
                 for item in commits.into_iter().map(|commit| {
                     if search_term.is_none() {
                         commit_list.imp().original_list.borrow_mut().push(commit.clone());
@@ -238,11 +240,12 @@ impl CommitList {
                     if scroll {
                         if let Some(oid) = start_oid {
                             if item.imp().commit.borrow().oid == oid {
+                                debug!("skip previously found commit {:?}", oid);
                                 continue;
                             }
                         }
                     }
-                    commit_list.imp().list.borrow_mut().push(item.clone());
+                    commit_list.imp().list.borrow_mut().push(item);
                     added += 1;
                 }
                 if added > 0 {
@@ -251,6 +254,11 @@ impl CommitList {
                         0,
                         added,
                     );
+                    // search will return commits 1 by 1
+                    if search_term.is_some() {
+                        debug!("go next loop with start oid {:?}", first_oid);
+                        commit_list.get_commits_inside(repo_path, Some(first_oid), &widget);
+                    }
                 }
             }
         });
