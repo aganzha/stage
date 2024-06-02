@@ -129,8 +129,9 @@ mod commit_list {
     pub struct CommitList {
         pub list: RefCell<Vec<super::CommitItem>>,
         pub original_list: RefCell<Vec<super::commit::CommitLog>>,
-        pub search_term: RefCell<String>,
+        pub search_term: RefCell<(String, usize)>,
 
+        // does not used for now
         #[property(get, set)]
         pub selected_pos: RefCell<u32>,
     }
@@ -189,14 +190,19 @@ impl CommitList {
             let commit_list = self.clone();
             let repo_path = repo_path.clone();
             let widget = widget.clone();
+            // let (ref term, term_count) = *self.imp().search_term.borrow();
+            let (term, term_count) = self.imp().search_term.take();
             let search_term = {
-                let term = self.imp().search_term.borrow();
                 if term.is_empty() {
                     None
                 } else {
-                    Some(String::from(&(*term)))
+                    // search pull commits 1 by 1. inc counter
+                    // to stop that iteration when page size is reached
+                     // self.imp().search_term.borrow_mut().1 = term_count + 1;
+                     // Some(String::from(term))
+                    self.imp().search_term.replace((term.clone(), term_count + 1));
+                    Some(term)
                 }
-
             };
             async move {
                 let list_le = commit_list.imp().list.borrow().len() as u32;
@@ -231,7 +237,7 @@ impl CommitList {
                 let mut added = 0;
                 let mut last_added_oid: Option<Oid> = None;
                 for item in commits.into_iter().map(|commit| {
-                    if search_term.is_none() {                        
+                    if search_term.is_none() {
                         commit_list.imp().original_list.borrow_mut().push(commit.clone());
                     }
                     commit
@@ -256,9 +262,13 @@ impl CommitList {
                         added,
                     );
                     // search will return commits 1 by 1
+                    // when got 1 commit and got for another
+                    // it need to stop somehow
                     if search_term.is_some() && last_added_oid.is_some() {
-                        // debug!("go next loop with start >>>>>>>>   oid {:?}", last_added_oid);
-                        commit_list.get_commits_inside(repo_path, last_added_oid, &widget);                        
+                        if term_count < git_log::COMMIT_PAGE_SIZE {
+                            debug!("go next loop with start >>>>>>>>   oid {:?}", last_added_oid);
+                            commit_list.get_commits_inside(repo_path, last_added_oid, &widget);
+                        }
                     }
                 }
             }
@@ -292,7 +302,7 @@ impl CommitList {
         repo_path: PathBuf,
         widget: &impl IsA<Widget>,
     ) {
-        self.imp().search_term.replace(term);
+        self.imp().search_term.replace((term, 0));
         let current_length = self.imp().list.borrow().len();
         self.imp().list.borrow_mut().clear();
         self.items_changed(0, current_length as u32, 0);
@@ -585,7 +595,12 @@ pub fn show_log_window(
             }
             let list_view = scroll.child().unwrap();
             let list_view = list_view.downcast_ref::<ListView>().unwrap();
-            get_commit_list(list_view).get_commits_inside(
+            let commit_list = get_commit_list(list_view);
+            // when doing search, it need to reset search term count
+            // because commits pull 1 by 1. it need to reset counter
+            let (term, _) = commit_list.imp().search_term.take();
+            commit_list.imp().search_term.replace((term, 0));
+            commit_list.get_commits_inside(
                 repo_path.clone(),
                 None,
                 list_view,

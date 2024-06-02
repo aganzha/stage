@@ -35,6 +35,7 @@ pub fn revwalk(
         |(left_commits, right_commits), oid| {      
             if let Ok(oid) = oid {
                 if let Ok(commit) = repo.find_commit(oid) {
+                    debug!("scanning commits +++++++++++++++++++++++++++++++++++++++++ {:?} {:?}", oid, commit.time());
                     match commit.parent_count() {
                         0 => {
                             // in the begining there was darkness
