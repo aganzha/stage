@@ -1,4 +1,4 @@
-use crate::commit::{commit_dt, commit_string};
+use crate::commit::{CommitRepr};
 use crate::get_current_repo_status;
 use crate::git::remote::set_remote_callbacks;
 use async_channel::Sender;
@@ -52,8 +52,8 @@ impl BranchData {
         let refname = bref.name().unwrap().to_string();
         let ob = bref.peel(git2::ObjectType::Commit)?;
         let commit = ob.peel_to_commit()?;
-        let commit_string = commit_string(&commit);
-        let commit_dt = commit_dt(&commit);
+        let commit_string = commit.log_message();
+        let commit_dt = commit.dt();
         if let Some(oid) = branch.get().target() {
             Ok(Some(BranchData {
                 name,
