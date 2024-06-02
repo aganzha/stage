@@ -4,7 +4,7 @@ pub mod merge;
 pub mod remote;
 pub mod git_log;
 use crate::branch::BranchData;
-use crate::commit::{commit_string};
+use crate::commit::{CommitRepr};
 use crate::status_view::render::View;
 use crate::gio;
 use async_channel::Sender;
@@ -437,7 +437,7 @@ impl Head {
         Self {
             oid: commit.id(),
             branch: String::from(branch.name().unwrap().unwrap()),
-            commit: commit_string(commit),
+            commit: commit.log_message(),
             view: View::new_markup(),
             remote: false,
         }

@@ -8,7 +8,7 @@ use async_channel::Sender;
 
 pub trait CommitRepr {
     fn dt(&self) -> DateTime<FixedOffset>;
-    fn sha(&self) -> String;
+    fn log_message(&self) -> String;
 }
 
 impl CommitRepr for git2::Commit<'_> {
@@ -20,29 +20,12 @@ impl CommitRepr for git2::Commit<'_> {
             _ => todo!("not implemented"),
         }
     }
-    fn sha(&self) -> String {
+    fn log_message(&self) -> String {
         let message = self.message().unwrap_or("").replace('\n', "");
         let mut encoded = String::new();
         html_escape::encode_safe_to_string(&message, &mut encoded);
         format!("{} {}", &self.id().to_string()[..7], encoded)
-    }
-    
-}
-
-pub fn commit_dt(c: &git2::Commit) -> DateTime<FixedOffset> {
-    let tz = FixedOffset::east_opt(c.time().offset_minutes() * 60).unwrap();
-    match tz.timestamp_opt(c.time().seconds(), 0) {
-        LocalResult::Single(dt) => dt,
-        LocalResult::Ambiguous(dt, _) => dt,
-        _ => todo!("not implemented"),
-    }
-}
-
-pub fn commit_string(c: &git2::Commit) -> String {
-    let message = c.message().unwrap_or("").replace('\n', "");
-    let mut encoded = String::new();
-    html_escape::encode_safe_to_string(&message, &mut encoded);
-    format!("{} {}", &c.id().to_string()[..7], encoded)
+    }    
 }
 
 #[derive(Debug, Clone)]
@@ -66,7 +49,7 @@ impl CommitLog {
         Self {
             oid: commit.id(),
             message: commit.message().unwrap_or("").replace('\n', ""),
-            commit_dt: commit_dt(&commit),
+            commit_dt: commit.dt(),
             author: String::from(commit.author().name().unwrap_or("")),
             from: from,
         }
@@ -109,8 +92,8 @@ impl CommitDiff {
     pub fn new(commit: git2::Commit, diff: Diff) -> Self {
         Self {
             oid: commit.id(),
-            message: commit_string(&commit),
-            commit_dt: commit_dt(&commit),
+            message: commit.message().unwrap_or("").replace('\n', ""),
+            commit_dt: commit.dt(),
             author: format!(
                 "{} {}",
                 commit.author().name().unwrap_or(""),
