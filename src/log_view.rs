@@ -345,14 +345,14 @@ impl CommitList {
                         false
                     });
                 if result {
-                    
+
                     loop {
                         // let original = *commit_list.imp().original_list.borrow_mut();
                         let first_oid = commit_list.imp().original_list.borrow()[0].oid;
                         commit_list.imp().original_list.borrow_mut().remove(0);
                         if first_oid == oid {
                             break;
-                        }                        
+                        }
                     }
                     if commit_list.imp().search_term.borrow().0.is_empty() {
                         // remove from visual list only if it is not in search
@@ -364,13 +364,15 @@ impl CommitList {
                                 let first_oid = first_item.imp().commit.borrow().oid;
                                 first_oid
                             };
-                            commit_list.imp().list.borrow_mut().remove(0);
-                            removed += 1;
                             if first_oid == oid {
                                 break;
-                            }                        
+                            }
+                            commit_list.imp().list.borrow_mut().remove(0);
+                            removed += 1;
                         }
-                        commit_list.items_changed(0, removed, 0);
+                        if removed > 0 {
+                            commit_list.items_changed(0, removed, 0);
+                        }
                     }
                 }
             }
@@ -660,7 +662,7 @@ pub fn headerbar_factory(
         move |_btn| {
             glib::spawn_future_local({
                 let sender = sender.clone();
-                let path = path.clone();                
+                let path = path.clone();
                 let window = window.clone();
                 let oid = commit_list.get_selected_oid();
                 async move {
@@ -699,7 +701,7 @@ pub fn headerbar_factory(
             });
             // commit::cherry_pick()
         }});
-    
+
     let revert_btn = Button::builder()
         .icon_name("edit-undo-symbolic")
         .can_shrink(true)
