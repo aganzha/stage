@@ -1066,9 +1066,16 @@ pub fn reset_hard(path: PathBuf, ooid: Option<Oid>, sender: Sender<crate::Event>
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());
-    let ob = head_ref
-        .peel(ObjectType::Commit)
-        .expect("can't get commit from ref!");
+
+    let ob = if let Some(oid) = ooid {
+        repo.find_object(oid, Some(ObjectType::Commit))
+            .expect("cant find commit")
+    } else {
+        head_ref
+            .peel(ObjectType::Commit)
+            .expect("can't get commit from ref!")
+    };
+    
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
