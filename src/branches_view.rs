@@ -295,24 +295,24 @@ impl BranchList {
         });
     }
 
-    pub fn deactivate_current_branch(&self) {
+    // pub fn deactivate_current_branch(&self) {
 
-        let new_original_list = self.imp().original_list.borrow().clone().into_iter().map(|mut bd| {
-            if bd.is_head {
-                bd.is_head = false
-            }
-            bd
-        }).collect();
-        self.imp().original_list.replace(new_original_list);
+    //     let new_original_list = self.imp().original_list.borrow().clone().into_iter().map(|mut bd| {
+    //         if bd.is_head {
+    //             bd.is_head = false
+    //         }
+    //         bd
+    //     }).collect();
+    //     self.imp().original_list.replace(new_original_list);
 
-        for branch_item in self.imp().list.borrow().iter() {
-            if branch_item.is_head() {
-                branch_item.imp().branch.borrow_mut().is_head = false;
-                // just to trigger render for avatar icon
-                branch_item.set_is_head(false);
-            }
-        }
-    }
+    //     for branch_item in self.imp().list.borrow().iter() {
+    //         if branch_item.is_head() {
+    //             branch_item.imp().branch.borrow_mut().is_head = false;
+    //             // just to trigger render for avatar icon
+    //             branch_item.set_is_head(false);
+    //         }
+    //     }
+    // }
 
     pub fn update_head_branch(&self, branch_data: branch::BranchData) {
         // replace original head branch
@@ -334,19 +334,6 @@ impl BranchList {
             // trigger avatars via fake property
             bi.set_is_head(bi.is_head());
         });
-        // for branch_item in self.imp().list.borrow().iter() {
-        //     debug!(
-        //         "HEAD in list {:?} {:?}",
-        //         branch_item.imp().branch.borrow().name,
-        //         branch_item.is_head()
-        //     );
-        //     if branch_item.is_head() {
-        //         branch_item.imp().branch.replace(branch_data.clone());
-        //         // to trigger render for avatar icon
-        //         branch_item.set_is_head(branch_item.is_head());
-        //         break;
-        //     }
-        // }
     }
 
     pub fn get_selected_branch(&self) -> branch::BranchData {
@@ -612,7 +599,7 @@ impl BranchList {
                     None
                 });
                 if let Some(branch_data) = branch_data {
-                    branch_list.deactivate_current_branch();
+                    // branch_list.deactivate_current_branch();
                     branch_list.add_new_branch_item(branch_data);
                 }
             })
