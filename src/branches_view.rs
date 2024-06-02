@@ -382,13 +382,13 @@ impl BranchList {
     }
 
     pub fn get_current_branch(&self) -> Option<branch::BranchData> {
-        let mut result = None;
-        for branch_item in self.imp().list.borrow().iter() {
-            if branch_item.is_head() {
-                result.replace(branch_item.imp().branch.borrow().clone());
+        if let Some(head_item) = self.imp().original_list.borrow()
+            .iter()
+            .max_by_key(|i| i.is_head()) {
+                let branch = head_item.imp().branch.borrow();
+                return Some(branch.clone());
             }
-        }
-        result
+        None
     }
 
     pub fn cherry_pick(
