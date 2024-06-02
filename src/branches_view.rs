@@ -280,9 +280,9 @@ impl BranchList {
                     return;
                 }
                 let new_branch_data = new_branch_data.unwrap();
+                branch_list.deactivate_current_branch();
                 if local {
-                    branch_list.deactivate_current_branch();
-                    selected_item.imp().branch.replace(new_branch_data);
+                    selected_item.imp().branch.replace(new_branch_data.clone());
                     selected_item.set_is_head(true);
                 } else {
                     // local branch already could be in list
@@ -293,14 +293,6 @@ impl BranchList {
                         if let Some(item) = branch_list.item(i) {
                             let branch_item = item.downcast_ref::<BranchItem>().unwrap();
                             if &branch_item.imp().branch.borrow().name == new_name {
-
-                                if !branch_item.is_head() {
-                                    // new head will be set
-                                    branch_list.deactivate_current_branch();
-                                } else {
-                                    // e.g. current branch is master and
-                                    // user chekout origin master
-                                }
                                 branch_item.imp().branch.replace(new_branch_data);
                                 branch_item.set_initial_focus(true);
                                 branch_item.set_is_head(true);
@@ -309,11 +301,11 @@ impl BranchList {
                             }
                         }
                     }
-                    branch_list.deactivate_current_branch();
                     // create new branch
-                    branch_list.add_new_branch_item(new_branch_data);
+                    debug!("checkout remote branch thats become local");
+                    branch_list.add_new_branch_item(new_branch_data.clone());
                 }
-
+                branch_list.update_head_branch(new_branch_data);
             })
         });
     }
@@ -325,9 +317,14 @@ impl BranchList {
         // in item in one list affects branch data in cloned item in another list
         // BUT it need to trigger item property to rerender avatar icon
 
-        if let Some(mut head_branch) = self.get_head_branch() {
-            head_branch.is_head = false;
-        }
+        let new_original_list = self.imp().original_list.borrow().clone().into_iter().map(|mut bd| {
+            if bd.is_head {
+                bd.is_head = false
+            }
+            bd
+        }).collect();
+        self.imp().original_list.replace(new_original_list);
+
         for branch_item in self.imp().list.borrow().iter() {
             if branch_item.is_head() {
                 branch_item.imp().branch.borrow_mut().is_head = false;
@@ -345,6 +342,7 @@ impl BranchList {
 
     pub fn update_head_branch(&self, branch_data: branch::BranchData) {
         // replace original head branch
+        debug!("seeeeeeeeeeeeeeeeeeeeeeeett head {:?} {:?}", branch_data.name, branch_data.is_head);
         let new_original_list = self.imp().original_list.borrow().clone().into_iter().map(|bd| {
             if bd.is_head {
                 branch_data.clone()
@@ -353,7 +351,12 @@ impl BranchList {
             }
         }).collect();
         self.imp().original_list.replace(new_original_list);
-
+        self.imp().original_list.borrow().iter().for_each(|b| {
+            if b.is_head {
+                debug!("thats new head in original_list {:?}", b.name);
+            }
+        });
+            
         // for branch_item in self.imp().original_list.borrow().iter() {
         //     debug!(
         //         "HEAD in original list {:?} {:?}",
@@ -427,6 +430,8 @@ impl BranchList {
                     None
                 });
                 if let Some(branch_data) = branch_data {
+                    // cherry-pick
+                    debug!("cherry pick and update_head_branch");
                     branch_list.update_head_branch(branch_data);
                 }
             })
