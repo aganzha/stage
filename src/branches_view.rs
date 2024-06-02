@@ -252,37 +252,45 @@ impl BranchList {
                     alert(e).present(&window);
                     None
                 });
+                debug!("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE {:?}", new_branch_data);                
                 if new_branch_data.is_none() {
                     info!("branch. exit after error");
                     return;
                 }
                 let new_branch_data = new_branch_data.unwrap();
-                branch_list.deactivate_current_branch();
                 if local {
-                    selected_item.imp().branch.replace(new_branch_data.clone());
-                    selected_item.set_is_head(true);
+                    // update existting branch
+                    branch_list.update_head_branch(new_branch_data);
                 } else {
-                    // local branch already could be in list
-                    assert!(new_branch_data.branch_type == BranchType::Local);
-                    let new_name = &new_branch_data.name;
-                    // lets check all items in list
-                    for i in 0..branch_list.n_items() {
-                        if let Some(item) = branch_list.item(i) {
-                            let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                            if &branch_item.imp().branch.borrow().name == new_name {
-                                branch_item.imp().branch.replace(new_branch_data);
-                                branch_item.set_initial_focus(true);
-                                branch_item.set_is_head(true);
-                                branch_list.set_selected_pos(i);
-                                return;
-                            }
-                        }
-                    }
-                    // create new branch
-                    debug!("checkout remote branch thats become local");
-                    branch_list.add_new_branch_item(new_branch_data.clone());
+                    // adding new item from remote
+                    branch_list.add_new_branch_item(new_branch_data)
                 }
-                branch_list.update_head_branch(new_branch_data);
+                // branch_list.deactivate_current_branch();
+                // if local {
+                //     selected_item.imp().branch.replace(new_branch_data.clone());
+                //     selected_item.set_is_head(true);
+                // } else {
+                //     // local branch already could be in list
+                //     assert!(new_branch_data.branch_type == BranchType::Local);
+                //     let new_name = &new_branch_data.name;
+                //     // lets check all items in list
+                //     for i in 0..branch_list.n_items() {
+                //         if let Some(item) = branch_list.item(i) {
+                //             let branch_item = item.downcast_ref::<BranchItem>().unwrap();
+                //             if &branch_item.imp().branch.borrow().name == new_name {
+                //                 branch_item.imp().branch.replace(new_branch_data);
+                //                 branch_item.set_initial_focus(true);
+                //                 branch_item.set_is_head(true);
+                //                 branch_list.set_selected_pos(i);
+                //                 return;
+                //             }
+                //         }
+                //     }
+                //     // create new branch
+                //     debug!("checkout remote branch thats become local");
+                //     branch_list.add_new_branch_item(new_branch_data.clone());
+                // }
+                // branch_list.update_head_branch(new_branch_data);
             })
         });
     }
@@ -308,36 +316,35 @@ impl BranchList {
 
     pub fn update_head_branch(&self, branch_data: branch::BranchData) {
         // replace original head branch
-        debug!("seeeeeeeeeeeeeeeeeeeeeeeett head {:?} {:?}", branch_data.name, branch_data.is_head);
-        let new_original_list = self.imp().original_list.borrow().clone().into_iter().map(|bd| {
-            debug!("rrrrrrrrrrrreeeeeeeeeeeeeplace head branch {:?} {:?}", bd.is_head, bd.name);
+        let new_original_list = self.imp().original_list.borrow().clone().into_iter().map(|mut bd| {
             if bd.name == branch_data.name {
                 branch_data.clone()
             } else {
+                bd.is_head = false;
                 bd
             }
         }).collect();
         self.imp().original_list.replace(new_original_list);
-        self.imp().original_list.borrow().iter().for_each(|b| {
-            debug!("?????????????????????????????? {:?} {:?}", b.is_head, b.name);
-            if b.is_head {
-                debug!("thats new head in original_list {:?}", b.name);
+        self.imp().list.borrow().iter().for_each(|bi| {
+            if bi.imp().branch.borrow().name == branch_data.name {
+                bi.imp().branch.replace(branch_data.clone());
+            } else {
+                bi.imp().branch.borrow_mut().is_head = false;
             }
         });
-
-        for branch_item in self.imp().list.borrow().iter() {
-            debug!(
-                "HEAD in list {:?} {:?}",
-                branch_item.imp().branch.borrow().name,
-                branch_item.is_head()
-            );
-            if branch_item.is_head() {
-                branch_item.imp().branch.replace(branch_data.clone());
-                // to trigger render for avatar icon
-                branch_item.set_is_head(branch_item.is_head());
-                break;
-            }
-        }
+        // for branch_item in self.imp().list.borrow().iter() {
+        //     debug!(
+        //         "HEAD in list {:?} {:?}",
+        //         branch_item.imp().branch.borrow().name,
+        //         branch_item.is_head()
+        //     );
+        //     if branch_item.is_head() {
+        //         branch_item.imp().branch.replace(branch_data.clone());
+        //         // to trigger render for avatar icon
+        //         branch_item.set_is_head(branch_item.is_head());
+        //         break;
+        //     }
+        // }
     }
 
     pub fn get_selected_branch(&self) -> branch::BranchData {
@@ -612,11 +619,12 @@ impl BranchList {
 
     fn add_new_branch_item(&self, branch_data: branch::BranchData) {
 
-        self.imp().original_list.borrow_mut().insert(0, branch_data);
+        self.imp().original_list.borrow_mut().insert(0, branch_data.clone());
         self.imp().list.borrow_mut().insert(
             0,
             BranchItem::new(&self.imp().original_list.borrow()[0])
         );
+        self.update_head_branch(branch_data);
         // let new_item = BranchItem::new(branch_data);
         // let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
         // new_branch_item.set_initial_focus(true);
