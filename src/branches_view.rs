@@ -622,6 +622,12 @@ impl BranchList {
         // works via bind to single_selection selected ?????
         self.set_selected_pos(0);
         debug!("set selected pos");
+        let mut pos = self.imp().remote_start_pos.borrow_mut();
+        if let Some(mut rem_pos) = *pos {
+            rem_pos += 1;
+            pos.replace(rem_pos);
+            debug!("branches.replace rem pos {:?} {:?}", rem_pos, pos);
+        }
         // let new_item = BranchItem::new(branch_data);
         // let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
         // new_branch_item.set_initial_focus(true);
