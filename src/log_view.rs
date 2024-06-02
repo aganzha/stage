@@ -198,17 +198,16 @@ impl CommitList {
                 }
 
             };
-            debug!("search term before query {:?}", search_term);
             async move {
                 let list_le = commit_list.imp().list.borrow().len() as u32;
-                let mut scroll = false;
+                let mut append_to_existing = false;
                 if list_le > 0 {
                     let item = commit_list.item(list_le - 1).unwrap();
                     let commit_item =
                         item.downcast_ref::<CommitItem>().unwrap();
                     let oid = commit_item.imp().commit.borrow().oid;
                     start_oid.replace(oid);
-                    scroll = true;
+                    append_to_existing = true;
                 }
                 let commits = gio::spawn_blocking({
                     let search_term = search_term.clone();
@@ -225,26 +224,28 @@ impl CommitList {
                     alert(e).present(&widget);
                     Vec::new()
                 });
-                debug!("commits in response {:?}", commits.len());
+                // debug!("commits in response {:?}", commits.len());
                 if commits.is_empty() {
                     return;
                 }
                 let mut added = 0;
-                let first_oid = commits[0].oid;
+                let mut last_added_oid: Option<Oid> = None;
                 for item in commits.into_iter().map(|commit| {
-                    if search_term.is_none() {
+                    if search_term.is_none() {                        
                         commit_list.imp().original_list.borrow_mut().push(commit.clone());
                     }
                     commit
                 }).map(CommitItem::new) {
-                    if scroll {
+                    if append_to_existing {
                         if let Some(oid) = start_oid {
                             if item.imp().commit.borrow().oid == oid {
-                                debug!("skip previously found commit {:?}", oid);
+                                // debug!("skip previously found commit {:?}", oid);
                                 continue;
                             }
                         }
                     }
+                    // debug!("push oid to list -------> {:?}", item.imp().commit.borrow().oid);
+                    last_added_oid.replace(item.imp().commit.borrow().oid);
                     commit_list.imp().list.borrow_mut().push(item);
                     added += 1;
                 }
@@ -255,9 +256,9 @@ impl CommitList {
                         added,
                     );
                     // search will return commits 1 by 1
-                    if search_term.is_some() {
-                        debug!("go next loop with start oid {:?}", first_oid);
-                        commit_list.get_commits_inside(repo_path, Some(first_oid), &widget);
+                    if search_term.is_some() && last_added_oid.is_some() {
+                        // debug!("go next loop with start >>>>>>>>   oid {:?}", last_added_oid);
+                        commit_list.get_commits_inside(repo_path, last_added_oid, &widget);                        
                     }
                 }
             }
