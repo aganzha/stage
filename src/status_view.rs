@@ -310,12 +310,12 @@ impl Status {
         self.stashes.replace(stashes);
     }
 
-    pub fn reset_hard(&self, _sender: Sender<Event>) {
+    pub fn reset_hard(&self, ooid: Option<crate::Oid>) {
         gio::spawn_blocking({
             let path = self.path.clone().expect("np path");
             let sender = self.sender.clone();
             move || {
-                reset_hard(path, sender);
+                reset_hard(path, ooid, sender);
             }
         });
     }
