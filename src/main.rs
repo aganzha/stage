@@ -124,7 +124,7 @@ pub enum Event {
     Refresh,
     Zoom(bool),
     Untracked(Untracked),
-    ResetHard,
+    ResetHard(Option<Oid>),
     CommitDiff(commit::CommitDiff),
     PushUserPass(String, bool),
     PullUserPass,
@@ -507,9 +507,9 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         sender.clone(),
                     );
                 }
-                Event::ResetHard => {
+                Event::ResetHard(ooid) => {
                     info!("main. reset hard");
-                    status.reset_hard(sender.clone());
+                    status.reset_hard(ooid);
                 }
                 Event::Refresh => {
                     info!("main. refresh");

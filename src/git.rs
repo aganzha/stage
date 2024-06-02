@@ -1062,7 +1062,7 @@ pub fn drop_stash(
     get_stashes(path, sender)
 }
 
-pub fn reset_hard(path: PathBuf, sender: Sender<crate::Event>) {
+pub fn reset_hard(path: PathBuf, ooid: Option<Oid>, sender: Sender<crate::Event>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
     assert!(head_ref.is_branch());

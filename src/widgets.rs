@@ -160,16 +160,17 @@ pub struct YesNoString(pub String, pub String);
 impl AlertConversation for YesNoString {
     fn heading_and_message(&self) -> (String, String) {
         (
-            format!("<span color=\"#303030\">{}</span>", self.0),
+            format!("<span color=\"#ff0000\">{}</span>", self.0),
             format!("{}", self.1),
         )
     }
     fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
         vec!((NO, NO, ResponseAppearance::Default),
-             (YES, YES, ResponseAppearance::Suggested))
+             (YES, YES, ResponseAppearance::Destructive))
     }
 }
 
+// TODO kill that. switch to confirmation dialog instead!
 pub struct YesNoWithVariants(pub YesNoString, pub HashMap<String, bool>);
 
 impl AlertConversation for YesNoWithVariants {
@@ -210,13 +211,13 @@ pub fn alert<AC>(mut conversation: AC) -> AlertDialog
     let mut dialog = AlertDialog::builder()
         .heading_use_markup(true)
         .heading(heading)
+        .width_request(640)
         .body_use_markup(true)
         .body(message);
     if let Some(body) = conversation.extra_child() {
         dialog = dialog.extra_child(&body);
     }
-    let dialog = dialog.build();
-    
+    let dialog = dialog.build();    
     for (id, label, appearance) in conversation.get_response() {
         dialog.add_response(&id, &label);
         dialog.set_response_appearance(&id, appearance);

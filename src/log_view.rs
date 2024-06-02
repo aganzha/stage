@@ -1,6 +1,7 @@
 use crate::git::{git_log, commit};
-use crate::widgets::alert;
+use crate::widgets::{alert, YesNoString, YesNoWithVariants, YES, NO};
 use async_channel::Sender;
+use std::collections::HashMap;
 use core::time::Duration;
 use git2::Oid;
 use glib::{clone, Object, closure};
@@ -10,7 +11,7 @@ use gtk4::{
     gdk, gio, glib, pango, Box, EventControllerKey, GestureClick, Label, Image,
     ListItem, ListView, Orientation, PositionType, ScrolledWindow, SearchBar,
     SearchEntry, SignalListItemFactory, SingleSelection, Widget,
-    Window as Gtk4Window,
+    Window as Gtk4Window, Button
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -307,6 +308,14 @@ impl CommitList {
         self.items_changed(0, current_length as u32, 0);
         self.get_commits_inside(repo_path, None, widget);
     }
+
+    pub fn get_selected_oid(&self) -> Oid {
+        let pos = self.selected_pos();
+        let item = self.item(pos).unwrap();
+        let commit_item = item.downcast_ref::<CommitItem>().unwrap();
+        let oid = commit_item.imp().commit.borrow().oid;
+        oid.clone()
+    }
 }
 
 pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
@@ -510,6 +519,8 @@ pub enum Event {
 pub fn headerbar_factory(
     list_view: &ListView,
     branch_name: String,
+    window: &impl IsA<Widget>,
+    sender: Sender<crate::Event>,
     repo_path: PathBuf,
 ) -> HeaderBar {
     let entry = SearchEntry::builder()
@@ -532,7 +543,7 @@ pub fn headerbar_factory(
     let very_first_search = Rc::new(RefCell::new(true));
     let threshold = Rc::new(RefCell::new(String::from("")));
     entry.connect_search_changed(
-        clone!(@weak commit_list, @weak list_view, @strong very_first_search, @weak entry => move |e| {
+        clone!(@weak commit_list, @weak list_view, @strong very_first_search, @weak entry, @strong repo_path => move |e| {
             let term = e.text().to_lowercase();
             if !term.is_empty() && term.len() < 3 {
                 return;
@@ -573,6 +584,105 @@ pub fn headerbar_factory(
     let hb = HeaderBar::builder().build();
     hb.set_title_widget(Some(&search));
     hb.pack_start(&title);
+
+    let cherry_pick_btn = Button::builder()
+        .icon_name("emblem-shared-symbolic")
+        .can_shrink(true)
+        .tooltip_text("Cherry-pick")
+        .sensitive(true)
+        .use_underline(true)
+        .build();
+    cherry_pick_btn.connect_clicked({
+        let sender = sender.clone();
+        let path = repo_path.clone();
+        let window = window.clone();
+        let commit_list = commit_list.clone();
+        move |_btn| {
+            glib::spawn_future_local({
+                let sender = sender.clone();
+                let path = path.clone();                
+                let window = window.clone();
+                let oid = commit_list.get_selected_oid();
+                async move {
+                    let response = alert(
+                        YesNoWithVariants {
+                            0: YesNoString{
+                                0:"Cherry pick commit?".to_string(),
+                                1:format!("{}", oid)
+                            },
+                            1: HashMap::from([
+                                ("Do not commit. Only apply changes".to_string(), true)
+                            ])
+                        }).choose_future(&window).await;
+                    match response.as_str() {
+                        YES => {
+                            gio::spawn_blocking({
+                                let sender = sender.clone();
+                                let path = path.clone();
+                                move || {
+                                    commit::cherry_pick(path, oid, sender)
+                                }}).await
+                                .unwrap_or_else(|e| {
+                                    alert(format!("{:?}", e)).present(&window);
+                                    Ok(None)
+                                })
+                                .unwrap_or_else(|e| {
+                                    alert(e).present(&window);
+                                    None
+                                });
+                        },
+                        _ => {
+                            return;
+                        }
+                    }
+                }
+            });
+            // commit::cherry_pick()
+        }});
+    
+    let revert_btn = Button::builder()
+        .icon_name("edit-undo-symbolic")
+        .can_shrink(true)
+        .tooltip_text("Revert")
+        .sensitive(true)
+        .use_underline(true)
+        .build();
+    hb.pack_end(&cherry_pick_btn);
+    hb.pack_end(&revert_btn);
+
+    let reset_btn = Button::builder()
+        .label("Reset hard")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Reset hard")
+        .icon_name("software-update-urgent-symbolic")
+        .can_shrink(true)
+        .build();
+    reset_btn.connect_clicked({
+        let sender = sender.clone();
+        let window = window.clone();
+        move |_| {
+            let oid = commit_list.get_selected_oid();
+            glib::spawn_future_local({
+                let window = window.clone();
+                let sender = sender.clone();
+                async move {
+                    let response = alert(
+                        YesNoString(String::from("reset --hard"), format!("{}", oid))
+                    ).choose_future(&window).await;
+                    match response.as_str() {
+                        YES => {
+                            sender
+                                .send_blocking(crate::Event::ResetHard(Some(oid)))
+                                .expect("cant send through channel");
+                        }
+                        _ => {}
+                    }
+                }
+            });
+        }
+    });
+    hb.pack_end(&reset_btn);
     hb
 }
 
@@ -623,7 +733,7 @@ pub fn show_log_window(
 
     let tb = ToolbarView::builder().content(&scroll).build();
 
-    let hb = headerbar_factory(&list_view, branch_name, repo_path.clone());
+    let hb = headerbar_factory(&list_view, branch_name, &window, main_sender.clone(), repo_path.clone());
 
     tb.add_top_bar(&hb);
     window.set_content(Some(&tb));
