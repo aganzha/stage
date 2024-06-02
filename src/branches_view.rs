@@ -77,7 +77,7 @@ mod branch_item {
 }
 
 impl BranchItem {
-    pub fn new(branch: branch::BranchData) -> Self {
+    pub fn new(branch: &branch::BranchData) -> Self {
         let ref_kind = {
             match branch.branch_type {
                 BranchType::Local => String::from("Branches"),
@@ -95,7 +95,7 @@ impl BranchItem {
             .property("dt", branch.commit_dt.to_string())
             .property("initial-focus", false)
             .build();
-        ob.imp().branch.replace(branch);
+        ob.imp().branch.replace(branch.clone());
         ob
     }
 }
@@ -179,21 +179,17 @@ impl BranchList {
     }
 
     pub fn search_new(&self, term: String) {
-        let orig_le = self.imp().list.borrow().len();
-        self.imp().list.borrow_mut().clear();
+        let orig_le = self.imp().list.take().len();
         self.items_changed(0, orig_le as u32, 0);
-
-        let mut remote: Option<u32> = None;
-        for (i, branch) in self.imp().original_list.borrow().iter().enumerate() {
-            let name = &branch.name;
-            let btype = branch.branch_type;
-            if term.is_empty() || name.contains(&term) {
-                self.imp().list.borrow_mut().push(BranchItem::new(branch.clone()));
-            }
-            if remote.is_none() && btype == BranchType::Remote {
-                remote.replace(i as u32);
-            }
-        }
+        self.imp().list.replace(
+            self.imp().original_list.borrow()
+                .iter()
+                .filter(|bd| {
+                    bd.name.contains(&term)
+                })
+                .map(BranchItem::new)
+                .collect()
+        );
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
     }
 
@@ -212,42 +208,23 @@ impl BranchList {
                 if branches.is_empty() {
                     return;
                 }
-                // let items: Vec<BranchItem> = branches.into_iter()
-                //     .map(BranchItem::new)
-                //     .collect();
-
-                // let le = items.len() as u32;
+                branch_list.imp().original_list.replace(branches);
                 let mut remote_start_pos: Option<u32> = None;
-                let mut selected = 0;
-                let mut added = 0;
-                for (pos, branch) in branches.into_iter().enumerate() {
-                    if remote_start_pos.is_none() && branch.branch_type == BranchType::Remote {
-                        remote_start_pos.replace(pos as u32);
-                    }
-                    let is_head = branch.is_head;
-                    let branch_item = BranchItem::new(branch.clone());
-                    if is_head {
-                        selected = pos;
-                        branch_item.set_initial_focus(true)
-                    }
-                    branch_list.imp().original_list.borrow_mut().push(branch);
-                    branch_list.imp().list.borrow_mut().push(branch_item);
-                    added += 1;
-                }
+                branch_list.imp().list.replace(
+                    branch_list.imp().original_list.borrow()
+                        .iter()
+                        .enumerate()
+                        .map(|(i, bd)| {
+                            if remote_start_pos.is_none() && bd.branch_type == BranchType::Remote {
+                                remote_start_pos.replace(i as u32);
+                            }                        
+                            BranchItem::new(bd)
+                        })
+                        .collect()
+                );
                 branch_list.imp().remote_start_pos.replace(remote_start_pos);
-                branch_list.items_changed(0, 0, added);
-                // works via bind to single_selection selected
-                branch_list.set_selected_pos(selected as u32);
-                // glib::source::timeout_add_local(
-                //     Duration::from_millis(300),
-                //         {
-                //             move || {
-                //                 debug!("sselected pos 11111111111111 {:?}", selected);
-                //                 branch_list.set_selected_pos(selected as u32);
-                //                 ControlFlow::Break
-                //             }
-                //         },
-                // );
+                branch_list.items_changed(0, 0, branch_list.imp().list.borrow().len() as u32);
+
             })
         });
     }
@@ -635,26 +612,29 @@ impl BranchList {
 
     fn add_new_branch_item(&self, branch_data: branch::BranchData) {
 
-        self.imp().original_list.borrow_mut().insert(0, branch_data.clone());
+        self.imp().original_list.borrow_mut().insert(0, branch_data);
+        self.imp().list.borrow_mut().insert(
+            0,
+            BranchItem::new(&self.imp().original_list.borrow()[0])
+        );
+        // let new_item = BranchItem::new(branch_data);
+        // let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
+        // new_branch_item.set_initial_focus(true);
 
-        let new_item = BranchItem::new(branch_data);
-        let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
-        new_branch_item.set_initial_focus(true);
+        // {
+        //     // put borrow in block
+        //     self.imp().list.borrow_mut().insert(0, new_item);
 
-        {
-            // put borrow in block
-            self.imp().list.borrow_mut().insert(0, new_item);
-
-            let mut pos = self.imp().remote_start_pos.borrow_mut();
-            if let Some(mut rem_pos) = *pos {
-                rem_pos += 1;
-                pos.replace(rem_pos);
-                trace!("branches. replace rem pos {:?} {:?}", rem_pos, pos);
-            }
-        }
-        self.items_changed(0, 0, 1);
-        // works via bind to single_selection selected ?????
-        self.set_selected_pos(0);
+        //     let mut pos = self.imp().remote_start_pos.borrow_mut();
+        //     if let Some(mut rem_pos) = *pos {
+        //         rem_pos += 1;
+        //         pos.replace(rem_pos);
+        //         trace!("branches. replace rem pos {:?} {:?}", rem_pos, pos);
+        //     }
+        // }
+        // self.items_changed(0, 0, 1);
+        // // works via bind to single_selection selected ?????
+        // self.set_selected_pos(0);
     }
 }
 
