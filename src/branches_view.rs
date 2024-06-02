@@ -82,15 +82,7 @@ mod branch_item {
 
 impl BranchItem {
     pub fn new(branch: &branch::BranchData) -> Self {
-        // let ref_kind = {
-        //     match branch.branch_type {
-        //         BranchType::Local => String::from("Branches"),
-        //         BranchType::Remote => String::from("Remote"),
-        //     }
-        // };
         let ob = Object::builder::<BranchItem>()
-            // .property("is-head", branch.is_head)
-            // .property("ref-kind", ref_kind)
             .property(
                 "title",
                 format!("<span color=\"#4a708b\">{}</span>", &branch.name),
@@ -419,7 +411,6 @@ impl BranchList {
                 if branch_data.is_head {
                     return
                 }
-                let kind = branch_data.branch_type;
                 let name = branch_data.name.clone();
                 let result = gio::spawn_blocking(move || {
                     branch::kill_branch(repo_path, branch_data, sender)
