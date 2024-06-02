@@ -18,7 +18,7 @@ use libadwaita::prelude::*;
 use libadwaita::{
     HeaderBar, ToolbarView, Window,
 };
-use log::{debug, info};
+use log::{debug, info, trace};
 
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -162,7 +162,7 @@ pub fn show_commit_window(
                     window.close();
                 }
                 (gdk::Key::a, _) => {
-                    debug!("key pressed {:?} {:?}", key, modifier);
+                    trace!("key pressed {:?} {:?}", key, modifier);
                     // sender
                     //     .send_blocking(Event::CherryPickRequest)
                     //     .expect("Could not send through channel");
@@ -253,7 +253,7 @@ pub fn show_commit_window(
                     }
                 }
                 Event::Cursor(_offset, line_no) => {
-                    info!("cursor");
+                    trace!("cursor");
                     if let Some(d) = &mut main_diff {
                         if d.diff.cursor(line_no, false, &mut None) {
                             d.render(&txt, &mut Some(&mut ctx), &mut labels);
