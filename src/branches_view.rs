@@ -41,8 +41,8 @@ mod branch_item {
         #[property(get = Self::get_branch_is_head, set = Self::set_branch_is_head)]
         pub is_head: RefCell<bool>,
 
-        #[property(get, set)]
-        pub ref_kind: RefCell<String>,
+        #[property(get = Self::get_branch_is_local)]
+        pub is_local: RefCell<bool>,
 
         #[property(get, set)]
         pub title: RefCell<String>,
@@ -73,20 +73,24 @@ mod branch_item {
             let branch = self.branch.borrow();
             branch.is_head
         }
+
+        pub fn get_branch_is_local(&self) -> bool {
+            self.branch.borrow().branch_type == git2::BranchType::Local
+        }
     }
 }
 
 impl BranchItem {
     pub fn new(branch: &branch::BranchData) -> Self {
-        let ref_kind = {
-            match branch.branch_type {
-                BranchType::Local => String::from("Branches"),
-                BranchType::Remote => String::from("Remote"),
-            }
-        };
+        // let ref_kind = {
+        //     match branch.branch_type {
+        //         BranchType::Local => String::from("Branches"),
+        //         BranchType::Remote => String::from("Remote"),
+        //     }
+        // };
         let ob = Object::builder::<BranchItem>()
-            .property("is-head", branch.is_head)
-            .property("ref-kind", ref_kind)
+            // .property("is-head", branch.is_head)
+            // .property("ref-kind", ref_kind)
             .property(
                 "title",
                 format!("<span color=\"#4a708b\">{}</span>", &branch.name),
@@ -119,7 +123,6 @@ mod branch_list {
     pub struct BranchList {
         pub original_list: RefCell<Vec<super::branch::BranchData>>,
         pub list: RefCell<Vec<super::BranchItem>>,
-        pub remote_start_pos: RefCell<Option<u32>>,
 
         #[property(get, set)]
         pub selected_pos: RefCell<u32>,
@@ -160,15 +163,17 @@ mod branch_list {
 
     impl SectionModelImpl for BranchList {
         fn section(&self, position: u32) -> (u32, u32) {
-            if let Some(pos) = *self.remote_start_pos.borrow() {
-                if position < pos {
-                    // IMPORTANT was <=
-                    return (0, pos);
-                } else {
-                    return (pos, self.list.borrow().len() as u32);
+            let remote_pos = self.list.borrow().iter().fold(0, |acc, bi| {
+                if bi.is_local() {
+                    return acc + 1;
                 }
+                acc
+            });
+            if position < remote_pos {
+                return (0, remote_pos);
+            } else {
+                return (remote_pos, self.list.borrow().len() as u32);
             }
-            (0, self.list.borrow().len() as u32)
         }
     }
 }
@@ -209,20 +214,12 @@ impl BranchList {
                     return;
                 }
                 branch_list.imp().original_list.replace(branches);
-                let mut remote_start_pos: Option<u32> = None;
                 branch_list.imp().list.replace(
                     branch_list.imp().original_list.borrow()
                         .iter()
-                        .enumerate()
-                        .map(|(i, bd)| {
-                            if remote_start_pos.is_none() && bd.branch_type == BranchType::Remote {
-                                remote_start_pos.replace(i as u32);
-                            }                        
-                            BranchItem::new(bd)
-                        })
+                        .map(BranchItem::new)
                         .collect()
                 );
-                branch_list.imp().remote_start_pos.replace(remote_start_pos);
                 branch_list.items_changed(0, 0, branch_list.imp().list.borrow().len() as u32);
 
             })
@@ -436,21 +433,15 @@ impl BranchList {
                 if result.is_none() {
                     return
                 }
-                {
-                    // put borrow in block
-                    branch_list.imp().list.borrow_mut().remove(pos as usize);
-                    branch_list.imp().original_list.borrow_mut().retain(|bd| {
-                        bd.name != name
-                    });
-                    if kind == BranchType::Local {
-                        let mut pos = branch_list.imp().remote_start_pos.borrow_mut();
-                        if let Some(mut rem_pos) = *pos {
-                            rem_pos -= 1;
-                            pos.replace(rem_pos);
-                            debug!("branches.replace rem pos {:?} {:?}", rem_pos, pos);
-                        }
-                    }
-                }
+                
+                // put borrow in block
+                branch_list.imp().list.borrow_mut().remove(pos as usize);
+                branch_list.imp().original_list.borrow_mut().retain(|bd| {
+                    bd.name != name
+                });
+
+                // --------------------------- very strange piece
+                
                 let shifted_item = branch_list.item(pos);
                 debug!("branches. removed item at pos {:?}", pos);
                 let mut new_pos = pos;
@@ -487,6 +478,9 @@ impl BranchList {
                 // connect_selected_notify and cursor will jump
                 // to first position
                 branch_list.set_selected_pos(new_pos);
+
+                // --------------------------- very strange piece
+
             })
         });
     }
@@ -577,12 +571,6 @@ impl BranchList {
         // works via bind to single_selection selected ?????
         self.set_selected_pos(0);
         debug!("set selected pos");
-        let mut pos = self.imp().remote_start_pos.borrow_mut();
-        if let Some(mut rem_pos) = *pos {
-            rem_pos += 1;
-            pos.replace(rem_pos);
-            debug!("branches.replace rem pos {:?} {:?}", rem_pos, pos);
-        }
     }
 }
 
