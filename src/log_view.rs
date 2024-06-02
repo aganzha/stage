@@ -250,7 +250,6 @@ impl CommitList {
                             }
                         }
                     }
-                    // trace!("push oid to list -------> {:?}", item.imp().commit.borrow().oid);
                     last_added_oid.replace(item.imp().commit.borrow().oid);
                     commit_list.imp().list.borrow_mut().push(item);
                     added += 1;
@@ -531,8 +530,9 @@ pub fn headerbar_factory(
         .child(&entry)
         .build();
     let very_first_search = Rc::new(RefCell::new(true));
+    let threshold = Rc::new(RefCell::new(String::from("")));
     entry.connect_search_changed(
-        clone!(@weak commit_list, @weak list_view, @strong very_first_search => move |e| {
+        clone!(@weak commit_list, @weak list_view, @strong very_first_search, @weak entry => move |e| {
             let term = e.text().to_lowercase();
             if !term.is_empty() && term.len() < 3 {
                 return;
@@ -549,7 +549,19 @@ pub fn headerbar_factory(
                     single_selection.set_can_unselect(false);
                 }
             } else {
-                commit_list.search(term, repo_path.clone(), &list_view);
+                threshold.replace(term);
+                glib::source::timeout_add_local(Duration::from_millis(200), {
+                    let entry = entry.clone();
+                    let repo_path = repo_path.clone();
+                    let threshold = threshold.clone();
+                    move || {
+                        let term = entry.text().to_lowercase();
+                        if term == *threshold.borrow() {
+                            commit_list.search(term, repo_path.clone(), &list_view);
+                        }
+                        glib::ControlFlow::Break
+                    }
+                });
             }
         }),
     );
