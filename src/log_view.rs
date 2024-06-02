@@ -230,7 +230,7 @@ impl CommitList {
                     alert(e).present(&widget);
                     Vec::new()
                 });
-                // debug!("commits in response {:?}", commits.len());
+                // trace!("commits in response {:?}", commits.len());
                 if commits.is_empty() {
                     return;
                 }
@@ -245,12 +245,12 @@ impl CommitList {
                     if append_to_existing {
                         if let Some(oid) = start_oid {
                             if item.imp().commit.borrow().oid == oid {
-                                // debug!("skip previously found commit {:?}", oid);
+                                // trace!("skip previously found commit {:?}", oid);
                                 continue;
                             }
                         }
                     }
-                    // debug!("push oid to list -------> {:?}", item.imp().commit.borrow().oid);
+                    // trace!("push oid to list -------> {:?}", item.imp().commit.borrow().oid);
                     last_added_oid.replace(item.imp().commit.borrow().oid);
                     commit_list.imp().list.borrow_mut().push(item);
                     added += 1;
@@ -266,7 +266,7 @@ impl CommitList {
                     // it need to stop somehow
                     if search_term.is_some() && last_added_oid.is_some() {
                         if term_count < git_log::COMMIT_PAGE_SIZE {
-                            debug!("go next loop with start >>>>>>>>   oid {:?}", last_added_oid);
+                            trace!("go next loop with start >>>>>>>>   oid {:?}", last_added_oid);
                             commit_list.get_commits_inside(repo_path, last_added_oid, &widget);
                         }
                     }
@@ -648,7 +648,7 @@ pub fn show_log_window(
     });
     window.add_controller(event_controller);
     window.present();
-    debug!("grab list focus");
+    trace!("grab list focus");
     list_view.grab_focus();
     get_commit_list(&list_view).get_commits_inside(
         repo_path.clone(),
