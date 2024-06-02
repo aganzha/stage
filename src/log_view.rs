@@ -1,7 +1,7 @@
 use crate::git::{git_log, commit};
 use crate::widgets::{alert, YesNoString, YesNoWithVariants, YES, NO};
 use async_channel::Sender;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use core::time::Duration;
 use git2::Oid;
 use glib::{clone, Object, closure};
@@ -315,6 +315,66 @@ impl CommitList {
         let commit_item = item.downcast_ref::<CommitItem>().unwrap();
         let oid = commit_item.imp().commit.borrow().oid;
         oid.clone()
+    }
+
+    pub fn reset_hard(&self, repo_path: PathBuf, window: &impl IsA<Widget>, sender: Sender<crate::Event>) {
+        let oid = self.get_selected_oid();
+        glib::spawn_future_local({
+            let window = window.clone();
+            let sender = sender.clone();
+            let commit_list = self.clone();
+            async move {
+                let response = alert(
+                    YesNoString(String::from("reset --hard"), format!("{}", oid))
+                ).choose_future(&window).await;
+                if response != YES {
+                    return;
+                }
+                let result = gio::spawn_blocking({
+                    let sender = sender.clone();
+                    let path = repo_path.clone();
+                    move || {
+                        crate::reset_hard(path, Some(oid), sender)
+                    }}).await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(false)
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                        false
+                    });
+                if result {
+                    
+                    loop {
+                        // let original = *commit_list.imp().original_list.borrow_mut();
+                        let first_oid = commit_list.imp().original_list.borrow()[0].oid;
+                        commit_list.imp().original_list.borrow_mut().remove(0);
+                        if first_oid == oid {
+                            break;
+                        }                        
+                    }
+                    if commit_list.imp().search_term.borrow().0.is_empty() {
+                        // remove from visual list only if it is not in search
+                        let mut removed = 0;
+                        loop {
+                            // let original = *commit_list.imp().original_list.borrow_mut();
+                            let first_oid = {
+                                let first_item = &commit_list.imp().list.borrow()[0];
+                                let first_oid = first_item.imp().commit.borrow().oid;
+                                first_oid
+                            };
+                            commit_list.imp().list.borrow_mut().remove(0);
+                            removed += 1;
+                            if first_oid == oid {
+                                break;
+                            }                        
+                        }
+                        commit_list.items_changed(0, removed, 0);
+                    }
+                }
+            }
+        });
     }
 }
 
@@ -659,27 +719,11 @@ pub fn headerbar_factory(
         .can_shrink(true)
         .build();
     reset_btn.connect_clicked({
-        let sender = sender.clone();
+        // let sender = sender.clone();
         let window = window.clone();
+        let repo_path = repo_path.clone();
         move |_| {
-            let oid = commit_list.get_selected_oid();
-            glib::spawn_future_local({
-                let window = window.clone();
-                let sender = sender.clone();
-                async move {
-                    let response = alert(
-                        YesNoString(String::from("reset --hard"), format!("{}", oid))
-                    ).choose_future(&window).await;
-                    match response.as_str() {
-                        YES => {
-                            sender
-                                .send_blocking(crate::Event::ResetHard(Some(oid)))
-                                .expect("cant send through channel");
-                        }
-                        _ => {}
-                    }
-                }
-            });
+            commit_list.reset_hard(repo_path.clone(), &window, sender.clone());
         }
     });
     hb.pack_end(&reset_btn);
