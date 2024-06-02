@@ -1062,25 +1062,24 @@ pub fn drop_stash(
     get_stashes(path, sender)
 }
 
-pub fn reset_hard(path: PathBuf, ooid: Option<Oid>, sender: Sender<crate::Event>) {
-    let repo = Repository::open(path.clone()).expect("can't open repo");
-    let head_ref = repo.head().expect("can't get head");
+pub fn reset_hard(path: PathBuf, ooid: Option<Oid>, sender: Sender<crate::Event>) -> Result<bool, Error> {
+    let repo = Repository::open(path.clone())?;
+    let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
 
     let ob = if let Some(oid) = ooid {
-        repo.find_object(oid, Some(ObjectType::Commit))
-            .expect("cant find commit")
+        repo.find_object(oid, Some(ObjectType::Commit))?
     } else {
         head_ref
-            .peel(ObjectType::Commit)
-            .expect("can't get commit from ref!")
+            .peel(ObjectType::Commit)?
     };
     
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
-    repo.reset(&ob, ResetType::Hard, None)
-        .expect("cant reset hard");
+
+    repo.reset(&ob, ResetType::Hard, None)?;
+
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
@@ -1089,6 +1088,7 @@ pub fn reset_hard(path: PathBuf, ooid: Option<Oid>, sender: Sender<crate::Event>
             get_current_repo_status(Some(path), sender);
         }
     });
+    Ok(true)
 }
 
 pub fn get_directories(path: PathBuf) -> HashSet<String> {
