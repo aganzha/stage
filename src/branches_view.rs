@@ -331,6 +331,8 @@ impl BranchList {
             } else {
                 bi.imp().branch.borrow_mut().is_head = false;
             }
+            // trigger avatars via fake property
+            bi.set_is_head(bi.is_head());
         });
         // for branch_item in self.imp().list.borrow().iter() {
         //     debug!(
