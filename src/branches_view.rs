@@ -607,13 +607,21 @@ impl BranchList {
     }
 
     fn add_new_branch_item(&self, branch_data: branch::BranchData) {
-
+        debug!("add_new_branch_item {:?} {:?}", branch_data.is_head, branch_data.name);
         self.imp().original_list.borrow_mut().insert(0, branch_data.clone());
+        debug!("inserted in original list!");
         self.imp().list.borrow_mut().insert(
             0,
             BranchItem::new(&self.imp().original_list.borrow()[0])
         );
+        debug!("inserted in list");
         self.update_head_branch(branch_data);
+        debug!("updated head branch");        
+        self.items_changed(0, 0, 1);
+        debug!("items changed");
+        // works via bind to single_selection selected ?????
+        self.set_selected_pos(0);
+        debug!("set selected pos");
         // let new_item = BranchItem::new(branch_data);
         // let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
         // new_branch_item.set_initial_focus(true);
