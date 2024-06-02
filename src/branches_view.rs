@@ -252,7 +252,7 @@ impl BranchList {
                     alert(e).present(&window);
                     None
                 });
-                debug!("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE {:?}", new_branch_data);                
+
                 if new_branch_data.is_none() {
                     info!("branch. exit after error");
                     return;
@@ -265,54 +265,9 @@ impl BranchList {
                     // adding new item from remote
                     branch_list.add_new_branch_item(new_branch_data)
                 }
-                // branch_list.deactivate_current_branch();
-                // if local {
-                //     selected_item.imp().branch.replace(new_branch_data.clone());
-                //     selected_item.set_is_head(true);
-                // } else {
-                //     // local branch already could be in list
-                //     assert!(new_branch_data.branch_type == BranchType::Local);
-                //     let new_name = &new_branch_data.name;
-                //     // lets check all items in list
-                //     for i in 0..branch_list.n_items() {
-                //         if let Some(item) = branch_list.item(i) {
-                //             let branch_item = item.downcast_ref::<BranchItem>().unwrap();
-                //             if &branch_item.imp().branch.borrow().name == new_name {
-                //                 branch_item.imp().branch.replace(new_branch_data);
-                //                 branch_item.set_initial_focus(true);
-                //                 branch_item.set_is_head(true);
-                //                 branch_list.set_selected_pos(i);
-                //                 return;
-                //             }
-                //         }
-                //     }
-                //     // create new branch
-                //     debug!("checkout remote branch thats become local");
-                //     branch_list.add_new_branch_item(new_branch_data.clone());
-                // }
-                // branch_list.update_head_branch(new_branch_data);
             })
         });
     }
-
-    // pub fn deactivate_current_branch(&self) {
-
-    //     let new_original_list = self.imp().original_list.borrow().clone().into_iter().map(|mut bd| {
-    //         if bd.is_head {
-    //             bd.is_head = false
-    //         }
-    //         bd
-    //     }).collect();
-    //     self.imp().original_list.replace(new_original_list);
-
-    //     for branch_item in self.imp().list.borrow().iter() {
-    //         if branch_item.is_head() {
-    //             branch_item.imp().branch.borrow_mut().is_head = false;
-    //             // just to trigger render for avatar icon
-    //             branch_item.set_is_head(false);
-    //         }
-    //     }
-    // }
 
     pub fn update_head_branch(&self, branch_data: branch::BranchData) {
         // replace original head branch
@@ -628,24 +583,6 @@ impl BranchList {
             pos.replace(rem_pos);
             debug!("branches.replace rem pos {:?} {:?}", rem_pos, pos);
         }
-        // let new_item = BranchItem::new(branch_data);
-        // let new_branch_item = new_item.downcast_ref::<BranchItem>().unwrap();
-        // new_branch_item.set_initial_focus(true);
-
-        // {
-        //     // put borrow in block
-        //     self.imp().list.borrow_mut().insert(0, new_item);
-
-        //     let mut pos = self.imp().remote_start_pos.borrow_mut();
-        //     if let Some(mut rem_pos) = *pos {
-        //         rem_pos += 1;
-        //         pos.replace(rem_pos);
-        //         trace!("branches. replace rem pos {:?} {:?}", rem_pos, pos);
-        //     }
-        // }
-        // self.items_changed(0, 0, 1);
-        // // works via bind to single_selection selected ?????
-        // self.set_selected_pos(0);
     }
 }
 
