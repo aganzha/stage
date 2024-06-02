@@ -12,7 +12,7 @@ pub fn revwalk(
 ) -> Result<Vec<CommitLog>, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let mut revwalk = repo.revwalk()?;
-    // revwalk.simplify_first_parent()?;
+    // debug!("refwalk. search_term {:?}", search_term);
     if let Some(oid) = start {
         revwalk.push(oid)?;
     } else {
