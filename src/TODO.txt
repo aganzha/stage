@@ -1,5 +1,6 @@
-BUGS in commit view: look for commit in 3100 - 12dc. no commits found. then look for ad.cherepanov.
-it is found, but try to reset search then.            
+BUG: switch to new branch in such search where is no current branch; it is switched in search, but after reset
+it is not
+
 
 BUG: refresh branches must react to user login! what about pull? connect it to push/pull from branches view!
 TODO: ammend!
