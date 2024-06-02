@@ -311,11 +311,6 @@ impl BranchList {
     }
 
     pub fn deactivate_current_branch(&self) {
-        // this is really ugly...................
-        // it does not need to set branch_data in original_list cause
-        // items in list are clones of each other and setting branch_data
-        // in item in one list affects branch data in cloned item in another list
-        // BUT it need to trigger item property to rerender avatar icon
 
         let new_original_list = self.imp().original_list.borrow().clone().into_iter().map(|mut bd| {
             if bd.is_head {
@@ -332,19 +327,14 @@ impl BranchList {
                 branch_item.set_is_head(false);
             }
         }
-
-        // for branch_item in self.imp().original_list.borrow().iter() {
-        //     if branch_item.is_head() {
-        //         branch_item.imp().branch.borrow_mut().is_head = false;
-        //     }
-        // }
     }
 
     pub fn update_head_branch(&self, branch_data: branch::BranchData) {
         // replace original head branch
         debug!("seeeeeeeeeeeeeeeeeeeeeeeett head {:?} {:?}", branch_data.name, branch_data.is_head);
         let new_original_list = self.imp().original_list.borrow().clone().into_iter().map(|bd| {
-            if bd.is_head {
+            debug!("rrrrrrrrrrrreeeeeeeeeeeeeplace head branch {:?} {:?}", bd.is_head, bd.name);
+            if bd.name == branch_data.name {
                 branch_data.clone()
             } else {
                 bd
@@ -352,29 +342,11 @@ impl BranchList {
         }).collect();
         self.imp().original_list.replace(new_original_list);
         self.imp().original_list.borrow().iter().for_each(|b| {
+            debug!("?????????????????????????????? {:?} {:?}", b.is_head, b.name);
             if b.is_head {
                 debug!("thats new head in original_list {:?}", b.name);
             }
         });
-            
-        // for branch_item in self.imp().original_list.borrow().iter() {
-        //     debug!(
-        //         "HEAD in original list {:?} {:?}",
-        //         branch_item.imp().branch.borrow().name,
-        //         branch_item.is_head()
-        //     );
-        //     if branch_item.is_head() {
-        //         branch_item.imp().branch.replace(branch_data.clone());
-        //         // to trigger render for avatar icon
-        //         branch_item.set_is_head(branch_item.is_head());
-        //         return;
-        //     }
-        // }
-
-        // it does not need to set branch_data in original_list cause
-        // items in list are clones of each other and setting branch_data
-        // in item in one list affects branch data in cloned item in another list
-        // BUT it need to trigger item property to rerender avatar icon
 
         for branch_item in self.imp().list.borrow().iter() {
             debug!(
