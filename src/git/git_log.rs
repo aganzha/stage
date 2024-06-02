@@ -1,7 +1,7 @@
 use std::path::PathBuf;
-use log::debug;
+use log::{debug, trace};
 use std::collections::{HashSet, HashMap};
-use crate::git::{commit::{CommitLog, CommitRelation}};
+use crate::git::{commit::{CommitLog, CommitRelation, CommitRepr}};
 
 pub const COMMIT_PAGE_SIZE: usize = 500;
 
@@ -35,7 +35,7 @@ pub fn revwalk(
         |(left_commits, right_commits), oid| {      
             if let Ok(oid) = oid {
                 if let Ok(commit) = repo.find_commit(oid) {
-                    debug!("scanning commits +++++++++++++++++++++++++++++++++++++++++ {:?} {:?}", oid, commit.time());
+                    trace!("scanning commits {:?} {:?}", commit.sha(), commit.dt());
                     match commit.parent_count() {
                         0 => {
                             // in the begining there was darkness

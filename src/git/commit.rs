@@ -6,6 +6,29 @@ use log::debug;
 use std::path::PathBuf;
 use async_channel::Sender;
 
+pub trait CommitRepr {
+    fn dt(&self) -> DateTime<FixedOffset>;
+    fn sha(&self) -> String;
+}
+
+impl CommitRepr for git2::Commit<'_> {
+    fn dt(&self) -> DateTime<FixedOffset> {
+        let tz = FixedOffset::east_opt(self.time().offset_minutes() * 60).unwrap();
+        match tz.timestamp_opt(self.time().seconds(), 0) {
+            LocalResult::Single(dt) => dt,
+            LocalResult::Ambiguous(dt, _) => dt,
+            _ => todo!("not implemented"),
+        }
+    }
+    fn sha(&self) -> String {
+        let message = self.message().unwrap_or("").replace('\n', "");
+        let mut encoded = String::new();
+        html_escape::encode_safe_to_string(&message, &mut encoded);
+        format!("{} {}", &self.id().to_string()[..7], encoded)
+    }
+    
+}
+
 pub fn commit_dt(c: &git2::Commit) -> DateTime<FixedOffset> {
     let tz = FixedOffset::east_opt(c.time().offset_minutes() * 60).unwrap();
     match tz.timestamp_opt(c.time().seconds(), 0) {
