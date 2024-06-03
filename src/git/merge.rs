@@ -1,7 +1,7 @@
 use crate::git::{
     get_conflicted_v1, get_current_repo_status, make_diff, make_diff_options,
     BranchData, DiffKind, Head, Hunk, Line, LineKind, State, MARKER_HUNK,
-    MARKER_OURS, MARKER_THEIRS, MARKER_VS,
+    MARKER_OURS, MARKER_THEIRS, MARKER_VS, branch::{BranchName}
 };
 use async_channel::Sender;
 use git2;
@@ -56,8 +56,8 @@ pub fn commit(path: PathBuf) {
     let my_branch = git2::Branch::wrap(head_ref);
     let message = format!(
         "merge branch {} into {}",
-        their_branch.name().unwrap().unwrap(),
-        my_branch.name().unwrap().unwrap()
+        their_branch.branch_name(),
+        my_branch.branch_name()
     );
 
     let tree_oid = repo
@@ -143,7 +143,7 @@ pub fn branch(
     let branch = git2::Branch::wrap(head_ref);
     let new_head = Head::new(&branch, &commit);
     sender
-        .send_blocking(crate::Event::State(State::new(state)))
+        .send_blocking(crate::Event::State(State::new(state, branch.branch_name())))
         .expect("Could not send through channel");
     sender
         .send_blocking(crate::Event::Head(new_head))
@@ -332,9 +332,6 @@ pub fn choose_conflict_side_of_hunk(
         .next()
         .unwrap()
         .unwrap();
-    // let current_conflict = conflicts.find(
-    //     |c| c.as_ref().unwrap().get_path() == chosen_path
-    // ).unwrap().unwrap();
 
     index
         .remove_path(chosen_path.as_path())

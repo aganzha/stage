@@ -352,8 +352,8 @@ impl CommitList {
             let commit_list = self.clone();
             async move {
                 let response = alert(YesNoString(
-                    String::from("reset --hard"),
-                    format!("{}", oid),
+                    String::from("Reset"),
+                    format!("Reset --hard to {}", oid),
                 ))
                 .choose_future(&window)
                 .await;

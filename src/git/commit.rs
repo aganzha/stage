@@ -1,4 +1,4 @@
-use crate::git::{branch, get_head, make_diff, Diff, DiffKind, Head, State};
+use crate::git::{branch, get_head, make_diff, get_current_repo_status, Diff, DiffKind, Head, State};
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use git2;
@@ -272,11 +272,17 @@ pub fn cherry_pick(
     let branch = git2::Branch::wrap(head_ref);
     let new_head = Head::new(&branch, &commit);
     sender
-        .send_blocking(crate::Event::State(State::new(state)))
+        .send_blocking(crate::Event::State(State::new(state, oid.to_string())))
         .expect("Could not send through channel");
     sender
         .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
-
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        let path = path.clone();
+        move || {
+            get_current_repo_status(Some(path), sender.clone());
+        }
+    });    
     branch::BranchData::from_branch(branch, git2::BranchType::Local)
 }

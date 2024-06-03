@@ -9,6 +9,16 @@ use log::info;
 use std::cmp::Ordering;
 use std::path::PathBuf;
 
+pub trait BranchName {
+    fn branch_name(&self) -> String;
+}
+
+impl BranchName for git2::Branch<'_> {
+    fn branch_name(&self) -> String {
+        self.name().unwrap().unwrap().to_string()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct BranchData {
     pub name: String,
@@ -41,11 +51,10 @@ impl BranchData {
         branch: git2::Branch,
         branch_type: git2::BranchType,
     ) -> Result<Option<Self>, git2::Error> {
-        let name = branch.name().unwrap().unwrap().to_string();
+        let name = branch.branch_name();
         let mut upstream_name: Option<String> = None;
         if let Ok(upstream) = branch.upstream() {
-            upstream_name =
-                Some(upstream.name().unwrap().unwrap().to_string());
+            upstream_name = Some(upstream.branch_name());
         }
         let is_head = branch.is_head();
         let bref = branch.get();

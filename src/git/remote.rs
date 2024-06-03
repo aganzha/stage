@@ -1,4 +1,4 @@
-use crate::git::{get_head, get_upstream};
+use crate::git::{get_head, get_upstream, branch::{BranchName}};
 use async_channel::Sender;
 use git2;
 use log::{debug, trace};
@@ -314,8 +314,8 @@ pub fn pull(
     let mut head_ref = repo.head().expect("can't get head");
     let log_message = format!(
         "(HEAD -> {}, {}) HEAD@{0}: pull: Fast-forward",
-        branch.name().unwrap().unwrap(),
-        upstream.name().unwrap().unwrap()
+        branch.branch_name(),
+        upstream.branch_name()
     );
 
     // think about it! perhaps it need to call merge analysys
