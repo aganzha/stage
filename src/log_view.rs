@@ -817,8 +817,9 @@ pub fn show_log_window(
     let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
         let window = window.clone();
-        // let main_sender = main_sender.clone();
-        // let sender = sender.clone();
+        let list_view = list_view.clone();
+        let main_sender = main_sender.clone();
+        let repo_path = repo_path.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
@@ -836,6 +837,10 @@ pub fn show_log_window(
                         search_entry.downcast_ref::<SearchEntry>().unwrap();
                     trace!("enter search");
                     search_entry.grab_focus();
+                }
+                (gdk::Key::x, _) => {
+                    get_commit_list(&list_view)
+                        .reset_hard(repo_path.clone(), &window, main_sender.clone());
                 }
                 (key, modifier) => {
                     trace!("key pressed {:?} {:?}", key, modifier);
