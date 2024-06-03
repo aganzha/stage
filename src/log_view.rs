@@ -339,6 +339,46 @@ impl CommitList {
         oid
     }
 
+    
+    pub fn cherry_pick(
+        &self,
+        repo_path: PathBuf,
+        window: &impl IsA<Widget>,
+        sender: Sender<crate::Event>,
+    ) {
+        glib::spawn_future_local({
+            let sender = sender.clone();
+            let path = repo_path.clone();
+            let window = window.clone();
+            let oid = self.get_selected_oid();
+            async move {
+                let response = alert(YesNoString(
+                    "Cherry pick commit?".to_string(),
+                    format!("{}", oid),
+                ))
+                    .choose_future(&window)
+                    .await;
+                if response != YES {
+                    return;
+                }
+                gio::spawn_blocking({
+                    let sender = sender.clone();
+                    let path = path.clone();
+                    move || commit::cherry_pick(path, oid, sender)
+                })
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(None)
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                        None
+                    });
+            }
+        });
+    }
+    
     pub fn reset_hard(
         &self,
         repo_path: PathBuf,
@@ -695,38 +735,7 @@ pub fn headerbar_factory(
         let window = window.clone();
         let commit_list = commit_list.clone();
         move |_btn| {
-            glib::spawn_future_local({
-                let sender = sender.clone();
-                let path = path.clone();
-                let window = window.clone();
-                let oid = commit_list.get_selected_oid();
-                async move {
-                    let response = alert(YesNoString(
-                        "Cherry pick commit?".to_string(),
-                        format!("{}", oid),
-                    ))
-                    .choose_future(&window)
-                    .await;
-                    if response != YES {
-                        return;
-                    }
-                    gio::spawn_blocking({
-                        let sender = sender.clone();
-                        let path = path.clone();
-                        move || commit::cherry_pick(path, oid, sender)
-                    })
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
-                        Ok(None)
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(&window);
-                        None
-                    });
-                }
-            });
-            // commit::cherry_pick()
+            commit_list.cherry_pick(path.clone(), &window, sender.clone());            
         }
     });
 
@@ -841,6 +850,10 @@ pub fn show_log_window(
                 (gdk::Key::x, _) => {
                     get_commit_list(&list_view)
                         .reset_hard(repo_path.clone(), &window, main_sender.clone());
+                }
+                (gdk::Key::a, _) => {
+                    get_commit_list(&list_view)
+                        .cherry_pick(repo_path.clone(), &window, main_sender.clone());
                 }
                 (key, modifier) => {
                     trace!("key pressed {:?} {:?}", key, modifier);
