@@ -80,9 +80,7 @@ impl Hunk {
             match (r_line.old_line_no, n_line.old_line_no) {
                 (Some(r_no), Some(n_no)) => {
                     trace!(
-                        "both lines are changed {:?} {:?}",
-                        r_line.hash(),
-                        n_line.hash()
+                        "both lines are changed"
                     );
                     trace!("r_no n_no {:?} {:?}", r_no, n_no);
                     let m_n_line = &mut self.lines[n_ind];
@@ -92,9 +90,7 @@ impl Hunk {
                 }
                 (Some(r_no), None) => {
                     trace!(
-                        "new line is added before old one {:} {:?}",
-                        r_line.hash(),
-                        n_line.hash()
+                        "new line is added before old one"
                     );
                     trace!("r_no n_no {:?} _", r_no);
                     n_ind += 1;
@@ -102,9 +98,7 @@ impl Hunk {
                 }
                 (None, Some(n_no)) => {
                     trace!(
-                        "rendered line is added before new one {:} {:?}",
-                        r_line.hash(),
-                        n_line.hash()
+                        "rendered line is added before new one"
                     );
                     trace!("r_no n_no _ {:?}", n_no);
                     let m_r_line = &mut rendered.lines[r_ind];
@@ -113,9 +107,7 @@ impl Hunk {
                 }
                 (None, None) => {
                     trace!(
-                        "both lines are added {:} {:?}",
-                        r_line.hash(),
-                        n_line.hash()
+                        "both lines are added",
                     );
                     trace!("r_no n_no _ _");
                     let m_n_line = &mut self.lines[n_ind];
