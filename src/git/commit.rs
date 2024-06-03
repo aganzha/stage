@@ -1,4 +1,7 @@
-use crate::git::{branch, get_head, make_diff, get_current_repo_status, Diff, DiffKind, Head, State};
+use crate::git::{
+    branch, get_current_repo_status, get_head, make_diff, Diff, DiffKind,
+    Head, State,
+};
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use git2;
@@ -283,6 +286,6 @@ pub fn cherry_pick(
         move || {
             get_current_repo_status(Some(path), sender.clone());
         }
-    });    
+    });
     branch::BranchData::from_branch(branch, git2::BranchType::Local)
 }
