@@ -9,8 +9,8 @@ use std::collections::HashMap;
 // use std::sync::mpsc::Sender;
 
 use gtk4::{
-    ListBox, ScrolledWindow,
-    SelectionMode, TextView, Widget, Window as Gtk4Window,
+    ListBox, ScrolledWindow, SelectionMode, TextView, Widget,
+    Window as Gtk4Window,
 };
 
 pub fn confirm_dialog_factory(

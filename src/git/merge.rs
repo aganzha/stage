@@ -8,13 +8,12 @@ use git2;
 use gtk4::gio;
 use log::{debug, info, trace};
 use std::{
-    collections::{HashSet},
+    collections::HashSet,
     path::{Path, PathBuf},
     str::from_utf8,
 };
 
 pub const STAGE_FLAG: u16 = 0x3000;
-
 
 pub fn commit(path: PathBuf) {
     let mut repo =

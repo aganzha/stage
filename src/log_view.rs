@@ -277,7 +277,10 @@ impl CommitList {
                     // search will return commits 1 by 1
                     // when got 1 commit and got for another
                     // it need to stop somehow
-                    if search_term.is_some() && last_added_oid.is_some() && term_count < git_log::COMMIT_PAGE_SIZE {
+                    if search_term.is_some()
+                        && last_added_oid.is_some()
+                        && term_count < git_log::COMMIT_PAGE_SIZE
+                    {
                         trace!(
                             "go next loop with start >>>>>>>>   oid {:?}",
                             last_added_oid
@@ -307,7 +310,8 @@ impl CommitList {
             self.imp()
                 .original_list
                 .borrow()
-                .iter().cloned()
+                .iter()
+                .cloned()
                 .map(CommitItem::new)
                 .collect(),
         );
@@ -697,12 +701,11 @@ pub fn headerbar_factory(
                 let window = window.clone();
                 let oid = commit_list.get_selected_oid();
                 async move {
-                    let response = alert(
-                        YesNoString(
-                            "Cherry pick commit?".to_string(),
-                            format!("{}", oid)
-                        )
-                    ).choose_future(&window)
+                    let response = alert(YesNoString(
+                        "Cherry pick commit?".to_string(),
+                        format!("{}", oid),
+                    ))
+                    .choose_future(&window)
                     .await;
                     if response != YES {
                         return;
@@ -712,17 +715,15 @@ pub fn headerbar_factory(
                         let path = path.clone();
                         move || commit::cherry_pick(path, oid, sender)
                     })
-                        .await
-                        .unwrap_or_else(|e| {
-                            alert(format!("{:?}", e)).present(&window);
-                            Ok(None)
-                        })
-                        .unwrap_or_else(
-                            |e| {
-                                alert(e).present(&window);
-                                None
-                            },
-                        );                    
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(None)
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                        None
+                    });
                 }
             });
             // commit::cherry_pick()

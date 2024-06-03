@@ -11,14 +11,14 @@ use async_channel::Sender;
 
 use git2::build::CheckoutBuilder;
 use git2::{
-    ApplyLocation, ApplyOptions, Branch, Commit,
-    Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat, DiffHunk,
-    DiffLine, DiffLineType, DiffOptions, Error, ObjectType, Oid,
-    Repository, RepositoryState, ResetType, StashFlags,
+    ApplyLocation, ApplyOptions, Branch, Commit, Delta, Diff as GitDiff,
+    DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
+    DiffOptions, Error, ObjectType, Oid, Repository, RepositoryState,
+    ResetType, StashFlags,
 };
 
 // use libgit2_sys;
-use log::{trace};
+use log::trace;
 use regex::Regex;
 //use std::time::SystemTime;
 use std::path::PathBuf;
