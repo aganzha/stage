@@ -94,7 +94,6 @@ impl Hunk {
                     );
                     trace!("r_no n_no {:?} _", r_no);
                     n_ind += 1;
-                    continue;
                 }
                 (None, Some(n_no)) => {
                     trace!(
