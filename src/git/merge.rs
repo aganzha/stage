@@ -1,7 +1,7 @@
 use crate::git::{
-    get_conflicted_v1, get_current_repo_status, make_diff, make_diff_options,
-    BranchData, DiffKind, Head, Hunk, Line, LineKind, State, MARKER_HUNK,
-    MARKER_OURS, MARKER_THEIRS, MARKER_VS, branch::{BranchName}
+    branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff,
+    make_diff_options, BranchData, DiffKind, Head, Hunk, Line, LineKind,
+    State, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS,
 };
 use async_channel::Sender;
 use git2;
@@ -15,33 +15,31 @@ use std::{
 
 pub const STAGE_FLAG: u16 = 0x3000;
 
-pub fn commit(path: PathBuf) {
-    let mut repo =
-        git2::Repository::open(path.clone()).expect("can't open repo");
-    let me = repo.signature().expect("can't get signature");
+pub fn commit(
+    path: PathBuf,
+    sender: Sender<crate::Event>,
+) -> Result<(), git2::Error> {
+    let mut repo = git2::Repository::open(path.clone())?;
+    let me = repo.signature()?;
 
-    let my_oid = repo
-        .revparse_single("HEAD^{commit}")
-        .expect("fail revparse")
-        .id();
+    let my_oid = repo.revparse_single("HEAD^{commit}")?.id();
 
     let mut their_oid: Option<git2::Oid> = None;
     repo.mergehead_foreach(|oid_ref| -> bool {
         their_oid.replace(*oid_ref);
         true
-    })
-    .expect("cant get merge heads");
+    })?;
 
     let their_oid = their_oid.unwrap();
     info!("creating merge commit for {:?} {:?}", my_oid, their_oid);
 
-    let my_commit = repo.find_commit(my_oid).expect("cant get commit");
-    let their_commit = repo.find_commit(their_oid).expect("cant get commit");
+    let my_commit = repo.find_commit(my_oid)?;
+    let their_commit = repo.find_commit(their_oid)?;
 
     // let message = message.unwrap_or(repo.message().expect("cant get merge message"));
 
     let mut their_branch: Option<git2::Branch> = None;
-    let refs = repo.references().expect("no refs");
+    let refs = repo.references()?;
     for r in refs.into_iter().flatten() {
         if let Some(oid) = r.target() {
             if oid == their_oid {
@@ -51,7 +49,7 @@ pub fn commit(path: PathBuf) {
     }
     let their_branch = their_branch.unwrap();
 
-    let head_ref = repo.head().expect("can't get head");
+    let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
     let my_branch = git2::Branch::wrap(head_ref);
     let message = format!(
@@ -60,12 +58,9 @@ pub fn commit(path: PathBuf) {
         my_branch.branch_name()
     );
 
-    let tree_oid = repo
-        .index()
-        .expect("can't get index")
-        .write_tree()
-        .expect("can't write tree");
-    let tree = repo.find_tree(tree_oid).expect("can't find tree");
+    let tree_oid = repo.index()?.write_tree()?;
+
+    let tree = repo.find_tree(tree_oid)?;
 
     repo.commit(
         Some("HEAD"),
@@ -74,9 +69,15 @@ pub fn commit(path: PathBuf) {
         &message,
         &tree,
         &[&my_commit, &their_commit],
-    )
-    .expect("cant create merge commit");
-    repo.cleanup_state().expect("cant cleanup state");
+    )?;
+
+    repo.cleanup_state()?;
+    gio::spawn_blocking({
+        move || {
+            get_current_repo_status(Some(path), sender);
+        }
+    });
+    Ok(())
 }
 
 pub fn branch(
@@ -125,7 +126,7 @@ pub fn branch(
                 });
                 return Ok(None);
             }
-            commit(path);
+            commit(path, sender.clone())?;
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
@@ -135,19 +136,19 @@ pub fn branch(
         }
     }
 
-    let state = repo.state();
+    // let state = repo.state();
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
-    let ob = head_ref.peel(git2::ObjectType::Commit)?;
-    let commit = ob.peel_to_commit()?;
+    // let ob = head_ref.peel(git2::ObjectType::Commit)?;
+    // let commit = ob.peel_to_commit()?;
     let branch = git2::Branch::wrap(head_ref);
-    let new_head = Head::new(&branch, &commit);
-    sender
-        .send_blocking(crate::Event::State(State::new(state, branch.branch_name())))
-        .expect("Could not send through channel");
-    sender
-        .send_blocking(crate::Event::Head(new_head))
-        .expect("Could not send through channel");
+    // let new_head = Head::new(&branch, &commit);
+    // sender
+    //     .send_blocking(crate::Event::State(State::new(state, branch.branch_name())))
+    //     .expect("Could not send through channel");
+    // sender
+    //     .send_blocking(crate::Event::Head(new_head))
+    //     .expect("Could not send through channel");
     BranchData::from_branch(branch, git2::BranchType::Local)
 }
 

@@ -1,4 +1,4 @@
-use crate::git::{get_head, get_upstream, branch::{BranchName}};
+use crate::git::{branch::BranchName, get_head, get_upstream};
 use async_channel::Sender;
 use git2;
 use log::{debug, trace};

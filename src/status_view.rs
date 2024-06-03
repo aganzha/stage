@@ -1,11 +1,11 @@
 pub mod container;
 pub mod headerbar;
 pub mod textview;
-use git2::{RepositoryState};
 use crate::git::{commit, merge, remote, LineKind};
 use crate::widgets::{alert, YesNoString, YES};
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
+use git2::RepositoryState;
 
 pub mod render;
 use textview::Tag;
@@ -688,7 +688,9 @@ impl Status {
                     banner.set_revealed(false);
                 }
 
-                if state.state == RepositoryState::Merge ||  state.state == RepositoryState::CherryPick {
+                if state.state == RepositoryState::Merge
+                    || state.state == RepositoryState::CherryPick
+                {
                     banner.set_title(&state.title_for_proceed_banner());
                     banner.set_css_classes(&["success"]);
                     banner.set_button_label(Some("Commit"));
@@ -700,21 +702,36 @@ impl Status {
                     let new_handler_id = banner.connect_button_clicked({
                         let sender = sender.clone();
                         let path = self.path.clone();
+                        let window = window.clone();
                         move |_| {
                             let sender = sender.clone();
                             let path = path.clone();
-                            gio::spawn_blocking({
-                                move || {
-                                    merge::commit(
-                                        path.clone().expect("no path"),
-                                    );
-                                    get_current_repo_status(path, sender);
+                            let window = window.clone();
+                            glib::spawn_future_local({
+                                async move {
+                                    gio::spawn_blocking({
+                                        move || {
+                                            merge::commit(
+                                                path.clone().expect("no path"),
+                                                sender,
+                                            )
+                                        }
+                                    })
+                                    .await
+                                    .unwrap_or_else(|e| {
+                                        alert(format!("{:?}", e))
+                                            .present(&window);
+                                        Ok(())
+                                    })
+                                    .unwrap_or_else(|e| {
+                                        alert(e).present(&window);
+                                        ()
+                                    });
                                 }
                             });
                         }
                     });
                     banner_button_clicked.replace(Some(new_handler_id));
-
                 }
             } else if !banner.is_revealed() {
                 banner.set_title(&state.title_for_conflict_banner());
@@ -733,10 +750,7 @@ impl Status {
                             let sender = sender.clone();
                             let path = path.clone();
                             move || {
-                                merge::abort(
-                                    path.expect("no path"),
-                                    sender,
-                                );
+                                merge::abort(path.expect("no path"), sender);
                             }
                         });
                     }

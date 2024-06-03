@@ -18,7 +18,7 @@ use git2::{
 };
 
 // use libgit2_sys;
-use log::trace;
+use log::{debug, trace};
 use regex::Regex;
 //use std::time::SystemTime;
 use std::path::PathBuf;
@@ -422,23 +422,30 @@ pub struct State {
 
 impl State {
     pub fn new(state: RepositoryState, subject: String) -> Self {
-        Self { state, subject, view: View::new_markup() }
+        Self {
+            state,
+            subject,
+            view: View::new_markup(),
+        }
     }
     pub fn title_for_proceed_banner(&self) -> String {
         match self.state {
             RepositoryState::Merge => format!("All conflicts fixed but you are\
                                                still merging. Commit to conclude merge branch {}", self.subject),
-            RepositoryState::CherryPick => format!("All conflicts fixed but you are \
-                                                    still merging. Commit to finish cherry-pick {}", self.subject),
+            RepositoryState::CherryPick => format!("Commit to finish cherry-pick {}", self.subject),
             _ => "".to_string()
         }
     }
     pub fn title_for_conflict_banner(&self) -> String {
         let start = "Got conflicts while";
         match self.state {
-            RepositoryState::Merge => format!("{} merging branch {}", start, self.subject),
-            RepositoryState::CherryPick => format!("{} cherry picking {}", start, self.subject),
-            _ => "".to_string()
+            RepositoryState::Merge => {
+                format!("{} merging branch {}", start, self.subject)
+            }
+            RepositoryState::CherryPick => {
+                format!("{} cherry picking {}", start, self.subject)
+            }
+            _ => "".to_string(),
         }
     }
 }
@@ -506,6 +513,8 @@ pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) {
     };
 }
 
+pub const CHERRY_PICK_HEAD: &str = "CHERRY_PICK_HEAD";
+
 pub fn get_current_repo_status(
     current_path: Option<PathBuf>,
     sender: Sender<crate::Event>,
@@ -525,9 +534,28 @@ pub fn get_current_repo_status(
         .send_blocking(crate::Event::CurrentRepo(path.clone()))
         .expect("Could not send through channel");
 
-    sender
-        .send_blocking(crate::Event::State(State::new(repo.state(), "what is my status?".to_string())))
-        .expect("Could not send through channel");
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        let path = path.clone();
+        let state = repo.state();
+        move || {
+            let mut subject = String::from("");
+            match state {
+                RepositoryState::Merge => {}
+                RepositoryState::CherryPick => {
+                    let mut pth = PathBuf::from(path);
+                    pth.push(CHERRY_PICK_HEAD);
+                    subject = std::fs::read_to_string(pth)
+                        .expect("Should have been able to read the file")
+                        .replace("\n", "");
+                }
+                _ => {}
+            }
+            sender
+                .send_blocking(crate::Event::State(State::new(state, subject)))
+                .expect("Could not send through channel");
+        }
+    });
 
     // get HEAD
     gio::spawn_blocking({

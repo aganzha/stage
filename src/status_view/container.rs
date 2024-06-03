@@ -166,7 +166,7 @@ pub trait ViewContainer {
             });
         } else if v.expanded && v.rendered {
             // go deeper for self.children
-            debug!("expand. ____________ go deeper");
+            trace!("expand. ____________ go deeper");
             for child in self.get_children() {
                 found_line = child.expand(line_no);
                 if found_line.is_some() {
