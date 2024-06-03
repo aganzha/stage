@@ -15,11 +15,6 @@ use std::{
 
 pub const STAGE_FLAG: u16 = 0x3000;
 
-#[derive(Debug, Clone)]
-pub enum MergeError {
-    Conflicts,
-    General(String),
-}
 
 pub fn commit(path: PathBuf) {
     let mut repo =
@@ -48,12 +43,10 @@ pub fn commit(path: PathBuf) {
 
     let mut their_branch: Option<git2::Branch> = None;
     let refs = repo.references().expect("no refs");
-    for r in refs.into_iter() {
-        if let Ok(r) = r {
-            if let Some(oid) = r.target() {
-                if oid == their_oid {
-                    their_branch.replace(git2::Branch::wrap(r));
-                }
+    for r in refs.into_iter().flatten() {
+        if let Some(oid) = r.target() {
+            if oid == their_oid {
+                their_branch.replace(git2::Branch::wrap(r));
             }
         }
     }
@@ -121,11 +114,7 @@ pub fn branch(
         {
             info!("merge.normal");
             repo.merge(&[&annotated_commit], None, None)?;
-            // if let Err(error) = repo.merge(&[&annotated_commit], None, None) {
-            //     return Err(MergeError::General(String::from(
-            //         error.message(),
-            //     )));
-            // }
+
             let index = repo.index()?;
             if index.has_conflicts() {
                 gio::spawn_blocking({
@@ -172,12 +161,10 @@ pub fn abort(path: PathBuf, sender: Sender<crate::Event>) {
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
     let mut has_conflicts = false;
-    for conflict in conflicts {
-        if let Ok(conflict) = conflict {
-            if let Some(our) = conflict.our {
-                checkout_builder.path(our.path);
-                has_conflicts = true;
-            }
+    for conflict in conflicts.flatten() {
+        if let Some(our) = conflict.our {
+            checkout_builder.path(our.path);
+            has_conflicts = true;
         }
     }
     if !has_conflicts {
@@ -224,15 +211,13 @@ pub fn choose_conflict_side(
     let mut index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
     let mut entries: Vec<git2::IndexEntry> = Vec::new();
-    for conflict in conflicts {
-        if let Ok(conflict) = conflict {
-            if ours {
-                if let Some(our) = conflict.our {
-                    entries.push(our);
-                }
-            } else if let Some(their) = conflict.their {
-                entries.push(their);
+    for conflict in conflicts.flatten() {
+        if ours {
+            if let Some(our) = conflict.our {
+                entries.push(our);
             }
+        } else if let Some(their) = conflict.their {
+            entries.push(their);
         }
     }
     if entries.is_empty() {
@@ -348,6 +333,9 @@ pub fn choose_conflict_side_of_hunk(
         .next()
         .unwrap()
         .unwrap();
+    // let current_conflict = conflicts.find(
+    //     |c| c.as_ref().unwrap().get_path() == chosen_path
+    // ).unwrap().unwrap();
 
     index
         .remove_path(chosen_path.as_path())

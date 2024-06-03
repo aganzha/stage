@@ -1,5 +1,5 @@
 use crate::git::{commit, git_log};
-use crate::widgets::{alert, YesNoString, YesNoWithVariants, YES};
+use crate::widgets::{alert, YesNoString, YES};
 use async_channel::Sender;
 use core::time::Duration;
 use git2::Oid;
@@ -16,7 +16,7 @@ use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
 use log::{info, trace};
 use std::cell::RefCell;
-use std::collections::{HashMap};
+
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -697,37 +697,32 @@ pub fn headerbar_factory(
                 let window = window.clone();
                 let oid = commit_list.get_selected_oid();
                 async move {
-                    let response = alert(YesNoWithVariants(YesNoString {
-                            0: "Cherry pick commit?".to_string(),
-                            1: format!("{}", oid),
-                        }, HashMap::from([(
-                            "Do not commit. Only apply changes".to_string(),
-                            true,
-                        )])))
-                    .choose_future(&window)
+                    let response = alert(
+                        YesNoString(
+                            "Cherry pick commit?".to_string(),
+                            format!("{}", oid)
+                        )
+                    ).choose_future(&window)
                     .await;
-                    match response.as_str() {
-                        YES => {
-                            gio::spawn_blocking({
-                                let sender = sender.clone();
-                                let path = path.clone();
-                                move || commit::cherry_pick(path, oid, sender)
-                            })
-                            .await
-                            .unwrap_or_else(|e| {
-                                alert(format!("{:?}", e)).present(&window);
-                                Ok(None)
-                            })
-                            .unwrap_or_else(
-                                |e| {
-                                    alert(e).present(&window);
-                                    None
-                                },
-                            );
-                        }
-                        _ => {
-                        }
+                    if response != YES {
+                        return;
                     }
+                    gio::spawn_blocking({
+                        let sender = sender.clone();
+                        let path = path.clone();
+                        move || commit::cherry_pick(path, oid, sender)
+                    })
+                        .await
+                        .unwrap_or_else(|e| {
+                            alert(format!("{:?}", e)).present(&window);
+                            Ok(None)
+                        })
+                        .unwrap_or_else(
+                            |e| {
+                                alert(e).present(&window);
+                                None
+                            },
+                        );                    
                 }
             });
             // commit::cherry_pick()
