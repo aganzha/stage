@@ -509,15 +509,15 @@ impl ViewContainer for Line {
             match context.under_cursor {
                 UnderCursor::Some {
                     diff_kind: DiffKind::Conflicted,
-                    line_kind: LineKind::Ours,
-                } => {
-                    return active && self.kind == LineKind::Ours;
+                    line_kind: LineKind::Ours(i),
+                } => {                    
+                    return active && self.kind == LineKind::Ours(i);
                 }
                 UnderCursor::Some {
                     diff_kind: DiffKind::Conflicted,
-                    line_kind: LineKind::Theirs,
+                    line_kind: LineKind::Theirs(i),
                 } => {
-                    return active && self.kind == LineKind::Theirs;
+                    return active && self.kind == LineKind::Theirs(i);
                 }
                 UnderCursor::Some {
                     diff_kind: DiffKind::Conflicted,
@@ -535,8 +535,8 @@ impl ViewContainer for Line {
     fn tags(&self) -> Vec<Tag> {
         match self.kind {
             LineKind::ConflictMarker(_) => return vec![Tag::ConflictMarker],
-            LineKind::Ours => return vec![Tag::Ours],
-            LineKind::Theirs => {
+            LineKind::Ours(_) => return vec![Tag::Ours],
+            LineKind::Theirs(_) => {
                 // return Vec::new();
                 return vec![Tag::Theirs];
             }

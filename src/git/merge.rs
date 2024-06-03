@@ -288,7 +288,7 @@ pub fn choose_conflict_side(
 
     for f in diff.files {
         for h in f.hunks {
-            if h.has_conflicts {
+            if h.conflicts_count > 0 {
                 conflicted_headers.insert(h.header);
             }
         }
@@ -410,7 +410,10 @@ pub fn choose_conflict_side_of_hunk(
 
     let mut lines = raw.lines();
     let _first = true;
-    let kind = &line.kind;
+    let ours_choosed = match line.kind {
+        LineKind::Ours(_) => true,
+        _ => false
+    };
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
 
     let mut conflict_offset_inside_hunk: i32 = 0;
@@ -510,7 +513,8 @@ pub fn choose_conflict_side_of_hunk(
                             // this lines are deleted in this diff
                             // lets adjust it
                             if this_is_current_conflict {
-                                if *kind == LineKind::Ours {
+      
+                                if ours_choosed {
                                     // theirs will be deleted
                                     acc.push(line);
                                     acc.push("\n");
@@ -545,7 +549,7 @@ pub fn choose_conflict_side_of_hunk(
                     // OUR lines between <<< and ====
                     // in this diff they are not deleted
                     if this_is_current_conflict {
-                        if *kind == LineKind::Ours {
+                        if ours_choosed {
                             // remain our lines
                             acc.push(line);
                             acc.push("\n");
@@ -682,7 +686,7 @@ pub fn cleanup_last_conflict_for_file(
         .files
         .iter()
         .flat_map(|f| &f.hunks)
-        .any(|h| h.has_conflicts);
+        .any(|h| h.conflicts_count > 0);
     if !has_conflicts {
         // file is clear now
         // stage it!

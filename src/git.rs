@@ -33,15 +33,15 @@ pub fn make_diff_options() -> DiffOptions {
     // not full one. perhaps it need to increate that position
     // to something big. actually it must be larger
     // line count between <<<< and =========
-    opts.interhunk_lines(3);
+    opts.interhunk_lines(10);
     opts
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LineKind {
     None,
-    Ours,
-    Theirs,
+    Ours(i32),
+    Theirs(i32),
     ConflictMarker(String),
 }
 
@@ -68,11 +68,6 @@ impl Line {
             kind: LineKind::None,
         };
     }
-    pub fn hash(&self) -> String {
-        // IT IS NOT ENOUGH! will be "Context" for
-        // empty grey line!
-        format!("{}{:?}", self.content, self.origin)
-    }
 }
 
 pub const MARKER_OURS: &str = "<<<<<<<";
@@ -91,7 +86,7 @@ pub struct Hunk {
     pub lines: Vec<Line>,
     pub max_line_len: i32,
     pub kind: DiffKind,
-    pub has_conflicts: bool,
+    pub conflicts_count: i32,
 }
 
 impl Hunk {
@@ -106,7 +101,7 @@ impl Hunk {
             new_lines: 0,
             max_line_len: 0,
             kind,
-            has_conflicts: false,
+            conflicts_count: 0,
         }
     }
 
@@ -249,9 +244,9 @@ impl Hunk {
 
         match &prefix[..] {
             MARKER_OURS | MARKER_THEIRS | MARKER_VS => {
-                self.has_conflicts = true;
+                self.conflicts_count += 1;
                 line.kind = LineKind::ConflictMarker(String::from(
-                    &line.content[..7],
+                    prefix
                 ));
             }
             _ => {}
@@ -269,21 +264,21 @@ impl Hunk {
                     "sec match. ours after ours MARKER ??????????? {:?}",
                     marker_ours
                 );
-                line.kind = LineKind::Ours
+                line.kind = LineKind::Ours(self.conflicts_count)
             }
-            (LineKind::Ours, LineKind::None) => {
+            (LineKind::Ours(_), LineKind::None) => {
                 trace!("sec match. ours after ours LINE");
-                line.kind = LineKind::Ours
+                line.kind = LineKind::Ours(self.conflicts_count)
             }
             (LineKind::ConflictMarker(marker), LineKind::None)
                 if marker == marker_vs =>
             {
                 trace!("sec match. theirs after vs MARKER");
-                line.kind = LineKind::Theirs
+                line.kind = LineKind::Theirs(self.conflicts_count)
             }
-            (LineKind::Theirs, LineKind::None) => {
+            (LineKind::Theirs(_), LineKind::None) => {
                 trace!("sec match. theirs after theirs LINE");
-                line.kind = LineKind::Theirs
+                line.kind = LineKind::Theirs(self.conflicts_count)
             }
             (LineKind::None, LineKind::None) => {
                 trace!("sec match. contenxt????")
@@ -409,7 +404,7 @@ impl Diff {
         self.files
             .iter()
             .flat_map(|f| &f.hunks)
-            .any(|h| h.has_conflicts)
+            .any(|h| h.conflicts_count > 0)
     }
 }
 
