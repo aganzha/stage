@@ -410,10 +410,7 @@ pub fn choose_conflict_side_of_hunk(
 
     let mut lines = raw.lines();
     let _first = true;
-    let ours_choosed = match line.kind {
-        LineKind::Ours(_) => true,
-        _ => false
-    };
+    let ours_choosed = line.is_our_side_of_conflict();
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
 
     let mut conflict_offset_inside_hunk: i32 = 0;

@@ -1112,11 +1112,9 @@ impl Status {
                         if line.view.current {
                             if hunk.conflicts_count > 0
                                 && (
-                                    match line.kind {
-                                        LineKind::Ours(_) => true,
-                                        LineKind::Theirs(_) => true,
-                                        _ => false
-                                    }
+                                    line.is_our_side_of_conflict()
+                                        ||
+                                        line.is_their_side_of_conflict()
                                 )
                             {
                                 gio::spawn_blocking({
