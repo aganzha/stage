@@ -1,5 +1,5 @@
 mod context;
-use context::{StatusRenderContext, UnderCursor, TextViewWidth};
+use context::{StatusRenderContext, TextViewWidth, UnderCursor};
 
 mod status_view;
 use status_view::{
@@ -8,7 +8,7 @@ use status_view::{
 };
 
 mod branches_view;
-use branches_view::{show_branches_window};
+use branches_view::show_branches_window;
 
 mod log_view;
 use log_view::show_log_window;
@@ -26,18 +26,16 @@ use std::rc::Rc;
 
 mod git;
 use git::{
-    apply_stash, branch, checkout_oid, commit,
-    debug as git_debug, drop_stash, get_current_repo_status, get_directories,
-    reset_hard, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, ApplyFilter, ApplySubject, Diff, DiffKind,
-    File, Head, Hunk, Line, LineKind, StashData, Stashes, State, Untracked,
-    UntrackedFile,
+    apply_stash, branch, checkout_oid, commit, debug as git_debug, drop_stash,
+    get_current_repo_status, get_directories, reset_hard, stage_untracked,
+    stage_via_apply, stash_changes, track_changes, ApplyFilter, ApplySubject,
+    Diff, DiffKind, File, Head, Hunk, Line, LineKind, StashData, Stashes,
+    State, Untracked, UntrackedFile,
 };
 use git2::Oid;
 mod widgets;
 use widgets::{
-    alert, confirm_dialog_factory, merge_dialog_factory, ABORT,
-    OURS, THEIRS,
+    alert, confirm_dialog_factory, merge_dialog_factory, ABORT, OURS, THEIRS,
 };
 
 use gdk::Display;
@@ -50,7 +48,8 @@ use libadwaita::{
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
-    CssProvider, Orientation, ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_APPLICATION,
+    CssProvider, Orientation, ScrolledWindow, Settings,
+    STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
 use log::info;
@@ -225,7 +224,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
 
     let (hb, hb_updater) = headerbar_factory(sender.clone(), settings);
 
-    let text_view_width = Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
+    let text_view_width =
+        Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
     let txt = textview_factory(sender.clone(), text_view_width.clone());
 
     let scroll = ScrolledWindow::builder()
@@ -273,7 +273,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     status.get_status();
     window.present();
 
-    let mut stacked_window: Rc<RefCell<Option<Window>>> = Rc::new(RefCell::new(None));
+    let mut stacked_window: Rc<RefCell<Option<Window>>> =
+        Rc::new(RefCell::new(None));
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
@@ -326,11 +327,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 Event::Commit => {
                     info!("main.commit");
                     if !status.has_staged() {
-                        alert(
-                            String::from(
-                                "No changes were staged. Stage by hitting 's'",
-                            )                            
-                        ).present(&txt);
+                        alert(String::from(
+                            "No changes were staged. Stage by hitting 's'",
+                        ))
+                        .present(&txt);
                         // display_error(
                         //     &window,
                         //     "No changes were staged. Stage by hitting 's'",
@@ -358,14 +358,14 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         &window,
                         sender.clone(),
                     );
-                    w.connect_close_request( {
+                    w.connect_close_request({
                         let stacked_window = stacked_window.clone();
                         move |_| {
                             stacked_window.replace(None);
                             glib::signal::Propagation::Proceed
-                        }});
+                        }
+                    });
                     stacked_window.replace(Some(w));
-                    
                 }
                 Event::Log(ooid, obranch_name) => {
                     info!("main.log");
@@ -373,7 +373,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         show_log_window(
                             status.path.clone().expect("no path"),
                             stacked_window,
-                            obranch_name.unwrap_or("unknown branch".to_string()),
+                            obranch_name
+                                .unwrap_or("unknown branch".to_string()),
                             sender.clone(),
                             ooid,
                         );

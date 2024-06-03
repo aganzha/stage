@@ -1,30 +1,28 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::git::commit;
-use std::collections::HashMap;
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
-use crate::widgets::{alert, YesNoString, YesNoWithVariants, YES, NO};
+use crate::widgets::{alert, YesNoString, YesNoWithVariants, NO, YES};
 use crate::Event;
 use async_channel::Sender;
 use git2::Oid;
 use std::cell::RefCell;
+use std::collections::HashMap;
 
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, EventControllerKey, Label, ScrolledWindow, TextView,
-    Window as Gtk4Window, Button, Widget
+    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow,
+    TextView, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
-use libadwaita::{
-    HeaderBar, ToolbarView, Window,
-};
+use libadwaita::{HeaderBar, ToolbarView, Window};
 use log::{debug, info, trace};
 
 use std::path::PathBuf;
 use std::rc::Rc;
 
 pub fn headerbar_factory(
-    repo_path: PathBuf,    
+    repo_path: PathBuf,
     window: &impl IsA<Widget>,
     sender: Sender<Event>,
     oid: Oid,
@@ -52,36 +50,40 @@ pub fn headerbar_factory(
         move |_btn| {
             glib::spawn_future_local({
                 let sender = sender.clone();
-                let path = path.clone();                
+                let path = path.clone();
                 let window = window.clone();
                 async move {
-                    let response = alert(
-                        YesNoWithVariants {
-                            0: YesNoString{
-                                0:"Cherry pick commit?".to_string(),
-                                1:format!("{}", oid)
-                            },
-                            1: HashMap::from([
-                                ("Do not commit. Only apply changes".to_string(), true)
-                            ])
-                        }).choose_future(&window).await;
+                    let response = alert(YesNoWithVariants {
+                        0: YesNoString {
+                            0: "Cherry pick commit?".to_string(),
+                            1: format!("{}", oid),
+                        },
+                        1: HashMap::from([(
+                            "Do not commit. Only apply changes".to_string(),
+                            true,
+                        )]),
+                    })
+                    .choose_future(&window)
+                    .await;
                     match response.as_str() {
                         YES => {
                             gio::spawn_blocking({
                                 let sender = sender.clone();
                                 let path = path.clone();
-                                move || {
-                                    commit::cherry_pick(path, oid, sender)
-                                }}).await
-                                .unwrap_or_else(|e| {
-                                    alert(format!("{:?}", e)).present(&window);
-                                    Ok(None)
-                                })
-                                .unwrap_or_else(|e| {
+                                move || commit::cherry_pick(path, oid, sender)
+                            })
+                            .await
+                            .unwrap_or_else(|e| {
+                                alert(format!("{:?}", e)).present(&window);
+                                Ok(None)
+                            })
+                            .unwrap_or_else(
+                                |e| {
                                     alert(e).present(&window);
                                     None
-                                });
-                        },
+                                },
+                            );
+                        }
                         _ => {
                             return;
                         }
@@ -89,8 +91,9 @@ pub fn headerbar_factory(
                 }
             });
             // commit::cherry_pick()
-        }});
-    
+        }
+    });
+
     let revert_btn = Button::builder()
         .icon_name("edit-undo-symbolic")
         .can_shrink(true)
@@ -137,9 +140,15 @@ pub fn show_commit_window(
 
     let scroll = ScrolledWindow::new();
 
-    let hb = headerbar_factory(repo_path.clone(), &window.clone(), main_sender.clone(), oid);
+    let hb = headerbar_factory(
+        repo_path.clone(),
+        &window.clone(),
+        main_sender.clone(),
+        oid,
+    );
 
-    let text_view_width = Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
+    let text_view_width =
+        Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
     let txt = crate::textview_factory(sender.clone(), text_view_width.clone());
 
     scroll.set_child(Some(&txt));
@@ -273,7 +282,9 @@ pub fn show_commit_window(
                         d.diff.resize(buffer, &mut Some(&mut ctx));
                         // restore it
                         // TODO! perhaps move it to common render method???
-                        buffer.place_cursor(&buffer.iter_at_offset(cursor_before));
+                        buffer.place_cursor(
+                            &buffer.iter_at_offset(cursor_before),
+                        );
                     }
                 }
                 _ => {

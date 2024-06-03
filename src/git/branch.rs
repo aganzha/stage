@@ -1,4 +1,4 @@
-use crate::commit::{CommitRepr};
+use crate::commit::CommitRepr;
 use crate::get_current_repo_status;
 use crate::git::remote::set_remote_callbacks;
 use async_channel::Sender;
@@ -84,7 +84,9 @@ pub fn get_branches(path: PathBuf) -> Result<Vec<BranchData>, git2::Error> {
     let branches = repo.branches(None)?;
     branches.for_each(|item| {
         let (branch, branch_type) = item.unwrap();
-        if let Ok(Some(branch_data)) = BranchData::from_branch(branch, branch_type) {
+        if let Ok(Some(branch_data)) =
+            BranchData::from_branch(branch, branch_type)
+        {
             result.push(branch_data);
         }
     });
@@ -129,11 +131,11 @@ pub fn checkout_branch(
     //     assert!(head_ref.is_branch());
 
     //     // wtf? when checkout 24.2155 and head is 24.3100
-    //     // SO. here it need to check branch names!!!!!!        
+    //     // SO. here it need to check branch names!!!!!!
     //     // it just skips altogether and returns head. why???
     //     let ob = head_ref.peel(git2::ObjectType::Commit)?;
     //     let commit = ob.peel_to_commit()?;
-        
+
     //     if repo.graph_descendant_of(commit.id(), branch_data.oid)? {
     //         panic!("skip checkout ancestor tree");
     //         let branch = git2::Branch::wrap(head_ref);
@@ -165,7 +167,9 @@ pub fn checkout_branch(
                 )?,
             };
             branch.set_upstream(Some(&branch_data.remote_name()))?;
-            if let Some(new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)? {
+            if let Some(new_branch_data) =
+                BranchData::from_branch(branch, git2::BranchType::Local)?
+            {
                 branch_data = new_branch_data;
             }
         }
@@ -190,9 +194,11 @@ pub fn create_branch(
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(branch_data.oid)?;
     let branch = repo.branch(&new_branch_name, &commit, false)?;
-    if let Some(new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)? {
+    if let Some(new_branch_data) =
+        BranchData::from_branch(branch, git2::BranchType::Local)?
+    {
         if need_checkout {
-            return checkout_branch(path, new_branch_data, sender)
+            return checkout_branch(path, new_branch_data, sender);
         } else {
             return Ok(Some(new_branch_data));
         }

@@ -1,7 +1,7 @@
-use std::path::PathBuf;
+use crate::git::commit::{CommitLog, CommitRelation, CommitRepr};
 use log::{debug, trace};
-use std::collections::{HashSet, HashMap};
-use crate::git::{commit::{CommitLog, CommitRelation, CommitRepr}};
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 
 pub const COMMIT_PAGE_SIZE: usize = 500;
 
@@ -32,7 +32,7 @@ pub fn revwalk(
     };
     let commits = revwalk.scan(
         (HashMap::<git2::Oid, String>::new(), HashMap::<git2::Oid, String>::new()),
-        |(left_commits, right_commits), oid| {      
+        |(left_commits, right_commits), oid| {
             if let Ok(oid) = oid {
                 if let Ok(commit) = repo.find_commit(oid) {
                     trace!("scanning commits {:?} {:?}", oid, commit.dt());

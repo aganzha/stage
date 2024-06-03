@@ -1,22 +1,22 @@
-use crate::git::{git_log, commit};
-use crate::widgets::{alert, YesNoString, YesNoWithVariants, YES, NO};
+use crate::git::{commit, git_log};
+use crate::widgets::{alert, YesNoString, YesNoWithVariants, NO, YES};
 use async_channel::Sender;
-use std::collections::{HashMap, VecDeque};
 use core::time::Duration;
 use git2::Oid;
-use glib::{clone, Object, closure};
+use glib::{clone, closure, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, EventControllerKey, GestureClick, Label, Image,
-    ListItem, ListView, Orientation, PositionType, ScrolledWindow, SearchBar,
-    SearchEntry, SignalListItemFactory, SingleSelection, Widget,
-    Window as Gtk4Window, Button
+    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick,
+    Image, Label, ListItem, ListView, Orientation, PositionType,
+    ScrolledWindow, SearchBar, SearchEntry, SignalListItemFactory,
+    SingleSelection, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
 use log::{debug, info, trace};
 use std::cell::RefCell;
+use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -74,8 +74,12 @@ mod commit_item {
         pub fn get_from(&self) -> String {
             match self.commit.borrow().from {
                 commit::CommitRelation::None => "".to_string(),
-                commit::CommitRelation::Left(_) => "mail-forward-symbolic".to_string(),
-                commit::CommitRelation::Right(_) => "mail-reply-sender-symbolic".to_string(),
+                commit::CommitRelation::Left(_) => {
+                    "mail-forward-symbolic".to_string()
+                }
+                commit::CommitRelation::Right(_) => {
+                    "mail-reply-sender-symbolic".to_string()
+                }
             }
         }
         pub fn get_from_tooltip(&self) -> String {
@@ -199,9 +203,11 @@ impl CommitList {
                 } else {
                     // search pull commits 1 by 1. inc counter
                     // to stop that iteration when page size is reached
-                     // self.imp().search_term.borrow_mut().1 = term_count + 1;
-                     // Some(String::from(term))
-                    self.imp().search_term.replace((term.clone(), term_count + 1));
+                    // self.imp().search_term.borrow_mut().1 = term_count + 1;
+                    // Some(String::from(term))
+                    self.imp()
+                        .search_term
+                        .replace((term.clone(), term_count + 1));
                     Some(term)
                 }
             };
@@ -219,9 +225,8 @@ impl CommitList {
                 let commits = gio::spawn_blocking({
                     let search_term = search_term.clone();
                     let repo_path = repo_path.clone();
-                    move || {
-                        git_log::revwalk(repo_path, start_oid, search_term)
-                    }})
+                    move || git_log::revwalk(repo_path, start_oid, search_term)
+                })
                 .await
                 .unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(&widget);
@@ -237,12 +242,20 @@ impl CommitList {
                 }
                 let mut added = 0;
                 let mut last_added_oid: Option<Oid> = None;
-                for item in commits.into_iter().map(|commit| {
-                    if search_term.is_none() {
-                        commit_list.imp().original_list.borrow_mut().push(commit.clone());
-                    }
-                    commit
-                }).map(CommitItem::new) {
+                for item in commits
+                    .into_iter()
+                    .map(|commit| {
+                        if search_term.is_none() {
+                            commit_list
+                                .imp()
+                                .original_list
+                                .borrow_mut()
+                                .push(commit.clone());
+                        }
+                        commit
+                    })
+                    .map(CommitItem::new)
+                {
                     if append_to_existing {
                         if let Some(oid) = start_oid {
                             if item.imp().commit.borrow().oid == oid {
@@ -266,8 +279,15 @@ impl CommitList {
                     // it need to stop somehow
                     if search_term.is_some() && last_added_oid.is_some() {
                         if term_count < git_log::COMMIT_PAGE_SIZE {
-                            trace!("go next loop with start >>>>>>>>   oid {:?}", last_added_oid);
-                            commit_list.get_commits_inside(repo_path, last_added_oid, &widget);
+                            trace!(
+                                "go next loop with start >>>>>>>>   oid {:?}",
+                                last_added_oid
+                            );
+                            commit_list.get_commits_inside(
+                                repo_path,
+                                last_added_oid,
+                                &widget,
+                            );
                         }
                     }
                 }
@@ -286,12 +306,13 @@ impl CommitList {
         let searched = self.imp().list.take();
         self.items_changed(0, searched.len() as u32, 0);
         self.imp().list.replace(
-            self.imp().original_list
+            self.imp()
+                .original_list
                 .borrow()
                 .iter()
                 .map(|c| c.clone())
                 .map(CommitItem::new)
-                .collect()
+                .collect(),
         );
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
     }
@@ -317,38 +338,46 @@ impl CommitList {
         oid.clone()
     }
 
-    pub fn reset_hard(&self, repo_path: PathBuf, window: &impl IsA<Widget>, sender: Sender<crate::Event>) {
+    pub fn reset_hard(
+        &self,
+        repo_path: PathBuf,
+        window: &impl IsA<Widget>,
+        sender: Sender<crate::Event>,
+    ) {
         let oid = self.get_selected_oid();
         glib::spawn_future_local({
             let window = window.clone();
             let sender = sender.clone();
             let commit_list = self.clone();
             async move {
-                let response = alert(
-                    YesNoString(String::from("reset --hard"), format!("{}", oid))
-                ).choose_future(&window).await;
+                let response = alert(YesNoString(
+                    String::from("reset --hard"),
+                    format!("{}", oid),
+                ))
+                .choose_future(&window)
+                .await;
                 if response != YES {
                     return;
                 }
                 let result = gio::spawn_blocking({
                     let sender = sender.clone();
                     let path = repo_path.clone();
-                    move || {
-                        crate::reset_hard(path, Some(oid), sender)
-                    }}).await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
-                        Ok(false)
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(&window);
-                        false
-                    });
+                    move || crate::reset_hard(path, Some(oid), sender)
+                })
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(false)
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                    false
+                });
                 if result {
-
                     loop {
                         // let original = *commit_list.imp().original_list.borrow_mut();
-                        let first_oid = commit_list.imp().original_list.borrow()[0].oid;
+                        let first_oid =
+                            commit_list.imp().original_list.borrow()[0].oid;
                         commit_list.imp().original_list.borrow_mut().remove(0);
                         if first_oid == oid {
                             break;
@@ -360,8 +389,10 @@ impl CommitList {
                         loop {
                             // let original = *commit_list.imp().original_list.borrow_mut();
                             let first_oid = {
-                                let first_item = &commit_list.imp().list.borrow()[0];
-                                let first_oid = first_item.imp().commit.borrow().oid;
+                                let first_item =
+                                    &commit_list.imp().list.borrow()[0];
+                                let first_oid =
+                                    first_item.imp().commit.borrow().oid;
                                 first_oid
                             };
                             if first_oid == oid {
@@ -641,7 +672,10 @@ pub fn headerbar_factory(
     let title = Label::builder()
         .margin_start(12)
         .use_markup(true)
-        .label(format!("Commits in <span color=\"#4a708b\">{}</span>", branch_name))
+        .label(format!(
+            "Commits in <span color=\"#4a708b\">{}</span>",
+            branch_name
+        ))
         .build();
     let hb = HeaderBar::builder().build();
     hb.set_title_widget(Some(&search));
@@ -666,33 +700,37 @@ pub fn headerbar_factory(
                 let window = window.clone();
                 let oid = commit_list.get_selected_oid();
                 async move {
-                    let response = alert(
-                        YesNoWithVariants {
-                            0: YesNoString{
-                                0:"Cherry pick commit?".to_string(),
-                                1:format!("{}", oid)
-                            },
-                            1: HashMap::from([
-                                ("Do not commit. Only apply changes".to_string(), true)
-                            ])
-                        }).choose_future(&window).await;
+                    let response = alert(YesNoWithVariants {
+                        0: YesNoString {
+                            0: "Cherry pick commit?".to_string(),
+                            1: format!("{}", oid),
+                        },
+                        1: HashMap::from([(
+                            "Do not commit. Only apply changes".to_string(),
+                            true,
+                        )]),
+                    })
+                    .choose_future(&window)
+                    .await;
                     match response.as_str() {
                         YES => {
                             gio::spawn_blocking({
                                 let sender = sender.clone();
                                 let path = path.clone();
-                                move || {
-                                    commit::cherry_pick(path, oid, sender)
-                                }}).await
-                                .unwrap_or_else(|e| {
-                                    alert(format!("{:?}", e)).present(&window);
-                                    Ok(None)
-                                })
-                                .unwrap_or_else(|e| {
+                                move || commit::cherry_pick(path, oid, sender)
+                            })
+                            .await
+                            .unwrap_or_else(|e| {
+                                alert(format!("{:?}", e)).present(&window);
+                                Ok(None)
+                            })
+                            .unwrap_or_else(
+                                |e| {
                                     alert(e).present(&window);
                                     None
-                                });
-                        },
+                                },
+                            );
+                        }
                         _ => {
                             return;
                         }
@@ -700,7 +738,8 @@ pub fn headerbar_factory(
                 }
             });
             // commit::cherry_pick()
-        }});
+        }
+    });
 
     let revert_btn = Button::builder()
         .icon_name("edit-undo-symbolic")
@@ -768,18 +807,20 @@ pub fn show_log_window(
             // because commits pull 1 by 1. it need to reset counter
             let (term, _) = commit_list.imp().search_term.take();
             commit_list.imp().search_term.replace((term, 0));
-            commit_list.get_commits_inside(
-                repo_path.clone(),
-                None,
-                list_view,
-            );
+            commit_list.get_commits_inside(repo_path.clone(), None, list_view);
         }
     });
     scroll.set_child(Some(&list_view));
 
     let tb = ToolbarView::builder().content(&scroll).build();
 
-    let hb = headerbar_factory(&list_view, branch_name, &window, main_sender.clone(), repo_path.clone());
+    let hb = headerbar_factory(
+        &list_view,
+        branch_name,
+        &window,
+        main_sender.clone(),
+        repo_path.clone(),
+    );
 
     tb.add_top_bar(&hb);
     window.set_content(Some(&tb));

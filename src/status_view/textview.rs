@@ -479,10 +479,11 @@ pub fn factory(
                 trace!("replaced screen width {:?}", text_view_width);
                 if stored_width == 0 {
                     // initial render
-                    if let Some(char_width) = view.calc_max_char_width() {                        
-                        if char_width > text_view_width.borrow().chars {                            
+                    if let Some(char_width) = view.calc_max_char_width() {
+                        if char_width > text_view_width.borrow().chars {
                             text_view_width.borrow_mut().chars = char_width;
-                            sndr.send_blocking(crate::Event::TextViewResize).expect("could not sent through channel");
+                            sndr.send_blocking(crate::Event::TextViewResize)
+                                .expect("could not sent through channel");
                         }
                     }
                 } else {
@@ -490,21 +491,38 @@ pub fn factory(
                     // do need to calc char width every time (perhaps changing window by dragging)
                     // only do it once after 30 mills of LAST resize signal
                     // 30 - magic number. 20 is not enough.
-                    glib::source::timeout_add_local(Duration::from_millis(30), {
-                        let text_view_width = text_view_width.clone();
-                        let view = view.clone();
-                        let sndr = sndr.clone();
-                        move || {
-                            if width == text_view_width.borrow().pixels {
-                                if let Some(char_width) = view.calc_max_char_width() {                                    
-                                    if char_width > text_view_width.borrow_mut().chars {
-                                        text_view_width.borrow_mut().chars = char_width;
+                    glib::source::timeout_add_local(
+                        Duration::from_millis(30),
+                        {
+                            let text_view_width = text_view_width.clone();
+                            let view = view.clone();
+                            let sndr = sndr.clone();
+                            move || {
+                                if width == text_view_width.borrow().pixels {
+                                    if let Some(char_width) =
+                                        view.calc_max_char_width()
+                                    {
+                                        if char_width
+                                            > text_view_width
+                                                .borrow_mut()
+                                                .chars
+                                        {
+                                            text_view_width
+                                                .borrow_mut()
+                                                .chars = char_width;
+                                        }
+                                        sndr.send_blocking(
+                                            crate::Event::TextViewResize,
+                                        )
+                                        .expect(
+                                            "could not sent through channel",
+                                        );
                                     }
-                                    sndr.send_blocking(crate::Event::TextViewResize).expect("could not sent through channel");
                                 }
+                                ControlFlow::Break
                             }
-                            ControlFlow::Break
-                        }});
+                        },
+                    );
                 }
             }
             ControlFlow::Continue

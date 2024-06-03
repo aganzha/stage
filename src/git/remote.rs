@@ -1,18 +1,18 @@
-use log::{trace, debug};
-use std::path::PathBuf;
-use async_channel::Sender;
-use std::collections::HashMap;
-use git2;
-use std::rc::Rc;
-use std::cell::RefCell;
 use crate::git::{get_head, get_upstream};
+use async_channel::Sender;
+use git2;
+use log::{debug, trace};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::rc::Rc;
 
 const PLAIN_PASSWORD: &str = "plain text password required";
 
 #[derive(Debug, Default)]
 pub struct RemoteResponse {
     pub body: Option<Vec<String>>,
-    pub error: Option<String>
+    pub error: Option<String>,
 }
 
 pub fn set_remote_callbacks(
@@ -41,7 +41,9 @@ pub fn set_remote_callbacks(
             }
             if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
                 if let Some((user_name, password)) = &user_pass {
-                    return git2::Cred::userpass_plaintext(user_name, password);
+                    return git2::Cred::userpass_plaintext(
+                        user_name, password,
+                    );
                 }
                 return Err(git2::Error::from_str(PLAIN_PASSWORD));
             }
@@ -79,10 +81,7 @@ pub fn set_remote_callbacks(
         let r = response.clone();
         move |response| {
             let str_resp = String::from_utf8_lossy(response).into_owned();
-            debug!(
-                "push.sideband progress {:?}",
-                str_resp
-            );
+            debug!("push.sideband progress {:?}", str_resp);
             let mut rr = r.borrow_mut();
             if let Some(body) = &mut rr.body {
                 body.push(str_resp);
@@ -90,9 +89,10 @@ pub fn set_remote_callbacks(
                 let mut body = Vec::new();
                 body.push(str_resp);
                 rr.body.replace(body);
-            }            
+            }
             true
-        }});
+        }
+    });
 
     callbacks.push_update_reference({
         let r = response.clone();
@@ -166,7 +166,12 @@ pub fn update_remote(
     let mut callbacks = git2::RemoteCallbacks::new();
     set_remote_callbacks(&mut callbacks, &user_pass);
     remote
-        .update_tips(Some(&mut callbacks), true, git2::AutotagOption::Auto, None)
+        .update_tips(
+            Some(&mut callbacks),
+            true,
+            git2::AutotagOption::Auto,
+            None,
+        )
         .expect("cant update");
 
     Ok(())
@@ -178,7 +183,7 @@ pub fn push(
     tracking_remote: bool,
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
-) -> Result<(), RemoteResponse> { 
+) -> Result<(), RemoteResponse> {
     debug!("remote branch {:?}", remote_branch);
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
@@ -231,8 +236,7 @@ pub fn push(
     // 2. - error during response
 
     match &result {
-        Ok(_) => {
-        }
+        Ok(_) => {}
         Err(error) if error.message() == PLAIN_PASSWORD => {
             // asks for password
             sender
@@ -284,7 +288,9 @@ pub fn pull(
         move |updated_ref, oid1, oid2| {
             trace!(
                 "updated local references {:?} {:?} {:?}",
-                updated_ref, oid1, oid2
+                updated_ref,
+                oid1,
+                oid2
             );
             sender
                 .send_blocking(crate::Event::Toast(String::from(updated_ref)))
@@ -356,13 +362,15 @@ pub fn pull(
                 err.class()
             );
             match (err.code(), err.class()) {
-                (git2::ErrorCode::Conflict, git2::ErrorClass::Checkout) => sender
-                    .send_blocking(crate::Event::CheckoutError(
-                        u_oid,
-                        log_message,
-                        String::from(err.message()),
-                    ))
-                    .expect("cant send through channel"),
+                (git2::ErrorCode::Conflict, git2::ErrorClass::Checkout) => {
+                    sender
+                        .send_blocking(crate::Event::CheckoutError(
+                            u_oid,
+                            log_message,
+                            String::from(err.message()),
+                        ))
+                        .expect("cant send through channel")
+                }
                 (code, class) => {
                     panic!("unknown checkout error {:?} {:?}", code, class)
                 }

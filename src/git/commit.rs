@@ -1,10 +1,10 @@
-use crate::git::{make_diff, Diff, DiffKind, branch, Head, get_head, State};
-use gtk4::{gio};
+use crate::git::{branch, get_head, make_diff, Diff, DiffKind, Head, State};
+use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use git2;
+use gtk4::gio;
 use log::debug;
 use std::path::PathBuf;
-use async_channel::Sender;
 
 pub trait CommitRepr {
     fn dt(&self) -> DateTime<FixedOffset>;
@@ -13,7 +13,8 @@ pub trait CommitRepr {
 
 impl CommitRepr for git2::Commit<'_> {
     fn dt(&self) -> DateTime<FixedOffset> {
-        let tz = FixedOffset::east_opt(self.time().offset_minutes() * 60).unwrap();
+        let tz =
+            FixedOffset::east_opt(self.time().offset_minutes() * 60).unwrap();
         match tz.timestamp_opt(self.time().seconds(), 0) {
             LocalResult::Single(dt) => dt,
             LocalResult::Ambiguous(dt, _) => dt,
@@ -25,14 +26,14 @@ impl CommitRepr for git2::Commit<'_> {
         let mut encoded = String::new();
         html_escape::encode_safe_to_string(&message, &mut encoded);
         format!("{} {}", &self.id().to_string()[..7], encoded)
-    }    
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum CommitRelation {
     Right(String),
     Left(String),
-    None
+    None,
 }
 
 #[derive(Debug, Clone)]
@@ -127,7 +128,8 @@ pub fn get_commit_diff(
 }
 
 pub fn get_parents_for_commit(path: PathBuf) -> Vec<git2::Oid> {
-    let mut repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let mut repo =
+        git2::Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
     let id = repo
         .revparse_single("HEAD^{commit}")
@@ -265,8 +267,7 @@ pub fn cherry_pick(
     let state = repo.state();
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
-    let ob = head_ref
-        .peel(git2::ObjectType::Commit)?;
+    let ob = head_ref.peel(git2::ObjectType::Commit)?;
     let commit = ob.peel_to_commit()?;
     let branch = git2::Branch::wrap(head_ref);
     let new_head = Head::new(&branch, &commit);

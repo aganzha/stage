@@ -1,14 +1,13 @@
 pub mod branch;
 pub mod commit;
+pub mod git_log;
 pub mod merge;
 pub mod remote;
-pub mod git_log;
 use crate::branch::BranchData;
-use crate::commit::{CommitRepr};
-use crate::status_view::render::View;
+use crate::commit::CommitRepr;
 use crate::gio;
+use crate::status_view::render::View;
 use async_channel::Sender;
-
 
 use git2::build::CheckoutBuilder;
 use git2::{
@@ -137,7 +136,11 @@ impl Hunk {
     }
 
     // TODO! use it in reconciliation!!!!!!!!!
-    pub fn replace_new_start_and_lines(header: &str, delta: i32, prev_delta: i32) -> String {
+    pub fn replace_new_start_and_lines(
+        header: &str,
+        delta: i32,
+        prev_delta: i32,
+    ) -> String {
         let re = Regex::new(r"@@ [+-][0-9]+,[0-9]+ [+-]([0-9]+),([0-9]+) @@")
             .unwrap();
         if let Some((_, [new_start, new_lines])) =
@@ -145,10 +148,14 @@ impl Hunk {
         {
             let i_new_start: i32 = new_start.parse().expect("cant parse nums");
             let i_new_lines: i32 = new_lines.parse().expect("cant parse nums");
-            
+
             return header.replace(
                 &format!("{},{} @@", i_new_start, i_new_lines),
-                &format!("{},{} @@", i_new_start + prev_delta, i_new_lines + delta)
+                &format!(
+                    "{},{} @@",
+                    i_new_start + prev_delta,
+                    i_new_lines + delta
+                ),
             );
         }
         panic!("cant replace num in header")
@@ -163,13 +170,16 @@ impl Hunk {
             let old_nums: i32 = nums.parse().expect("cant parse nums");
             let new_nums: i32 = old_nums + delta;
 
-            return header.replace(&format!(",{} @@", old_nums), &format!(",{} @@", new_nums));
+            return header.replace(
+                &format!(",{} @@", old_nums),
+                &format!(",{} @@", new_nums),
+            );
         }
         panic!("cant replace num in header")
     }
 
     // THE REGEX IS WRONG! remove .* !!!!!!!!!!!!! for +
-    pub fn reverse_header(header: String) -> String {        
+    pub fn reverse_header(header: String) -> String {
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
         // "@@ -20,10 +24,11 @@ STAGING LINE..." -> "@@ -24,11 +20,10 @@ STAGING LINE..."
         // "@@ -54,7 +59,6 @@ do not call..." -> "@@ -59,6 +54,7 @@ do not call..."
@@ -738,8 +748,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let _res = git_diff.print(
         DiffFormat::Patch,
         |diff_delta, o_diff_hunk, diff_line| {
-            
-            let status = diff_delta.status();            
+            let status = diff_delta.status();
             if status == Delta::Conflicted
                 && (kind == DiffKind::Staged || kind == DiffKind::Unstaged)
             {
@@ -956,7 +965,6 @@ pub fn stage_via_apply(
         .expect("Could not send through channel");
 }
 
-
 #[derive(Debug, Clone)]
 pub struct StashData {
     pub num: usize,
@@ -1063,7 +1071,11 @@ pub fn drop_stash(
     get_stashes(path, sender)
 }
 
-pub fn reset_hard(path: PathBuf, ooid: Option<Oid>, sender: Sender<crate::Event>) -> Result<bool, Error> {
+pub fn reset_hard(
+    path: PathBuf,
+    ooid: Option<Oid>,
+    sender: Sender<crate::Event>,
+) -> Result<bool, Error> {
     let repo = Repository::open(path.clone())?;
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
@@ -1071,10 +1083,9 @@ pub fn reset_hard(path: PathBuf, ooid: Option<Oid>, sender: Sender<crate::Event>
     let ob = if let Some(oid) = ooid {
         repo.find_object(oid, Some(ObjectType::Commit))?
     } else {
-        head_ref
-            .peel(ObjectType::Commit)?
+        head_ref.peel(ObjectType::Commit)?
     };
-    
+
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
@@ -1145,7 +1156,6 @@ pub fn track_changes(
             .expect("Could not send through channel");
     }
 }
-
 
 pub fn checkout_oid(
     path: PathBuf,
