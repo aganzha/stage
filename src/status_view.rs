@@ -703,6 +703,7 @@ impl Status {
                         let sender = sender.clone();
                         let path = self.path.clone();
                         let window = window.clone();
+                        let state = state.state;
                         move |_| {
                             let sender = sender.clone();
                             let path = path.clone();
@@ -711,10 +712,17 @@ impl Status {
                                 async move {
                                     gio::spawn_blocking({
                                         move || {
-                                            merge::commit(
-                                                path.clone().expect("no path"),
-                                                sender,
-                                            )
+                                            if state == RepositoryState::Merge {
+                                                merge::final_merge_commit(
+                                                    path.clone().expect("no path"),
+                                                    sender,
+                                                )
+                                            } else {
+                                                merge::final_cherrypick_commit(
+                                                    path.clone().expect("no path"),
+                                                    sender,
+                                                )
+                                            }
                                         }
                                     })
                                     .await
