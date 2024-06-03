@@ -245,16 +245,16 @@ impl Hunk {
             line.content,
             prev_line_kind
         );
-        if line.content.len() >= 7 {
-            match &line.content[..7] {
-                MARKER_OURS | MARKER_THEIRS | MARKER_VS => {
-                    self.has_conflicts = true;
-                    line.kind = LineKind::ConflictMarker(String::from(
-                        &line.content[..7],
-                    ));
-                }
-                _ => {}
+        let prefix: String = line.content.chars().take(7).collect();
+
+        match &prefix[..] {
+            MARKER_OURS | MARKER_THEIRS | MARKER_VS => {
+                self.has_conflicts = true;
+                line.kind = LineKind::ConflictMarker(String::from(
+                    &line.content[..7],
+                ));
             }
+            _ => {}
         }
 
         let marker_ours = String::from(MARKER_OURS);
