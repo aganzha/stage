@@ -1,6 +1,6 @@
 use crate::git::commit::{CommitLog, CommitRelation, CommitRepr};
-use log::{trace};
-use std::collections::{HashMap};
+use log::trace;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub const COMMIT_PAGE_SIZE: usize = 500;

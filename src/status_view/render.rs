@@ -1,7 +1,7 @@
 use crate::status_view::Tag;
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::{trace};
+use log::trace;
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]

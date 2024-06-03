@@ -7,7 +7,6 @@ use async_channel::Sender;
 use git2::Oid;
 use std::cell::RefCell;
 
-
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
@@ -67,17 +66,15 @@ pub fn headerbar_factory(
                         let path = path.clone();
                         move || commit::cherry_pick(path, oid, sender)
                     })
-                        .await
-                        .unwrap_or_else(|e| {
-                            alert(format!("{:?}", e)).present(&window);
-                            Ok(None)
-                        })
-                        .unwrap_or_else(
-                            |e| {
-                                alert(e).present(&window);
-                                None
-                            },
-                        );
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(None)
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                        None
+                    });
                 }
             });
         }

@@ -19,9 +19,9 @@ use std::rc::Rc;
 use crate::status_view::render::View;
 use crate::{
     checkout_oid, get_current_repo_status, get_directories, git_debug,
-    merge_dialog_factory, stage_untracked, stage_via_apply,
-    stash_changes, track_changes, ApplyFilter, ApplySubject, Diff, Event,
-    Head, Stashes, State, StatusRenderContext, Untracked, ABORT, OURS, THEIRS,
+    merge_dialog_factory, stage_untracked, stage_via_apply, stash_changes,
+    track_changes, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
+    State, StatusRenderContext, Untracked, ABORT, OURS, THEIRS,
 };
 use async_channel::Sender;
 
@@ -308,8 +308,12 @@ impl Status {
     pub fn update_stashes(&mut self, stashes: Stashes) {
         self.stashes.replace(stashes);
     }
-    
-    pub fn reset_hard(&self, _ooid: Option<crate::Oid>, window: &impl IsA<Widget>) {
+
+    pub fn reset_hard(
+        &self,
+        _ooid: Option<crate::Oid>,
+        window: &impl IsA<Widget>,
+    ) {
         glib::spawn_future_local({
             let sender = self.sender.clone();
             let path = self.path.clone().unwrap();
@@ -318,7 +322,9 @@ impl Status {
                 let response = alert(YesNoString(
                     String::from("reset --hard"),
                     String::from("Head"),
-                )).choose_future(&window).await;
+                ))
+                .choose_future(&window)
+                .await;
                 if response != YES {
                     return;
                 }
