@@ -68,6 +68,20 @@ impl Line {
             kind: LineKind::None,
         };
     }
+    pub fn is_our_side_of_conflict(&self) -> bool {
+        match &self.kind {
+            LineKind::Ours(_) => true,
+            LineKind::ConflictMarker(m) if m == &MARKER_OURS.to_string() => true,
+            _ => false
+        }
+    }
+    pub fn is_their_side_of_conflict(&self) -> bool {
+        match &self.kind {
+            LineKind::Theirs(_) => true,
+            LineKind::ConflictMarker(m) if m == &MARKER_THEIRS.to_string() => true,
+            _ => false
+        }
+    }
 }
 
 pub const MARKER_OURS: &str = "<<<<<<<";
