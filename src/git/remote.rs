@@ -86,9 +86,7 @@ pub fn set_remote_callbacks(
             if let Some(body) = &mut rr.body {
                 body.push(str_resp);
             } else {
-                let mut body = Vec::new();
-                body.push(str_resp);
-                rr.body.replace(body);
+                rr.body.replace(vec![str_resp]);
             }
             true
         }

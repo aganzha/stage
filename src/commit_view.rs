@@ -1,12 +1,12 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::git::commit;
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
-use crate::widgets::{alert, YesNoString, YesNoWithVariants, YES};
+use crate::widgets::{alert, YesNoString, YES};
 use crate::Event;
 use async_channel::Sender;
 use git2::Oid;
 use std::cell::RefCell;
-use std::collections::HashMap;
+
 
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
@@ -53,40 +53,33 @@ pub fn headerbar_factory(
                 let path = path.clone();
                 let window = window.clone();
                 async move {
-                    let response = alert(YesNoWithVariants(YesNoString {
-                            0: "Cherry pick commit?".to_string(),
-                            1: format!("{}", oid),
-                        }, HashMap::from([(
-                            "Do not commit. Only apply changes".to_string(),
-                            true,
-                        )])))
+                    let response = alert(YesNoString(
+                        "Cherry pick commit?".to_string(),
+                        format!("{}", oid),
+                    ))
                     .choose_future(&window)
                     .await;
-                    match response.as_str() {
-                        YES => {
-                            gio::spawn_blocking({
-                                let sender = sender.clone();
-                                let path = path.clone();
-                                move || commit::cherry_pick(path, oid, sender)
-                            })
-                            .await
-                            .unwrap_or_else(|e| {
-                                alert(format!("{:?}", e)).present(&window);
-                                Ok(None)
-                            })
-                            .unwrap_or_else(
-                                |e| {
-                                    alert(e).present(&window);
-                                    None
-                                },
-                            );
-                        }
-                        _ => {
-                        }
+                    if response != YES {
+                        return;
                     }
+                    gio::spawn_blocking({
+                        let sender = sender.clone();
+                        let path = path.clone();
+                        move || commit::cherry_pick(path, oid, sender)
+                    })
+                        .await
+                        .unwrap_or_else(|e| {
+                            alert(format!("{:?}", e)).present(&window);
+                            Ok(None)
+                        })
+                        .unwrap_or_else(
+                            |e| {
+                                alert(e).present(&window);
+                                None
+                            },
+                        );
                 }
             });
-            // commit::cherry_pick()
         }
     });
 
