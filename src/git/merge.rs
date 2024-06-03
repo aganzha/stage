@@ -1,7 +1,8 @@
 use crate::git::{
     branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff,
     make_diff_options, BranchData, DiffKind, Head, Hunk, Line, LineKind,
-    State, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS,
+    State, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, PLUS,
+    SPACE, NEW_LINE
 };
 use async_channel::Sender;
 use git2;
@@ -387,12 +388,12 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
             if this_is_current_conflict {
                 // this marker will be deleted
                 acc.push(line);
-                acc.push("\n");
+                acc.push(NEW_LINE);
             } else {
                 // do not delete it for now
-                acc.push(" ");
+                acc.push(SPACE);
                 acc.push(&line[1..]);
-                acc.push("\n");
+                acc.push(NEW_LINE);
                 // delta += 1;
                 let hd = hunk_deltas.last().unwrap();
                 let le = hunk_deltas.len();
@@ -409,12 +410,12 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
                     if this_is_current_conflict {
                         // this marker will be deleted
                         acc.push(line);
-                        acc.push("\n");
+                        acc.push(NEW_LINE);
                     } else {
                         // do not delete it for now
-                        acc.push(" ");
+                        acc.push(SPACE);
                         acc.push(&line[1..]);
-                        acc.push("\n");
+                        acc.push(NEW_LINE);
                         // delta += 1;
                         let hd = hunk_deltas.last().unwrap();
                         let le = hunk_deltas.len();
@@ -433,12 +434,12 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
                             if this_is_current_conflict {
                                 // this marker will be deleted
                                 acc.push(line);
-                                acc.push("\n");
+                                acc.push(NEW_LINE);
                             } else {
                                 // do not delete it for now
                                 acc.push(" ");
                                 acc.push(&line[1..]);
-                                acc.push("\n");
+                                acc.push(NEW_LINE);
                                 // delta += 1;
                                 let hd = hunk_deltas.last().unwrap();
                                 let le = hunk_deltas.len();
@@ -457,12 +458,12 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
                                 if ours_choosed {
                                     // theirs will be deleted
                                     acc.push(line);
-                                    acc.push("\n");
+                                    acc.push(NEW_LINE);
                                 } else {
                                     // do not delete theirs!
-                                    acc.push(" ");
+                                    acc.push(SPACE);
                                     acc.push(&line[1..]);
-                                    acc.push("\n");
+                                    acc.push(NEW_LINE);
                                     // delta += 1;
                                     let hd = hunk_deltas.last().unwrap();
                                     let le = hunk_deltas.len();
@@ -474,10 +475,9 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
                                 }
                             } else {
                                 // do not delete for now
-                                acc.push(" ");
+                                acc.push(SPACE);
                                 acc.push(&line[1..]);
-                                acc.push("\n");
-                                // delta += 1;
+                                acc.push(NEW_LINE);             
                                 let hd = hunk_deltas.last().unwrap();
                                 let le = hunk_deltas.len();
                                 hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
@@ -495,9 +495,9 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
                             acc.push("\n");
                         } else {
                             // delete our lines!
-                            acc.push("-");
+                            acc.push(MINUS);
                             acc.push(&line[1..]);
-                            acc.push("\n");
+                            acc.push(NEW_LINE);
                             let hd = hunk_deltas.last().unwrap();
                             let le = hunk_deltas.len();
                             hunk_deltas[le - 1] = (hd.0, hd.1 - 1);
@@ -509,7 +509,7 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
                     } else {
                         // remain our lines
                         acc.push(line);
-                        acc.push("\n");
+                        acc.push(NEW_LINE);
                     }
                 }
             }
@@ -518,21 +518,36 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
             if !line.is_empty() && line[1..].contains(MARKER_HUNK) {
                 hunk_deltas.push((line, 0));
                 trace!(
-                    "----------->reset oggset for hunk {:?} {:?}",
+                    "----------->reset offset for hunk {:?} {:?}",
                     line_offset_inside_hunk,
                     line
                 );
                 line_offset_inside_hunk = -1;
             } else {
                 trace!(
-                    "increment iffset for line {:?} {:?}",
+                    "increment offset for line {:?} {:?}",
                     line_offset_inside_hunk,
                     line
                 );
                 line_offset_inside_hunk += 1;
             }
-            acc.push(line);
-            acc.push("\n");
+            if !hunk_deltas.is_empty() && line.starts_with("-") {
+                // when 1 hunk have multiple conflicts
+                // perhaps here will be conflicts resolved
+                // in previous turn. They already stripped off
+                // conflicts markers, but their choosen lines
+                // will be marked for deletion (there are no such lines
+                // in tree and the diff is reversed
+                acc.push(SPACE);
+                acc.push(&line[1..]);
+                acc.push(NEW_LINE);
+                let hd = hunk_deltas.last().unwrap();
+                let le = hunk_deltas.len();
+                hunk_deltas[le - 1] = (hd.0, hd.1 + 1);                
+            } else {
+                acc.push(line);
+                acc.push(NEW_LINE);
+            }
         }
     }
     acc.iter().fold("".to_string(), |cur, nxt| cur + nxt)
@@ -583,8 +598,6 @@ pub fn choose_conflict_side_of_hunk(
     let mut options = git2::ApplyOptions::new();
 
     let file_path_clone = file_path.clone();
-    // so, the problem is: there could be multiple conflicts inside
-    // 1 hunk. Both sides must be affected
 
     let mut patch = git2::Patch::from_diff(&git_diff, 0)
         .expect("cant get patch")
@@ -592,6 +605,10 @@ pub fn choose_conflict_side_of_hunk(
     let buff = patch.to_buf().expect("cant get buff");
     let raw = buff.as_str().unwrap();
 
+    for line in raw.lines() {
+        debug!("{}", line);
+    }
+    debug!("+++++++++++++++++++++++++++++++++++++++");
     let ours_choosed = line.is_our_side_of_conflict();
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
 
@@ -616,8 +633,11 @@ pub fn choose_conflict_side_of_hunk(
         },
         ours_choosed
     );
-
     trace!("xxxxxxxxxxxxxxxx deltas {:?}", &hunk_deltas);
+    debug!("+++++++++++++++++++++++++++++++++++++++++++");
+    for line in new_body.lines() {
+        debug!("{}", line);
+    }
 
     // so. not only new lines are changed. new_start are changed also!!!!!!
     // it need to add delta of prev hunk int new start of next hunk!!!!!!!!
@@ -631,13 +651,10 @@ pub fn choose_conflict_side_of_hunk(
         }
         prev_delta = delta;
     }
-    // let new_header = Hunk::replace_new_lines(&reversed_header, delta);
-    // new_body = new_body.replace(&reversed_header, &new_header);
-    // reversed_header = new_header;
 
-    trace!("+++++++++++++++++++++++++++++++++++++++++++");
+    debug!("1+++++++++++++++++++++++++++++++++++++++++++");
     for line in new_body.lines() {
-        trace!("{}", line);
+        debug!("{}", line);
     }
 
     git_diff = git2::Diff::from_buffer(new_body.as_bytes())
