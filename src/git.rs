@@ -88,6 +88,11 @@ pub const MARKER_OURS: &str = "<<<<<<<";
 pub const MARKER_VS: &str = "=======";
 pub const MARKER_THEIRS: &str = ">>>>>>>";
 pub const MARKER_HUNK: &str = "@@";
+pub const PLUS: &str = "+";
+pub const MINUS: &str = "-";
+pub const SPACE: &str = " ";
+pub const NEW_LINE: &str = "\n";
+
 
 #[derive(Debug, Clone)]
 pub struct Hunk {
