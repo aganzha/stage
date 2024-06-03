@@ -437,26 +437,6 @@ impl State {
             view: View::new_markup(),
         }
     }
-    pub fn title_for_proceed_banner(&self) -> String {
-        match self.state {
-            RepositoryState::Merge => format!("All conflicts fixed but you are\
-                                               still merging. Commit to conclude merge branch {}", self.subject),
-            RepositoryState::CherryPick => format!("Commit to finish cherry-pick {}", self.subject),
-            _ => "".to_string()
-        }
-    }
-    pub fn title_for_conflict_banner(&self) -> String {
-        let start = "Got conflicts while";
-        match self.state {
-            RepositoryState::Merge => {
-                format!("{} merging branch {}", start, self.subject)
-            }
-            RepositoryState::CherryPick => {
-                format!("{} cherry picking {}", start, self.subject)
-            }
-            _ => "".to_string(),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
