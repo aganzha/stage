@@ -1,7 +1,7 @@
 use crate::{DiffKind, LineKind};
-use std::rc::Rc;
-use std::cell::RefCell;
 use log::debug;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub enum UnderCursor {
@@ -15,13 +15,13 @@ pub enum UnderCursor {
 #[derive(Debug, Clone)]
 pub struct CursorPos {
     pub line_no: i32,
-    pub offset: i32
+    pub offset: i32,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct TextViewWidth {
     pub pixels: i32,
-    pub chars: i32
+    pub chars: i32,
 }
 
 #[derive(Debug, Clone)]
@@ -34,7 +34,7 @@ pub struct StatusRenderContext {
     pub max_len: Option<i32>,
     pub under_cursor: UnderCursor,
     pub screen_width: Option<Rc<RefCell<TextViewWidth>>>,
-    pub cursor_pos: Option<CursorPos>
+    pub cursor_pos: Option<CursorPos>,
 }
 
 impl Default for StatusRenderContext {
@@ -52,15 +52,15 @@ impl StatusRenderContext {
                 max_len: None,
                 under_cursor: UnderCursor::None,
                 screen_width: None,
-                cursor_pos: None
+                cursor_pos: None,
             }
         }
     }
 
     pub fn update_cursor_pos(&mut self, line_no: i32, offset: i32) {
-        self.cursor_pos.replace(CursorPos{line_no, offset});
+        self.cursor_pos.replace(CursorPos { line_no, offset });
     }
-    
+
     pub fn update_screen_line_width(&mut self, max_line_len: i32) {
         if let Some(sw) = &self.screen_width {
             if sw.borrow().chars < max_line_len {

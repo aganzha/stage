@@ -6,7 +6,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, Button, EventControllerKey, Label, ListBox,
-    ScrolledWindow, SelectionMode, Window as Gtk4Window, Widget
+    ScrolledWindow, SelectionMode, Widget, Window as Gtk4Window,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -24,8 +24,8 @@ use crate::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    ActionRow, EntryRow, HeaderBar, PreferencesRow, SwitchRow, ToolbarStyle,
-    ToolbarView, ApplicationWindow
+    ActionRow, ApplicationWindow, EntryRow, HeaderBar, PreferencesRow,
+    SwitchRow, ToolbarStyle, ToolbarView,
 };
 
 use log::{debug, trace};
@@ -303,7 +303,7 @@ pub fn adopt_stashes(
 }
 
 pub fn factory(
-    window: &ApplicationWindow,//&impl IsA<Gtk4Window>,
+    window: &ApplicationWindow, //&impl IsA<Gtk4Window>,
     status: &Status,
 ) -> (ToolbarView, impl FnOnce()) {
     let scroll = ScrolledWindow::new();

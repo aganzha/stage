@@ -1,7 +1,7 @@
 pub mod container;
 pub mod headerbar;
 pub mod textview;
-use crate::git::{merge, remote, LineKind, commit};
+use crate::git::{commit, merge, remote, LineKind};
 use crate::widgets::alert;
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
@@ -16,14 +16,13 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::{
-    checkout_oid, get_current_repo_status, get_directories,
-    git_debug, merge_dialog_factory, reset_hard, stage_untracked,
-    stage_via_apply, stash_changes, track_changes, ApplyFilter, ApplySubject,
-    Diff, Event, Head, Stashes, State, StatusRenderContext, Untracked,
-    ABORT, OURS, THEIRS,
-};
 use crate::status_view::render::View;
+use crate::{
+    checkout_oid, get_current_repo_status, get_directories, git_debug,
+    merge_dialog_factory, reset_hard, stage_untracked, stage_via_apply,
+    stash_changes, track_changes, ApplyFilter, ApplySubject, Diff, Event,
+    Head, Stashes, State, StatusRenderContext, Untracked, ABORT, OURS, THEIRS,
+};
 use async_channel::Sender;
 
 use gio::{
@@ -138,7 +137,7 @@ impl Status {
 
     pub fn branch_name(&self) -> String {
         if let Some(head) = &self.head {
-            return head.branch.to_string()
+            return head.branch.to_string();
         }
         "".to_string()
     }
@@ -483,10 +482,13 @@ impl Status {
                                     user_pass,
                                 )
                             }
-                        }).await.unwrap_or_else(|e| {
+                        })
+                        .await
+                        .unwrap_or_else(|e| {
                             alert(format!("{:?}", e)).present(&window);
                             Ok(())
-                        }).unwrap_or_else(|e| {
+                        })
+                        .unwrap_or_else(|e| {
                             alert(e).present(&window);
                         });
                     }

@@ -1,17 +1,17 @@
+use crate::git::remote::RemoteResponse;
 use async_channel::Sender;
 use libadwaita::prelude::*;
 use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance, SwitchRow};
 use log::debug;
-use crate::git::remote::RemoteResponse;
 use std::collections::HashMap;
 
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 
 use gtk4::{
-    gio, AlertDialog as GTK4AlertDialog, Widget, Window as Gtk4Window, TextView, ScrolledWindow, ListBox, SelectionMode
+    gio, AlertDialog as GTK4AlertDialog, ListBox, ScrolledWindow,
+    SelectionMode, TextView, Widget, Window as Gtk4Window,
 };
-
 
 pub fn confirm_dialog_factory(
     window: &impl IsA<Gtk4Window>,
@@ -82,20 +82,18 @@ pub fn merge_dialog_factory(
     dialog
 }
 
-
 pub const YES: &str = "yes";
 pub const NO: &str = "no";
 const CLOSE: &str = "close";
 
 pub trait AlertConversation {
-
     fn heading_and_message(&self) -> (String, String);
 
     fn extra_child(&mut self) -> Option<Widget> {
         None
     }
     fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
-        vec!((CLOSE, CLOSE, ResponseAppearance::Destructive))
+        vec![(CLOSE, CLOSE, ResponseAppearance::Destructive)]
     }
 }
 
@@ -110,7 +108,7 @@ impl AlertConversation for git2::Error {
                 self.message()
             ),
         )
-    }    
+    }
 }
 impl AlertConversation for String {
     fn heading_and_message(&self) -> (String, String) {
@@ -137,7 +135,8 @@ impl AlertConversation for RemoteResponse {
                 .build();
             let buffer = txt.buffer();
             let mut iter = buffer.iter_at_offset(0);
-            let body: String = body.iter().fold("".to_string(), |cur, nxt| cur + nxt);
+            let body: String =
+                body.iter().fold("".to_string(), |cur, nxt| cur + nxt);
             buffer.insert(&mut iter, &body);
 
             let scroll = ScrolledWindow::builder()
@@ -148,10 +147,10 @@ impl AlertConversation for RemoteResponse {
                 .min_content_width(800)
                 .min_content_height(600)
                 .build();
-            scroll.set_child(Some(&txt));        
+            scroll.set_child(Some(&txt));
             return Some(scroll.into());
         }
-        None    
+        None
     }
 }
 #[derive(Default, Clone)]
@@ -165,8 +164,10 @@ impl AlertConversation for YesNoString {
         )
     }
     fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
-        vec!((NO, NO, ResponseAppearance::Default),
-             (YES, YES, ResponseAppearance::Destructive))
+        vec![
+            (NO, NO, ResponseAppearance::Default),
+            (YES, YES, ResponseAppearance::Destructive),
+        ]
     }
 }
 
@@ -203,9 +204,9 @@ impl AlertConversation for YesNoWithVariants {
     }
 }
 
-
 pub fn alert<AC>(mut conversation: AC) -> AlertDialog
-    where AC: AlertConversation
+where
+    AC: AlertConversation,
 {
     let (heading, message) = conversation.heading_and_message();
     let mut dialog = AlertDialog::builder()
@@ -217,7 +218,7 @@ pub fn alert<AC>(mut conversation: AC) -> AlertDialog
     if let Some(body) = conversation.extra_child() {
         dialog = dialog.extra_child(&body);
     }
-    let dialog = dialog.build();    
+    let dialog = dialog.build();
     for (id, label, appearance) in conversation.get_response() {
         dialog.add_response(&id, &label);
         dialog.set_response_appearance(&id, appearance);

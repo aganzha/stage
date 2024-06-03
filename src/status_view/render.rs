@@ -1,7 +1,7 @@
 use crate::status_view::Tag;
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::{trace, debug};
+use log::{debug, trace};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
@@ -59,14 +59,15 @@ impl View {
             && !self.squashed
     }
 
-    fn does_not_match_width(&self,
-                            buffer: &TextBuffer,
-                            context: &mut Option<&mut crate::StatusRenderContext>) -> bool {
-
+    fn does_not_match_width(
+        &self,
+        buffer: &TextBuffer,
+        context: &mut Option<&mut crate::StatusRenderContext>,
+    ) -> bool {
         if let Some(ctx) = context {
             if let Some(width) = &ctx.screen_width {
                 let chars = width.borrow().chars;
-                if chars >  0 {
+                if chars > 0 {
                     let (start, end) = self.start_end_iters(buffer);
                     let len = buffer.slice(&start, &end, true).len() as i32;
                     if chars - 1 > len {

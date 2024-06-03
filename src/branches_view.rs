@@ -1,6 +1,6 @@
 use async_channel::Sender;
 
-use crate::git::{branch, merge, remote, commit};
+use crate::git::{branch, commit, merge, remote};
 use crate::widgets::alert;
 use git2::BranchType;
 use glib::{clone, closure, Object};
@@ -179,13 +179,13 @@ impl BranchList {
         let orig_le = self.imp().list.take().len();
         self.items_changed(0, orig_le as u32, 0);
         self.imp().list.replace(
-            self.imp().original_list.borrow()
+            self.imp()
+                .original_list
+                .borrow()
                 .iter()
-                .filter(|bd| {
-                    bd.name.contains(&term)
-                })
+                .filter(|bd| bd.name.contains(&term))
                 .map(BranchItem::new)
-                .collect()
+                .collect(),
         );
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
     }
@@ -260,14 +260,21 @@ impl BranchList {
 
     pub fn update_head_branch(&self, branch_data: branch::BranchData) {
         // replace original head branch
-        let new_original_list = self.imp().original_list.borrow().clone().into_iter().map(|mut bd| {
-            if bd.name == branch_data.name {
-                branch_data.clone()
-            } else {
-                bd.is_head = false;
-                bd
-            }
-        }).collect();
+        let new_original_list = self
+            .imp()
+            .original_list
+            .borrow()
+            .clone()
+            .into_iter()
+            .map(|mut bd| {
+                if bd.name == branch_data.name {
+                    branch_data.clone()
+                } else {
+                    bd.is_head = false;
+                    bd
+                }
+            })
+            .collect();
         self.imp().original_list.replace(new_original_list);
         self.imp().list.borrow().iter().for_each(|bi| {
             if bi.imp().branch.borrow().name == branch_data.name {
@@ -292,11 +299,15 @@ impl BranchList {
     }
 
     pub fn get_head_branch(&self) -> Option<branch::BranchData> {
-        if let Some(head_branch) = self.imp().original_list.borrow()
+        if let Some(head_branch) = self
+            .imp()
+            .original_list
+            .borrow()
             .iter()
-            .max_by_key(|i| i.is_head) {
-                return Some(head_branch.clone());
-            }
+            .max_by_key(|i| i.is_head)
+        {
+            return Some(head_branch.clone());
+        }
         None
     }
 
@@ -424,7 +435,7 @@ impl BranchList {
                 if result.is_none() {
                     return
                 }
-                
+
                 // put borrow in block
                 branch_list.imp().list.borrow_mut().remove(pos as usize);
                 branch_list.imp().original_list.borrow_mut().retain(|bd| {
@@ -432,7 +443,7 @@ impl BranchList {
                 });
 
                 // --------------------------- very strange piece
-                
+
                 let shifted_item = branch_list.item(pos);
                 debug!("branches. removed item at pos {:?}", pos);
                 let mut new_pos = pos;
@@ -547,16 +558,22 @@ impl BranchList {
     }
 
     fn add_new_branch_item(&self, branch_data: branch::BranchData) {
-        debug!("add_new_branch_item {:?} {:?}", branch_data.is_head, branch_data.name);
-        self.imp().original_list.borrow_mut().insert(0, branch_data.clone());
-        debug!("inserted in original list!");
-        self.imp().list.borrow_mut().insert(
-            0,
-            BranchItem::new(&self.imp().original_list.borrow()[0])
+        debug!(
+            "add_new_branch_item {:?} {:?}",
+            branch_data.is_head, branch_data.name
         );
+        self.imp()
+            .original_list
+            .borrow_mut()
+            .insert(0, branch_data.clone());
+        debug!("inserted in original list!");
+        self.imp()
+            .list
+            .borrow_mut()
+            .insert(0, BranchItem::new(&self.imp().original_list.borrow()[0]));
         debug!("inserted in list");
         self.update_head_branch(branch_data);
-        debug!("updated head branch");        
+        debug!("updated head branch");
         self.items_changed(0, 0, 1);
         debug!("items changed");
         // works via bind to single_selection selected ?????
@@ -739,7 +756,7 @@ pub fn item_factory() -> SignalListItemFactory {
 pub fn listview_factory(
     repo_path: PathBuf,
     sender: Sender<crate::Event>,
-    window: &Window
+    window: &Window,
 ) -> ListView {
     let header_factory = header_factory();
     let factory = item_factory();
@@ -1003,7 +1020,8 @@ pub fn show_branches_window(
 
     let scroll = ScrolledWindow::new();
 
-    let list_view = listview_factory(repo_path.clone(), main_sender.clone(), &window);
+    let list_view =
+        listview_factory(repo_path.clone(), main_sender.clone(), &window);
 
     let hb = headerbar_factory(
         repo_path.clone(),
@@ -1140,7 +1158,10 @@ pub fn show_branches_window(
                             branches_in_use(&list_view);
                         let oid = selected_branch.oid;
                         main_sender
-                            .send_blocking(crate::Event::Log(Some(oid), Some(selected_branch.name)))
+                            .send_blocking(crate::Event::Log(
+                                Some(oid),
+                                Some(selected_branch.name),
+                            ))
                             .expect("cant send through sender");
                     }
                     Event::CherryPickRequest => {

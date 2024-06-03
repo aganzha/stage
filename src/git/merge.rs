@@ -1,14 +1,14 @@
 use crate::git::{
-    get_conflicted_v1, get_current_repo_status, make_diff, BranchData,
-    make_diff_options,
-    DiffKind, Head, Hunk, Line, LineKind, State, MARKER_OURS, MARKER_VS, MARKER_THEIRS, MARKER_HUNK
+    get_conflicted_v1, get_current_repo_status, make_diff, make_diff_options,
+    BranchData, DiffKind, Head, Hunk, Line, LineKind, State, MARKER_HUNK,
+    MARKER_OURS, MARKER_THEIRS, MARKER_VS,
 };
 use async_channel::Sender;
 use git2;
 use gtk4::gio;
 use log::{debug, info, trace};
 use std::{
-    collections::{HashSet, HashMap},
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     str::from_utf8,
 };
@@ -94,8 +94,7 @@ pub fn branch(
 ) -> Result<Option<BranchData>, git2::Error> {
     info!("merging {:?}", branch_data.name);
     let repo = git2::Repository::open(path.clone())?;
-    let annotated_commit = repo
-        .find_annotated_commit(branch_data.oid)?;
+    let annotated_commit = repo.find_annotated_commit(branch_data.oid)?;
 
     match repo.merge_analysis(&[&annotated_commit]) {
         Ok((analysis, _)) if analysis.is_up_to_date() => {
@@ -107,8 +106,10 @@ pub fn branch(
                 && !preference.is_no_fast_forward() =>
         {
             info!("merge.fastforward");
-            let ob = repo
-                .find_object(branch_data.oid, Some(git2::ObjectType::Commit))?;
+            let ob = repo.find_object(
+                branch_data.oid,
+                Some(git2::ObjectType::Commit),
+            )?;
             repo.checkout_tree(
                 &ob,
                 Some(git2::build::CheckoutBuilder::new().safe()),
@@ -149,8 +150,7 @@ pub fn branch(
     let state = repo.state();
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
-    let ob = head_ref
-        .peel(git2::ObjectType::Commit)?;
+    let ob = head_ref.peel(git2::ObjectType::Commit)?;
     let commit = ob.peel_to_commit()?;
     let branch = git2::Branch::wrap(head_ref);
     let new_head = Head::new(&branch, &commit);
@@ -331,7 +331,10 @@ pub fn choose_conflict_side_of_hunk(
     line: Line,
     sender: Sender<crate::Event>,
 ) {
-    info!("choose_conflict_side_of_hunk {:?} Line: {:?}", hunk.header, line.content);
+    info!(
+        "choose_conflict_side_of_hunk {:?} Line: {:?}",
+        hunk.header, line.content
+    );
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let mut index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
@@ -356,7 +359,6 @@ pub fn choose_conflict_side_of_hunk(
     let mut opts = make_diff_options();
     let mut opts = opts.pathspec(&file_path).reverse(true);
 
-
     let mut git_diff = repo
         .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
@@ -369,7 +371,9 @@ pub fn choose_conflict_side_of_hunk(
     // so, the problem is: there could be multiple conflicts inside
     // 1 hunk. Both sides must be affected
 
-    let mut patch = git2::Patch::from_diff(&git_diff, 0).expect("cant get patch").unwrap();
+    let mut patch = git2::Patch::from_diff(&git_diff, 0)
+        .expect("cant get patch")
+        .unwrap();
     let buff = patch.to_buf().expect("cant get buff");
 
     let raw = buff.as_str().unwrap();
@@ -377,7 +381,6 @@ pub fn choose_conflict_side_of_hunk(
     for line in raw.lines() {
         trace!("{}", line);
     }
-
 
     let mut acc = Vec::new();
 
@@ -387,7 +390,7 @@ pub fn choose_conflict_side_of_hunk(
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
 
     let mut conflict_offset_inside_hunk: i32 = 0;
-    for (i,l) in hunk.lines.iter().enumerate() {
+    for (i, l) in hunk.lines.iter().enumerate() {
         if l.content.starts_with(MARKER_OURS) {
             conflict_offset_inside_hunk = i as i32;
         }
@@ -404,11 +407,16 @@ pub fn choose_conflict_side_of_hunk(
             line_offset_inside_hunk += 1;
             let mut this_is_current_conflict = false;
             if conflict_offset_inside_hunk == line_offset_inside_hunk
-                &&
-                hunk_deltas.last().unwrap().0 == reversed_header {
-                    trace!("look for offset {:?}, this offset {:?} for line {:?}", conflict_offset_inside_hunk, line_offset_inside_hunk, line);
-                    this_is_current_conflict = true;
-                }
+                && hunk_deltas.last().unwrap().0 == reversed_header
+            {
+                trace!(
+                    "look for offset {:?}, this offset {:?} for line {:?}",
+                    conflict_offset_inside_hunk,
+                    line_offset_inside_hunk,
+                    line
+                );
+                this_is_current_conflict = true;
+            }
             if this_is_current_conflict {
                 // this marker will be deleted
                 acc.push(line);
@@ -421,8 +429,11 @@ pub fn choose_conflict_side_of_hunk(
                 // delta += 1;
                 let hd = hunk_deltas.last().unwrap();
                 let le = hunk_deltas.len();
-                hunk_deltas[le -1] = (hd.0, hd.1 + 1);
-                trace!("......remain marker ours when not found {:?}", hunk_deltas);
+                hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
+                trace!(
+                    "......remain marker ours when not found {:?}",
+                    hunk_deltas
+                );
             }
             // go deeper inside OURS
             'ours: while let Some(line) = lines.next() {
@@ -440,13 +451,18 @@ pub fn choose_conflict_side_of_hunk(
                         // delta += 1;
                         let hd = hunk_deltas.last().unwrap();
                         let le = hunk_deltas.len();
-                        hunk_deltas[le -1] = (hd.0, hd.1 + 1);
-                        trace!("......remain marker vs when not found {:?}", hunk_deltas);
+                        hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
+                        trace!(
+                            "......remain marker vs when not found {:?}",
+                            hunk_deltas
+                        );
                     }
                     // go deeper inside THEIRS
-                    while let Some(line) =  lines.next() {
+                    while let Some(line) = lines.next() {
                         line_offset_inside_hunk += 1;
-                        if !line.is_empty() && line[1..].starts_with(MARKER_THEIRS) {
+                        if !line.is_empty()
+                            && line[1..].starts_with(MARKER_THEIRS)
+                        {
                             if this_is_current_conflict {
                                 // this marker will be deleted
                                 acc.push(line);
@@ -459,7 +475,7 @@ pub fn choose_conflict_side_of_hunk(
                                 // delta += 1;
                                 let hd = hunk_deltas.last().unwrap();
                                 let le = hunk_deltas.len();
-                                hunk_deltas[le -1] = (hd.0, hd.1 + 1);
+                                hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
                                 trace!("......remain marker theirs when not found {:?}", hunk_deltas);
                             }
                             // conflict is over
@@ -482,8 +498,11 @@ pub fn choose_conflict_side_of_hunk(
                                     // delta += 1;
                                     let hd = hunk_deltas.last().unwrap();
                                     let le = hunk_deltas.len();
-                                    hunk_deltas[le -1] = (hd.0, hd.1 + 1);
-                                    trace!("......remain theirs in found {:?}", hunk_deltas);
+                                    hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
+                                    trace!(
+                                        "......remain theirs in found {:?}",
+                                        hunk_deltas
+                                    );
                                 }
                             } else {
                                 // do not delete for now
@@ -493,7 +512,7 @@ pub fn choose_conflict_side_of_hunk(
                                 // delta += 1;
                                 let hd = hunk_deltas.last().unwrap();
                                 let le = hunk_deltas.len();
-                                hunk_deltas[le -1] = (hd.0, hd.1 + 1);
+                                hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
                                 trace!("......remain theirs when not in found {:?}", hunk_deltas);
                             }
                         }
@@ -513,8 +532,11 @@ pub fn choose_conflict_side_of_hunk(
                             acc.push("\n");
                             let hd = hunk_deltas.last().unwrap();
                             let le = hunk_deltas.len();
-                            hunk_deltas[le -1] = (hd.0, hd.1 - 1);
-                            trace!("......delete ours in found {:?}", hunk_deltas);
+                            hunk_deltas[le - 1] = (hd.0, hd.1 - 1);
+                            trace!(
+                                "......delete ours in found {:?}",
+                                hunk_deltas
+                            );
                         }
                     } else {
                         // remain our lines
@@ -527,10 +549,18 @@ pub fn choose_conflict_side_of_hunk(
             // line not belonging to conflict
             if !line.is_empty() && line[1..].contains(MARKER_HUNK) {
                 hunk_deltas.push((line, 0));
-                trace!("----------->reset oggset for hunk {:?} {:?}", line_offset_inside_hunk, line);
+                trace!(
+                    "----------->reset oggset for hunk {:?} {:?}",
+                    line_offset_inside_hunk,
+                    line
+                );
                 line_offset_inside_hunk = -1;
             } else {
-                trace!("increment iffset for line {:?} {:?}", line_offset_inside_hunk, line);
+                trace!(
+                    "increment iffset for line {:?} {:?}",
+                    line_offset_inside_hunk,
+                    line
+                );
                 line_offset_inside_hunk += 1;
             }
             acc.push(line);
@@ -546,7 +576,8 @@ pub fn choose_conflict_side_of_hunk(
     // it need to add delta of prev hunk int new start of next hunk!!!!!!!!
     let mut prev_delta = 0;
     for (hh, delta) in hunk_deltas {
-        let new_header = Hunk::replace_new_start_and_lines(hh, delta, prev_delta);        
+        let new_header =
+            Hunk::replace_new_start_and_lines(hh, delta, prev_delta);
         new_body = new_body.replace(hh, &new_header);
         if hh == reversed_header {
             reversed_header = new_header;
@@ -557,13 +588,13 @@ pub fn choose_conflict_side_of_hunk(
     // new_body = new_body.replace(&reversed_header, &new_header);
     // reversed_header = new_header;
 
-
     trace!("+++++++++++++++++++++++++++++++++++++++++++");
     for line in new_body.lines() {
         trace!("{}", line);
     }
 
-    git_diff = git2::Diff::from_buffer(new_body.as_bytes()).expect("cant create diff");
+    git_diff = git2::Diff::from_buffer(new_body.as_bytes())
+        .expect("cant create diff");
 
     options.hunk_callback(|odh| -> bool {
         if let Some(dh) = odh {
@@ -584,7 +615,8 @@ pub fn choose_conflict_side_of_hunk(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 
-    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options)).expect("cant apply");
+    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))
+        .expect("cant apply");
 
     sender
         .send_blocking(crate::Event::LockMonitors(false))
@@ -611,7 +643,6 @@ pub fn choose_conflict_side_of_hunk(
     index.write().expect("cant write index");
 
     cleanup_last_conflict_for_file(path, file_path_clone, sender);
-
 }
 
 pub fn cleanup_last_conflict_for_file(

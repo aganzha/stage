@@ -1,6 +1,6 @@
+use crate::status_view::render::View;
 use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::{Diff, DiffKind, File, Hunk, Line, LineKind};
-use crate::status_view::render::View;
 use git2::DiffLineType;
 use gtk4::prelude::*;
 use gtk4::TextBuffer;
@@ -57,10 +57,7 @@ fn create_diff() -> Diff {
     diff
 }
 
-pub fn mock_render_view(
-    vc: &mut dyn ViewContainer,
-    mut line_no: i32,
-) -> i32 {
+pub fn mock_render_view(vc: &mut dyn ViewContainer, mut line_no: i32) -> i32 {
     let view = vc.get_view();
     view.line_no = line_no;
     view.rendered = true;
@@ -319,8 +316,7 @@ fn test_expand_line() {
     diff.files[0].expand(1);
     diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
 
-    let content =
-        buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
+    let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
     let content_lines = content.split('\n');
 
     for (i, cl) in content_lines.enumerate() {
@@ -345,8 +341,7 @@ fn test_expand_line() {
     diff.files[0].expand(line_of_line);
     diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
 
-    let content =
-        buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
+    let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
     let content_lines = content.split('\n');
     // ensure that hunk1 is collapsed eg hunk2 follows hunk1 (no lines between)
     let hunk1_content = diff.files[0].hunks[0].get_content();
@@ -370,12 +365,15 @@ fn test_reconciliation() {
     let buffer = TextBuffer::new(None);
     let mut iter = buffer.iter_at_line(0).unwrap();
     //buffer.insert(&mut iter, "begin\n");
-    
+
     let name = "Line 1";
     let mut hunk = create_hunk(name);
 
     hunk.render(&buffer, &mut iter, &mut Some(&mut context));
-    debug!("wtf????????????????????????????? {:?}", hunk.view.is_rendered_in(0));
+    debug!(
+        "wtf????????????????????????????? {:?}",
+        hunk.view.is_rendered_in(0)
+    );
     debug!("LLLLLLLLLLLLLLLLines AFTER FIRST RENDER");
     for line in &hunk.lines {
         dbg!(&line.view);
@@ -389,18 +387,17 @@ fn test_reconciliation() {
     }
     let mut iter = buffer.iter_at_line(0).unwrap();
     dbg!("before second RENDER");
-    
+
     dbg!(&hunk.view);
     hunk.render(&buffer, &mut iter, &mut Some(&mut context));
     dbg!("AFTER second RENDER");
-    dbg!(&hunk.view);    
+    dbg!(&hunk.view);
     debug!("LLLLLLLLLLLLLLLLines after expansion");
     for line in &hunk.lines {
         dbg!(&line.view);
         // assert!(&line.view.rendered);
-    }    
-    let content =
-        buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
+    }
+    let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
     let mut new_hunk = create_hunk(name);
     new_hunk.enrich_view(&mut hunk, &buffer, &mut Some(&mut context));
 
@@ -409,6 +406,4 @@ fn test_reconciliation() {
         dbg!(&line.view);
     }
     // new_hunk.enrich_view()
-    
 }
-
