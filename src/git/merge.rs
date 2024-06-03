@@ -348,97 +348,40 @@ impl PathHolder for git2::IndexConflict {
     }
 }
 
-pub fn choose_conflict_side_of_hunk(
-    path: PathBuf,
-    file_path: PathBuf,
-    hunk: Hunk,
-    line: Line,
-    sender: Sender<crate::Event>,
-) {
-    info!(
-        "choose_conflict_side_of_hunk {:?} Line: {:?}",
-        hunk.header, line.content
-    );
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
-    let mut index = repo.index().expect("cant get index");
-    let conflicts = index.conflicts().expect("no conflicts");
 
-    // let mut current_conflict: git2::IndexConflict;
-
-    let chosen_path = PathBuf::from(&file_path);
-
-    let current_conflict = conflicts
-        .filter(|c| c.as_ref().unwrap().get_path() == chosen_path)
-        .next()
-        .unwrap()
-        .unwrap();
-
-    index
-        .remove_path(chosen_path.as_path())
-        .expect("cant remove path");
-
-    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
-
-    let mut opts = make_diff_options();
-    let mut opts = opts.pathspec(&file_path).reverse(true);
-
-    let mut git_diff = repo
-        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
-        .expect("cant get diff");
-
-    let mut reversed_header = Hunk::reverse_header(hunk.header);
-
-    let mut options = git2::ApplyOptions::new();
-
-    let file_path_clone = file_path.clone();
-    // so, the problem is: there could be multiple conflicts inside
-    // 1 hunk. Both sides must be affected
-
-    let mut patch = git2::Patch::from_diff(&git_diff, 0)
-        .expect("cant get patch")
-        .unwrap();
-    let buff = patch.to_buf().expect("cant get buff");
-
-    let raw = buff.as_str().unwrap();
-    trace!("*************************************");
-    for line in raw.lines() {
-        trace!("{}", line);
-    }
+pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
+                                           hunk_deltas: &mut Vec<(&'a str, i32)>,
+                                           predicate: F,
+                                           ours_choosed: bool) -> String
+    where F: Fn(i32, &str) -> bool
+{
+    // this handles all hunks, not just selected one
+    // trace!("*************************************");
+    // for line in raw.lines() {
+    //     trace!("{}", line);
+    // }
 
     let mut acc = Vec::new();
 
     let mut lines = raw.lines();
-    let _first = true;
-    let ours_choosed = line.is_our_side_of_conflict();
-    let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
 
-    let mut conflict_offset_inside_hunk: i32 = 0;
-    for (i, l) in hunk.lines.iter().enumerate() {
-        if l.content.starts_with(MARKER_OURS) {
-            conflict_offset_inside_hunk = i as i32;
-        }
-        if l == &line {
-            break;
-        }
-    }
     let mut line_offset_inside_hunk: i32 = -1; // first line in hunk will be 0
 
-    // this handles all hunks, not just selected one
     while let Some(line) = lines.next() {
         if !line.is_empty() && line[1..].starts_with(MARKER_OURS) {
             // is it marker that we need?
             line_offset_inside_hunk += 1;
             let mut this_is_current_conflict = false;
-            if conflict_offset_inside_hunk == line_offset_inside_hunk
-                && hunk_deltas.last().unwrap().0 == reversed_header
+            // if conflict_offset_inside_hunk == line_offset_inside_hunk
+            //     && hunk_deltas.last().unwrap().0 == reversed_header
+            if predicate(line_offset_inside_hunk, hunk_deltas.last().unwrap().0)
             {
-                trace!(
-                    "look for offset {:?}, this offset {:?} for line {:?}",
-                    conflict_offset_inside_hunk,
-                    line_offset_inside_hunk,
-                    line
-                );
+                // trace!(
+                //     "look for offset {:?}, this offset {:?} for line {:?}",
+                //     conflict_offset_inside_hunk,
+                //     line_offset_inside_hunk,
+                //     line
+                // );
                 this_is_current_conflict = true;
             }
             if this_is_current_conflict {
@@ -592,8 +535,87 @@ pub fn choose_conflict_side_of_hunk(
             acc.push("\n");
         }
     }
+    acc.iter().fold("".to_string(), |cur, nxt| cur + nxt)
+}
 
-    let mut new_body = acc.iter().fold("".to_string(), |cur, nxt| cur + nxt);
+
+pub fn choose_conflict_side_of_hunk(
+    path: PathBuf,
+    file_path: PathBuf,
+    hunk: Hunk,
+    line: Line,
+    sender: Sender<crate::Event>,
+) {
+    info!(
+        "choose_conflict_side_of_hunk {:?} Line: {:?}",
+        hunk.header, line.content
+    );
+    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let mut index = repo.index().expect("cant get index");
+    let conflicts = index.conflicts().expect("no conflicts");
+
+    // let mut current_conflict: git2::IndexConflict;
+
+    let chosen_path = PathBuf::from(&file_path);
+
+    let current_conflict = conflicts
+        .filter(|c| c.as_ref().unwrap().get_path() == chosen_path)
+        .next()
+        .unwrap()
+        .unwrap();
+
+    index
+        .remove_path(chosen_path.as_path())
+        .expect("cant remove path");
+
+    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+
+    let mut opts = make_diff_options();
+    let mut opts = opts.pathspec(&file_path).reverse(true);
+
+    let mut git_diff = repo
+        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
+        .expect("cant get diff");
+
+    let mut reversed_header = Hunk::reverse_header(hunk.header);
+
+    let mut options = git2::ApplyOptions::new();
+
+    let file_path_clone = file_path.clone();
+    // so, the problem is: there could be multiple conflicts inside
+    // 1 hunk. Both sides must be affected
+
+    let mut patch = git2::Patch::from_diff(&git_diff, 0)
+        .expect("cant get patch")
+        .unwrap();
+    let buff = patch.to_buf().expect("cant get buff");
+    let raw = buff.as_str().unwrap();
+
+    let ours_choosed = line.is_our_side_of_conflict();
+    let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
+
+
+    let mut conflict_offset_inside_hunk: i32 = 0;
+    for (i, l) in hunk.lines.iter().enumerate() {
+        if l.content.starts_with(MARKER_OURS) {
+            conflict_offset_inside_hunk = i as i32;
+        }
+        if l == &line {
+            break;
+        }
+    }
+    
+    let mut new_body = choose_conflict_side_of_blob(
+        raw,
+        &mut hunk_deltas,
+        |line_offset_inside_hunk, hunk_header| {
+            line_offset_inside_hunk == conflict_offset_inside_hunk
+                &&
+                hunk_header == reversed_header
+        },
+        ours_choosed
+    );
 
     trace!("xxxxxxxxxxxxxxxx deltas {:?}", &hunk_deltas);
 
