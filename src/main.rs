@@ -509,7 +509,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     );
                 }
                 Event::ResetHard(ooid) => {
-                    info!("main. reset hard");
+                    info!("main. reset hard");                    
                     status.reset_hard(ooid, &window);
                 }
                 Event::Refresh => {

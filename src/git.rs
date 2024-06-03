@@ -416,19 +416,30 @@ impl Diff {
 #[derive(Debug, Clone)]
 pub struct State {
     pub state: RepositoryState,
+    pub subject: String,
     pub view: View,
 }
 
 impl State {
-    pub fn new(state: RepositoryState) -> Self {
-        let mut view = View::new_markup();
-        if state == RepositoryState::Clean {
-            view.squashed = true;
-        }
-        Self { state, view }
+    pub fn new(state: RepositoryState, subject: String) -> Self {
+        Self { state, subject, view: View::new_markup() }
     }
-    pub fn is_merging(&self) -> bool {
-        self.state == RepositoryState::Merge
+    pub fn title_for_proceed_banner(&self) -> String {
+        match self.state {
+            RepositoryState::Merge => format!("All conflicts fixed but you are\
+                                               still merging. Commit to conclude merge branch {}", self.subject),
+            RepositoryState::CherryPick => format!("All conflicts fixed but you are \
+                                                    still merging. Commit to finish cherry-pick {}", self.subject),
+            _ => "".to_string()
+        }
+    }
+    pub fn title_for_conflict_banner(&self) -> String {
+        let start = "Got conflicts while";
+        match self.state {
+            RepositoryState::Merge => format!("{} merging branch {}", start, self.subject),
+            RepositoryState::CherryPick => format!("{} cherry picking {}", start, self.subject),
+            _ => "".to_string()
+        }
     }
 }
 
@@ -515,7 +526,7 @@ pub fn get_current_repo_status(
         .expect("Could not send through channel");
 
     sender
-        .send_blocking(crate::Event::State(State::new(repo.state())))
+        .send_blocking(crate::Event::State(State::new(repo.state(), "what is my status?".to_string())))
         .expect("Could not send through channel");
 
     // get HEAD

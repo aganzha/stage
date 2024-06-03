@@ -1,6 +1,7 @@
 pub mod container;
 pub mod headerbar;
 pub mod textview;
+use git2::{RepositoryState};
 use crate::git::{commit, merge, remote, LineKind};
 use crate::widgets::{alert, YesNoString, YES};
 use container::{ViewContainer, ViewKind};
@@ -320,8 +321,8 @@ impl Status {
             let window = window.clone();
             async move {
                 let response = alert(YesNoString(
-                    String::from("reset --hard"),
-                    String::from("Head"),
+                    String::from("Reset"),
+                    String::from("Reset --hard to Head"),
                 ))
                 .choose_future(&window)
                 .await;
@@ -681,14 +682,14 @@ impl Status {
             }
             diff.enrich_view(s, &txt.buffer(), &mut Some(context));
         }
+        if let Some(state) = &self.state {
+            if diff.is_empty() {
+                if banner.is_revealed() {
+                    banner.set_revealed(false);
+                }
 
-        if diff.is_empty() {
-            if banner.is_revealed() {
-                banner.set_revealed(false);
-            }
-            if let Some(state) = &self.state {
-                if state.is_merging() {
-                    banner.set_title("All conflicts fixed but you are still merging. Commit to conclude merge");
+                if state.state == RepositoryState::Merge ||  state.state == RepositoryState::CherryPick {
+                    banner.set_title(&state.title_for_proceed_banner());
                     banner.set_css_classes(&["success"]);
                     banner.set_button_label(Some("Commit"));
                     banner_button.set_css_classes(&["suggested-action"]);
@@ -713,75 +714,35 @@ impl Status {
                         }
                     });
                     banner_button_clicked.replace(Some(new_handler_id));
+
                 }
-            }
-        } else if !banner.is_revealed() {
-            banner.set_title("Got conflicts while merging branch master");
-            banner.set_css_classes(&["error"]);
-            banner.set_button_label(Some("Abort or Resolve All"));
-            banner_button.set_css_classes(&["destructive-action"]);
-            banner.set_revealed(true);
-            if let Some(handler_id) = banner_button_clicked.take() {
-                banner.disconnect(handler_id);
-            }
-            let new_handler_id = banner.connect_button_clicked({
-                let sender = sender.clone();
-                let window = window.clone();
-                let path = self.path.clone();
-                move |_| {
-                    glib::spawn_future_local({
-                        let window = window.clone();
-                        let sender = sender.clone();
-                        let path = path.clone();
-                        async move {
-                            let dialog =
-                                merge_dialog_factory(&window, sender.clone());
-                            let response = dialog.choose_future().await;
-                            match response.as_str() {
-                                ABORT => {
-                                    info!("merge. abort");
-                                    gio::spawn_blocking({
-                                        move || {
-                                            merge::abort(
-                                                path.expect("no path"),
-                                                sender,
-                                            );
-                                        }
-                                    });
-                                }
-                                OURS => {
-                                    info!("merge. choose ours");
-                                    gio::spawn_blocking({
-                                        move || {
-                                            merge::choose_conflict_side(
-                                                path.expect("no path"),
-                                                true,
-                                                sender,
-                                            );
-                                        }
-                                    });
-                                }
-                                THEIRS => {
-                                    info!("merge. choose theirs");
-                                    gio::spawn_blocking({
-                                        move || {
-                                            merge::choose_conflict_side(
-                                                path.expect("no path"),
-                                                false,
-                                                sender,
-                                            );
-                                        }
-                                    });
-                                }
-                                _ => {
-                                    debug!("=============> proceed");
-                                }
+            } else if !banner.is_revealed() {
+                banner.set_title(&state.title_for_conflict_banner());
+                banner.set_css_classes(&["error"]);
+                banner.set_button_label(Some("Abort"));
+                banner_button.set_css_classes(&["destructive-action"]);
+                banner.set_revealed(true);
+                if let Some(handler_id) = banner_button_clicked.take() {
+                    banner.disconnect(handler_id);
+                }
+                let new_handler_id = banner.connect_button_clicked({
+                    let sender = sender.clone();
+                    let path = self.path.clone();
+                    move |_| {
+                        gio::spawn_blocking({
+                            let sender = sender.clone();
+                            let path = path.clone();
+                            move || {
+                                merge::abort(
+                                    path.expect("no path"),
+                                    sender,
+                                );
                             }
-                        }
-                    });
-                }
-            });
-            banner_button_clicked.replace(Some(new_handler_id));
+                        });
+                    }
+                });
+                banner_button_clicked.replace(Some(new_handler_id));
+            }
         }
         self.conflicted.replace(diff);
         self.render(txt, RenderSource::Git, context);

@@ -1,5 +1,8 @@
-BUG: switch to new branch in such search where is no current branch; it is switched in search, but after reset
-it is not
+Cherry-pick:
+- banner
+- abort from banner
+- commit. is it ok to use git::merge::commit?
+- how to get message from .git/MERGE_MSG?
 
 
 BUG: refresh branches must react to user login! what about pull? connect it to push/pull from branches view!
