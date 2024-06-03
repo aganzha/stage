@@ -1110,9 +1110,14 @@ impl Status {
                     // also someone can press stage on hunk!
                     for line in &hunk.lines {
                         if line.view.current {
-                            if hunk.has_conflicts
-                                && (line.kind == LineKind::Ours
-                                    || line.kind == LineKind::Theirs)
+                            if hunk.conflicts_count > 0
+                                && (
+                                    match line.kind {
+                                        LineKind::Ours(_) => true,
+                                        LineKind::Theirs(_) => true,
+                                        _ => false
+                                    }
+                                )
                             {
                                 gio::spawn_blocking({
                                     let path = self.path.clone().unwrap();
