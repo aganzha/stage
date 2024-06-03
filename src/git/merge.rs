@@ -15,7 +15,46 @@ use std::{
 
 pub const STAGE_FLAG: u16 = 0x3000;
 
-pub fn commit(
+pub fn final_cherrypick_commit(
+    path: PathBuf,
+    sender: Sender<crate::Event>,
+) -> Result<(), git2::Error> {
+
+    let repo = git2::Repository::open(path.clone())?;
+    let me = repo.signature()?;
+
+    let my_oid = repo.revparse_single("HEAD^{commit}")?.id();
+    
+    let my_commit = repo.find_commit(my_oid)?;
+
+    let message = repo.message()?;
+
+    let head_ref = repo.head()?;
+    assert!(head_ref.is_branch());
+
+    let tree_oid = repo.index()?.write_tree()?;
+
+    let tree = repo.find_tree(tree_oid)?;
+
+    repo.commit(
+        Some("HEAD"),
+        &me,
+        &me,
+        &message,
+        &tree,
+        &[&my_commit],
+    )?;
+
+    repo.cleanup_state()?;
+    gio::spawn_blocking({
+        move || {
+            get_current_repo_status(Some(path), sender);
+        }
+    });
+    Ok(())
+}
+
+pub fn final_merge_commit(
     path: PathBuf,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
@@ -126,7 +165,7 @@ pub fn branch(
                 });
                 return Ok(None);
             }
-            commit(path, sender.clone())?;
+            final_merge_commit(path, sender.clone())?;
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
