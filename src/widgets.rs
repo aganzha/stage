@@ -2,14 +2,14 @@ use crate::git::remote::RemoteResponse;
 use async_channel::Sender;
 use libadwaita::prelude::*;
 use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance, SwitchRow};
-use log::debug;
+
 use std::collections::HashMap;
 
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 
 use gtk4::{
-    gio, AlertDialog as GTK4AlertDialog, ListBox, ScrolledWindow,
+    ListBox, ScrolledWindow,
     SelectionMode, TextView, Widget, Window as Gtk4Window,
 };
 
@@ -122,7 +122,7 @@ impl AlertConversation for RemoteResponse {
     fn heading_and_message(&self) -> (String, String) {
         (
             String::from("<span color=\"#ff0000\">Error</span>"),
-            String::from(self.error.clone().unwrap().clone()),
+            self.error.clone().unwrap().clone(),
         )
     }
     fn extra_child(&mut self) -> Option<Widget> {
@@ -160,7 +160,7 @@ impl AlertConversation for YesNoString {
     fn heading_and_message(&self) -> (String, String) {
         (
             format!("<span color=\"#ff0000\">{}</span>", self.0),
-            format!("{}", self.1),
+            self.1.to_string(),
         )
     }
     fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
@@ -220,8 +220,8 @@ where
     }
     let dialog = dialog.build();
     for (id, label, appearance) in conversation.get_response() {
-        dialog.add_response(&id, &label);
-        dialog.set_response_appearance(&id, appearance);
+        dialog.add_response(id, label);
+        dialog.set_response_appearance(id, appearance);
     }
     dialog
 }

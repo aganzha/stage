@@ -162,7 +162,7 @@ mod branch_list {
                 acc
             });
             if position < remote_pos {
-                return (0, remote_pos);
+                (0, remote_pos)
             } else {
                 return (remote_pos, self.list.borrow().len() as u32);
             }
@@ -799,7 +799,7 @@ pub fn listview_factory(
         }
     });
 
-    branch_list.get_branches(repo_path.clone(), &window);
+    branch_list.get_branches(repo_path.clone(), window);
 
     list_view.add_css_class("stage");
     list_view

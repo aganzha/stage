@@ -52,7 +52,7 @@ impl CommitLog {
             message: commit.message().unwrap_or("").replace('\n', ""),
             commit_dt: commit.dt(),
             author: String::from(commit.author().name().unwrap_or("")),
-            from: from,
+            from,
         }
     }
 }

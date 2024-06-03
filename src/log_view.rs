@@ -1,9 +1,9 @@
 use crate::git::{commit, git_log};
-use crate::widgets::{alert, YesNoString, YesNoWithVariants, NO, YES};
+use crate::widgets::{alert, YesNoString, YesNoWithVariants, YES};
 use async_channel::Sender;
 use core::time::Duration;
 use git2::Oid;
-use glib::{clone, closure, Object};
+use glib::{clone, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
@@ -14,9 +14,9 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
-use log::{debug, info, trace};
+use log::{info, trace};
 use std::cell::RefCell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -277,18 +277,16 @@ impl CommitList {
                     // search will return commits 1 by 1
                     // when got 1 commit and got for another
                     // it need to stop somehow
-                    if search_term.is_some() && last_added_oid.is_some() {
-                        if term_count < git_log::COMMIT_PAGE_SIZE {
-                            trace!(
-                                "go next loop with start >>>>>>>>   oid {:?}",
-                                last_added_oid
-                            );
-                            commit_list.get_commits_inside(
-                                repo_path,
-                                last_added_oid,
-                                &widget,
-                            );
-                        }
+                    if search_term.is_some() && last_added_oid.is_some() && term_count < git_log::COMMIT_PAGE_SIZE {
+                        trace!(
+                            "go next loop with start >>>>>>>>   oid {:?}",
+                            last_added_oid
+                        );
+                        commit_list.get_commits_inside(
+                            repo_path,
+                            last_added_oid,
+                            &widget,
+                        );
                     }
                 }
             }
@@ -309,8 +307,7 @@ impl CommitList {
             self.imp()
                 .original_list
                 .borrow()
-                .iter()
-                .map(|c| c.clone())
+                .iter().cloned()
                 .map(CommitItem::new)
                 .collect(),
         );
@@ -335,7 +332,7 @@ impl CommitList {
         let item = self.item(pos).unwrap();
         let commit_item = item.downcast_ref::<CommitItem>().unwrap();
         let oid = commit_item.imp().commit.borrow().oid;
-        oid.clone()
+        oid
     }
 
     pub fn reset_hard(
@@ -700,16 +697,13 @@ pub fn headerbar_factory(
                 let window = window.clone();
                 let oid = commit_list.get_selected_oid();
                 async move {
-                    let response = alert(YesNoWithVariants {
-                        0: YesNoString {
+                    let response = alert(YesNoWithVariants(YesNoString {
                             0: "Cherry pick commit?".to_string(),
                             1: format!("{}", oid),
-                        },
-                        1: HashMap::from([(
+                        }, HashMap::from([(
                             "Do not commit. Only apply changes".to_string(),
                             true,
-                        )]),
-                    })
+                        )])))
                     .choose_future(&window)
                     .await;
                     match response.as_str() {
@@ -732,7 +726,6 @@ pub fn headerbar_factory(
                             );
                         }
                         _ => {
-                            return;
                         }
                     }
                 }

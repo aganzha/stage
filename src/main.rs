@@ -273,7 +273,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     status.get_status();
     window.present();
 
-    let mut stacked_window: Rc<RefCell<Option<Window>>> =
+    let stacked_window: Rc<RefCell<Option<Window>>> =
         Rc::new(RefCell::new(None));
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {

@@ -1,5 +1,5 @@
 use crate::{DiffKind, LineKind};
-use log::debug;
+
 use std::cell::RefCell;
 use std::rc::Rc;
 
