@@ -2,7 +2,7 @@ pub mod container;
 pub mod headerbar;
 pub mod textview;
 use crate::git::{commit, merge, remote, LineKind};
-use crate::widgets::alert;
+use crate::widgets::{alert, YesNoString, YES};
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
 
@@ -308,13 +308,34 @@ impl Status {
     pub fn update_stashes(&mut self, stashes: Stashes) {
         self.stashes.replace(stashes);
     }
-
-    pub fn reset_hard(&self, ooid: Option<crate::Oid>) {
-        gio::spawn_blocking({
-            let path = self.path.clone().expect("np path");
+    
+    pub fn reset_hard(&self, ooid: Option<crate::Oid>, window: &impl IsA<Widget>) {
+        glib::spawn_future_local({
             let sender = self.sender.clone();
-            move || {
-                reset_hard(path, ooid, sender);
+            let path = self.path.clone().unwrap();
+            let window = window.clone();
+            async move {
+                let response = alert(YesNoString(
+                    String::from("reset --hard"),
+                    String::from("Head"),
+                )).choose_future(&window).await;
+                if response != YES {
+                    return;
+                }
+                gio::spawn_blocking({
+                    let sender = sender.clone();
+                    let path = path.clone();
+                    move || crate::reset_hard(path, None, sender)
+                })
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(false)
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                    false
+                });
             }
         });
     }
