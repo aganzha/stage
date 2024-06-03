@@ -6,7 +6,7 @@ use crate::{
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
-use gtk4::{TextBuffer, TextIter, TextView};
+use gtk4::{TextBuffer, TextIter};
 use log::{debug, trace};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -233,7 +233,7 @@ pub trait ViewContainer {
             .iter_at_line(line_no)
             .expect("can't get iter at line");
         trace!("!! erase one signgle view at buffer line > {:?}. orig view line {:?}", line_no, original_line_no);
-        self.render(&buffer, &mut iter, context);
+        self.render(buffer, &mut iter, context);
     }
 
     fn resize(
@@ -257,7 +257,7 @@ pub trait ViewContainer {
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
-        self.render(&buffer, &mut iter, context);
+        self.render(buffer, &mut iter, context);
     }
 
     fn get_id(&self) -> String {

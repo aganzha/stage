@@ -1,7 +1,7 @@
 use crate::status_view::Tag;
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::{debug, trace};
+use log::{trace};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
@@ -101,7 +101,7 @@ impl View {
     fn build_up(
         &self,
         content: &String,
-        line_no: i32,
+        _line_no: i32,
         context: &mut Option<&mut crate::StatusRenderContext>,
     ) -> String {
         let line_content = content.to_string();

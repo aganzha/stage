@@ -1,7 +1,7 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::git::commit;
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
-use crate::widgets::{alert, YesNoString, YesNoWithVariants, NO, YES};
+use crate::widgets::{alert, YesNoString, YesNoWithVariants, YES};
 use crate::Event;
 use async_channel::Sender;
 use git2::Oid;
@@ -53,16 +53,13 @@ pub fn headerbar_factory(
                 let path = path.clone();
                 let window = window.clone();
                 async move {
-                    let response = alert(YesNoWithVariants {
-                        0: YesNoString {
+                    let response = alert(YesNoWithVariants(YesNoString {
                             0: "Cherry pick commit?".to_string(),
                             1: format!("{}", oid),
-                        },
-                        1: HashMap::from([(
+                        }, HashMap::from([(
                             "Do not commit. Only apply changes".to_string(),
                             true,
-                        )]),
-                    })
+                        )])))
                     .choose_future(&window)
                     .await;
                     match response.as_str() {
@@ -85,7 +82,6 @@ pub fn headerbar_factory(
                             );
                         }
                         _ => {
-                            return;
                         }
                     }
                 }

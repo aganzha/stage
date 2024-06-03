@@ -5,7 +5,7 @@ use async_channel::Sender;
 use chrono::{DateTime, FixedOffset};
 use git2;
 use gtk4::gio;
-use log::{debug, info, trace};
+use log::{info};
 use std::cmp::Ordering;
 use std::path::PathBuf;
 

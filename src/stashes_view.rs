@@ -6,7 +6,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, Button, EventControllerKey, Label, ListBox,
-    ScrolledWindow, SelectionMode, Widget, Window as Gtk4Window,
+    ScrolledWindow, SelectionMode, Window as Gtk4Window,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;

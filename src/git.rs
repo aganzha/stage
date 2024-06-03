@@ -11,16 +11,14 @@ use async_channel::Sender;
 
 use git2::build::CheckoutBuilder;
 use git2::{
-    ApplyLocation, ApplyOptions, AutotagOption, Branch, BranchType,
-    CertificateCheckStatus, CherrypickOptions, Commit, Cred, CredentialType,
+    ApplyLocation, ApplyOptions, Branch, Commit,
     Delta, Diff as GitDiff, DiffDelta, DiffFile, DiffFormat, DiffHunk,
-    DiffLine, DiffLineType, DiffOptions, Direction, Error, ErrorClass,
-    ErrorCode, FetchOptions, ObjectType, Oid, PushOptions, RemoteCallbacks,
+    DiffLine, DiffLineType, DiffOptions, Error, ObjectType, Oid,
     Repository, RepositoryState, ResetType, StashFlags,
 };
 
 // use libgit2_sys;
-use log::{debug, trace};
+use log::{trace};
 use regex::Regex;
 //use std::time::SystemTime;
 use std::path::PathBuf;
@@ -36,7 +34,7 @@ pub fn make_diff_options() -> DiffOptions {
     // to something big. actually it must be larger
     // line count between <<<< and =========
     opts.interhunk_lines(3);
-    return opts;
+    opts
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -144,7 +142,7 @@ impl Hunk {
         let re = Regex::new(r"@@ [+-][0-9]+,[0-9]+ [+-]([0-9]+),([0-9]+) @@")
             .unwrap();
         if let Some((_, [new_start, new_lines])) =
-            re.captures_iter(&header).map(|c| c.extract()).next()
+            re.captures_iter(header).map(|c| c.extract()).next()
         {
             let i_new_start: i32 = new_start.parse().expect("cant parse nums");
             let i_new_lines: i32 = new_lines.parse().expect("cant parse nums");
@@ -165,7 +163,7 @@ impl Hunk {
         let re = Regex::new(r"@@ [+-][0-9]+,[0-9]+ [+-][0-9]+,([0-9]+) @@")
             .unwrap();
         if let Some((_, [nums])) =
-            re.captures_iter(&header).map(|c| c.extract()).next()
+            re.captures_iter(header).map(|c| c.extract()).next()
         {
             let old_nums: i32 = nums.parse().expect("cant parse nums");
             let new_nums: i32 = old_nums + delta;

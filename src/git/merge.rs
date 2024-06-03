@@ -8,7 +8,7 @@ use git2;
 use gtk4::gio;
 use log::{debug, info, trace};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashSet},
     path::{Path, PathBuf},
     str::from_utf8,
 };
@@ -385,7 +385,7 @@ pub fn choose_conflict_side_of_hunk(
     let mut acc = Vec::new();
 
     let mut lines = raw.lines();
-    let mut first = true;
+    let _first = true;
     let kind = &line.kind;
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
 
@@ -458,7 +458,7 @@ pub fn choose_conflict_side_of_hunk(
                         );
                     }
                     // go deeper inside THEIRS
-                    while let Some(line) = lines.next() {
+                    for line in lines.by_ref() {
                         line_offset_inside_hunk += 1;
                         if !line.is_empty()
                             && line[1..].starts_with(MARKER_THEIRS)
