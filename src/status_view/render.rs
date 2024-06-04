@@ -168,8 +168,6 @@ impl View {
                 trace!("..render MATCH insert {:?}", line_no);
                 let content = self.build_up(&content, line_no, context);
                 if self.markup {
-                    // let mut encoded = String::new();
-                    // html_escape::encode_safe_to_string(&content, &mut encoded);
                     buffer.insert_markup(iter, &format!("{}\n", content));
                 } else {
                     buffer.insert(iter, &format!("{}\n", content));

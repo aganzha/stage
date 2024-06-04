@@ -93,16 +93,12 @@ mod commit_item {
         pub fn get_author(&self) -> String {
             self.commit.borrow().author.to_string()
         }
+        
         pub fn get_message(&self) -> String {
-            let mut encoded = String::from("");
-            html_escape::encode_safe_to_string(
-                self.commit.borrow().message.trim(),
-                &mut encoded,
-            );
-            encoded
+            self.commit.borrow().message.to_string()
         }
         pub fn get_dt(&self) -> String {
-            format!("{}", self.commit.borrow().commit_dt)
+            self.commit.borrow().commit_dt.to_string()
         }
     }
 }
@@ -374,6 +370,45 @@ impl CommitList {
                     .unwrap_or_else(|e| {
                         alert(e).present(&window);
                         None
+                    });
+            }
+        });
+    }
+
+    pub fn revert(
+        &self,
+        repo_path: PathBuf,
+        window: &impl IsA<Widget>,
+        sender: Sender<crate::Event>,
+    ) {
+        glib::spawn_future_local({
+            let sender = sender.clone();
+            let path = repo_path.clone();
+            let window = window.clone();
+            let oid = self.get_selected_oid();
+            async move {
+                let response = alert(YesNoDialog(
+                    "Revert commit?".to_string(),
+                    format!("{}", oid),
+                ))
+                    .choose_future(&window)
+                    .await;
+                if response != YES {
+                    return;
+                }
+                gio::spawn_blocking({
+                    let sender = sender.clone();
+                    let path = path.clone();
+                    move || commit::revert(path, oid, sender)
+                })
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(())
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                        ()
                     });
             }
         });
@@ -746,6 +781,16 @@ pub fn headerbar_factory(
         .sensitive(true)
         .use_underline(true)
         .build();
+    revert_btn.connect_clicked({
+        let sender = sender.clone();
+        let path = repo_path.clone();
+        let window = window.clone();
+        let commit_list = commit_list.clone();
+        move |_btn| {
+            commit_list.revert(path.clone(), &window, sender.clone());            
+        }
+    });
+
     hb.pack_end(&cherry_pick_btn);
     hb.pack_end(&revert_btn);
 
@@ -854,6 +899,10 @@ pub fn show_log_window(
                 (gdk::Key::a, _) => {
                     get_commit_list(&list_view)
                         .cherry_pick(repo_path.clone(), &window, main_sender.clone());
+                }
+                (gdk::Key::r, _) => {
+                    get_commit_list(&list_view)
+                        .revert(repo_path.clone(), &window, main_sender.clone());
                 }
                 (key, modifier) => {
                     trace!("key pressed {:?} {:?}", key, modifier);

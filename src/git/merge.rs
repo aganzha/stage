@@ -15,7 +15,7 @@ use std::{
 
 pub const STAGE_FLAG: u16 = 0x3000;
 
-pub fn final_cherrypick_commit(
+pub fn final_commit(
     path: PathBuf,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {

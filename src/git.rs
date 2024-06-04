@@ -440,6 +440,12 @@ impl State {
             view: View::new_markup(),
         }
     }
+    pub fn need_final_commit(&self) -> bool {
+        match self.state {
+            RepositoryState::Merge | RepositoryState::CherryPick | RepositoryState::Revert => true,
+            _ => false
+        }
+    }    
 }
 
 #[derive(Debug, Clone)]
@@ -506,6 +512,7 @@ pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) {
 }
 
 pub const CHERRY_PICK_HEAD: &str = "CHERRY_PICK_HEAD";
+pub const REVERT_HEAD: &str = "REVERT_HEAD";
 
 pub fn get_current_repo_status(
     current_path: Option<PathBuf>,
@@ -537,6 +544,13 @@ pub fn get_current_repo_status(
                 RepositoryState::CherryPick => {
                     let mut pth = path;
                     pth.push(CHERRY_PICK_HEAD);
+                    subject = std::fs::read_to_string(pth)
+                        .expect("Should have been able to read the file")
+                        .replace('\n', "");
+                }
+                RepositoryState::Revert => {
+                    let mut pth = path;
+                    pth.push(REVERT_HEAD);
                     subject = std::fs::read_to_string(pth)
                         .expect("Should have been able to read the file")
                         .replace('\n', "");

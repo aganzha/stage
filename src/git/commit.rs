@@ -12,6 +12,8 @@ use std::path::PathBuf;
 pub trait CommitRepr {
     fn dt(&self) -> DateTime<FixedOffset>;
     fn log_message(&self) -> String;
+    fn message(&self) -> String;
+    fn author(&self) -> String;
 }
 
 impl CommitRepr for git2::Commit<'_> {
@@ -29,6 +31,25 @@ impl CommitRepr for git2::Commit<'_> {
         let mut encoded = String::new();
         html_escape::encode_safe_to_string(&message, &mut encoded);
         format!("{} {}", &self.id().to_string()[..7], encoded)
+    }
+
+    fn message(&self) -> String {
+        let message = self.message().unwrap_or("").replace('\n', "");
+        let mut encoded = String::from("");
+        html_escape::encode_safe_to_string(
+            &message,
+            &mut encoded,
+        );
+        encoded
+    }
+
+    fn author(&self) -> String {
+        let author = self.author();
+        format!(
+            "{} {}",
+            author.name().unwrap_or(""),
+            author.email().unwrap_or("")
+        )
     }
 }
 
@@ -52,9 +73,9 @@ impl CommitLog {
     pub fn from_log(commit: git2::Commit, from: CommitRelation) -> Self {
         Self {
             oid: commit.id(),
-            message: commit.message().unwrap_or("").replace('\n', ""),
-            commit_dt: commit.dt(),
-            author: String::from(commit.author().name().unwrap_or("")),
+            message: CommitRepr::log_message(&commit),
+            commit_dt: CommitRepr::dt(&commit),
+            author: CommitRepr::author(&commit),
             from,
         }
     }
@@ -96,13 +117,9 @@ impl CommitDiff {
     pub fn new(commit: git2::Commit, diff: Diff) -> Self {
         Self {
             oid: commit.id(),
-            message: commit.message().unwrap_or("").replace('\n', ""),
-            commit_dt: commit.dt(),
-            author: format!(
-                "{} {}",
-                commit.author().name().unwrap_or(""),
-                commit.author().email().unwrap_or("")
-            ),
+            message: CommitRepr::message(&commit),
+            commit_dt: CommitRepr::dt(&commit),
+            author: CommitRepr::author(&commit),
             diff,
         }
     }
@@ -288,4 +305,30 @@ pub fn cherry_pick(
         }
     });
     branch::BranchData::from_branch(branch, git2::BranchType::Local)
+}
+
+pub fn revert(
+    path: PathBuf,
+    oid: git2::Oid,
+    sender: Sender<crate::Event>,
+) -> Result<(), git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
+    let commit = repo.find_commit(oid)?;
+
+    sender
+        .send_blocking(crate::Event::LockMonitors(true))
+        .expect("can send through channel");
+    repo.revert(&commit, None)?;
+    sender
+        .send_blocking(crate::Event::LockMonitors(false))
+        .expect("can send through channel");
+
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        let path = path.clone();
+        move || {
+            get_current_repo_status(Some(path), sender.clone());
+        }
+    });
+    Ok(())
 }
