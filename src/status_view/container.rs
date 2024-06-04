@@ -356,7 +356,10 @@ impl ViewContainer for File {
     }
 
     fn get_content(&self) -> String {
-        self.title()
+        format!("{}{}",
+                if self.status == git2::Delta::Deleted {"- "} else {""},
+                self.path.to_str().unwrap()
+        )
     }
 
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
@@ -366,7 +369,11 @@ impl ViewContainer for File {
             .collect()
     }
     fn tags(&self) -> Vec<Tag> {
-        vec![Tag::Bold, Tag::Pointer]
+        if self.status == git2::Delta::Deleted {
+            vec![Tag::Bold, Tag::Pointer, Tag::Removed]
+        } else {
+            vec![Tag::Bold, Tag::Pointer]
+        }            
     }
 
     fn fill_context(&self, context: &mut Option<&mut StatusRenderContext>) {
@@ -398,7 +405,17 @@ impl ViewContainer for Hunk {
     }
 
     fn get_content(&self) -> String {
-        self.title()
+        let parts: Vec<&str> = self.header.split("@@").collect();
+        let line_no = match self.kind {
+            DiffKind::Unstaged | DiffKind::Conflicted => self.old_start,
+            DiffKind::Staged => self.new_start,
+        };
+        let scope = parts.last().unwrap();
+        if !scope.is_empty() {
+            format!("Line {:} in{:}", line_no, scope)
+        } else {
+            format!("Line {:?}", line_no)
+        }
     }
 
     fn get_view(&mut self) -> &mut View {
@@ -741,7 +758,7 @@ impl ViewContainer for UntrackedFile {
     }
 
     fn get_content(&self) -> String {
-        self.title()
+        self.path.to_str().unwrap().to_string()
     }
 
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {

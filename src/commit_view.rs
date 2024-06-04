@@ -1,7 +1,7 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::git::commit;
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
-use crate::widgets::{alert, YesNoString, YES};
+use crate::dialogs::{alert, YesNoDialog, YES};
 use crate::Event;
 use async_channel::Sender;
 use git2::Oid;
@@ -52,7 +52,7 @@ pub fn headerbar_factory(
                 let path = path.clone();
                 let window = window.clone();
                 async move {
-                    let response = alert(YesNoString(
+                    let response = alert(YesNoDialog(
                         "Cherry pick commit?".to_string(),
                         format!("{}", oid),
                     ))
