@@ -653,6 +653,14 @@ pub fn get_conflicted_v1(path: PathBuf) -> Diff {
         .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
 
+    // let mut patch = git2::Patch::from_diff(&git_diff, 0)
+    //     .expect("cant get patch")
+    //     .unwrap();
+    // let buff = patch.to_buf().expect("cant get buff");
+    // let raw = buff.as_str().unwrap();
+    // for line in raw.lines() {
+    //     debug!("{}", line);
+    // }
     make_diff(&git_diff, DiffKind::Conflicted)
 }
 
