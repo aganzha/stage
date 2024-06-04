@@ -34,7 +34,7 @@ pub fn make_diff_options() -> DiffOptions {
     // not full one. perhaps it need to increate that position
     // to something big. actually it must be larger
     // line count between <<<< and =========
-    opts.interhunk_lines(10);
+    opts.interhunk_lines(3);
     opts
 }
 

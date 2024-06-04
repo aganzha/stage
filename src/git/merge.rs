@@ -593,11 +593,6 @@ pub fn choose_conflict_side_of_hunk(
     let buff = patch.to_buf().expect("cant get buff");
     let raw = buff.as_str().unwrap();
 
-    // for line in raw.lines() {
-    //     debug!("{}", line);
-    // }
-    // debug!("+++++++++++++++++++++++++++++++++++++++");
-
     let ours_choosed = line.is_our_side_of_conflict();
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
 
@@ -627,11 +622,6 @@ pub fn choose_conflict_side_of_hunk(
         prev_delta = delta;
     }
 
-    debug!("1+++++++++++++++++++++++++++++++++++++++++++");
-    for line in new_body.lines() {
-        debug!("{}", line);
-    }
-    panic!("STOP");
     
     git_diff = git2::Diff::from_buffer(new_body.as_bytes())
         .expect("cant create diff");
