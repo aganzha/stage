@@ -1,8 +1,8 @@
-use log::debug;
-use git2;
+
+
 use std::sync::Once;
-use crate::git::{make_diff, DiffKind, MARKER_OURS, MARKER_THEIRS, Hunk, LineKind};
-use crate::git::merge::choose_conflict_side_of_blob;
+
+
 
 
 pub const TEST_BLOB: &str = "diff --git a/src/events.py b/src/events.py

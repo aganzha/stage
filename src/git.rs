@@ -19,7 +19,7 @@ use git2::{
 };
 
 // use libgit2_sys;
-use log::{debug, trace};
+use log::{trace};
 use regex::Regex;
 //use std::time::SystemTime;
 use std::path::PathBuf;
@@ -200,7 +200,7 @@ impl Hunk {
             Regex::new(r"@@ [+-]([0-9].*,[0-9]*) [+-]([0-9].*,[0-9].*) @@")
                 .unwrap();
         if let Some((whole, [nums1, nums2])) =
-            re.captures_iter(&header).map(|c| c.extract()).next()
+            re.captures_iter(header).map(|c| c.extract()).next()
         {
             // for (whole, [nums1, nums2]) in re.captures_iter(&header).map(|c| c.extract()) {
             let result = whole
@@ -265,9 +265,7 @@ impl Hunk {
         match &prefix[..] {
             MARKER_OURS | MARKER_THEIRS | MARKER_VS => {
                 self.conflicts_count += 1;
-                line.kind = LineKind::ConflictMarker(String::from(
-                    prefix
-                ));
+                line.kind = LineKind::ConflictMarker(prefix);
             }
             _ => {}
         }
@@ -553,11 +551,11 @@ pub fn get_current_repo_status(
             match state {
                 RepositoryState::Merge => {}
                 RepositoryState::CherryPick => {
-                    let mut pth = PathBuf::from(path);
+                    let mut pth = path;
                     pth.push(CHERRY_PICK_HEAD);
                     subject = std::fs::read_to_string(pth)
                         .expect("Should have been able to read the file")
-                        .replace("\n", "");
+                        .replace('\n', "");
                 }
                 _ => {}
             }
