@@ -1,5 +1,5 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
-use crate::git::commit;
+use crate::git::{apply_stash, commit};
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
 use crate::dialogs::{alert, YesNoDialog, YES};
 use crate::Event;
@@ -49,6 +49,7 @@ pub fn headerbar_factory(
     window: &impl IsA<Widget>,
     sender: Sender<Event>,
     oid: Oid,
+    stash_num: Option<usize>
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
     let lbl = Label::builder()
@@ -80,30 +81,31 @@ pub fn headerbar_factory(
             });
         }
     });
-
-    let revert_btn = Button::builder()
-        .icon_name("edit-undo-symbolic")
-        .can_shrink(true)
-        .tooltip_text("Revert")
-        .sensitive(true)
-        .use_underline(true)
-        .build();
-
-    revert_btn.connect_clicked({
-        let window = window.clone();
-        move |_| {
-            let sender = sender.clone();
-            let path = repo_path.clone();
-            let window = window.clone();
-            glib::spawn_future_local({
-                git_oid_op(oid, window, "Revert commit?", move || {
-                    commit::revert(path, oid, sender)
-                })
-            });
-        }
-    });
     hb.pack_end(&cherry_pick_btn);
-    hb.pack_end(&revert_btn);
+    if stash_num.is_none() {
+        let revert_btn = Button::builder()
+            .icon_name("edit-undo-symbolic")
+            .can_shrink(true)
+            .tooltip_text("Revert")
+            .sensitive(true)
+            .use_underline(true)
+            .build();
+
+        revert_btn.connect_clicked({
+            let window = window.clone();
+            move |_| {
+                let sender = sender.clone();
+                let path = repo_path.clone();
+                let window = window.clone();
+                glib::spawn_future_local({
+                    git_oid_op(oid, window, "Revert commit?", move || {
+                        commit::revert(path, oid, sender)
+                    })
+                });
+            }
+        });
+        hb.pack_end(&revert_btn);
+    }
     hb
 }
 
@@ -146,6 +148,7 @@ pub fn show_commit_window(
         &window.clone(),
         main_sender.clone(),
         oid,
+        stash_num
     );
 
     let text_view_width =
@@ -173,26 +176,34 @@ pub fn show_commit_window(
                     window.close();
                 }
                 (gdk::Key::a, _) => {
-                    trace!("key pressed {:?} {:?}", key, modifier);
                     let sender = main_sender.clone();
                     let path = path.clone();
                     let window = window.clone();
-                    glib::spawn_future_local({
-                        git_oid_op(oid, window, "Cherry pick commit?", move || {
-                            commit::cherry_pick(path, oid, sender)
-                        })
-                    });
+                    if let Some(num) = stash_num {
+                        glib::spawn_future_local({
+                            git_oid_op(oid, window, "Apply stash?", move || {
+                                apply_stash(path, num, sender)
+                            })
+                        });
+                    } else {
+                        glib::spawn_future_local({
+                            git_oid_op(oid, window, "Cherry pick commit?", move || {
+                                commit::cherry_pick(path, oid, sender)
+                            })
+                        });
+                    }
                 }
                 (gdk::Key::r, _) => {
-                    trace!("key pressed {:?} {:?}", key, modifier);
-                    let sender = main_sender.clone();
-                    let path = path.clone();
-                    let window = window.clone();
-                    glib::spawn_future_local({
-                        git_oid_op(oid, window, "Revert commit?", move || {
-                            commit::revert(path, oid, sender)
-                        })
-                    });                    
+                    if stash_num.is_none() {
+                        let sender = main_sender.clone();
+                        let path = path.clone();
+                        let window = window.clone();
+                        glib::spawn_future_local({
+                            git_oid_op(oid, window, "Revert commit?", move || {
+                                commit::revert(path, oid, sender)
+                            })
+                        });
+                    }
                 }
                 _ => {}
             }

@@ -1088,7 +1088,7 @@ pub fn stash_changes(
 
 pub fn apply_stash(
     path: PathBuf,
-    stash_data: StashData,
+    num: usize,
     sender: Sender<crate::Event>,
 ) -> Result<(), Error> {
     let mut repo = Repository::open(path.clone())?;
@@ -1096,7 +1096,7 @@ pub fn apply_stash(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
-    repo.stash_apply(stash_data.num, None)?;
+    repo.stash_apply(num, None)?;
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
