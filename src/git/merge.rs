@@ -356,11 +356,6 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
                                            ours_choosed: bool) -> String
     where F: Fn(i32, &str) -> bool
 {
-    // this handles all hunks, not just selected one
-    // trace!("*************************************");
-    // for line in raw.lines() {
-    //     trace!("{}", line);
-    // }
 
     let mut acc = Vec::new();
 
@@ -373,16 +368,9 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
             // is it marker that we need?
             line_offset_inside_hunk += 1;
             let mut this_is_current_conflict = false;
-            // if conflict_offset_inside_hunk == line_offset_inside_hunk
-            //     && hunk_deltas.last().unwrap().0 == reversed_header
+
             if predicate(line_offset_inside_hunk, hunk_deltas.last().unwrap().0)
             {
-                // trace!(
-                //     "look for offset {:?}, this offset {:?} for line {:?}",
-                //     conflict_offset_inside_hunk,
-                //     line_offset_inside_hunk,
-                //     line
-                // );
                 this_is_current_conflict = true;
             }
             if this_is_current_conflict {
