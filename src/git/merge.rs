@@ -593,13 +593,13 @@ pub fn choose_conflict_side_of_hunk(
     let buff = patch.to_buf().expect("cant get buff");
     let raw = buff.as_str().unwrap();
 
-    for line in raw.lines() {
-        debug!("{}", line);
-    }
-    debug!("+++++++++++++++++++++++++++++++++++++++");
+    // for line in raw.lines() {
+    //     debug!("{}", line);
+    // }
+    // debug!("+++++++++++++++++++++++++++++++++++++++");
+
     let ours_choosed = line.is_our_side_of_conflict();
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
-
 
     let mut conflict_offset_inside_hunk: i32 = 0;
     for (i, l) in hunk.lines.iter().enumerate() {
@@ -610,7 +610,7 @@ pub fn choose_conflict_side_of_hunk(
             break;
         }
     }
-    
+
     let mut new_body = choose_conflict_side_of_blob(
         raw,
         &mut hunk_deltas,
@@ -622,11 +622,11 @@ pub fn choose_conflict_side_of_hunk(
         ours_choosed
     );
     trace!("xxxxxxxxxxxxxxxx deltas {:?}", &hunk_deltas);
-    debug!("+++++++++++++++++++++++++++++++++++++++++++");
-    for line in new_body.lines() {
-        debug!("{}", line);
-    }
 
+    // for line in new_body.lines() {
+    //     debug!("{}", line);
+    // }
+    // panic!("STOP");
     // so. not only new lines are changed. new_start are changed also!!!!!!
     // it need to add delta of prev hunk int new start of next hunk!!!!!!!!
     let mut prev_delta = 0;
