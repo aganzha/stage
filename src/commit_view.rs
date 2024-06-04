@@ -74,11 +74,19 @@ pub fn headerbar_factory(
             let sender = sender.clone();
             let path = path.clone();
             let window = window.clone();
-            glib::spawn_future_local({
-                git_oid_op(oid, window, "Cherry pick commit?", move || {
-                    commit::cherry_pick(path, oid, sender)
-                })
-            });
+            if let Some(num) = stash_num {
+                glib::spawn_future_local({
+                    git_oid_op(oid, window, "Apply stash?", move || {
+                        apply_stash(path, num, sender)
+                    })
+                });
+            } else {
+                glib::spawn_future_local({
+                    git_oid_op(oid, window, "Cherry pick commit?", move || {
+                        commit::cherry_pick(path, oid, sender)
+                    })
+                });
+            }
         }
     });
     hb.pack_end(&cherry_pick_btn);

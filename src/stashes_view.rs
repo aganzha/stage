@@ -160,6 +160,7 @@ impl OidRow {
         window: &ApplicationWindow,
         sender: Sender<Event>,
     ) {
+        // check stash!
         trace!("...........apply stash {:?}", self.imp().stash);
         glib::spawn_future_local({
             clone!(@weak self as row,
