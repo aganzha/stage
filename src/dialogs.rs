@@ -154,9 +154,9 @@ impl AlertConversation for RemoteResponse {
     }
 }
 #[derive(Default, Clone)]
-pub struct YesNoDialog(pub String, pub String);
+pub struct DangerDialog(pub String, pub String);
 
-impl AlertConversation for YesNoDialog {
+impl AlertConversation for DangerDialog {
     fn heading_and_message(&self) -> (String, String) {
         (
             format!("<span color=\"#ff0000\">{}</span>", self.0),
@@ -171,6 +171,22 @@ impl AlertConversation for YesNoDialog {
     }
 }
 
+#[derive(Default, Clone)]
+pub struct ConfirmDialog(pub String, pub String);
+impl AlertConversation for ConfirmDialog {
+    fn heading_and_message(&self) -> (String, String) {
+        (
+            self.0.to_string(),
+            self.1.to_string(),
+        )
+    }
+    fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
+        vec![
+            (NO, NO, ResponseAppearance::Default),
+            (YES, YES, ResponseAppearance::Suggested),
+        ]
+    }
+}
 
 pub fn alert<AC>(mut conversation: AC) -> AlertDialog
 where

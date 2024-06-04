@@ -1,7 +1,7 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::git::{apply_stash, commit};
 use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
-use crate::dialogs::{alert, YesNoDialog, YES};
+use crate::dialogs::{alert, ConfirmDialog, YES};
 use crate::Event;
 use async_channel::Sender;
 use git2::Oid;
@@ -23,7 +23,7 @@ use std::rc::Rc;
 async fn git_oid_op<F>(oid: git2::Oid, window: impl IsA<Widget>, msg: &str, op: F)
     where F: FnOnce() -> Result<(), git2::Error> + Send + 'static
 {
-    let response = alert(YesNoDialog(
+    let response = alert(ConfirmDialog(
         msg.to_string(),
         format!("{}", oid),
     ))
