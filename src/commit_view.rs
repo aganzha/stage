@@ -126,6 +126,7 @@ impl commit::CommitDiff {
 pub fn show_commit_window(
     repo_path: PathBuf,
     oid: Oid,
+    stash_num: Option<usize>,
     app_window: &impl IsA<Gtk4Window>,
     main_sender: Sender<Event>, // i need that to trigger revert and cherry-pick.
 ) {
