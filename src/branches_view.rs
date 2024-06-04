@@ -1,13 +1,13 @@
 use async_channel::Sender;
 
 use crate::git::{branch, commit, merge, remote};
-use crate::widgets::alert;
+use crate::widgets::{alert, YesNoString, YES};
 use git2::BranchType;
 use glib::{clone, closure, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, AlertDialog, Box, Button, EventControllerKey,
+    gdk, gio, glib, pango, Box, Button, EventControllerKey,
     Image, Label, ListBox, ListHeader, ListItem, ListScrollFlags, ListView,
     Orientation, ScrolledWindow, SearchBar, SearchEntry, SectionModel,
     SelectionMode, SignalListItemFactory, SingleSelection, Spinner, Widget,
@@ -311,33 +311,6 @@ impl BranchList {
         None
     }
 
-    pub fn cherry_pick(
-        &self,
-        repo_path: PathBuf,
-        window: &Window,
-        sender: Sender<crate::Event>,
-    ) {
-        glib::spawn_future_local({
-            clone!(@weak self as branch_list, @weak window as window => async move {
-                let branch_data = branch_list.get_selected_branch();
-                let branch_data = gio::spawn_blocking(move || {
-                    commit::cherry_pick(repo_path, branch_data.oid, sender)
-                }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
-                    Ok(None)
-                }).unwrap_or_else(|e| {
-                    alert(e).present(&window);
-                    None
-                });
-                if let Some(branch_data) = branch_data {
-                    // cherry-pick
-                    debug!("cherry pick and update_head_branch");
-                    branch_list.update_head_branch(branch_data);
-                }
-            })
-        });
-    }
-
     pub fn update_remote(
         &self,
         repo_path: PathBuf,
@@ -579,6 +552,45 @@ impl BranchList {
         // works via bind to single_selection selected ?????
         self.set_selected_pos(0);
         debug!("set selected pos");
+    }
+
+    pub fn cherry_pick(
+        &self,
+        repo_path: PathBuf,
+        window: &impl IsA<Widget>,
+        sender: Sender<crate::Event>,
+    ) {
+        glib::spawn_future_local({
+            let sender = sender.clone();
+            let path = repo_path.clone();
+            let window = window.clone();
+            let oid = self.get_selected_branch().oid;
+            async move {
+                let response = alert(YesNoString(
+                    "Cherry pick commit?".to_string(),
+                    format!("{}", oid),
+                ))
+                    .choose_future(&window)
+                    .await;
+                if response != YES {
+                    return;
+                }
+                gio::spawn_blocking({
+                    let sender = sender.clone();
+                    let path = path.clone();
+                    move || commit::cherry_pick(path, oid, sender)
+                })
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(None)
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                        None
+                    });
+            }
+        });
     }
 }
 
@@ -1166,39 +1178,8 @@ pub fn show_branches_window(
                     }
                     Event::CherryPickRequest => {
                         trace!("branches. cherry-pick request");
-                        let (current_branch, selected_branch) =
-                            branches_in_use(&list_view);
-                        let btns = vec!["Cancel", "Cherry-pick"];
-                        // TODO! common dialog
-                        let alert = AlertDialog::builder()
-                            .buttons(btns)
-                            .message("Cherry picking")
-                            .detail(format!(
-                                "Cherry picing commit {:?} from branch {:?} onto branch {:?}",
-                                selected_branch.commit_string, selected_branch.name, current_branch.name
-                            ))
-                            .build();
                         let branch_list = get_branch_list(&list_view);
-                        alert.choose(
-                            Some(&window),
-                            None::<&gio::Cancellable>,
-                            {
-                                let path = repo_path.clone();
-                                let window = window.clone();
-                                let sender = main_sender.clone();
-                                clone!(@weak branch_list => move |result| {
-                                    if let Ok(ind) = result {
-                                        if ind == 1 {
-                                            branch_list.cherry_pick(
-                                                path,
-                                                &window,
-                                                sender
-                                            )
-                                        }
-                                    }
-                                })
-                            },
-                        );
+                        branch_list.cherry_pick(repo_path.clone(), &window, main_sender.clone());
                     }
                 }
             }
