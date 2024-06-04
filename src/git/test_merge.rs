@@ -51,7 +51,7 @@ index 7f27a52..8d101d8 100644
 static INIT: Once = Once::new();
 
 #[test]
-pub fn choose_conflict_side() {
+pub fn choose_ours_in_first_side() {
     INIT.call_once(|| {
         env_logger::builder().format_timestamp(None).init();
         // _ = gtk4::init();
