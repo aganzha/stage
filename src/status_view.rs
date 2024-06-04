@@ -2,7 +2,7 @@ pub mod container;
 pub mod headerbar;
 pub mod textview;
 use crate::git::{commit, merge, remote};
-use crate::dialogs::{alert, YesNoDialog, YES};
+use crate::dialogs::{alert, DangerDialog, YES};
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
 use git2::RepositoryState;
@@ -344,7 +344,7 @@ impl Status {
             let path = self.path.clone().unwrap();
             let window = window.clone();
             async move {
-                let response = alert(YesNoDialog(
+                let response = alert(DangerDialog(
                     String::from("Reset"),
                     String::from("Hard reset to Head"),
                 ))
