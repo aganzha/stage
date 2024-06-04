@@ -18,8 +18,7 @@ use git2::{
     ResetType, StashFlags,
 };
 
-// use libgit2_sys;
-use log::{trace};
+use log::{trace, debug};
 use regex::Regex;
 //use std::time::SystemTime;
 use std::path::PathBuf;
@@ -224,20 +223,6 @@ impl Hunk {
             .sum()
     }
 
-    pub fn title(&self) -> String {
-        let parts: Vec<&str> = self.header.split("@@").collect();
-        let line_no = match self.kind {
-            DiffKind::Unstaged | DiffKind::Conflicted => self.old_start,
-            DiffKind::Staged => self.new_start,
-        };
-        let scope = parts.last().unwrap();
-        if !scope.is_empty() {
-            format!("Line {:} in{:}", line_no, scope)
-        } else {
-            format!("Line {:?}", line_no)
-        }
-    }
-
     pub fn push_line(
         &mut self,
         mut line: Line,
@@ -352,6 +337,7 @@ pub struct File {
     pub hunks: Vec<Hunk>,
     pub max_line_len: i32,
     pub kind: DiffKind,
+    pub status: Delta
 }
 
 impl File {
@@ -363,9 +349,10 @@ impl File {
             hunks: Vec::new(),
             max_line_len: 0,
             kind,
+            status: Delta::Unmodified
         }
     }
-    pub fn from_diff_file(f: &DiffFile, kind: DiffKind) -> Self {
+    pub fn from_diff_file(f: &DiffFile, kind: DiffKind, status: Delta) -> Self {
         let path: PathBuf = f.path().unwrap().into();
         let len = path.as_os_str().len();
         File {
@@ -375,6 +362,7 @@ impl File {
             hunks: Vec::new(),
             max_line_len: len as i32,
             kind,
+            status
         }
     }
 
@@ -383,10 +371,6 @@ impl File {
             self.max_line_len = h.max_line_len;
         }
         self.hunks.push(h);
-    }
-
-    pub fn title(&self) -> String {
-        self.path.to_str().unwrap().to_string()
     }
 }
 
@@ -731,10 +715,6 @@ impl UntrackedFile {
             view: View::new(),
         }
     }
-
-    pub fn title(&self) -> String {
-        self.path.to_str().unwrap().to_string()
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -835,7 +815,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
             // build up diff structure
             if current_file.path.capacity() == 0 {
                 // init new file
-                current_file = File::from_diff_file(&file, kind.clone());
+                current_file = File::from_diff_file(&file, kind.clone(), status);
             }
             if current_file.path != file.path().unwrap() {
                 // go to next file
@@ -844,7 +824,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                 current_hunk = Hunk::new(kind.clone());
                 // push current_file to diff and change to new file
                 diff.push_file(current_file.clone());
-                current_file = File::from_diff_file(&file, kind.clone());
+                current_file = File::from_diff_file(&file, kind.clone(), status);
             }
             if let Some(diff_hunk) = o_diff_hunk {
                 let hh = Hunk::get_header_from(&diff_hunk);

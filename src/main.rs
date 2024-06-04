@@ -33,8 +33,8 @@ use git::{
     State, Untracked, UntrackedFile,
 };
 use git2::Oid;
-mod widgets;
-use widgets::{
+mod dialogs;
+use dialogs::{
     alert, confirm_dialog_factory,
 };
 

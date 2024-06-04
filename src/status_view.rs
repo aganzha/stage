@@ -2,7 +2,7 @@ pub mod container;
 pub mod headerbar;
 pub mod textview;
 use crate::git::{commit, merge, remote};
-use crate::widgets::{alert, YesNoString, YES};
+use crate::dialogs::{alert, YesNoDialog, YES};
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
 use git2::RepositoryState;
@@ -343,7 +343,7 @@ impl Status {
             let path = self.path.clone().unwrap();
             let window = window.clone();
             async move {
-                let response = alert(YesNoString(
+                let response = alert(YesNoDialog(
                     String::from("Reset"),
                     String::from("Reset --hard to Head"),
                 ))
@@ -1172,7 +1172,7 @@ impl Status {
                 }
             }
         }
-        debug!("proceeeed");
+
         // just a check
         match subject {
             ApplySubject::Stage | ApplySubject::Kill => {
@@ -1225,13 +1225,13 @@ impl Status {
                 _ => (),
             }
         });
-        debug!("apply filter ----------------------> {:?}", filter);
+        trace!("apply filter ----------------------> {:?}", filter);
         if !filter.file_id.is_empty() {
             if hunks_staged > 1 {
                 // stage all hunks in file
                 filter.hunk_id = None;
             }
-            debug!("stage via apply {:?}", filter);
+            trace!("stage via apply {:?}", filter);
             gio::spawn_blocking({
                 let path = self.path.clone();
                 let sender = self.sender.clone();

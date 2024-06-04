@@ -1,7 +1,7 @@
 use async_channel::Sender;
 
 use crate::git::{branch, commit, merge, remote};
-use crate::widgets::{alert, YesNoString, YES};
+use crate::dialogs::{alert, YesNoDialog, YES};
 use git2::BranchType;
 use glib::{clone, closure, Object};
 use gtk4::prelude::*;
@@ -566,7 +566,7 @@ impl BranchList {
             let window = window.clone();
             let oid = self.get_selected_branch().oid;
             async move {
-                let response = alert(YesNoString(
+                let response = alert(YesNoDialog(
                     "Cherry pick commit?".to_string(),
                     format!("{}", oid),
                 ))

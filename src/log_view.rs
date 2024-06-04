@@ -1,5 +1,5 @@
 use crate::git::{commit, git_log};
-use crate::widgets::{alert, YesNoString, YES};
+use crate::dialogs::{alert, YesNoDialog, YES};
 use async_channel::Sender;
 use core::time::Duration;
 use git2::Oid;
@@ -352,7 +352,7 @@ impl CommitList {
             let window = window.clone();
             let oid = self.get_selected_oid();
             async move {
-                let response = alert(YesNoString(
+                let response = alert(YesNoDialog(
                     "Cherry pick commit?".to_string(),
                     format!("{}", oid),
                 ))
@@ -391,7 +391,7 @@ impl CommitList {
             let sender = sender.clone();
             let commit_list = self.clone();
             async move {
-                let response = alert(YesNoString(
+                let response = alert(YesNoDialog(
                     String::from("Reset"),
                     format!("Reset --hard to {}", oid),
                 ))

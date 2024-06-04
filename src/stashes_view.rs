@@ -11,7 +11,7 @@ use gtk4::{
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::widgets::alert;
+use crate::dialogs::alert;
 use crate::{
     apply_stash as git_apply_stash,
     confirm_dialog_factory, // display_error,
