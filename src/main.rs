@@ -35,7 +35,7 @@ use git::{
 use git2::Oid;
 mod widgets;
 use widgets::{
-    alert, confirm_dialog_factory, merge_dialog_factory, ABORT, OURS, THEIRS,
+    alert, confirm_dialog_factory,
 };
 
 use gdk::Display;
