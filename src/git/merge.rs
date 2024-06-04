@@ -581,8 +581,8 @@ pub fn choose_conflict_side_of_hunk(
         .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
 
-    let mut reversed_header = Hunk::reverse_header(hunk.header);
-
+    let mut reversed_header = Hunk::reverse_header(&hunk.header);
+    
     let mut options = git2::ApplyOptions::new();
 
     let file_path_clone = file_path.clone();
@@ -601,15 +601,7 @@ pub fn choose_conflict_side_of_hunk(
     let ours_choosed = line.is_our_side_of_conflict();
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
 
-    let mut conflict_offset_inside_hunk: i32 = 0;
-    for (i, l) in hunk.lines.iter().enumerate() {
-        if l.content.starts_with(MARKER_OURS) {
-            conflict_offset_inside_hunk = i as i32;
-        }
-        if l == &line {
-            break;
-        }
-    }
+    let conflict_offset_inside_hunk = hunk.get_conflict_offset_by_line(&line);
 
     let mut new_body = choose_conflict_side_of_blob(
         raw,
@@ -621,18 +613,13 @@ pub fn choose_conflict_side_of_hunk(
         },
         ours_choosed
     );
-    trace!("xxxxxxxxxxxxxxxx deltas {:?}", &hunk_deltas);
 
-    // for line in new_body.lines() {
-    //     debug!("{}", line);
-    // }
-    // panic!("STOP");
     // so. not only new lines are changed. new_start are changed also!!!!!!
     // it need to add delta of prev hunk int new start of next hunk!!!!!!!!
     let mut prev_delta = 0;
     for (hh, delta) in hunk_deltas {
         let new_header =
-            Hunk::replace_new_start_and_lines(hh, delta, prev_delta);
+            Hunk::shift_new_start_and_lines(hh, prev_delta, delta);
         new_body = new_body.replace(hh, &new_header);
         if hh == reversed_header {
             reversed_header = new_header;
@@ -644,10 +631,11 @@ pub fn choose_conflict_side_of_hunk(
     for line in new_body.lines() {
         debug!("{}", line);
     }
-
+    panic!("STOP");
+    
     git_diff = git2::Diff::from_buffer(new_body.as_bytes())
         .expect("cant create diff");
-
+    
     options.hunk_callback(|odh| -> bool {
         if let Some(dh) = odh {
             let header = Hunk::get_header_from(&dh);
