@@ -93,9 +93,10 @@ impl OidRow {
             .build();
         commit_button.connect_clicked({
             let oid = stash.oid;
+            let num = stash.num;
             move |_| {
                 sender
-                    .send_blocking(Event::ShowOid(oid))
+                    .send_blocking(Event::ShowOid(oid, Some(num)))
                     .expect("cant send through channel");
             }
         });
@@ -431,8 +432,9 @@ pub fn factory(
                             .downcast_ref::<OidRow>()
                             .expect("cant get oid row");
                         let oid = oid_row.imp().stash.borrow().oid;
+                        let num = oid_row.imp().stash.borrow().num;
                         sender
-                            .send_blocking(Event::ShowOid(oid))
+                            .send_blocking(Event::ShowOid(oid, Some(num)))
                             .expect("cant send through channel");
                     }
                 }

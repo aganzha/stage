@@ -115,7 +115,7 @@ pub enum Event {
     Pull,
     Branches,
     Log(Option<Oid>, Option<String>),
-    ShowOid(Oid),
+    ShowOid(Oid, Option<usize>),
     TextViewResize,
     Toast(String),
     StashesPanel,
@@ -311,18 +311,6 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::Debug => {
                     info!("main. debug");
-                    // status.debug(&txt);
-                    let oid = Oid::from_str(
-                        "52b545f1440642aa1da26c573af6a54627a8420a",
-                    )
-                    .expect("no oid"); // a
-
-                    show_commit_window(
-                        status.path.clone().expect("no path"),
-                        oid,
-                        &window,
-                        sender.clone(),
-                    );
                 }
                 Event::Commit => {
                     info!("main.commit");
@@ -499,11 +487,12 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         focus();
                     }
                 }
-                Event::ShowOid(oid) => {
+                Event::ShowOid(oid, num) => {
                     info!("main.show oid {:?}", oid);
                     show_commit_window(
                         status.path.clone().expect("no path"),
                         oid,
+                        num,
                         &window,
                         sender.clone(),
                     );

@@ -927,6 +927,7 @@ pub fn show_log_window(
                     crate::show_commit_window(
                         repo_path.clone(),
                         oid,
+                        None,
                         &window,
                         main_sender.clone(),
                     );
