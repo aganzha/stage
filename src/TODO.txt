@@ -1,3 +1,5 @@
+BUG: locks become locked if git op is not successfull!!! lets automatically unlock em!
+
 pattern: header_bar factory receives basic view. then it call to it when buttons are pressed.
 
  - main: factory gets sender and returns updater
