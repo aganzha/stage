@@ -370,10 +370,6 @@ fn test_reconciliation() {
     let mut hunk = create_hunk(name);
 
     hunk.render(&buffer, &mut iter, &mut Some(&mut context));
-    debug!(
-        "wtf????????????????????????????? {:?}",
-        hunk.view.is_rendered_in(0)
-    );
     debug!("LLLLLLLLLLLLLLLLines AFTER FIRST RENDER");
     for line in &hunk.lines {
         dbg!(&line.view);

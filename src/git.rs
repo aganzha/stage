@@ -3,6 +3,7 @@ pub mod commit;
 pub mod git_log;
 pub mod merge;
 pub mod remote;
+pub mod tests;
 use crate::branch::BranchData;
 use crate::commit::CommitRepr;
 use crate::gio;
