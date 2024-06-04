@@ -1,7 +1,7 @@
 pub mod container;
 pub mod headerbar;
 pub mod textview;
-use crate::git::{commit, merge, remote, LineKind};
+use crate::git::{commit, merge, remote};
 use crate::widgets::{alert, YesNoString, YES};
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
@@ -19,10 +19,9 @@ use std::rc::Rc;
 
 use crate::status_view::render::View;
 use crate::{
-    checkout_oid, get_current_repo_status, get_directories, git_debug,
-    merge_dialog_factory, stage_untracked, stage_via_apply, stash_changes,
+    checkout_oid, get_current_repo_status, get_directories, git_debug, stage_untracked, stage_via_apply, stash_changes,
     track_changes, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
-    State, StatusRenderContext, Untracked, ABORT, OURS, THEIRS,
+    State, StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
 
@@ -41,7 +40,7 @@ use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, Banner, EntryRow, PasswordEntryRow, SwitchRow,
 }; // _Window,
-use log::{debug, info, trace};
+use log::{debug, trace};
 
 
 impl State {
@@ -757,7 +756,7 @@ impl Status {
                                     })
                                     .unwrap_or_else(|e| {
                                         alert(e).present(&window);
-                                        ()
+                                        
                                     });
                                 }
                             });

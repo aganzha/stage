@@ -1,7 +1,6 @@
 use crate::git::{
     branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff,
-    make_diff_options, BranchData, DiffKind, Head, Hunk, Line, LineKind,
-    State, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, PLUS,
+    make_diff_options, BranchData, DiffKind, Hunk, Line, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS,
     SPACE, NEW_LINE
 };
 use async_channel::Sender;
@@ -519,7 +518,7 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
                 );
                 line_offset_inside_hunk += 1;
             }
-            if !hunk_deltas.is_empty() && line.starts_with("-") {
+            if !hunk_deltas.is_empty() && line.starts_with(MINUS) {
                 // when 1 hunk have multiple conflicts
                 // perhaps here will be conflicts resolved
                 // in previous turn. They already stripped off
