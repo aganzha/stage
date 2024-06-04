@@ -51,11 +51,11 @@ index 7f27a52..8d101d8 100644
 static INIT: Once = Once::new();
 
 #[test]
-pub fn choose_ours_in_first_side() {
-    INIT.call_once(|| {
-        env_logger::builder().format_timestamp(None).init();
-        // _ = gtk4::init();
-    });
+pub fn choose_ours_in_first_conflict() {
+    // INIT.call_once(|| {
+    //     env_logger::builder().format_timestamp(None).init();
+    //     // _ = gtk4::init();
+    // });
 
     // this is mock diff, which is the result of obtaining
     // diff via diff_tree_to_workdir with reverse=true
@@ -99,7 +99,7 @@ pub fn choose_ours_in_first_side() {
         },
         ours_choosed
     );
-    // no first conflict must be resolved to OURS
+    // now first conflict must be resolved to OURS
     // (means no changes at all, BUT second one
     // should remain^ means all MINUS signs where stripepd off
     // and deltans are asjusted to added lines
@@ -131,6 +131,93 @@ pub fn choose_ours_in_first_side() {
             assert!(line.origin != git2::DiffLineType::Deletion);
         }
 
+        if line.content.starts_with(MARKER_THEIRS) {
+            first_passed = true;
+        }
+    }
+}
+
+
+#[test]
+pub fn choose_theirs_in_second_conflict() {
+    // INIT.call_once(|| {
+    //     env_logger::builder().format_timestamp(None).init();
+    //     // _ = gtk4::init();
+    // });
+
+    // this is mock diff, which is the result of obtaining
+    // diff via diff_tree_to_workdir with reverse=true
+    // means we want to kill all workdir changes to get
+    // our tree restored as before merge
+    let mut git_diff = git2::Diff::from_buffer(TEST_BLOB.as_bytes())
+        .expect("cant create diff");
+    let diff = make_diff(&git_diff, DiffKind::Conflicted);
+    let hunk = &diff.files[0].hunks[0];
+
+    // choose first conflict line in OUR side e.g.
+    // "e.Description = any($2::text[])"
+    let mut their_choosen_line = &hunk.lines[0];
+    for l in &hunk.lines {
+        if let Some(line_no) = l.old_line_no {
+            if  line_no == 130 {
+                their_choosen_line = l;
+                break;
+            }
+        }
+    }
+
+    let ours_choosed = false;
+    let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
+    let conflict_offset_inside_hunk = hunk.get_conflict_offset_by_line(their_choosen_line);
+
+    debug!(
+        "{:?} offset {:?} ... {}",
+        their_choosen_line.old_line_no,
+        conflict_offset_inside_hunk,
+        their_choosen_line.content
+    );
+
+    let mut new_body = choose_conflict_side_of_blob(
+        TEST_BLOB,
+        &mut hunk_deltas,
+        |line_offset_inside_hunk, hunk_header| {
+            line_offset_inside_hunk == conflict_offset_inside_hunk
+                &&
+                hunk_header == hunk.header
+        },
+        ours_choosed
+    );
+
+    for line in new_body.lines() {
+        debug!("{}", line);
+    }
+
+    // now second conflict must be resolved to THEIRS
+    // in fisrt conflict ALL lines shoud remain
+
+    // 17 lines where added - second conflict
+    // except markers + all lines from first conflict
+    assert!(hunk_deltas[0] == (&hunk.header, 17));
+    let new_header = Hunk::shift_new_start_and_lines(&hunk.header, 0, 17);
+    new_body = new_body.replace(&hunk.header, &new_header);
+
+    git_diff = git2::Diff::from_buffer(new_body.as_bytes())
+        .expect("cant create diff");
+
+    let diff = make_diff(&git_diff, DiffKind::Conflicted);
+    let mut first_passed = false;
+    for line in &diff.files[0].hunks[0].lines {
+        debug!("!! {:?} {:?} {}", line.origin, line.kind, line.content);
+        if !first_passed {
+            // handle first conflict
+            assert!(line.origin != git2::DiffLineType::Deletion);
+        } else {
+            // handle second conflict
+            match line.kind {
+                LineKind::ConflictMarker(_) => assert!(line.origin == git2::DiffLineType::Deletion),
+                _ => assert!(line.origin != git2::DiffLineType::Deletion)
+            }
+        }
         if line.content.starts_with(MARKER_THEIRS) {
             first_passed = true;
         }
