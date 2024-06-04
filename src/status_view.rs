@@ -48,7 +48,8 @@ impl State {
         match self.state {
             RepositoryState::Merge => format!("All conflicts fixed but you are\
                                                still merging. Commit to conclude merge branch {}", self.subject),
-            RepositoryState::CherryPick => format!("Commit to finish cherry-pick {}.", self.subject),
+            RepositoryState::CherryPick => format!("Commit to finish cherry-pick {}", self.subject),
+            RepositoryState::Revert => format!("Commit to finish revert {}", self.subject),
             _ => "".to_string()
         }
     }
@@ -700,7 +701,9 @@ impl Status {
     ) {
         if let Some(s) = &mut self.conflicted {
             if s.has_conflicts() && !diff.has_conflicts() {
-                self.conflicted_label.content = String::from("<span weight=\"bold\" color=\"#1c71d8\">Conflicts resolved</span> stage changes to complete merge");
+                self.conflicted_label.content = String::from("<span weight=\"bold\"\
+                                                              color=\"#1c71d8\">Conflicts resolved</span>\
+                                                              stage changes to complete merge");
                 self.conflicted_label.view.dirty = true;
             }
             diff.enrich_view(s, &txt.buffer(), &mut Some(context));
@@ -711,8 +714,7 @@ impl Status {
                     banner.set_revealed(false);
                 }
 
-                if state.state == RepositoryState::Merge
-                    || state.state == RepositoryState::CherryPick
+                if state.need_final_commit()
                 {
                     banner.set_title(&state.title_for_proceed_banner());
                     banner.set_css_classes(&["success"]);
@@ -741,7 +743,7 @@ impl Status {
                                                     sender,
                                                 )
                                             } else {
-                                                merge::final_cherrypick_commit(
+                                                merge::final_commit(
                                                     path.clone().expect("no path"),
                                                     sender,
                                                 )
