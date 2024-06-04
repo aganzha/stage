@@ -149,10 +149,10 @@ impl Hunk {
     }
 
     // TODO! use it in reconciliation!!!!!!!!!
-    pub fn replace_new_start_and_lines(
+    pub fn shift_new_start_and_lines(
         header: &str,
-        delta: i32,
-        prev_delta: i32,
+        hunk_delta: i32,
+        lines_delta: i32,
     ) -> String {
         let re = Regex::new(r"@@ [+-][0-9]+,[0-9]+ [+-]([0-9]+),([0-9]+) @@")
             .unwrap();
@@ -166,8 +166,8 @@ impl Hunk {
                 &format!("{},{} @@", i_new_start, i_new_lines),
                 &format!(
                     "{},{} @@",
-                    i_new_start + prev_delta,
-                    i_new_lines + delta
+                    i_new_start + hunk_delta,
+                    i_new_lines + lines_delta
                 ),
             );
         }
@@ -192,7 +192,7 @@ impl Hunk {
     }
 
     // THE REGEX IS WRONG! remove .* !!!!!!!!!!!!! for +
-    pub fn reverse_header(header: String) -> String {
+    pub fn reverse_header(header: &str) -> String {
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
         // "@@ -20,10 +24,11 @@ STAGING LINE..." -> "@@ -24,11 +20,10 @@ STAGING LINE..."
         // "@@ -54,7 +59,6 @@ do not call..." -> "@@ -59,6 +54,7 @@ do not call..."
@@ -328,6 +328,21 @@ impl Hunk {
         trace!("........return this_kind {:?}", this_kind);
         trace!("");
         this_kind
+    }
+
+    /// by given Line inside conflict returns
+    /// the conflict offset from hunk start 
+    pub fn get_conflict_offset_by_line(&self, line: &Line) -> i32 {
+        let mut conflict_offset_inside_hunk: i32 = 0;
+        for (i, l) in self.lines.iter().enumerate() {
+            if l.content.starts_with(MARKER_OURS) {
+                conflict_offset_inside_hunk = i as i32;
+            }
+            if l == line {
+                break;
+            }
+        }
+        conflict_offset_inside_hunk
     }
 }
 
@@ -932,10 +947,10 @@ pub fn stage_via_apply(
                 return match filter.subject {
                     ApplySubject::Stage => hunk_header == &header,
                     ApplySubject::Unstage => {
-                        hunk_header == &Hunk::reverse_header(header)
+                        hunk_header == &Hunk::reverse_header(&header)
                     }
                     ApplySubject::Kill => {
-                        let reversed = Hunk::reverse_header(header);
+                        let reversed = Hunk::reverse_header(&header);
                         hunk_header == &reversed
                     }
                 };
