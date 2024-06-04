@@ -180,7 +180,7 @@ impl OidRow {
                         let stash = row.imp().stash.borrow().clone();
                         let sender = sender.clone();
                         move || {
-                            git_apply_stash(path.clone(), stash, sender.clone())
+                            git_apply_stash(path, stash.num, sender)
                         }
                     }).await
                         .unwrap_or_else(|e| {
@@ -398,7 +398,7 @@ pub fn factory(
                         .send_blocking(crate::Event::StashesPanel)
                         .expect("cant send through channel");
                 }
-                (gdk::Key::a | gdk::Key::Return, _) => {
+                (gdk::Key::a, _) => {
                     if let Some(row) = lb.selected_row() {
                         let oid_row = row
                             .downcast_ref::<OidRow>()
@@ -426,7 +426,7 @@ pub fn factory(
                         sender.clone(),
                     );
                 }
-                (gdk::Key::v, _) => {
+                (gdk::Key::v | gdk::Key::Return, _) => {
                     if let Some(row) = lb.selected_row() {
                         let oid_row = row
                             .downcast_ref::<OidRow>()
