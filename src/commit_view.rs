@@ -20,12 +20,35 @@ use log::{debug, info, trace};
 use std::path::PathBuf;
 use std::rc::Rc;
 
+async fn git_oid_op<F>(oid: git2::Oid, window: impl IsA<Widget>, msg: &str, op: F)
+    where F: FnOnce() -> Result<(), git2::Error> + Send + 'static
+{
+    let response = alert(YesNoDialog(
+        msg.to_string(),
+        format!("{}", oid),
+    ))
+        .choose_future(&window)
+        .await;
+    if response != YES {
+        return;
+    }
+    gio::spawn_blocking(op)
+        .await
+        .unwrap_or_else(|e| {
+            alert(format!("{:?}", e)).present(&window);
+            Ok(())
+        })
+        .unwrap_or_else(|e| {
+            alert(e).present(&window);
+            ()
+        });
+}
+
 pub fn headerbar_factory(
     repo_path: PathBuf,
     window: &impl IsA<Widget>,
     sender: Sender<Event>,
     oid: Oid,
-    // _sender: Sender<Event>,
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
     let lbl = Label::builder()
@@ -46,36 +69,14 @@ pub fn headerbar_factory(
         let sender = sender.clone();
         let path = repo_path.clone();
         let window = window.clone();
-        move |_btn| {
+        move |_| {
+            let sender = sender.clone();
+            let path = path.clone();
+            let window = window.clone();
             glib::spawn_future_local({
-                let sender = sender.clone();
-                let path = path.clone();
-                let window = window.clone();
-                async move {
-                    let response = alert(YesNoDialog(
-                        "Cherry pick commit?".to_string(),
-                        format!("{}", oid),
-                    ))
-                    .choose_future(&window)
-                    .await;
-                    if response != YES {
-                        return;
-                    }
-                    gio::spawn_blocking({
-                        let sender = sender.clone();
-                        let path = path.clone();
-                        move || commit::cherry_pick(path, oid, sender)
-                    })
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
-                        Ok(None)
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(&window);
-                        None
-                    });
-                }
+                git_oid_op(oid, window, "Cherry pick commit?", move || {
+                    commit::cherry_pick(path, oid, sender)
+                })
             });
         }
     });
@@ -87,6 +88,20 @@ pub fn headerbar_factory(
         .sensitive(true)
         .use_underline(true)
         .build();
+
+    revert_btn.connect_clicked({
+        let window = window.clone();
+        move |_| {
+            let sender = sender.clone();
+            let path = repo_path.clone();
+            let window = window.clone();
+            glib::spawn_future_local({
+                git_oid_op(oid, window, "Revert commit?", move || {
+                    commit::revert(path, oid, sender)
+                })
+            });
+        }
+    });
     hb.pack_end(&cherry_pick_btn);
     hb.pack_end(&revert_btn);
     hb
@@ -117,7 +132,6 @@ pub fn show_commit_window(
     let (sender, receiver) = async_channel::unbounded();
 
     let window = Window::builder()
-        // .application(&app_window.application().unwrap())
         .transient_for(app_window)
         .default_width(640)
         .default_height(480)
@@ -147,7 +161,8 @@ pub fn show_commit_window(
     let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
         let window = window.clone();
-        let _sender = sender.clone();
+        let main_sender = main_sender.clone();
+        let path = repo_path.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
@@ -158,9 +173,25 @@ pub fn show_commit_window(
                 }
                 (gdk::Key::a, _) => {
                     trace!("key pressed {:?} {:?}", key, modifier);
-                    // sender
-                    //     .send_blocking(Event::CherryPickRequest)
-                    //     .expect("Could not send through channel");
+                    let sender = main_sender.clone();
+                    let path = path.clone();
+                    let window = window.clone();
+                    glib::spawn_future_local({
+                        git_oid_op(oid, window, "Cherry pick commit?", move || {
+                            commit::cherry_pick(path, oid, sender)
+                        })
+                    });
+                }
+                (gdk::Key::r, _) => {
+                    trace!("key pressed {:?} {:?}", key, modifier);
+                    let sender = main_sender.clone();
+                    let path = path.clone();
+                    let window = window.clone();
+                    glib::spawn_future_local({
+                        git_oid_op(oid, window, "Revert commit?", move || {
+                            commit::revert(path, oid, sender)
+                        })
+                    });                    
                 }
                 _ => {}
             }
@@ -190,11 +221,9 @@ pub fn show_commit_window(
                 alert(e).present(&window);
                 commit::CommitDiff::default()
             });
-            if !commit_diff.is_empty() {
-                sender
-                    .send_blocking(Event::CommitDiff(commit_diff))
-                    .expect("Could not send through channel");
-            }
+            sender
+                .send_blocking(Event::CommitDiff(commit_diff))
+                .expect("Could not send through channel");
         }
     });
 

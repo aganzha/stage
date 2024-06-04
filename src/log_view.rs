@@ -365,11 +365,10 @@ impl CommitList {
                     .await
                     .unwrap_or_else(|e| {
                         alert(format!("{:?}", e)).present(&window);
-                        Ok(None)
+                        Ok(())
                     })
                     .unwrap_or_else(|e| {
-                        alert(e).present(&window);
-                        None
+                        alert(e).present(&window);                        
                     });
             }
         });
@@ -428,7 +427,7 @@ impl CommitList {
             async move {
                 let response = alert(YesNoDialog(
                     String::from("Reset"),
-                    format!("Reset --hard to {}", oid),
+                    format!("Hard reset to {}", oid),
                 ))
                 .choose_future(&window)
                 .await;
