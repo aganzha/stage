@@ -346,7 +346,7 @@ impl Status {
             async move {
                 let response = alert(YesNoDialog(
                     String::from("Reset"),
-                    String::from("Reset --hard to Head"),
+                    String::from("Hard reset to Head"),
                 ))
                 .choose_future(&window)
                 .await;

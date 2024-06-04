@@ -583,11 +583,10 @@ impl BranchList {
                     .await
                     .unwrap_or_else(|e| {
                         alert(format!("{:?}", e)).present(&window);
-                        Ok(None)
+                        Ok(())
                     })
                     .unwrap_or_else(|e| {
-                        alert(e).present(&window);
-                        None
+                        alert(e).present(&window);                        
                     });
             }
         });

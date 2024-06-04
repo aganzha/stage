@@ -1,3 +1,13 @@
+pattern: header_bar factory receives basic view. then it call to it when buttons are pressed.
+
+ - main: factory gets sender and returns updater
+ - log_view: factory gets sender and base view. then call to base view
+ - branches_view: factory gets sender, custom_sender and base view. but then then call to base view VIA CUSTOM SENDER
+ - commit_view: factory gets sender and then do everything itself. hm
+also they all got window.
+it need to do it same way for all, except, maybe main.
+
+
 BUG: reconcilation. compairing line hashes is stupid!
 Cherry-pick:
 - abort from success banner?????????
