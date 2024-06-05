@@ -211,11 +211,23 @@ impl commit::CommitDiff {
     ) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
+        let labels_len = labels.len();
         for l in labels {
             l.render(&buffer, &mut iter, ctx)
         }
         body_label.render(&buffer, &mut iter, ctx);
         self.diff.render(&buffer, &mut iter, ctx);
+
+        debug!("just rendered commit diff");
+        if !self.diff.files.is_empty() {
+            let buffer = txt.buffer();
+            let iter =
+                buffer.iter_at_line(
+                    (labels_len + body_label.labels.len() + 1) as i32
+                ).unwrap();
+            debug!("plaaaaaaaaaaaaaaaaaaaace cursor {:?}", iter.line());
+            buffer.place_cursor(&iter);
+        }
     }
 }
 
@@ -362,14 +374,8 @@ pub fn show_commit_window(
                     if !commit_diff.diff.files.is_empty() {
                         commit_diff.diff.files[0].view.current = true;
                     }
-                    commit_diff.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);
-                    if !commit_diff.diff.files.is_empty() {
-                        let buffer = txt.buffer();
-                        let iter =
-                            buffer.iter_at_line(labels.len() as i32).unwrap();
-                        buffer.place_cursor(&iter);
-                    }
-                    main_diff.replace(commit_diff);
+                    commit_diff.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);                    
+                    main_diff.replace(commit_diff);                    
                 }
                 Event::Expand(_offset, line_no) => {
                     info!("expand");
@@ -388,7 +394,7 @@ pub fn show_commit_window(
                     }
                 }
                 Event::Cursor(_offset, line_no) => {
-                    trace!("cursor");
+                    debug!("cursor.............................. {}", line_no);
                     if let Some(d) = &mut main_diff {
                         if d.diff.cursor(line_no, false, &mut None) {
                             d.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);
