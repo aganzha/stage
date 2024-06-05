@@ -578,7 +578,7 @@ pub fn choose_conflict_side_of_hunk(
 
     let mut reversed_header = Hunk::reverse_header(&hunk.header);
     
-    let mut options = git2::ApplyOptions::new();
+    let mut apply_options = git2::ApplyOptions::new();
 
     let file_path_clone = file_path.clone();
 
@@ -619,27 +619,31 @@ pub fn choose_conflict_side_of_hunk(
     
     git_diff = git2::Diff::from_buffer(new_body.as_bytes())?;
     
-    options.hunk_callback(|odh| -> bool {
+    apply_options.hunk_callback(|odh| -> bool {
         if let Some(dh) = odh {
             let header = Hunk::get_header_from(&dh);
             return header == reversed_header;
         }
         false
     });
-    options.delta_callback(|odd| -> bool {
+    apply_options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
             let path: PathBuf = dd.new_file().path().unwrap().into();
             return file_path == path;
         }
         todo!("diff without delta");
     });
-
+    
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 
-    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))?;
-
+    let apply_error = repo.apply(
+        &git_diff,
+        git2::ApplyLocation::WorkDir,
+        Some(&mut apply_options)
+    ).err();
+    
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("Could not send through channel");
@@ -661,6 +665,9 @@ pub fn choose_conflict_side_of_hunk(
     index.write()?;
 
     cleanup_last_conflict_for_file(path, file_path_clone, sender)?;
+    if let Some(error) = apply_error {
+        return Err(error);
+    }
     Ok(())
 }
 
@@ -689,7 +696,11 @@ pub fn cleanup_last_conflict_for_file(
         // perhaps it will be another files with conflicts
         // perhaps not
         // it need to rerender everything
-        get_current_repo_status(Some(path), sender);
+        gio::spawn_blocking({
+            move || {
+                get_current_repo_status(Some(path), sender);
+            }
+        });
         return Ok(());
     }
     sender
