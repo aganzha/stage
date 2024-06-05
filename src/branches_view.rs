@@ -877,9 +877,6 @@ pub fn headerbar_factory(
                 &window,
                 sender.clone(),
             );
-            // sender
-            //     .send_blocking(Event::Create)
-            //     .expect("Could not send through channel");
         }
     });
     let kill_btn = Button::builder()
@@ -900,9 +897,6 @@ pub fn headerbar_factory(
                 &window,
                 sender.clone(),
             );
-            // sender
-            //     .send_blocking(Event::Kill)
-            //     .expect("Could not send through channel");
         }
     });
     
@@ -946,9 +940,6 @@ pub fn headerbar_factory(
                 &window,
                 sender.clone(),
             )
-            // sender
-            //     .send_blocking(Event::Merge)
-            //     .expect("Could not send through channel");
         }
     });
 
@@ -972,9 +963,6 @@ pub fn headerbar_factory(
                 &window,
                 sender.clone(),
             )
-            // sender
-            //     .send_blocking(Event::UpdateRemote)
-            //     .expect("Could not send through channel");
         }
     });
 
