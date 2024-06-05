@@ -1,5 +1,6 @@
 use crate::status_view::render::View;
 use crate::status_view::{Label, Tag};
+
 use crate::{
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
     StatusRenderContext, UnderCursor, Untracked, UntrackedFile,
@@ -15,7 +16,7 @@ pub enum ViewKind {
     File,
     Hunk,
     Line,
-    Label,
+    Label,    
     Untracked,
     UntrackedFile,
 }

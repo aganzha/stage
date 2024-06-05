@@ -1,6 +1,6 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::git::{apply_stash, commit};
-use crate::status_view::{container::ViewContainer, Label as TextViewLabel};
+use crate::status_view::{container::{ViewContainer, ViewKind}, Label as TextViewLabel, render::View};
 use crate::dialogs::{alert, ConfirmDialog, YES};
 use crate::Event;
 use async_channel::Sender;
@@ -40,7 +40,7 @@ async fn git_oid_op<F>(oid: git2::Oid, window: impl IsA<Widget>, msg: &str, op: 
         })
         .unwrap_or_else(|e| {
             alert(e).present(&window);
-            
+
         });
 }
 
@@ -124,18 +124,97 @@ pub fn headerbar_factory(
     hb
 }
 
+#[derive(Debug, Clone)]
+pub struct MultiLineLabel {
+    pub content: String,
+    pub labels: Vec<TextViewLabel>,
+    pub view: View,
+}
+
+impl MultiLineLabel {
+    pub fn new(content: &str, context: &mut Option<&mut StatusRenderContext>) -> Self {
+        let mut mll = MultiLineLabel {
+            content: content.to_string(),
+            labels: Vec::new(),
+            view: View::new()
+        };
+        if context.is_some() && !content.is_empty() {
+            mll.update_content(content, context);
+        }
+        mll
+    }
+
+    pub fn update_content(&mut self, content: &str, context: &mut Option<&mut StatusRenderContext>) {
+        let mut acc = String::from("");
+        let mut split = content.split(" ");
+        let mut mx = 0;
+        if let Some(context) = context {
+            if let Some(width) = &context.screen_width {
+                // let pixels = width.borrow().pixels;
+                let chars = width.borrow().chars;
+                'words: loop {
+                    debug!("..........looop words acc {} chars {}", acc.len(), chars);
+                    mx += 1;
+                    if mx > 20 {
+                        break 'words;
+                    }
+                    while acc.len() < chars as usize {
+                        if let Some(word) = split.next(){
+                            debug!("got word > {} <", word);
+                            acc.push_str(word);
+                            acc.push_str(" ");
+                        } else {
+                            debug!("words are over! push last label!");
+                            self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
+                            break 'words;
+                        }
+                    }
+                    debug!("reach line end. push label!");
+                    self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
+                    acc = String::from("");
+                }
+            }
+        }
+        // space for following diff
+        self.labels.push(TextViewLabel::from_string(""));
+        self.view.expanded = true;        
+    }
+}
+
+impl ViewContainer for MultiLineLabel {
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Label
+    }
+    fn child_count(&self) -> usize {
+        self.labels.len()
+    }
+    fn get_view(&mut self) -> &mut View {
+        &mut self.view
+    }
+
+    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+        self.labels.iter_mut().map(|vh| vh as &mut dyn ViewContainer).collect()
+    }
+
+    fn get_content(&self) -> String {
+        "".to_string()
+    }
+}
+
 impl commit::CommitDiff {
     fn render(
         &mut self,
         txt: &TextView,
         ctx: &mut Option<&mut StatusRenderContext>,
         labels: &mut [TextViewLabel],
+        body_label: &mut MultiLineLabel
     ) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
         for l in labels {
             l.render(&buffer, &mut iter, ctx)
         }
+        body_label.render(&buffer, &mut iter, ctx);
         self.diff.render(&buffer, &mut iter, ctx);
     }
 }
@@ -254,14 +333,16 @@ pub fn show_commit_window(
         }
     });
 
-    let mut labels: [TextViewLabel; 6] = [
+    let mut labels: [TextViewLabel; 3] = [
         TextViewLabel::from_string(&format!("commit: {:?}", oid)),
         TextViewLabel::from_string(""),
         TextViewLabel::from_string(""),
-        TextViewLabel::from_string(""),
-        TextViewLabel::from_string(""),
-        TextViewLabel::from_string(""),
+        // TextViewLabel::from_string(""),
+        // TextViewLabel::from_string(""),
+        // TextViewLabel::from_string(""),
     ];
+    let mut body_label = MultiLineLabel::new("", &mut None);
+
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             let mut ctx = crate::StatusRenderContext::new();
@@ -269,16 +350,19 @@ pub fn show_commit_window(
             match event {
                 Event::CommitDiff(mut commit_diff) => {
                     info!("commit_diff");
+                    // update it before render to get some width in chars
+                    ctx.update_screen_line_width(commit_diff.diff.max_line_len);
                     labels[1].content =
                         format!("Author: {}", commit_diff.author);
                     labels[2].content =
                         format!("Date: {}", commit_diff.commit_dt);
-                    labels[4].content = commit_diff.message.to_string();
+                    // labels[4].content = commit_diff.message.to_string();
                     // hack to setup cursor
+                    body_label.update_content(&commit_diff.message, &mut Some(&mut ctx));
                     if !commit_diff.diff.files.is_empty() {
                         commit_diff.diff.files[0].view.current = true;
                     }
-                    commit_diff.render(&txt, &mut Some(&mut ctx), &mut labels);
+                    commit_diff.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);
                     if !commit_diff.diff.files.is_empty() {
                         let buffer = txt.buffer();
                         let iter =
@@ -299,7 +383,7 @@ pub fn show_commit_window(
                             }
                         }
                         if need_render {
-                            d.render(&txt, &mut Some(&mut ctx), &mut labels);
+                            d.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);
                         }
                     }
                 }
@@ -307,7 +391,7 @@ pub fn show_commit_window(
                     trace!("cursor");
                     if let Some(d) = &mut main_diff {
                         if d.diff.cursor(line_no, false, &mut None) {
-                            d.render(&txt, &mut Some(&mut ctx), &mut labels);
+                            d.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);
                             // let buffer = txt.buffer();
                             // let iter = &buffer.iter_at_offset(offset);
                             // buffer.place_cursor(iter);
