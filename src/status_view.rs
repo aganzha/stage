@@ -34,7 +34,7 @@ use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
     gio, glib, Box, Label as GtkLabel, ListBox, Orientation, SelectionMode,
-    TextBuffer, TextView, Widget,
+    TextBuffer, TextView, Widget, ScrolledWindow, WrapMode
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -569,35 +569,55 @@ impl Status {
                 let sender = self.sender.clone();
                 let path = self.path.clone();
                 async move {
-                    let lb = ListBox::builder()
-                        .selection_mode(SelectionMode::None)
-                        .css_classes(vec![String::from("boxed-list")])
+                    // let lb = ListBox::builder()
+                    //     .selection_mode(SelectionMode::None)
+                    //     .css_classes(vec![String::from("boxed-list")])
+                    //     .build();
+                    // let input = EntryRow::builder()
+                    //     .title("Commit message:")
+                    //     .show_apply_button(true)
+                    //     .css_classes(vec!["input_field"])
+                    //     .build();
+                    // lb.append(&input);
+                    let txt = TextView::builder()
+                        .margin_start(12)
+                        .margin_end(12)
+                        .margin_top(12)
+                        .margin_bottom(12)
+                        .wrap_mode(WrapMode::Word)
                         .build();
-                    let input = EntryRow::builder()
-                        .title("Commit message:")
-                        .show_apply_button(true)
-                        .css_classes(vec!["input_field"])
+                    let scroll = ScrolledWindow::builder()
+                        .vexpand(true)
+                        .vexpand_set(true)
+                        .hexpand(true)
+                        .hexpand_set(true)
+                        .min_content_width(480)
+                        .min_content_height(320)
                         .build();
-                    lb.append(&input);
+                    scroll.set_child(Some(&txt));
                     let dialog = crate::confirm_dialog_factory(
                         &window,
-                        Some(&lb),
+                        Some(&scroll),
                         "Commit",
                         "Commit",
                     );
-                    input.connect_apply(
-                        clone!(@strong dialog as dialog => move |_entry| {
-                            // someone pressed enter
-                            dialog.response("confirm");
-                            dialog.close();
-                        }),
-                    );
+                    // input.connect_apply(
+                    //     clone!(@strong dialog as dialog => move |_entry| {
+                    //         // someone pressed enter
+                    //         dialog.response("confirm");
+                    //         dialog.close();
+                    //     }),
+                    // );
                     let response = dialog.choose_future().await;
                     if "confirm" != response {
                         return;
                     }
                     gio::spawn_blocking({
-                        let message = format!("{}", input.text());
+                        // let message = format!("{}", input.text());
+                        let buffer = txt.buffer();
+                        let start_iter = buffer.iter_at_offset(0);
+                        let eof_iter = buffer.end_iter();
+                        let message = buffer.text(&start_iter, &eof_iter, true).to_string();
                         move || {
                             commit::create_commit(
                                 path.expect("no path"),
