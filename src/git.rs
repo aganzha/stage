@@ -83,7 +83,7 @@ impl Line {
         }
     }
     pub fn is_side_of_conflict(&self) -> bool {
-        return self.is_our_side_of_conflict()
+        self.is_our_side_of_conflict()
             ||
             self.is_their_side_of_conflict()
     }

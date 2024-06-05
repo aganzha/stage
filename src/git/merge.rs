@@ -710,15 +710,13 @@ pub fn cleanup_last_conflict_for_file(
                 if file.path == file_path {
                     update_status = false;
                 }
-            } else {
-                if file.path == file_path {
-                    // cleanup conflicts only for this file
-                    index
-                        .remove_path(Path::new(&file_path))?;
-                    index
-                        .add_path(Path::new(&file_path))?;
-                    index.write()?;
-                }
+            } else if file.path == file_path {
+                // cleanup conflicts only for this file
+                index
+                    .remove_path(Path::new(&file_path))?;
+                index
+                    .add_path(Path::new(&file_path))?;
+                index.write()?;
             }
         }
     }
