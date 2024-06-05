@@ -337,7 +337,7 @@ pub fn factory(
         .build();
     let apply = Button::builder()
         .tooltip_text("Apply (A)")
-        .icon_name("edit-redo-symbolic")
+        .icon_name("emblem-shared-symbolic")
         .build();
     let kill = Button::builder()
         .tooltip_text("Kill stash (K)")

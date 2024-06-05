@@ -52,8 +52,14 @@ pub fn headerbar_factory(
     stash_num: Option<usize>
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
+    let (btn_tooltip, title) = if stash_num.is_some() {
+        ("Apply stash", "Stash")
+    } else {
+        ("Cherry pick", "Commit")
+    };
+
     let lbl = Label::builder()
-        .label("Commit")
+        .label(title)
         .single_line_mode(true)
         .build();
 
@@ -62,10 +68,11 @@ pub fn headerbar_factory(
     let cherry_pick_btn = Button::builder()
         .icon_name("emblem-shared-symbolic")
         .can_shrink(true)
-        .tooltip_text("Cherry-pick")
+        .tooltip_text(btn_tooltip)
         .sensitive(true)
         .use_underline(true)
         .build();
+
     cherry_pick_btn.connect_clicked({
         let sender = sender.clone();
         let path = repo_path.clone();
