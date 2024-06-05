@@ -49,6 +49,7 @@ use libadwaita::{
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
     CssProvider, Orientation, ScrolledWindow, Settings,
+    Window as Gtk4Window,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
@@ -273,8 +274,9 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     status.get_status();
     window.present();
 
-    let stacked_window: Rc<RefCell<Option<Window>>> =
-        Rc::new(RefCell::new(None));
+    let window_stack: Rc<RefCell<Vec<Window>>> =
+        Rc::new(RefCell::new(Vec::new()));
+    
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
@@ -347,34 +349,44 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         sender.clone(),
                     );
                     w.connect_close_request({
-                        let stacked_window = stacked_window.clone();
+                        let window_stack = window_stack.clone();
                         move |_| {
-                            stacked_window.replace(None);
+                            info!("popping stack while close branches {:?}", window_stack.borrow_mut().pop());
                             glib::signal::Propagation::Proceed
                         }
                     });
-                    stacked_window.replace(Some(w));
+                    window_stack.borrow_mut().push(w);
                 }
                 Event::Log(ooid, obranch_name) => {
                     info!("main.log");
-                    if let Some(stacked_window) = &(*stacked_window.borrow()) {
-                        show_log_window(
-                            status.path.clone().expect("no path"),
-                            stacked_window,
-                            obranch_name
-                                .unwrap_or("unknown branch".to_string()),
-                            sender.clone(),
-                            ooid,
-                        );
-                    } else {
-                        show_log_window(
-                            status.path.clone().expect("no path"),
-                            &window,
-                            status.branch_name(),
-                            sender.clone(),
-                            ooid,
-                        );
-                    }
+                    let w = {
+                        if let Some(stack) = window_stack.borrow().last() {
+                            show_log_window(
+                                status.path.clone().expect("no path"),
+                                stack,
+                                obranch_name
+                                    .unwrap_or("unknown branch".to_string()),
+                                sender.clone(),
+                                ooid,
+                            )
+                        } else {
+                            show_log_window(
+                                status.path.clone().expect("no path"),
+                                &window,
+                                status.branch_name(),
+                                sender.clone(),
+                                ooid,
+                            )
+                        }
+                    };
+                    w.connect_close_request({
+                        let window_stack = window_stack.clone();
+                        move |_| {
+                            info!("popping stack while close log {:?}", window_stack.borrow_mut().pop());
+                            glib::signal::Propagation::Proceed
+                        }
+                    });
+                    window_stack.borrow_mut().push(w);
                 }
                 Event::Head(h) => {
                     info!("main. head");
@@ -489,13 +501,23 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::ShowOid(oid, num) => {
                     info!("main.show oid {:?}", oid);
-                    show_commit_window(
-                        status.path.clone().expect("no path"),
-                        oid,
-                        num,
-                        &window,
-                        sender.clone(),
-                    );
+                    if let Some(stack) = window_stack.borrow().last() {
+                        show_commit_window(
+                            status.path.clone().expect("no path"),
+                            oid,
+                            num,
+                            stack,
+                            sender.clone(),
+                        );
+                    } else {
+                        show_commit_window(
+                            status.path.clone().expect("no path"),
+                            oid,
+                            num,
+                            &window,
+                            sender.clone(),
+                        );
+                    }
                 }
                 Event::ResetHard(ooid) => {
                     info!("main. reset hard");
