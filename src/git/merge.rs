@@ -686,7 +686,6 @@ pub fn cleanup_last_conflict_for_file(
     file_path: PathBuf,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
-
     let mut index = if let Some(index) = index {
         index
     } else {
@@ -694,24 +693,32 @@ pub fn cleanup_last_conflict_for_file(
         repo.index()?
     };
     
-    let diff = get_conflicted_v1(path.clone());
+    let diff = get_conflicted_v1(path.clone());    
     // 1 - all conflicts in all files are resolved - update all
     // 2 - only this file is resolved, but have other conflicts - update all
     // 3 - conflicts are remaining in all files - just update conflicted
     let mut update_status = true;
-    for file in &diff.files {
-        if file.hunks.iter().any(|h| h.conflicts_count > 0) {
-            if file.path == file_path {
-                update_status = false;
-            }
-        } else {
-            if file.path == file_path {
-                // cleanup conflicts only for this file
-                index
-                    .remove_path(Path::new(&file_path))?;
-                index
-                    .add_path(Path::new(&file_path))?;
-                index.write()?;
+    if diff.is_empty() {
+        index
+            .remove_path(Path::new(&file_path))?;
+        index
+            .add_path(Path::new(&file_path))?;
+        index.write()?;
+    } else {
+        for file in &diff.files {
+            if file.hunks.iter().any(|h| h.conflicts_count > 0) {
+                if file.path == file_path {
+                    update_status = false;
+                }
+            } else {
+                if file.path == file_path {
+                    // cleanup conflicts only for this file
+                    index
+                        .remove_path(Path::new(&file_path))?;
+                    index
+                        .add_path(Path::new(&file_path))?;
+                    index.write()?;
+                }
             }
         }
     }
