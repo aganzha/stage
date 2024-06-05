@@ -464,7 +464,6 @@ impl BranchList {
         &self,
         repo_path: PathBuf,
         window: &Window,
-        _branch_sender: Sender<Event>,
         sender: Sender<crate::Event>,
     ) {
         let selected_branch = self.get_selected_branch();
@@ -817,10 +816,10 @@ pub fn listview_factory(
 }
 
 pub fn headerbar_factory(
-    _repo_path: PathBuf,
+    repo_path: PathBuf,
     list_view: &ListView,
-    sender: Sender<Event>,
-    main_sender: Sender<crate::Event>,
+    window: &Window,
+    sender: Sender<crate::Event>,
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
 
@@ -869,10 +868,18 @@ pub fn headerbar_factory(
         .build();
     new_btn.connect_clicked({
         let sender = sender.clone();
+        let window = window.clone();
+        let branch_list = branch_list.clone();
+        let repo_path = repo_path.clone();
         move |_| {
-            sender
-                .send_blocking(Event::Create)
-                .expect("Could not send through channel");
+            branch_list.create_branch(
+                repo_path.clone(),
+                &window,
+                sender.clone(),
+            );
+            // sender
+            //     .send_blocking(Event::Create)
+            //     .expect("Could not send through channel");
         }
     });
     let kill_btn = Button::builder()
@@ -882,7 +889,23 @@ pub fn headerbar_factory(
         .sensitive(false)
         .can_shrink(true)
         .build();
-
+    kill_btn.connect_clicked({
+        let sender = sender.clone();
+        let window = window.clone();
+        let branch_list = branch_list.clone();
+        let repo_path = repo_path.clone();
+        move |_| {
+            branch_list.kill_branch(
+                repo_path.clone(),
+                &window,
+                sender.clone(),
+            );
+            // sender
+            //     .send_blocking(Event::Kill)
+            //     .expect("Could not send through channel");
+        }
+    });
+    
     let set_sensitive = |bind: &glib::Binding, position: u32| {
         let src = bind.source().unwrap();
         let li: &BranchList = src.downcast_ref().unwrap();
@@ -899,14 +922,6 @@ pub fn headerbar_factory(
         .transform_to(set_sensitive)
         .build();
 
-    kill_btn.connect_clicked({
-        let sender = sender.clone();
-        move |_| {
-            sender
-                .send_blocking(Event::Kill)
-                .expect("Could not send through channel");
-        }
-    });
     let merge_btn = Button::builder()
         .icon_name("system-switch-user-symbolic")
         .use_underline(true)
@@ -920,11 +935,20 @@ pub fn headerbar_factory(
         .build();
 
     merge_btn.connect_clicked({
+
         let sender = sender.clone();
+        let window = window.clone();
+        let branch_list = branch_list.clone();
+        let repo_path = repo_path.clone();
         move |_| {
-            sender
-                .send_blocking(Event::Merge)
-                .expect("Could not send through channel");
+            branch_list.merge(
+                repo_path.clone(),
+                &window,
+                sender.clone(),
+            )
+            // sender
+            //     .send_blocking(Event::Merge)
+            //     .expect("Could not send through channel");
         }
     });
 
@@ -939,10 +963,18 @@ pub fn headerbar_factory(
 
     refresh_btn.connect_clicked({
         let sender = sender.clone();
+        let window = window.clone();
+        let branch_list = branch_list.clone();
+        let repo_path = repo_path.clone();
         move |_| {
-            sender
-                .send_blocking(Event::UpdateRemote)
-                .expect("Could not send through channel");
+            branch_list.update_remote(
+                repo_path.clone(),
+                &window,
+                sender.clone(),
+            )
+            // sender
+            //     .send_blocking(Event::UpdateRemote)
+            //     .expect("Could not send through channel");
         }
     });
 
@@ -958,7 +990,7 @@ pub fn headerbar_factory(
         let (_current_branch, selected_branch) =
             branches_in_use(&list_view);
         let oid = selected_branch.oid;
-        main_sender.send_blocking(crate::Event::Log(Some(oid), Some(selected_branch.name)))
+        sender.send_blocking(crate::Event::Log(Some(oid), Some(selected_branch.name)))
             .expect("cant send through channel");
         }
     ));
@@ -977,16 +1009,6 @@ pub fn headerbar_factory(
     hb.set_show_end_title_buttons(true);
     hb.set_show_back_button(true);
     hb
-}
-
-pub enum Event {
-    Create,
-    Scroll(u32),
-    Kill,
-    Merge,
-    CherryPickRequest,
-    UpdateRemote,
-    Log,
 }
 
 pub fn get_branch_list(list_view: &ListView) -> BranchList {
@@ -1017,9 +1039,8 @@ pub fn branches_in_use(
 pub fn show_branches_window(
     repo_path: PathBuf,
     app_window: &ApplicationWindow,
-    main_sender: Sender<crate::Event>,
+    sender: Sender<crate::Event>,
 ) -> Window {
-    let (sender, receiver) = async_channel::unbounded();
 
     let window = Window::builder()
         .application(&app_window.application().unwrap())
@@ -1032,13 +1053,13 @@ pub fn show_branches_window(
     let scroll = ScrolledWindow::new();
 
     let list_view =
-        listview_factory(repo_path.clone(), main_sender.clone(), &window);
+        listview_factory(repo_path.clone(), sender.clone(), &window);
 
     let hb = headerbar_factory(
         repo_path.clone(),
         &list_view,
+        &window,
         sender.clone(),
-        main_sender.clone(),
     );
 
     scroll.set_child(Some(&list_view));
@@ -1051,8 +1072,10 @@ pub fn show_branches_window(
     let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
         let window = window.clone();
+        let list_view = list_view.clone();
+        let repo_path = repo_path.clone();
         let sender = sender.clone();
-        // let main_sender = main_sender.clone();
+        
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
@@ -1062,34 +1085,51 @@ pub fn show_branches_window(
                     window.close();
                 }
                 (gdk::Key::n | gdk::Key::c, _) => {
-                    sender
-                        .send_blocking(Event::Create)
-                        .expect("Could not send through channel");
+                    let branch_list = get_branch_list(&list_view);
+                    branch_list.create_branch(
+                        repo_path.clone(),
+                        &window,
+                        sender.clone(),
+                    );
                 }
                 (gdk::Key::k, _) => {
-                    sender
-                        .send_blocking(Event::Kill)
-                        .expect("Could not send through channel");
+                    let branch_list = get_branch_list(&list_view);
+                    branch_list.kill_branch(
+                        repo_path.clone(),
+                        &window,
+                        sender.clone(),
+                    );
                 }
                 (gdk::Key::m, _) => {
-                    sender
-                        .send_blocking(Event::Merge)
-                        .expect("Could not send through channel");
+                    let branch_list = get_branch_list(&list_view);
+                    branch_list.merge(
+                        repo_path.clone(),
+                        &window,
+                        sender.clone(),
+                    )
                 }
                 (gdk::Key::l, _) => {
+                    let (_current_branch, selected_branch) =
+                        branches_in_use(&list_view);
+                    let oid = selected_branch.oid;
                     sender
-                        .send_blocking(Event::Log)
-                        .expect("Could not send through channel");
+                        .send_blocking(crate::Event::Log(
+                            Some(oid),
+                            Some(selected_branch.name),
+                        ))
+                        .expect("cant send through sender");
                 }
                 (gdk::Key::a, _) => {
-                    sender
-                        .send_blocking(Event::CherryPickRequest)
-                        .expect("Could not send through channel");
+                    let branch_list = get_branch_list(&list_view);
+                    branch_list.cherry_pick(repo_path.clone(), &window, sender.clone());
                 }
                 (gdk::Key::r, _) => {
-                    sender
-                        .send_blocking(Event::UpdateRemote)
-                        .expect("Could not send through channel");
+                    let branch_list = get_branch_list(&list_view);
+                    branch_list.update_remote(
+                        repo_path.clone(),
+                        &window,
+                        sender.clone(),
+                    );                        
                 }
                 (gdk::Key::s, _) => {
                     let search_bar = hb.title_widget().unwrap();
@@ -1113,76 +1153,5 @@ pub fn show_branches_window(
     window.present();
     list_view.grab_focus();
 
-    glib::spawn_future_local({
-        let window = window.clone();
-        // let list_view = list_view.clone();
-        async move {
-            while let Ok(event) = receiver.recv().await {
-                match event {
-                    Event::Create => {
-                        trace!("branches. got new branch name");
-                        let branch_list = get_branch_list(&list_view);
-                        branch_list.create_branch(
-                            repo_path.clone(),
-                            &window,
-                            sender.clone(),
-                            main_sender.clone(),
-                        );
-                    }
-                    Event::Scroll(pos) => {
-                        trace!("branches. scroll {:?}", pos);
-                        list_view.scroll_to(
-                            pos,
-                            ListScrollFlags::empty(),
-                            None,
-                        );
-                    }
-                    Event::Kill => {
-                        trace!("branches. kill request");
-                        let branch_list = get_branch_list(&list_view);
-                        branch_list.kill_branch(
-                            repo_path.clone(),
-                            &window,
-                            main_sender.clone(),
-                        );
-                    }
-                    Event::Merge => {
-                        trace!("branches. merge");
-                        let branch_list = get_branch_list(&list_view);
-                        branch_list.merge(
-                            repo_path.clone(),
-                            &window,
-                            main_sender.clone(),
-                        )
-                    }
-                    Event::UpdateRemote => {
-                        trace!("branches. update remote");
-                        let branch_list = get_branch_list(&list_view);
-                        branch_list.update_remote(
-                            repo_path.clone(),
-                            &window,
-                            main_sender.clone(),
-                        )
-                    }
-                    Event::Log => {
-                        let (_current_branch, selected_branch) =
-                            branches_in_use(&list_view);
-                        let oid = selected_branch.oid;
-                        main_sender
-                            .send_blocking(crate::Event::Log(
-                                Some(oid),
-                                Some(selected_branch.name),
-                            ))
-                            .expect("cant send through sender");
-                    }
-                    Event::CherryPickRequest => {
-                        trace!("branches. cherry-pick request");
-                        let branch_list = get_branch_list(&list_view);
-                        branch_list.cherry_pick(repo_path.clone(), &window, main_sender.clone());
-                    }
-                }
-            }
-        }
-    });
     window
 }
