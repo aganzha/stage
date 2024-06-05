@@ -758,7 +758,7 @@ impl Status {
                                     })
                                     .unwrap_or_else(|e| {
                                         alert(e).present(&window);
-                                        
+
                                     });
                                 }
                             });
@@ -1160,7 +1160,7 @@ impl Status {
         }
         false
     }
-    
+
     pub fn stage(
         &mut self,
         _txt: &TextView,
@@ -1251,11 +1251,23 @@ impl Status {
                 filter.hunk_id = None;
             }
             trace!("stage via apply {:?}", filter);
-            gio::spawn_blocking({
+            glib::spawn_future_local({
+                let window = window.clone();
                 let path = self.path.clone();
                 let sender = self.sender.clone();
-                move || {
-                    stage_via_apply(path.expect("no path"), filter, sender);
+                async move {
+                    gio::spawn_blocking({
+                        move || {
+                            stage_via_apply(path.expect("no path"), filter, sender)
+                        }
+                    }).await
+                        .unwrap_or_else(|e| {
+                            alert(format!("{:?}", e)).present(&window);
+                            Ok(())
+                        })
+                        .unwrap_or_else(|e| {
+                            alert(e).present(&window);
+                        });
                 }
             });
         }

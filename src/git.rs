@@ -908,30 +908,26 @@ pub fn stage_via_apply(
     path: PathBuf,
     filter: ApplyFilter,
     sender: Sender<crate::Event>,
-) {
+) -> Result<(), Error> {
     // TODO! destruct filter to args. put file in pathspec for diff opts
-    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let repo = Repository::open(path.clone())?;
 
     let mut opts = make_diff_options();
     opts.pathspec(&filter.file_id);
 
     let git_diff = match filter.subject {
-        ApplySubject::Stage => repo
-            .diff_index_to_workdir(None, Some(&mut opts))
-            .expect("can't get diff"),
+        ApplySubject::Stage => repo.diff_index_to_workdir(None, Some(&mut opts))?,
         ApplySubject::Unstage => {
             opts.reverse(true);
             let ob =
                 repo.revparse_single("HEAD^{tree}").expect("fail revparse");
             let current_tree =
                 repo.find_tree(ob.id()).expect("no working tree");
-            repo.diff_tree_to_index(Some(&current_tree), None, Some(&mut opts))
-                .expect("can't get diff")
+            repo.diff_tree_to_index(Some(&current_tree), None, Some(&mut opts))?
         }
         ApplySubject::Kill => {
             opts.reverse(true);
-            repo.diff_index_to_workdir(None, Some(&mut opts))
-                .expect("cant get diff")
+            repo.diff_index_to_workdir(None, Some(&mut opts))?
         }
     };
 
@@ -968,53 +964,31 @@ pub fn stage_via_apply(
         ApplySubject::Stage | ApplySubject::Unstage => ApplyLocation::Index,
         ApplySubject::Kill => ApplyLocation::WorkDir,
     };
-    // this was for debug
-    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
-    // sender
-    //     .send_blocking(crate::Event::Conflicted(diff))
-    //     .expect("Could not send through channel");
-    // debug!("APPLY LOCATION {:?}", apply_location);
 
-    repo.apply(&git_diff, apply_location, Some(&mut options))
-        .expect("can't apply patch");
-
-    // staged changes. not needed in kill, btw.
-    gio::spawn_blocking({
-        let sender = sender.clone();
-        let path = path.clone();
-        move || {
-            let repo = Repository::open(path).expect("can't open repo");
-            let ob =
-                repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-            let current_tree =
-                repo.find_tree(ob.id()).expect("no working tree");
-            let git_diff = repo
-                .diff_tree_to_index(Some(&current_tree), None, None)
-                .expect("can't get diff tree to index");
-            let diff = make_diff(&git_diff, DiffKind::Staged);
-            sender
-                .send_blocking(crate::Event::Staged(diff))
-                .expect("Could not send through channel");
-        }
-    });
-
-    // get untracked
-    gio::spawn_blocking({
-        let sender = sender.clone();
-        let path = path.clone();
-        move || {
-            get_untracked(path, sender);
-        }
-    });
-
-    // unstaged changes
-    let git_diff = repo
-        .diff_index_to_workdir(None, None)
-        .expect("cant get diff_index_to_workdir");
-    let diff = make_diff(&git_diff, DiffKind::Unstaged);
     sender
-        .send_blocking(crate::Event::Unstaged(diff))
+        .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
+
+    let apply_error = repo.apply(
+        &git_diff,
+        apply_location,
+        Some(&mut options)
+    ).err();
+
+    sender
+        .send_blocking(crate::Event::LockMonitors(false))
+        .expect("Could not send through channel");
+
+    gio::spawn_blocking({
+        move || {
+            get_current_repo_status(Some(path), sender);
+        }
+    });
+
+    if let Some(error) = apply_error {
+        return Err(error);
+    }    
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
