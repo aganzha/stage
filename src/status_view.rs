@@ -1136,11 +1136,12 @@ impl Status {
                                             alert(e).present(&window);
                                         });
                                     } else {
-                                        // check both: manual and in stage resolving
+                                        // this should be never called
+                                        // conflicts are resolved in branch above
                                         gio::spawn_blocking({
                                             move || {
                                                 merge::cleanup_last_conflict_for_file(
-                                                    path, file_path, sender,
+                                                    path, None, file_path, sender,
                                                 )
                                             }
                                         }).await.unwrap_or_else(|e| {
