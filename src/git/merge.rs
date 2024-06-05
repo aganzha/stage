@@ -331,22 +331,22 @@ pub fn choose_conflict_side(
     get_current_repo_status(Some(path), sender);
 }
 
-trait PathHolder {
-    fn get_path(&self) -> PathBuf;
-}
+// trait PathHolder {
+//     fn get_path(&self) -> PathBuf;
+// }
 
-impl PathHolder for git2::IndexConflict {
-    fn get_path(&self) -> PathBuf {
-        PathBuf::from(
-            from_utf8(match (&self.our, &self.their) {
-                (Some(o), _) => &o.path[..],
-                (_, Some(t)) => &t.path[..],
-                _ => panic!("no path"),
-            })
-            .unwrap(),
-        )
-    }
-}
+// impl PathHolder for git2::IndexConflict {
+//     fn get_path(&self) -> PathBuf {
+//         PathBuf::from(
+//             from_utf8(match (&self.our, &self.their) {
+//                 (Some(o), _) => &o.path[..],
+//                 (_, Some(t)) => &t.path[..],
+//                 _ => panic!("no path"),
+//             })
+//             .unwrap(),
+//         )
+//     }
+// }
 
 
 pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
@@ -556,17 +556,31 @@ pub fn choose_conflict_side_of_hunk(
     let mut index = repo.index()?;
     let conflicts = index.conflicts()?;
 
-    let chosen_path = PathBuf::from(&file_path);
+    // let chosen_path = PathBuf::from(&file_path);
 
-    let current_conflict = conflicts
-        .filter(|c| c.as_ref().unwrap().get_path() == chosen_path)
-        .next()
-        .unwrap()
-        .unwrap();
-
-    index
-        .remove_path(chosen_path.as_path())?;
-
+    let mut entries: Vec<git2::IndexEntry> = Vec::new();
+    let mut conflict_paths: HashSet<PathBuf> = HashSet::new();
+    for conflict in conflicts.flatten() {
+        if let Some(entry) = conflict.our {
+            conflict_paths.insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
+            entries.push(entry);
+        }
+        if let Some(entry) = conflict.their {
+            conflict_paths.insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
+            entries.push(entry);
+        }
+        if let Some(entry) = conflict.ancestor {
+            conflict_paths.insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
+            entries.push(entry);
+        }
+    }
+    for path in conflict_paths {
+        index.remove_path(path.as_path())?
+    }
+    // if not write index here
+    // op will be super slow!
+    index.write()?;
+    
     let ob = repo.revparse_single("HEAD^{tree}")?;
     let current_tree = repo.find_tree(ob.id())?;
 
@@ -647,55 +661,61 @@ pub fn choose_conflict_side_of_hunk(
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("Could not send through channel");
-
+    
     // remove from index again to restore conflict
     // and also to clear from other side tree
-    index
-        .remove_path(Path::new(&file_path.clone()))?;
+    index.remove_path(Path::new(&file_path.clone()))?;
+    for entry in entries {
+        index.add(&entry)?;
+    }
 
-    if let Some(entry) = &current_conflict.ancestor {
-        index.add(entry)?;
-    }
-    if let Some(entry) = &current_conflict.our {
-        index.add(entry)?;
-    }
-    if let Some(entry) = &current_conflict.their {
-        index.add(entry)?;
-    }
+    // if not write index here
+    // op will be super slow!
     index.write()?;
 
-    cleanup_last_conflict_for_file(path, file_path_clone, sender)?;
     if let Some(error) = apply_error {
         return Err(error);
     }
+    cleanup_last_conflict_for_file(path, Some(index), file_path_clone, sender)?;    
     Ok(())
 }
 
 pub fn cleanup_last_conflict_for_file(
     path: PathBuf,
+    index: Option<git2::Index>,
     file_path: PathBuf,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
-    let diff = get_conflicted_v1(path.clone());
-    let repo = git2::Repository::open(path.clone())?;
-    let mut index = repo.index()?;
 
-    let has_conflicts = diff
-        .files
-        .iter()
-        .flat_map(|f| &f.hunks)
-        .any(|h| h.conflicts_count > 0);
-    if !has_conflicts {
-        // file is clear now
-        // stage it!
+    let mut index = if let Some(index) = index {
         index
-            .remove_path(Path::new(&file_path))?;
-        index
-            .add_path(Path::new(&file_path))?;
-        index.write()?;
-        // perhaps it will be another files with conflicts
-        // perhaps not
-        // it need to rerender everything
+    } else {
+        let repo = git2::Repository::open(path.clone())?;
+        repo.index()?
+    };
+    
+    let diff = get_conflicted_v1(path.clone());
+    // 1 - all conflicts in all files are resolved - update all
+    // 2 - only this file is resolved, but have other conflicts - update all
+    // 3 - conflicts are remaining in all files - just update conflicted
+    let mut update_status = true;
+    for file in &diff.files {
+        if file.hunks.iter().any(|h| h.conflicts_count > 0) {
+            if file.path == file_path {
+                update_status = false;
+            }
+        } else {
+            if file.path == file_path {
+                // cleanup conflicts only for this file
+                index
+                    .remove_path(Path::new(&file_path))?;
+                index
+                    .add_path(Path::new(&file_path))?;
+                index.write()?;
+            }
+        }
+    }
+    if update_status {
         gio::spawn_blocking({
             move || {
                 get_current_repo_status(Some(path), sender);
