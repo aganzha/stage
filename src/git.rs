@@ -82,6 +82,11 @@ impl Line {
             _ => false
         }
     }
+    pub fn is_side_of_conflict(&self) -> bool {
+        return self.is_our_side_of_conflict()
+            ||
+            self.is_their_side_of_conflict()
+    }
 }
 
 pub const MARKER_OURS: &str = "<<<<<<<";

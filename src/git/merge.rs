@@ -547,16 +547,14 @@ pub fn choose_conflict_side_of_hunk(
     hunk: Hunk,
     line: Line,
     sender: Sender<crate::Event>,
-) {
+) -> Result<(), git2::Error> {
     info!(
         "choose_conflict_side_of_hunk {:?} Line: {:?}",
         hunk.header, line.content
     );
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
-    let mut index = repo.index().expect("cant get index");
-    let conflicts = index.conflicts().expect("no conflicts");
-
-    // let mut current_conflict: git2::IndexConflict;
+    let repo = git2::Repository::open(path.clone())?;
+    let mut index = repo.index()?;
+    let conflicts = index.conflicts()?;
 
     let chosen_path = PathBuf::from(&file_path);
 
@@ -567,18 +565,16 @@ pub fn choose_conflict_side_of_hunk(
         .unwrap();
 
     index
-        .remove_path(chosen_path.as_path())
-        .expect("cant remove path");
+        .remove_path(chosen_path.as_path())?;
 
-    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    let ob = repo.revparse_single("HEAD^{tree}")?;
+    let current_tree = repo.find_tree(ob.id())?;
 
     let mut opts = make_diff_options();
     let mut opts = opts.pathspec(&file_path).reverse(true);
 
     let mut git_diff = repo
-        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
-        .expect("cant get diff");
+        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))?;
 
     let mut reversed_header = Hunk::reverse_header(&hunk.header);
     
@@ -586,10 +582,9 @@ pub fn choose_conflict_side_of_hunk(
 
     let file_path_clone = file_path.clone();
 
-    let mut patch = git2::Patch::from_diff(&git_diff, 0)
-        .expect("cant get patch")
-        .unwrap();
-    let buff = patch.to_buf().expect("cant get buff");
+    let mut patch = git2::Patch::from_diff(&git_diff, 0)?.unwrap();
+
+    let buff = patch.to_buf()?;
     let raw = buff.as_str().unwrap();
 
     let ours_choosed = line.is_our_side_of_conflict();
@@ -622,8 +617,7 @@ pub fn choose_conflict_side_of_hunk(
     }
 
     
-    git_diff = git2::Diff::from_buffer(new_body.as_bytes())
-        .expect("cant create diff");
+    git_diff = git2::Diff::from_buffer(new_body.as_bytes())?;
     
     options.hunk_callback(|odh| -> bool {
         if let Some(dh) = odh {
@@ -644,8 +638,7 @@ pub fn choose_conflict_side_of_hunk(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 
-    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))
-        .expect("cant apply");
+    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))?;
 
     sender
         .send_blocking(crate::Event::LockMonitors(false))
@@ -654,34 +647,31 @@ pub fn choose_conflict_side_of_hunk(
     // remove from index again to restore conflict
     // and also to clear from other side tree
     index
-        .remove_path(Path::new(&file_path.clone()))
-        .expect("cant remove path");
+        .remove_path(Path::new(&file_path.clone()))?;
 
     if let Some(entry) = &current_conflict.ancestor {
-        index.add(entry).expect("cant add ancestor");
-        debug!("ancestor restored!");
+        index.add(entry)?;
     }
     if let Some(entry) = &current_conflict.our {
-        debug!("our restored!");
-        index.add(entry).expect("cant add our");
+        index.add(entry)?;
     }
     if let Some(entry) = &current_conflict.their {
-        debug!("their restored!");
-        index.add(entry).expect("cant add their");
+        index.add(entry)?;
     }
-    index.write().expect("cant write index");
+    index.write()?;
 
-    cleanup_last_conflict_for_file(path, file_path_clone, sender);
+    cleanup_last_conflict_for_file(path, file_path_clone, sender)?;
+    Ok(())
 }
 
 pub fn cleanup_last_conflict_for_file(
     path: PathBuf,
     file_path: PathBuf,
     sender: Sender<crate::Event>,
-) {
+) -> Result<(), git2::Error> {
     let diff = get_conflicted_v1(path.clone());
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
-    let mut index = repo.index().expect("cant get index");
+    let repo = git2::Repository::open(path.clone())?;
+    let mut index = repo.index()?;
 
     let has_conflicts = diff
         .files
@@ -692,19 +682,18 @@ pub fn cleanup_last_conflict_for_file(
         // file is clear now
         // stage it!
         index
-            .remove_path(Path::new(&file_path))
-            .expect("cant remove path");
+            .remove_path(Path::new(&file_path))?;
         index
-            .add_path(Path::new(&file_path))
-            .expect("cant add path");
-        index.write().expect("cant write index");
+            .add_path(Path::new(&file_path))?;
+        index.write()?;
         // perhaps it will be another files with conflicts
         // perhaps not
         // it need to rerender everything
         get_current_repo_status(Some(path), sender);
-        return;
+        return Ok(());
     }
     sender
         .send_blocking(crate::Event::Conflicted(diff))
         .expect("Could not send through channel");
+    Ok(())
 }

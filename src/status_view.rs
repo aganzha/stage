@@ -1099,11 +1099,74 @@ impl Status {
         }
     }
 
+    pub fn stage_in_conflict(&self, window: &ApplicationWindow) -> bool {
+        // it need to implement method for diff, which will return current Hunk, Line and File and use it in stage.
+        // also it must return indicator what of this 3 is current.
+        if let Some(conflicted) = &self.conflicted {
+            // also someone can press stage on label!
+            for f in &conflicted.files {
+                // also someone can press stage on file!
+                for hunk in &f.hunks {
+                    // also someone can press stage on hunk!
+                    for line in &hunk.lines {
+                        if line.view.current {
+
+                            glib::spawn_future_local({
+                                let path = self.path.clone().unwrap();
+                                let sender = self.sender.clone();
+                                let file_path = f.path.clone();
+                                let hunk = hunk.clone();
+                                let line = line.clone();
+                                let window = window.clone();
+                                async move {
+                                    if hunk.conflicts_count > 0
+                                        && line.is_side_of_conflict()
+                                    {
+                                        gio::spawn_blocking({
+                                            move || {
+                                                merge::choose_conflict_side_of_hunk(
+                                                    path, file_path, hunk, line,
+                                                    sender,
+                                                )
+                                            }
+                                        }).await.unwrap_or_else(|e| {
+                                            alert(format!("{:?}", e)).present(&window);
+                                            Ok(())
+                                        }).unwrap_or_else(|e| {
+                                            alert(e).present(&window);
+                                        });
+                                    } else {
+                                        // check both: manual and in stage resolving
+                                        gio::spawn_blocking({
+                                            move || {
+                                                merge::cleanup_last_conflict_for_file(
+                                                    path, file_path, sender,
+                                                )
+                                            }
+                                        }).await.unwrap_or_else(|e| {
+                                            alert(format!("{:?}", e)).present(&window);
+                                            Ok(())
+                                        }).unwrap_or_else(|e| {
+                                            alert(e).present(&window);
+                                        });
+                                    }
+                                }
+                            });
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+    
     pub fn stage(
         &mut self,
         _txt: &TextView,
         _line_no: i32,
         subject: ApplySubject,
+        window: &ApplicationWindow,
     ) {
         if let Some(untracked) = &mut self.untracked {
             for file in &mut untracked.files {
@@ -1125,54 +1188,8 @@ impl Status {
             }
         }
 
-        // it need to implement method for diff, which will return current Hunk, Line and File and use it in stage.
-        // also it must return indicator what of this 3 is current.
-        if let Some(conflicted) = &self.conflicted {
-            // also someone can press stage on label!
-            for f in &conflicted.files {
-                // also someone can press stage on file!
-                for hunk in &f.hunks {
-                    // also someone can press stage on hunk!
-                    for line in &hunk.lines {
-                        if line.view.current {
-                            if hunk.conflicts_count > 0
-                                && (
-                                    line.is_our_side_of_conflict()
-                                        ||
-                                        line.is_their_side_of_conflict()
-                                )
-                            {
-                                gio::spawn_blocking({
-                                    let path = self.path.clone().unwrap();
-                                    let sender = self.sender.clone();
-                                    let file_path = f.path.clone();
-                                    let hunk = hunk.clone();
-                                    let line = line.clone();
-                                    move || {
-                                        merge::choose_conflict_side_of_hunk(
-                                            path, file_path, hunk, line,
-                                            sender,
-                                        );
-                                    }
-                                });
-                            } else {
-                                // check both: manual and in stage resolving
-                                gio::spawn_blocking({
-                                    let path = self.path.clone().unwrap();
-                                    let file_path = f.path.clone();
-                                    let sender = self.sender.clone();
-                                    move || {
-                                        merge::cleanup_last_conflict_for_file(
-                                            path, file_path, sender,
-                                        );
-                                    }
-                                });
-                            }
-                            return;
-                        }
-                    }
-                }
-            }
+        if self.stage_in_conflict(&window) {
+            return;
         }
 
         // just a check
