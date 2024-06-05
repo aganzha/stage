@@ -40,7 +40,7 @@ async fn git_oid_op<F>(oid: git2::Oid, window: impl IsA<Widget>, msg: &str, op: 
         })
         .unwrap_or_else(|e| {
             alert(e).present(&window);
-            ()
+            
         });
 }
 

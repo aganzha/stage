@@ -49,7 +49,6 @@ use libadwaita::{
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
     CssProvider, Orientation, ScrolledWindow, Settings,
-    Window as Gtk4Window,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 

@@ -14,7 +14,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
-use log::{info, trace};
+use log::{trace};
 use std::cell::RefCell;
 
 use std::path::PathBuf;
@@ -407,7 +407,7 @@ impl CommitList {
                     })
                     .unwrap_or_else(|e| {
                         alert(e).present(&window);
-                        ()
+                        
                     });
             }
         });
