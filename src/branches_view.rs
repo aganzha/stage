@@ -8,7 +8,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, Box, Button, EventControllerKey,
-    Image, Label, ListBox, ListHeader, ListItem, ListScrollFlags, ListView,
+    Image, Label, ListBox, ListHeader, ListItem, ListView,
     Orientation, ScrolledWindow, SearchBar, SearchEntry, SectionModel,
     SelectionMode, SignalListItemFactory, SingleSelection, Spinner, Widget,
 };

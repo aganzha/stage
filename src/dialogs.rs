@@ -1,15 +1,15 @@
 use crate::git::remote::RemoteResponse;
-use async_channel::Sender;
-use libadwaita::prelude::*;
-use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance, SwitchRow};
 
-use std::collections::HashMap;
+use libadwaita::prelude::*;
+use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance};
+
+
 
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 
 use gtk4::{
-    ListBox, ScrolledWindow, SelectionMode, TextView, Widget,
+    ScrolledWindow, TextView, Widget,
     Window as Gtk4Window,
 };
 

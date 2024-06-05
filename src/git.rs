@@ -18,7 +18,7 @@ use git2::{
     ResetType, StashFlags,
 };
 
-use log::{trace, debug};
+use log::{trace};
 use regex::Regex;
 //use std::time::SystemTime;
 use std::path::PathBuf;

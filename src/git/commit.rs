@@ -1,6 +1,5 @@
 use crate::git::{
-    branch, get_current_repo_status, get_head, make_diff, Diff, DiffKind,
-    Head, State,
+    get_current_repo_status, get_head, make_diff, Diff, DiffKind,
 };
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
