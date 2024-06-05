@@ -486,7 +486,7 @@ impl CommitList {
     }
 }
 
-pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
+pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     let focus = Rc::new(RefCell::new(false));
     factory.connect_setup(move |_, list_item| {
@@ -510,7 +510,7 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
                     commit_item.downcast_ref::<CommitItem>().unwrap();
                 let oid = commit_item.imp().commit.borrow().oid;
                 sender
-                    .send_blocking(Event::ShowOid(oid))
+                    .send_blocking(crate::Event::ShowOid(oid, None))
                     .expect("cant send through sender");
             }
         });
@@ -634,7 +634,7 @@ pub fn item_factory(sender: Sender<Event>) -> SignalListItemFactory {
     factory
 }
 
-pub fn listview_factory(sender: Sender<Event>) -> ListView {
+pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
     let commit_list = CommitList::new();
     let selection_model = SingleSelection::new(Some(commit_list));
 
@@ -664,7 +664,7 @@ pub fn listview_factory(sender: Sender<Event>) -> ListView {
             let commit_item = list_item.downcast_ref::<CommitItem>().unwrap();
             let oid = commit_item.imp().commit.borrow().oid;
             sender
-                .send_blocking(Event::ShowOid(oid))
+                .send_blocking(crate::Event::ShowOid(oid, None))
                 .expect("cant send through sender");
         }
     });
@@ -680,9 +680,6 @@ pub fn get_commit_list(list_view: &ListView) -> CommitList {
     commit_list.to_owned()
 }
 
-pub enum Event {
-    ShowOid(Oid),
-}
 
 pub fn headerbar_factory(
     list_view: &ListView,
@@ -820,8 +817,8 @@ pub fn show_log_window(
     branch_name: String,
     main_sender: Sender<crate::Event>,
     start_oid: Option<Oid>,
-) {
-    let (sender, receiver) = async_channel::unbounded();
+) -> Window {
+    // let (sender, receiver) = async_channel::unbounded();
 
     let window = Window::builder()
         //.application(&app_window.application().unwrap())// panic!
@@ -831,7 +828,7 @@ pub fn show_log_window(
         .build();
     window.set_default_size(1280, 960);
 
-    let list_view = listview_factory(sender.clone());
+    let list_view = listview_factory(main_sender.clone());
 
     let scroll = ScrolledWindow::new();
 
@@ -919,20 +916,5 @@ pub fn show_log_window(
         start_oid,
         &list_view,
     );
-    glib::spawn_future_local(async move {
-        while let Ok(event) = receiver.recv().await {
-            match event {
-                Event::ShowOid(oid) => {
-                    info!("show oid {:?}", oid);
-                    crate::show_commit_window(
-                        repo_path.clone(),
-                        oid,
-                        None,
-                        &window,
-                        main_sender.clone(),
-                    );
-                }
-            }
-        }
-    });
+    window
 }
