@@ -438,15 +438,15 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::Stage(_offset, line_no) => {
                     info!("main. stage");
-                    status.stage(&txt, line_no, ApplySubject::Stage);
+                    status.stage(&txt, line_no, ApplySubject::Stage, &window);
                 }
                 Event::UnStage(_offset, line_no) => {
                     info!("main. unstage");
-                    status.stage(&txt, line_no, ApplySubject::Unstage);
+                    status.stage(&txt, line_no, ApplySubject::Unstage, &window);
                 }
                 Event::Kill(_offset, line_no) => {
                     info!("main.kill");
-                    status.stage(&txt, line_no, ApplySubject::Kill);
+                    status.stage(&txt, line_no, ApplySubject::Kill, &window);
                 }
                 Event::Ignore(offset, line_no) => {
                     info!("main.ignore");
