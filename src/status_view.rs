@@ -1189,7 +1189,7 @@ impl Status {
             }
         }
 
-        if self.stage_in_conflict(&window) {
+        if self.stage_in_conflict(window) {
             return;
         }
 
