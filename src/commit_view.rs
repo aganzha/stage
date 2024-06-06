@@ -147,7 +147,7 @@ impl MultiLineLabel {
     pub fn update_content(&mut self, content: &str, context: &mut Option<&mut StatusRenderContext>) {
         let mut acc = String::from("");
         let mut split = content.split(" ");
-        let mut mx = 0;
+        let mut mx = 0;        
         self.labels = Vec::new();
         if let Some(context) = context {
             if let Some(width) = &context.screen_width {
@@ -221,8 +221,16 @@ impl commit::CommitDiff {
         for l in labels {
             l.render(&buffer, &mut iter, ctx)
         }
+        let offset_before_erase = iter.offset();
         // this doubles it content!
         // it need to erase all labels!
+        debug!("BBBBBBBBBBBEFORE ERASE {}", iter.line());
+        for l in &mut body_label.labels {
+            debug!("laaaaaaaaaaaaaaabel {}", l.get_view().rendered);
+            l.erase(&buffer, ctx);
+        }
+        iter = buffer.iter_at_offset(offset_before_erase);
+        debug!("AAAAAAAAAAAAFTER ERASE {}", iter.line());        
         body_label.update_content(&self.message, ctx);
 
         body_label.render(&buffer, &mut iter, ctx);
