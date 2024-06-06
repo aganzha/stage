@@ -116,7 +116,8 @@ pub enum Event {
     Branches,
     Log(Option<Oid>, Option<String>),
     ShowOid(Oid, Option<usize>),
-    TextViewResize,
+    TextViewResize(i32),
+    TextCharVisibleWidth(i32),
     Toast(String),
     StashesPanel,
     Stashes(Stashes),
@@ -226,7 +227,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
 
     let text_view_width =
         Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
-    let txt = textview_factory(sender.clone(), text_view_width.clone());
+    let txt = textview_factory(sender.clone(), "status_view", text_view_width.clone());
 
     let scroll = ScrolledWindow::builder()
         .vexpand(true)
@@ -452,9 +453,14 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     info!("main.ignore");
                     status.ignore(&txt, line_no, offset, &mut ctx);
                 }
-                Event::TextViewResize => {
-                    info!("main.resize");
+                Event::TextViewResize(w) => {
+                    info!("TextViewResize {}", w);
+                    ctx.screen_width.replace(text_view_width.clone());
                     status.resize(&txt, &mut ctx);
+                }
+                Event::TextCharVisibleWidth(w) => {
+                    info!("TextCharVisibleWidth {}", w);
+                    ctx.screen_width.replace(text_view_width.clone());
                 }
                 Event::Toast(title) => {
                     info!("toast");

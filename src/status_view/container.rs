@@ -242,6 +242,7 @@ pub trait ViewContainer {
         buffer: &TextBuffer,
         context: &mut Option<&mut StatusRenderContext>,
     ) {
+        // this is just RE render with build_up
         let view = self.get_view();
         let line_no = view.line_no;
         if view.rendered {
