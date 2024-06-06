@@ -8,7 +8,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::{trace};
+use log::{trace, debug};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
@@ -193,6 +193,10 @@ pub trait ViewContainer {
         context: &mut Option<&mut StatusRenderContext>,
     ) {
         // CAUTION. ATTENTION. IMPORTANT
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // after this operation all prev iters bevome INVALID!
+        // it need to reobtain them!
+        
         // this ONLY rendering. the data remains
         // unchaged. means it used to be called just
         // before replacing data in status struct.
@@ -211,13 +215,19 @@ pub trait ViewContainer {
         // it to render itself! means each render must receives context.
         // hm. how to avoid it? lets not avoid it. lets try to pass it,
         // and also put there prev_line length!
+        debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+        let start_iter = buffer.iter_at_offset(0);
+        let eof_iter = buffer.end_iter();
+        let message = buffer.text(&start_iter, &eof_iter, true).to_string();
+        debug!("{}", message);
+        
         let view = self.get_view();
         let mut line_no = view.line_no;
-        trace!("original line_no {:?}", line_no);
+        debug!("original line_no {:?}", line_no);
         let original_line_no = view.line_no;
         if let Some(ctx) = context {
             if let Some(ec) = ctx.erase_counter {
-                trace!("erase counter {:?}", ec);
+                debug!("erase counter {:?}", ec);
                 line_no -= ec;
             }
         }
@@ -229,12 +239,19 @@ pub trait ViewContainer {
             view.child_dirty = true;
         });
         // GOT BUG HERE DURING STAGING SAME FILES!
-        trace!("line finally {:?}", line_no);
+        debug!("line finally {:?}", line_no);
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
-        trace!("!! erase one signgle view at buffer line > {:?}. orig view line {:?}", line_no, original_line_no);
-        self.render(buffer, &mut iter, context);
+        debug!("!! erase one signgle view at buffer line = {:?}. orig view line {:?}", line_no, original_line_no);
+        
+        self.render(buffer, &mut iter, context);        
+        debug!("so what??????????????????...............................................");
+        let start_iter = buffer.iter_at_offset(0);
+        let eof_iter = buffer.end_iter();
+        let message = buffer.text(&start_iter, &eof_iter, true).to_string();
+        debug!("{}", message);
+        
     }
 
     fn resize(
