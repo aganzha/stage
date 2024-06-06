@@ -159,7 +159,7 @@ impl MultiLineLabel {
                     chars = visible_chars;
                 }
                 let visible_chars = width.borrow().visible_chars;
-                debug!("..........looop words acc {} chars {} visible_chars {}", pixels, chars, visible_chars);
+                trace!("..........looop words acc {} chars {} visible_chars {}", pixels, chars, visible_chars);
                 'words: loop {
                     mx += 1;
                     if mx > 20 {
@@ -167,9 +167,8 @@ impl MultiLineLabel {
                     }
                     while acc.len() < chars as usize {
                         if let Some(word) = split.next(){
-                            debug!("got word > {} <", word);
+                            trace!("got word > {} <", word);
                             if acc.len() + word.len() > chars as usize {
-                                // push word to next label!!!!!!!!!!
                                 self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
                                 acc = String::from(word);
                             } else {
@@ -177,12 +176,12 @@ impl MultiLineLabel {
                                 acc.push_str(" ");
                             }
                         } else {
-                            //debug!("words are over! push last label!");
+                            trace!("words are over! push last label!");
                             self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
                             break 'words;
                         }
                     }
-                    //debug!("reach line end. push label!");
+                    trace!("reach line end. push label!");
                     self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
                     acc = String::from("");
                 }
@@ -365,7 +364,7 @@ pub fn show_commit_window(
     });
 
     let mut labels: [TextViewLabel; 3] = [
-        TextViewLabel::from_string(&format!("commit: {:?}", oid)),
+        TextViewLabel::from_string(&format!("commit: <span color=\"#4a708b\">{:?}</span>", oid)),
         TextViewLabel::from_string(""),
         TextViewLabel::from_string(""),
     ];
@@ -381,9 +380,9 @@ pub fn show_commit_window(
                     // update it before render to get some width in chars
                     ctx.update_screen_line_width(commit_diff.diff.max_line_len);
                     labels[1].content =
-                        format!("Author: {}", commit_diff.author);
+                        format!("Author: <span color=\"#4a708b\">{}</span>", commit_diff.author);
                     labels[2].content =
-                        format!("Date: {}", commit_diff.commit_dt);
+                        format!("Date: <span color=\"#4a708b\">{}</span>", commit_diff.commit_dt);
 
                     if !commit_diff.diff.files.is_empty() {
                         commit_diff.diff.files[0].view.current = true;
