@@ -31,7 +31,7 @@ impl CommitRepr for git2::Commit<'_> {
         html_escape::encode_safe_to_string(&message, &mut encoded);
         format!("{} {}", &self.id().to_string()[..7], encoded)
     }
-
+    
     fn message(&self) -> String {
         let mut message = self.body().unwrap_or("");
         if message.is_empty() {
@@ -177,11 +177,14 @@ pub fn get_parents_for_commit(path: PathBuf) -> Vec<git2::Oid> {
 pub fn create_commit(
     path: PathBuf,
     message: String,
+    amend: bool,
     sender: Sender<crate::Event>,
-) {
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
-    let me = repo.signature().expect("can't get signature");
-
+) -> Result<(), git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
+    let me = repo.signature()?;
+    if message.is_empty() {
+        return Err(git2::Error::from_str("Commit message is required"));
+    }
     // let ob = repo.revparse_single("HEAD^{commit}")
     //     .expect("fail revparse");
     // let id = repo.revparse_single("HEAD^{commit}")
@@ -194,11 +197,10 @@ pub fn create_commit(
     // tree: &Tree<'_>,
     // parents: &[&Commit<'_>]
     let tree_oid = repo
-        .index()
-        .expect("can't get index")
-        .write_tree()
-        .expect("can't write tree");
-    let tree = repo.find_tree(tree_oid).expect("can't find tree");
+        .index()?
+        .write_tree()?;
+
+    let tree = repo.find_tree(tree_oid)?;
 
     let commits = get_parents_for_commit(path.clone())
         .into_iter()
@@ -208,8 +210,7 @@ pub fn create_commit(
     match &commits[..] {
         [commit] => {
             let tree = repo.find_tree(tree_oid).expect("can't find tree");
-            repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&commit])
-                .expect("can't commit");
+            repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&commit])?;
         }
         [commit, merge_commit] => {
             let merge_message = match repo.message() {
@@ -229,20 +230,19 @@ pub fn create_commit(
                 &merge_message,
                 &tree,
                 &[&commit, &merge_commit],
-            )
-            .expect("can't commit");
-            repo.cleanup_state().expect("cant cleanup state");
+            )?;
+            repo.cleanup_state()?;
         }
         _ => {
             todo!("multiple parents")
         }
     }
     // update staged changes
-    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    let ob = repo.revparse_single("HEAD^{tree}")?;
+    let current_tree = repo.find_tree(ob.id())?;
     let git_diff = repo
-        .diff_tree_to_index(Some(&current_tree), None, None)
-        .expect("can't get diff tree to index");
+        .diff_tree_to_index(Some(&current_tree), None, None)?;
+
     sender
         .send_blocking(crate::Event::Staged(make_diff(
             &git_diff,
@@ -265,7 +265,8 @@ pub fn create_commit(
                 .expect("Could not send through channel");
         }
     });
-    get_head(path, sender)
+    get_head(path, sender);
+    Ok(())
 }
 
 pub fn cherry_pick(

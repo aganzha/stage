@@ -456,7 +456,8 @@ impl State {
 #[derive(Debug, Clone)]
 pub struct Head {
     pub oid: Oid,
-    pub commit: String,
+    pub log_message: String,
+    pub commit_body: String,
     pub branch: String,
     pub view: View,
     pub remote: bool,
@@ -467,7 +468,8 @@ impl Head {
         Self {
             oid: commit.id(),
             branch: String::from(branch.name().unwrap().unwrap()),
-            commit: commit.log_message(),
+            log_message: commit.log_message(),
+            commit_body: commit.body().unwrap_or("").to_string(),
             view: View::new_markup(),
             remote: false,
         }
