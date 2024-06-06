@@ -37,7 +37,6 @@ impl CommitRepr for git2::Commit<'_> {
         if message.is_empty() {
             message = self.message().unwrap_or("");
         }
-        debug!("0000000000000000000000000000 {:?}", message);
         let mut encoded = String::from("");
         html_escape::encode_safe_to_string(
             &message,

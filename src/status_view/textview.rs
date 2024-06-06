@@ -193,31 +193,40 @@ fn handle_line_offset(
 }
 
 pub trait CharView {
-    fn calc_max_char_width(&self) -> Option<i32>;
+    fn calc_max_char_width(&self) -> i32;
 }
 
 impl CharView for TextView {
-    fn calc_max_char_width(&self) -> Option<i32> {
-        if let Some((mut iter, _over_text)) = self.iter_at_position(1, 1) {
-            let buff = iter.buffer();
-            iter.forward_to_line_end();
-            let mut pos = self.cursor_locations(Some(&iter)).0.x();
-            while pos < self.width() {
-                buff.insert(&mut iter, " ");
-                pos = self.cursor_locations(Some(&iter)).0.x();
-            }
-            return Some(iter.offset());
+
+    fn calc_max_char_width(&self) -> i32 {
+        let buffer = self.buffer();
+        let mut iter = buffer.iter_at_offset(0);
+        let mut pos = self.cursor_locations(Some(&iter)).0.x();
+        let mut strip_index = 0;
+        while pos < self.width() {
+            let forwarded = iter.forward_char();
+            if !forwarded {
+                strip_index = iter.offset();
+                buffer.insert(&mut iter, " ");
+            }            
+            pos = self.cursor_locations(Some(&iter)).0.x();
         }
-        None
+        if strip_index > 0 {
+            // do it need to cleanup line to the end?
+            // perhaps not
+        }
+        iter.offset()
     }
 }
 
 pub fn factory(
     sndr: Sender<crate::Event>,
+    name: &str,
     text_view_width: Rc<RefCell<crate::context::TextViewWidth>>,
 ) -> TextView {
     let txt = TextView::builder()
         .margin_start(12)
+        .name(name)
         .margin_end(12)
         .margin_top(12)
         .margin_bottom(12)
@@ -474,18 +483,22 @@ pub fn factory(
             let width = view.width();
             let stored_width = text_view_width.borrow().pixels;
             if width > 0 && width != stored_width {
+                // debug!("once for view! text view width in pixes. real{:?} vs stored {:?}", width, stored_width);
                 // resizing window. handle both cases: initial render and further resizing
                 text_view_width.borrow_mut().pixels = width;
-                trace!("replaced screen width {:?}", text_view_width);
+                // debug!("replaced screen width {:?}", text_view_width);
                 if stored_width == 0 {
                     // initial render
-                    if let Some(char_width) = view.calc_max_char_width() {
-                        if char_width > text_view_width.borrow().chars {
-                            text_view_width.borrow_mut().chars = char_width;
-                            sndr.send_blocking(crate::Event::TextViewResize)
-                                .expect("could not sent through channel");
-                        }
+                    let visible_char_width = view.calc_max_char_width();
+                    text_view_width.borrow_mut().visible_chars = visible_char_width;
+                    sndr.send_blocking(crate::Event::TextCharVisibleWidth(visible_char_width))
+                        .expect("could not sent through channel");
+                    if visible_char_width > text_view_width.borrow().chars {
+                        text_view_width.borrow_mut().chars = visible_char_width;
+                        sndr.send_blocking(crate::Event::TextViewResize(visible_char_width))
+                            .expect("could not sent through channel");
                     }
+
                 } else {
                     // resizing window by user action
                     // do need to calc char width every time (perhaps changing window by dragging)
@@ -499,24 +512,11 @@ pub fn factory(
                             let sndr = sndr.clone();
                             move || {
                                 if width == text_view_width.borrow().pixels {
-                                    if let Some(char_width) =
-                                        view.calc_max_char_width()
-                                    {
-                                        if char_width
-                                            > text_view_width
-                                                .borrow_mut()
-                                                .chars
-                                        {
-                                            text_view_width
-                                                .borrow_mut()
-                                                .chars = char_width;
-                                        }
-                                        sndr.send_blocking(
-                                            crate::Event::TextViewResize,
-                                        )
-                                        .expect(
-                                            "could not sent through channel",
-                                        );
+                                    let visible_char_width = view.calc_max_char_width();
+                                    if visible_char_width > text_view_width.borrow().chars{
+                                        text_view_width.borrow_mut().chars = visible_char_width;
+                                        sndr.send_blocking(crate::Event::TextViewResize(visible_char_width))
+                                            .expect("could not sent through channel");
                                     }
                                 }
                                 ControlFlow::Break

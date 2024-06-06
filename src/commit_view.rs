@@ -1,6 +1,6 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::git::{apply_stash, commit};
-use crate::status_view::{container::{ViewContainer, ViewKind}, Label as TextViewLabel, render::View};
+use crate::status_view::{container::{ViewContainer, ViewKind}, Label as TextViewLabel, render::View, textview::CharView};
 use crate::dialogs::{alert, ConfirmDialog, YES};
 use crate::Event;
 use async_channel::Sender;
@@ -11,7 +11,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow,
-    TextView, Widget, Window as Gtk4Window,
+    TextView, Widget, Window as Gtk4Window, TextWindowType
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -148,28 +148,34 @@ impl MultiLineLabel {
         let mut acc = String::from("");
         let mut split = content.split(" ");
         let mut mx = 0;
+        self.labels = Vec::new();
         if let Some(context) = context {
             if let Some(width) = &context.screen_width {
-                // let pixels = width.borrow().pixels;
-                let chars = width.borrow().chars;
+                let pixels = width.borrow().pixels;
+                let mut chars = width.borrow().chars;
+                let visible_chars = width.borrow().visible_chars;
+                if visible_chars > 0 && visible_chars < chars {
+                    chars = visible_chars;
+                }
+                let visible_chars = width.borrow().visible_chars;
+                debug!("..........looop words acc {} chars {} visible_chars {}", pixels, chars, visible_chars);
                 'words: loop {
-                    debug!("..........looop words acc {} chars {}", acc.len(), chars);
                     mx += 1;
                     if mx > 20 {
                         break 'words;
                     }
                     while acc.len() < chars as usize {
                         if let Some(word) = split.next(){
-                            debug!("got word > {} <", word);
+                            //debug!("got word > {} <", word);
                             acc.push_str(word);
                             acc.push_str(" ");
                         } else {
-                            debug!("words are over! push last label!");
+                            //debug!("words are over! push last label!");
                             self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
                             break 'words;
                         }
                     }
-                    debug!("reach line end. push label!");
+                    //debug!("reach line end. push label!");
                     self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
                     acc = String::from("");
                 }
@@ -177,7 +183,7 @@ impl MultiLineLabel {
         }
         // space for following diff
         self.labels.push(TextViewLabel::from_string(""));
-        self.view.expanded = true;        
+        self.view.expanded = true;
     }
 }
 
@@ -215,6 +221,10 @@ impl commit::CommitDiff {
         for l in labels {
             l.render(&buffer, &mut iter, ctx)
         }
+        // this doubles it content!
+        // it need to erase all labels!
+        body_label.update_content(&self.message, ctx);
+
         body_label.render(&buffer, &mut iter, ctx);
         self.diff.render(&buffer, &mut iter, ctx);
 
@@ -225,7 +235,6 @@ impl commit::CommitDiff {
                 buffer.iter_at_line(
                     (labels_len + body_label.labels.len() + 1) as i32
                 ).unwrap();
-            debug!("plaaaaaaaaaaaaaaaaaaaace cursor {:?}", iter.line());
             buffer.place_cursor(&iter);
         }
     }
@@ -259,7 +268,7 @@ pub fn show_commit_window(
 
     let text_view_width =
         Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
-    let txt = crate::textview_factory(sender.clone(), text_view_width.clone());
+    let txt = crate::textview_factory(sender.clone(), "commit_view", text_view_width.clone());
 
     scroll.set_child(Some(&txt));
 
@@ -349,9 +358,6 @@ pub fn show_commit_window(
         TextViewLabel::from_string(&format!("commit: {:?}", oid)),
         TextViewLabel::from_string(""),
         TextViewLabel::from_string(""),
-        // TextViewLabel::from_string(""),
-        // TextViewLabel::from_string(""),
-        // TextViewLabel::from_string(""),
     ];
     let mut body_label = MultiLineLabel::new("", &mut None);
 
@@ -361,62 +367,74 @@ pub fn show_commit_window(
             ctx.screen_width.replace(text_view_width.clone());
             match event {
                 Event::CommitDiff(mut commit_diff) => {
-                    info!("commit_diff");
+                    info!("CommitDiff");
                     // update it before render to get some width in chars
                     ctx.update_screen_line_width(commit_diff.diff.max_line_len);
                     labels[1].content =
                         format!("Author: {}", commit_diff.author);
                     labels[2].content =
                         format!("Date: {}", commit_diff.commit_dt);
-                    // labels[4].content = commit_diff.message.to_string();
-                    // hack to setup cursor
-                    body_label.update_content(&commit_diff.message, &mut Some(&mut ctx));
+
                     if !commit_diff.diff.files.is_empty() {
                         commit_diff.diff.files[0].view.current = true;
                     }
-                    commit_diff.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);                    
-                    main_diff.replace(commit_diff);                    
+                    commit_diff.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);
+                    main_diff.replace(commit_diff);
                 }
                 Event::Expand(_offset, line_no) => {
-                    info!("expand");
+                    info!("Expand {}", line_no);
                     if let Some(d) = &mut main_diff {
                         let mut need_render = false;
                         for file in &mut d.diff.files {
-                            need_render =
-                                need_render || file.expand(line_no).is_some();
+                            need_render = need_render || file.expand(line_no).is_some();
                             if need_render {
                                 break;
                             }
                         }
+                        let buffer = &txt.buffer();
+                        let mut iter = buffer.iter_at_line(d.diff.files[0].view.line_no)
+                            .unwrap();
                         if need_render {
-                            d.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);
+                            d.diff.render(buffer, &mut iter, &mut Some(&mut ctx));
                         }
                     }
                 }
                 Event::Cursor(_offset, line_no) => {
-                    debug!("cursor.............................. {}", line_no);
+                    debug!("Cursor {}", line_no);
                     if let Some(d) = &mut main_diff {
                         if d.diff.cursor(line_no, false, &mut None) {
-                            d.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);
-                            // let buffer = txt.buffer();
-                            // let iter = &buffer.iter_at_offset(offset);
-                            // buffer.place_cursor(iter);
+                            let buffer = &txt.buffer();
+                            let mut iter = buffer.iter_at_line(d.diff.files[0].view.line_no)
+                                .unwrap();
+                            // will render diff whithout rendering
+                            // preceeding elements!
+                            // is it ok? perhaps yes, cause they are on top of it                            
+                            d.diff.render(buffer, &mut iter, &mut Some(&mut ctx));
                         }
                     }
                 }
-                Event::TextViewResize => {
-                    info!("resize");
+                Event::TextViewResize(w) => {
+                    info!("TextViewResize {}", w);
+                    ctx.screen_width.replace(text_view_width.clone());
                     if let Some(d) = &mut main_diff {
                         let buffer = &txt.buffer();
                         // during resize some views are build up
                         // and cursor could move
                         let cursor_before = buffer.cursor_position();
+                        // calling diff resize will render it whithout rendering
+                        // preceeding elements!
+                        // is it ok? perhaps yes, cause they are on top of it
                         d.diff.resize(buffer, &mut Some(&mut ctx));
-                        // restore it
+                        // restore it. DO IT NEEDED????
                         // TODO! perhaps move it to common render method???
-                        buffer.place_cursor(
-                            &buffer.iter_at_offset(cursor_before),
-                        );
+                        buffer.place_cursor(&buffer.iter_at_offset(cursor_before));
+                    }
+                }
+                Event::TextCharVisibleWidth(w) => {
+                    info!("TextCharVisibleWidth {}", w);
+                    ctx.screen_width.replace(text_view_width.clone());
+                    if let Some(d) = &mut main_diff {
+                        d.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);
                     }
                 }
                 _ => {
