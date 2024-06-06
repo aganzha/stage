@@ -67,6 +67,7 @@ pub fn commit(path: Option<PathBuf>, ammend_allowed: bool, window: &ApplicationW
                     let mut iter = txt.buffer().iter_at_offset(0);
                     if !entry.text().is_empty() {
                         txt.buffer().insert(&mut iter, &entry.text());
+                        txt.buffer().insert(&mut iter, "\n");
                     }
                     entry.set_visible(false);
                     scroll.set_visible(true);
@@ -94,27 +95,26 @@ pub fn commit(path: Option<PathBuf>, ammend_allowed: bool, window: &ApplicationW
                 "Commit",
             );
                         
-            let key_controller = EventControllerKey::new();
-            key_controller.connect_key_pressed({
-                let dialog = dialog.clone();
-                move |_, key, _, modifier| {
-                    match (key, modifier) {
-                        
-                        // (gdk::Key::Return, gdk::ModifierType::CONTROL_MASK) => {
-                        //     dialog.response("confirm");
-                        //     dialog.close();
+            // let key_controller = EventControllerKey::new();
+            // key_controller.connect_key_pressed({
+            //     let dialog = dialog.clone();
+            //     move |_, key, _, modifier| {
+            //         match (key, modifier) {                        
+            //             // (gdk::Key::Return, gdk::ModifierType::CONTROL_MASK) => {
+            //             //     dialog.response("confirm");
+            //             //     dialog.close();
 
-                        // }
-                        // (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
-                        //     dialog.response("confirm");
-                        //     dialog.close();
-                        // }
-                        (_, _) => {}
-                    }
-                    glib::Propagation::Proceed
-                }
-            });
-            txt.add_controller(key_controller);
+            //             // }
+            //             // (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
+            //             //     dialog.response("confirm");
+            //             //     dialog.close();
+            //             // }
+            //             (_, _) => {}
+            //         }
+            //         glib::Propagation::Proceed
+            //     }
+            // });
+            // txt.add_controller(key_controller);
             let response = dialog.choose_future().await;
             if "confirm" != response {
                 return;
