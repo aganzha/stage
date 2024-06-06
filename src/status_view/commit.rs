@@ -12,6 +12,7 @@ use gtk4::{
 use crate::dialogs::{alert, DangerDialog, YES};
 use async_channel::Sender;
 use std::path::PathBuf;
+use log::{debug, trace};
 
 pub fn commit(path: Option<PathBuf>, ammend_allowed: bool, window: &ApplicationWindow, sender: Sender<Event>) {
     glib::spawn_future_local({
@@ -19,6 +20,30 @@ pub fn commit(path: Option<PathBuf>, ammend_allowed: bool, window: &ApplicationW
         let sender = sender.clone();
         let path = path.clone();
         async move {
+
+            let list_box = ListBox::builder()
+                .selection_mode(SelectionMode::None)
+                .css_classes(vec![String::from("boxed-list")])
+                .build();
+            let commit_message = EntryRow::builder()
+                .title("commit message")
+                .show_apply_button(true)
+                .css_classes(vec!["input_field"])
+                .text("")
+                .build();
+            commit_message.connect_insert_text(|entry: &EntryRow, msg: &str, num: &mut i32| {
+                debug!("ooooooooooooooooooooooooooooooo {} {} {:?}", msg, num, entry);
+            });
+            let amend_switch = SwitchRow::builder()
+                .title("amend")
+                .css_classes(vec!["input_field"])
+                .active(false)
+                .build();
+                        
+            list_box.append(&commit_message);
+            if ammend_allowed || true {
+                list_box.append(&amend_switch);
+            }
 
             let txt = TextView::builder()
                 .margin_start(12)
@@ -38,7 +63,7 @@ pub fn commit(path: Option<PathBuf>, ammend_allowed: bool, window: &ApplicationW
 
             scroll.set_child(Some(&txt));
 
-            let bx = Box::builder()
+            let text_view_box = Box::builder()
                 .hexpand(true)
                 .vexpand(true)
                 .vexpand_set(true)
@@ -46,37 +71,16 @@ pub fn commit(path: Option<PathBuf>, ammend_allowed: bool, window: &ApplicationW
                 .orientation(Orientation::Vertical)
                 .build();
 
-            bx.append(&scroll);
-
+            text_view_box.append(&scroll);
+            text_view_box.append(&list_box);
+                        
             let dialog = crate::confirm_dialog_factory(
                 &window,
-                Some(&bx),
+                Some(&text_view_box),
                 "Commit",
                 "Commit",
             );
-            
-            let switch = SwitchRow::builder()
-                .title("Amend")
-                .css_classes(vec!["input_field"])
-                .active(false)
-                .build();
-            
-            if ammend_allowed {
-                let lb = ListBox::builder()
-                    .selection_mode(SelectionMode::None)
-                    .css_classes(vec![String::from("boxed-list")])
-                    .build();
-                lb.append(&switch);
-                bx.append(&lb);
-            }
-            
-
-            let label = GtkLabel::builder()
-                .label("Ctrl-c or Ctrl-Enter to commit. Esc to exit")
-                .build();
-
-            bx.append(&label);
-            
+                        
             let key_controller = EventControllerKey::new();
             key_controller.connect_key_pressed({
                 let dialog = dialog.clone();
@@ -108,7 +112,7 @@ pub fn commit(path: Option<PathBuf>, ammend_allowed: bool, window: &ApplicationW
                 let start_iter = buffer.iter_at_offset(0);
                 let eof_iter = buffer.end_iter();
                 let message = buffer.text(&start_iter, &eof_iter, true).to_string();
-                let amend = switch.is_active();
+                let amend = amend_switch.is_active();
                 move || {                            
                     git_commit::create_commit(
                         path.expect("no path"),
