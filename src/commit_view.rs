@@ -145,45 +145,52 @@ impl MultiLineLabel {
     }
 
     pub fn update_content(&mut self, content: &str, context: &mut Option<&mut StatusRenderContext>) {
-        let mut acc = String::from("");
-        let in_line = content.replace("\n", " ");
-        let mut split = in_line.split(" ");
-        let mut mx = 0;        
         self.labels = Vec::new();
-        if let Some(context) = context {
-            if let Some(width) = &context.screen_width {
-                let pixels = width.borrow().pixels;
-                let mut chars = width.borrow().chars;
-                let visible_chars = width.borrow().visible_chars;
-                if visible_chars > 0 && visible_chars < chars {
-                    chars = visible_chars;
-                }
-                let visible_chars = width.borrow().visible_chars;
-                trace!("..........looop words acc {} chars {} visible_chars {}", pixels, chars, visible_chars);
-                'words: loop {
-                    mx += 1;
-                    if mx > 20 {
-                        break 'words;
+        let mut acc = String::from("");
+        // split first by new lines. each new line in commit must go
+        // on its own, separate label. BUT!
+        // also split long lines to different labels also!
+        let user_split = content.split("\n");
+
+        for line in user_split {
+            let mut split = line.split(" ");
+            let mut mx = 0;
+            
+            if let Some(context) = context {
+                if let Some(width) = &context.screen_width {
+                    let pixels = width.borrow().pixels;
+                    let mut chars = width.borrow().chars;
+                    let visible_chars = width.borrow().visible_chars;
+                    if visible_chars > 0 && visible_chars < chars {
+                        chars = visible_chars;
                     }
-                    while acc.len() < chars as usize {
-                        if let Some(word) = split.next(){
-                            trace!("got word > {} <", word);
-                            if acc.len() + word.len() > chars as usize {
-                                self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
-                                acc = String::from(word);
-                            } else {
-                                acc.push_str(word);
-                                acc.push_str(" ");
-                            }
-                        } else {
-                            trace!("words are over! push last label!");
-                            self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
+                    let visible_chars = width.borrow().visible_chars;
+                    trace!("..........looop words acc {} chars {} visible_chars {}", pixels, chars, visible_chars);
+                    'words: loop {
+                        mx += 1;
+                        if mx > 20 {
                             break 'words;
                         }
+                        while acc.len() < chars as usize {
+                            if let Some(word) = split.next(){
+                                trace!("got word > {} <", word);
+                                if acc.len() + word.len() > chars as usize {
+                                    self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
+                                    acc = String::from(word);
+                                } else {
+                                    acc.push_str(word);
+                                    acc.push_str(" ");
+                                }
+                            } else {
+                                trace!("words are over! push last label!");
+                                self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
+                                break 'words;
+                            }
+                        }
+                        trace!("reach line end. push label!");
+                        self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
+                        acc = String::from("");
                     }
-                    trace!("reach line end. push label!");
-                    self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
-                    acc = String::from("");
                 }
             }
         }
@@ -417,7 +424,7 @@ pub fn show_commit_window(
                                 .unwrap();
                             // will render diff whithout rendering
                             // preceeding elements!
-                            // is it ok? perhaps yes, cause they are on top of it                            
+                            // is it ok? perhaps yes, cause they are on top of it
                             d.diff.render(buffer, &mut iter, &mut Some(&mut ctx));
                         }
                     }
