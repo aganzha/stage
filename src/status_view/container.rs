@@ -218,7 +218,7 @@ pub trait ViewContainer {
 
         let view = self.get_view();
         let mut line_no = view.line_no;
-        debug!("original line_no {:?}", line_no);
+        trace!("original line_no {:?}", line_no);
         let original_line_no = view.line_no;
         if let Some(ctx) = context {
             if let Some(ec) = ctx.erase_counter {
@@ -234,11 +234,11 @@ pub trait ViewContainer {
             view.child_dirty = true;
         });
         // GOT BUG HERE DURING STAGING SAME FILES!
-        debug!("line finally {:?}", line_no);
+        trace!("line finally {:?}", line_no);
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
-        debug!("!! erase one signgle view at buffer line = {:?}. orig view line {:?}", line_no, original_line_no);
+        trace!("!! erase one signgle view at buffer line = {:?}. orig view line {:?}", line_no, original_line_no);
 
         self.render(buffer, &mut iter, context);
     }
