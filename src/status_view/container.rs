@@ -16,7 +16,7 @@ pub enum ViewKind {
     File,
     Hunk,
     Line,
-    Label,    
+    Label,
     Untracked,
     UntrackedFile,
 }
@@ -196,7 +196,7 @@ pub trait ViewContainer {
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         // after this operation all prev iters bevome INVALID!
         // it need to reobtain them!
-        
+
         // this ONLY rendering. the data remains
         // unchaged. means it used to be called just
         // before replacing data in status struct.
@@ -215,12 +215,7 @@ pub trait ViewContainer {
         // it to render itself! means each render must receives context.
         // hm. how to avoid it? lets not avoid it. lets try to pass it,
         // and also put there prev_line length!
-        debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-        let start_iter = buffer.iter_at_offset(0);
-        let eof_iter = buffer.end_iter();
-        let message = buffer.text(&start_iter, &eof_iter, true).to_string();
-        debug!("{}", message);
-        
+
         let view = self.get_view();
         let mut line_no = view.line_no;
         debug!("original line_no {:?}", line_no);
@@ -244,14 +239,8 @@ pub trait ViewContainer {
             .iter_at_line(line_no)
             .expect("can't get iter at line");
         debug!("!! erase one signgle view at buffer line = {:?}. orig view line {:?}", line_no, original_line_no);
-        
-        self.render(buffer, &mut iter, context);        
-        debug!("so what??????????????????...............................................");
-        let start_iter = buffer.iter_at_offset(0);
-        let eof_iter = buffer.end_iter();
-        let message = buffer.text(&start_iter, &eof_iter, true).to_string();
-        debug!("{}", message);
-        
+
+        self.render(buffer, &mut iter, context);
     }
 
     fn resize(
@@ -392,7 +381,7 @@ impl ViewContainer for File {
             vec![Tag::Bold, Tag::Pointer, Tag::Removed]
         } else {
             vec![Tag::Bold, Tag::Pointer]
-        }            
+        }
     }
 
     fn fill_context(&self, context: &mut Option<&mut StatusRenderContext>) {
@@ -546,7 +535,7 @@ impl ViewContainer for Line {
                 UnderCursor::Some {
                     diff_kind: DiffKind::Conflicted,
                     line_kind: LineKind::Ours(i),
-                } => {                    
+                } => {
                     return active && self.kind == LineKind::Ours(i);
                 }
                 UnderCursor::Some {
