@@ -146,7 +146,8 @@ impl MultiLineLabel {
 
     pub fn update_content(&mut self, content: &str, context: &mut Option<&mut StatusRenderContext>) {
         let mut acc = String::from("");
-        let mut split = content.split(" ");
+        let in_line = content.replace("\n", " ");
+        let mut split = in_line.split(" ");
         let mut mx = 0;        
         self.labels = Vec::new();
         if let Some(context) = context {
@@ -166,9 +167,15 @@ impl MultiLineLabel {
                     }
                     while acc.len() < chars as usize {
                         if let Some(word) = split.next(){
-                            //debug!("got word > {} <", word);
-                            acc.push_str(word);
-                            acc.push_str(" ");
+                            debug!("got word > {} <", word);
+                            if acc.len() + word.len() > chars as usize {
+                                // push word to next label!!!!!!!!!!
+                                self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
+                                acc = String::from(word);
+                            } else {
+                                acc.push_str(word);
+                                acc.push_str(" ");
+                            }
                         } else {
                             //debug!("words are over! push last label!");
                             self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
@@ -222,21 +229,16 @@ impl commit::CommitDiff {
             l.render(&buffer, &mut iter, ctx)
         }
         let offset_before_erase = iter.offset();
-        // this doubles it content!
-        // it need to erase all labels!
-        debug!("BBBBBBBBBBBEFORE ERASE {}", iter.line());
+
         for l in &mut body_label.labels {
-            debug!("laaaaaaaaaaaaaaabel {}", l.get_view().rendered);
             l.erase(&buffer, ctx);
         }
         iter = buffer.iter_at_offset(offset_before_erase);
-        debug!("AAAAAAAAAAAAFTER ERASE {}", iter.line());        
         body_label.update_content(&self.message, ctx);
 
         body_label.render(&buffer, &mut iter, ctx);
         self.diff.render(&buffer, &mut iter, ctx);
 
-        debug!("just rendered commit diff");
         if !self.diff.files.is_empty() {
             let buffer = txt.buffer();
             let iter =
