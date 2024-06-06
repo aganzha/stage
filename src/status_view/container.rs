@@ -623,7 +623,7 @@ impl ViewContainer for Head {
                 "Upstream: "
             },
             &self.branch,
-            self.commit
+            self.log_message
         )
     }
 }
