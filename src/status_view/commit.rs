@@ -31,9 +31,7 @@ pub fn commit(path: Option<PathBuf>, ammend_allowed: bool, window: &ApplicationW
                 .css_classes(vec!["input_field"])
                 .text("")
                 .build();
-            commit_message.connect_insert_text(|entry: &EntryRow, msg: &str, num: &mut i32| {
-                debug!("ooooooooooooooooooooooooooooooo {} {} {:?}", msg, num, entry);
-            });
+
             let amend_switch = SwitchRow::builder()
                 .title("amend")
                 .css_classes(vec!["input_field"])
@@ -56,10 +54,25 @@ pub fn commit(path: Option<PathBuf>, ammend_allowed: bool, window: &ApplicationW
                 .vexpand(true)
                 .vexpand_set(true)
                 .hexpand(true)
+                .visible(false)
                 .hexpand_set(true)
                 .min_content_width(480)
                 .min_content_height(320)
                 .build();
+
+            commit_message.connect_apply({
+                let txt = txt.clone();
+                let scroll = scroll.clone();
+                move |entry: &EntryRow| {
+                    let mut iter = txt.buffer().iter_at_offset(0);
+                    if !entry.text().is_empty() {
+                        txt.buffer().insert(&mut iter, &entry.text());
+                    }
+                    entry.set_visible(false);
+                    scroll.set_visible(true);
+                    txt.grab_focus();
+                    txt.buffer().place_cursor(&mut iter);
+                }});
 
             scroll.set_child(Some(&txt));
 
@@ -86,6 +99,7 @@ pub fn commit(path: Option<PathBuf>, ammend_allowed: bool, window: &ApplicationW
                 let dialog = dialog.clone();
                 move |_, key, _, modifier| {
                     match (key, modifier) {
+                        
                         // (gdk::Key::Return, gdk::ModifierType::CONTROL_MASK) => {
                         //     dialog.response("confirm");
                         //     dialog.close();
@@ -108,10 +122,17 @@ pub fn commit(path: Option<PathBuf>, ammend_allowed: bool, window: &ApplicationW
 
             gio::spawn_blocking({
                 // let message = format!("{}", input.text());
-                let buffer = txt.buffer();
-                let start_iter = buffer.iter_at_offset(0);
-                let eof_iter = buffer.end_iter();
-                let message = buffer.text(&start_iter, &eof_iter, true).to_string();
+                let message = {
+                    if scroll.get_visible() {
+                        let buffer = txt.buffer();
+                        let start_iter = buffer.iter_at_offset(0);
+                        let eof_iter = buffer.end_iter();
+                        buffer.text(&start_iter, &eof_iter, true).to_string().to_string()
+                    } else {
+                        commit_message.text().to_string()
+                    }
+                };
+                
                 let amend = amend_switch.is_active();
                 move || {                            
                     git_commit::create_commit(
