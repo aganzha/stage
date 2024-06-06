@@ -86,15 +86,15 @@ pub fn commit(path: Option<PathBuf>, ammend_allowed: bool, window: &ApplicationW
                 let dialog = dialog.clone();
                 move |_, key, _, modifier| {
                     match (key, modifier) {
-                        (gdk::Key::Return, gdk::ModifierType::CONTROL_MASK) => {
-                            dialog.response("confirm");
-                            dialog.close();
+                        // (gdk::Key::Return, gdk::ModifierType::CONTROL_MASK) => {
+                        //     dialog.response("confirm");
+                        //     dialog.close();
 
-                        }
-                        (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
-                            dialog.response("confirm");
-                            dialog.close();
-                        }
+                        // }
+                        // (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
+                        //     dialog.response("confirm");
+                        //     dialog.close();
+                        // }
                         (_, _) => {}
                     }
                     glib::Propagation::Proceed
