@@ -132,19 +132,17 @@ pub struct MultiLineLabel {
 }
 
 impl MultiLineLabel {
-    pub fn new(content: &str, context: &mut Option<&mut StatusRenderContext>) -> Self {
+    pub fn new(content: &str, context: &mut StatusRenderContext) -> Self {
         let mut mll = MultiLineLabel {
             content: content.to_string(),
             labels: Vec::new(),
             view: View::new()
         };
-        if context.is_some() && !content.is_empty() {
-            mll.update_content(content, context);
-        }
+        mll.update_content(content, context);
         mll
     }
 
-    pub fn update_content(&mut self, content: &str, context: &mut Option<&mut StatusRenderContext>) {
+    pub fn update_content(&mut self, content: &str, context: &mut StatusRenderContext) {
         self.labels = Vec::new();
         let mut acc = String::from("");
         // split first by new lines. each new line in commit must go
@@ -156,43 +154,41 @@ impl MultiLineLabel {
             let mut split = line.split(" ");
             let mut mx = 0;
             
-            if let Some(context) = context {
-                if let Some(width) = &context.screen_width {
-                    let pixels = width.borrow().pixels;
-                    let mut chars = width.borrow().chars;
-                    let visible_chars = width.borrow().visible_chars;
-                    if visible_chars > 0 && visible_chars < chars {
-                        chars = visible_chars;
+            if let Some(width) = &context.screen_width {
+                let pixels = width.borrow().pixels;
+                let mut chars = width.borrow().chars;
+                let visible_chars = width.borrow().visible_chars;
+                if visible_chars > 0 && visible_chars < chars {
+                    chars = visible_chars;
+                }
+                let visible_chars = width.borrow().visible_chars;
+                trace!("..........looop words acc {} chars {} visible_chars {}", pixels, chars, visible_chars);
+                'words: loop {
+                    mx += 1;
+                    if mx > 20 {
+                        break 'words;
                     }
-                    let visible_chars = width.borrow().visible_chars;
-                    trace!("..........looop words acc {} chars {} visible_chars {}", pixels, chars, visible_chars);
-                    'words: loop {
-                        mx += 1;
-                        if mx > 20 {
+                    while acc.len() < chars as usize {
+                        if let Some(word) = split.next(){
+                            trace!("got word > {} <", word);
+                            if acc.len() + word.len() > chars as usize {
+                                self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
+                                acc = String::from(word);
+                            } else {
+                                acc.push_str(word);
+                                acc.push_str(" ");
+                            }
+                        } else {
+                            trace!("words are over! push last label!");
+                            self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
                             break 'words;
                         }
-                        while acc.len() < chars as usize {
-                            if let Some(word) = split.next(){
-                                trace!("got word > {} <", word);
-                                if acc.len() + word.len() > chars as usize {
-                                    self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
-                                    acc = String::from(word);
-                                } else {
-                                    acc.push_str(word);
-                                    acc.push_str(" ");
-                                }
-                            } else {
-                                trace!("words are over! push last label!");
-                                self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
-                                break 'words;
-                            }
-                        }
-                        trace!("reach line end. push label!");
-                        self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
-                        acc = String::from("");
                     }
+                    trace!("reach line end. push label!");
+                    self.labels.push(TextViewLabel::from_string(&acc.replace("\n", "")));
+                    acc = String::from("");
                 }
-            }
+            }            
         }
         // space for following diff
         self.labels.push(TextViewLabel::from_string(""));
@@ -224,9 +220,9 @@ impl commit::CommitDiff {
     fn render(
         &mut self,
         txt: &TextView,
-        ctx: &mut Option<&mut StatusRenderContext>,
+        ctx: &mut StatusRenderContext,
         labels: &mut [TextViewLabel],
-        body_label: &mut MultiLineLabel
+        obody_label: &mut Option<MultiLineLabel>
     ) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
@@ -235,14 +231,20 @@ impl commit::CommitDiff {
             l.render(&buffer, &mut iter, ctx)
         }
         let offset_before_erase = iter.offset();
-
+        let mut body_label = {
+            if obody_label.is_none() {
+                MultiLineLabel::new(&self.message, ctx)
+            } else {
+                obody_label.take().unwrap()
+            }
+        };
         for l in &mut body_label.labels {
             l.erase(&buffer, ctx);
         }
         iter = buffer.iter_at_offset(offset_before_erase);
-        body_label.update_content(&self.message, ctx);
-
+        // body_label.update_content(&self.message, ctx);
         body_label.render(&buffer, &mut iter, ctx);
+                
         self.diff.render(&buffer, &mut iter, ctx);
 
         if !self.diff.files.is_empty() {
@@ -253,6 +255,7 @@ impl commit::CommitDiff {
                 ).unwrap();
             buffer.place_cursor(&iter);
         }
+        obody_label.replace(body_label);
     }
 }
 
@@ -346,7 +349,8 @@ pub fn show_commit_window(
     window.present();
 
     let mut main_diff: Option<commit::CommitDiff> = None;
-
+    let mut body_label: Option<MultiLineLabel> = None;
+    
     let path = repo_path.clone();
 
     glib::spawn_future_local({
@@ -374,8 +378,7 @@ pub fn show_commit_window(
         TextViewLabel::from_string(&format!("commit: <span color=\"#4a708b\">{:?}</span>", oid)),
         TextViewLabel::from_string(""),
         TextViewLabel::from_string(""),
-    ];
-    let mut body_label = MultiLineLabel::new("", &mut None);
+    ];    
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
@@ -394,7 +397,8 @@ pub fn show_commit_window(
                     if !commit_diff.diff.files.is_empty() {
                         commit_diff.diff.files[0].view.current = true;
                     }
-                    commit_diff.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);
+                    // let mut body_label = MultiLineLabel::new("", &mut ctx);
+                    commit_diff.render(&txt, &mut ctx, &mut labels, &mut body_label);
                     main_diff.replace(commit_diff);
                 }
                 Event::Expand(_offset, line_no) => {
@@ -411,21 +415,21 @@ pub fn show_commit_window(
                         let mut iter = buffer.iter_at_line(d.diff.files[0].view.line_no)
                             .unwrap();
                         if need_render {
-                            d.diff.render(buffer, &mut iter, &mut Some(&mut ctx));
+                            d.diff.render(buffer, &mut iter, &mut ctx);
                         }
                     }
                 }
                 Event::Cursor(_offset, line_no) => {
                     debug!("Cursor {}", line_no);
                     if let Some(d) = &mut main_diff {
-                        if d.diff.cursor(line_no, false, &mut None) {
+                        if d.diff.cursor(line_no, false, &mut ctx) {
                             let buffer = &txt.buffer();
                             let mut iter = buffer.iter_at_line(d.diff.files[0].view.line_no)
                                 .unwrap();
                             // will render diff whithout rendering
                             // preceeding elements!
                             // is it ok? perhaps yes, cause they are on top of it
-                            d.diff.render(buffer, &mut iter, &mut Some(&mut ctx));
+                            d.diff.render(buffer, &mut iter, &mut ctx);
                         }
                     }
                 }
@@ -440,7 +444,7 @@ pub fn show_commit_window(
                         // calling diff resize will render it whithout rendering
                         // preceeding elements!
                         // is it ok? perhaps yes, cause they are on top of it
-                        d.diff.resize(buffer, &mut Some(&mut ctx));
+                        d.diff.resize(buffer, &mut ctx);
                         // restore it. DO IT NEEDED????
                         // TODO! perhaps move it to common render method???
                         buffer.place_cursor(&buffer.iter_at_offset(cursor_before));
@@ -450,7 +454,7 @@ pub fn show_commit_window(
                     info!("TextCharVisibleWidth {}", w);
                     ctx.screen_width.replace(text_view_width.clone());
                     if let Some(d) = &mut main_diff {
-                        d.render(&txt, &mut Some(&mut ctx), &mut labels, &mut body_label);
+                        d.render(&txt, &mut ctx, &mut labels, &mut body_label);
                     }
                 }
                 _ => {

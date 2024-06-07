@@ -80,9 +80,10 @@ pub fn mock_render(diff: &mut Diff) -> i32 {
     line_no
 }
 // tests
-pub fn cursor(diff: &mut Diff, line_no: i32) {
+pub fn cursor(diff: &mut Diff, line_no: i32, ctx: &mut StatusRenderContext) {
     for (_, file) in diff.files.iter_mut().enumerate() {
-        file.cursor(line_no, false, &mut None);
+        ctx.under_cursor_diff(&diff.kind);
+        file.cursor(line_no, false, ctx);
     }
     // some views will be rerenderred cause highlight changes
     mock_render(diff);
@@ -93,8 +94,11 @@ pub fn test_single_diff() {
     let mut diff = create_diff();
     mock_render(&mut diff);
 
+    let mut context = StatusRenderContext::new();
+    
     for cursor_line in 0..3 {
-        cursor(&mut diff, cursor_line);
+
+        cursor(&mut diff, cursor_line, &mut context);
 
         for (i, file) in diff.files.iter_mut().enumerate() {
             let view = file.get_view();
@@ -148,7 +152,7 @@ pub fn test_single_diff() {
     // go 1 line backward
     // end expand it
     cursor_line = 1;
-    cursor(&mut diff, cursor_line);
+    cursor(&mut diff, cursor_line, &mut context);
 
     for file in &mut diff.files {
         if let Some(_expanded_line) = file.expand(cursor_line) {
@@ -198,7 +202,7 @@ pub fn test_single_diff() {
 
     // go to first hunk of second file
     cursor_line = 2;
-    cursor(&mut diff, cursor_line);
+    cursor(&mut diff, cursor_line, &mut context);
     for file in &mut diff.files {
         if let Some(_expanded_line) = file.expand(cursor_line) {
             for child in file.get_children() {
@@ -229,12 +233,11 @@ fn test_render_view() {
     let mut view2 = View::new();
     let mut view3 = View::new();
 
-    let mut context = StatusRenderContext::new();
-    let ctx = &mut Some(&mut context);
+    let mut ctx = StatusRenderContext::new();
 
-    view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), ctx);
-    view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), ctx);
-    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), ctx);
+    view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), &mut ctx);
+    view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), &mut ctx);
+    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), &mut ctx);
     assert!(view1.line_no == 1);
     assert!(view2.line_no == 2);
     assert!(view3.line_no == 3);
@@ -244,9 +247,9 @@ fn test_render_view() {
     assert!(iter.line() == 4);
     // ------------------ test rendered in line
     iter = buffer.iter_at_line(1).unwrap();
-    view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), ctx);
-    view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), ctx);
-    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), ctx);
+    view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), &mut ctx);
+    view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), &mut ctx);
+    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), &mut ctx);
     assert!(iter.line() == 4);
 
     // ------------------ test deleted
@@ -254,24 +257,24 @@ fn test_render_view() {
     view1.squashed = true;
     view1.rendered = false;
 
-    view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), ctx);
+    view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), &mut ctx);
     assert!(!view1.rendered);
     // its no longer squashed. is it ok?
     assert!(!view1.squashed);
     // iter was not moved (nothing to delete, view was not rendered)
     assert!(iter.line() == 1);
     // rerender it
-    view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), ctx);
+    view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), &mut ctx);
     assert!(iter.line() == 2);
 
     // -------------------- test dirty
     view2.dirty = true;
-    view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), ctx);
+    view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), &mut ctx);
     assert!(!view2.dirty);
     assert!(iter.line() == 3);
     // -------------------- test squashed
     view3.squashed = true;
-    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), ctx);
+    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), &mut ctx);
     assert!(!view3.squashed);
     // iter remains on same kine, just squashing view in place
     assert!(iter.line() == 3);
@@ -279,7 +282,7 @@ fn test_render_view() {
     view3.line_no = 0;
     view3.dirty = true;
     view3.transfered = true;
-    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), ctx);
+    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), &mut ctx);
     assert!(view3.line_no == 3);
     assert!(view3.rendered);
     assert!(!view3.dirty);
@@ -289,7 +292,7 @@ fn test_render_view() {
     // --------------------- test not in place
     iter = buffer.iter_at_line(3).unwrap();
     view3.line_no = 0;
-    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), ctx);
+    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), &mut ctx);
     assert!(view3.line_no == 3);
     assert!(view3.rendered);
     assert!(iter.line() == 4);
@@ -305,16 +308,17 @@ fn test_expand_line() {
     buffer.insert(&mut iter, "begin\n");
     let mut diff = create_diff();
     let mut context = StatusRenderContext::new();
-    let ctx = &mut Some(&mut context);
-    diff.render(&buffer, &mut iter, ctx);
+    let mut ctx = context;
+    diff.render(&buffer, &mut iter, &mut ctx);
     // if cursor returns true it need to rerender as in Status!
-    if diff.cursor(1, false, &mut None) {
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
+    ctx.under_cursor_diff(&diff.kind);
+    if diff.cursor(1, false, &mut ctx) {
+        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
     }
 
     // expand first file
     diff.files[0].expand(1);
-    diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
+    diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
 
     let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
     let content_lines = content.split('\n');
@@ -333,13 +337,13 @@ fn test_expand_line() {
 
     let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no;
     // put cursor inside first hunk
-    if diff.cursor(line_of_line, false, &mut None) {
+    if diff.cursor(line_of_line, false, &mut ctx) {
         // if comment out next line the line_of_line will be not sqashed
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
+        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
     }
     // expand on line inside first hunk
     diff.files[0].expand(line_of_line);
-    diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), ctx);
+    diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
 
     let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
     let content_lines = content.split('\n');
@@ -369,7 +373,7 @@ fn test_reconciliation() {
     let name = "Line 1";
     let mut hunk = create_hunk(name);
 
-    hunk.render(&buffer, &mut iter, &mut Some(&mut context));
+    hunk.render(&buffer, &mut iter, &mut context);
     debug!("LLLLLLLLLLLLLLLLines AFTER FIRST RENDER");
     for line in &hunk.lines {
         dbg!(&line.view);
@@ -385,7 +389,7 @@ fn test_reconciliation() {
     dbg!("before second RENDER");
 
     dbg!(&hunk.view);
-    hunk.render(&buffer, &mut iter, &mut Some(&mut context));
+    hunk.render(&buffer, &mut iter, &mut context);
     dbg!("AFTER second RENDER");
     dbg!(&hunk.view);
     debug!("LLLLLLLLLLLLLLLLines after expansion");
@@ -395,8 +399,8 @@ fn test_reconciliation() {
     }
     let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
     let mut new_hunk = create_hunk(name);
-    new_hunk.enrich_view(&mut hunk, &buffer, &mut Some(&mut context));
-
+    new_hunk.enrich_view(&mut hunk, &buffer, &mut context);
+    
     debug!("oooooooooooooooooooooooooooooo {:?}", content);
     for line in &new_hunk.lines {
         dbg!(&line.view);

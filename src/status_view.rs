@@ -116,7 +116,6 @@ pub struct Status {
     pub conflicted: Option<Diff>,
 
     pub rendered: bool, // what it is for ????
-    // pub context: Option<StatusRenderContext>,
     pub stashes: Option<Stashes>,
     pub monitor_lock: Rc<RefCell<bool>>,
     pub settings: gio::Settings,
@@ -155,7 +154,6 @@ impl Status {
             ),
             conflicted: None,
             rendered: false,
-            // context: None::<StatusRenderContext>,
             stashes: None,
             monitor_lock: Rc::new(RefCell::<bool>::new(false)),
             settings
@@ -720,7 +718,7 @@ impl Status {
             if let Some(new) = upstream.as_mut() {
                 new.enrich_view(rendered);
             } else {
-                rendered.erase(&txt.buffer(), &mut Some(context));
+                rendered.erase(&txt.buffer(), context);
             }
         }
         self.upstream = upstream;
@@ -767,7 +765,7 @@ impl Status {
             });
         }
         if let Some(u) = &mut self.untracked {
-            untracked.enrich_view(u, &txt.buffer(), &mut Some(context));
+            untracked.enrich_view(u, &txt.buffer(), context);
         }
         self.untracked.replace(untracked);
         self.render(txt, RenderSource::Git, context);
@@ -791,7 +789,7 @@ impl Status {
                                                               stage changes to complete merge");
                 self.conflicted_label.view.dirty = true;
             }
-            diff.enrich_view(s, &txt.buffer(), &mut Some(context));
+            diff.enrich_view(s, &txt.buffer(), context);
         }
         if let Some(state) = &self.state {
             if diff.is_empty() {
@@ -895,7 +893,7 @@ impl Status {
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(s, &txt.buffer(), &mut Some(context));
+            diff.enrich_view(s, &txt.buffer(), context);
         }
         self.staged.replace(diff);
         // why check both??? perhaps just for very first render
@@ -916,7 +914,7 @@ impl Status {
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(u, &txt.buffer(), &mut Some(context));
+            diff.enrich_view(u, &txt.buffer(), context);
         }
         self.unstaged.replace(diff);
         // why check both??? perhaps just for very first render
@@ -935,23 +933,23 @@ impl Status {
         context.update_cursor_pos(line_no, offset);
         let mut changed = false;
         if let Some(untracked) = &mut self.untracked {
-            changed = untracked.cursor(line_no, false, &mut Some(context))
+            changed = untracked.cursor(line_no, false, context)
                 || changed;
         }
         if let Some(conflicted) = &mut self.conflicted {
             context.under_cursor_diff(&conflicted.kind);
-            changed = conflicted.cursor(line_no, false, &mut Some(context))
+            changed = conflicted.cursor(line_no, false, context)
                 || changed;
         }
         if let Some(unstaged) = &mut self.unstaged {
             context.under_cursor_diff(&unstaged.kind);
             changed =
-                unstaged.cursor(line_no, false, &mut Some(context)) || changed;
+                unstaged.cursor(line_no, false, context) || changed;
         }
         if let Some(staged) = &mut self.staged {
             context.under_cursor_diff(&staged.kind);
             changed =
-                staged.cursor(line_no, false, &mut Some(context)) || changed;
+                staged.cursor(line_no, false, context) || changed;
         }
         if changed {
             self.render(txt, RenderSource::Cursor(line_no), context);
@@ -1021,15 +1019,15 @@ impl Status {
         let mut iter = buffer.iter_at_offset(0);
 
         if let Some(head) = &mut self.head {
-            head.render(&buffer, &mut iter, &mut Some(context));
+            head.render(&buffer, &mut iter, context);
         }
 
         if let Some(upstream) = &mut self.upstream {
-            upstream.render(&buffer, &mut iter, &mut Some(context));
+            upstream.render(&buffer, &mut iter, context);
         }
 
         if let Some(state) = &mut self.state {
-            state.render(&buffer, &mut iter, &mut Some(context));
+            state.render(&buffer, &mut iter, context);
         }
 
         if let Some(untracked) = &mut self.untracked {
@@ -1040,14 +1038,14 @@ impl Status {
             self.untracked_spacer.render(
                 &buffer,
                 &mut iter,
-                &mut Some(context),
+                context,
             );
             self.untracked_label.render(
                 &buffer,
                 &mut iter,
-                &mut Some(context),
+                context,
             );
-            untracked.render(&buffer, &mut iter, &mut Some(context));
+            untracked.render(&buffer, &mut iter, context);
         }
 
         if let Some(conflicted) = &mut self.conflicted {
@@ -1058,14 +1056,14 @@ impl Status {
             self.conflicted_spacer.render(
                 &buffer,
                 &mut iter,
-                &mut Some(context),
+                context,
             );
             self.conflicted_label.render(
                 &buffer,
                 &mut iter,
-                &mut Some(context),
+                context,
             );
-            conflicted.render(&buffer, &mut iter, &mut Some(context));
+            conflicted.render(&buffer, &mut iter, context);
         }
 
         if let Some(unstaged) = &mut self.unstaged {
@@ -1076,11 +1074,11 @@ impl Status {
             self.unstaged_spacer.render(
                 &buffer,
                 &mut iter,
-                &mut Some(context),
+                context,
             );
             self.unstaged_label
-                .render(&buffer, &mut iter, &mut Some(context));
-            unstaged.render(&buffer, &mut iter, &mut Some(context));
+                .render(&buffer, &mut iter, context);
+            unstaged.render(&buffer, &mut iter, context);
         }
 
         if let Some(staged) = &mut self.staged {
@@ -1089,10 +1087,10 @@ impl Status {
                 self.staged_label.view.squashed = true;
             }
             self.staged_spacer
-                .render(&buffer, &mut iter, &mut Some(context));
+                .render(&buffer, &mut iter, context);
             self.staged_label
-                .render(&buffer, &mut iter, &mut Some(context));
-            staged.render(&buffer, &mut iter, &mut Some(context));
+                .render(&buffer, &mut iter, context);
+            staged.render(&buffer, &mut iter, context);
         }
         trace!("render source {:?}", source);
         match source {
@@ -1123,10 +1121,10 @@ impl Status {
         // it need to rerender all highlights and
         // background to match new window size
         if let Some(diff) = &mut self.staged {
-            diff.resize(&txt.buffer(), &mut Some(context))
+            diff.resize(&txt.buffer(), context)
         }
         if let Some(diff) = &mut self.unstaged {
-            diff.resize(&txt.buffer(), &mut Some(context))
+            diff.resize(&txt.buffer(), context)
         }
         self.render(txt, RenderSource::Resize, context);
     }
