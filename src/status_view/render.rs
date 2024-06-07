@@ -62,21 +62,21 @@ impl View {
     fn does_not_match_width(
         &self,
         buffer: &TextBuffer,
-        context: &mut Option<&mut crate::StatusRenderContext>,
+        context: &mut crate::StatusRenderContext,
     ) -> bool {
-        if let Some(ctx) = context {
-            if let Some(width) = &ctx.screen_width {
-                let chars = width.borrow().chars;
-                if chars > 0 {
-                    let (start, end) = self.start_end_iters(buffer);
-                    let len = buffer.slice(&start, &end, true).len() as i32;
-                    if chars - 1 > len {
-                        trace!("rendered content is less then screen width");
-                        return true;
-                    }
+
+        if let Some(width) = &context.screen_width {
+            let chars = width.borrow().chars;
+            if chars > 0 {
+                let (start, end) = self.start_end_iters(buffer);
+                let len = buffer.slice(&start, &end, true).len() as i32;
+                if chars - 1 > len {
+                    trace!("rendered content is less then screen width");
+                    return true;
                 }
             }
         }
+
         false
     }
 
@@ -102,36 +102,36 @@ impl View {
         &self,
         content: &String,
         _line_no: i32,
-        context: &mut Option<&mut crate::StatusRenderContext>,
+        context: &mut crate::StatusRenderContext,
     ) -> String {
         let line_content = content.to_string();
-        if let Some(ctx) = context {
-            if let Some(width) = &ctx.screen_width {
-                let pixels = width.borrow().pixels;
-                let chars = width.borrow().chars;
+
+        if let Some(width) = &context.screen_width {
+            let pixels = width.borrow().pixels;
+            let chars = width.borrow().chars;
+            trace!(
+                "build_up. context width in pixels and chars {:?} {:?}",
+                pixels,
+                chars
+            );
+            if chars > 0 {
                 trace!(
-                    "build_up. context width in pixels and chars {:?} {:?}",
-                    pixels,
-                    chars
+                    "build_up. line and line length {:?} {:?}",
+                    line_content,
+                    line_content.len()
                 );
-                if chars > 0 {
-                    trace!(
-                        "build_up. line and line length {:?} {:?}",
+                if chars as usize > line_content.len() {
+                    let spaces = chars as usize - line_content.len();
+                    trace!("build up spaces {:?}", spaces);
+                    return format!(
+                        "{}{}",
                         line_content,
-                        line_content.len()
+                        " ".repeat(spaces)
                     );
-                    if chars as usize > line_content.len() {
-                        let spaces = chars as usize - line_content.len();
-                        trace!("build up spaces {:?}", spaces);
-                        return format!(
-                            "{}{}",
-                            line_content,
-                            " ".repeat(spaces)
-                        );
-                    }
                 }
             }
         }
+
         line_content
     }
 
@@ -142,7 +142,7 @@ impl View {
         iter: &mut TextIter,
         content: String,
         content_tags: Vec<Tag>,
-        context: &mut Option<&mut crate::StatusRenderContext>,
+        context: &mut crate::StatusRenderContext,
     ) -> &mut Self {
         // important. self.line_no is assigned only in 2 cases
         // below!!!!
@@ -201,17 +201,17 @@ impl View {
                 buffer.delete(iter, &mut nel_iter);
                 self.rendered = false;
                 self.tags = Vec::new();
-                if let Some(ctx) = context {
-                    let mut inc = 1;
-                    if let Some(ec) = ctx.erase_counter {
-                        inc += ec;
-                    }
-                    ctx.erase_counter.replace(inc);
-                    trace!(
-                        ">>>>>>>>>>>>>>>>>>>> just erased line. context {:?}",
-                        ctx
-                    );
+
+                if let Some(ec) = context.erase_counter {
+                    context.erase_counter.replace(ec + 1);
+                } else {
+                    context.erase_counter.replace(1);
                 }
+                trace!(
+                    ">>>>>>>>>>>>>>>>>>>> just erased line. context {:?}",
+                    context
+                );
+
             }
             ViewState::RenderedDirtyNotInPlace(l) => {
                 trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
