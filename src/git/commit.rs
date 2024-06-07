@@ -12,6 +12,7 @@ pub trait CommitRepr {
     fn dt(&self) -> DateTime<FixedOffset>;
     fn log_message(&self) -> String;
     fn message(&self) -> String;
+    fn raw_message(&self) -> String;
     fn author(&self) -> String;
 }
 
@@ -40,6 +41,14 @@ impl CommitRepr for git2::Commit<'_> {
         let mut encoded = String::from("");
         html_escape::encode_safe_to_string(&message, &mut encoded);
         encoded
+    }
+
+    fn raw_message(&self) -> String {
+        let mut message = self.body().unwrap_or("");
+        if message.is_empty() {
+            message = self.message().unwrap_or("");
+        }
+        message.to_string()
     }
 
     fn author(&self) -> String {
