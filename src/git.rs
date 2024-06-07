@@ -476,7 +476,7 @@ impl Head {
             oid: commit.id(),
             branch: String::from(branch.name().unwrap().unwrap()),
             log_message: commit.log_message(),
-            commit_body: commit.body().unwrap_or("").to_string(),
+            commit_body: commit.raw_message(),
             view: View::new_markup(),
             remote: false,
         }
