@@ -1,5 +1,6 @@
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::{git::commit as git_commit, Event};
+use std::cell::RefCell;
 use async_channel::Sender;
 use gtk4::prelude::*;
 use gtk4::{
@@ -79,14 +80,17 @@ pub fn commit(
                     txt.buffer().place_cursor(&mut iter);
                 }
             });
-
+            
             amend_switch.connect_active_notify({
                 let txt = txt.clone();
                 let scroll = scroll.clone();
                 let entry = commit_message.clone();
-                move |switch| {
+                let amend_inserted = RefCell::new(false);
+                move |_| {
                     if !scroll.get_visible() {
                         // force text view
+                        // on any toggle
+                        // amend is not inserted for sure
                         let mut iter = txt.buffer().iter_at_offset(0);
                         if !entry.text().is_empty() {
                             txt.buffer().insert(&mut iter, &entry.text());
@@ -95,11 +99,21 @@ pub fn commit(
                         txt.buffer().insert(&mut iter, &amend_message.clone().unwrap());
                         entry.set_visible(false);
                         scroll.set_visible(true);
-                        txt.grab_focus();
-                        txt.buffer().place_cursor(&mut iter);
-                    }
-                    if switch.is_active() {
-                        
+                        *amend_inserted.borrow_mut() = true;
+                        // no need to put cursor
+                        // lets proceed straight to commit
+                        // txt.grab_focus();
+                        // txt.buffer().place_cursor(&mut iter);
+                    } else {
+                        // how do we know if amend message was already inserted???
+                        if !(*amend_inserted.borrow()) {
+                            debug!("insert text");
+                            let mut iter = txt.buffer().end_iter();
+                            txt.buffer().insert(&mut iter, &amend_message.clone().unwrap());
+                            *amend_inserted.borrow_mut() = true;
+                        } else {
+                            debug!("noooooooooooooo way");
+                        }
                     }
                 }
             });
