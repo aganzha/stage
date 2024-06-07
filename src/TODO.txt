@@ -1,3 +1,7 @@
+if remove vector fron view it could be Copy type and then it could be wrapped
+in Cell and then i will not need &mut self everywhere, cause view will be by passed by &self!!!
+
+
 TODO: when there is nothing to stage - open commit edit message dialog!
 
 BUG: in docs. commit starting with abab does not expand last line!

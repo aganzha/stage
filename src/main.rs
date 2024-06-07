@@ -1,4 +1,5 @@
 mod context;
+mod debug;
 use context::{StatusRenderContext, TextViewWidth, UnderCursor};
 
 mod status_view;
@@ -315,6 +316,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::Debug => {
                     info!("main. debug");
+                    debug::debug(&window);
                 }
                 Event::Commit => {
                     info!("main.commit");
