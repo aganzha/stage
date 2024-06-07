@@ -79,9 +79,7 @@ impl Hunk {
             // THIS IS ACTUAL ONLY FOR UNSTAGED
             match (r_line.old_line_no, n_line.old_line_no) {
                 (Some(r_no), Some(n_no)) => {
-                    trace!(
-                        "both lines are changed"
-                    );
+                    trace!("both lines are changed");
                     trace!("r_no n_no {:?} {:?}", r_no, n_no);
                     let m_n_line = &mut self.lines[n_ind];
                     m_n_line.enrich_view(r_line, context);
@@ -89,25 +87,19 @@ impl Hunk {
                     n_ind += 1;
                 }
                 (Some(r_no), None) => {
-                    trace!(
-                        "new line is added before old one"
-                    );
+                    trace!("new line is added before old one");
                     trace!("r_no n_no {:?} _", r_no);
                     n_ind += 1;
                 }
                 (None, Some(n_no)) => {
-                    trace!(
-                        "rendered line is added before new one"
-                    );
+                    trace!("rendered line is added before new one");
                     trace!("r_no n_no _ {:?}", n_no);
                     let m_r_line = &mut rendered.lines[r_ind];
                     m_r_line.erase(buffer, context);
                     r_ind += 1;
                 }
                 (None, None) => {
-                    trace!(
-                        "both lines are added",
-                    );
+                    trace!("both lines are added",);
                     trace!("r_no n_no _ _");
                     let m_n_line = &mut self.lines[n_ind];
                     m_n_line.enrich_view(r_line, context);
@@ -168,7 +160,6 @@ impl File {
             let r_hunk = &rendered.hunks[r_ind];
             let r_delta = r_hunk.delta_in_lines();
 
-            
             // why kind here is required?????
             // it is required to compare old_new/new_lines and thats it
             // it could be refactored to some method, which will return
@@ -191,10 +182,12 @@ impl File {
                     n_ind += 1;
                     r_ind += 1;
                 } else if (knd == &DiffKind::Staged
-                           || knd == &DiffKind::Conflicted)
+                    || knd == &DiffKind::Conflicted)
                     && n_hunk.new_start < r_hunk.new_start
                 {
-                    trace!("^^^^^^^^new hunk is BEFORE rendered hunk in STAGED");
+                    trace!(
+                        "^^^^^^^^new hunk is BEFORE rendered hunk in STAGED"
+                    );
                     for hunk in &mut rendered.hunks[r_ind..] {
                         trace!(
                             "-> move forward hunk {:?} by {:?} lines",
@@ -202,15 +195,17 @@ impl File {
                             n_hunk.delta_in_lines()
                         );
                         hunk.new_start = ((hunk.new_start as i32)
-                                          + n_hunk.delta_in_lines())
+                            + n_hunk.delta_in_lines())
                             as u32;
                     }
                     n_ind += 1;
                 } else if (knd == &DiffKind::Staged
-                           || knd == &DiffKind::Conflicted)
+                    || knd == &DiffKind::Conflicted)
                     && n_hunk.new_start > r_hunk.new_start
                 {
-                    trace!("^^^^^^^^new hunk is AFTER rendered hunk in STAGED");
+                    trace!(
+                        "^^^^^^^^new hunk is AFTER rendered hunk in STAGED"
+                    );
                     // hunk was unstaged and must be erased. means all other rendered hunks
                     // must increment their new lines cause in erased hunk its lines
                     // are no longer new
@@ -227,16 +222,15 @@ impl File {
                         }
                     }
                     let m_r_hunk = &mut rendered.hunks[r_ind];
-                    trace!(
-                        "erase AFTER rendered hunk {:?}",
-                        m_r_hunk.header
-                    );
+                    trace!("erase AFTER rendered hunk {:?}", m_r_hunk.header);
                     m_r_hunk.erase(buffer, context);
                     r_ind += 1;
                 } else if knd == &DiffKind::Unstaged
                     && n_hunk.old_start < r_hunk.old_start
                 {
-                    trace!("^^^^^^^^new hunk is BEFORE rendered hunk in UNSTAGED");
+                    trace!(
+                        "^^^^^^^^new hunk is BEFORE rendered hunk in UNSTAGED"
+                    );
                     for hunk in &mut rendered.hunks[r_ind..] {
                         trace!(
                             "<- move backward hunk {:?} by {:?} lines",
@@ -274,10 +268,7 @@ impl File {
                         }
                     }
                     let m_r_hunk = &mut rendered.hunks[r_ind];
-                    trace!(
-                        "erase AFTER rendered hunk {:?}",
-                        m_r_hunk.header
-                    );
+                    trace!("erase AFTER rendered hunk {:?}", m_r_hunk.header);
                     m_r_hunk.erase(buffer, context);
                     r_ind += 1;
                 } else {
@@ -287,7 +278,6 @@ impl File {
                     );
                 }
             }
-            
 
             // completed all new hunks
             // all remained rendered hunks must be erased
@@ -327,7 +317,6 @@ impl Diff {
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) {
-
         context.diff_kind.replace(self.kind.clone());
 
         trace!("---------------enrich {:?} view in diff. my files {:?}, rendered files {:?}",

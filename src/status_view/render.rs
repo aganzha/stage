@@ -64,7 +64,6 @@ impl View {
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) -> bool {
-
         if let Some(width) = &context.screen_width {
             let chars = width.borrow().chars;
             if chars > 0 {
@@ -123,11 +122,7 @@ impl View {
                 if chars as usize > line_content.len() {
                     let spaces = chars as usize - line_content.len();
                     trace!("build up spaces {:?}", spaces);
-                    return format!(
-                        "{}{}",
-                        line_content,
-                        " ".repeat(spaces)
-                    );
+                    return format!("{}{}", line_content, " ".repeat(spaces));
                 }
             }
         }
@@ -211,7 +206,6 @@ impl View {
                     ">>>>>>>>>>>>>>>>>>>> just erased line. context {:?}",
                     context
                 );
-
             }
             ViewState::RenderedDirtyNotInPlace(l) => {
                 trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);

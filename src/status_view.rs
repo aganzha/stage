@@ -1,9 +1,9 @@
+pub mod commit;
 pub mod container;
 pub mod headerbar;
 pub mod textview;
-pub mod commit;
-use crate::git::{merge, remote};
 use crate::dialogs::{alert, DangerDialog, YES};
+use crate::git::{merge, remote};
 use container::{ViewContainer, ViewKind};
 use core::time::Duration;
 use git2::RepositoryState;
@@ -20,9 +20,10 @@ use std::rc::Rc;
 
 use crate::status_view::render::View;
 use crate::{
-    checkout_oid, get_current_repo_status, get_directories, git_debug, stage_untracked, stage_via_apply, stash_changes,
-    track_changes, ApplyFilter, ApplySubject, Diff, Event, Head, Stashes,
-    State, StatusRenderContext, Untracked,
+    checkout_oid, get_current_repo_status, get_directories, git_debug,
+    stage_untracked, stage_via_apply, stash_changes, track_changes,
+    ApplyFilter, ApplySubject, Diff, Event, Head, Stashes, State,
+    StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
 
@@ -34,16 +35,15 @@ use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Box, Label as GtkLabel, ListBox, Orientation, SelectionMode,
-    TextBuffer, TextView, Widget, ScrolledWindow, WrapMode, EventControllerKey,
-    gdk
+    gdk, gio, glib, Box, EventControllerKey, Label as GtkLabel, ListBox,
+    Orientation, ScrolledWindow, SelectionMode, TextBuffer, TextView, Widget,
+    WrapMode,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, Banner, EntryRow, PasswordEntryRow, SwitchRow,
 }; // _Window,
 use log::{debug, trace};
-
 
 impl State {
     pub fn title_for_proceed_banner(&self) -> String {
@@ -557,14 +557,18 @@ impl Status {
         &mut self,
         window: &ApplicationWindow, // &impl IsA<Gtk4Window>,
     ) {
-
         let mut ammend_allowed = true;
         if let Some(head) = &self.head {
             if let Some(upstream) = &self.upstream {
                 ammend_allowed = head.oid != upstream.oid;
-            }        
+            }
         }
-        commit::commit(self.path.clone(), ammend_allowed, window, self.sender.clone());
+        commit::commit(
+            self.path.clone(),
+            ammend_allowed,
+            window,
+            self.sender.clone(),
+        );
         //     if let Some(upstream) = &self.upstream {
         //         ammend_allowed = upstream.oid != head.oid;
         //         }
@@ -631,7 +635,6 @@ impl Status {
         //                 lb.append(&switch);
         //                 bx.append(&lb);
         //             }
-
 
         //             let label = GtkLabel::builder()
         //                 .label("Ctrl-c or Ctrl-Enter to commit. Esc to exit")
@@ -797,8 +800,7 @@ impl Status {
                     banner.set_revealed(false);
                 }
 
-                if state.need_final_commit()
-                {
+                if state.need_final_commit() {
                     banner.set_title(&state.title_for_proceed_banner());
                     banner.set_css_classes(&["success"]);
                     banner.set_button_label(Some("Commit"));
@@ -820,14 +822,17 @@ impl Status {
                                 async move {
                                     gio::spawn_blocking({
                                         move || {
-                                            if state == RepositoryState::Merge {
+                                            if state == RepositoryState::Merge
+                                            {
                                                 merge::final_merge_commit(
-                                                    path.clone().expect("no path"),
+                                                    path.clone()
+                                                        .expect("no path"),
                                                     sender,
                                                 )
                                             } else {
                                                 merge::final_commit(
-                                                    path.clone().expect("no path"),
+                                                    path.clone()
+                                                        .expect("no path"),
                                                     sender,
                                                 )
                                             }
@@ -933,23 +938,19 @@ impl Status {
         context.update_cursor_pos(line_no, offset);
         let mut changed = false;
         if let Some(untracked) = &mut self.untracked {
-            changed = untracked.cursor(line_no, false, context)
-                || changed;
+            changed = untracked.cursor(line_no, false, context) || changed;
         }
         if let Some(conflicted) = &mut self.conflicted {
             context.under_cursor_diff(&conflicted.kind);
-            changed = conflicted.cursor(line_no, false, context)
-                || changed;
+            changed = conflicted.cursor(line_no, false, context) || changed;
         }
         if let Some(unstaged) = &mut self.unstaged {
             context.under_cursor_diff(&unstaged.kind);
-            changed =
-                unstaged.cursor(line_no, false, context) || changed;
+            changed = unstaged.cursor(line_no, false, context) || changed;
         }
         if let Some(staged) = &mut self.staged {
             context.under_cursor_diff(&staged.kind);
-            changed =
-                staged.cursor(line_no, false, context) || changed;
+            changed = staged.cursor(line_no, false, context) || changed;
         }
         if changed {
             self.render(txt, RenderSource::Cursor(line_no), context);
@@ -1035,16 +1036,8 @@ impl Status {
                 self.untracked_spacer.view.squashed = true;
                 self.untracked_label.view.squashed = true;
             }
-            self.untracked_spacer.render(
-                &buffer,
-                &mut iter,
-                context,
-            );
-            self.untracked_label.render(
-                &buffer,
-                &mut iter,
-                context,
-            );
+            self.untracked_spacer.render(&buffer, &mut iter, context);
+            self.untracked_label.render(&buffer, &mut iter, context);
             untracked.render(&buffer, &mut iter, context);
         }
 
@@ -1053,16 +1046,8 @@ impl Status {
                 self.conflicted_spacer.view.squashed = true;
                 self.conflicted_label.view.squashed = true;
             }
-            self.conflicted_spacer.render(
-                &buffer,
-                &mut iter,
-                context,
-            );
-            self.conflicted_label.render(
-                &buffer,
-                &mut iter,
-                context,
-            );
+            self.conflicted_spacer.render(&buffer, &mut iter, context);
+            self.conflicted_label.render(&buffer, &mut iter, context);
             conflicted.render(&buffer, &mut iter, context);
         }
 
@@ -1071,13 +1056,8 @@ impl Status {
                 self.unstaged_spacer.view.squashed = true;
                 self.unstaged_label.view.squashed = true;
             }
-            self.unstaged_spacer.render(
-                &buffer,
-                &mut iter,
-                context,
-            );
-            self.unstaged_label
-                .render(&buffer, &mut iter, context);
+            self.unstaged_spacer.render(&buffer, &mut iter, context);
+            self.unstaged_label.render(&buffer, &mut iter, context);
             unstaged.render(&buffer, &mut iter, context);
         }
 
@@ -1086,10 +1066,8 @@ impl Status {
                 self.staged_spacer.view.squashed = true;
                 self.staged_label.view.squashed = true;
             }
-            self.staged_spacer
-                .render(&buffer, &mut iter, context);
-            self.staged_label
-                .render(&buffer, &mut iter, context);
+            self.staged_spacer.render(&buffer, &mut iter, context);
+            self.staged_label.render(&buffer, &mut iter, context);
             staged.render(&buffer, &mut iter, context);
         }
         trace!("render source {:?}", source);
@@ -1192,7 +1170,6 @@ impl Status {
                     // also someone can press stage on hunk!
                     for line in &hunk.lines {
                         if line.view.current {
-
                             glib::spawn_future_local({
                                 let path = self.path.clone().unwrap();
                                 let sender = self.sender.clone();
@@ -1341,16 +1318,21 @@ impl Status {
                 async move {
                     gio::spawn_blocking({
                         move || {
-                            stage_via_apply(path.expect("no path"), filter, sender)
+                            stage_via_apply(
+                                path.expect("no path"),
+                                filter,
+                                sender,
+                            )
                         }
-                    }).await
-                        .unwrap_or_else(|e| {
-                            alert(format!("{:?}", e)).present(&window);
-                            Ok(())
-                        })
-                        .unwrap_or_else(|e| {
-                            alert(e).present(&window);
-                        });
+                    })
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(())
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                    });
                 }
             });
         }

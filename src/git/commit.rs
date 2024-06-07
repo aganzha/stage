@@ -31,17 +31,14 @@ impl CommitRepr for git2::Commit<'_> {
         html_escape::encode_safe_to_string(&message, &mut encoded);
         format!("{} {}", &self.id().to_string()[..7], encoded)
     }
-    
+
     fn message(&self) -> String {
         let mut message = self.body().unwrap_or("");
         if message.is_empty() {
             message = self.message().unwrap_or("");
         }
         let mut encoded = String::from("");
-        html_escape::encode_safe_to_string(
-            &message,
-            &mut encoded,
-        );
+        html_escape::encode_safe_to_string(&message, &mut encoded);
         encoded
     }
 
@@ -196,9 +193,7 @@ pub fn create_commit(
     // message: &str,
     // tree: &Tree<'_>,
     // parents: &[&Commit<'_>]
-    let tree_oid = repo
-        .index()?
-        .write_tree()?;
+    let tree_oid = repo.index()?.write_tree()?;
 
     let tree = repo.find_tree(tree_oid)?;
 
@@ -240,8 +235,7 @@ pub fn create_commit(
     // update staged changes
     let ob = repo.revparse_single("HEAD^{tree}")?;
     let current_tree = repo.find_tree(ob.id())?;
-    let git_diff = repo
-        .diff_tree_to_index(Some(&current_tree), None, None)?;
+    let git_diff = repo.diff_tree_to_index(Some(&current_tree), None, None)?;
 
     sender
         .send_blocking(crate::Event::Staged(make_diff(

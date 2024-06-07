@@ -34,9 +34,7 @@ use git::{
 };
 use git2::Oid;
 mod dialogs;
-use dialogs::{
-    alert, confirm_dialog_factory,
-};
+use dialogs::{alert, confirm_dialog_factory};
 
 use gdk::Display;
 use glib::{clone, ControlFlow};
@@ -227,7 +225,11 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
 
     let text_view_width =
         Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
-    let txt = textview_factory(sender.clone(), "status_view", text_view_width.clone());
+    let txt = textview_factory(
+        sender.clone(),
+        "status_view",
+        text_view_width.clone(),
+    );
 
     let scroll = ScrolledWindow::builder()
         .vexpand(true)
@@ -276,7 +278,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
 
     let window_stack: Rc<RefCell<Vec<Window>>> =
         Rc::new(RefCell::new(Vec::new()));
-    
+
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
@@ -351,7 +353,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     w.connect_close_request({
                         let window_stack = window_stack.clone();
                         move |_| {
-                            info!("popping stack while close branches {:?}", window_stack.borrow_mut().pop());
+                            info!(
+                                "popping stack while close branches {:?}",
+                                window_stack.borrow_mut().pop()
+                            );
                             glib::signal::Propagation::Proceed
                         }
                     });
@@ -382,7 +387,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     w.connect_close_request({
                         let window_stack = window_stack.clone();
                         move |_| {
-                            info!("popping stack while close log {:?}", window_stack.borrow_mut().pop());
+                            info!(
+                                "popping stack while close log {:?}",
+                                window_stack.borrow_mut().pop()
+                            );
                             glib::signal::Propagation::Proceed
                         }
                     });
@@ -443,7 +451,12 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::UnStage(_offset, line_no) => {
                     info!("main. unstage");
-                    status.stage(&txt, line_no, ApplySubject::Unstage, &window);
+                    status.stage(
+                        &txt,
+                        line_no,
+                        ApplySubject::Unstage,
+                        &window,
+                    );
                 }
                 Event::Kill(_offset, line_no) => {
                     info!("main.kill");

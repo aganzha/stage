@@ -8,7 +8,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::{trace, debug};
+use log::{debug, trace};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
@@ -46,7 +46,7 @@ pub trait ViewContainer {
     }
 
     fn fill_context(&self, _: &mut StatusRenderContext) {}
-    
+
     // ViewContainer
     fn render(
         &mut self,
@@ -124,11 +124,7 @@ pub trait ViewContainer {
         result
     }
 
-    fn fill_under_cursor(
-        &self,
-        _context: &mut StatusRenderContext,
-    ) {
-    }
+    fn fill_under_cursor(&self, _context: &mut StatusRenderContext) {}
 
     fn is_active_by_child(
         &self,
@@ -363,9 +359,14 @@ impl ViewContainer for File {
     }
 
     fn get_content(&self) -> String {
-        format!("{}{}",
-                if self.status == git2::Delta::Deleted {"- "} else {""},
-                self.path.to_str().unwrap()
+        format!(
+            "{}{}",
+            if self.status == git2::Delta::Deleted {
+                "- "
+            } else {
+                ""
+            },
+            self.path.to_str().unwrap()
         )
     }
 
@@ -384,7 +385,6 @@ impl ViewContainer for File {
     }
 
     fn fill_context(&self, context: &mut StatusRenderContext) {
-
         if let Some(len) = context.max_len {
             if len < self.max_line_len {
                 context.max_len.replace(self.max_line_len);
@@ -392,7 +392,6 @@ impl ViewContainer for File {
         } else {
             context.max_len.replace(self.max_line_len);
         }
-
     }
 
     fn get_id(&self) -> String {
@@ -511,10 +510,7 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn fill_under_cursor(
-        &self,
-        context: &mut StatusRenderContext,
-    ) {
+    fn fill_under_cursor(&self, context: &mut StatusRenderContext) {
         context.under_cursor_line(&self.kind);
     }
 

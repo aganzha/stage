@@ -1,5 +1,5 @@
+use crate::dialogs::{alert, ConfirmDialog, DangerDialog, YES};
 use crate::git::{commit, git_log};
-use crate::dialogs::{alert, DangerDialog, ConfirmDialog, YES};
 use async_channel::Sender;
 use core::time::Duration;
 use git2::Oid;
@@ -14,7 +14,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
-use log::{trace};
+use log::trace;
 use std::cell::RefCell;
 
 use std::path::PathBuf;
@@ -93,7 +93,7 @@ mod commit_item {
         pub fn get_author(&self) -> String {
             self.commit.borrow().author.to_string()
         }
-        
+
         pub fn get_message(&self) -> String {
             self.commit.borrow().message.to_string()
         }
@@ -335,7 +335,6 @@ impl CommitList {
         oid
     }
 
-    
     pub fn cherry_pick(
         &self,
         repo_path: PathBuf,
@@ -352,8 +351,8 @@ impl CommitList {
                     "Cherry pick commit?".to_string(),
                     format!("{}", oid),
                 ))
-                    .choose_future(&window)
-                    .await;
+                .choose_future(&window)
+                .await;
                 if response != YES {
                     return;
                 }
@@ -362,14 +361,14 @@ impl CommitList {
                     let path = path.clone();
                     move || commit::cherry_pick(path, oid, sender)
                 })
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
-                        Ok(())
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(&window);                        
-                    });
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(())
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                });
             }
         });
     }
@@ -390,8 +389,8 @@ impl CommitList {
                     "Revert commit?".to_string(),
                     format!("{}", oid),
                 ))
-                    .choose_future(&window)
-                    .await;
+                .choose_future(&window)
+                .await;
                 if response != YES {
                     return;
                 }
@@ -400,19 +399,18 @@ impl CommitList {
                     let path = path.clone();
                     move || commit::revert(path, oid, sender)
                 })
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
-                        Ok(())
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(&window);
-                        
-                    });
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(())
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                });
             }
         });
     }
-    
+
     pub fn reset_hard(
         &self,
         repo_path: PathBuf,
@@ -680,7 +678,6 @@ pub fn get_commit_list(list_view: &ListView) -> CommitList {
     commit_list.to_owned()
 }
 
-
 pub fn headerbar_factory(
     list_view: &ListView,
     branch_name: String,
@@ -766,7 +763,7 @@ pub fn headerbar_factory(
         let window = window.clone();
         let commit_list = commit_list.clone();
         move |_btn| {
-            commit_list.cherry_pick(path.clone(), &window, sender.clone());            
+            commit_list.cherry_pick(path.clone(), &window, sender.clone());
         }
     });
 
@@ -783,7 +780,7 @@ pub fn headerbar_factory(
         let window = window.clone();
         let commit_list = commit_list.clone();
         move |_btn| {
-            commit_list.revert(path.clone(), &window, sender.clone());            
+            commit_list.revert(path.clone(), &window, sender.clone());
         }
     });
 
@@ -889,16 +886,25 @@ pub fn show_log_window(
                     search_entry.grab_focus();
                 }
                 (gdk::Key::x, _) => {
-                    get_commit_list(&list_view)
-                        .reset_hard(repo_path.clone(), &window, main_sender.clone());
+                    get_commit_list(&list_view).reset_hard(
+                        repo_path.clone(),
+                        &window,
+                        main_sender.clone(),
+                    );
                 }
                 (gdk::Key::a, _) => {
-                    get_commit_list(&list_view)
-                        .cherry_pick(repo_path.clone(), &window, main_sender.clone());
+                    get_commit_list(&list_view).cherry_pick(
+                        repo_path.clone(),
+                        &window,
+                        main_sender.clone(),
+                    );
                 }
                 (gdk::Key::r, _) => {
-                    get_commit_list(&list_view)
-                        .revert(repo_path.clone(), &window, main_sender.clone());
+                    get_commit_list(&list_view).revert(
+                        repo_path.clone(),
+                        &window,
+                        main_sender.clone(),
+                    );
                 }
                 (key, modifier) => {
                     trace!("key pressed {:?} {:?}", key, modifier);
