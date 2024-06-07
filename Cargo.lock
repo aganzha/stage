@@ -705,37 +705,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libpanel"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecbed4faf2b31e3cb2238a45bcec502bb98d4095c5bd17d539055090a90856bc"
-dependencies = [
- "futures-core",
- "gdk4",
- "gio",
- "glib",
- "gtk4",
- "libadwaita",
- "libc",
- "libpanel-sys",
-]
-
-[[package]]
-name = "libpanel-sys"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "556284d9ee0a6c0d79b992d4a3bc332a1f009172cb4212ad3ca2db227a09e29d"
-dependencies = [
- "gio-sys",
- "glib-sys",
- "gobject-sys",
- "gtk4-sys",
- "libadwaita-sys",
- "libc",
- "system-deps",
-]
-
-[[package]]
 name = "libssh2-sys"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1038,7 +1007,6 @@ dependencies = [
  "gtk4",
  "html-escape",
  "libadwaita",
- "libpanel",
  "log",
  "regex",
 ]
