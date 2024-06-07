@@ -5,7 +5,7 @@ use libadwaita::{ButtonContent, HeaderBar, SplitButton, Window};
 use async_channel::Sender;
 use std::path::PathBuf;
 
-use gtk4::{gio, Align, Button, FileDialog, Label, PopoverMenu};
+use gtk4::{gio, Align, Button, FileDialog, Label, PopoverMenu, MenuButton};
 
 pub enum HbUpdateData {
     Path(PathBuf),
@@ -13,6 +13,38 @@ pub enum HbUpdateData {
     Unsynced(bool),
     RepoOpen,
     RepoPopup,
+}
+
+pub fn burger_menu() -> MenuButton {
+
+    let menu_model = gio::Menu::new();
+    
+    let menu_item = gio::MenuItem::new(Some("theme"), Some("win.menu::1"));
+    let theme_id = "theme".to_variant();
+    menu_item.set_attribute_value("custom", Some(&theme_id));    
+    menu_model.insert_item(0, &menu_item);
+
+    
+    let menu_item = gio::MenuItem::new(Some("fontsize"), Some("win.menu::2"));
+    let fontsize_id = "fontsize".to_variant();
+    menu_item.set_attribute_value("custom", Some(&fontsize_id));
+    menu_model.insert_item(1, &menu_item);
+    
+    
+    let popover_menu = PopoverMenu::from_model(Some(&menu_model));
+    
+    let theme_label = Label::builder().label("theme").build();
+    // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
+    popover_menu.add_child(&theme_label, "theme");
+
+    let fontsize_label = Label::builder().label("fontsize").build();
+    // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
+    popover_menu.add_child(&fontsize_label, "fontsize");
+
+    MenuButton::builder()
+        .popover(&popover_menu)
+        .icon_name("open-menu-symbolic")
+        .build()
 }
 
 pub fn factory(
@@ -293,7 +325,10 @@ pub fn factory(
     hb.pack_start(&refresh_btn);
     hb.pack_start(&zoom_out_btn);
     hb.pack_start(&zoom_in_btn);
+
     hb.set_title_widget(Some(&repo_selector));
+
+    hb.pack_end(&burger_menu());
     hb.pack_end(&commit_btn);
     hb.pack_end(&branches_btn);
     hb.pack_end(&push_btn);

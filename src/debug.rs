@@ -7,7 +7,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
-use libpanel::ThemeSelector;
+
 use crate::gio::MenuModel;
     
 pub fn debug(app_window: &impl IsA<Gtk4Window>,) {
@@ -51,7 +51,7 @@ pub fn debug(app_window: &impl IsA<Gtk4Window>,) {
     
     let popover_menu = PopoverMenu::from_model(Some(&menu_model));
     
-    let selector = ThemeSelector::new();
+    let selector = Label::new(Some("selector"));
     // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
     popover_menu.add_child(&selector, "theme");
 
