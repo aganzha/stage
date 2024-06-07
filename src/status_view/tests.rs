@@ -82,7 +82,6 @@ pub fn mock_render(diff: &mut Diff) -> i32 {
 // tests
 pub fn cursor(diff: &mut Diff, line_no: i32, ctx: &mut StatusRenderContext) {
     for (_, file) in diff.files.iter_mut().enumerate() {
-        ctx.under_cursor_diff(&diff.kind);
         file.cursor(line_no, false, ctx);
     }
     // some views will be rerenderred cause highlight changes
@@ -381,8 +380,7 @@ fn test_expand_line() {
     let mut context = StatusRenderContext::new();
     let mut ctx = context;
     diff.render(&buffer, &mut iter, &mut ctx);
-    // if cursor returns true it need to rerender as in Status!
-    ctx.under_cursor_diff(&diff.kind);
+    // if cursor returns true it need to rerender as in Status!    
     if diff.cursor(1, false, &mut ctx) {
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
     }

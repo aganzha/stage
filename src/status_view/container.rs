@@ -302,6 +302,7 @@ impl ViewContainer for Diff {
         parent_active: bool,
         context: &mut StatusRenderContext,
     ) -> bool {
+        context.under_cursor_diff(&self.kind);
         let mut result = false;
         for file in &mut self.files {
             result = file.cursor(line_no, parent_active, context) || result;

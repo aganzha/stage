@@ -817,15 +817,12 @@ impl Status {
             changed = untracked.cursor(line_no, false, context) || changed;
         }
         if let Some(conflicted) = &mut self.conflicted {
-            context.under_cursor_diff(&conflicted.kind);
             changed = conflicted.cursor(line_no, false, context) || changed;
         }
         if let Some(unstaged) = &mut self.unstaged {
-            context.under_cursor_diff(&unstaged.kind);
             changed = unstaged.cursor(line_no, false, context) || changed;
         }
         if let Some(staged) = &mut self.staged {
-            context.under_cursor_diff(&staged.kind);
             changed = staged.cursor(line_no, false, context) || changed;
         }
         if changed {
