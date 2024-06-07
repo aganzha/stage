@@ -1,4 +1,3 @@
-- am1
 TODO: when there is nothing to stage - open commit edit message dialog!
 
 BUG: in docs. commit starting with abab does not expand last line!
