@@ -16,7 +16,7 @@ use std::path::PathBuf;
 
 pub fn commit(
     path: Option<PathBuf>,
-    ammend_allowed: bool,
+    amend_message: Option<String>,
     window: &ApplicationWindow,
     sender: Sender<Event>,
 ) {
@@ -41,14 +41,9 @@ pub fn commit(
                 .css_classes(vec!["input_field"])
                 .active(false)
                 .build();
-            amend_switch.connect_active_notify({
-                move |switch| {
-                    if switch.is_active() {}
-                }
-            });
 
             list_box.append(&commit_message);
-            if ammend_allowed || true {
+            if amend_message.is_some() || true {
                 list_box.append(&amend_switch);
             }
 
@@ -82,6 +77,30 @@ pub fn commit(
                     scroll.set_visible(true);
                     txt.grab_focus();
                     txt.buffer().place_cursor(&mut iter);
+                }
+            });
+
+            amend_switch.connect_active_notify({
+                let txt = txt.clone();
+                let scroll = scroll.clone();
+                let entry = commit_message.clone();
+                move |switch| {
+                    if !scroll.get_visible() {
+                        // force text view
+                        let mut iter = txt.buffer().iter_at_offset(0);
+                        if !entry.text().is_empty() {
+                            txt.buffer().insert(&mut iter, &entry.text());
+                            txt.buffer().insert(&mut iter, "\n");
+                        }
+                        txt.buffer().insert(&mut iter, &amend_message.clone().unwrap());
+                        entry.set_visible(false);
+                        scroll.set_visible(true);
+                        txt.grab_focus();
+                        txt.buffer().place_cursor(&mut iter);
+                    }
+                    if switch.is_active() {
+                        
+                    }
                 }
             });
 
