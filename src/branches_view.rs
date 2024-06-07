@@ -1,16 +1,16 @@
 use async_channel::Sender;
 
-use crate::git::{branch, commit, merge, remote};
 use crate::dialogs::{alert, ConfirmDialog, YES};
+use crate::git::{branch, commit, merge, remote};
 use git2::BranchType;
 use glib::{clone, closure, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, Button, EventControllerKey,
-    Image, Label, ListBox, ListHeader, ListItem, ListView,
-    Orientation, ScrolledWindow, SearchBar, SearchEntry, SectionModel,
-    SelectionMode, SignalListItemFactory, SingleSelection, Spinner, Widget,
+    gdk, gio, glib, pango, Box, Button, EventControllerKey, Image, Label,
+    ListBox, ListHeader, ListItem, ListView, Orientation, ScrolledWindow,
+    SearchBar, SearchEntry, SectionModel, SelectionMode,
+    SignalListItemFactory, SingleSelection, Spinner, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -569,8 +569,8 @@ impl BranchList {
                     "Cherry pick commit?".to_string(),
                     format!("{}", oid),
                 ))
-                    .choose_future(&window)
-                    .await;
+                .choose_future(&window)
+                .await;
                 if response != YES {
                     return;
                 }
@@ -579,14 +579,14 @@ impl BranchList {
                     let path = path.clone();
                     move || commit::cherry_pick(path, oid, sender)
                 })
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
-                        Ok(())
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(&window);                        
-                    });
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(())
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                });
             }
         });
     }
@@ -899,7 +899,7 @@ pub fn headerbar_factory(
             );
         }
     });
-    
+
     let set_sensitive = |bind: &glib::Binding, position: u32| {
         let src = bind.source().unwrap();
         let li: &BranchList = src.downcast_ref().unwrap();
@@ -929,18 +929,11 @@ pub fn headerbar_factory(
         .build();
 
     merge_btn.connect_clicked({
-
         let sender = sender.clone();
         let window = window.clone();
         let branch_list = branch_list.clone();
         let repo_path = repo_path.clone();
-        move |_| {
-            branch_list.merge(
-                repo_path.clone(),
-                &window,
-                sender.clone(),
-            )
-        }
+        move |_| branch_list.merge(repo_path.clone(), &window, sender.clone())
     });
 
     let refresh_btn = Button::builder()
@@ -1029,7 +1022,6 @@ pub fn show_branches_window(
     app_window: &ApplicationWindow,
     sender: Sender<crate::Event>,
 ) -> Window {
-
     let window = Window::builder()
         .application(&app_window.application().unwrap())
         .transient_for(app_window)
@@ -1063,7 +1055,7 @@ pub fn show_branches_window(
         let list_view = list_view.clone();
         let repo_path = repo_path.clone();
         let sender = sender.clone();
-        
+
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
@@ -1109,7 +1101,11 @@ pub fn show_branches_window(
                 }
                 (gdk::Key::a, _) => {
                     let branch_list = get_branch_list(&list_view);
-                    branch_list.cherry_pick(repo_path.clone(), &window, sender.clone());
+                    branch_list.cherry_pick(
+                        repo_path.clone(),
+                        &window,
+                        sender.clone(),
+                    );
                 }
                 (gdk::Key::r, _) => {
                     let branch_list = get_branch_list(&list_view);
@@ -1117,7 +1113,7 @@ pub fn show_branches_window(
                         repo_path.clone(),
                         &window,
                         sender.clone(),
-                    );                        
+                    );
                 }
                 (gdk::Key::s, _) => {
                     let search_bar = hb.title_widget().unwrap();

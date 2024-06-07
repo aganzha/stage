@@ -95,9 +95,8 @@ pub fn test_single_diff() {
     mock_render(&mut diff);
 
     let mut context = StatusRenderContext::new();
-    
-    for cursor_line in 0..3 {
 
+    for cursor_line in 0..3 {
         cursor(&mut diff, cursor_line, &mut context);
 
         for (i, file) in diff.files.iter_mut().enumerate() {
@@ -235,9 +234,27 @@ fn test_render_view() {
 
     let mut ctx = StatusRenderContext::new();
 
-    view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), &mut ctx);
-    view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), &mut ctx);
-    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), &mut ctx);
+    view1.render(
+        &buffer,
+        &mut iter,
+        "test1".to_string(),
+        Vec::new(),
+        &mut ctx,
+    );
+    view2.render(
+        &buffer,
+        &mut iter,
+        "test2".to_string(),
+        Vec::new(),
+        &mut ctx,
+    );
+    view3.render(
+        &buffer,
+        &mut iter,
+        "test3".to_string(),
+        Vec::new(),
+        &mut ctx,
+    );
     assert!(view1.line_no == 1);
     assert!(view2.line_no == 2);
     assert!(view3.line_no == 3);
@@ -247,9 +264,27 @@ fn test_render_view() {
     assert!(iter.line() == 4);
     // ------------------ test rendered in line
     iter = buffer.iter_at_line(1).unwrap();
-    view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), &mut ctx);
-    view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), &mut ctx);
-    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), &mut ctx);
+    view1.render(
+        &buffer,
+        &mut iter,
+        "test1".to_string(),
+        Vec::new(),
+        &mut ctx,
+    );
+    view2.render(
+        &buffer,
+        &mut iter,
+        "test2".to_string(),
+        Vec::new(),
+        &mut ctx,
+    );
+    view3.render(
+        &buffer,
+        &mut iter,
+        "test3".to_string(),
+        Vec::new(),
+        &mut ctx,
+    );
     assert!(iter.line() == 4);
 
     // ------------------ test deleted
@@ -257,24 +292,48 @@ fn test_render_view() {
     view1.squashed = true;
     view1.rendered = false;
 
-    view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), &mut ctx);
+    view1.render(
+        &buffer,
+        &mut iter,
+        "test1".to_string(),
+        Vec::new(),
+        &mut ctx,
+    );
     assert!(!view1.rendered);
     // its no longer squashed. is it ok?
     assert!(!view1.squashed);
     // iter was not moved (nothing to delete, view was not rendered)
     assert!(iter.line() == 1);
     // rerender it
-    view1.render(&buffer, &mut iter, "test1".to_string(), Vec::new(), &mut ctx);
+    view1.render(
+        &buffer,
+        &mut iter,
+        "test1".to_string(),
+        Vec::new(),
+        &mut ctx,
+    );
     assert!(iter.line() == 2);
 
     // -------------------- test dirty
     view2.dirty = true;
-    view2.render(&buffer, &mut iter, "test2".to_string(), Vec::new(), &mut ctx);
+    view2.render(
+        &buffer,
+        &mut iter,
+        "test2".to_string(),
+        Vec::new(),
+        &mut ctx,
+    );
     assert!(!view2.dirty);
     assert!(iter.line() == 3);
     // -------------------- test squashed
     view3.squashed = true;
-    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), &mut ctx);
+    view3.render(
+        &buffer,
+        &mut iter,
+        "test3".to_string(),
+        Vec::new(),
+        &mut ctx,
+    );
     assert!(!view3.squashed);
     // iter remains on same kine, just squashing view in place
     assert!(iter.line() == 3);
@@ -282,7 +341,13 @@ fn test_render_view() {
     view3.line_no = 0;
     view3.dirty = true;
     view3.transfered = true;
-    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), &mut ctx);
+    view3.render(
+        &buffer,
+        &mut iter,
+        "test3".to_string(),
+        Vec::new(),
+        &mut ctx,
+    );
     assert!(view3.line_no == 3);
     assert!(view3.rendered);
     assert!(!view3.dirty);
@@ -292,7 +357,13 @@ fn test_render_view() {
     // --------------------- test not in place
     iter = buffer.iter_at_line(3).unwrap();
     view3.line_no = 0;
-    view3.render(&buffer, &mut iter, "test3".to_string(), Vec::new(), &mut ctx);
+    view3.render(
+        &buffer,
+        &mut iter,
+        "test3".to_string(),
+        Vec::new(),
+        &mut ctx,
+    );
     assert!(view3.line_no == 3);
     assert!(view3.rendered);
     assert!(iter.line() == 4);
@@ -400,7 +471,7 @@ fn test_reconciliation() {
     let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
     let mut new_hunk = create_hunk(name);
     new_hunk.enrich_view(&mut hunk, &buffer, &mut context);
-    
+
     debug!("oooooooooooooooooooooooooooooo {:?}", content);
     for line in &new_hunk.lines {
         dbg!(&line.view);

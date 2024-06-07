@@ -18,7 +18,7 @@ use git2::{
     ResetType, StashFlags,
 };
 
-use log::{trace};
+use log::trace;
 use regex::Regex;
 //use std::time::SystemTime;
 use std::path::PathBuf;
@@ -71,21 +71,23 @@ impl Line {
     pub fn is_our_side_of_conflict(&self) -> bool {
         match &self.kind {
             LineKind::Ours(_) => true,
-            LineKind::ConflictMarker(m) if m == &MARKER_OURS.to_string() => true,
-            _ => false
+            LineKind::ConflictMarker(m) if m == &MARKER_OURS.to_string() => {
+                true
+            }
+            _ => false,
         }
     }
     pub fn is_their_side_of_conflict(&self) -> bool {
         match &self.kind {
             LineKind::Theirs(_) => true,
-            LineKind::ConflictMarker(m) if m == &MARKER_THEIRS.to_string() => true,
-            _ => false
+            LineKind::ConflictMarker(m) if m == &MARKER_THEIRS.to_string() => {
+                true
+            }
+            _ => false,
         }
     }
     pub fn is_side_of_conflict(&self) -> bool {
-        self.is_our_side_of_conflict()
-            ||
-            self.is_their_side_of_conflict()
+        self.is_our_side_of_conflict() || self.is_their_side_of_conflict()
     }
 }
 
@@ -97,7 +99,6 @@ pub const PLUS: &str = "+";
 pub const MINUS: &str = "-";
 pub const SPACE: &str = " ";
 pub const NEW_LINE: &str = "\n";
-
 
 #[derive(Debug, Clone)]
 pub struct Hunk {
@@ -319,7 +320,7 @@ impl Hunk {
     }
 
     /// by given Line inside conflict returns
-    /// the conflict offset from hunk start 
+    /// the conflict offset from hunk start
     pub fn get_conflict_offset_by_line(&self, line: &Line) -> i32 {
         let mut conflict_offset_inside_hunk: i32 = 0;
         for (i, l) in self.lines.iter().enumerate() {
@@ -342,7 +343,7 @@ pub struct File {
     pub hunks: Vec<Hunk>,
     pub max_line_len: i32,
     pub kind: DiffKind,
-    pub status: Delta
+    pub status: Delta,
 }
 
 impl File {
@@ -354,10 +355,14 @@ impl File {
             hunks: Vec::new(),
             max_line_len: 0,
             kind,
-            status: Delta::Unmodified
+            status: Delta::Unmodified,
         }
     }
-    pub fn from_diff_file(f: &DiffFile, kind: DiffKind, status: Delta) -> Self {
+    pub fn from_diff_file(
+        f: &DiffFile,
+        kind: DiffKind,
+        status: Delta,
+    ) -> Self {
         let path: PathBuf = f.path().unwrap().into();
         let len = path.as_os_str().len();
         File {
@@ -367,7 +372,7 @@ impl File {
             hunks: Vec::new(),
             max_line_len: len as i32,
             kind,
-            status
+            status,
         }
     }
 
@@ -447,10 +452,12 @@ impl State {
     }
     pub fn need_final_commit(&self) -> bool {
         match self.state {
-            RepositoryState::Merge | RepositoryState::CherryPick | RepositoryState::Revert => true,
-            _ => false
+            RepositoryState::Merge
+            | RepositoryState::CherryPick
+            | RepositoryState::Revert => true,
+            _ => false,
         }
-    }    
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -836,7 +843,8 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
             // build up diff structure
             if current_file.path.capacity() == 0 {
                 // init new file
-                current_file = File::from_diff_file(&file, kind.clone(), status);
+                current_file =
+                    File::from_diff_file(&file, kind.clone(), status);
             }
             if current_file.path != file.path().unwrap() {
                 // go to next file
@@ -845,7 +853,8 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                 current_hunk = Hunk::new(kind.clone());
                 // push current_file to diff and change to new file
                 diff.push_file(current_file.clone());
-                current_file = File::from_diff_file(&file, kind.clone(), status);
+                current_file =
+                    File::from_diff_file(&file, kind.clone(), status);
             }
             if let Some(diff_hunk) = o_diff_hunk {
                 let hh = Hunk::get_header_from(&diff_hunk);
@@ -918,14 +927,20 @@ pub fn stage_via_apply(
     opts.pathspec(&filter.file_id);
 
     let git_diff = match filter.subject {
-        ApplySubject::Stage => repo.diff_index_to_workdir(None, Some(&mut opts))?,
+        ApplySubject::Stage => {
+            repo.diff_index_to_workdir(None, Some(&mut opts))?
+        }
         ApplySubject::Unstage => {
             opts.reverse(true);
             let ob =
                 repo.revparse_single("HEAD^{tree}").expect("fail revparse");
             let current_tree =
                 repo.find_tree(ob.id()).expect("no working tree");
-            repo.diff_tree_to_index(Some(&current_tree), None, Some(&mut opts))?
+            repo.diff_tree_to_index(
+                Some(&current_tree),
+                None,
+                Some(&mut opts),
+            )?
         }
         ApplySubject::Kill => {
             opts.reverse(true);
@@ -971,11 +986,9 @@ pub fn stage_via_apply(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 
-    let apply_error = repo.apply(
-        &git_diff,
-        apply_location,
-        Some(&mut options)
-    ).err();
+    let apply_error = repo
+        .apply(&git_diff, apply_location, Some(&mut options))
+        .err();
 
     sender
         .send_blocking(crate::Event::LockMonitors(false))
@@ -989,7 +1002,7 @@ pub fn stage_via_apply(
 
     if let Some(error) = apply_error {
         return Err(error);
-    }    
+    }
     Ok(())
 }
 

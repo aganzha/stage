@@ -1,7 +1,7 @@
 use crate::git::{
     branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff,
-    make_diff_options, BranchData, DiffKind, Hunk, Line, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS,
-    SPACE, NEW_LINE
+    make_diff_options, BranchData, DiffKind, Hunk, Line, MARKER_HUNK,
+    MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE, SPACE,
 };
 use async_channel::Sender;
 use git2;
@@ -19,12 +19,11 @@ pub fn final_commit(
     path: PathBuf,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
-
     let repo = git2::Repository::open(path.clone())?;
     let me = repo.signature()?;
 
     let my_oid = repo.revparse_single("HEAD^{commit}")?.id();
-    
+
     let my_commit = repo.find_commit(my_oid)?;
 
     let message = repo.message()?;
@@ -36,14 +35,7 @@ pub fn final_commit(
 
     let tree = repo.find_tree(tree_oid)?;
 
-    repo.commit(
-        Some("HEAD"),
-        &me,
-        &me,
-        &message,
-        &tree,
-        &[&my_commit],
-    )?;
+    repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&my_commit])?;
 
     repo.cleanup_state()?;
     gio::spawn_blocking({
@@ -348,14 +340,15 @@ pub fn choose_conflict_side(
 //     }
 // }
 
-
-pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
-                                           hunk_deltas: &mut Vec<(&'a str, i32)>,
-                                           predicate: F,
-                                           ours_choosed: bool) -> String
-    where F: Fn(i32, &str) -> bool
+pub fn choose_conflict_side_of_blob<'a, F>(
+    raw: &'a str,
+    hunk_deltas: &mut Vec<(&'a str, i32)>,
+    predicate: F,
+    ours_choosed: bool,
+) -> String
+where
+    F: Fn(i32, &str) -> bool,
 {
-
     let mut acc = Vec::new();
 
     let mut lines = raw.lines();
@@ -368,8 +361,10 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
             line_offset_inside_hunk += 1;
             let mut this_is_current_conflict = false;
 
-            if predicate(line_offset_inside_hunk, hunk_deltas.last().unwrap().0)
-            {
+            if predicate(
+                line_offset_inside_hunk,
+                hunk_deltas.last().unwrap().0,
+            ) {
                 this_is_current_conflict = true;
             }
             if this_is_current_conflict {
@@ -441,7 +436,6 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
                             // this lines are deleted in this diff
                             // lets adjust it
                             if this_is_current_conflict {
-      
                                 if ours_choosed {
                                     // theirs will be deleted
                                     acc.push(line);
@@ -464,7 +458,7 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
                                 // do not delete for now
                                 acc.push(SPACE);
                                 acc.push(&line[1..]);
-                                acc.push(NEW_LINE);             
+                                acc.push(NEW_LINE);
                                 let hd = hunk_deltas.last().unwrap();
                                 let le = hunk_deltas.len();
                                 hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
@@ -530,7 +524,7 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
                 acc.push(NEW_LINE);
                 let hd = hunk_deltas.last().unwrap();
                 let le = hunk_deltas.len();
-                hunk_deltas[le - 1] = (hd.0, hd.1 + 1);                
+                hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
             } else {
                 acc.push(line);
                 acc.push(NEW_LINE);
@@ -539,7 +533,6 @@ pub fn choose_conflict_side_of_blob<'a, F>(raw: &'a str,
     }
     acc.iter().fold("".to_string(), |cur, nxt| cur + nxt)
 }
-
 
 pub fn choose_conflict_side_of_hunk(
     path: PathBuf,
@@ -562,15 +555,18 @@ pub fn choose_conflict_side_of_hunk(
     let mut conflict_paths: HashSet<PathBuf> = HashSet::new();
     for conflict in conflicts.flatten() {
         if let Some(entry) = conflict.our {
-            conflict_paths.insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
+            conflict_paths
+                .insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
             entries.push(entry);
         }
         if let Some(entry) = conflict.their {
-            conflict_paths.insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
+            conflict_paths
+                .insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
             entries.push(entry);
         }
         if let Some(entry) = conflict.ancestor {
-            conflict_paths.insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
+            conflict_paths
+                .insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
             entries.push(entry);
         }
     }
@@ -580,18 +576,18 @@ pub fn choose_conflict_side_of_hunk(
     // if not write index here
     // op will be super slow!
     index.write()?;
-    
+
     let ob = repo.revparse_single("HEAD^{tree}")?;
     let current_tree = repo.find_tree(ob.id())?;
 
     let mut opts = make_diff_options();
     let mut opts = opts.pathspec(&file_path).reverse(true);
 
-    let mut git_diff = repo
-        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))?;
+    let mut git_diff =
+        repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))?;
 
     let mut reversed_header = Hunk::reverse_header(&hunk.header);
-    
+
     let mut apply_options = git2::ApplyOptions::new();
 
     let file_path_clone = file_path.clone();
@@ -611,10 +607,9 @@ pub fn choose_conflict_side_of_hunk(
         &mut hunk_deltas,
         |line_offset_inside_hunk, hunk_header| {
             line_offset_inside_hunk == conflict_offset_inside_hunk
-                &&
-                hunk_header == reversed_header
+                && hunk_header == reversed_header
         },
-        ours_choosed
+        ours_choosed,
     );
 
     // so. not only new lines are changed. new_start are changed also!!!!!!
@@ -630,9 +625,8 @@ pub fn choose_conflict_side_of_hunk(
         prev_delta = delta;
     }
 
-    
     git_diff = git2::Diff::from_buffer(new_body.as_bytes())?;
-    
+
     apply_options.hunk_callback(|odh| -> bool {
         if let Some(dh) = odh {
             let header = Hunk::get_header_from(&dh);
@@ -647,21 +641,23 @@ pub fn choose_conflict_side_of_hunk(
         }
         todo!("diff without delta");
     });
-    
+
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 
-    let apply_error = repo.apply(
-        &git_diff,
-        git2::ApplyLocation::WorkDir,
-        Some(&mut apply_options)
-    ).err();
-    
+    let apply_error = repo
+        .apply(
+            &git_diff,
+            git2::ApplyLocation::WorkDir,
+            Some(&mut apply_options),
+        )
+        .err();
+
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("Could not send through channel");
-    
+
     // remove from index again to restore conflict
     // and also to clear from other side tree
     index.remove_path(Path::new(&file_path.clone()))?;
@@ -676,7 +672,12 @@ pub fn choose_conflict_side_of_hunk(
     if let Some(error) = apply_error {
         return Err(error);
     }
-    cleanup_last_conflict_for_file(path, Some(index), file_path_clone, sender)?;    
+    cleanup_last_conflict_for_file(
+        path,
+        Some(index),
+        file_path_clone,
+        sender,
+    )?;
     Ok(())
 }
 
@@ -692,17 +693,15 @@ pub fn cleanup_last_conflict_for_file(
         let repo = git2::Repository::open(path.clone())?;
         repo.index()?
     };
-    
-    let diff = get_conflicted_v1(path.clone());    
+
+    let diff = get_conflicted_v1(path.clone());
     // 1 - all conflicts in all files are resolved - update all
     // 2 - only this file is resolved, but have other conflicts - update all
     // 3 - conflicts are remaining in all files - just update conflicted
     let mut update_status = true;
     if diff.is_empty() {
-        index
-            .remove_path(Path::new(&file_path))?;
-        index
-            .add_path(Path::new(&file_path))?;
+        index.remove_path(Path::new(&file_path))?;
+        index.add_path(Path::new(&file_path))?;
         index.write()?;
     } else {
         for file in &diff.files {
@@ -712,10 +711,8 @@ pub fn cleanup_last_conflict_for_file(
                 }
             } else if file.path == file_path {
                 // cleanup conflicts only for this file
-                index
-                    .remove_path(Path::new(&file_path))?;
-                index
-                    .add_path(Path::new(&file_path))?;
+                index.remove_path(Path::new(&file_path))?;
+                index.add_path(Path::new(&file_path))?;
                 index.write()?;
             }
         }

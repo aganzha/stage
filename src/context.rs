@@ -22,7 +22,7 @@ pub struct CursorPos {
 pub struct TextViewWidth {
     pub pixels: i32,
     pub chars: i32,
-    pub visible_chars: i32
+    pub visible_chars: i32,
 }
 
 #[derive(Debug, Clone)]

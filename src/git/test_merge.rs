@@ -1,9 +1,10 @@
-use log::debug;
-use git2;
-use std::sync::Once;
-use crate::git::{make_diff, DiffKind, MARKER_OURS, MARKER_THEIRS, Hunk, LineKind};
 use crate::git::merge::choose_conflict_side_of_blob;
-
+use crate::git::{
+    make_diff, DiffKind, Hunk, LineKind, MARKER_OURS, MARKER_THEIRS,
+};
+use git2;
+use log::debug;
+use std::sync::Once;
 
 pub const TEST_BLOB: &str = "diff --git a/src/events.py b/src/events.py
 index 7f27a52..8d101d8 100644
@@ -71,7 +72,7 @@ pub fn choose_ours_in_first_conflict() {
     let mut our_choosen_line = &hunk.lines[0];
     for l in &hunk.lines {
         if let Some(line_no) = l.old_line_no {
-            if  line_no == 104 {
+            if line_no == 104 {
                 our_choosen_line = l;
                 break;
             }
@@ -80,7 +81,8 @@ pub fn choose_ours_in_first_conflict() {
 
     let ours_choosed = true;
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
-    let conflict_offset_inside_hunk = hunk.get_conflict_offset_by_line(our_choosen_line);
+    let conflict_offset_inside_hunk =
+        hunk.get_conflict_offset_by_line(our_choosen_line);
 
     debug!(
         "{:?} offset {:?} ... {}",
@@ -94,10 +96,9 @@ pub fn choose_ours_in_first_conflict() {
         &mut hunk_deltas,
         |line_offset_inside_hunk, hunk_header| {
             line_offset_inside_hunk == conflict_offset_inside_hunk
-                &&
-                hunk_header == hunk.header
+                && hunk_header == hunk.header
         },
-        ours_choosed
+        ours_choosed,
     );
     // now first conflict must be resolved to OURS
     // (means no changes at all, BUT second one
@@ -118,7 +119,6 @@ pub fn choose_ours_in_first_conflict() {
     let diff = make_diff(&git_diff, DiffKind::Conflicted);
     let mut first_passed = false;
     for line in &diff.files[0].hunks[0].lines {
-
         if !first_passed {
             // handle first conflict
             if line.origin != git2::DiffLineType::Context {
@@ -136,7 +136,6 @@ pub fn choose_ours_in_first_conflict() {
         }
     }
 }
-
 
 #[test]
 pub fn choose_theirs_in_second_conflict() {
@@ -159,7 +158,7 @@ pub fn choose_theirs_in_second_conflict() {
     let mut their_choosen_line = &hunk.lines[0];
     for l in &hunk.lines {
         if let Some(line_no) = l.old_line_no {
-            if  line_no == 130 {
+            if line_no == 130 {
                 their_choosen_line = l;
                 break;
             }
@@ -168,7 +167,8 @@ pub fn choose_theirs_in_second_conflict() {
 
     let ours_choosed = false;
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
-    let conflict_offset_inside_hunk = hunk.get_conflict_offset_by_line(their_choosen_line);
+    let conflict_offset_inside_hunk =
+        hunk.get_conflict_offset_by_line(their_choosen_line);
 
     debug!(
         "{:?} offset {:?} ... {}",
@@ -182,10 +182,9 @@ pub fn choose_theirs_in_second_conflict() {
         &mut hunk_deltas,
         |line_offset_inside_hunk, hunk_header| {
             line_offset_inside_hunk == conflict_offset_inside_hunk
-                &&
-                hunk_header == hunk.header
+                && hunk_header == hunk.header
         },
-        ours_choosed
+        ours_choosed,
     );
 
     for line in new_body.lines() {
@@ -214,8 +213,10 @@ pub fn choose_theirs_in_second_conflict() {
         } else {
             // handle second conflict
             match line.kind {
-                LineKind::ConflictMarker(_) => assert!(line.origin == git2::DiffLineType::Deletion),
-                _ => assert!(line.origin != git2::DiffLineType::Deletion)
+                LineKind::ConflictMarker(_) => {
+                    assert!(line.origin == git2::DiffLineType::Deletion)
+                }
+                _ => assert!(line.origin != git2::DiffLineType::Deletion),
             }
         }
         if line.content.starts_with(MARKER_THEIRS) {

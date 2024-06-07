@@ -3,15 +3,10 @@ use crate::git::remote::RemoteResponse;
 use libadwaita::prelude::*;
 use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance};
 
-
-
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 
-use gtk4::{
-    ScrolledWindow, TextView, Widget,
-    Window as Gtk4Window,
-};
+use gtk4::{ScrolledWindow, TextView, Widget, Window as Gtk4Window};
 
 pub fn confirm_dialog_factory(
     window: &impl IsA<Gtk4Window>,
@@ -175,10 +170,7 @@ impl AlertConversation for DangerDialog {
 pub struct ConfirmDialog(pub String, pub String);
 impl AlertConversation for ConfirmDialog {
     fn heading_and_message(&self) -> (String, String) {
-        (
-            self.0.to_string(),
-            self.1.to_string(),
-        )
+        (self.0.to_string(), self.1.to_string())
     }
     fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
         vec![
