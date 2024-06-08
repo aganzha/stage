@@ -202,8 +202,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     }
     let scheme = settings.get::<String>(SCHEME_TOKEN);
     if !scheme.is_empty() {
-        // ha!
-        StyleManager::default().set_color_scheme(Scheme::new(scheme).theme_name());
+        StyleManager::default().set_color_scheme(Scheme::new(scheme).scheme_name());
     }
     
     let mut status =

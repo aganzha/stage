@@ -32,7 +32,7 @@ impl Scheme {
         Self(s.to_string())
     }
     
-    pub fn theme_name(&self) -> ColorScheme {
+    pub fn scheme_name(&self) -> ColorScheme {
         match &self.0[..] {
             DARK => ColorScheme::ForceDark,
             LIGHT => ColorScheme::ForceLight,
@@ -53,10 +53,10 @@ pub const SCHEME_TOKEN: &str = "scheme";
 
 
 // pub trait ThemeChoose {
-//     fn theme_name(&self) -> &str;
+//     fn scheme_name(&self) -> &str;
 // }
 // impl ThemeChoose for ColorScheme {
-//     fn theme_name(&self) -> &str {
+//     fn scheme_name(&self) -> &str {
 //         match self {
 //             ColorScheme::ForceLight => {
 //                 "light"
@@ -70,7 +70,7 @@ pub const SCHEME_TOKEN: &str = "scheme";
 // }
 
 // impl ThemeChoose for String {
-//     fn theme_name(&self) -> &str {
+//     fn scheme_name(&self) -> &str {
 //         // match self {
 //         //     ColorScheme::ForceLight => {
 //         //         "light"
@@ -83,10 +83,10 @@ pub const SCHEME_TOKEN: &str = "scheme";
 //     }
 // }
 
-pub fn theme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> Box {
-    let theme_selector = Box::builder()
+pub fn scheme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> Box {
+    let scheme_selector = Box::builder()
         .orientation(Orientation::Horizontal)
-        .css_name("theme_selector")
+        .css_name("scheme_selector")
         .build();
 
     let mut first_toggle: Option<ToggleButton> = None;
@@ -111,14 +111,8 @@ pub fn theme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> Bo
             let sender = sender.clone();
             move |_, is_active: bool| {
                 if is_active {
-                    // let theme = match id {
-                    //     "follow" => ColorScheme::Default,
-                    //     "light" => ColorScheme::ForceLight,
-                    //     "dark" => ColorScheme::ForceDark,
-                    //     n => todo!("whats the name? {:?}", n)
-                    // };
                     let manager = StyleManager::default();                    
-                    manager.set_color_scheme(scheme.theme_name());
+                    manager.set_color_scheme(scheme.scheme_name());
 
                     sender.send_blocking(
                         crate::Event::StoreSettings(scheme.setting_key(), scheme.0.to_string())
@@ -128,7 +122,7 @@ pub fn theme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> Bo
                     Some("")
                 }
             }}).build();
-        theme_selector.append(&toggle);
+        scheme_selector.append(&toggle);
         if let Some(ref ft) = first_toggle {
             toggle.set_group(Some(ft));
         } else {
@@ -144,17 +138,17 @@ pub fn theme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> Bo
         .margin_end(2)
         .spacing(12)
         .build();
-    bx.append(&theme_selector);
+    bx.append(&scheme_selector);
     bx
 }
 
-pub fn burger_menu(stored_theme: Scheme, sender: Sender<crate::Event>) -> MenuButton {
+pub fn burger_menu(stored_scheme: Scheme, sender: Sender<crate::Event>) -> MenuButton {
 
     let menu_model = gio::Menu::new();
 
-    let menu_item = gio::MenuItem::new(Some("theme"), Some("win.menu::1"));
-    let theme_id = "theme".to_variant();
-    menu_item.set_attribute_value("custom", Some(&theme_id));
+    let menu_item = gio::MenuItem::new(Some(SCHEME_TOKEN), Some("win.menu::1"));
+    let scheme_id = SCHEME_TOKEN.to_variant();
+    menu_item.set_attribute_value(CUSTOM_ATTR, Some(&scheme_id));
     menu_model.insert_item(0, &menu_item);
 
 
@@ -166,7 +160,7 @@ pub fn burger_menu(stored_theme: Scheme, sender: Sender<crate::Event>) -> MenuBu
 
     let popover_menu = PopoverMenu::from_model(Some(&menu_model));
 
-    // let theme_box = Box::builder()
+    // let scheme_box = Box::builder()
     //     .orientation(Orientation::Horizontal)
     //     .build();
     // let dark = ToggleButton::builder()
@@ -177,18 +171,18 @@ pub fn burger_menu(stored_theme: Scheme, sender: Sender<crate::Event>) -> MenuBu
     // let auto = ToggleButton::builder()
     //     .group(&dark)
     //     .build();
-    // theme_box.append(&dark);
-    // theme_box.append(&light);
-    // theme_box.append(&auto);
+    // scheme_box.append(&dark);
+    // scheme_box.append(&light);
+    // scheme_box.append(&auto);
 
-    // let theme_label = Label::builder().label("theme").build();
+    // let scheme_label = Label::builder().label("theme").build();
     // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
 
     // let fontsize_label = Label::builder().label("fontsize").build();
     // // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
     // popover_menu.add_child(&fontsize_label, "fontsize");
 
-    popover_menu.add_child(&theme_selector(stored_theme, sender.clone()), "theme");
+    popover_menu.add_child(&scheme_selector(stored_scheme, sender.clone()), SCHEME_TOKEN);
     MenuButton::builder()
         .popover(&popover_menu)
         .icon_name("open-menu-symbolic")
