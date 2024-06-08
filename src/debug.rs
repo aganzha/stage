@@ -3,10 +3,11 @@ use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow,
     TextView, TextWindowType, Widget, Window as Gtk4Window, Box, Orientation, PopoverMenu,
-    MenuButton
+    MenuButton, CheckButton, GestureClick, ToggleButton, Align
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
+use libpanel::ThemeSelector;
 
 use crate::gio::MenuModel;
     
@@ -64,7 +65,135 @@ pub fn debug(app_window: &impl IsA<Gtk4Window>,) {
         .icon_name("open-menu-symbolic")
         .build();
 
+    let theme_selector = ThemeSelector::new();    
+    // theme_selector.set_action_name("win.open::1");
+    bx.append(&theme_selector);
+
+    let theme_box = theme_selector.last_child().unwrap();
+    let radio = theme_box.observe_children();
+    for i in 0..radio.n_items() {
+        let check_button = radio.item(i).unwrap();
+        let check_button = check_button.downcast_ref::<CheckButton>().unwrap();
+        // check_button.set_action_name(Some("win.theme"));
+        check_button.set_action_target(Some(format!("theme{}", i)));
+        // check_button.set_focusable(true);
+        // check_button.set_can_focus(true);
+        // check_button.set_can_target(true);
+        // check_button.set_focus_on_click(true);
+        check_button.connect_activate(|b| {            
+            // b.set_active(true);
+            debug!("aaaaaaaaaaaaaaaaaaaaaaa {:?}", b.is_active());
+        });
+        check_button.connect_toggled(|_| {
+            debug!("tttttttttttttttttttttt");
+        });
+
+        let gesture_controller = GestureClick::new();
+        gesture_controller.connect_released({       
+            move |gesture, n_clicks, wx, wy| {
+                debug!("cliiiiiiiiiiiiiiick!");
+            }
+        });
+
+        check_button.add_controller(gesture_controller);
+        // check_button.connect_clicked(|_| {
+        //     debug!("ccccccccccccccccccccccccc");
+        // });
+        if i == 0 {
+            check_button.set_active(true);
+        }
+        debug!("ooooooooooooooooooooooooo {:?}", check_button);
+    }
+    // let check_button = theme_box.last_child().unwrap();
+    // let check_button = check_button.downcast_ref::<CheckButton>().unwrap();
+    // check_button.set_active(true);
+
+
+    let mine_selector = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .css_name("mine_selector")
+        .build();
+    let follow = ToggleButton::builder()
+        .active(true)
+        .icon_name("object-select-symbolic")
+        .css_classes(vec!["follow"])
+        .margin_end(10)
+        .build();
+    follow.bind_property("active", &follow, "icon_name")
+        .transform_to(|_, is_active: bool| {
+            debug!("fffffffffffffff {:?}", is_active);
+            if is_active {
+                Some("object-select-symbolic")
+            } else {
+                Some("")
+            }
+        }).build();
+    // follow.connect_toggled(|b| {
+    //     if b.is_active() {
+    //         b.set_icon_name("object-select-symbolic")
+    //     } else {
+    //         b.set_icon_name("")
+    //     }
+    //     debug!("FOLLOW------------------> {:?}", b.is_active());
+    // });
+    follow.last_child().unwrap().set_halign(Align::Center);
+    let light = ToggleButton::builder()
+        .icon_name("")
+        .css_classes(vec!["light"])
+        .margin_end(10)
+        .group(&follow).build();
+    light.bind_property("active", &light, "icon_name")
+        .transform_to(|_, is_active: bool| {
+            debug!("lllllllllllllll {:?}", is_active);
+            if is_active {
+                Some("object-select-symbolic")
+            } else {
+                Some("")
+            }
+        }).build();
+
+    // light.connect_toggled(|b| {
+    //     debug!("LIGHR------------------> {:?}", b.is_active());
+    //     if b.is_active() {
+    //         b.set_icon_name("object-select-symbolic")
+    //     } else {
+    //         b.set_icon_name("")
+    //     }
+    // });
+    light.last_child().unwrap().set_halign(Align::Center);
+    let dark = ToggleButton::builder()
+        .icon_name("")
+        .css_classes(vec!["dark"])
+        .group(&follow).build();
+    dark.bind_property("active", &dark, "icon_name")
+        .transform_to(|_, is_active: bool| {
+            debug!("dddddddddddd {:?}", is_active);
+            if is_active {
+                Some("object-select-symbolic")
+            } else {
+                Some("")
+            }
+        }).build();
+
+    // dark.connect_toggled(|b| {
+    //     debug!("DARK------------------> {:?}", b.is_active());
+    //     if b.is_active() {
+    //         b.set_icon_name("object-select-symbolic")
+    //     } else {
+    //         b.set_icon_name("")
+    //     }
+    // });
+    dark.last_child().unwrap().set_halign(Align::Center);
+
+    mine_selector.append(&follow);
+    mine_selector.append(&light);
+    mine_selector.append(&dark);
+
+
+
     bx.append(&label);
+
+    bx.append(&mine_selector);
 
     let hb = HeaderBar::builder().build();
     hb.pack_end(&burger);
@@ -74,5 +203,6 @@ pub fn debug(app_window: &impl IsA<Gtk4Window>,) {
 
     window.set_content(Some(&tb));
 
+    
     window.present();
 }

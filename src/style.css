@@ -14,3 +14,108 @@ banner.error revealer widget {
 /*     background-color:  @destructive_bg_color; */
 /*     color: @destructive_fg_color; */
 /* } */
+
+
+panelthemeselector {
+  margin: 9px;
+}
+panelthemeselector checkbutton {
+  padding: 0;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 1px;
+  background-clip: content-box;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px @borders;
+}
+panelthemeselector checkbutton.follow:checked,
+panelthemeselector checkbutton.light:checked,
+panelthemeselector checkbutton.dark:checked {
+  box-shadow: inset 0 0 0 2px @theme_selected_bg_color;
+}
+panelthemeselector checkbutton.follow {
+  background-image: linear-gradient(to bottom right, #fff 49.99%, #202020 50.01%);
+}
+panelthemeselector checkbutton.light {
+  background-color: #fff;
+}
+panelthemeselector checkbutton.dark {
+  background-color: #202020;
+}
+panelthemeselector checkbutton radio {
+  -gtk-icon-source: none;
+  border: none;
+  background: none;
+  box-shadow: none;
+  min-width: 12px;
+  min-height: 12px;
+  transform: translate(27px, 14px);
+  padding: 2px;
+}
+panelthemeselector checkbutton radio:checked {
+  -gtk-icon-source: -gtk-icontheme("object-select-symbolic");
+  background-color: @theme_selected_bg_color;
+  color: @theme_selected_fg_color;
+}
+
+
+// -----------------------------------------
+mine_selector button {
+    // this one is some sort of init
+}
+mine_selector button {
+  padding: 0;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 1px;
+  background-clip: content-box;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px @borders;
+}
+/* mine_selector button.follow:checked, */
+/* mine_selector button.light:checked, */
+/* mine_selector button.dark:checked { */
+/*   box-shadow: inset 0 0 0 2px @theme_selected_bg_color; */
+/* } */
+
+mine_selector button.follow {
+  background-image: linear-gradient(to bottom right, #fff 49.99%, #202020 50.01%);
+}
+mine_selector button.light {
+  background-color: #fff;
+}
+mine_selector button.dark {
+  background-color: #202020;
+}
+
+mine_selector button image {
+  -gtk-icon-source: none;
+  border: none;
+  background: none;
+  box-shadow: none;
+  /* min-width: 12px; */
+  /* min-height: 12px; */
+  max-width: 5px;
+  max-height: 5px;
+  transform: translate(17px, 14px);
+  padding: 2px;
+  // background-color: var(--accent-bg-color);
+  background-color: #3584e4;
+  border-radius: 9999px;
+  color: white;
+ /*  mine_selector button image { */
+/* 	background-color: red; */
+/*         width: 5px; */
+/* 	min-width: 5px; */
+/*         max-width: 5px; */
+/*         padding: 0; */
+/*         color: white; */
+/*         margin: 0; */
+/* } */
+}
+mine_selector button image:checked {
+  -gtk-icon-source: -gtk-icontheme("object-select-symbolic");
+  background-color: @theme_selected_bg_color;  
+  color: @theme_selected_fg_color;
+}
+
