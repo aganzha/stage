@@ -6,7 +6,7 @@ use gtk4::{
     MenuButton, CheckButton, GestureClick, ToggleButton, Align
 };
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, ToolbarView, Window};
+use libadwaita::{HeaderBar, ToolbarView, Window, StyleManager, ColorScheme};
 
 use crate::gio::MenuModel;
     
@@ -69,76 +69,54 @@ pub fn debug(app_window: &impl IsA<Gtk4Window>,) {
         .orientation(Orientation::Horizontal)
         .css_name("mine_selector")
         .build();
+
+    let transform = |b: &glib::Binding, is_active: bool| {        
+        if is_active {
+            let tb = b.source().unwrap();
+            let tb = tb.downcast_ref::<Widget>().expect("cant get widget");
+            let theme = match tb.widget_name().as_str() {
+                "follow" => ColorScheme::Default,
+                "light" => ColorScheme::ForceLight,
+                "dark" => ColorScheme::ForceDark,
+                n => todo!("whats the name? {:?}", n)
+            };
+            let manager = StyleManager::default();
+            manager.set_color_scheme(theme);
+            Some("object-select-symbolic")
+        } else {
+            Some("")
+        }
+    };
     let follow = ToggleButton::builder()
         .active(true)
+        .name("follow")
         .icon_name("object-select-symbolic")
         .css_classes(vec!["follow"])
         .margin_end(10)
         .build();
     follow.bind_property("active", &follow, "icon_name")
-        .transform_to(|_, is_active: bool| {
-            debug!("fffffffffffffff {:?}", is_active);
-            if is_active {
-                Some("object-select-symbolic")
-            } else {
-                Some("")
-            }
-        }).build();
-    // follow.connect_toggled(|b| {
-    //     if b.is_active() {
-    //         b.set_icon_name("object-select-symbolic")
-    //     } else {
-    //         b.set_icon_name("")
-    //     }
-    //     debug!("FOLLOW------------------> {:?}", b.is_active());
-    // });
+        .transform_to(transform).build();
+
     follow.last_child().unwrap().set_halign(Align::Center);
     let light = ToggleButton::builder()
         .icon_name("")
+        .name("light")
         .css_classes(vec!["light"])
         .margin_end(10)
         .group(&follow).build();
-    light.bind_property("active", &light, "icon_name")
-        .transform_to(|_, is_active: bool| {
-            debug!("lllllllllllllll {:?}", is_active);
-            if is_active {
-                Some("object-select-symbolic")
-            } else {
-                Some("")
-            }
-        }).build();
+    light.bind_property("active", &follow, "icon_name")
+        .transform_to(transform).build();
 
-    // light.connect_toggled(|b| {
-    //     debug!("LIGHR------------------> {:?}", b.is_active());
-    //     if b.is_active() {
-    //         b.set_icon_name("object-select-symbolic")
-    //     } else {
-    //         b.set_icon_name("")
-    //     }
-    // });
     light.last_child().unwrap().set_halign(Align::Center);
+
     let dark = ToggleButton::builder()
         .icon_name("")
+        .name("dark")
         .css_classes(vec!["dark"])
         .group(&follow).build();
-    dark.bind_property("active", &dark, "icon_name")
-        .transform_to(|_, is_active: bool| {
-            debug!("dddddddddddd {:?}", is_active);
-            if is_active {
-                Some("object-select-symbolic")
-            } else {
-                Some("")
-            }
-        }).build();
-
-    // dark.connect_toggled(|b| {
-    //     debug!("DARK------------------> {:?}", b.is_active());
-    //     if b.is_active() {
-    //         b.set_icon_name("object-select-symbolic")
-    //     } else {
-    //         b.set_icon_name("")
-    //     }
-    // });
+    dark.bind_property("active", &follow, "icon_name")
+        .transform_to(transform).build();
+    
     dark.last_child().unwrap().set_halign(Align::Center);
 
     mine_selector.append(&follow);
