@@ -4,7 +4,6 @@ use libadwaita::{ButtonContent, HeaderBar, SplitButton, Window};
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
 use std::path::PathBuf;
-use libpanel::ThemeSelector;
 use gtk4::{gio, Align, Button, FileDialog, Label, PopoverMenu, MenuButton, Box, Orientation, ToggleButton};
 
 pub enum HbUpdateData {
@@ -50,15 +49,6 @@ pub fn burger_menu() -> MenuButton {
 
     // let theme_label = Label::builder().label("theme").build();
     // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
-    let theme_button = ButtonContent::builder()
-        .icon_name("open-menu-symbolic") // gtk3-demo-symbolic dark-mode-symbolic
-        .label("theme")
-        .use_underline(true)
-        .valign(Align::Baseline)
-        .build();
-    let theme_selector = ThemeSelector::new();
-
-    popover_menu.add_child(&theme_selector, "theme");
 
     let fontsize_label = Label::builder().label("fontsize").build();
     // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
