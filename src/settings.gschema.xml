@@ -13,5 +13,9 @@
       <default>''</default>
       <summary>last opened repo path</summary>
     </key>
+    <key name="theme" type="s">
+      <default>''</default>
+      <summary>choosen theme</summary>
+    </key>
   </schema>
 </schemalist>
