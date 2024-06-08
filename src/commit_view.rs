@@ -4,7 +4,6 @@ use crate::git::{apply_stash, commit};
 use crate::status_view::{
     container::{ViewContainer, ViewKind},
     render::View,
-    textview::CharView,
     Label as TextViewLabel,
 };
 use crate::Event;
@@ -16,7 +15,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow,
-    TextView, TextWindowType, Widget, Window as Gtk4Window,
+    TextView, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -155,10 +154,10 @@ impl MultiLineLabel {
         // split first by new lines. each new line in commit must go
         // on its own, separate label. BUT!
         // also split long lines to different labels also!
-        let user_split = content.split("\n");
+        let user_split = content.split('\n');
 
         for line in user_split {
-            let mut split = line.split(" ");
+            let mut split = line.split(' ');
             let mut mx = 0;
 
             if let Some(width) = &context.screen_width {
@@ -185,24 +184,24 @@ impl MultiLineLabel {
                             trace!("got word > {} <", word);
                             if acc.len() + word.len() > chars as usize {
                                 self.labels.push(TextViewLabel::from_string(
-                                    &acc.replace("\n", ""),
+                                    &acc.replace('\n', ""),
                                 ));
                                 acc = String::from(word);
                             } else {
                                 acc.push_str(word);
-                                acc.push_str(" ");
+                                acc.push(' ');
                             }
                         } else {
                             trace!("words are over! push last label!");
                             self.labels.push(TextViewLabel::from_string(
-                                &acc.replace("\n", ""),
+                                &acc.replace('\n', ""),
                             ));
                             break 'words;
                         }
                     }
                     trace!("reach line end. push label!");
                     self.labels.push(TextViewLabel::from_string(
-                        &acc.replace("\n", ""),
+                        &acc.replace('\n', ""),
                     ));
                     acc = String::from("");
                 }
