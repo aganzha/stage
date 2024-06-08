@@ -4,7 +4,8 @@ use context::{StatusRenderContext, TextViewWidth, UnderCursor};
 
 mod status_view;
 use status_view::{
-    headerbar::factory as headerbar_factory, headerbar::HbUpdateData,
+    headerbar::factory as headerbar_factory,
+    headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
     textview::factory as textview_factory, Status,
 };
 
@@ -199,10 +200,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
             initial_path.replace(last_path.into());
         }
     }
-    let theme = settings.get::<String>("theme");
-    if !theme.is_empty() {
+    let scheme = settings.get::<String>(SCHEME_TOKEN);
+    if !scheme.is_empty() {
         // ha!
-        // StyleManager::default().set_color_scheme(theme);
+        StyleManager::default().set_color_scheme(Scheme::new(scheme).theme_name());
     }
     
     let mut status =
@@ -584,7 +585,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::StoreSettings(name, value) => {
                     info!("StoreSettings {} {}", name, value);
-                    settings.set(&name, value);
+                    settings.set(&name, value).expect("cant set settings")                    
                 }
             };
         }
