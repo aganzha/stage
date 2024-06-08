@@ -16,6 +16,7 @@ pub enum HbUpdateData {
     RepoPopup,
 }
 
+#[derive(Eq, Hash, PartialEq, Debug)]
 pub struct Scheme(String);
 
 pub const DARK: &str = "dark";
@@ -23,18 +24,32 @@ pub const LIGHT: &str = "light";
 pub const DEFAULT: &str = "default";
 
 impl Scheme {
-    fn theme_name(&self) -> ColorScheme {
+
+    pub fn new(s: String) -> Self {
+        Self(s)
+    }
+    pub fn from_str(s: &str) -> Self {
+        Self(s.to_string())
+    }
+    
+    pub fn theme_name(&self) -> ColorScheme {
         match &self.0[..] {
             DARK => ColorScheme::ForceDark,
             LIGHT => ColorScheme::ForceLight,
             _ => ColorScheme::Default
         }
     }
+    pub fn str(&self) -> &str {
+        &self.0
+    }
+    fn setting_key(&self) -> String {
+        SCHEME_TOKEN.to_string()
+    }
 }
 
 pub struct MenuItem(String);
 pub const CUSTOM_ATTR: &str = "custom";
-pub const THEME_ID: &str = "theme";
+pub const SCHEME_TOKEN: &str = "scheme";
 
 
 // pub trait ThemeChoose {
@@ -68,22 +83,26 @@ pub const THEME_ID: &str = "theme";
 //     }
 // }
 
-pub fn theme_selector(stored_theme: String, sender: Sender<crate::Event>) -> Box {
+pub fn theme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> Box {
     let theme_selector = Box::builder()
         .orientation(Orientation::Horizontal)
         .css_name("theme_selector")
         .build();
 
     let mut first_toggle: Option<ToggleButton> = None;
-    for id in ["follow", "light", "dark"] {
+    for scheme in [
+        Scheme::from_str(DEFAULT),
+        Scheme::from_str(LIGHT),
+        Scheme::from_str(DARK)
+    ] {
         let toggle = ToggleButton::builder()
             .active(false)
             .icon_name("")
-            .name(id)
-            .css_classes(vec![id])
+            .name(scheme.str())
+            .css_classes(vec![scheme.str()])
             .margin_end(10)
             .build();
-        if stored_theme == id {
+        if stored_scheme == scheme {
             toggle.set_icon_name("object-select-symbolic");
             toggle.set_active(true);
         }
@@ -92,17 +111,17 @@ pub fn theme_selector(stored_theme: String, sender: Sender<crate::Event>) -> Box
             let sender = sender.clone();
             move |_, is_active: bool| {
                 if is_active {
-                    let theme = match id {
-                        "follow" => ColorScheme::Default,
-                        "light" => ColorScheme::ForceLight,
-                        "dark" => ColorScheme::ForceDark,
-                        n => todo!("whats the name? {:?}", n)
-                    };
-                    let manager = StyleManager::default();
-                    manager.set_color_scheme(theme);
+                    // let theme = match id {
+                    //     "follow" => ColorScheme::Default,
+                    //     "light" => ColorScheme::ForceLight,
+                    //     "dark" => ColorScheme::ForceDark,
+                    //     n => todo!("whats the name? {:?}", n)
+                    // };
+                    let manager = StyleManager::default();                    
+                    manager.set_color_scheme(scheme.theme_name());
+
                     sender.send_blocking(
-                        crate::Event::StoreSettings("theme".to_string(),
-                                                    id.to_string())
+                        crate::Event::StoreSettings(scheme.setting_key(), scheme.0.to_string())
                     ).expect("cant send through sender");
                     Some("object-select-symbolic")
                 } else {
@@ -129,7 +148,7 @@ pub fn theme_selector(stored_theme: String, sender: Sender<crate::Event>) -> Box
     bx
 }
 
-pub fn burger_menu(stored_theme: String, sender: Sender<crate::Event>) -> MenuButton {
+pub fn burger_menu(stored_theme: Scheme, sender: Sender<crate::Event>) -> MenuButton {
 
     let menu_model = gio::Menu::new();
 
@@ -457,7 +476,7 @@ pub fn factory(
 
     hb.set_title_widget(Some(&repo_selector));
 
-    hb.pack_end(&burger_menu(settings.get::<String>("theme"), sender));
+    hb.pack_end(&burger_menu(Scheme::new(settings.get::<String>(SCHEME_TOKEN)), sender));
     hb.pack_end(&commit_btn);
     hb.pack_end(&branches_btn);
     hb.pack_end(&push_btn);
