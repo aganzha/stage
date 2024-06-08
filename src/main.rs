@@ -73,7 +73,7 @@ fn main() -> glib::ExitCode {
         app.connect_startup(|_| load_css());
         app.connect_activate(run_without_args);
     }
-
+    
     app.run()
 }
 
@@ -88,6 +88,11 @@ fn load_css() {
         &provider,
         STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
+    // let some = gio::Resource::info("resource:///org/gnome/libpanel/panel-theme-selector.ui");
+    // let f = gio::File
+    // println!("@@@@@@@@@@@@@@@@@@@@@@@@ {:?}", some);
+    // gio::resources_register_include!("composite_templates_1.gresource")
+    //     .expect("Failed to register resources.");
 }
 
 #[derive(Debug)]

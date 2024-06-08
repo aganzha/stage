@@ -4,8 +4,8 @@ use libadwaita::{ButtonContent, HeaderBar, SplitButton, Window};
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
 use std::path::PathBuf;
-
-use gtk4::{gio, Align, Button, FileDialog, Label, PopoverMenu, MenuButton};
+use libpanel::ThemeSelector;
+use gtk4::{gio, Align, Button, FileDialog, Label, PopoverMenu, MenuButton, Box, Orientation, ToggleButton};
 
 pub enum HbUpdateData {
     Path(PathBuf),
@@ -18,24 +18,47 @@ pub enum HbUpdateData {
 pub fn burger_menu() -> MenuButton {
 
     let menu_model = gio::Menu::new();
-    
+
     let menu_item = gio::MenuItem::new(Some("theme"), Some("win.menu::1"));
     let theme_id = "theme".to_variant();
-    menu_item.set_attribute_value("custom", Some(&theme_id));    
+    menu_item.set_attribute_value("custom", Some(&theme_id));
     menu_model.insert_item(0, &menu_item);
 
-    
+
     let menu_item = gio::MenuItem::new(Some("fontsize"), Some("win.menu::2"));
     let fontsize_id = "fontsize".to_variant();
     menu_item.set_attribute_value("custom", Some(&fontsize_id));
     menu_model.insert_item(1, &menu_item);
-    
-    
+
+
     let popover_menu = PopoverMenu::from_model(Some(&menu_model));
-    
-    let theme_label = Label::builder().label("theme").build();
+
+    // let theme_box = Box::builder()
+    //     .orientation(Orientation::Horizontal)
+    //     .build();
+    // let dark = ToggleButton::builder()
+    //     .build();
+    // let light = ToggleButton::builder()
+    //     .group(&dark)
+    //     .build();
+    // let auto = ToggleButton::builder()
+    //     .group(&dark)
+    //     .build();
+    // theme_box.append(&dark);
+    // theme_box.append(&light);
+    // theme_box.append(&auto);
+
+    // let theme_label = Label::builder().label("theme").build();
     // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
-    popover_menu.add_child(&theme_label, "theme");
+    let theme_button = ButtonContent::builder()
+        .icon_name("open-menu-symbolic") // gtk3-demo-symbolic dark-mode-symbolic
+        .label("theme")
+        .use_underline(true)
+        .valign(Align::Baseline)
+        .build();
+    let theme_selector = ThemeSelector::new();
+
+    popover_menu.add_child(&theme_selector, "theme");
 
     let fontsize_label = Label::builder().label("fontsize").build();
     // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
