@@ -7,6 +7,7 @@ use status_view::{
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
     textview::factory as textview_factory, Status,
+    render::play_with_tags
 };
 
 mod branches_view;
@@ -327,6 +328,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::Debug => {
                     info!("main. debug");                    
+                    play_with_tags();
                     // debug::debug(&window, settings.get::<String>("theme"), sender.clone());
                 }
                 Event::Commit => {
