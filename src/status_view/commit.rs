@@ -1,18 +1,18 @@
-use crate::dialogs::{alert, DangerDialog, YES};
+use crate::dialogs::{alert};
 use crate::{git::commit as git_commit, Event};
 use std::cell::RefCell;
 use async_channel::Sender;
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Box, EventControllerKey, Label as GtkLabel, ListBox,
-    Orientation, ScrolledWindow, SelectionMode, TextBuffer, TextView, Widget,
+    gio, glib, Box, ListBox,
+    Orientation, ScrolledWindow, SelectionMode, TextView,
     WrapMode,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, Banner, EntryRow, PasswordEntryRow, SwitchRow,
+    ApplicationWindow, EntryRow, SwitchRow,
 };
-use log::{debug, trace};
+use log::{debug};
 use std::path::PathBuf;
 
 pub fn commit(

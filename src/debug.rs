@@ -1,17 +1,16 @@
 use log::debug;
-use std::cell::RefCell;
-use std::sync::RwLock;
-use std::sync::Mutex;
+
+
+
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow,
-    TextView, TextWindowType, Widget, Window as Gtk4Window, Box, Orientation, PopoverMenu,
-    MenuButton, CheckButton, GestureClick, ToggleButton, Align
+    gio, Label, Window as Gtk4Window, Box, Orientation, PopoverMenu,
+    MenuButton, ToggleButton, Align
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window, StyleManager, ColorScheme};
 
-use crate::gio::MenuModel;
+
 use async_channel::Sender;
 
 pub fn debug(app_window: &impl IsA<Gtk4Window>, mut stored_theme: String, sender: Sender<crate::Event>) {

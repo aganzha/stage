@@ -39,7 +39,7 @@ impl CommitRepr for git2::Commit<'_> {
             message = self.message().unwrap_or("");
         }
         let mut encoded = String::from("");
-        html_escape::encode_safe_to_string(&message, &mut encoded);
+        html_escape::encode_safe_to_string(message, &mut encoded);
         encoded
     }
 
@@ -183,7 +183,7 @@ pub fn get_parents_for_commit(path: PathBuf) -> Vec<git2::Oid> {
 pub fn create_commit(
     path: PathBuf,
     message: String,
-    amend: bool,
+    _amend: bool,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     let repo = git2::Repository::open(path.clone())?;

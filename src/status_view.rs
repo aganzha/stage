@@ -35,9 +35,8 @@ use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Box, EventControllerKey, Label as GtkLabel, ListBox,
-    Orientation, ScrolledWindow, SelectionMode, TextBuffer, TextView, Widget,
-    WrapMode,
+    gio, glib, Box, Label as GtkLabel, ListBox,
+    Orientation, SelectionMode, TextBuffer, TextView, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
