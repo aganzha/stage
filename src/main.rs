@@ -42,7 +42,7 @@ use glib::{clone, ControlFlow};
 use libadwaita::prelude::*;
 use libadwaita::{
     Application, ApplicationWindow, Banner, OverlaySplitView, Toast,
-    ToastOverlay, ToolbarStyle, ToolbarView, Window,
+    ToastOverlay, ToolbarStyle, ToolbarView, Window, StyleManager
 };
 
 use gtk4::{
@@ -93,6 +93,7 @@ fn load_css() {
         &provider,
         STYLE_PROVIDER_PRIORITY_USER,
     );
+    
 }
 
 #[derive(Debug)]
