@@ -1,3 +1,5 @@
+BUG: after merge head is not updated! (found after push)
+
 if remove vector fron view it could be Copy type and then it could be wrapped
 in Cell and then i will not need &mut self everywhere, cause view will be by passed by &self!!!
 
