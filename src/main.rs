@@ -192,13 +192,19 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     let monitors = Rc::new(RefCell::<Vec<gio::FileMonitor>>::new(Vec::new()));
 
     let settings = get_settings();
-    // settings.set("paths", Vec::<String>::new()).expect("cant set settings");
+
     if initial_path.is_none() {
         let last_path = settings.get::<String>("lastpath");
         if !last_path.is_empty() {
             initial_path.replace(last_path.into());
         }
     }
+    let theme = settings.get::<String>("theme");
+    if !theme.is_empty() {
+        // ha!
+        // StyleManager::default().set_color_scheme(theme);
+    }
+    
     let mut status =
         Status::new(initial_path, settings.clone(), sender.clone());
 
@@ -208,7 +214,6 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
         .default_height(960)
         //.css_classes(vec!["devel"])
         .build();
-    // window.set_default_size(1280, 960);
 
     let action_close = gio::SimpleAction::new("close", None);
     action_close.connect_activate(clone!(@weak window => move |_, _| {
@@ -323,7 +328,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::Debug => {
                     info!("main. debug");                    
-                    debug::debug(&window, settings.get::<String>("theme"), sender.clone());
+                    // debug::debug(&window, settings.get::<String>("theme"), sender.clone());
                 }
                 Event::Commit => {
                     info!("main.commit");

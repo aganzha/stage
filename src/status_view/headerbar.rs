@@ -16,6 +16,58 @@ pub enum HbUpdateData {
     RepoPopup,
 }
 
+pub struct Scheme(String);
+
+pub const DARK: &str = "dark";
+pub const LIGHT: &str = "light";
+pub const DEFAULT: &str = "default";
+
+impl Scheme {
+    fn theme_name(&self) -> ColorScheme {
+        match &self.0[..] {
+            DARK => ColorScheme::ForceDark,
+            LIGHT => ColorScheme::ForceLight,
+            _ => ColorScheme::Default
+        }
+    }
+}
+
+pub struct MenuItem(String);
+pub const CUSTOM_ATTR: &str = "custom";
+pub const THEME_ID: &str = "theme";
+
+
+// pub trait ThemeChoose {
+//     fn theme_name(&self) -> &str;
+// }
+// impl ThemeChoose for ColorScheme {
+//     fn theme_name(&self) -> &str {
+//         match self {
+//             ColorScheme::ForceLight => {
+//                 "light"
+//             }
+//             ColorScheme::ForceDark => {
+//                 "dark"
+//             }
+//             _ => "default"
+//         }
+//     }
+// }
+
+// impl ThemeChoose for String {
+//     fn theme_name(&self) -> &str {
+//         // match self {
+//         //     ColorScheme::ForceLight => {
+//         //         "light"
+//         //     }
+//         //     ColorScheme::ForceDark => {
+//         //         "dark"
+//         //     }
+//         //     _ => "default"
+//         // }
+//     }
+// }
+
 pub fn theme_selector(stored_theme: String, sender: Sender<crate::Event>) -> Box {
     let theme_selector = Box::builder()
         .orientation(Orientation::Horizontal)
@@ -77,7 +129,7 @@ pub fn theme_selector(stored_theme: String, sender: Sender<crate::Event>) -> Box
     bx
 }
 
-pub fn burger_menu(sender: Sender<crate::Event>) -> MenuButton {
+pub fn burger_menu(stored_theme: String, sender: Sender<crate::Event>) -> MenuButton {
 
     let menu_model = gio::Menu::new();
 
@@ -117,7 +169,7 @@ pub fn burger_menu(sender: Sender<crate::Event>) -> MenuButton {
     // // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
     // popover_menu.add_child(&fontsize_label, "fontsize");
 
-    popover_menu.add_child(&theme_selector(String::from(""), sender.clone()), "theme");
+    popover_menu.add_child(&theme_selector(stored_theme, sender.clone()), "theme");
     MenuButton::builder()
         .popover(&popover_menu)
         .icon_name("open-menu-symbolic")
@@ -405,7 +457,7 @@ pub fn factory(
 
     hb.set_title_widget(Some(&repo_selector));
 
-    hb.pack_end(&burger_menu(sender));
+    hb.pack_end(&burger_menu(settings.get::<String>("theme"), sender));
     hb.pack_end(&commit_btn);
     hb.pack_end(&branches_btn);
     hb.pack_end(&push_btn);
