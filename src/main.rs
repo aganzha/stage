@@ -135,6 +135,7 @@ pub enum Event {
     PullUserPass,
     CheckoutError(Oid, String, String),
     LockMonitors(bool),
+    StoreSettings(String, String)
 }
 
 fn zoom(dir: bool) {
@@ -228,7 +229,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
 
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings);
+    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone());// TODO! remove/
 
     let text_view_width =
         Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
@@ -321,8 +322,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     status.update_state(state, &txt, &mut ctx);
                 }
                 Event::Debug => {
-                    info!("main. debug");
-                    debug::debug(&window);
+                    info!("main. debug");                    
+                    debug::debug(&window, settings.get::<String>("theme"), sender.clone());
                 }
                 Event::Commit => {
                     info!("main.commit");
@@ -575,6 +576,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 Event::LockMonitors(lock) => {
                     info!("main. lock monitors {}", lock);
                     status.lock_monitors(lock);
+                }
+                Event::StoreSettings(name, value) => {
+                    info!("StoreSettings {} {}", name, value);
+                    settings.set(&name, value);
                 }
             };
         }
