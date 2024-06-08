@@ -1,10 +1,12 @@
 use libadwaita::prelude::*;
-use libadwaita::{ButtonContent, HeaderBar, SplitButton, Window};
+use libadwaita::{ButtonContent, HeaderBar, SplitButton, Window, StyleManager, ColorScheme};
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
 use std::path::PathBuf;
-use gtk4::{gio, Align, Button, FileDialog, Label, PopoverMenu, MenuButton, Box, Orientation, ToggleButton};
+use gtk4::{gio, Align, Button, FileDialog, Label, PopoverMenu, MenuButton,
+           Box, Orientation, ToggleButton,
+};
 
 pub enum HbUpdateData {
     Path(PathBuf),
@@ -14,7 +16,68 @@ pub enum HbUpdateData {
     RepoPopup,
 }
 
-pub fn burger_menu() -> MenuButton {
+pub fn theme_selector(stored_theme: String, sender: Sender<crate::Event>) -> Box {
+    let theme_selector = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .css_name("theme_selector")
+        .build();
+
+    let mut first_toggle: Option<ToggleButton> = None;
+    for id in ["follow", "light", "dark"] {
+        let toggle = ToggleButton::builder()
+            .active(false)
+            .icon_name("")
+            .name(id)
+            .css_classes(vec![id])
+            .margin_end(10)
+            .build();
+        if stored_theme == id {
+            toggle.set_icon_name("object-select-symbolic");
+            toggle.set_active(true);
+        }
+        toggle.last_child().unwrap().set_halign(Align::Center);
+        toggle.bind_property("active", &toggle, "icon_name").transform_to({
+            let sender = sender.clone();
+            move |_, is_active: bool| {
+                if is_active {
+                    let theme = match id {
+                        "follow" => ColorScheme::Default,
+                        "light" => ColorScheme::ForceLight,
+                        "dark" => ColorScheme::ForceDark,
+                        n => todo!("whats the name? {:?}", n)
+                    };
+                    let manager = StyleManager::default();
+                    manager.set_color_scheme(theme);
+                    sender.send_blocking(
+                        crate::Event::StoreSettings("theme".to_string(),
+                                                    id.to_string())
+                    ).expect("cant send through sender");
+                    Some("object-select-symbolic")
+                } else {
+                    Some("")
+                }
+            }}).build();
+        theme_selector.append(&toggle);
+        if let Some(ref ft) = first_toggle {
+            toggle.set_group(Some(ft));
+        } else {
+            first_toggle.replace(toggle);
+        }
+    };
+
+    let bx = Box::builder()
+        .orientation(Orientation::Vertical)
+        .margin_top(2)
+        .margin_bottom(2)
+        .margin_start(2)
+        .margin_end(2)
+        .spacing(12)
+        .build();
+    bx.append(&theme_selector);
+    bx
+}
+
+pub fn burger_menu(sender: Sender<crate::Event>) -> MenuButton {
 
     let menu_model = gio::Menu::new();
 
@@ -24,10 +87,10 @@ pub fn burger_menu() -> MenuButton {
     menu_model.insert_item(0, &menu_item);
 
 
-    let menu_item = gio::MenuItem::new(Some("fontsize"), Some("win.menu::2"));
-    let fontsize_id = "fontsize".to_variant();
-    menu_item.set_attribute_value("custom", Some(&fontsize_id));
-    menu_model.insert_item(1, &menu_item);
+    // let menu_item = gio::MenuItem::new(Some("fontsize"), Some("win.menu::2"));
+    // let fontsize_id = "fontsize".to_variant();
+    // menu_item.set_attribute_value("custom", Some(&fontsize_id));
+    // menu_model.insert_item(1, &menu_item);
 
 
     let popover_menu = PopoverMenu::from_model(Some(&menu_model));
@@ -50,10 +113,11 @@ pub fn burger_menu() -> MenuButton {
     // let theme_label = Label::builder().label("theme").build();
     // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
 
-    let fontsize_label = Label::builder().label("fontsize").build();
-    // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
-    popover_menu.add_child(&fontsize_label, "fontsize");
+    // let fontsize_label = Label::builder().label("fontsize").build();
+    // // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
+    // popover_menu.add_child(&fontsize_label, "fontsize");
 
+    popover_menu.add_child(&theme_selector(String::from(""), sender.clone()), "theme");
     MenuButton::builder()
         .popover(&popover_menu)
         .icon_name("open-menu-symbolic")
@@ -341,7 +405,7 @@ pub fn factory(
 
     hb.set_title_widget(Some(&repo_selector));
 
-    hb.pack_end(&burger_menu());
+    hb.pack_end(&burger_menu(sender));
     hb.pack_end(&commit_btn);
     hb.pack_end(&branches_btn);
     hb.pack_end(&push_btn);

@@ -73,9 +73,9 @@ pub fn debug(app_window: &impl IsA<Gtk4Window>, mut stored_theme: String, sender
         .icon_name("open-menu-symbolic")
         .build();
 
-    let mine_selector = Box::builder()
+    let theme_selector = Box::builder()
         .orientation(Orientation::Horizontal)
-        .css_name("mine_selector")
+        .css_name("theme_selector")
         .build();
 
     let mut first_toggle: Option<ToggleButton> = None;
@@ -95,7 +95,6 @@ pub fn debug(app_window: &impl IsA<Gtk4Window>, mut stored_theme: String, sender
         toggle.bind_property("active", &toggle, "icon_name").transform_to({
             let sender = sender.clone();
             move |_, is_active: bool| {
-                debug!("TTTTTTTTTTTTTTTTTTT {} {}", id, is_active);
                 if is_active {
                     let theme = match id {
                         "follow" => ColorScheme::Default,
@@ -109,100 +108,23 @@ pub fn debug(app_window: &impl IsA<Gtk4Window>, mut stored_theme: String, sender
                         crate::Event::StoreSettings("theme".to_string(),
                                                     id.to_string())
                     ).expect("cant send through sender");
-                    debug!("seeeeeeeeeeeeeeeeet icon {}", id);
                     Some("object-select-symbolic")
-                        
                 } else {
-                    debug!("uuuuuuuuuuuuuuuuuuuunset icon {}", id);
                     Some("")
                 }
             }}).build();
-        mine_selector.append(&toggle);
+        theme_selector.append(&toggle);
         if let Some(ref ft) = first_toggle {
             toggle.set_group(Some(ft));
         } else {
             first_toggle.replace(toggle);
         }
-
     };
-
-
-    // let follow = ToggleButton::builder()
-    //     .active(true)
-    //     .icon_name("")
-    //     .name("follow")
-    //     .css_classes(vec!["follow"])
-    //     .margin_end(10)
-    //     .build();
-    // if stored_theme == "default" {
-    //     follow.set_icon_name("object-select-symbolic");
-    //     follow.set_active(true);
-    // }
-
-
-    // follow.last_child().unwrap().set_halign(Align::Center);
-
-    // let light = ToggleButton::builder()
-    //     .icon_name("")
-    //     .name("light")
-    //     .css_classes(vec!["light"])
-    //     .margin_end(10)
-    //     .group(&follow).build();
-    // if stored_theme == "light" {
-    //     light.set_icon_name("object-select-symbolic");
-    //     light.set_active(true);
-    // }
-
-    // light.last_child().unwrap().set_halign(Align::Center);
-
-    // let dark = ToggleButton::builder()
-    //     .icon_name("")
-    //     .name("dark")
-    //     .css_classes(vec!["dark"])
-    //     .group(&follow).build();
-    // if stored_theme == "light" {
-    //     light.set_icon_name("object-select-symbolic");
-    //     light.set_active(true);
-    // }
-    // dark.last_child().unwrap().set_halign(Align::Center);
-
-    // for w in [&follow, &light, &dark] {
-    //     w.bind_property("active", w, "icon_name").transform_to({
-    //         let sender = sender.clone();
-    //         move |b: &glib::Binding, is_active: bool| {
-    //             if is_active {
-    //                 let tb = b.source().unwrap();
-    //                 let tb = tb.downcast_ref::<Widget>().expect("cant get widget");
-    //                 let chosen = tb.widget_name();
-    //                 let theme = match chosen.as_str() {
-    //                     "follow" => ColorScheme::Default,
-    //                     "light" => ColorScheme::ForceLight,
-    //                     "dark" => ColorScheme::ForceDark,
-    //                     n => todo!("whats the name? {:?}", n)
-    //                 };
-    //                 let manager = StyleManager::default();
-    //                 manager.set_color_scheme(theme);
-    //                 sender.send_blocking(
-    //                     crate::Event::StoreSettings("theme".to_string(),
-    //                                                 chosen.to_string())
-    //                 ).expect("cant send through sender");
-    //                 Some("object-select-symbolic")
-                        
-    //             } else {
-    //                 Some("")
-    //             }
-    //         }}).build();
-    // }
-    
-    // mine_selector.append(&follow);
-    // mine_selector.append(&light);
-    // mine_selector.append(&dark);
-
 
 
     bx.append(&label);
 
-    bx.append(&mine_selector);
+    bx.append(&theme_selector);
 
     let hb = HeaderBar::builder().build();
     hb.pack_end(&burger);
