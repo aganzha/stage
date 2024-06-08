@@ -89,33 +89,37 @@ mine_selector button.dark {
 }
 
 mine_selector button image {
-  -gtk-icon-source: none;
+    
+    max-width: 0;
+    max-height: 0;
+    /* -gtk-icon-source: none; */
+  /* border: none; */
+  /* background: none; */
+  /* box-shadow: none; */
+  /* max-width: 5px; */
+  /* max-height: 5px; */
+  /* transform: translate(17px, 14px); */
+  /* padding: 2px; */
+  /* background-color: #3584e4; */
+  /* border-radius: 9999px; */
+  /* color: white; */
+}
+mine_selector button:checked image {
   border: none;
   background: none;
   box-shadow: none;
-  /* min-width: 12px; */
-  /* min-height: 12px; */
   max-width: 5px;
   max-height: 5px;
   transform: translate(17px, 14px);
   padding: 2px;
-  // background-color: var(--accent-bg-color);
   background-color: #3584e4;
   border-radius: 9999px;
   color: white;
- /*  mine_selector button image { */
-/* 	background-color: red; */
-/*         width: 5px; */
-/* 	min-width: 5px; */
-/*         max-width: 5px; */
-/*         padding: 0; */
-/*         color: white; */
-/*         margin: 0; */
+}
+
+/* mine_selector button image:checked { */
+/*   -gtk-icon-source: -gtk-icontheme("object-select-symbolic"); */
+/*   background-color: @theme_selected_bg_color;   */
+/*   color: @theme_selected_fg_color; */
 /* } */
-}
-mine_selector button image:checked {
-  -gtk-icon-source: -gtk-icontheme("object-select-symbolic");
-  background-color: @theme_selected_bg_color;  
-  color: @theme_selected_fg_color;
-}
 
