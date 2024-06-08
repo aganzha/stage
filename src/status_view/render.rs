@@ -1,8 +1,10 @@
 use crate::status_view::Tag;
 use gtk4::prelude::*;
-use gtk4::{TextBuffer, TextIter};
-use log::trace;
+use gtk4::{TextBuffer, TextIter, TextTag};
+use log::{trace, debug};
 use std::collections::HashSet;
+use std::fmt;
+use std::cell::Cell;
 
 #[derive(Debug, Clone)]
 pub enum ViewState {
@@ -14,6 +16,68 @@ pub enum ViewState {
     RenderedDirtyNotInPlace(i32),
     RenderedNotInPlace(i32),
 }
+pub const TEXT_TAGS: [&str; 5] = ["tag0", "tag1", "tag2", "tag3", "tag4"];
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct TagIdx(i8);
+
+impl TagIdx {
+    pub fn new() -> Self {
+        Self(0)
+    }
+    pub fn from(i: i8) -> Self {
+        Self(i)
+    }
+    /// when tag added to view
+    /// view will store index of this tag
+    /// from global array as bit mask
+    pub fn added(&mut self, tag_name: &str) -> Self {
+        let mut filler = 1;
+        for name in TEXT_TAGS {
+            if tag_name == name {
+                break;
+            }
+            filler = filler << 1;            
+        }
+        Self(self.0 | filler)
+    }
+    /// when tag removed from view
+    /// view will store remove index of this tag
+    /// in global array from bit mask
+    pub fn removed(&mut self, tag_name: &str) -> Self {
+        let mut filler = 1;
+        for name in TEXT_TAGS {
+            if tag_name == name {
+                break;
+            }
+            filler = filler << 1;            
+        }
+        Self(self.0 & !filler)
+    }
+}
+
+
+impl fmt::Binary for TagIdx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let val = self.0;
+        fmt::Binary::fmt(&val, f) // delegate to i32's implementation
+    }
+}
+
+impl View {
+    pub fn tag_added(&self, tag: &str) {
+        self.tag_indexes.replace(self.tag_indexes.get().added(tag));
+    }
+    pub fn tag_removed(&self, tag: &str) {
+        self.tag_indexes.replace(self.tag_indexes.get().removed(tag));
+    }
+}
+// pub struct TxTag(String);
+
+// impl TxTag {
+// }
+
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct View {
@@ -28,6 +92,11 @@ pub struct View {
     pub transfered: bool,
     pub tags: Vec<String>,
     pub markup: bool,
+    pub tag_indexes: Cell<TagIdx>,
+}
+
+pub fn play_with_tags() {
+    debug!("play_with_tags--------------------");
 }
 
 impl View {
@@ -44,6 +113,7 @@ impl View {
             transfered: false,
             tags: Vec::new(),
             markup: false,
+            tag_indexes: Cell::new(TagIdx::new())
         }
     }
     pub fn new_markup() -> Self {

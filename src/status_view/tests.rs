@@ -1,4 +1,4 @@
-use crate::status_view::render::View;
+use crate::status_view::render::{View, TagIdx};
 use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::{Diff, DiffKind, File, Hunk, Line, LineKind};
 use git2::DiffLineType;
@@ -475,4 +475,27 @@ fn test_reconciliation() {
         dbg!(&line.view);
     }
     // new_hunk.enrich_view()
+}
+
+#[test]
+fn test_tags() {
+    env_logger::builder().format_timestamp(None).init();
+
+    let view = View::new();
+    view.tag_added("tag1");
+    debug!("added at 1 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == TagIdx::from(0b00000010));
+
+    view.tag_added("tag3");
+    debug!("added at 3 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == TagIdx::from(0b00001010));
+
+    view.tag_removed("tag1");
+    debug!("removed at 1 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == TagIdx::from(0b00001000));
+
+    view.tag_removed("tag3");
+    // view.tag_indexes.added("tag3");
+    debug!("removed at 3 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == TagIdx::from(0b00000000));
 }
