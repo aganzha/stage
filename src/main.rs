@@ -48,6 +48,7 @@ use libadwaita::{
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
     CssProvider, Orientation, ScrolledWindow, Settings,
+    STYLE_PROVIDER_PRIORITY_USER,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
@@ -80,19 +81,18 @@ fn main() -> glib::ExitCode {
 fn load_css() {
     let display = Display::default().expect("Could not connect to a display.");
     let settings = Settings::for_display(&display);
+    // todo! where is stored settings????
     settings.set_gtk_font_name(Some("Cantarell 18")); // "Cantarell 21"
+
     let provider = CssProvider::new();
+
     provider.load_from_string(include_str!("style.css"));
+    
     style_context_add_provider_for_display(
         &display,
         &provider,
-        STYLE_PROVIDER_PRIORITY_APPLICATION,
+        STYLE_PROVIDER_PRIORITY_USER,
     );
-    // let some = gio::Resource::info("resource:///org/gnome/libpanel/panel-theme-selector.ui");
-    // let f = gio::File
-    // println!("@@@@@@@@@@@@@@@@@@@@@@@@ {:?}", some);
-    // gio::resources_register_include!("composite_templates_1.gresource")
-    //     .expect("Failed to register resources.");
 }
 
 #[derive(Debug)]
