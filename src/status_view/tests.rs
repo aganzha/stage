@@ -1,5 +1,5 @@
 use crate::status_view::tags;
-use crate::status_view::render::{View};
+use crate::status_view::render::{View, RenderFlags};
 
 use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::{Diff, DiffKind, File, Hunk, Line, LineKind};
@@ -240,6 +240,7 @@ fn test_render_view() {
         &buffer,
         &mut iter,
         "test1".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -247,6 +248,7 @@ fn test_render_view() {
         &buffer,
         &mut iter,
         "test2".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -254,6 +256,7 @@ fn test_render_view() {
         &buffer,
         &mut iter,
         "test3".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -270,6 +273,7 @@ fn test_render_view() {
         &buffer,
         &mut iter,
         "test1".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -277,6 +281,7 @@ fn test_render_view() {
         &buffer,
         &mut iter,
         "test2".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -284,6 +289,7 @@ fn test_render_view() {
         &buffer,
         &mut iter,
         "test3".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -298,6 +304,7 @@ fn test_render_view() {
         &buffer,
         &mut iter,
         "test1".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -311,6 +318,7 @@ fn test_render_view() {
         &buffer,
         &mut iter,
         "test1".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -322,6 +330,7 @@ fn test_render_view() {
         &buffer,
         &mut iter,
         "test2".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -333,6 +342,7 @@ fn test_render_view() {
         &buffer,
         &mut iter,
         "test3".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -347,6 +357,7 @@ fn test_render_view() {
         &buffer,
         &mut iter,
         "test3".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -363,6 +374,7 @@ fn test_render_view() {
         &buffer,
         &mut iter,
         "test3".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -511,7 +523,17 @@ fn test_tags() {
 
 #[test]
 pub fn test_line() {
+    env_logger::builder().format_timestamp(None).init();
     let line =  Line::default();
     line.view.replace(View{rendered: true, ..line.view.get()});
     line.view.replace(View{rendered: false, transfered: true, ..line.view.get()});
+    let mut flags = RenderFlags::new();
+
+    flags = flags.expanded(true);    
+    flags = flags.squashed(true);
+    
+    debug!("------------- set {:b} {} {}", flags, flags.is_squashed(), flags.is_expanded());
+    flags = flags.expanded(false);
+    debug!("------------- set {:b} {} {}", flags, flags.is_squashed(), flags.is_expanded());    
+        
 }

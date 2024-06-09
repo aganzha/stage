@@ -1,5 +1,6 @@
 //use crate::status_view::Tag;
 use crate::status_view::tags;
+use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter, TextTag, pango};
 use log::{debug, trace};
@@ -20,6 +21,51 @@ pub enum ViewState {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+pub struct RenderFlags(i8);
+
+impl RenderFlags{
+    pub fn new() -> Self {
+        Self(0)
+    }
+    pub fn from(i: i8) -> Self {
+        Self(i)
+    }
+    pub const EXPANDED: i8 = 0b00000001;
+
+    pub fn is_expanded(&self) -> bool {
+        self.0 & Self::EXPANDED != 0
+    }
+    pub fn expanded(&mut self, value: bool) -> Self {
+        if value {
+            Self(self.0 | Self::EXPANDED)
+        } else {
+            Self(self.0 & !Self::EXPANDED)
+        }
+    }
+
+    pub const SQAUASHED: i8 = 0b00000010;
+
+    pub fn is_squashed(&self) -> bool {
+        self.0 & Self::SQAUASHED != 0
+    }
+    pub fn squashed(&mut self, value: bool) -> Self {
+        if value {
+            Self(self.0 | Self::SQAUASHED)
+        } else {
+            Self(self.0 & !Self::SQAUASHED)
+        }
+    }
+}
+
+
+impl Binary for RenderFlags {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        let val = self.0;
+        Binary::fmt(&val, f) // delegate to i32's implementation
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct View {
     pub line_no: i32,
 
@@ -32,6 +78,7 @@ pub struct View {
     pub current: bool,
     pub transfered: bool,
 
+    pub flags: RenderFlags,
     pub tag_indexes: tags::TagIdx,
 }
 
@@ -55,6 +102,8 @@ impl View {
             active: false,
             current: false,
             transfered: false,
+
+            flags: RenderFlags(0),
             tag_indexes: tags::TagIdx::new(),
         }
     }
