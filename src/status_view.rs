@@ -77,7 +77,7 @@ impl Label {
     pub fn from_string(content: &str) -> Self {
         Label {
             content: String::from(content),
-            view: View::new_markup(),
+            view: View::new(),
         }
     }
 }
