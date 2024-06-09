@@ -479,31 +479,31 @@ fn test_tags() {
     fn make_tag(name: &str) -> tags::TxtTag {
         tags::TxtTag::from_str(name)
     }
-    let tag1 = tags::TEXT_TAGS[1];
-    let tag3 = tags::TEXT_TAGS[3];
+    let tag1 = tags::TxtTag::from_str(tags::TEXT_TAGS[1]);
+    let tag3 = tags::TxtTag::from_str(tags::TEXT_TAGS[3]);
     
     let mut view = View::new();
-    view.tag_added(&make_tag(tag1));
+    view.tag_added(&tag1);
     debug!("added at 1 {:b}", view.tag_indexes);
     assert!(view.tag_indexes == tags::TagIdx::from(0b00000010));
-    assert!(view.tag_indexes.is_added(tag1));
+    assert!(view.tag_indexes.is_added(&tag1));
 
-    view.tag_added(&make_tag(tag3));
+    view.tag_added(&tag3);
     debug!("added at 3 {:b}", view.tag_indexes);
     assert!(view.tag_indexes == tags::TagIdx::from(0b00001010));
-    assert!(view.tag_indexes.is_added(tag1));
-    assert!(view.tag_indexes.is_added(tag3));
+    assert!(view.tag_indexes.is_added(&tag1));
+    assert!(view.tag_indexes.is_added(&tag3));
 
-    view.tag_removed(&make_tag(tag1));
+    view.tag_removed(&tag1);
     debug!("removed at 1 {:b}", view.tag_indexes);
     assert!(view.tag_indexes == tags::TagIdx::from(0b00001000));
-    assert!(!view.tag_indexes.is_added(tag1));
-    assert!(view.tag_indexes.is_added(tag3));
+    assert!(!view.tag_indexes.is_added(&tag1));
+    assert!(view.tag_indexes.is_added(&tag3));
 
-    view.tag_removed(&make_tag(tag3));
+    view.tag_removed(&tag3);
     // view.tag_indexes.added("tag3");
     debug!("removed at 3 {:b}", view.tag_indexes);
     assert!(view.tag_indexes == tags::TagIdx::from(0b00000000));
-    assert!(!view.tag_indexes.is_added(tag1));
-    assert!(!view.tag_indexes.is_added(tag3));
+    assert!(!view.tag_indexes.is_added(&tag1));
+    assert!(!view.tag_indexes.is_added(&tag3));
 }

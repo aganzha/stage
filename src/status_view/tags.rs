@@ -54,10 +54,10 @@ impl TagIdx {
     /// when tag added to view
     /// view will store index of this tag
     /// from global array as bit mask
-    pub fn added(self, tag_name: &str) -> Self {
+    pub fn added(self, tag: &TxtTag) -> Self {
         let mut bit_mask = 1;
         for name in TEXT_TAGS {
-            if tag_name == name {
+            if tag.name() == name {
                 break;
             }
             bit_mask = bit_mask << 1;
@@ -67,10 +67,10 @@ impl TagIdx {
     /// when tag removed from view
     /// view will remove index of this tag
     /// in global array from bit mask
-    pub fn removed(self, tag_name: &str) -> Self {
+    pub fn removed(self, tag: &TxtTag) -> Self {
         let mut bit_mask = 1;
         for name in TEXT_TAGS {
-            if tag_name == name {
+            if tag.name() == name {
                 break;
             }
             bit_mask = bit_mask << 1;
@@ -78,10 +78,10 @@ impl TagIdx {
         Self(self.0 & !bit_mask)
     }
 
-    pub fn is_added(&self, tag_name: &str) -> bool {
+    pub fn is_added(&self, tag: &TxtTag) -> bool {
         let mut bit_mask = 1;
         for name in TEXT_TAGS {
-            if tag_name == name {
+            if tag.name() == name {
                 break;
             }
             bit_mask = bit_mask << 1;
@@ -99,13 +99,13 @@ impl Binary for TagIdx {
 
 impl View {
     pub fn tag_added(&mut self, tag: &TxtTag) {
-        self.tag_indexes = self.tag_indexes.added(tag.str());
+        self.tag_indexes = self.tag_indexes.added(tag);
     }
     pub fn tag_removed(&mut self, tag: &TxtTag) {
-        self.tag_indexes = self.tag_indexes.removed(tag.str());
+        self.tag_indexes = self.tag_indexes.removed(tag);
     }
     pub fn tag_is_added(&self, tag: &TxtTag) -> bool {
-        self.tag_indexes.is_added(tag.str())
+        self.tag_indexes.is_added(tag)
     }
 }
 
@@ -115,10 +115,16 @@ pub struct TxtTag(String);
 impl TxtTag {
 
     pub fn new(s: String) -> Self {
+        if !TEXT_TAGS.contains(&&s[..]) {
+            panic!("undeclared tag {}", s);
+        }
         Self(s)
     }
 
     pub fn from_str(s: &str) -> Self {
+        if !TEXT_TAGS.contains(&s) {
+            panic!("undeclared tag {}", s);
+        }
         Self(s.to_string())
     }
 

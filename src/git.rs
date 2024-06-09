@@ -18,7 +18,7 @@ use git2::{
     ResetType, StashFlags,
 };
 
-use log::trace;
+use log::{trace, debug};
 use regex::Regex;
 //use std::time::SystemTime;
 use std::path::PathBuf;
@@ -598,7 +598,7 @@ pub fn get_current_repo_status(
             let current_tree =
                 repo.find_tree(ob.id()).expect("no working tree");
             let git_diff = repo
-                .diff_tree_to_index(Some(&current_tree), None, None)
+                .diff_tree_to_index(Some(&current_tree), None, Some(&mut make_diff_options()))
                 .expect("can't get diff tree to index");
             let diff = make_diff(&git_diff, DiffKind::Staged);
             sender
@@ -650,7 +650,7 @@ pub fn get_current_repo_status(
     }
     // get_unstaged
     let git_diff = repo
-        .diff_index_to_workdir(None, None)
+        .diff_index_to_workdir(None, Some(&mut make_diff_options()))
         .expect("cant' get diff index to workdir");
     let diff = make_diff(&git_diff, DiffKind::Unstaged);
     sender
@@ -955,7 +955,10 @@ pub fn stage_via_apply(
             if let Some(dh) = odh {
                 let header = Hunk::get_header_from(&dh);
                 return match filter.subject {
-                    ApplySubject::Stage => hunk_header == &header,
+                    ApplySubject::Stage => {
+                        debug!("staging? {} {} {}", hunk_header, header, hunk_header == &header);
+                        hunk_header == &header
+                    },
                     ApplySubject::Unstage => {
                         hunk_header == &Hunk::reverse_header(&header)
                     }
@@ -1180,7 +1183,7 @@ pub fn track_changes(
             // why all? but there way not, ti update just 1 file!
             // but it is easy, really (just use existent diff and update only 1 file in it!)
             let git_diff = repo
-                .diff_index_to_workdir(Some(&index), None)
+                .diff_index_to_workdir(Some(&index), Some(&mut make_diff_options()))
                 .expect("cant' get diff index to workdir");
             let diff = make_diff(&git_diff, DiffKind::Unstaged);
             sender
