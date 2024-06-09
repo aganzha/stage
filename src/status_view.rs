@@ -905,8 +905,9 @@ impl Status {
 
         if let Some(untracked) = &mut self.untracked {
             if untracked.files.is_empty() {
-                self.untracked_spacer.view.squashed = true;
-                self.untracked_label.view.squashed = true;
+                // hack :( TODO - get rid of it
+                self.untracked_spacer.view.squash(true);
+                self.untracked_label.view.squash(true);
             }
             self.untracked_spacer.render(&buffer, &mut iter, context);
             self.untracked_label.render(&buffer, &mut iter, context);
@@ -915,8 +916,8 @@ impl Status {
 
         if let Some(conflicted) = &mut self.conflicted {
             if conflicted.files.is_empty() {
-                self.conflicted_spacer.view.squashed = true;
-                self.conflicted_label.view.squashed = true;
+                self.conflicted_spacer.view.squash(true);
+                self.conflicted_label.view.squash(true);
             }
             self.conflicted_spacer.render(&buffer, &mut iter, context);
             self.conflicted_label.render(&buffer, &mut iter, context);
@@ -925,8 +926,9 @@ impl Status {
 
         if let Some(unstaged) = &mut self.unstaged {
             if unstaged.files.is_empty() {
-                self.unstaged_spacer.view.squashed = true;
-                self.unstaged_label.view.squashed = true;
+                // hack :(
+                self.unstaged_spacer.view.squash(true);
+                self.unstaged_label.view.squash(true);
             }
             self.unstaged_spacer.render(&buffer, &mut iter, context);
             self.unstaged_label.render(&buffer, &mut iter, context);
@@ -935,8 +937,9 @@ impl Status {
 
         if let Some(staged) = &mut self.staged {
             if staged.files.is_empty() {
-                self.staged_spacer.view.squashed = true;
-                self.staged_label.view.squashed = true;
+                // hack :(
+                self.staged_spacer.view.squash(true);
+                self.staged_label.view.squash(true);
             }
             self.staged_spacer.render(&buffer, &mut iter, context);
             self.staged_label.render(&buffer, &mut iter, context);

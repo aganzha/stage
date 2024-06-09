@@ -166,10 +166,10 @@ pub trait ViewContainer {
             self.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
                 if expanded {
-                    view.squashed = false;
+                    view.squash(false);
                     view.rendered = false;
                 } else {
-                    view.squashed = true;
+                    view.squash(true);
                 }
             });
         } else if v.is_expanded() && v.rendered {
@@ -233,11 +233,11 @@ pub trait ViewContainer {
             line_no -= ec;
         }
 
-        view.squashed = true;
+        view.squash(true);
         view.child_dirty = true;
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let view = vc.get_view();
-            view.squashed = true;
+            view.squash(true);
             view.child_dirty = true;
         });
         // GOT BUG HERE DURING STAGING SAME FILES!
