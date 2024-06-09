@@ -1,4 +1,4 @@
-check amend
+begin amend
 views must be connected with each other with large linked list. list across all view
 global array of text tag in buffer. each view stores indexes of self tags froms this array!
 [tag, tag, tag, tag]
