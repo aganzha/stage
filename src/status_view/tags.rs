@@ -107,6 +107,9 @@ impl View {
     pub fn tag_is_added(&self, tag: &TxtTag) -> bool {
         self.tag_indexes.is_added(tag)
     }
+    pub fn cleanup_tags(&mut self) {
+        self.tag_indexes = TagIdx::new();
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
