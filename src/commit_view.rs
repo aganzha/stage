@@ -438,7 +438,7 @@ pub fn show_commit_window(
                     );
 
                     if !commit_diff.diff.files.is_empty() {
-                        commit_diff.diff.files[0].view.current = true;
+                        commit_diff.diff.files[0].view.make_current(true);
                     }
                     // let mut body_label = MultiLineLabel::new("", &mut ctx);
                     commit_diff.render(

@@ -64,13 +64,13 @@ pub fn mock_render_view(vc: &mut dyn ViewContainer, mut line_no: i32) -> i32 {
     let view = vc.get_view();
     view.line_no = line_no;
     view.render(true);
-    view.dirty = false;
+    view.dirty(false);
     line_no += 1;
-    if view.is_expanded() || view.child_dirty {
+    if view.is_expanded() || view.is_child_dirty() {
         for child in vc.get_children() {
             line_no = mock_render_view(child, line_no)
         }
-        vc.get_view().child_dirty = false;
+        vc.get_view().child_dirty(false);
     }
     line_no
 }
@@ -104,11 +104,11 @@ pub fn test_single_diff() {
         for (i, file) in diff.files.iter_mut().enumerate() {
             let view = file.get_view();
             if i as i32 == cursor_line {
-                assert!(view.active);
-                assert!(view.current);
+                assert!(view.is_active());
+                assert!(view.is_current());
             } else {
-                assert!(!view.active);
-                assert!(!view.current);
+                assert!(!view.is_active());
+                assert!(!view.is_current());
             }
             assert!(!view.is_expanded());
         }
@@ -118,7 +118,7 @@ pub fn test_single_diff() {
     let mut cursor_line = 2;
     for file in &mut diff.files {
         if let Some(_expanded_line) = file.expand(cursor_line) {
-            assert!(file.get_view().child_dirty);
+            assert!(file.get_view().is_child_dirty());
             break;
         }
     }
@@ -129,19 +129,19 @@ pub fn test_single_diff() {
         let view = file.get_view();
         if i as i32 == cursor_line {
             assert!(view.is_rendered());
-            assert!(view.current);
-            assert!(view.active);
+            assert!(view.is_current());
+            assert!(view.is_active());
             assert!(view.is_expanded());
             file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.is_rendered());
-                assert!(view.active);
+                assert!(view.is_active());
                 assert!(!view.is_squashed());
-                assert!(!view.current);
+                assert!(!view.is_current());
             });
         } else {
-            assert!(!view.current);
-            assert!(!view.active);
+            assert!(!view.is_current());
+            assert!(!view.is_active());
             assert!(!view.is_expanded());
             file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
@@ -167,8 +167,8 @@ pub fn test_single_diff() {
         let j = i as i32;
         if j < cursor_line {
             // all are inactive
-            assert!(!view.current);
-            assert!(!view.active);
+            assert!(!view.is_current());
+            assert!(!view.is_active());
             assert!(!view.is_expanded());
             file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
@@ -177,26 +177,26 @@ pub fn test_single_diff() {
         } else if j == cursor_line {
             // all are active
             assert!(view.is_rendered());
-            assert!(view.current);
-            assert!(view.active);
+            assert!(view.is_current());
+            assert!(view.is_active());
             assert!(view.is_expanded());
             file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.is_rendered());
-                assert!(view.active);
-                assert!(!view.current);
+                assert!(view.is_active());
+                assert!(!view.is_current());
             });
         } else if j > cursor_line {
             // all are expanded but inactive
             assert!(view.is_rendered());
-            assert!(!view.current);
-            assert!(!view.active);
+            assert!(!view.is_current());
+            assert!(!view.is_active());
             assert!(view.is_expanded());
             file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.is_rendered());
-                assert!(!view.active);
-                assert!(!view.current);
+                assert!(!view.is_active());
+                assert!(!view.is_current());
             });
         }
     }
@@ -212,7 +212,7 @@ pub fn test_single_diff() {
                     // hunks were expanded by default.
                     // now they are collapsed!
                     assert!(!view.is_expanded());
-                    assert!(view.child_dirty);
+                    assert!(view.is_child_dirty());
                     for line in child.get_children() {
                         assert!(line.get_view().is_squashed());
                     }
@@ -325,7 +325,7 @@ fn test_render_view() {
     assert!(iter.line() == 2);
 
     // -------------------- test dirty
-    view2.dirty = true;
+    view2.dirty(true);
     view2.render_in_textview(
         &buffer,
         &mut iter,
@@ -334,7 +334,7 @@ fn test_render_view() {
         Vec::new(),
         &mut ctx,
     );
-    assert!(!view2.dirty);
+    assert!(!view2.is_dirty());
     assert!(iter.line() == 3);
     // -------------------- test squashed
     view3.squash(true);
@@ -351,8 +351,8 @@ fn test_render_view() {
     assert!(iter.line() == 3);
     // -------------------- test transfered
     view3.line_no = 0;
-    view3.dirty = true;
-    view3.transfered = true;
+    view3.dirty(true);
+    view3.transfer(true);
     view3.render_in_textview(
         &buffer,
         &mut iter,
@@ -363,8 +363,8 @@ fn test_render_view() {
     );
     assert!(view3.line_no == 3);
     assert!(view3.is_rendered());
-    assert!(!view3.dirty);
-    assert!(!view3.transfered);
+    assert!(!view3.is_dirty());
+    assert!(!view3.is_transfered());
     assert!(iter.line() == 4);
 
     // --------------------- test not in place

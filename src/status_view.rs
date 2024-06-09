@@ -665,7 +665,7 @@ impl Status {
                 self.conflicted_label.content = String::from("<span weight=\"bold\"\
                                                               color=\"#1c71d8\">Conflicts resolved</span>\
                                                               stage changes to complete merge");
-                self.conflicted_label.view.dirty = true;
+                self.conflicted_label.view.dirty(true);
             }
             diff.enrich_view(s, &txt.buffer(), context);
         }
@@ -759,7 +759,7 @@ impl Status {
         self.conflicted_label.content = String::from(
             "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>",
         );
-        self.conflicted_label.view.dirty = true;
+        self.conflicted_label.view.dirty(true);
     }
 
     pub fn update_staged(
@@ -995,7 +995,7 @@ impl Status {
                 // refactor to some generic method
                 // why other elements do not using this?
                 let view = file.get_view();
-                if view.current && view.line_no == line_no {
+                if view.is_current() && view.line_no == line_no {
                     let ignore_path = file
                         .path
                         .clone()
@@ -1044,7 +1044,7 @@ impl Status {
                 for hunk in &f.hunks {
                     // also someone can press stage on hunk!
                     for line in &hunk.lines {
-                        if line.view.current {
+                        if line.view.is_current() {
                             glib::spawn_future_local({
                                 let path = self.path.clone().unwrap();
                                 let sender = self.sender.clone();
@@ -1105,7 +1105,7 @@ impl Status {
     ) {
         if let Some(untracked) = &mut self.untracked {
             for file in &mut untracked.files {
-                if file.get_view().current {
+                if file.get_view().is_current() {
                     gio::spawn_blocking({
                         let path = self.path.clone();
                         let sender = self.sender.clone();
@@ -1166,7 +1166,7 @@ impl Status {
                     file_path_so_stage = id;
                 }
                 ViewKind::Hunk => {
-                    if !view.active {
+                    if !view.is_active() {
                         return;
                     }
                     // store active hunk in filter
