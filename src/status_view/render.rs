@@ -30,7 +30,6 @@ pub struct View {
     pub active: bool,
     pub current: bool,
     pub transfered: bool,
-    pub tags: Vec<String>,
     pub markup: bool,
     pub tag_indexes: tags::TagIdx,
 }
@@ -55,7 +54,6 @@ impl View {
             active: false,
             current: false,
             transfered: false,
-            tags: Vec::new(),
             markup: false,
             tag_indexes: tags::TagIdx::new(),
         }
@@ -102,7 +100,7 @@ impl View {
         let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
         eol_iter.forward_to_line_end();
         buffer.remove_all_tags(iter, &eol_iter);
-        self.tags = Vec::new();
+        self.cleanup_tags();
         buffer.delete(iter, &mut eol_iter);
         if self.markup {
             buffer.insert_markup(iter, content);
@@ -210,7 +208,7 @@ impl View {
                 nel_iter.forward_lines(1);
                 buffer.delete(iter, &mut nel_iter);
                 self.rendered = false;
-                self.tags = Vec::new();
+                self.cleanup_tags();
 
                 if let Some(ec) = context.erase_counter {
                     context.erase_counter.replace(ec + 1);
