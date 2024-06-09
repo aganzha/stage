@@ -501,7 +501,7 @@ impl ViewContainer for Line {
     }
 
     fn get_view(&mut self) -> &mut View {
-        &mut self.view
+        self.view.get_mut()
     }
 
     fn get_content(&self) -> String {

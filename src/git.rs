@@ -8,6 +8,7 @@ use crate::branch::BranchData;
 use crate::commit::CommitRepr;
 use crate::gio;
 use crate::status_view::render::View;
+use std::cell::{Cell};
 use async_channel::Sender;
 
 use git2::build::CheckoutBuilder;
@@ -47,7 +48,7 @@ pub enum LineKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Line {
-    pub view: View,
+    pub view: Cell<View>,
     pub origin: DiffLineType,
     pub content: String,
     pub new_line_no: Option<u32>,
@@ -55,10 +56,23 @@ pub struct Line {
     pub kind: LineKind,
 }
 
+impl Default for Line {
+    fn default() -> Self {
+        Line {
+            view: Cell::new(View::new()),
+            origin: DiffLineType::Addition,
+            content: "".to_string(),
+            new_line_no: None,
+            old_line_no: None,
+            kind: LineKind::None
+        }
+    }
+}
+
 impl Line {
     pub fn from_diff_line(l: &DiffLine) -> Self {
         return Self {
-            view: View::new(),
+            view: Cell::new(View::new()),
             origin: l.origin_value(),
             new_line_no: l.new_lineno(),
             old_line_no: l.old_lineno(),

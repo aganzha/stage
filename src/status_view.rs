@@ -1041,7 +1041,7 @@ impl Status {
                 for hunk in &f.hunks {
                     // also someone can press stage on hunk!
                     for line in &hunk.lines {
-                        if line.view.current {
+                        if line.view.get().current {
                             glib::spawn_future_local({
                                 let path = self.path.clone().unwrap();
                                 let sender = self.sender.clone();
