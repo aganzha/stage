@@ -1,3 +1,5 @@
+BUG: same case - look at cursor tag
+BUG: excessive grey line after 1 of 2 hunk staging
 go with amend
 TODO: rename _view.rs to _list.rs
 views must be connected with each other with large linked list. list across all view
@@ -12,6 +14,8 @@ in Cell and then i will not need &mut self everywhere, cause view will be by pas
 
 
 TODO: when there is nothing to stage - open commit edit message dialog!
+
+one
 
 BUG: in docs. commit starting with abab does not expand last line!
 6d978 - interesting commit
@@ -72,7 +76,7 @@ can't get commit from ref!: thats a conflict
 BUG: kill in untracked stages it + what if it is a directory???
 BUG: unstaging 1 untracked unstage all untracked (perhaps in libgit)
 
-
+two
 
 so, about search - the head is does not matter. what matter is selected position.
 it need to update list in such a way, that selected position is always visible

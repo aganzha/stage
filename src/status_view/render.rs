@@ -21,16 +21,16 @@ pub enum ViewState {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct RenderFlags(i8);
+pub struct RenderFlags(u8);
 
 impl RenderFlags{
     pub fn new() -> Self {
         Self(0)
     }
-    pub fn from(i: i8) -> Self {
+    pub fn from(i: u8) -> Self {
         Self(i)
     }
-    pub const EXPANDED: i8 = 0b00000001;
+    pub const EXPANDED: u8 = 0b00000001;
 
     pub fn is_expanded(&self) -> bool {
         self.0 & Self::EXPANDED != 0
@@ -43,7 +43,7 @@ impl RenderFlags{
         }
     }
 
-    pub const SQAUASHED: i8 = 0b00000010;
+    pub const SQAUASHED: u8 = 0b00000010;
 
     pub fn is_squashed(&self) -> bool {
         self.0 & Self::SQAUASHED != 0
@@ -56,7 +56,7 @@ impl RenderFlags{
         }
     }
 
-    pub const RENDERED: i8 = 0b00000100;
+    pub const RENDERED: u8 = 0b00000100;
 
     pub fn is_rendered(&self) -> bool {
         self.0 & Self::RENDERED != 0
@@ -69,7 +69,7 @@ impl RenderFlags{
         }
     }
 
-    pub const DIRTY: i8 = 0b00001000;
+    pub const DIRTY: u8 = 0b00001000;
 
     pub fn is_dirty(&self) -> bool {
         self.0 & Self::DIRTY != 0
@@ -82,7 +82,7 @@ impl RenderFlags{
         }
     }
 
-    pub const CHILD_DIRTY: i8 = 0b00010000;
+    pub const CHILD_DIRTY: u8 = 0b00010000;
 
     pub fn is_child_dirty(&self) -> bool {
         self.0 & Self::CHILD_DIRTY != 0
@@ -95,7 +95,7 @@ impl RenderFlags{
         }
     }
 
-    pub const ACTIVE: i8 = 0b00100000;
+    pub const ACTIVE: u8 = 0b00100000;
 
     pub fn is_active(&self) -> bool {
         self.0 & Self::ACTIVE != 0
@@ -108,7 +108,7 @@ impl RenderFlags{
         }
     }
 
-    pub const CURRENT: i8 = 0b01000000;
+    pub const CURRENT: u8 = 0b01000000;
 
     pub fn is_current(&self) -> bool {
         self.0 & Self::CURRENT != 0
@@ -121,7 +121,7 @@ impl RenderFlags{
         }
     }
 
-    pub const TRANSFERED: i8 = 0b00000000;
+    pub const TRANSFERED: u8 = 0b10000000;
 
     pub fn is_transfered(&self) -> bool {
         self.0 & Self::TRANSFERED != 0
@@ -499,8 +499,7 @@ impl View {
         if self.is_dirty() && self.is_transfered() {
             // why not in place? it is in place, just transfered!
             // TODO rename this state. and think about it!
-            // return ViewState::RenderedDirtyNotInPlace(self.line_no);
-            todo!("why do i need this state?")
+            return ViewState::RenderedDirtyNotInPlace(self.line_no.get());
         }
         if self.is_squashed() {
             return ViewState::RenderedAndMarkedAsSquashed;
