@@ -98,16 +98,16 @@ impl Binary for TagIdx {
 }
 
 impl View {
-    pub fn tag_added(&mut self, tag: &TxtTag) {
+    pub fn tag_added(&self, tag: &TxtTag) {
         self.tag_indexes.replace(self.tag_indexes.get().added(tag));
     }
-    pub fn tag_removed(&mut self, tag: &TxtTag) {
+    pub fn tag_removed(&self, tag: &TxtTag) {
         self.tag_indexes.replace(self.tag_indexes.get().removed(tag));
     }
     pub fn tag_is_added(&self, tag: &TxtTag) -> bool {
         self.tag_indexes.get().is_added(tag)
     }
-    pub fn cleanup_tags(&mut self) {
+    pub fn cleanup_tags(&self) {
         self.tag_indexes.replace(TagIdx::new());
     }
 }
