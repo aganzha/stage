@@ -121,7 +121,7 @@ impl RenderFlags{
         }
     }
 
-    pub const TRANSFERED: i8 = 0b01000000;
+    pub const TRANSFERED: i8 = 0b00000000;
 
     pub fn is_transfered(&self) -> bool {
         self.0 & Self::TRANSFERED != 0
@@ -515,7 +515,8 @@ impl View {
         if self.is_dirty() && self.is_transfered() {
             // why not in place? it is in place, just transfered!
             // TODO rename this state. and think about it!
-            return ViewState::RenderedDirtyNotInPlace(self.line_no);
+            // return ViewState::RenderedDirtyNotInPlace(self.line_no);
+            todo!("why do i need this state?")
         }
         if self.is_squashed() {
             return ViewState::RenderedAndMarkedAsSquashed;
