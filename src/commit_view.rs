@@ -209,7 +209,7 @@ impl MultiLineLabel {
         }
         // space for following diff
         self.labels.push(TextViewLabel::from_string(""));
-        self.view.expanded = true;
+        self.view.expand(true) // expanded = true;
     }
 }
 

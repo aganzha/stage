@@ -48,7 +48,7 @@ pub enum LineKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Line {
-    pub view: Cell<View>,
+    pub view: View,
     pub origin: DiffLineType,
     pub content: String,
     pub new_line_no: Option<u32>,
@@ -59,7 +59,7 @@ pub struct Line {
 impl Default for Line {
     fn default() -> Self {
         Line {
-            view: Cell::new(View::new()),
+            view: View::new(),
             origin: DiffLineType::Addition,
             content: "".to_string(),
             new_line_no: None,
@@ -72,7 +72,7 @@ impl Default for Line {
 impl Line {
     pub fn from_diff_line(l: &DiffLine) -> Self {
         return Self {
-            view: Cell::new(View::new()),
+            view: View::new(),
             origin: l.origin_value(),
             new_line_no: l.new_lineno(),
             old_line_no: l.old_lineno(),
