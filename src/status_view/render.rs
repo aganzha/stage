@@ -55,6 +55,19 @@ impl RenderFlags{
             Self(self.0 & !Self::SQAUASHED)
         }
     }
+
+    pub const RENDERED: i8 = 0b00000100;
+
+    pub fn is_rendered(&self) -> bool {
+        self.0 & Self::RENDERED != 0
+    }
+    pub fn render(&mut self, value: bool) -> Self {
+        if value {
+            Self(self.0 | Self::RENDERED)
+        } else {
+            Self(self.0 & !Self::RENDERED)
+        }
+    }
 }
 
 
@@ -71,7 +84,7 @@ pub struct View {
 
     // pub expanded: bool,
     // pub squashed: bool,
-    pub rendered: bool,
+    // pub rendered: bool,
     pub dirty: bool,
     pub child_dirty: bool,
     pub active: bool,
@@ -96,7 +109,7 @@ impl View {
             line_no: 0,
             // expanded: false,
             // squashed: false,
-            rendered: false,
+            // rendered: false,
             dirty: false,
             child_dirty: false,
             active: false,
@@ -114,16 +127,21 @@ impl View {
     pub fn squash(&self, value: bool) {
         self.flags.replace(self.flags.get().squash(value));
     }
-
+    pub fn render(&self, value: bool) {
+        self.flags.replace(self.flags.get().render(value));
+    }
+    
     pub fn is_expanded(&self) -> bool {
         self.flags.get().is_expanded()
     }
     pub fn is_squashed(&self) -> bool {
         self.flags.get().is_squashed()
     }
-    
+    pub fn is_rendered(&self) -> bool {
+        self.flags.get().is_rendered()
+    }
     pub fn is_rendered_in(&self, line_no: i32) -> bool {
-        self.rendered
+        self.is_rendered()
             && self.line_no == line_no
             && !self.dirty
             && !self.is_squashed()
@@ -202,7 +220,7 @@ impl View {
     }
 
     // View
-    pub fn render(
+    pub fn render_in_textview(
         &mut self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
@@ -241,7 +259,7 @@ impl View {
                     buffer.insert(iter, &format!("{}\n", content));
                 }
                 self.line_no = line_no;
-                self.rendered = true;
+                self.render(true);
                 if !content.is_empty() {
                     self.apply_tags(buffer, &content_tags);
                 }
@@ -260,14 +278,14 @@ impl View {
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
                 }
-                self.rendered = true;
+                self.render(true);
             }
             ViewState::RenderedAndMarkedAsSquashed => {
                 trace!("..render MATCH squashed {:?}", line_no);
                 let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
                 nel_iter.forward_lines(1);
                 buffer.delete(iter, &mut nel_iter);
-                self.rendered = false;
+                self.render(false);
                 self.cleanup_tags();
 
                 if let Some(ec) = context.erase_counter {
@@ -389,10 +407,10 @@ impl View {
         if self.is_rendered_in(line_no) {
             return ViewState::RenderedInPlace;
         }
-        if !self.rendered && self.is_squashed() {
+        if !self.is_rendered() && self.is_squashed() {
             return ViewState::Deleted;
         }
-        if !self.rendered {
+        if !self.is_rendered() {
             return ViewState::NotRendered;
         }
         if self.dirty && !self.transfered {
