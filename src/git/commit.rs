@@ -181,10 +181,10 @@ pub fn get_parents_for_commit(path: PathBuf) -> Vec<git2::Oid> {
     result
 }
 
-pub fn create_commit(
+pub fn create(
     path: PathBuf,
     message: String,
-    _amend: bool,
+    amend: bool,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
@@ -206,41 +206,22 @@ pub fn create_commit(
     let tree_oid = repo.index()?.write_tree()?;
 
     let tree = repo.find_tree(tree_oid)?;
-
-    let commits = get_parents_for_commit(path.clone())
-        .into_iter()
-        .map(|oid| repo.find_commit(oid).unwrap())
-        .collect::<Vec<git2::Commit>>();
-
-    match &commits[..] {
-        [commit] => {
-            let tree = repo.find_tree(tree_oid).expect("can't find tree");
-            repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&commit])?;
-        }
-        [commit, merge_commit] => {
-            let merge_message = match repo.message() {
-                Ok(mut msg) => {
-                    if !message.is_empty() {
-                        msg.push('\n');
-                        msg.push_str(&message);
-                    }
-                    msg
-                }
-                _error => message,
-            };
-            repo.commit(
-                Some("HEAD"),
-                &me,
-                &me,
-                &merge_message,
-                &tree,
-                &[&commit, &merge_commit],
-            )?;
-            repo.cleanup_state()?;
-        }
-        _ => {
-            todo!("multiple parents")
-        }
+    let parent_oid = repo
+        .revparse_single("HEAD^{commit}")?
+        .id();
+    
+    let parent_commit = repo.find_commit(parent_oid)?;
+    if amend {
+        parent_commit.amend(
+            Some("HEAD"),
+            Some(&me),
+            Some(&me),
+            None, // message encoding
+            Some(&message),
+            Some(&tree)
+        )?;
+    } else {
+        repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&parent_commit])?;
     }
     // update staged changes
     let ob = repo.revparse_single("HEAD^{tree}")?;
