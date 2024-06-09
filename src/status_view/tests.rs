@@ -8,6 +8,7 @@ use gtk4::prelude::*;
 use gtk4::TextBuffer;
 use log::debug;
 use std::sync::Once;
+use std::cell::{Cell};
 
 static INIT: Once = Once::new();
 
@@ -22,7 +23,7 @@ fn create_line(name: &str) -> Line {
     Line {
         content: name.to_string(),
         origin: DiffLineType::Context,
-        view: View::new(),
+        view: Cell::new(View::new()),
         new_line_no: None,
         old_line_no: None,
         kind: LineKind::None,
@@ -406,7 +407,7 @@ fn test_expand_line() {
         });
     }
 
-    let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no;
+    let line_of_line = diff.files[0].hunks[0].lines[1].view.get().line_no;
     // put cursor inside first hunk
     if diff.cursor(line_of_line, false, &mut ctx) {
         // if comment out next line the line_of_line will be not sqashed
@@ -506,4 +507,14 @@ fn test_tags() {
     assert!(view.tag_indexes == tags::TagIdx::from(0b00000000));
     assert!(!view.tag_indexes.is_added(&tag1));
     assert!(!view.tag_indexes.is_added(&tag3));
+}
+
+#[test]
+pub fn test_line() {
+    env_logger::builder().format_timestamp(None).init();
+    let line =  Line::default();
+    line.view.replace(View{rendered: true, ..line.view.get()});
+    debug!("ooooooooooooooooooo {:?}", line.view.get().rendered);
+    line.view.replace(View{rendered: false, transfered: true, ..line.view.get()});
+    debug!("ooooooooooooooooooo {:?} {:?}", line.view.get().rendered, line.view.get().transfered);
 }

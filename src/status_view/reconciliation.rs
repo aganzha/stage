@@ -18,9 +18,12 @@ impl Line {
         rendered: &Line,
         _context: &mut crate::StatusRenderContext,
     ) {
-        self.view = rendered.transfer_view();
+        self.view.replace(rendered.transfer_view());
         if self.content != rendered.content || self.origin != rendered.origin {
-            self.view.dirty = true;
+            let mut view = self.view.get();
+            view.dirty = true;
+            self.view.replace(view);
+            // line.view.replace(View{rendered: true, ..line.view.get()});
             trace!("*************dirty content in reconciliation: {} <> {} origins: {:?} {:?}",
                    self.content,
                    rendered.content,
@@ -31,7 +34,7 @@ impl Line {
     }
     // line
     pub fn transfer_view(&self) -> View {
-        let mut clone = self.view.clone();
+        let mut clone = self.view.get().clone();
         clone.transfered = true;
         clone
     }

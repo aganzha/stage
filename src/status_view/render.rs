@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::fmt;
 use pango::Style;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum ViewState {
     RenderedInPlace,
     Deleted,
@@ -19,7 +19,7 @@ pub enum ViewState {
     RenderedNotInPlace(i32),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct View {
     pub line_no: i32,
     pub expanded: bool,
