@@ -488,22 +488,20 @@ fn test_reconciliation() {
 
 #[test]
 fn test_tags() {
-
-    fn make_tag(name: &str) -> tags::TxtTag {
-        tags::TxtTag::from_str(name)
-    }
-    let tag1 = tags::TxtTag::from_str(tags::TEXT_TAGS[1]);
+    env_logger::builder().format_timestamp(None).init();
+    
+    let tag1 = tags::TxtTag::from_str(tags::TEXT_TAGS[10]);
     let tag3 = tags::TxtTag::from_str(tags::TEXT_TAGS[3]);
 
     let mut view = View::new();
     view.tag_added(&tag1);
     debug!("added at 1 {:b}", view.tag_indexes.get());
-    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b00000010));
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b10000000000));
     assert!(view.tag_indexes.get().is_added(&tag1));
 
     view.tag_added(&tag3);
     debug!("added at 3 {:b}", view.tag_indexes.get());
-    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b00001010));
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b10000001000));
     assert!(view.tag_indexes.get().is_added(&tag1));
     assert!(view.tag_indexes.get().is_added(&tag3));
 
