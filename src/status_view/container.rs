@@ -27,6 +27,11 @@ pub enum ViewKind {
 }
 
 pub trait ViewContainer {
+
+    fn is_markup(&self) -> bool {
+        false
+    }
+    
     fn get_kind(&self) -> ViewKind;
 
     fn child_count(&self) -> usize;
@@ -62,8 +67,9 @@ pub trait ViewContainer {
         self.fill_context(context);
         let content = self.get_content();
         let tags = self.tags();
+        let is_markup = self.is_markup();
         let view =
-            self.get_view().render(buffer, iter, content, tags, context);
+            self.get_view().render(buffer, iter, content, is_markup, tags, context);
         if view.expanded || view.child_dirty {
             for child in self.get_children() {
                 child.render(buffer, iter, context);
@@ -585,6 +591,10 @@ impl ViewContainer for Line {
 }
 
 impl ViewContainer for Label {
+
+    fn is_markup(&self) -> bool {
+        true
+    }
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
@@ -605,6 +615,10 @@ impl ViewContainer for Label {
 }
 
 impl ViewContainer for Head {
+
+    fn is_markup(&self) -> bool {
+        true
+    }
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
@@ -634,6 +648,10 @@ impl ViewContainer for Head {
 }
 
 impl ViewContainer for State {
+
+    fn is_markup(&self) -> bool {
+        true
+    }
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }

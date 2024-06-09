@@ -461,7 +461,7 @@ impl State {
         Self {
             state,
             subject,
-            view: View::new_markup(),
+            view: View::new(),
         }
     }
     pub fn need_final_commit(&self) -> bool {
@@ -491,7 +491,7 @@ impl Head {
             branch: String::from(branch.name().unwrap().unwrap()),
             log_message: commit.log_message(),
             commit_body: commit.raw_message(),
-            view: View::new_markup(),
+            view: View::new(),
             remote: false,
         }
     }

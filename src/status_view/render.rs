@@ -22,6 +22,7 @@ pub enum ViewState {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct View {
     pub line_no: i32,
+
     pub expanded: bool,
     pub squashed: bool,
     pub rendered: bool,
@@ -30,7 +31,7 @@ pub struct View {
     pub active: bool,
     pub current: bool,
     pub transfered: bool,
-    pub markup: bool,
+
     pub tag_indexes: tags::TagIdx,
 }
 
@@ -54,14 +55,8 @@ impl View {
             active: false,
             current: false,
             transfered: false,
-            markup: false,
             tag_indexes: tags::TagIdx::new(),
         }
-    }
-    pub fn new_markup() -> Self {
-        let mut view = Self::new();
-        view.markup = true;
-        view
     }
 
     pub fn is_rendered_in(&self, line_no: i32) -> bool {
@@ -96,13 +91,14 @@ impl View {
         buffer: &TextBuffer,
         iter: &mut TextIter,
         content: &str,
+        is_markup: bool,
     ) {
         let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
         eol_iter.forward_to_line_end();
         buffer.remove_all_tags(iter, &eol_iter);
         self.cleanup_tags();
         buffer.delete(iter, &mut eol_iter);
-        if self.markup {
+        if is_markup {
             buffer.insert_markup(iter, content);
         } else {
             buffer.insert(iter, content);
@@ -148,6 +144,7 @@ impl View {
         buffer: &TextBuffer,
         iter: &mut TextIter,
         content: String,
+        is_markup: bool,
         content_tags: Vec<tags::TxtTag>,
         context: &mut crate::StatusRenderContext,
     ) -> &mut Self {
@@ -175,7 +172,7 @@ impl View {
             ViewState::NotRendered => {
                 trace!("..render MATCH insert {:?}", line_no);
                 let content = self.build_up(&content, line_no, context);
-                if self.markup {
+                if is_markup {
                     buffer.insert_markup(iter, &format!("{}\n", content));
                 } else {
                     buffer.insert(iter, &format!("{}\n", content));
@@ -194,7 +191,7 @@ impl View {
                     // max width is detected by diff max width and then resize
                     // event is come with larger with
                     let content = self.build_up(&content, line_no, context);
-                    self.replace_dirty_content(buffer, iter, &content);
+                    self.replace_dirty_content(buffer, iter, &content, is_markup);
                 }
                 self.apply_tags(buffer, &content_tags);
                 if !iter.forward_lines(1) {
@@ -224,7 +221,7 @@ impl View {
                 trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
                 self.line_no = line_no;
                 let content = self.build_up(&content, line_no, context);
-                self.replace_dirty_content(buffer, iter, &content);
+                self.replace_dirty_content(buffer, iter, &content, is_markup);
                 self.apply_tags(buffer, &content_tags);
                 self.force_forward(buffer, iter);
             }
