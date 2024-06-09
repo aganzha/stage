@@ -1150,42 +1150,56 @@ impl Status {
             }
         };
         let mut filter = ApplyFilter::new(subject);
-        let mut file_path_so_stage = String::new();
-        let mut hunks_staged = 0;
+        for file in &diff.files {
+            debug!("---------------> {:?} {} {}", file.path, file.view.is_active(), file.view.is_current());
+            if file.view.is_active() {
+                filter.file_id = file.path.to_str().unwrap().to_string();                
+                if file.view.is_current() {
+                    break;
+                } else {
+                    for hunk in &file.hunks {
+                        if hunk.view.is_active() {
+                            filter.hunk_id.replace(hunk.header.clone());
+                            break;
+                        }
+                    }
+                }
+                
+            }
+        }
+        // let mut file_path_so_stage = String::new();
+        // let mut hunks_staged = 0;
         // there could be either file with all hunks
         // or just 1 hunk
-        diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
-            let id = vc.get_id();
-            let kind = vc.get_kind();
-            let view = vc.get_view();
-            trace!("walks down on apply {:} {:?}", id, kind);
-            match kind {
-                ViewKind::File => {
-                    // just store current file_path
-                    // in this loop. temporary variable
-                    file_path_so_stage = id;
-                }
-                ViewKind::Hunk => {
-                    if !view.is_active() {
-                        return;
-                    }
-                    // store active hunk in filter
-                    // if the cursor is on file, all
-                    // hunks under it will be active
-                    filter.file_id = file_path_so_stage.clone();
-                    filter.hunk_id.replace(id);
-                    hunks_staged += 1;
-                }
-                _ => (),
-            }
-        });
+        // diff.walk_down(&|vc: &dyn ViewContainer| {
+        //     let id = vc.get_id();
+        //     let kind = vc.get_kind();
+        //     let view = vc.get_view();
+        //     trace!("walks down on apply {:} {:?}", id, kind);
+        //     match kind {
+        //         ViewKind::File => {
+        //             // just store current file_path
+        //             // in this loop. temporary variable
+        //             file_path_so_stage = id;
+        //         }
+        //         ViewKind::Hunk => {
+        //             if !view.is_active() {
+        //                 return;
+        //             }
+        //             // store active hunk in filter
+        //             // if the cursor is on file, all
+        //             // hunks under it will be active
+        //             filter.file_id = file_path_so_stage.clone();
+        //             filter.hunk_id.replace(id);
+        //             hunks_staged += 1;
+        //         }
+        //         _ => (),
+        //     }
+        // })
+            ;
         debug!("apply filter ----------------------> {:?}", filter);
-        if !filter.file_id.is_empty() {
-            if hunks_staged > 1 {
-                // stage all hunks in file
-                filter.hunk_id = None;
-            }
-            trace!("stage via apply {:?}", filter);
+        if !filter.file_id.is_empty() {            
+            debug!("stage via apply {:?}", filter);
             glib::spawn_future_local({
                 let window = window.clone();
                 let path = self.path.clone();
@@ -1266,7 +1280,7 @@ impl Status {
 
         debug!("debug at line {:?}", current_line);
         if let Some(diff) = &mut self.staged {
-            diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            diff.walk_down(&|vc: &dyn ViewContainer| {
                 let content = vc.get_content();
                 let view = vc.get_view();
                 // hack :(
@@ -1282,7 +1296,7 @@ impl Status {
             });
         }
         if let Some(diff) = &mut self.unstaged {
-            diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            diff.walk_down(&|vc: &dyn ViewContainer| {
                 let content = vc.get_content();
                 let view = vc.get_view();
                 if view.line_no.get() == current_line {
