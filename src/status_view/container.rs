@@ -183,8 +183,8 @@ pub trait ViewContainer {
                 }
             }
             if found_line.is_some() && self.is_expandable_by_child() {
-                let my_line = self.get_view().line_no;
-                return self.expand(my_line);
+                let line_no = self.get_view().line_no.get();
+                return self.expand(line_no);
             }
         }
         found_line
@@ -225,9 +225,9 @@ pub trait ViewContainer {
         // and also put there prev_line length!
 
         let view = self.get_view();
-        let mut line_no = view.line_no;
+        let mut line_no = view.line_no.get();
         trace!("original line_no {:?}", line_no);
-        let original_line_no = view.line_no;
+        let original_line_no = view.line_no.get();
 
         if let Some(ec) = context.erase_counter {
             debug!("erase counter {:?}", ec);
@@ -258,7 +258,7 @@ pub trait ViewContainer {
     ) {
         // this is just RE render with build_up
         let view = self.get_view();
-        let line_no = view.line_no;
+        let line_no = view.line_no.get();
         if view.is_rendered() {
             view.dirty(true);
             // TODO! why i need child dirty here?
@@ -330,13 +330,13 @@ impl ViewContainer for Diff {
         context: &mut StatusRenderContext,
     ) {
         // why do i need it at all?
-        self.view.line_no = iter.line();
+        self.view.line_no.replace(iter.line());
         context.update_screen_line_width(self.max_line_len);
 
         for file in &mut self.files {
             file.render(buffer, iter, context);
         }
-        let start_iter = buffer.iter_at_line(self.view.line_no).unwrap();
+        let start_iter = buffer.iter_at_line(self.view.line_no.get()).unwrap();
         let end_iter = buffer.iter_at_line(iter.line()).unwrap();
         for tag in self.tags() {
             buffer.apply_tag_by_name(tag.str(), &start_iter, &end_iter);
@@ -441,7 +441,7 @@ impl ViewContainer for Hunk {
     }
 
     fn get_view(&mut self) -> &mut View {
-        if self.view.line_no == 0 && !self.view.is_expanded() {
+        if self.view.line_no.get() == 0 && !self.view.is_expanded() {
             // hunks are expanded by default
             self.view.expand(true)
         }
@@ -522,7 +522,7 @@ impl ViewContainer for Line {
     // Line
     fn expand(&mut self, line_no: i32) -> Option<i32> {
         // here we want to expand hunk
-        if self.get_view().line_no == line_no {
+        if self.get_view().line_no.get() == line_no {
             return Some(line_no);
         }
         None
@@ -730,7 +730,7 @@ impl ViewContainer for Untracked {
     // Untracked
     fn expand(&mut self, line_no: i32) -> Option<i32> {
         // here we want to expand hunk
-        if self.get_view().line_no == line_no {
+        if self.get_view().line_no.get() == line_no {
             return Some(line_no);
         }
         None
@@ -756,7 +756,7 @@ impl ViewContainer for Untracked {
         iter: &mut TextIter,
         context: &mut StatusRenderContext,
     ) {
-        self.view.line_no = iter.line();
+        self.view.line_no.replace(iter.line());
         for file in &mut self.files {
             file.render(buffer, iter, context);
         }
@@ -799,7 +799,7 @@ impl ViewContainer for UntrackedFile {
 
     fn expand(&mut self, line_no: i32) -> Option<i32> {
         // here we want to expand hunk
-        if self.get_view().line_no == line_no {
+        if self.get_view().line_no.get() == line_no {
             return Some(line_no);
         }
         None

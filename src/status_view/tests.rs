@@ -62,7 +62,7 @@ fn create_diff() -> Diff {
 
 pub fn mock_render_view(vc: &mut dyn ViewContainer, mut line_no: i32) -> i32 {
     let view = vc.get_view();
-    view.line_no = line_no;
+    view.line_no.replace(line_no);
     view.render(true);
     view.dirty(false);
     line_no += 1;
@@ -208,7 +208,7 @@ pub fn test_single_diff() {
         if let Some(_expanded_line) = file.expand(cursor_line) {
             for child in file.get_children() {
                 let view = child.get_view();
-                if view.line_no == cursor_line {
+                if view.line_no.get() == cursor_line {
                     // hunks were expanded by default.
                     // now they are collapsed!
                     assert!(!view.is_expanded());
@@ -260,9 +260,9 @@ fn test_render_view() {
         Vec::new(),
         &mut ctx,
     );
-    assert!(view1.line_no == 1);
-    assert!(view2.line_no == 2);
-    assert!(view3.line_no == 3);
+    assert!(view1.line_no.get() == 1);
+    assert!(view2.line_no.get() == 2);
+    assert!(view3.line_no.get() == 3);
     assert!(view1.is_rendered());
     assert!(view2.is_rendered());
     assert!(view3.is_rendered());
@@ -350,7 +350,7 @@ fn test_render_view() {
     // iter remains on same kine, just squashing view in place
     assert!(iter.line() == 3);
     // -------------------- test transfered
-    view3.line_no = 0;
+    view3.line_no.replace(0);
     view3.dirty(true);
     view3.transfer(true);
     view3.render_in_textview(
@@ -361,7 +361,7 @@ fn test_render_view() {
         Vec::new(),
         &mut ctx,
     );
-    assert!(view3.line_no == 3);
+    assert!(view3.line_no.get() == 3);
     assert!(view3.is_rendered());
     assert!(!view3.is_dirty());
     assert!(!view3.is_transfered());
@@ -369,7 +369,7 @@ fn test_render_view() {
 
     // --------------------- test not in place
     iter = buffer.iter_at_line(3).unwrap();
-    view3.line_no = 0;
+    view3.line_no.replace(0);
     view3.render_in_textview(
         &buffer,
         &mut iter,
@@ -378,7 +378,7 @@ fn test_render_view() {
         Vec::new(),
         &mut ctx,
     );
-    assert!(view3.line_no == 3);
+    assert!(view3.line_no.get() == 3);
     assert!(view3.is_rendered());
     assert!(iter.line() == 4);
     // call it here, cause rust creates threads event with --test-threads=1
@@ -412,14 +412,14 @@ fn test_expand_line() {
             continue;
         }
         diff.walk_down(&mut move |vc: &mut dyn ViewContainer| {
-            if vc.get_view().line_no == i as i32 {
+            if vc.get_view().line_no.get() == i as i32 {
                 debug!("{:?} - {:?} = {:?}", i, cl, vc.get_content());
                 assert!(cl.trim() == vc.get_content());
             }
         });
     }
 
-    let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no;
+    let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no.get();
     // put cursor inside first hunk
     if diff.cursor(line_of_line, false, &mut ctx) {
         // if comment out next line the line_of_line will be not sqashed
@@ -497,28 +497,28 @@ fn test_tags() {
 
     let mut view = View::new();
     view.tag_added(&tag1);
-    debug!("added at 1 {:b}", view.tag_indexes);
-    assert!(view.tag_indexes == tags::TagIdx::from(0b00000010));
-    assert!(view.tag_indexes.is_added(&tag1));
+    debug!("added at 1 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b00000010));
+    assert!(view.tag_indexes.get().is_added(&tag1));
 
     view.tag_added(&tag3);
-    debug!("added at 3 {:b}", view.tag_indexes);
-    assert!(view.tag_indexes == tags::TagIdx::from(0b00001010));
-    assert!(view.tag_indexes.is_added(&tag1));
-    assert!(view.tag_indexes.is_added(&tag3));
+    debug!("added at 3 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b00001010));
+    assert!(view.tag_indexes.get().is_added(&tag1));
+    assert!(view.tag_indexes.get().is_added(&tag3));
 
     view.tag_removed(&tag1);
-    debug!("removed at 1 {:b}", view.tag_indexes);
-    assert!(view.tag_indexes == tags::TagIdx::from(0b00001000));
-    assert!(!view.tag_indexes.is_added(&tag1));
-    assert!(view.tag_indexes.is_added(&tag3));
+    debug!("removed at 1 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b00001000));
+    assert!(!view.tag_indexes.get().is_added(&tag1));
+    assert!(view.tag_indexes.get().is_added(&tag3));
 
     view.tag_removed(&tag3);
     // view.tag_indexes.added("tag3");
-    debug!("removed at 3 {:b}", view.tag_indexes);
-    assert!(view.tag_indexes == tags::TagIdx::from(0b00000000));
-    assert!(!view.tag_indexes.is_added(&tag1));
-    assert!(!view.tag_indexes.is_added(&tag3));
+    debug!("removed at 3 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b00000000));
+    assert!(!view.tag_indexes.get().is_added(&tag1));
+    assert!(!view.tag_indexes.get().is_added(&tag3));
 }
 
 #[test]
