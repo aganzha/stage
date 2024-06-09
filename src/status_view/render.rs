@@ -254,7 +254,7 @@ impl View {
     }
 
     fn replace_dirty_content(
-        &mut self,
+        &self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
         content: &str,
@@ -307,14 +307,14 @@ impl View {
 
     // View
     pub fn render_in_textview(
-        &mut self,
+        &self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
         content: String,
         is_markup: bool,
         content_tags: Vec<tags::TxtTag>,
         context: &mut crate::StatusRenderContext,
-    ) -> &mut Self {
+    ) -> &Self {
         // important. self.line_no is assigned only in 2 cases
         // below!!!!
 
@@ -431,7 +431,7 @@ impl View {
         (start_iter, end_iter)
     }
 
-    fn remove_tag(&mut self, buffer: &TextBuffer, tag: &tags::TxtTag) {
+    fn remove_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
         if self.tag_is_added(tag) {
             let (start_iter, end_iter) = self.start_end_iters(buffer);
             buffer.remove_tag_by_name(tag.name(), &start_iter, &end_iter);
@@ -439,7 +439,7 @@ impl View {
         }
     }
 
-    fn add_tag(&mut self, buffer: &TextBuffer, tag: &tags::TxtTag) {        
+    fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {        
         if !self.tag_is_added(tag) {
             let (start_iter, end_iter) = self.start_end_iters(buffer);
             buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
@@ -447,7 +447,7 @@ impl View {
         }
     }
 
-    fn apply_tags(&mut self, buffer: &TextBuffer, content_tags: &Vec<tags::TxtTag>) {
+    fn apply_tags(&self, buffer: &TextBuffer, content_tags: &Vec<tags::TxtTag>) {
         let mut fltr: HashSet<&str> = HashSet::new();
         if self.is_current() {
             self.add_tag(buffer, &make_tag(tags::CURSOR));

@@ -220,8 +220,8 @@ impl ViewContainer for MultiLineLabel {
     fn child_count(&self) -> usize {
         self.labels.len()
     }
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {

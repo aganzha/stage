@@ -38,7 +38,7 @@ pub trait ViewContainer {
 
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer>;
 
-    fn get_view(&mut self) -> &mut View;
+    fn get_view(&self) -> &View;
 
     // TODO - return bool and stop iteration when false
     // visitor takes child as first arg and parent as second arg
@@ -292,8 +292,8 @@ impl ViewContainer for Diff {
         self.files.len()
     }
 
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
     fn get_content(&self) -> String {
@@ -367,8 +367,8 @@ impl ViewContainer for File {
         self.hunks.len()
     }
 
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
     fn get_content(&self) -> String {
@@ -440,12 +440,12 @@ impl ViewContainer for Hunk {
         }
     }
 
-    fn get_view(&mut self) -> &mut View {
+    fn get_view(&self) -> &View {
         if self.view.line_no.get() == 0 && !self.view.is_expanded() {
             // hunks are expanded by default
             self.view.expand(true)
         }
-        &mut self.view
+        &self.view
     }
 
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
@@ -507,8 +507,8 @@ impl ViewContainer for Line {
         0
     }
 
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
     fn get_content(&self) -> String {
@@ -602,8 +602,8 @@ impl ViewContainer for Label {
     fn child_count(&self) -> usize {
         0
     }
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
@@ -626,8 +626,8 @@ impl ViewContainer for Head {
     fn child_count(&self) -> usize {
         0
     }
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
@@ -659,8 +659,8 @@ impl ViewContainer for State {
     fn child_count(&self) -> usize {
         0
     }
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
     fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
@@ -709,9 +709,9 @@ impl ViewContainer for Untracked {
     }
 
     // untracked
-    fn get_view(&mut self) -> &mut View {
+    fn get_view(&self) -> &View {
         self.view.expand(true);
-        &mut self.view
+        &self.view
     }
 
     // Untracked
@@ -785,8 +785,8 @@ impl ViewContainer for UntrackedFile {
         0
     }
 
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
     fn get_content(&self) -> String {
