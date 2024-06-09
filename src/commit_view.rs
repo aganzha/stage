@@ -462,7 +462,7 @@ pub fn show_commit_window(
                         }
                         let buffer = &txt.buffer();
                         let mut iter = buffer
-                            .iter_at_line(d.diff.files[0].view.line_no)
+                            .iter_at_line(d.diff.files[0].view.line_no.get())
                             .unwrap();
                         if need_render {
                             d.diff.render(buffer, &mut iter, &mut ctx);
@@ -475,7 +475,7 @@ pub fn show_commit_window(
                         if d.diff.cursor(line_no, false, &mut ctx) {
                             let buffer = &txt.buffer();
                             let mut iter = buffer
-                                .iter_at_line(d.diff.files[0].view.line_no)
+                                .iter_at_line(d.diff.files[0].view.line_no.get())
                                 .unwrap();
                             // will render diff whithout rendering
                             // preceeding elements!

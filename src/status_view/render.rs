@@ -145,19 +145,9 @@ impl Binary for RenderFlags {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct View {
-    pub line_no: i32,
-
-    // pub expanded: bool,
-    // pub squashed: bool,
-    // pub rendered: bool,
-    // pub dirty: bool,
-    // pub child_dirty: bool,
-    // pub active: bool,
-    // pub current: bool,
-    // pub transfered: bool,
-
+    pub line_no: Cell<i32>,
     pub flags: Cell<RenderFlags>,
-    pub tag_indexes: tags::TagIdx,
+    pub tag_indexes: Cell<tags::TagIdx>,
 }
 
 pub fn make_tag(name: &str) -> tags::TxtTag {
@@ -171,7 +161,7 @@ pub fn play_with_tags() {
 impl View {
     pub fn new() -> Self {
         View {
-            line_no: 0,
+            line_no: Cell::new(0),
             // expanded: false,
             // squashed: false,
             // rendered: false,
@@ -182,7 +172,7 @@ impl View {
             // transfered: false,
 
             flags: Cell::new(RenderFlags(0)),
-            tag_indexes: tags::TagIdx::new(),
+            tag_indexes: Cell::new(tags::TagIdx::new()),
         }
     }
 
@@ -238,7 +228,7 @@ impl View {
     }
     pub fn is_rendered_in(&self, line_no: i32) -> bool {
         self.is_rendered()
-            && self.line_no == line_no
+            && self.line_no.get() == line_no
             && !self.is_dirty()
             && !self.is_squashed()
     }
@@ -354,7 +344,7 @@ impl View {
                 } else {
                     buffer.insert(iter, &format!("{}\n", content));
                 }
-                self.line_no = line_no;
+                self.line_no.replace(line_no);
                 self.render(true);
                 if !content.is_empty() {
                     self.apply_tags(buffer, &content_tags);
@@ -396,7 +386,7 @@ impl View {
             }
             ViewState::RenderedDirtyNotInPlace(l) => {
                 trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
-                self.line_no = line_no;
+                self.line_no.replace(line_no);
                 let content = self.build_up(&content, line_no, context);
                 self.replace_dirty_content(buffer, iter, &content, is_markup);
                 self.apply_tags(buffer, &content_tags);
@@ -405,7 +395,7 @@ impl View {
             ViewState::RenderedNotInPlace(l) => {
                 // TODO: somehow it is related to transfered!
                 trace!(".. render match not in place {:?}", l);
-                self.line_no = line_no;
+                self.line_no.replace(line_no);
                 self.force_forward(buffer, iter);
             }
         }
@@ -434,9 +424,9 @@ impl View {
     }
 
     fn start_end_iters(&self, buffer: &TextBuffer) -> (TextIter, TextIter) {
-        let mut start_iter = buffer.iter_at_line(self.line_no).unwrap();
+        let mut start_iter = buffer.iter_at_line(self.line_no.get()).unwrap();
         start_iter.set_line_offset(0);
-        let mut end_iter = buffer.iter_at_line(self.line_no).unwrap();
+        let mut end_iter = buffer.iter_at_line(self.line_no.get()).unwrap();
         end_iter.forward_to_line_end();
         (start_iter, end_iter)
     }
@@ -444,9 +434,6 @@ impl View {
     fn remove_tag(&mut self, buffer: &TextBuffer, tag: &tags::TxtTag) {
         if self.tag_is_added(tag) {
             let (start_iter, end_iter) = self.start_end_iters(buffer);
-            if tag.name() == tags::CURSOR {
-                debug!("RRRRRRREAL REMOVE cursor from buffer at line {:?}", start_iter.line());
-            }
             buffer.remove_tag_by_name(tag.name(), &start_iter, &end_iter);
             self.tag_removed(tag);
         }
@@ -455,9 +442,6 @@ impl View {
     fn add_tag(&mut self, buffer: &TextBuffer, tag: &tags::TxtTag) {        
         if !self.tag_is_added(tag) {
             let (start_iter, end_iter) = self.start_end_iters(buffer);
-            if tag.name() == tags::CURSOR {
-                debug!("RRRRRRREAL APPLY cursor to buffer at line {:?}", start_iter.line());
-            }
             buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
             self.tag_added(tag);
         }
@@ -521,7 +505,7 @@ impl View {
         if self.is_squashed() {
             return ViewState::RenderedAndMarkedAsSquashed;
         }
-        ViewState::RenderedNotInPlace(self.line_no)
+        ViewState::RenderedNotInPlace(self.line_no.get())
     }
 }
 

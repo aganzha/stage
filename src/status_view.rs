@@ -995,7 +995,7 @@ impl Status {
                 // refactor to some generic method
                 // why other elements do not using this?
                 let view = file.get_view();
-                if view.is_current() && view.line_no == line_no {
+                if view.is_current() && view.line_no.get() == line_no {
                     let ignore_path = file
                         .path
                         .clone()
@@ -1230,7 +1230,7 @@ impl Status {
             // first render. buffer at eof
             if let Some(unstaged) = &self.unstaged {
                 if !unstaged.files.is_empty() {
-                    let line_no = unstaged.files[0].view.line_no;
+                    let line_no = unstaged.files[0].view.line_no.get();
                     let iter = buffer.iter_at_line(line_no).unwrap();
                     debug!(
                         "ccccccccccccccccccccccccccccccccccchoose cursor at first unstaged file {:?}",
@@ -1270,8 +1270,8 @@ impl Status {
                 let content = vc.get_content();
                 let view = vc.get_view();
                 // hack :(
-                if view.line_no == current_line && view.is_rendered() {
-                    debug!("view under line {:?} {:?}", view.line_no, content);
+                if view.line_no.get() == current_line && view.is_rendered() {
+                    debug!("view under line {:?} {:?}", view.line_no.get(), content);
                     debug!(
                         "is rendered in {:?} {:?}",
                         view.is_rendered_in(current_line),
@@ -1285,7 +1285,7 @@ impl Status {
             diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let content = vc.get_content();
                 let view = vc.get_view();
-                if view.line_no == current_line {
+                if view.line_no.get() == current_line {
                     println!("found view {:?}", content);
                     dbg!(view);
                 }
