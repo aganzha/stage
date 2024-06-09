@@ -136,7 +136,7 @@ pub fn test_single_diff() {
                 let view = vc.get_view();
                 assert!(view.rendered);
                 assert!(view.active);
-                assert!(!view.squashed);
+                assert!(!view.is_squashed());
                 assert!(!view.current);
             });
         } else {
@@ -214,7 +214,7 @@ pub fn test_single_diff() {
                     assert!(!view.is_expanded());
                     assert!(view.child_dirty);
                     for line in child.get_children() {
-                        assert!(line.get_view().squashed);
+                        assert!(line.get_view().is_squashed());
                     }
                 }
             }
@@ -297,7 +297,7 @@ fn test_render_view() {
 
     // ------------------ test deleted
     iter = buffer.iter_at_line(1).unwrap();
-    view1.squashed = true;
+    view1.squash(true);
     view1.rendered = false;
 
     view1.render(
@@ -310,7 +310,7 @@ fn test_render_view() {
     );
     assert!(!view1.rendered);
     // its no longer squashed. is it ok?
-    assert!(!view1.squashed);
+    assert!(!view1.is_squashed());
     // iter was not moved (nothing to delete, view was not rendered)
     assert!(iter.line() == 1);
     // rerender it
@@ -337,7 +337,7 @@ fn test_render_view() {
     assert!(!view2.dirty);
     assert!(iter.line() == 3);
     // -------------------- test squashed
-    view3.squashed = true;
+    view3.squash(true);
     view3.render(
         &buffer,
         &mut iter,
@@ -346,7 +346,7 @@ fn test_render_view() {
         Vec::new(),
         &mut ctx,
     );
-    assert!(!view3.squashed);
+    assert!(!view3.is_squashed());
     // iter remains on same kine, just squashing view in place
     assert!(iter.line() == 3);
     // -------------------- test transfered

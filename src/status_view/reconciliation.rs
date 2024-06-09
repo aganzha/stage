@@ -414,7 +414,7 @@ impl State {
     // state
     pub fn enrich_view(&mut self, rendered: &Self) {
         self.view = rendered.transfer_view();
-        self.view.squashed = self.state == RepositoryState::Clean;
+        self.view.squash(self.state == RepositoryState::Clean);
     }
     // state
     pub fn transfer_view(&self) -> View {

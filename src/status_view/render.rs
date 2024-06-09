@@ -69,8 +69,8 @@ impl Binary for RenderFlags {
 pub struct View {
     pub line_no: i32,
 
-    //pub expanded: bool,
-    pub squashed: bool,
+    // pub expanded: bool,
+    // pub squashed: bool,
     pub rendered: bool,
     pub dirty: bool,
     pub child_dirty: bool,
@@ -95,7 +95,7 @@ impl View {
         View {
             line_no: 0,
             // expanded: false,
-            squashed: false,
+            // squashed: false,
             rendered: false,
             dirty: false,
             child_dirty: false,
@@ -126,7 +126,7 @@ impl View {
         self.rendered
             && self.line_no == line_no
             && !self.dirty
-            && !self.squashed
+            && !self.is_squashed()
     }
 
     fn does_not_match_width(
@@ -297,7 +297,7 @@ impl View {
         }
 
         self.dirty = false;
-        self.squashed = false;
+        self.squash(false);
         self.transfered = false;
         self
     }
@@ -389,7 +389,7 @@ impl View {
         if self.is_rendered_in(line_no) {
             return ViewState::RenderedInPlace;
         }
-        if !self.rendered && self.squashed {
+        if !self.rendered && self.is_squashed() {
             return ViewState::Deleted;
         }
         if !self.rendered {
@@ -403,7 +403,7 @@ impl View {
             // TODO rename this state. and think about it!
             return ViewState::RenderedDirtyNotInPlace(self.line_no);
         }
-        if self.squashed {
+        if self.is_squashed() {
             return ViewState::RenderedAndMarkedAsSquashed;
         }
         ViewState::RenderedNotInPlace(self.line_no)
