@@ -1,10 +1,12 @@
-use crate::status_view::Tag;
+//use crate::status_view::Tag;
+use crate::status_view::tags;
 use gtk4::prelude::*;
-use gtk4::{TextBuffer, TextIter, TextTag};
-use log::{trace, debug};
+use gtk4::{TextBuffer, TextIter, TextTag, pango};
+use log::{debug, trace};
+use std::cell::Cell;
 use std::collections::HashSet;
 use std::fmt;
-use std::cell::Cell;
+use pango::Style;
 
 #[derive(Debug, Clone)]
 pub enum ViewState {
@@ -16,80 +18,6 @@ pub enum ViewState {
     RenderedDirtyNotInPlace(i32),
     RenderedNotInPlace(i32),
 }
-pub const TEXT_TAGS: [&str; 5] = ["tag0", "tag1", "tag2", "tag3", "tag4"];
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct TagIdx(i8);
-
-impl TagIdx {
-    pub fn new() -> Self {
-        Self(0)
-    }
-    pub fn from(i: i8) -> Self {
-        Self(i)
-    }
-    /// when tag added to view
-    /// view will store index of this tag
-    /// from global array as bit mask
-    pub fn added(self, tag_name: &str) -> Self {
-        let mut bit_mask = 1;
-        for name in TEXT_TAGS {
-            if tag_name == name {
-                break;
-            }
-            bit_mask = bit_mask << 1;            
-        }
-        Self(self.0 | bit_mask)
-    }
-    /// when tag removed from view
-    /// view will remove index of this tag
-    /// in global array from bit mask
-    pub fn removed(self, tag_name: &str) -> Self {
-        let mut bit_mask = 1;
-        for name in TEXT_TAGS {
-            if tag_name == name {
-                break;
-            }
-            bit_mask = bit_mask << 1;            
-        }
-        Self(self.0 & !bit_mask)
-    }
-
-    pub fn is_added(&self, tag_name: &str) -> bool {
-        let mut bit_mask = 1;
-        for name in TEXT_TAGS {
-            if tag_name == name {
-                break;
-            }
-            bit_mask = bit_mask << 1;            
-        }
-        debug!("is added ? {}, self {:b} bit_mask {:b} result {:b}", tag_name, self.0, bit_mask, self.0 & bit_mask);
-        self.0 & bit_mask != 0
-    }
-}
-
-
-impl fmt::Binary for TagIdx {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let val = self.0;
-        fmt::Binary::fmt(&val, f) // delegate to i32's implementation
-    }
-}
-
-impl View {
-    pub fn tag_added(&mut self, tag: &str) {
-        self.tag_indexes = self.tag_indexes.added(tag);
-    }
-    pub fn tag_removed(&mut self, tag: &str) {
-        self.tag_indexes = self.tag_indexes.removed(tag);
-    }
-}
-// pub struct TxTag(String);
-
-// impl TxTag {
-// }
-
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct View {
@@ -104,7 +32,11 @@ pub struct View {
     pub transfered: bool,
     pub tags: Vec<String>,
     pub markup: bool,
-    pub tag_indexes: TagIdx,
+    pub tag_indexes: tags::TagIdx,
+}
+
+pub fn make_tag(name: &str) -> tags::TxtTag {
+    tags::TxtTag::from_str(name)
 }
 
 pub fn play_with_tags() {
@@ -125,7 +57,7 @@ impl View {
             transfered: false,
             tags: Vec::new(),
             markup: false,
-            tag_indexes: TagIdx::new()
+            tag_indexes: tags::TagIdx::new(),
         }
     }
     pub fn new_markup() -> Self {
@@ -218,7 +150,7 @@ impl View {
         buffer: &TextBuffer,
         iter: &mut TextIter,
         content: String,
-        content_tags: Vec<Tag>,
+        content_tags: Vec<tags::TxtTag>,
         context: &mut crate::StatusRenderContext,
     ) -> &mut Self {
         // important. self.line_no is assigned only in 2 cases
@@ -337,53 +269,65 @@ impl View {
         (start_iter, end_iter)
     }
 
-    fn remove_tag(&mut self, buffer: &TextBuffer, tag: &str) {
-        let index = self.tags.iter().position(|t| t == tag);
-        if let Some(ind) = index {
+    fn remove_tag(&mut self, buffer: &TextBuffer, tag: &tags::TxtTag) {
+        if self.tag_is_added(tag) {
             let (start_iter, end_iter) = self.start_end_iters(buffer);
-            buffer.remove_tag_by_name(tag, &start_iter, &end_iter);
-            self.tags.remove(ind);
+            buffer.remove_tag_by_name(tag.name(), &start_iter, &end_iter);
+            self.tag_removed(tag);
         }
+        // let index = self.tags.iter().position(|t| t == tag);
+        // if let Some(ind) = index {
+        //     let (start_iter, end_iter) = self.start_end_iters(buffer);
+        //     buffer.remove_tag_by_name(tag, &start_iter, &end_iter);
+        //     self.tags.remove(ind);
+        // }
     }
 
-    fn add_tag(&mut self, buffer: &TextBuffer, tag: &str) {
-        let index = self.tags.iter().position(|t| t == tag);
-        if index.is_none() {
+    fn add_tag(&mut self, buffer: &TextBuffer, tag: &tags::TxtTag) {
+        if !self.tag_is_added(tag) {
             let (start_iter, end_iter) = self.start_end_iters(buffer);
-            buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
-            self.tags.push(String::from(tag));
+            buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
+            self.tag_added(tag);
         }
+        // let index = self.tags.iter().position(|t| t == tag);
+        // if index.is_none() {
+        //     let (start_iter, end_iter) = self.start_end_iters(buffer);
+        //     buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
+        //     self.tags.push(String::from(tag));
+        // }
     }
 
-    fn apply_tags(&mut self, buffer: &TextBuffer, content_tags: &Vec<Tag>) {
-        let mut fltr: HashSet<Tag> = HashSet::new();
+    fn apply_tags(&mut self, buffer: &TextBuffer, content_tags: &Vec<tags::TxtTag>) {
+        let mut fltr: HashSet<&str> = HashSet::new();
         if self.current {
-            self.add_tag(buffer, Tag::Cursor.name());
+            self.add_tag(buffer, &make_tag(tags::CURSOR));
             // it need to filter background tags
-            self.remove_tag(buffer, Tag::Region.name());
-            self.remove_tag(buffer, Tag::Hunk.name());
-            fltr.insert(Tag::Region);
-            fltr.insert(Tag::Hunk);
+            let hunk = make_tag(tags::HUNK);
+            let region = make_tag(tags::REGION);
+            self.remove_tag(buffer, &hunk);
+            self.remove_tag(buffer, &region);
+            fltr.insert(tags::HUNK);
+            fltr.insert(tags::REGION);
         } else {
-            self.remove_tag(buffer, Tag::Cursor.name());
+            self.remove_tag(buffer, &make_tag(tags::CURSOR));
         }
         if self.active {
-            if !fltr.contains(&Tag::Region) {
-                self.add_tag(buffer, Tag::Region.name());
+            if !fltr.contains(tags::REGION) {
+                self.add_tag(buffer, &make_tag(tags::REGION));
             }
             for t in content_tags {
-                if !fltr.contains(t) {
-                    self.add_tag(buffer, t.enhance().name());
+                if !fltr.contains(t.name()) {
+                    self.add_tag(buffer, &t.enhance());
                 }
             }
         } else {
-            self.remove_tag(buffer, Tag::Region.name());
+            self.remove_tag(buffer, &make_tag(tags::REGION));
             for t in content_tags {
-                self.remove_tag(buffer, t.enhance().name());
+                self.remove_tag(buffer, &t.enhance());
             }
             for t in content_tags {
-                if !fltr.contains(t) {
-                    self.add_tag(buffer, t.name());
+                if !fltr.contains(t.name()) {
+                    self.add_tag(buffer, t);
                 }
             }
         }

@@ -1,4 +1,6 @@
-use crate::status_view::render::{View, TagIdx};
+use crate::status_view::tags;
+use crate::status_view::render::{View};
+
 use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::{Diff, DiffKind, File, Hunk, Line, LineKind};
 use git2::DiffLineType;
@@ -380,7 +382,7 @@ fn test_expand_line() {
     let mut context = StatusRenderContext::new();
     let mut ctx = context;
     diff.render(&buffer, &mut iter, &mut ctx);
-    // if cursor returns true it need to rerender as in Status!    
+    // if cursor returns true it need to rerender as in Status!
     if diff.cursor(1, false, &mut ctx) {
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
     }
@@ -473,30 +475,35 @@ fn test_reconciliation() {
 
 #[test]
 fn test_tags() {
-    env_logger::builder().format_timestamp(None).init();
 
+    fn make_tag(name: &str) -> tags::TxtTag {
+        tags::TxtTag::from_str(name)
+    }
+    let tag1 = tags::TEXT_TAGS[1];
+    let tag3 = tags::TEXT_TAGS[3];
+    
     let mut view = View::new();
-    view.tag_added("tag1");
+    view.tag_added(&make_tag(tag1));
     debug!("added at 1 {:b}", view.tag_indexes);
-    assert!(view.tag_indexes == TagIdx::from(0b00000010));
-    assert!(view.tag_indexes.is_added("tag1"));
-    
-    view.tag_added("tag3");
+    assert!(view.tag_indexes == tags::TagIdx::from(0b00000010));
+    assert!(view.tag_indexes.is_added(tag1));
+
+    view.tag_added(&make_tag(tag3));
     debug!("added at 3 {:b}", view.tag_indexes);
-    assert!(view.tag_indexes== TagIdx::from(0b00001010));
-    assert!(view.tag_indexes.is_added("tag1"));
-    assert!(view.tag_indexes.is_added("tag3"));
-    
-    view.tag_removed("tag1");
+    assert!(view.tag_indexes == tags::TagIdx::from(0b00001010));
+    assert!(view.tag_indexes.is_added(tag1));
+    assert!(view.tag_indexes.is_added(tag3));
+
+    view.tag_removed(&make_tag(tag1));
     debug!("removed at 1 {:b}", view.tag_indexes);
-    assert!(view.tag_indexes == TagIdx::from(0b00001000));
-    assert!(!view.tag_indexes.is_added("tag1"));
-    assert!(view.tag_indexes.is_added("tag3"));
-    
-    view.tag_removed("tag3");
+    assert!(view.tag_indexes == tags::TagIdx::from(0b00001000));
+    assert!(!view.tag_indexes.is_added(tag1));
+    assert!(view.tag_indexes.is_added(tag3));
+
+    view.tag_removed(&make_tag(tag3));
     // view.tag_indexes.added("tag3");
     debug!("removed at 3 {:b}", view.tag_indexes);
-    assert!(view.tag_indexes == TagIdx::from(0b00000000));
-    assert!(!view.tag_indexes.is_added("tag1"));
-    assert!(!view.tag_indexes.is_added("tag3"));
+    assert!(view.tag_indexes == tags::TagIdx::from(0b00000000));
+    assert!(!view.tag_indexes.is_added(tag1));
+    assert!(!view.tag_indexes.is_added(tag3));
 }

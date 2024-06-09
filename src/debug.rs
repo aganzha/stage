@@ -1,19 +1,20 @@
 use log::debug;
 
-
-
 use gtk4::prelude::*;
 use gtk4::{
-    gio, Label, Window as Gtk4Window, Box, Orientation, PopoverMenu,
-    MenuButton, ToggleButton, Align
+    gio, Align, Box, Label, MenuButton, Orientation, PopoverMenu,
+    ToggleButton, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, ToolbarView, Window, StyleManager, ColorScheme};
-
+use libadwaita::{ColorScheme, HeaderBar, StyleManager, ToolbarView, Window};
 
 use async_channel::Sender;
 
-pub fn debug(app_window: &impl IsA<Gtk4Window>, mut stored_theme: String, sender: Sender<crate::Event>) {
+pub fn debug(
+    app_window: &impl IsA<Gtk4Window>,
+    mut stored_theme: String,
+    sender: Sender<crate::Event>,
+) {
     debug!("-------------------> {:?}", stored_theme);
     let window = Window::builder()
         .transient_for(app_window)
@@ -35,22 +36,22 @@ pub fn debug(app_window: &impl IsA<Gtk4Window>, mut stored_theme: String, sender
     //     .build();
 
     let menu_model = gio::Menu::new();
-    let menu_item = gio::MenuItem::new(Some("theme_label"), Some("win.menu::1"));
+    let menu_item =
+        gio::MenuItem::new(Some("theme_label"), Some("win.menu::1"));
 
     let theme_id = "theme".to_variant();
-
 
     menu_item.set_attribute_value("custom", Some(&theme_id));
 
     menu_model.insert_item(0, &menu_item);
 
-    let menu_item = gio::MenuItem::new(Some("just_label"), Some("win.menu::2"));
+    let menu_item =
+        gio::MenuItem::new(Some("just_label"), Some("win.menu::2"));
     let label_id = "label".to_variant();
 
     menu_item.set_attribute_value("custom", Some(&label_id));
     // menu_item.set_attribute_value("label", Some(&label_id));
     menu_model.insert_item(1, &menu_item);
-
 
     let popover_menu = PopoverMenu::from_model(Some(&menu_model));
 
@@ -61,7 +62,6 @@ pub fn debug(app_window: &impl IsA<Gtk4Window>, mut stored_theme: String, sender
     let la = Label::builder().label("muyto").build();
     // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
     popover_menu.add_child(&la, "label");
-
 
     if stored_theme.is_empty() {
         stored_theme = "follow".to_string();
@@ -91,35 +91,40 @@ pub fn debug(app_window: &impl IsA<Gtk4Window>, mut stored_theme: String, sender
             toggle.set_active(true);
         }
         toggle.last_child().unwrap().set_halign(Align::Center);
-        toggle.bind_property("active", &toggle, "icon_name").transform_to({
-            let sender = sender.clone();
-            move |_, is_active: bool| {
-                if is_active {
-                    let theme = match id {
-                        "follow" => ColorScheme::Default,
-                        "light" => ColorScheme::ForceLight,
-                        "dark" => ColorScheme::ForceDark,
-                        n => todo!("whats the name? {:?}", n)
-                    };
-                    let manager = StyleManager::default();
-                    manager.set_color_scheme(theme);
-                    sender.send_blocking(
-                        crate::Event::StoreSettings("theme".to_string(),
-                                                    id.to_string())
-                    ).expect("cant send through sender");
-                    Some("object-select-symbolic")
-                } else {
-                    Some("")
+        toggle
+            .bind_property("active", &toggle, "icon_name")
+            .transform_to({
+                let sender = sender.clone();
+                move |_, is_active: bool| {
+                    if is_active {
+                        let theme = match id {
+                            "follow" => ColorScheme::Default,
+                            "light" => ColorScheme::ForceLight,
+                            "dark" => ColorScheme::ForceDark,
+                            n => todo!("whats the name? {:?}", n),
+                        };
+                        let manager = StyleManager::default();
+                        manager.set_color_scheme(theme);
+                        sender
+                            .send_blocking(crate::Event::StoreSettings(
+                                "theme".to_string(),
+                                id.to_string(),
+                            ))
+                            .expect("cant send through sender");
+                        Some("object-select-symbolic")
+                    } else {
+                        Some("")
+                    }
                 }
-            }}).build();
+            })
+            .build();
         theme_selector.append(&toggle);
         if let Some(ref ft) = first_toggle {
             toggle.set_group(Some(ft));
         } else {
             first_toggle.replace(toggle);
         }
-    };
-
+    }
 
     bx.append(&label);
 
@@ -132,7 +137,6 @@ pub fn debug(app_window: &impl IsA<Gtk4Window>, mut stored_theme: String, sender
     tb.add_top_bar(&hb);
 
     window.set_content(Some(&tb));
-
 
     window.present();
 }
