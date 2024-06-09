@@ -488,8 +488,7 @@ fn test_reconciliation() {
 
 #[test]
 fn test_tags() {
-    env_logger::builder().format_timestamp(None).init();
-    
+
     let tag1 = tags::TxtTag::from_str(tags::TEXT_TAGS[10]);
     let tag3 = tags::TxtTag::from_str(tags::TEXT_TAGS[3]);
 

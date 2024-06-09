@@ -42,14 +42,14 @@ pub const TEXT_TAGS: [&str; 15] = [
 ];
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct TagIdx(i16);
+pub struct TagIdx(u16);
 
 impl TagIdx {
     pub fn new() -> Self {
         Self(0)
     }
-    pub fn from(i: i16) -> Self {
-        Self(i)
+    pub fn from(u: u16) -> Self {
+        Self(u)
     }
     /// when tag added to view
     /// view will store index of this tag
