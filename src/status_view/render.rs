@@ -13,10 +13,10 @@ use pango::Style;
 pub enum ViewState {
     RenderedInPlace,
     Deleted,
-    NotRendered,
-    RenderedDirtyInPlace,
-    RenderedAndMarkedAsSquashed,
-    RenderedDirtyNotInPlace(i32),
+    NotYetRendered,
+    TagsModified,
+    MarkedForDeletion,
+    UpdatedFromGit(i32),
     RenderedNotInPlace(i32),
 }
 
@@ -336,7 +336,7 @@ impl View {
                 // some whuch will be destroyed
                 trace!("..render MATCH !rendered squashed {:?}", line_no);
             }
-            ViewState::NotRendered => {
+            ViewState::NotYetRendered => {
                 trace!("..render MATCH insert {:?}", line_no);
                 let content = self.build_up(&content, line_no, context);
                 if is_markup {
@@ -350,8 +350,8 @@ impl View {
                     self.apply_tags(buffer, &content_tags);
                 }
             }
-            ViewState::RenderedDirtyInPlace => {
-                trace!("..render MATCH RenderedDirtyInPlace {:?}", line_no);
+            ViewState::TagsModified => {
+                trace!("..render MATCH TagsModified {:?}", line_no);
                 // this means only tags are changed.
                 if self.does_not_match_width(buffer, context) {
                     // here is the case: view is rendered before resize event.
@@ -366,7 +366,7 @@ impl View {
                 }
                 self.render(true);
             }
-            ViewState::RenderedAndMarkedAsSquashed => {
+            ViewState::MarkedForDeletion => {
                 trace!("..render MATCH squashed {:?}", line_no);
                 let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
                 nel_iter.forward_lines(1);
@@ -384,8 +384,8 @@ impl View {
                     context
                 );
             }
-            ViewState::RenderedDirtyNotInPlace(l) => {
-                trace!(".. render MATCH RenderedDirtyNotInPlace {:?}", l);
+            ViewState::UpdatedFromGit(l) => {
+                trace!(".. render MATCH UpdatedFromGit {:?}", l);
                 self.line_no.replace(line_no);
                 let content = self.build_up(&content, line_no, context);
                 self.replace_dirty_content(buffer, iter, &content, is_markup);
@@ -491,18 +491,18 @@ impl View {
             return ViewState::Deleted;
         }
         if !self.is_rendered() {
-            return ViewState::NotRendered;
+            return ViewState::NotYetRendered;
         }
         if self.is_dirty() && !self.is_transfered() {
-            return ViewState::RenderedDirtyInPlace;
+            return ViewState::TagsModified;
         }
         if self.is_dirty() && self.is_transfered() {
             // why not in place? it is in place, just transfered!
             // TODO rename this state. and think about it!
-            return ViewState::RenderedDirtyNotInPlace(self.line_no.get());
+            return ViewState::UpdatedFromGit(self.line_no.get());
         }
         if self.is_squashed() {
-            return ViewState::RenderedAndMarkedAsSquashed;
+            return ViewState::MarkedForDeletion;
         }
         ViewState::RenderedNotInPlace(self.line_no.get())
     }
