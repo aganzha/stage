@@ -164,7 +164,7 @@ pub fn commit(
 
                 let amend = amend_switch.is_active();
                 move || {
-                    git_commit::create_commit(
+                    git_commit::create(
                         path.expect("no path"),
                         message,
                         amend,
