@@ -31,28 +31,40 @@ impl TagIdx {
     /// when tag added to view
     /// view will store index of this tag
     /// from global array as bit mask
-    pub fn added(&mut self, tag_name: &str) -> Self {
-        let mut filler = 1;
+    pub fn added(self, tag_name: &str) -> Self {
+        let mut bit_mask = 1;
         for name in TEXT_TAGS {
             if tag_name == name {
                 break;
             }
-            filler = filler << 1;            
+            bit_mask = bit_mask << 1;            
         }
-        Self(self.0 | filler)
+        Self(self.0 | bit_mask)
     }
     /// when tag removed from view
-    /// view will store remove index of this tag
+    /// view will remove index of this tag
     /// in global array from bit mask
-    pub fn removed(&mut self, tag_name: &str) -> Self {
-        let mut filler = 1;
+    pub fn removed(self, tag_name: &str) -> Self {
+        let mut bit_mask = 1;
         for name in TEXT_TAGS {
             if tag_name == name {
                 break;
             }
-            filler = filler << 1;            
+            bit_mask = bit_mask << 1;            
         }
-        Self(self.0 & !filler)
+        Self(self.0 & !bit_mask)
+    }
+
+    pub fn is_added(&self, tag_name: &str) -> bool {
+        let mut bit_mask = 1;
+        for name in TEXT_TAGS {
+            if tag_name == name {
+                break;
+            }
+            bit_mask = bit_mask << 1;            
+        }
+        debug!("is added ? {}, self {:b} bit_mask {:b} result {:b}", tag_name, self.0, bit_mask, self.0 & bit_mask);
+        self.0 & bit_mask != 0
     }
 }
 
@@ -65,11 +77,11 @@ impl fmt::Binary for TagIdx {
 }
 
 impl View {
-    pub fn tag_added(&self, tag: &str) {
-        self.tag_indexes.replace(self.tag_indexes.get().added(tag));
+    pub fn tag_added(&mut self, tag: &str) {
+        self.tag_indexes = self.tag_indexes.added(tag);
     }
-    pub fn tag_removed(&self, tag: &str) {
-        self.tag_indexes.replace(self.tag_indexes.get().removed(tag));
+    pub fn tag_removed(&mut self, tag: &str) {
+        self.tag_indexes = self.tag_indexes.removed(tag);
     }
 }
 // pub struct TxTag(String);
@@ -92,7 +104,7 @@ pub struct View {
     pub transfered: bool,
     pub tags: Vec<String>,
     pub markup: bool,
-    pub tag_indexes: Cell<TagIdx>,
+    pub tag_indexes: TagIdx,
 }
 
 pub fn play_with_tags() {
@@ -113,7 +125,7 @@ impl View {
             transfered: false,
             tags: Vec::new(),
             markup: false,
-            tag_indexes: Cell::new(TagIdx::new())
+            tag_indexes: TagIdx::new()
         }
     }
     pub fn new_markup() -> Self {

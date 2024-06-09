@@ -443,25 +443,20 @@ fn test_reconciliation() {
     let mut hunk = create_hunk(name);
 
     hunk.render(&buffer, &mut iter, &mut context);
-    debug!("LLLLLLLLLLLLLLLLines AFTER FIRST RENDER");
     for line in &hunk.lines {
         dbg!(&line.view);
         // assert!(&line.view.rendered);
     }
     hunk.expand(0);
-    debug!("LLLLLLLLLLLLLLLLines AFTER EXPAND");
     for line in &hunk.lines {
         dbg!(&line.view);
         // assert!(&line.view.rendered);
     }
     let mut iter = buffer.iter_at_line(0).unwrap();
-    dbg!("before second RENDER");
 
     dbg!(&hunk.view);
     hunk.render(&buffer, &mut iter, &mut context);
-    dbg!("AFTER second RENDER");
     dbg!(&hunk.view);
-    debug!("LLLLLLLLLLLLLLLLines after expansion");
     for line in &hunk.lines {
         dbg!(&line.view);
         // assert!(&line.view.rendered);
@@ -470,7 +465,6 @@ fn test_reconciliation() {
     let mut new_hunk = create_hunk(name);
     new_hunk.enrich_view(&mut hunk, &buffer, &mut context);
 
-    debug!("oooooooooooooooooooooooooooooo {:?}", content);
     for line in &new_hunk.lines {
         dbg!(&line.view);
     }
@@ -481,21 +475,28 @@ fn test_reconciliation() {
 fn test_tags() {
     env_logger::builder().format_timestamp(None).init();
 
-    let view = View::new();
+    let mut view = View::new();
     view.tag_added("tag1");
-    debug!("added at 1 {:b}", view.tag_indexes.get());
-    assert!(view.tag_indexes.get() == TagIdx::from(0b00000010));
-
+    debug!("added at 1 {:b}", view.tag_indexes);
+    assert!(view.tag_indexes == TagIdx::from(0b00000010));
+    assert!(view.tag_indexes.is_added("tag1"));
+    
     view.tag_added("tag3");
-    debug!("added at 3 {:b}", view.tag_indexes.get());
-    assert!(view.tag_indexes.get() == TagIdx::from(0b00001010));
-
+    debug!("added at 3 {:b}", view.tag_indexes);
+    assert!(view.tag_indexes== TagIdx::from(0b00001010));
+    assert!(view.tag_indexes.is_added("tag1"));
+    assert!(view.tag_indexes.is_added("tag3"));
+    
     view.tag_removed("tag1");
-    debug!("removed at 1 {:b}", view.tag_indexes.get());
-    assert!(view.tag_indexes.get() == TagIdx::from(0b00001000));
-
+    debug!("removed at 1 {:b}", view.tag_indexes);
+    assert!(view.tag_indexes == TagIdx::from(0b00001000));
+    assert!(!view.tag_indexes.is_added("tag1"));
+    assert!(view.tag_indexes.is_added("tag3"));
+    
     view.tag_removed("tag3");
     // view.tag_indexes.added("tag3");
-    debug!("removed at 3 {:b}", view.tag_indexes.get());
-    assert!(view.tag_indexes.get() == TagIdx::from(0b00000000));
+    debug!("removed at 3 {:b}", view.tag_indexes);
+    assert!(view.tag_indexes == TagIdx::from(0b00000000));
+    assert!(!view.tag_indexes.is_added("tag1"));
+    assert!(!view.tag_indexes.is_added("tag3"));
 }
