@@ -60,7 +60,7 @@ fn create_diff() -> Diff {
     diff
 }
 
-pub fn mock_render_view(vc: &mut dyn ViewContainer, mut line_no: i32) -> i32 {
+pub fn mock_render_view(vc: &dyn ViewContainer, mut line_no: i32) -> i32 {
     let view = vc.get_view();
     view.line_no.replace(line_no);
     view.render(true);
@@ -132,7 +132,7 @@ pub fn test_single_diff() {
             assert!(view.is_current());
             assert!(view.is_active());
             assert!(view.is_expanded());
-            file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            file.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.is_rendered());
                 assert!(view.is_active());
@@ -143,7 +143,7 @@ pub fn test_single_diff() {
             assert!(!view.is_current());
             assert!(!view.is_active());
             assert!(!view.is_expanded());
-            file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            file.walk_down(&|vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(!view.is_rendered());
             });
@@ -170,7 +170,7 @@ pub fn test_single_diff() {
             assert!(!view.is_current());
             assert!(!view.is_active());
             assert!(!view.is_expanded());
-            file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            file.walk_down(&|vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(!view.is_rendered());
             });
@@ -180,7 +180,7 @@ pub fn test_single_diff() {
             assert!(view.is_current());
             assert!(view.is_active());
             assert!(view.is_expanded());
-            file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            file.walk_down(&|vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.is_rendered());
                 assert!(view.is_active());
@@ -192,7 +192,7 @@ pub fn test_single_diff() {
             assert!(!view.is_current());
             assert!(!view.is_active());
             assert!(view.is_expanded());
-            file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            file.walk_down(&|vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.is_rendered());
                 assert!(!view.is_active());
@@ -411,7 +411,7 @@ fn test_expand_line() {
         if i == 0 {
             continue;
         }
-        diff.walk_down(&mut move |vc: &mut dyn ViewContainer| {
+        diff.walk_down(&move |vc: &dyn ViewContainer| {
             if vc.get_view().line_no.get() == i as i32 {
                 debug!("{:?} - {:?} = {:?}", i, cl, vc.get_content());
                 assert!(cl.trim() == vc.get_content());

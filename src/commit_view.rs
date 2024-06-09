@@ -224,10 +224,10 @@ impl ViewContainer for MultiLineLabel {
         &self.view
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(&self) -> Vec<&dyn ViewContainer> {
         self.labels
-            .iter_mut()
-            .map(|vh| vh as &mut dyn ViewContainer)
+            .iter()
+            .map(|vh| vh as &dyn ViewContainer)
             .collect()
     }
 
