@@ -70,7 +70,7 @@ pub trait ViewContainer {
         let is_markup = self.is_markup();
         let view =
             self.get_view().render(buffer, iter, content, is_markup, tags, context);
-        if view.expanded || view.child_dirty {
+        if view.is_expanded() || view.child_dirty {
             for child in self.get_children() {
                 child.render(buffer, iter, context);
             }
@@ -92,7 +92,7 @@ pub trait ViewContainer {
         let current_before = view.current;
         let active_before = view.active;
 
-        let view_expanded = view.expanded;
+        let view_expanded = view.is_expanded();
         let current = view.is_rendered_in(line_no);
         if current {
             self.fill_under_cursor(context)
@@ -160,9 +160,9 @@ pub trait ViewContainer {
         if v.is_rendered_in(line_no) {
             let view = self.get_view();
             found_line = Some(line_no);
-            view.expanded = !view.expanded;
+            view.expand(!view.is_expanded());
             view.child_dirty = true;
-            let expanded = view.expanded;
+            let expanded = view.is_expanded();
             self.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
                 if expanded {
@@ -172,7 +172,7 @@ pub trait ViewContainer {
                     view.squashed = true;
                 }
             });
-        } else if v.expanded && v.rendered {
+        } else if v.is_expanded() && v.rendered {
             // go deeper for self.children
             trace!("expand. ____________ go deeper");
             for child in self.get_children() {
@@ -440,9 +440,9 @@ impl ViewContainer for Hunk {
     }
 
     fn get_view(&mut self) -> &mut View {
-        if self.view.line_no == 0 && !self.view.expanded {
+        if self.view.line_no == 0 && !self.view.is_expanded() {
             // hunks are expanded by default
-            self.view.expanded = true
+            self.view.expand(true)
         }
         &mut self.view
     }
@@ -507,7 +507,7 @@ impl ViewContainer for Line {
     }
 
     fn get_view(&mut self) -> &mut View {
-        self.view.get_mut()
+        &mut self.view
     }
 
     fn get_content(&self) -> String {
@@ -709,7 +709,7 @@ impl ViewContainer for Untracked {
 
     // untracked
     fn get_view(&mut self) -> &mut View {
-        self.view.expanded = true;
+        self.view.expand(true);
         &mut self.view
     }
 

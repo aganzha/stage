@@ -35,7 +35,7 @@ impl RenderFlags{
     pub fn is_expanded(&self) -> bool {
         self.0 & Self::EXPANDED != 0
     }
-    pub fn expanded(&mut self, value: bool) -> Self {
+    pub fn expand(&mut self, value: bool) -> Self {
         if value {
             Self(self.0 | Self::EXPANDED)
         } else {
@@ -48,7 +48,7 @@ impl RenderFlags{
     pub fn is_squashed(&self) -> bool {
         self.0 & Self::SQAUASHED != 0
     }
-    pub fn squashed(&mut self, value: bool) -> Self {
+    pub fn squash(&mut self, value: bool) -> Self {
         if value {
             Self(self.0 | Self::SQAUASHED)
         } else {
@@ -65,11 +65,11 @@ impl Binary for RenderFlags {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct View {
     pub line_no: i32,
 
-    pub expanded: bool,
+    //pub expanded: bool,
     pub squashed: bool,
     pub rendered: bool,
     pub dirty: bool,
@@ -78,7 +78,7 @@ pub struct View {
     pub current: bool,
     pub transfered: bool,
 
-    pub flags: RenderFlags,
+    pub flags: Cell<RenderFlags>,
     pub tag_indexes: tags::TagIdx,
 }
 
@@ -94,7 +94,7 @@ impl View {
     pub fn new() -> Self {
         View {
             line_no: 0,
-            expanded: false,
+            // expanded: false,
             squashed: false,
             rendered: false,
             dirty: false,
@@ -103,11 +103,25 @@ impl View {
             current: false,
             transfered: false,
 
-            flags: RenderFlags(0),
+            flags: Cell::new(RenderFlags(0)),
             tag_indexes: tags::TagIdx::new(),
         }
     }
 
+    pub fn expand(&self, value: bool) {
+        self.flags.replace(self.flags.get().expand(value));
+    }
+    pub fn squash(&self, value: bool) {
+        self.flags.replace(self.flags.get().squash(value));
+    }
+
+    pub fn is_expanded(&self) -> bool {
+        self.flags.get().is_expanded()
+    }
+    pub fn is_squashed(&self) -> bool {
+        self.flags.get().is_squashed()
+    }
+    
     pub fn is_rendered_in(&self, line_no: i32) -> bool {
         self.rendered
             && self.line_no == line_no

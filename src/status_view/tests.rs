@@ -23,7 +23,7 @@ fn create_line(name: &str) -> Line {
     Line {
         content: name.to_string(),
         origin: DiffLineType::Context,
-        view: Cell::new(View::new()),
+        view: View::new(),
         new_line_no: None,
         old_line_no: None,
         kind: LineKind::None,
@@ -66,7 +66,7 @@ pub fn mock_render_view(vc: &mut dyn ViewContainer, mut line_no: i32) -> i32 {
     view.rendered = true;
     view.dirty = false;
     line_no += 1;
-    if view.expanded || view.child_dirty {
+    if view.is_expanded() || view.child_dirty {
         for child in vc.get_children() {
             line_no = mock_render_view(child, line_no)
         }
@@ -110,7 +110,7 @@ pub fn test_single_diff() {
                 assert!(!view.active);
                 assert!(!view.current);
             }
-            assert!(!view.expanded);
+            assert!(!view.is_expanded());
         }
     }
     // last line from prev loop
@@ -131,7 +131,7 @@ pub fn test_single_diff() {
             assert!(view.rendered);
             assert!(view.current);
             assert!(view.active);
-            assert!(view.expanded);
+            assert!(view.is_expanded());
             file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.rendered);
@@ -142,7 +142,7 @@ pub fn test_single_diff() {
         } else {
             assert!(!view.current);
             assert!(!view.active);
-            assert!(!view.expanded);
+            assert!(!view.is_expanded());
             file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(!view.rendered);
@@ -169,7 +169,7 @@ pub fn test_single_diff() {
             // all are inactive
             assert!(!view.current);
             assert!(!view.active);
-            assert!(!view.expanded);
+            assert!(!view.is_expanded());
             file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(!view.rendered);
@@ -179,7 +179,7 @@ pub fn test_single_diff() {
             assert!(view.rendered);
             assert!(view.current);
             assert!(view.active);
-            assert!(view.expanded);
+            assert!(view.is_expanded());
             file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.rendered);
@@ -191,7 +191,7 @@ pub fn test_single_diff() {
             assert!(view.rendered);
             assert!(!view.current);
             assert!(!view.active);
-            assert!(view.expanded);
+            assert!(view.is_expanded());
             file.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.rendered);
@@ -211,7 +211,7 @@ pub fn test_single_diff() {
                 if view.line_no == cursor_line {
                     // hunks were expanded by default.
                     // now they are collapsed!
-                    assert!(!view.expanded);
+                    assert!(!view.is_expanded());
                     assert!(view.child_dirty);
                     for line in child.get_children() {
                         assert!(line.get_view().squashed);
@@ -419,7 +419,7 @@ fn test_expand_line() {
         });
     }
 
-    let line_of_line = diff.files[0].hunks[0].lines[1].view.get().line_no;
+    let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no;
     // put cursor inside first hunk
     if diff.cursor(line_of_line, false, &mut ctx) {
         // if comment out next line the line_of_line will be not sqashed
@@ -523,17 +523,14 @@ fn test_tags() {
 
 #[test]
 pub fn test_line() {
-    env_logger::builder().format_timestamp(None).init();
-    let line =  Line::default();
-    line.view.replace(View{rendered: true, ..line.view.get()});
-    line.view.replace(View{rendered: false, transfered: true, ..line.view.get()});
+
     let mut flags = RenderFlags::new();
 
-    flags = flags.expanded(true);    
-    flags = flags.squashed(true);
+    flags = flags.expand(true);    
+    flags = flags.squash(true);
     
     debug!("------------- set {:b} {} {}", flags, flags.is_squashed(), flags.is_expanded());
-    flags = flags.expanded(false);
+    flags = flags.expand(false);
     debug!("------------- set {:b} {} {}", flags, flags.is_squashed(), flags.is_expanded());    
         
 }
