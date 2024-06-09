@@ -1,5 +1,6 @@
 use crate::status_view::render::View;
-use crate::status_view::{Label, Tag};
+use crate::status_view::tags;
+use crate::status_view::{Label};
 
 use crate::{
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
@@ -9,6 +10,10 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
 use log::{debug, trace};
+
+pub fn make_tag(name: &str) -> tags::TxtTag {
+    tags::TxtTag::from_str(name)
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
@@ -41,7 +46,7 @@ pub trait ViewContainer {
 
     fn get_content(&self) -> String;
 
-    fn tags(&self) -> Vec<Tag> {
+    fn tags(&self) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
@@ -327,7 +332,7 @@ impl ViewContainer for Diff {
         let start_iter = buffer.iter_at_line(self.view.line_no).unwrap();
         let end_iter = buffer.iter_at_line(iter.line()).unwrap();
         for tag in self.tags() {
-            buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
+            buffer.apply_tag_by_name(tag.str(), &start_iter, &end_iter);
         }
     }
     // Diff
@@ -335,12 +340,12 @@ impl ViewContainer for Diff {
         todo!("no one calls expand on diff");
     }
 
-    fn tags(&self) -> Vec<Tag> {
+    fn tags(&self) -> Vec<tags::TxtTag> {
         match self.kind {
-            DiffKind::Staged => vec![Tag::Staged],
+            DiffKind::Staged => vec![make_tag(tags::STAGED)],
             // TODO! create separate tag for conflicted!
             DiffKind::Unstaged | DiffKind::Conflicted => {
-                vec![Tag::Unstaged]
+                vec![make_tag(tags::UNSTAGED)]
             }
         }
     }
@@ -377,12 +382,15 @@ impl ViewContainer for File {
             .map(|vh| vh as &mut dyn ViewContainer)
             .collect()
     }
-    fn tags(&self) -> Vec<Tag> {
+    fn tags(&self) -> Vec<tags::TxtTag> {
+        let mut tags = vec![
+            make_tag(tags::BOLD),
+            make_tag(tags::POINTER),
+        ];
         if self.status == git2::Delta::Deleted {
-            vec![Tag::Bold, Tag::Pointer, Tag::Removed]
-        } else {
-            vec![Tag::Bold, Tag::Pointer]
+            tags.push(make_tag(tags::REMOVED));            
         }
+        tags
     }
 
     fn fill_context(&self, context: &mut StatusRenderContext) {
@@ -466,8 +474,11 @@ impl ViewContainer for Hunk {
         // whole hunk is active
         active
     }
-    fn tags(&self) -> Vec<Tag> {
-        vec![Tag::Hunk, Tag::Pointer]
+    fn tags(&self) -> Vec<tags::TxtTag> {
+        vec![
+            make_tag(tags::HUNK),
+            make_tag(tags::POINTER),
+        ]
     }
 
     fn is_expandable_by_child(&self) -> bool {
@@ -551,22 +562,22 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn tags(&self) -> Vec<Tag> {
-        match self.kind {
-            LineKind::ConflictMarker(_) => return vec![Tag::ConflictMarker],
-            LineKind::Ours(_) => return vec![Tag::Ours],
+    fn tags(&self) -> Vec<tags::TxtTag> {
+        match self.kind {// 
+            LineKind::ConflictMarker(_) => return vec![make_tag(tags::CONFLICT_MARKER)],
+            LineKind::Ours(_) => return vec![make_tag(tags::CONFLICT_MARKER)],
             LineKind::Theirs(_) => {
                 // return Vec::new();
-                return vec![Tag::Theirs];
+                return vec![make_tag(tags::THEIRS)];
             }
             _ => {}
         }
         match self.origin {
             DiffLineType::Addition => {
-                vec![Tag::Added]
+                vec![make_tag(tags::ADDED)]
             }
             DiffLineType::Deletion => {
-                vec![Tag::Removed]
+                vec![make_tag(tags::REMOVED)]
             }
             _ => Vec::new(),
         }
@@ -715,7 +726,7 @@ impl ViewContainer for Untracked {
         // this line is active
         active
     }
-    fn tags(&self) -> Vec<Tag> {
+    fn tags(&self) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
@@ -784,7 +795,7 @@ impl ViewContainer for UntrackedFile {
         // this line is active
         active
     }
-    fn tags(&self) -> Vec<Tag> {
+    fn tags(&self) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 }

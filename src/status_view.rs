@@ -1,3 +1,4 @@
+pub mod tags;
 pub mod commit;
 pub mod container;
 pub mod headerbar;
@@ -9,7 +10,6 @@ use core::time::Duration;
 use git2::RepositoryState;
 
 pub mod render;
-use textview::Tag;
 pub mod reconciliation;
 pub mod tests;
 
@@ -35,8 +35,8 @@ use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Box, Label as GtkLabel, ListBox,
-    Orientation, SelectionMode, TextBuffer, TextView, Widget,
+    gio, glib, Box, Label as GtkLabel, ListBox, Orientation, SelectionMode,
+    TextBuffer, TextView, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
