@@ -246,7 +246,6 @@ impl View {
 
     fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
         let current_line = iter.line();
-        trace!("force forward at line {:?}", current_line);
         let moved = iter.forward_lines(1);
         if !moved {
             // happens sometimes when buffer is over
@@ -273,6 +272,9 @@ impl View {
     fn remove_tag(&mut self, buffer: &TextBuffer, tag: &tags::TxtTag) {
         if self.tag_is_added(tag) {
             let (start_iter, end_iter) = self.start_end_iters(buffer);
+            if tag.name() == tags::CURSOR {
+                debug!("RRRRRRREAL REMOVE cursor from buffer at line {:?}", start_iter.line());
+            }
             buffer.remove_tag_by_name(tag.name(), &start_iter, &end_iter);
             self.tag_removed(tag);
         }
@@ -282,7 +284,7 @@ impl View {
         if !self.tag_is_added(tag) {
             let (start_iter, end_iter) = self.start_end_iters(buffer);
             if tag.name() == tags::CURSOR {
-                trace!("JJJJJJJJJJJJJJJJJJJUST adding cursor {:?}", start_iter.line());
+                debug!("RRRRRRREAL APPLY cursor to buffer at line {:?}", start_iter.line());
             }
             buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
             self.tag_added(tag);
@@ -290,10 +292,8 @@ impl View {
     }
 
     fn apply_tags(&mut self, buffer: &TextBuffer, content_tags: &Vec<tags::TxtTag>) {
-        trace!("apply_tags {} {:?}", &self.line_no, &content_tags);
         let mut fltr: HashSet<&str> = HashSet::new();
         if self.current {
-            trace!("ADDED CURSOR at line {}", self.line_no);
             self.add_tag(buffer, &make_tag(tags::CURSOR));
             // it need to filter background tags
             let hunk = make_tag(tags::HUNK);
@@ -303,7 +303,6 @@ impl View {
             fltr.insert(tags::HUNK);
             fltr.insert(tags::REGION);
         } else {
-            trace!("rrrrrrrrremoving CURSOR at line {:?}", self.line_no);
             self.remove_tag(buffer, &make_tag(tags::CURSOR));
         }
         if self.active {
