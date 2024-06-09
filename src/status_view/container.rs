@@ -69,7 +69,7 @@ pub trait ViewContainer {
         let tags = self.tags();
         let is_markup = self.is_markup();
         let view =
-            self.get_view().render(buffer, iter, content, is_markup, tags, context);
+            self.get_view().render_in_textview(buffer, iter, content, is_markup, tags, context);
         if view.is_expanded() || view.child_dirty {
             for child in self.get_children() {
                 child.render(buffer, iter, context);
@@ -118,7 +118,7 @@ pub trait ViewContainer {
         view.active = self_active;
         view.current = current;
 
-        if view.rendered {
+        if view.is_rendered() {
             // repaint if highlight is changed
             view.dirty =
                 view.active != active_before || view.current != current_before;
@@ -167,12 +167,12 @@ pub trait ViewContainer {
                 let view = vc.get_view();
                 if expanded {
                     view.squash(false);
-                    view.rendered = false;
+                    view.render(false);
                 } else {
                     view.squash(true);
                 }
             });
-        } else if v.is_expanded() && v.rendered {
+        } else if v.is_expanded() && v.is_rendered() {
             // go deeper for self.children
             trace!("expand. ____________ go deeper");
             for child in self.get_children() {
@@ -258,7 +258,7 @@ pub trait ViewContainer {
         // this is just RE render with build_up
         let view = self.get_view();
         let line_no = view.line_no;
-        if view.rendered {
+        if view.is_rendered() {
             view.dirty = true;
             // TODO! why i need child dirty here?
             view.child_dirty = true;

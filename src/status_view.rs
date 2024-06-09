@@ -1269,7 +1269,8 @@ impl Status {
             diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let content = vc.get_content();
                 let view = vc.get_view();
-                if view.line_no == current_line && view.rendered {
+                // hack :(
+                if view.line_no == current_line && view.is_rendered() {
                     debug!("view under line {:?} {:?}", view.line_no, content);
                     debug!(
                         "is rendered in {:?} {:?}",
