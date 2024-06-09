@@ -1,3 +1,10 @@
+go with amend
+TODO: rename _view.rs to _list.rs
+views must be connected with each other with large linked list. list across all view
+global array of text tag in buffer. each view stores indexes of self tags froms this array!
+[tag, tag, tag, tag]
+[0    1    0    1
+
 BUG: after merge head is not updated! (found after push)
 
 if remove vector fron view it could be Copy type and then it could be wrapped
