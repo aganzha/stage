@@ -68,6 +68,71 @@ impl RenderFlags{
             Self(self.0 & !Self::RENDERED)
         }
     }
+
+    pub const DIRTY: i8 = 0b00001000;
+
+    pub fn is_dirty(&self) -> bool {
+        self.0 & Self::DIRTY != 0
+    }
+    pub fn dirty(&mut self, value: bool) -> Self {
+        if value {
+            Self(self.0 | Self::DIRTY)
+        } else {
+            Self(self.0 & !Self::DIRTY)
+        }
+    }
+
+    pub const CHILD_DIRTY: i8 = 0b00010000;
+
+    pub fn is_child_dirty(&self) -> bool {
+        self.0 & Self::CHILD_DIRTY != 0
+    }
+    pub fn child_dirty(&mut self, value: bool) -> Self {
+        if value {
+            Self(self.0 | Self::CHILD_DIRTY)
+        } else {
+            Self(self.0 & !Self::CHILD_DIRTY)
+        }
+    }
+
+    pub const ACTIVE: i8 = 0b00100000;
+
+    pub fn is_active(&self) -> bool {
+        self.0 & Self::ACTIVE != 0
+    }
+    pub fn activate(&mut self, value: bool) -> Self {
+        if value {
+            Self(self.0 | Self::ACTIVE)
+        } else {
+            Self(self.0 & !Self::ACTIVE)
+        }
+    }
+
+    pub const CURRENT: i8 = 0b01000000;
+
+    pub fn is_current(&self) -> bool {
+        self.0 & Self::CURRENT != 0
+    }
+    pub fn make_current(&mut self, value: bool) -> Self {
+        if value {
+            Self(self.0 | Self::CURRENT)
+        } else {
+            Self(self.0 & !Self::CURRENT)
+        }
+    }
+
+    pub const TRANSFERED: i8 = 0b01000000;
+
+    pub fn is_transfered(&self) -> bool {
+        self.0 & Self::TRANSFERED != 0
+    }
+    pub fn transfer(&mut self, value: bool) -> Self {
+        if value {
+            Self(self.0 | Self::TRANSFERED)
+        } else {
+            Self(self.0 & !Self::TRANSFERED)
+        }
+    }
 }
 
 
@@ -85,11 +150,11 @@ pub struct View {
     // pub expanded: bool,
     // pub squashed: bool,
     // pub rendered: bool,
-    pub dirty: bool,
-    pub child_dirty: bool,
-    pub active: bool,
-    pub current: bool,
-    pub transfered: bool,
+    // pub dirty: bool,
+    // pub child_dirty: bool,
+    // pub active: bool,
+    // pub current: bool,
+    // pub transfered: bool,
 
     pub flags: Cell<RenderFlags>,
     pub tag_indexes: tags::TagIdx,
@@ -110,11 +175,11 @@ impl View {
             // expanded: false,
             // squashed: false,
             // rendered: false,
-            dirty: false,
-            child_dirty: false,
-            active: false,
-            current: false,
-            transfered: false,
+            // dirty: false,
+            // child_dirty: false,
+            // active: false,
+            // current: false,
+            // transfered: false,
 
             flags: Cell::new(RenderFlags(0)),
             tag_indexes: tags::TagIdx::new(),
@@ -130,6 +195,22 @@ impl View {
     pub fn render(&self, value: bool) {
         self.flags.replace(self.flags.get().render(value));
     }
+    pub fn dirty(&self, value: bool) {
+        self.flags.replace(self.flags.get().dirty(value));
+    }
+    pub fn child_dirty(&self, value: bool) {
+        self.flags.replace(self.flags.get().child_dirty(value));
+    }
+    pub fn activate(&self, value: bool) {
+        self.flags.replace(self.flags.get().activate(value));
+    }
+    
+    pub fn make_current(&self, value: bool) {
+        self.flags.replace(self.flags.get().make_current(value));
+    }
+    pub fn transfer(&self, value: bool) {
+        self.flags.replace(self.flags.get().transfer(value));
+    }
     
     pub fn is_expanded(&self) -> bool {
         self.flags.get().is_expanded()
@@ -140,10 +221,25 @@ impl View {
     pub fn is_rendered(&self) -> bool {
         self.flags.get().is_rendered()
     }
+    pub fn is_dirty(&self) -> bool {
+        self.flags.get().is_dirty()
+    }
+    pub fn is_child_dirty(&self) -> bool {
+        self.flags.get().is_child_dirty()
+    }
+    pub fn is_active(&self) -> bool {
+        self.flags.get().is_active()
+    }
+    pub fn is_current(&self) -> bool {
+        self.flags.get().is_current()
+    }
+    pub fn is_transfered(&self) -> bool {
+        self.flags.get().is_transfered()
+    }
     pub fn is_rendered_in(&self, line_no: i32) -> bool {
         self.is_rendered()
             && self.line_no == line_no
-            && !self.dirty
+            && !self.is_dirty()
             && !self.is_squashed()
     }
 
@@ -314,9 +410,9 @@ impl View {
             }
         }
 
-        self.dirty = false;
+        self.dirty(false);
         self.squash(false);
-        self.transfered = false;
+        self.transfer(false);
         self
     }
 
@@ -369,7 +465,7 @@ impl View {
 
     fn apply_tags(&mut self, buffer: &TextBuffer, content_tags: &Vec<tags::TxtTag>) {
         let mut fltr: HashSet<&str> = HashSet::new();
-        if self.current {
+        if self.is_current() {
             self.add_tag(buffer, &make_tag(tags::CURSOR));
             // it need to filter background tags
             let hunk = make_tag(tags::HUNK);
@@ -381,7 +477,7 @@ impl View {
         } else {
             self.remove_tag(buffer, &make_tag(tags::CURSOR));
         }
-        if self.active {
+        if self.is_active() {
             if !fltr.contains(tags::REGION) {
                 self.add_tag(buffer, &make_tag(tags::REGION));
             }
@@ -413,10 +509,10 @@ impl View {
         if !self.is_rendered() {
             return ViewState::NotRendered;
         }
-        if self.dirty && !self.transfered {
+        if self.is_dirty() && !self.is_transfered() {
             return ViewState::RenderedDirtyInPlace;
         }
-        if self.dirty && self.transfered {
+        if self.is_dirty() && self.is_transfered() {
             // why not in place? it is in place, just transfered!
             // TODO rename this state. and think about it!
             return ViewState::RenderedDirtyNotInPlace(self.line_no);

@@ -20,7 +20,7 @@ impl Line {
     ) {
         self.view = rendered.transfer_view();
         if self.content != rendered.content || self.origin != rendered.origin {
-            self.view.dirty = true;
+            self.view.dirty(true);
             // line.view.replace(View{rendered: true, ..line.view.get()});
             trace!("*************dirty content in reconciliation: {} <> {} origins: {:?} {:?}",
                    self.content,
@@ -33,7 +33,7 @@ impl Line {
     // line
     pub fn transfer_view(&self) -> View {
         let mut clone = self.view.clone();
-        clone.transfered = true;
+        clone.transfer(true);
         clone
     }
 }
@@ -44,8 +44,8 @@ impl Hunk {
         let mut clone = self.view.clone();
         // hunk headers are changing always
         // during partial staging
-        clone.dirty = true;
-        clone.transfered = true;
+        clone.dirty(true);
+        clone.transfer(true);
         clone
     }
     // hunk
@@ -306,7 +306,7 @@ impl File {
     // // File
     pub fn transfer_view(&self) -> View {
         let mut clone = self.view.clone();
-        clone.transfered = true;
+        clone.transfer(true);
         clone
     }
 }
@@ -361,7 +361,7 @@ impl UntrackedFile {
 
     pub fn transfer_view(&self) -> View {
         let mut clone = self.view.clone();
-        clone.transfered = true;
+        clone.transfer(true);
         clone
     }
 }
@@ -404,8 +404,8 @@ impl Head {
     // head
     pub fn transfer_view(&self) -> View {
         let mut clone = self.view.clone();
-        clone.transfered = true;
-        clone.dirty = true;
+        clone.transfer(true);
+        clone.dirty(true);
         clone
     }
 }
@@ -419,8 +419,8 @@ impl State {
     // state
     pub fn transfer_view(&self) -> View {
         let mut clone = self.view.clone();
-        clone.transfered = true;
-        clone.dirty = true;
+        clone.transfer(true);
+        clone.dirty(true);
         clone
     }
 }

@@ -70,12 +70,12 @@ pub trait ViewContainer {
         let is_markup = self.is_markup();
         let view =
             self.get_view().render_in_textview(buffer, iter, content, is_markup, tags, context);
-        if view.is_expanded() || view.child_dirty {
+        if view.is_expanded() || view.is_child_dirty() {
             for child in self.get_children() {
                 child.render(buffer, iter, context);
             }
         }
-        self.get_view().child_dirty = false;
+        self.get_view().child_dirty(false);
     }
 
     // ViewContainer
@@ -89,8 +89,8 @@ pub trait ViewContainer {
         let mut result = false;
         let view = self.get_view();
 
-        let current_before = view.current;
-        let active_before = view.active;
+        let current_before = view.is_current();
+        let active_before = view.is_active();
 
         let view_expanded = view.is_expanded();
         let current = view.is_rendered_in(line_no);
@@ -115,14 +115,15 @@ pub trait ViewContainer {
         let self_active = active_by_parent || current || active_by_child;
 
         let view = self.get_view();
-        view.active = self_active;
-        view.current = current;
+        view.activate(self_active);
+        view.make_current(current);
 
         if view.is_rendered() {
             // repaint if highlight is changed
-            view.dirty =
-                view.active != active_before || view.current != current_before;
-            result = view.dirty;
+            view.dirty(
+                view.is_active() != active_before || view.is_current() != current_before
+            );
+            result = view.is_dirty();
         }
         for child in self.get_children() {
             result = child.cursor(line_no, self_active, context) || result;
@@ -161,7 +162,7 @@ pub trait ViewContainer {
             let view = self.get_view();
             found_line = Some(line_no);
             view.expand(!view.is_expanded());
-            view.child_dirty = true;
+            view.child_dirty(true);
             let expanded = view.is_expanded();
             self.walk_down(&mut |vc: &mut dyn ViewContainer| {
                 let view = vc.get_view();
@@ -234,11 +235,11 @@ pub trait ViewContainer {
         }
 
         view.squash(true);
-        view.child_dirty = true;
+        view.child_dirty(true);
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let view = vc.get_view();
             view.squash(true);
-            view.child_dirty = true;
+            view.child_dirty(true);
         });
         // GOT BUG HERE DURING STAGING SAME FILES!
         trace!("line finally {:?}", line_no);
@@ -259,13 +260,13 @@ pub trait ViewContainer {
         let view = self.get_view();
         let line_no = view.line_no;
         if view.is_rendered() {
-            view.dirty = true;
+            view.dirty(true);
             // TODO! why i need child dirty here?
-            view.child_dirty = true;
+            view.child_dirty(true);
         }
         self.walk_down(&mut |vc: &mut dyn ViewContainer| {
             let view = vc.get_view();
-            view.dirty = true;
+            view.dirty(true);
             // child dirty triggers expand?
             // view.child_dirty = true;
         });
