@@ -158,10 +158,11 @@ impl View {
 
         let line_no = iter.line();
         trace!(
-            "======= line {:?} render view {:?} which is at line {:?}",
+            "======= line {:?} render view {:?} which is at line {:?}. sstate: {:?}",
             line_no,
             content,
-            self.line_no
+            self.line_no,
+            self.get_state_for(line_no)
         );
         match self.get_state_for(line_no) {
             ViewState::RenderedInPlace => {
@@ -275,31 +276,24 @@ impl View {
             buffer.remove_tag_by_name(tag.name(), &start_iter, &end_iter);
             self.tag_removed(tag);
         }
-        // let index = self.tags.iter().position(|t| t == tag);
-        // if let Some(ind) = index {
-        //     let (start_iter, end_iter) = self.start_end_iters(buffer);
-        //     buffer.remove_tag_by_name(tag, &start_iter, &end_iter);
-        //     self.tags.remove(ind);
-        // }
     }
 
-    fn add_tag(&mut self, buffer: &TextBuffer, tag: &tags::TxtTag) {
+    fn add_tag(&mut self, buffer: &TextBuffer, tag: &tags::TxtTag) {        
         if !self.tag_is_added(tag) {
             let (start_iter, end_iter) = self.start_end_iters(buffer);
+            if tag.name() == tags::CURSOR {
+                trace!("JJJJJJJJJJJJJJJJJJJUST adding cursor {:?}", start_iter.line());
+            }
             buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
             self.tag_added(tag);
         }
-        // let index = self.tags.iter().position(|t| t == tag);
-        // if index.is_none() {
-        //     let (start_iter, end_iter) = self.start_end_iters(buffer);
-        //     buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
-        //     self.tags.push(String::from(tag));
-        // }
     }
 
     fn apply_tags(&mut self, buffer: &TextBuffer, content_tags: &Vec<tags::TxtTag>) {
+        trace!("apply_tags {} {:?}", &self.line_no, &content_tags);
         let mut fltr: HashSet<&str> = HashSet::new();
         if self.current {
+            trace!("ADDED CURSOR at line {}", self.line_no);
             self.add_tag(buffer, &make_tag(tags::CURSOR));
             // it need to filter background tags
             let hunk = make_tag(tags::HUNK);
@@ -309,6 +303,7 @@ impl View {
             fltr.insert(tags::HUNK);
             fltr.insert(tags::REGION);
         } else {
+            trace!("rrrrrrrrremoving CURSOR at line {:?}", self.line_no);
             self.remove_tag(buffer, &make_tag(tags::CURSOR));
         }
         if self.active {

@@ -1176,7 +1176,7 @@ impl Status {
                 _ => (),
             }
         });
-        trace!("apply filter ----------------------> {:?}", filter);
+        debug!("apply filter ----------------------> {:?}", filter);
         if !filter.file_id.is_empty() {
             if hunks_staged > 1 {
                 // stage all hunks in file
@@ -1229,8 +1229,8 @@ impl Status {
                 if !unstaged.files.is_empty() {
                     let line_no = unstaged.files[0].view.line_no;
                     let iter = buffer.iter_at_line(line_no).unwrap();
-                    trace!(
-                        "choose cursor at first unstaged file {:?}",
+                    debug!(
+                        "ccccccccccccccccccccccccccccccccccchoose cursor at first unstaged file {:?}",
                         line_no
                     );
                     buffer.place_cursor(&iter);
