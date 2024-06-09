@@ -41,7 +41,7 @@ pub fn commit(
                 .build();
 
             list_box.append(&commit_message);
-            if amend_message.is_some() || true {
+            if amend_message.is_some() {
                 list_box.append(&amend_switch);
             }
 

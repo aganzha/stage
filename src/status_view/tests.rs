@@ -511,10 +511,7 @@ fn test_tags() {
 
 #[test]
 pub fn test_line() {
-    env_logger::builder().format_timestamp(None).init();
     let line =  Line::default();
     line.view.replace(View{rendered: true, ..line.view.get()});
-    debug!("ooooooooooooooooooo {:?}", line.view.get().rendered);
     line.view.replace(View{rendered: false, transfered: true, ..line.view.get()});
-    debug!("ooooooooooooooooooo {:?} {:?}", line.view.get().rendered, line.view.get().transfered);
 }
