@@ -1,5 +1,6 @@
 use crate::git::{
     get_current_repo_status, get_head, make_diff, Diff, DiffKind,
+    make_diff_options
 };
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
@@ -148,7 +149,7 @@ pub fn get_commit_diff(
 
     let parent_tree = parent.tree()?;
     let git_diff =
-        repo.diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)?;
+        repo.diff_tree_to_tree(Some(&parent_tree), Some(&tree), Some(&mut make_diff_options()))?;
     Ok(CommitDiff::new(
         commit,
         make_diff(&git_diff, DiffKind::Staged),
@@ -225,7 +226,7 @@ pub fn create(
     // update staged changes
     let ob = repo.revparse_single("HEAD^{tree}")?;
     let current_tree = repo.find_tree(ob.id())?;
-    let git_diff = repo.diff_tree_to_index(Some(&current_tree), None, None)?;
+    let git_diff = repo.diff_tree_to_index(Some(&current_tree), None, Some(&mut make_diff_options()))?;
 
     sender
         .send_blocking(crate::Event::Staged(make_diff(
@@ -241,7 +242,7 @@ pub fn create(
         move || {
             let repo = git2::Repository::open(path).expect("can't open repo");
             let git_diff = repo
-                .diff_index_to_workdir(None, None)
+                .diff_index_to_workdir(None, Some(&mut make_diff_options()))
                 .expect("cant' get diff index to workdir");
             let diff = make_diff(&git_diff, DiffKind::Unstaged);
             sender

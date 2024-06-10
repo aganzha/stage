@@ -1,12 +1,15 @@
 use libadwaita::prelude::*;
-use libadwaita::{ButtonContent, HeaderBar, SplitButton, Window, StyleManager, ColorScheme};
+use libadwaita::{
+    ButtonContent, ColorScheme, HeaderBar, SplitButton, StyleManager, Window,
+};
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 use async_channel::Sender;
-use std::path::PathBuf;
-use gtk4::{gio, Align, Button, FileDialog, Label, PopoverMenu, MenuButton,
-           Box, Orientation, ToggleButton,
+use gtk4::{
+    gio, Align, Box, Button, FileDialog, Label, MenuButton, Orientation,
+    PopoverMenu, ToggleButton,
 };
+use std::path::PathBuf;
 
 pub enum HbUpdateData {
     Path(PathBuf),
@@ -24,19 +27,18 @@ pub const LIGHT: &str = "light";
 pub const DEFAULT: &str = "default";
 
 impl Scheme {
-
     pub fn new(s: String) -> Self {
         Self(s)
     }
     pub fn from_str(s: &str) -> Self {
         Self(s.to_string())
     }
-    
+
     pub fn scheme_name(&self) -> ColorScheme {
         match &self.0[..] {
             DARK => ColorScheme::ForceDark,
             LIGHT => ColorScheme::ForceLight,
-            _ => ColorScheme::Default
+            _ => ColorScheme::Default,
         }
     }
     pub fn str(&self) -> &str {
@@ -50,7 +52,6 @@ impl Scheme {
 pub struct MenuItem(String);
 pub const CUSTOM_ATTR: &str = "custom";
 pub const SCHEME_TOKEN: &str = "scheme";
-
 
 // pub trait ThemeChoose {
 //     fn scheme_name(&self) -> &str;
@@ -83,7 +84,10 @@ pub const SCHEME_TOKEN: &str = "scheme";
 //     }
 // }
 
-pub fn scheme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> Box {
+pub fn scheme_selector(
+    stored_scheme: Scheme,
+    sender: Sender<crate::Event>,
+) -> Box {
     let scheme_selector = Box::builder()
         .orientation(Orientation::Horizontal)
         .css_name("scheme_selector")
@@ -93,7 +97,7 @@ pub fn scheme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> B
     for scheme in [
         Scheme::from_str(DEFAULT),
         Scheme::from_str(LIGHT),
-        Scheme::from_str(DARK)
+        Scheme::from_str(DARK),
     ] {
         let toggle = ToggleButton::builder()
             .active(false)
@@ -107,28 +111,35 @@ pub fn scheme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> B
             toggle.set_active(true);
         }
         toggle.last_child().unwrap().set_halign(Align::Center);
-        toggle.bind_property("active", &toggle, "icon_name").transform_to({
-            let sender = sender.clone();
-            move |_, is_active: bool| {
-                if is_active {
-                    let manager = StyleManager::default();                    
-                    manager.set_color_scheme(scheme.scheme_name());
+        toggle
+            .bind_property("active", &toggle, "icon_name")
+            .transform_to({
+                let sender = sender.clone();
+                move |_, is_active: bool| {
+                    if is_active {
+                        let manager = StyleManager::default();
+                        manager.set_color_scheme(scheme.scheme_name());
 
-                    sender.send_blocking(
-                        crate::Event::StoreSettings(scheme.setting_key(), scheme.0.to_string())
-                    ).expect("cant send through sender");
-                    Some("object-select-symbolic")
-                } else {
-                    Some("")
+                        sender
+                            .send_blocking(crate::Event::StoreSettings(
+                                scheme.setting_key(),
+                                scheme.0.to_string(),
+                            ))
+                            .expect("cant send through sender");
+                        Some("object-select-symbolic")
+                    } else {
+                        Some("")
+                    }
                 }
-            }}).build();
+            })
+            .build();
         scheme_selector.append(&toggle);
         if let Some(ref ft) = first_toggle {
             toggle.set_group(Some(ft));
         } else {
             first_toggle.replace(toggle);
         }
-    };
+    }
 
     let bx = Box::builder()
         .orientation(Orientation::Vertical)
@@ -142,21 +153,22 @@ pub fn scheme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> B
     bx
 }
 
-pub fn burger_menu(stored_scheme: Scheme, sender: Sender<crate::Event>) -> MenuButton {
-
+pub fn burger_menu(
+    stored_scheme: Scheme,
+    sender: Sender<crate::Event>,
+) -> MenuButton {
     let menu_model = gio::Menu::new();
 
-    let menu_item = gio::MenuItem::new(Some(SCHEME_TOKEN), Some("win.menu::1"));
+    let menu_item =
+        gio::MenuItem::new(Some(SCHEME_TOKEN), Some("win.menu::1"));
     let scheme_id = SCHEME_TOKEN.to_variant();
     menu_item.set_attribute_value(CUSTOM_ATTR, Some(&scheme_id));
     menu_model.insert_item(0, &menu_item);
-
 
     // let menu_item = gio::MenuItem::new(Some("fontsize"), Some("win.menu::2"));
     // let fontsize_id = "fontsize".to_variant();
     // menu_item.set_attribute_value("custom", Some(&fontsize_id));
     // menu_model.insert_item(1, &menu_item);
-
 
     let popover_menu = PopoverMenu::from_model(Some(&menu_model));
 
@@ -182,7 +194,10 @@ pub fn burger_menu(stored_scheme: Scheme, sender: Sender<crate::Event>) -> MenuB
     // // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
     // popover_menu.add_child(&fontsize_label, "fontsize");
 
-    popover_menu.add_child(&scheme_selector(stored_scheme, sender.clone()), SCHEME_TOKEN);
+    popover_menu.add_child(
+        &scheme_selector(stored_scheme, sender.clone()),
+        SCHEME_TOKEN,
+    );
     MenuButton::builder()
         .popover(&popover_menu)
         .icon_name("open-menu-symbolic")
@@ -470,7 +485,10 @@ pub fn factory(
 
     hb.set_title_widget(Some(&repo_selector));
 
-    hb.pack_end(&burger_menu(Scheme::new(settings.get::<String>(SCHEME_TOKEN)), sender));
+    hb.pack_end(&burger_menu(
+        Scheme::new(settings.get::<String>(SCHEME_TOKEN)),
+        sender,
+    ));
     hb.pack_end(&commit_btn);
     hb.pack_end(&branches_btn);
     hb.pack_end(&push_btn);

@@ -209,7 +209,7 @@ impl MultiLineLabel {
         }
         // space for following diff
         self.labels.push(TextViewLabel::from_string(""));
-        self.view.expanded = true;
+        self.view.expand(true) // expanded = true;
     }
 }
 
@@ -220,14 +220,14 @@ impl ViewContainer for MultiLineLabel {
     fn child_count(&self) -> usize {
         self.labels.len()
     }
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(&self) -> Vec<&dyn ViewContainer> {
         self.labels
-            .iter_mut()
-            .map(|vh| vh as &mut dyn ViewContainer)
+            .iter()
+            .map(|vh| vh as &dyn ViewContainer)
             .collect()
     }
 
@@ -438,7 +438,7 @@ pub fn show_commit_window(
                     );
 
                     if !commit_diff.diff.files.is_empty() {
-                        commit_diff.diff.files[0].view.current = true;
+                        commit_diff.diff.files[0].view.make_current(true);
                     }
                     // let mut body_label = MultiLineLabel::new("", &mut ctx);
                     commit_diff.render(
@@ -462,7 +462,7 @@ pub fn show_commit_window(
                         }
                         let buffer = &txt.buffer();
                         let mut iter = buffer
-                            .iter_at_line(d.diff.files[0].view.line_no)
+                            .iter_at_line(d.diff.files[0].view.line_no.get())
                             .unwrap();
                         if need_render {
                             d.diff.render(buffer, &mut iter, &mut ctx);
@@ -475,7 +475,7 @@ pub fn show_commit_window(
                         if d.diff.cursor(line_no, false, &mut ctx) {
                             let buffer = &txt.buffer();
                             let mut iter = buffer
-                                .iter_at_line(d.diff.files[0].view.line_no)
+                                .iter_at_line(d.diff.files[0].view.line_no.get())
                                 .unwrap();
                             // will render diff whithout rendering
                             // preceeding elements!

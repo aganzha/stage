@@ -6,7 +6,9 @@ mod status_view;
 use status_view::{
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
-    textview::factory as textview_factory, Status,
+    render::play_with_tags,
+    textview::factory as textview_factory,
+    Status,
 };
 
 mod branches_view;
@@ -42,8 +44,8 @@ use gdk::Display;
 use glib::{clone, ControlFlow};
 use libadwaita::prelude::*;
 use libadwaita::{
-    Application, ApplicationWindow, Banner, OverlaySplitView, Toast,
-    ToastOverlay, ToolbarStyle, ToolbarView, Window, StyleManager
+    Application, ApplicationWindow, Banner, OverlaySplitView, StyleManager,
+    Toast, ToastOverlay, ToolbarStyle, ToolbarView, Window,
 };
 
 use gtk4::{
@@ -74,7 +76,7 @@ fn main() -> glib::ExitCode {
         app.connect_startup(|_| load_css());
         app.connect_activate(run_without_args);
     }
-    
+
     app.run()
 }
 
@@ -87,13 +89,12 @@ fn load_css() {
     let provider = CssProvider::new();
 
     provider.load_from_string(include_str!("style.css"));
-    
+
     style_context_add_provider_for_display(
         &display,
         &provider,
         STYLE_PROVIDER_PRIORITY_USER,
     );
-    
 }
 
 #[derive(Debug)]
@@ -135,7 +136,7 @@ pub enum Event {
     PullUserPass,
     CheckoutError(Oid, String, String),
     LockMonitors(bool),
-    StoreSettings(String, String)
+    StoreSettings(String, String),
 }
 
 fn zoom(dir: bool) {
@@ -201,9 +202,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     }
     let scheme = settings.get::<String>(SCHEME_TOKEN);
     if !scheme.is_empty() {
-        StyleManager::default().set_color_scheme(Scheme::new(scheme).scheme_name());
+        StyleManager::default()
+            .set_color_scheme(Scheme::new(scheme).scheme_name());
     }
-    
+
     let mut status =
         Status::new(initial_path, settings.clone(), sender.clone());
 
@@ -233,7 +235,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
 
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone());// TODO! remove/
+    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone()); // TODO! remove/
 
     let text_view_width =
         Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
@@ -326,7 +328,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     status.update_state(state, &txt, &mut ctx);
                 }
                 Event::Debug => {
-                    info!("main. debug");                    
+                    info!("main. debug");
+                    play_with_tags();
                     // debug::debug(&window, settings.get::<String>("theme"), sender.clone());
                 }
                 Event::Commit => {
@@ -583,7 +586,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::StoreSettings(name, value) => {
                     info!("StoreSettings {} {}", name, value);
-                    settings.set(&name, value).expect("cant set settings")                    
+                    settings.set(&name, value).expect("cant set settings")
                 }
             };
         }
