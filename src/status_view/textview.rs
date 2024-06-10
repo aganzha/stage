@@ -16,6 +16,7 @@ use std::rc::Rc;
 //const CURSOR_TAG: &str = "CursorTag";
 
 // gnome colors https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/css-variables.html
+// vs gnome colors https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1-latest/named-colors.html
 // #[derive(Eq, Hash, PartialEq, Debug)]
 // pub enum Tag {
 //     Bold,
