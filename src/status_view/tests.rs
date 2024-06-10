@@ -1,4 +1,6 @@
-use crate::status_view::render::View;
+use crate::status_view::tags;
+use crate::status_view::render::{View, RenderFlags};
+
 use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::{Diff, DiffKind, File, Hunk, Line, LineKind};
 use git2::DiffLineType;
@@ -6,6 +8,7 @@ use gtk4::prelude::*;
 use gtk4::TextBuffer;
 use log::debug;
 use std::sync::Once;
+use std::cell::{Cell};
 
 static INIT: Once = Once::new();
 
@@ -57,17 +60,17 @@ fn create_diff() -> Diff {
     diff
 }
 
-pub fn mock_render_view(vc: &mut dyn ViewContainer, mut line_no: i32) -> i32 {
+pub fn mock_render_view(vc: &dyn ViewContainer, mut line_no: i32) -> i32 {
     let view = vc.get_view();
-    view.line_no = line_no;
-    view.rendered = true;
-    view.dirty = false;
+    view.line_no.replace(line_no);
+    view.render(true);
+    view.dirty(false);
     line_no += 1;
-    if view.expanded || view.child_dirty {
+    if view.is_expanded() || view.is_child_dirty() {
         for child in vc.get_children() {
             line_no = mock_render_view(child, line_no)
         }
-        vc.get_view().child_dirty = false;
+        vc.get_view().child_dirty(false);
     }
     line_no
 }
@@ -101,13 +104,13 @@ pub fn test_single_diff() {
         for (i, file) in diff.files.iter_mut().enumerate() {
             let view = file.get_view();
             if i as i32 == cursor_line {
-                assert!(view.active);
-                assert!(view.current);
+                assert!(view.is_active());
+                assert!(view.is_current());
             } else {
-                assert!(!view.active);
-                assert!(!view.current);
+                assert!(!view.is_active());
+                assert!(!view.is_current());
             }
-            assert!(!view.expanded);
+            assert!(!view.is_expanded());
         }
     }
     // last line from prev loop
@@ -115,7 +118,7 @@ pub fn test_single_diff() {
     let mut cursor_line = 2;
     for file in &mut diff.files {
         if let Some(_expanded_line) = file.expand(cursor_line) {
-            assert!(file.get_view().child_dirty);
+            assert!(file.get_view().is_child_dirty());
             break;
         }
     }
@@ -125,24 +128,24 @@ pub fn test_single_diff() {
     for (i, file) in diff.files.iter_mut().enumerate() {
         let view = file.get_view();
         if i as i32 == cursor_line {
-            assert!(view.rendered);
-            assert!(view.current);
-            assert!(view.active);
-            assert!(view.expanded);
-            file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            assert!(view.is_rendered());
+            assert!(view.is_current());
+            assert!(view.is_active());
+            assert!(view.is_expanded());
+            file.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
-                assert!(view.rendered);
-                assert!(view.active);
-                assert!(!view.squashed);
-                assert!(!view.current);
+                assert!(view.is_rendered());
+                assert!(view.is_active());
+                assert!(!view.is_squashed());
+                assert!(!view.is_current());
             });
         } else {
-            assert!(!view.current);
-            assert!(!view.active);
-            assert!(!view.expanded);
-            file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            assert!(!view.is_current());
+            assert!(!view.is_active());
+            assert!(!view.is_expanded());
+            file.walk_down(&|vc: &dyn ViewContainer| {
                 let view = vc.get_view();
-                assert!(!view.rendered);
+                assert!(!view.is_rendered());
             });
         }
     }
@@ -164,36 +167,36 @@ pub fn test_single_diff() {
         let j = i as i32;
         if j < cursor_line {
             // all are inactive
-            assert!(!view.current);
-            assert!(!view.active);
-            assert!(!view.expanded);
-            file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            assert!(!view.is_current());
+            assert!(!view.is_active());
+            assert!(!view.is_expanded());
+            file.walk_down(&|vc: &dyn ViewContainer| {
                 let view = vc.get_view();
-                assert!(!view.rendered);
+                assert!(!view.is_rendered());
             });
         } else if j == cursor_line {
             // all are active
-            assert!(view.rendered);
-            assert!(view.current);
-            assert!(view.active);
-            assert!(view.expanded);
-            file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            assert!(view.is_rendered());
+            assert!(view.is_current());
+            assert!(view.is_active());
+            assert!(view.is_expanded());
+            file.walk_down(&|vc: &dyn ViewContainer| {
                 let view = vc.get_view();
-                assert!(view.rendered);
-                assert!(view.active);
-                assert!(!view.current);
+                assert!(view.is_rendered());
+                assert!(view.is_active());
+                assert!(!view.is_current());
             });
         } else if j > cursor_line {
             // all are expanded but inactive
-            assert!(view.rendered);
-            assert!(!view.current);
-            assert!(!view.active);
-            assert!(view.expanded);
-            file.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            assert!(view.is_rendered());
+            assert!(!view.is_current());
+            assert!(!view.is_active());
+            assert!(view.is_expanded());
+            file.walk_down(&|vc: &dyn ViewContainer| {
                 let view = vc.get_view();
-                assert!(view.rendered);
-                assert!(!view.active);
-                assert!(!view.current);
+                assert!(view.is_rendered());
+                assert!(!view.is_active());
+                assert!(!view.is_current());
             });
         }
     }
@@ -205,13 +208,13 @@ pub fn test_single_diff() {
         if let Some(_expanded_line) = file.expand(cursor_line) {
             for child in file.get_children() {
                 let view = child.get_view();
-                if view.line_no == cursor_line {
+                if view.line_no.get() == cursor_line {
                     // hunks were expanded by default.
                     // now they are collapsed!
-                    assert!(!view.expanded);
-                    assert!(view.child_dirty);
+                    assert!(!view.is_expanded());
+                    assert!(view.is_child_dirty());
                     for line in child.get_children() {
-                        assert!(line.get_view().squashed);
+                        assert!(line.get_view().is_squashed());
                     }
                 }
             }
@@ -233,54 +236,60 @@ fn test_render_view() {
 
     let mut ctx = StatusRenderContext::new();
 
-    view1.render(
+    view1.render_in_textview(
         &buffer,
         &mut iter,
         "test1".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
-    view2.render(
+    view2.render_in_textview(
         &buffer,
         &mut iter,
         "test2".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
-    view3.render(
+    view3.render_in_textview(
         &buffer,
         &mut iter,
         "test3".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
-    assert!(view1.line_no == 1);
-    assert!(view2.line_no == 2);
-    assert!(view3.line_no == 3);
-    assert!(view1.rendered);
-    assert!(view2.rendered);
-    assert!(view3.rendered);
+    assert!(view1.line_no.get() == 1);
+    assert!(view2.line_no.get() == 2);
+    assert!(view3.line_no.get() == 3);
+    assert!(view1.is_rendered());
+    assert!(view2.is_rendered());
+    assert!(view3.is_rendered());
     assert!(iter.line() == 4);
     // ------------------ test rendered in line
     iter = buffer.iter_at_line(1).unwrap();
-    view1.render(
+    view1.render_in_textview(
         &buffer,
         &mut iter,
         "test1".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
-    view2.render(
+    view2.render_in_textview(
         &buffer,
         &mut iter,
         "test2".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
-    view3.render(
+    view3.render_in_textview(
         &buffer,
         &mut iter,
         "test3".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
@@ -288,83 +297,89 @@ fn test_render_view() {
 
     // ------------------ test deleted
     iter = buffer.iter_at_line(1).unwrap();
-    view1.squashed = true;
-    view1.rendered = false;
+    view1.squash(true);
+    view1.render(false);
 
-    view1.render(
+    view1.render_in_textview(
         &buffer,
         &mut iter,
         "test1".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
-    assert!(!view1.rendered);
+    assert!(!view1.is_rendered());
     // its no longer squashed. is it ok?
-    assert!(!view1.squashed);
+    assert!(!view1.is_squashed());
     // iter was not moved (nothing to delete, view was not rendered)
     assert!(iter.line() == 1);
     // rerender it
-    view1.render(
+    view1.render_in_textview(
         &buffer,
         &mut iter,
         "test1".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
     assert!(iter.line() == 2);
 
     // -------------------- test dirty
-    view2.dirty = true;
-    view2.render(
+    view2.dirty(true);
+    view2.render_in_textview(
         &buffer,
         &mut iter,
         "test2".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
-    assert!(!view2.dirty);
+    assert!(!view2.is_dirty());
     assert!(iter.line() == 3);
     // -------------------- test squashed
-    view3.squashed = true;
-    view3.render(
+    view3.squash(true);
+    view3.render_in_textview(
         &buffer,
         &mut iter,
         "test3".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
-    assert!(!view3.squashed);
+    assert!(!view3.is_squashed());
     // iter remains on same kine, just squashing view in place
     assert!(iter.line() == 3);
     // -------------------- test transfered
-    view3.line_no = 0;
-    view3.dirty = true;
-    view3.transfered = true;
-    view3.render(
+    view3.line_no.replace(0);
+    view3.dirty(true);
+    view3.transfer(true);
+    view3.render_in_textview(
         &buffer,
         &mut iter,
         "test3".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
-    assert!(view3.line_no == 3);
-    assert!(view3.rendered);
-    assert!(!view3.dirty);
-    assert!(!view3.transfered);
+    assert!(view3.line_no.get() == 3);
+    assert!(view3.is_rendered());
+    assert!(!view3.is_dirty());
+    assert!(!view3.is_transfered());
     assert!(iter.line() == 4);
 
     // --------------------- test not in place
     iter = buffer.iter_at_line(3).unwrap();
-    view3.line_no = 0;
-    view3.render(
+    view3.line_no.replace(0);
+    view3.render_in_textview(
         &buffer,
         &mut iter,
         "test3".to_string(),
+        false,
         Vec::new(),
         &mut ctx,
     );
-    assert!(view3.line_no == 3);
-    assert!(view3.rendered);
+    assert!(view3.line_no.get() == 3);
+    assert!(view3.is_rendered());
     assert!(iter.line() == 4);
     // call it here, cause rust creates threads event with --test-threads=1
     // and gtk should be called only from main thread
@@ -380,7 +395,7 @@ fn test_expand_line() {
     let mut context = StatusRenderContext::new();
     let mut ctx = context;
     diff.render(&buffer, &mut iter, &mut ctx);
-    // if cursor returns true it need to rerender as in Status!    
+    // if cursor returns true it need to rerender as in Status!
     if diff.cursor(1, false, &mut ctx) {
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
     }
@@ -396,15 +411,15 @@ fn test_expand_line() {
         if i == 0 {
             continue;
         }
-        diff.walk_down(&mut move |vc: &mut dyn ViewContainer| {
-            if vc.get_view().line_no == i as i32 {
+        diff.walk_down(&move |vc: &dyn ViewContainer| {
+            if vc.get_view().line_no.get() == i as i32 {
                 debug!("{:?} - {:?} = {:?}", i, cl, vc.get_content());
                 assert!(cl.trim() == vc.get_content());
             }
         });
     }
 
-    let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no;
+    let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no.get();
     // put cursor inside first hunk
     if diff.cursor(line_of_line, false, &mut ctx) {
         // if comment out next line the line_of_line will be not sqashed
@@ -443,25 +458,20 @@ fn test_reconciliation() {
     let mut hunk = create_hunk(name);
 
     hunk.render(&buffer, &mut iter, &mut context);
-    debug!("LLLLLLLLLLLLLLLLines AFTER FIRST RENDER");
     for line in &hunk.lines {
         dbg!(&line.view);
         // assert!(&line.view.rendered);
     }
     hunk.expand(0);
-    debug!("LLLLLLLLLLLLLLLLines AFTER EXPAND");
     for line in &hunk.lines {
         dbg!(&line.view);
         // assert!(&line.view.rendered);
     }
     let mut iter = buffer.iter_at_line(0).unwrap();
-    dbg!("before second RENDER");
 
     dbg!(&hunk.view);
     hunk.render(&buffer, &mut iter, &mut context);
-    dbg!("AFTER second RENDER");
     dbg!(&hunk.view);
-    debug!("LLLLLLLLLLLLLLLLines after expansion");
     for line in &hunk.lines {
         dbg!(&line.view);
         // assert!(&line.view.rendered);
@@ -470,9 +480,54 @@ fn test_reconciliation() {
     let mut new_hunk = create_hunk(name);
     new_hunk.enrich_view(&mut hunk, &buffer, &mut context);
 
-    debug!("oooooooooooooooooooooooooooooo {:?}", content);
     for line in &new_hunk.lines {
         dbg!(&line.view);
     }
     // new_hunk.enrich_view()
+}
+
+#[test]
+fn test_tags() {
+
+    let tag1 = tags::TxtTag::from_str(tags::TEXT_TAGS[10]);
+    let tag3 = tags::TxtTag::from_str(tags::TEXT_TAGS[3]);
+
+    let mut view = View::new();
+    view.tag_added(&tag1);
+    debug!("added at 1 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b10000000000));
+    assert!(view.tag_indexes.get().is_added(&tag1));
+
+    view.tag_added(&tag3);
+    debug!("added at 3 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b10000001000));
+    assert!(view.tag_indexes.get().is_added(&tag1));
+    assert!(view.tag_indexes.get().is_added(&tag3));
+
+    view.tag_removed(&tag1);
+    debug!("removed at 1 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b00001000));
+    assert!(!view.tag_indexes.get().is_added(&tag1));
+    assert!(view.tag_indexes.get().is_added(&tag3));
+
+    view.tag_removed(&tag3);
+    // view.tag_indexes.added("tag3");
+    debug!("removed at 3 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b00000000));
+    assert!(!view.tag_indexes.get().is_added(&tag1));
+    assert!(!view.tag_indexes.get().is_added(&tag3));
+}
+
+#[test]
+pub fn test_line() {
+
+    let mut flags = RenderFlags::new();
+
+    flags = flags.expand(true);
+    flags = flags.squash(true);
+
+    debug!("------------- set {:b} {} {}", flags, flags.is_squashed(), flags.is_expanded());
+    flags = flags.expand(false);
+    debug!("------------- set {:b} {} {}", flags, flags.is_squashed(), flags.is_expanded());
+
 }

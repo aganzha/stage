@@ -1,6 +1,4 @@
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
-
+use crate::status_view::tags;
 use async_channel::Sender;
 use core::time::Duration;
 use glib::ControlFlow;
@@ -12,185 +10,136 @@ use gtk4::{
 };
 use log::{debug, trace};
 use pango::Style;
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 
-const CURSOR_TAG: &str = "CursorTag";
+//const CURSOR_TAG: &str = "CursorTag";
 
 // gnome colors https://gnome.pages.gitlab.gnome.org/libadwaita/doc/main/css-variables.html
-#[derive(Eq, Hash, PartialEq, Debug)]
-pub enum Tag {
-    Bold,
-    Added,
-    EnhancedAdded,
-    Removed,
-    EnhancedRemoved,
-    Cursor,
-    Region,
-    Hunk,
-    Italic,
-    Pointer,
-    Staged,
-    Unstaged,
-    ConflictMarker,
-    Ours,
-    Theirs, // Link
-}
-impl Tag {
-    pub fn create(&self) -> TextTag {
-        match self {
-            Self::Bold => {
-                let tt = self.new_tag();
-                tt.set_weight(700);
-                tt
-            }
-            Self::Added => {
-                let tt = self.new_tag();
-                tt.set_foreground(Some("#2ec27e")); // background #ebfcf1
-                tt
-            }
-            Self::EnhancedAdded => {
-                let tt = self.new_tag();
-                tt.set_foreground(Some("#26a269")); // background #d3fae1. gnome green #26a269
-                tt
-            }
-            Self::Removed => {
-                let tt = self.new_tag();
-                tt.set_foreground(Some("#c01c28")); // background fbf0f3
-                tt
-            }
-            Self::EnhancedRemoved => {
-                let tt = self.new_tag();
-                tt.set_foreground(Some("#a51d2d")); // background #f4c3d0
-                tt
-            }
-            Self::Cursor => {
-                let tt = self.new_tag();
-                tt.set_background(Some("#f6fecd")); // f6fecd mine original. f9f06b - gnome
-                tt
-            }
-            Self::Region => {
-                let tt = self.new_tag();
-                tt.set_background(Some("#f6f5f4")); // f2f2f2 mine original
-                tt
-            }
-            Self::Hunk => {
-                let tt = self.new_tag();
-                tt.set_background(Some("#deddda"));
-                tt
-            }
-            Self::Italic => {
-                let tt = self.new_tag();
-                tt.set_style(Style::Italic);
-                tt
-            }
-            Self::ConflictMarker => {
-                let tt = self.new_tag();
-                tt.set_foreground(Some("#ff0000")); //  orange
-                tt
-            }
-            Self::Theirs => {
-                let tt = self.new_tag();
-                tt.set_foreground(Some("#2ec27e")); // "#813d9c" magenta
-                tt
-            }
-            Self::Ours => {
-                let tt = self.new_tag();
-                tt.set_foreground(Some("#2ec27e")); // "#1a5fb4" blue
-                tt
-            }
+// #[derive(Eq, Hash, PartialEq, Debug)]
+// pub enum Tag {
+//     Bold,
+//     Added,
+//     EnhancedAdded,
+//     Removed,
+//     EnhancedRemoved,
+//     Cursor,
+//     Region,
+//     Hunk,
+//     Italic,
+//     Pointer,
+//     Staged,
+//     Unstaged,
+//     ConflictMarker,
+//     Ours,
+//     Theirs, // Link
+// }
+// impl Tag {
+//     pub fn create(&self) -> TextTag {
+//         match self {
+//             Self::Bold => {
+//                 let tt = self.new_tag();
+//                 tt.set_weight(700);
+//                 tt
+//             }
+//             Self::Added => {
+//                 let tt = self.new_tag();
+//                 tt.set_foreground(Some("#2ec27e")); // background #ebfcf1
+//                 tt
+//             }
+//             Self::EnhancedAdded => {
+//                 let tt = self.new_tag();
+//                 tt.set_foreground(Some("#26a269")); // background #d3fae1. gnome green #26a269
+//                 tt
+//             }
+//             Self::Removed => {
+//                 let tt = self.new_tag();
+//                 tt.set_foreground(Some("#c01c28")); // background fbf0f3
+//                 tt
+//             }
+//             Self::EnhancedRemoved => {
+//                 let tt = self.new_tag();
+//                 tt.set_foreground(Some("#a51d2d")); // background #f4c3d0
+//                 tt
+//             }
+//             Self::Cursor => {
+//                 let tt = self.new_tag();
+//                 tt.set_background(Some("#f6fecd")); // f6fecd mine original. f9f06b - gnome
+//                 tt
+//             }
+//             Self::Region => {
+//                 let tt = self.new_tag();
+//                 tt.set_background(Some("#f6f5f4")); // f2f2f2 mine original
+//                 tt
+//             }
+//             Self::Hunk => {
+//                 let tt = self.new_tag();
+//                 tt.set_background(Some("#deddda"));
+//                 tt
+//             }
+//             Self::Italic => {
+//                 let tt = self.new_tag();
+//                 tt.set_style(Style::Italic);
+//                 tt
+//             }
+//             Self::ConflictMarker => {
+//                 let tt = self.new_tag();
+//                 tt.set_foreground(Some("#ff0000")); //  orange
+//                 tt
+//             }
+//             Self::Theirs => {
+//                 let tt = self.new_tag();
+//                 tt.set_foreground(Some("#2ec27e")); // "#813d9c" magenta
+//                 tt
+//             }
+//             Self::Ours => {
+//                 let tt = self.new_tag();
+//                 tt.set_foreground(Some("#2ec27e")); // "#1a5fb4" blue
+//                 tt
+//             }
 
-            // Self::Link => {
-            //     let tt = self.new_tag();
-            //     tt.set_background(Some("0000ff"));
-            //     tt.set_style(Style::Underlined);
-            //     tt
-            // }
-            _ => {
-                // all tags without attrs
-                self.new_tag()
-            }
-        }
-    }
-    pub fn new_tag(&self) -> TextTag {
-        TextTag::new(Some(self.name()))
-    }
-    pub fn name(&self) -> &str {
-        match self {
-            Self::Bold => "bold",
-            Self::Added => "added",
-            Self::EnhancedAdded => "enhancedAdded",
-            Self::Removed => "removed",
-            Self::EnhancedRemoved => "enhancedRemoved",
-            Self::Cursor => CURSOR_TAG,
-            Self::Region => "region",
-            Self::Hunk => "hunk",
-            Self::Italic => "italic",
-            Self::Pointer => "pointer",
-            Self::Staged => "staged",
-            Self::Unstaged => "unstaged",
-            Self::ConflictMarker => "conflictmarker",
-            Self::Ours => "ours",
-            Self::Theirs => "theirs",
-        }
-    }
-    pub fn enhance(&self) -> &Self {
-        match self {
-            Self::Added => &Self::EnhancedAdded,
-            Self::Removed => &Self::EnhancedRemoved,
-            other => other,
-        }
-    }
-}
-
-fn handle_line_offset(
-    iter: &mut TextIter,
-    prev_line_offset: i32,
-    latest_char_offset: &RefCell<i32>,
-) {
-    // in case of empty line nothing below is required
-    if !iter.ends_line() {
-        // we are moving by lines mainaining inline (char) offset;
-        // if next line has length < current offset, we want to set at that
-        // max offset (eol) to not follback to prev line
-        iter.forward_to_line_end();
-        let eol_offset = iter.line_offset();
-        if eol_offset > prev_line_offset {
-            // have place to go (backward to same offset)
-            iter.set_line_offset(0);
-            let mut cnt = latest_char_offset.borrow_mut();
-            if *cnt > prev_line_offset {
-                // but if it was narrowed before.
-                // go to previously stored offset
-                if *cnt > eol_offset {
-                    // want to flow to last known offset
-                    // but line are still to narrow
-                    iter.forward_to_line_end();
-                } else {
-                    iter.forward_chars(*cnt);
-                    // and kill stored
-                    *cnt = 0;
-                }
-            } else {
-                // just go to the same offset
-                iter.forward_chars(prev_line_offset);
-                // let mut cnt = latest_char_offset.borrow_mut();
-                if prev_line_offset > *cnt {
-                    *cnt = prev_line_offset;
-                }
-            }
-        } else {
-            // save last known line offset
-            let mut cnt = latest_char_offset.borrow_mut();
-            if prev_line_offset > *cnt {
-                *cnt = prev_line_offset;
-            }
-        }
-    } else {
-        let mut cnt = latest_char_offset.borrow_mut();
-        if prev_line_offset > *cnt {
-            *cnt = prev_line_offset;
-        }
-    }
-}
+//             // Self::Link => {
+//             //     let tt = self.new_tag();
+//             //     tt.set_background(Some("0000ff"));
+//             //     tt.set_style(Style::Underlined);
+//             //     tt
+//             // }
+//             _ => {
+//                 // all tags without attrs
+//                 self.new_tag()
+//             }
+//         }
+//     }
+//     pub fn new_tag(&self) -> TextTag {
+//         TextTag::new(Some(self.name()))
+//     }
+//     pub fn name(&self) -> &str {
+//         match self {
+//             Self::Bold => "bold",
+//             Self::Added => "added",
+//             Self::EnhancedAdded => "enhancedAdded",
+//             Self::Removed => "removed",
+//             Self::EnhancedRemoved => "enhancedRemoved",
+//             Self::Cursor => CURSOR_TAG,
+//             Self::Region => "region",
+//             Self::Hunk => "hunk",
+//             Self::Italic => "italic",
+//             Self::Pointer => "pointer",
+//             Self::Staged => "staged",
+//             Self::Unstaged => "unstaged",
+//             Self::ConflictMarker => "conflictmarker",
+//             Self::Ours => "ours",
+//             Self::Theirs => "theirs",
+//         }
+//     }
+//     pub fn enhance(&self) -> &Self {
+//         match self {
+//             Self::Added => &Self::EnhancedAdded,
+//             Self::Removed => &Self::EnhancedRemoved,
+//             other => other,
+//         }
+//     }
+// }
 
 pub trait CharView {
     fn calc_max_char_width(&self) -> i32;
@@ -231,25 +180,45 @@ pub fn factory(
         .margin_bottom(12)
         .build();
     let buffer = txt.buffer();
+    let table = buffer.tag_table();
+    let mut pointer: Option<TextTag> = None;
+    let mut staged: Option<TextTag> = None;
+    let mut unstaged: Option<TextTag> = None;
+    
+    for tag_name in tags::TEXT_TAGS {
+        let text_tag = tags::TxtTag::from_str(tag_name).create();
+        table.add(&text_tag);
+        match tag_name {
+            tags::POINTER => {
+                pointer.replace(text_tag);
+            }
+            tags::STAGED => {
+                staged.replace(text_tag);
+            }
+            tags::UNSTAGED => {
+                unstaged.replace(text_tag);
+            }
+            _ => {}
+        };
+    }
+    let pointer = pointer.unwrap();
+    let staged = staged.unwrap();
+    let unstaged = unstaged.unwrap();
+    // buffer.tag_table().add(&pointer);
+    // buffer.tag_table().add(&Tag::Cursor.create());
+    // buffer.tag_table().add(&Tag::Region.create());
+    // buffer.tag_table().add(&Tag::Bold.create());
+    // buffer.tag_table().add(&Tag::Added.create());
+    // buffer.tag_table().add(&Tag::EnhancedAdded.create());
+    // buffer.tag_table().add(&Tag::Removed.create());
+    // buffer.tag_table().add(&Tag::EnhancedRemoved.create());
+    // buffer.tag_table().add(&Tag::Hunk.create());
+    // buffer.tag_table().add(&staged);
+    // buffer.tag_table().add(&unstaged);
 
-    let pointer = Tag::Pointer.create();
-    let staged = Tag::Staged.create();
-    let unstaged = Tag::Unstaged.create();
-    buffer.tag_table().add(&pointer);
-    buffer.tag_table().add(&Tag::Cursor.create());
-    buffer.tag_table().add(&Tag::Region.create());
-    buffer.tag_table().add(&Tag::Bold.create());
-    buffer.tag_table().add(&Tag::Added.create());
-    buffer.tag_table().add(&Tag::EnhancedAdded.create());
-    buffer.tag_table().add(&Tag::Removed.create());
-    buffer.tag_table().add(&Tag::EnhancedRemoved.create());
-    buffer.tag_table().add(&Tag::Hunk.create());
-    buffer.tag_table().add(&staged);
-    buffer.tag_table().add(&unstaged);
-
-    buffer.tag_table().add(&Tag::ConflictMarker.create());
-    buffer.tag_table().add(&Tag::Theirs.create());
-    buffer.tag_table().add(&Tag::Ours.create());
+    // buffer.tag_table().add(&Tag::ConflictMarker.create());
+    // buffer.tag_table().add(&Tag::Theirs.create());
+    // buffer.tag_table().add(&Tag::Ours.create());
 
     let key_controller = EventControllerKey::new();
     key_controller.connect_key_pressed({

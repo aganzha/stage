@@ -1,18 +1,15 @@
-use crate::dialogs::{alert};
+use crate::dialogs::alert;
 use crate::{git::commit as git_commit, Event};
-use std::cell::RefCell;
 use async_channel::Sender;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Box, ListBox,
-    Orientation, ScrolledWindow, SelectionMode, TextView,
-    WrapMode,
+    gio, glib, Box, ListBox, Orientation, ScrolledWindow, SelectionMode,
+    TextView, WrapMode,
 };
 use libadwaita::prelude::*;
-use libadwaita::{
-    ApplicationWindow, EntryRow, SwitchRow,
-};
-use log::{debug};
+use libadwaita::{ApplicationWindow, EntryRow, SwitchRow};
+use log::debug;
+use std::cell::RefCell;
 use std::path::PathBuf;
 
 pub fn commit(
@@ -44,7 +41,7 @@ pub fn commit(
                 .build();
 
             list_box.append(&commit_message);
-            if amend_message.is_some() || true {
+            if amend_message.is_some() {
                 list_box.append(&amend_switch);
             }
 
@@ -80,7 +77,7 @@ pub fn commit(
                     txt.buffer().place_cursor(&mut iter);
                 }
             });
-            
+
             amend_switch.connect_active_notify({
                 let txt = txt.clone();
                 let scroll = scroll.clone();
@@ -96,7 +93,10 @@ pub fn commit(
                             txt.buffer().insert(&mut iter, &entry.text());
                             txt.buffer().insert(&mut iter, "\n");
                         }
-                        txt.buffer().insert(&mut iter, &amend_message.clone().unwrap());
+                        txt.buffer().insert(
+                            &mut iter,
+                            &amend_message.clone().unwrap(),
+                        );
                         entry.set_visible(false);
                         scroll.set_visible(true);
                         *amend_inserted.borrow_mut() = true;
@@ -109,7 +109,10 @@ pub fn commit(
                         if !(*amend_inserted.borrow()) {
                             debug!("insert text");
                             let mut iter = txt.buffer().end_iter();
-                            txt.buffer().insert(&mut iter, &amend_message.clone().unwrap());
+                            txt.buffer().insert(
+                                &mut iter,
+                                &amend_message.clone().unwrap(),
+                            );
                             *amend_inserted.borrow_mut() = true;
                         } else {
                             debug!("noooooooooooooo way");

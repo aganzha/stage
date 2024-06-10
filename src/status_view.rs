@@ -1,3 +1,4 @@
+pub mod tags;
 pub mod commit;
 pub mod container;
 pub mod headerbar;
@@ -9,7 +10,6 @@ use core::time::Duration;
 use git2::RepositoryState;
 
 pub mod render;
-use textview::Tag;
 pub mod reconciliation;
 pub mod tests;
 
@@ -35,8 +35,8 @@ use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Box, Label as GtkLabel, ListBox,
-    Orientation, SelectionMode, TextBuffer, TextView, Widget,
+    gio, glib, Box, Label as GtkLabel, ListBox, Orientation, SelectionMode,
+    TextBuffer, TextView, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -77,7 +77,7 @@ impl Label {
     pub fn from_string(content: &str) -> Self {
         Label {
             content: String::from(content),
-            view: View::new_markup(),
+            view: View::new(),
         }
     }
 }
@@ -665,7 +665,7 @@ impl Status {
                 self.conflicted_label.content = String::from("<span weight=\"bold\"\
                                                               color=\"#1c71d8\">Conflicts resolved</span>\
                                                               stage changes to complete merge");
-                self.conflicted_label.view.dirty = true;
+                self.conflicted_label.view.dirty(true);
             }
             diff.enrich_view(s, &txt.buffer(), context);
         }
@@ -759,7 +759,7 @@ impl Status {
         self.conflicted_label.content = String::from(
             "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>",
         );
-        self.conflicted_label.view.dirty = true;
+        self.conflicted_label.view.dirty(true);
     }
 
     pub fn update_staged(
@@ -905,8 +905,9 @@ impl Status {
 
         if let Some(untracked) = &mut self.untracked {
             if untracked.files.is_empty() {
-                self.untracked_spacer.view.squashed = true;
-                self.untracked_label.view.squashed = true;
+                // hack :( TODO - get rid of it
+                self.untracked_spacer.view.squash(true);
+                self.untracked_label.view.squash(true);
             }
             self.untracked_spacer.render(&buffer, &mut iter, context);
             self.untracked_label.render(&buffer, &mut iter, context);
@@ -915,8 +916,8 @@ impl Status {
 
         if let Some(conflicted) = &mut self.conflicted {
             if conflicted.files.is_empty() {
-                self.conflicted_spacer.view.squashed = true;
-                self.conflicted_label.view.squashed = true;
+                self.conflicted_spacer.view.squash(true);
+                self.conflicted_label.view.squash(true);
             }
             self.conflicted_spacer.render(&buffer, &mut iter, context);
             self.conflicted_label.render(&buffer, &mut iter, context);
@@ -925,8 +926,9 @@ impl Status {
 
         if let Some(unstaged) = &mut self.unstaged {
             if unstaged.files.is_empty() {
-                self.unstaged_spacer.view.squashed = true;
-                self.unstaged_label.view.squashed = true;
+                // hack :(
+                self.unstaged_spacer.view.squash(true);
+                self.unstaged_label.view.squash(true);
             }
             self.unstaged_spacer.render(&buffer, &mut iter, context);
             self.unstaged_label.render(&buffer, &mut iter, context);
@@ -935,8 +937,9 @@ impl Status {
 
         if let Some(staged) = &mut self.staged {
             if staged.files.is_empty() {
-                self.staged_spacer.view.squashed = true;
-                self.staged_label.view.squashed = true;
+                // hack :(
+                self.staged_spacer.view.squash(true);
+                self.staged_label.view.squash(true);
             }
             self.staged_spacer.render(&buffer, &mut iter, context);
             self.staged_label.render(&buffer, &mut iter, context);
@@ -992,7 +995,7 @@ impl Status {
                 // refactor to some generic method
                 // why other elements do not using this?
                 let view = file.get_view();
-                if view.current && view.line_no == line_no {
+                if view.is_current() && view.line_no.get() == line_no {
                     let ignore_path = file
                         .path
                         .clone()
@@ -1041,7 +1044,7 @@ impl Status {
                 for hunk in &f.hunks {
                     // also someone can press stage on hunk!
                     for line in &hunk.lines {
-                        if line.view.current {
+                        if line.view.is_current() {
                             glib::spawn_future_local({
                                 let path = self.path.clone().unwrap();
                                 let sender = self.sender.clone();
@@ -1102,7 +1105,7 @@ impl Status {
     ) {
         if let Some(untracked) = &mut self.untracked {
             for file in &mut untracked.files {
-                if file.get_view().current {
+                if file.get_view().is_current() {
                     gio::spawn_blocking({
                         let path = self.path.clone();
                         let sender = self.sender.clone();
@@ -1147,42 +1150,56 @@ impl Status {
             }
         };
         let mut filter = ApplyFilter::new(subject);
-        let mut file_path_so_stage = String::new();
-        let mut hunks_staged = 0;
+        for file in &diff.files {
+            debug!("---------------> {:?} {} {}", file.path, file.view.is_active(), file.view.is_current());
+            if file.view.is_active() {
+                filter.file_id = file.path.to_str().unwrap().to_string();                
+                if file.view.is_current() {
+                    break;
+                } else {
+                    for hunk in &file.hunks {
+                        if hunk.view.is_active() {
+                            filter.hunk_id.replace(hunk.header.clone());
+                            break;
+                        }
+                    }
+                }
+                
+            }
+        }
+        // let mut file_path_so_stage = String::new();
+        // let mut hunks_staged = 0;
         // there could be either file with all hunks
         // or just 1 hunk
-        diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
-            let id = vc.get_id();
-            let kind = vc.get_kind();
-            let view = vc.get_view();
-            trace!("walks down on apply {:} {:?}", id, kind);
-            match kind {
-                ViewKind::File => {
-                    // just store current file_path
-                    // in this loop. temporary variable
-                    file_path_so_stage = id;
-                }
-                ViewKind::Hunk => {
-                    if !view.active {
-                        return;
-                    }
-                    // store active hunk in filter
-                    // if the cursor is on file, all
-                    // hunks under it will be active
-                    filter.file_id = file_path_so_stage.clone();
-                    filter.hunk_id.replace(id);
-                    hunks_staged += 1;
-                }
-                _ => (),
-            }
-        });
-        trace!("apply filter ----------------------> {:?}", filter);
-        if !filter.file_id.is_empty() {
-            if hunks_staged > 1 {
-                // stage all hunks in file
-                filter.hunk_id = None;
-            }
-            trace!("stage via apply {:?}", filter);
+        // diff.walk_down(&|vc: &dyn ViewContainer| {
+        //     let id = vc.get_id();
+        //     let kind = vc.get_kind();
+        //     let view = vc.get_view();
+        //     trace!("walks down on apply {:} {:?}", id, kind);
+        //     match kind {
+        //         ViewKind::File => {
+        //             // just store current file_path
+        //             // in this loop. temporary variable
+        //             file_path_so_stage = id;
+        //         }
+        //         ViewKind::Hunk => {
+        //             if !view.is_active() {
+        //                 return;
+        //             }
+        //             // store active hunk in filter
+        //             // if the cursor is on file, all
+        //             // hunks under it will be active
+        //             filter.file_id = file_path_so_stage.clone();
+        //             filter.hunk_id.replace(id);
+        //             hunks_staged += 1;
+        //         }
+        //         _ => (),
+        //     }
+        // })
+            ;
+        debug!("apply filter ----------------------> {:?}", filter);
+        if !filter.file_id.is_empty() {            
+            debug!("stage via apply {:?}", filter);
             glib::spawn_future_local({
                 let window = window.clone();
                 let path = self.path.clone();
@@ -1227,10 +1244,10 @@ impl Status {
             // first render. buffer at eof
             if let Some(unstaged) = &self.unstaged {
                 if !unstaged.files.is_empty() {
-                    let line_no = unstaged.files[0].view.line_no;
+                    let line_no = unstaged.files[0].view.line_no.get();
                     let iter = buffer.iter_at_line(line_no).unwrap();
-                    trace!(
-                        "choose cursor at first unstaged file {:?}",
+                    debug!(
+                        "ccccccccccccccccccccccccccccccccccchoose cursor at first unstaged file {:?}",
                         line_no
                     );
                     buffer.place_cursor(&iter);
@@ -1263,11 +1280,12 @@ impl Status {
 
         debug!("debug at line {:?}", current_line);
         if let Some(diff) = &mut self.staged {
-            diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            diff.walk_down(&|vc: &dyn ViewContainer| {
                 let content = vc.get_content();
                 let view = vc.get_view();
-                if view.line_no == current_line && view.rendered {
-                    debug!("view under line {:?} {:?}", view.line_no, content);
+                // hack :(
+                if view.line_no.get() == current_line && view.is_rendered() {
+                    debug!("view under line {:?} {:?}", view.line_no.get(), content);
                     debug!(
                         "is rendered in {:?} {:?}",
                         view.is_rendered_in(current_line),
@@ -1278,10 +1296,10 @@ impl Status {
             });
         }
         if let Some(diff) = &mut self.unstaged {
-            diff.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            diff.walk_down(&|vc: &dyn ViewContainer| {
                 let content = vc.get_content();
                 let view = vc.get_view();
-                if view.line_no == current_line {
+                if view.line_no.get() == current_line {
                     println!("found view {:?}", content);
                     dbg!(view);
                 }

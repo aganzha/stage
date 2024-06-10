@@ -1,5 +1,6 @@
 use crate::status_view::render::View;
-use crate::status_view::{Label, Tag};
+use crate::status_view::tags;
+use crate::status_view::{Label};
 
 use crate::{
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
@@ -9,6 +10,10 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
 use log::{debug, trace};
+
+pub fn make_tag(name: &str) -> tags::TxtTag {
+    tags::TxtTag::from_str(name)
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
@@ -22,17 +27,22 @@ pub enum ViewKind {
 }
 
 pub trait ViewContainer {
+
+    fn is_markup(&self) -> bool {
+        false
+    }
+    
     fn get_kind(&self) -> ViewKind;
 
     fn child_count(&self) -> usize;
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer>;
+    fn get_children(&self) -> Vec<&dyn ViewContainer>;
 
-    fn get_view(&mut self) -> &mut View;
+    fn get_view(&self) -> &View;
 
     // TODO - return bool and stop iteration when false
     // visitor takes child as first arg and parent as second arg
-    fn walk_down(&mut self, visitor: &mut dyn FnMut(&mut dyn ViewContainer)) {
+    fn walk_down(&self, visitor: &dyn Fn(&dyn ViewContainer)) {
         for child in self.get_children() {
             visitor(child);
             child.walk_down(visitor);
@@ -41,7 +51,7 @@ pub trait ViewContainer {
 
     fn get_content(&self) -> String;
 
-    fn tags(&self) -> Vec<Tag> {
+    fn tags(&self) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
@@ -49,7 +59,7 @@ pub trait ViewContainer {
 
     // ViewContainer
     fn render(
-        &mut self,
+        &self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
         context: &mut StatusRenderContext,
@@ -57,19 +67,20 @@ pub trait ViewContainer {
         self.fill_context(context);
         let content = self.get_content();
         let tags = self.tags();
+        let is_markup = self.is_markup();
         let view =
-            self.get_view().render(buffer, iter, content, tags, context);
-        if view.expanded || view.child_dirty {
+            self.get_view().render_in_textview(buffer, iter, content, is_markup, tags, context);
+        if view.is_expanded() || view.is_child_dirty() {
             for child in self.get_children() {
                 child.render(buffer, iter, context);
             }
         }
-        self.get_view().child_dirty = false;
+        self.get_view().child_dirty(false);
     }
 
     // ViewContainer
     fn cursor(
-        &mut self,
+        &self,
         line_no: i32,
         parent_active: bool,
         context: &mut StatusRenderContext,
@@ -78,10 +89,10 @@ pub trait ViewContainer {
         let mut result = false;
         let view = self.get_view();
 
-        let current_before = view.current;
-        let active_before = view.active;
+        let current_before = view.is_current();
+        let active_before = view.is_active();
 
-        let view_expanded = view.expanded;
+        let view_expanded = view.is_expanded();
         let current = view.is_rendered_in(line_no);
         if current {
             self.fill_under_cursor(context)
@@ -104,14 +115,15 @@ pub trait ViewContainer {
         let self_active = active_by_parent || current || active_by_child;
 
         let view = self.get_view();
-        view.active = self_active;
-        view.current = current;
+        view.activate(self_active);
+        view.make_current(current);
 
-        if view.rendered {
+        if view.is_rendered() {
             // repaint if highlight is changed
-            view.dirty =
-                view.active != active_before || view.current != current_before;
-            result = view.dirty;
+            view.dirty(
+                view.is_active() != active_before || view.is_current() != current_before
+            );
+            result = view.is_dirty();
         }
         for child in self.get_children() {
             result = child.cursor(line_no, self_active, context) || result;
@@ -126,6 +138,7 @@ pub trait ViewContainer {
 
     fn fill_under_cursor(&self, _context: &mut StatusRenderContext) {}
 
+    // base
     fn is_active_by_child(
         &self,
         _child_active: bool,
@@ -134,6 +147,7 @@ pub trait ViewContainer {
         false
     }
 
+    // base
     fn is_active_by_parent(
         &self,
         _parent_active: bool,
@@ -143,25 +157,25 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn expand(&mut self, line_no: i32) -> Option<i32> {
+    fn expand(&self, line_no: i32) -> Option<i32> {
         let mut found_line: Option<i32> = None;
         let v = self.get_view();
         if v.is_rendered_in(line_no) {
             let view = self.get_view();
             found_line = Some(line_no);
-            view.expanded = !view.expanded;
-            view.child_dirty = true;
-            let expanded = view.expanded;
-            self.walk_down(&mut |vc: &mut dyn ViewContainer| {
+            view.expand(!view.is_expanded());
+            view.child_dirty(true);
+            let expanded = view.is_expanded();
+            self.walk_down(&|vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 if expanded {
-                    view.squashed = false;
-                    view.rendered = false;
+                    view.squash(false);
+                    view.render(false);
                 } else {
-                    view.squashed = true;
+                    view.squash(true);
                 }
             });
-        } else if v.expanded && v.rendered {
+        } else if v.is_expanded() && v.is_rendered() {
             // go deeper for self.children
             trace!("expand. ____________ go deeper");
             for child in self.get_children() {
@@ -171,8 +185,8 @@ pub trait ViewContainer {
                 }
             }
             if found_line.is_some() && self.is_expandable_by_child() {
-                let my_line = self.get_view().line_no;
-                return self.expand(my_line);
+                let line_no = self.get_view().line_no.get();
+                return self.expand(line_no);
             }
         }
         found_line
@@ -213,21 +227,21 @@ pub trait ViewContainer {
         // and also put there prev_line length!
 
         let view = self.get_view();
-        let mut line_no = view.line_no;
+        let mut line_no = view.line_no.get();
         trace!("original line_no {:?}", line_no);
-        let original_line_no = view.line_no;
+        let original_line_no = view.line_no.get();
 
         if let Some(ec) = context.erase_counter {
             debug!("erase counter {:?}", ec);
             line_no -= ec;
         }
 
-        view.squashed = true;
-        view.child_dirty = true;
-        self.walk_down(&mut |vc: &mut dyn ViewContainer| {
+        view.squash(true);
+        view.child_dirty(true);
+        self.walk_down(&|vc: &dyn ViewContainer| {
             let view = vc.get_view();
-            view.squashed = true;
-            view.child_dirty = true;
+            view.squash(true);
+            view.child_dirty(true);
         });
         // GOT BUG HERE DURING STAGING SAME FILES!
         trace!("line finally {:?}", line_no);
@@ -246,15 +260,15 @@ pub trait ViewContainer {
     ) {
         // this is just RE render with build_up
         let view = self.get_view();
-        let line_no = view.line_no;
-        if view.rendered {
-            view.dirty = true;
+        let line_no = view.line_no.get();
+        if view.is_rendered() {
+            view.dirty(true);
             // TODO! why i need child dirty here?
-            view.child_dirty = true;
+            view.child_dirty(true);
         }
-        self.walk_down(&mut |vc: &mut dyn ViewContainer| {
+        self.walk_down(&|vc: &dyn ViewContainer| {
             let view = vc.get_view();
-            view.dirty = true;
+            view.dirty(true);
             // child dirty triggers expand?
             // view.child_dirty = true;
         });
@@ -264,11 +278,6 @@ pub trait ViewContainer {
         self.render(buffer, &mut iter, context);
     }
 
-    fn get_id(&self) -> String {
-        // unique id used in staging filter.
-        // it is used in comparing files and hunks
-        self.get_content()
-    }
 }
 
 impl ViewContainer for Diff {
@@ -280,31 +289,31 @@ impl ViewContainer for Diff {
         self.files.len()
     }
 
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
     fn get_content(&self) -> String {
         String::from("")
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(&self) -> Vec<&dyn ViewContainer> {
         self.files
-            .iter_mut()
-            .map(|vh| vh as &mut dyn ViewContainer)
+            .iter()
+            .map(|vh| vh as &dyn ViewContainer)
             .collect()
     }
 
     // diff
     fn cursor(
-        &mut self,
+        &self,
         line_no: i32,
         parent_active: bool,
         context: &mut StatusRenderContext,
     ) -> bool {
         context.under_cursor_diff(&self.kind);
         let mut result = false;
-        for file in &mut self.files {
+        for file in &self.files {
             result = file.cursor(line_no, parent_active, context) || result;
         }
         result
@@ -312,35 +321,35 @@ impl ViewContainer for Diff {
 
     // Diff
     fn render(
-        &mut self,
+        &self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
         context: &mut StatusRenderContext,
     ) {
         // why do i need it at all?
-        self.view.line_no = iter.line();
+        self.view.line_no.replace(iter.line());
         context.update_screen_line_width(self.max_line_len);
 
-        for file in &mut self.files {
+        for file in &self.files {
             file.render(buffer, iter, context);
         }
-        let start_iter = buffer.iter_at_line(self.view.line_no).unwrap();
+        let start_iter = buffer.iter_at_line(self.view.line_no.get()).unwrap();
         let end_iter = buffer.iter_at_line(iter.line()).unwrap();
         for tag in self.tags() {
-            buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
+            buffer.apply_tag_by_name(tag.str(), &start_iter, &end_iter);
         }
     }
     // Diff
-    fn expand(&mut self, _line_no: i32) -> Option<i32> {
+    fn expand(&self, _line_no: i32) -> Option<i32> {
         todo!("no one calls expand on diff");
     }
 
-    fn tags(&self) -> Vec<Tag> {
+    fn tags(&self) -> Vec<tags::TxtTag> {
         match self.kind {
-            DiffKind::Staged => vec![Tag::Staged],
+            DiffKind::Staged => vec![make_tag(tags::STAGED)],
             // TODO! create separate tag for conflicted!
             DiffKind::Unstaged | DiffKind::Conflicted => {
-                vec![Tag::Unstaged]
+                vec![make_tag(tags::UNSTAGED)]
             }
         }
     }
@@ -355,8 +364,8 @@ impl ViewContainer for File {
         self.hunks.len()
     }
 
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
     fn get_content(&self) -> String {
@@ -371,18 +380,21 @@ impl ViewContainer for File {
         )
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(&self) -> Vec<&dyn ViewContainer> {
         self.hunks
-            .iter_mut()
-            .map(|vh| vh as &mut dyn ViewContainer)
+            .iter()
+            .map(|vh| vh as &dyn ViewContainer)
             .collect()
     }
-    fn tags(&self) -> Vec<Tag> {
+    fn tags(&self) -> Vec<tags::TxtTag> {
+        let mut tags = vec![
+            make_tag(tags::BOLD),
+            make_tag(tags::POINTER),
+        ];
         if self.status == git2::Delta::Deleted {
-            vec![Tag::Bold, Tag::Pointer, Tag::Removed]
-        } else {
-            vec![Tag::Bold, Tag::Pointer]
+            tags.push(make_tag(tags::REMOVED));            
         }
+        tags
     }
 
     fn fill_context(&self, context: &mut StatusRenderContext) {
@@ -395,11 +407,15 @@ impl ViewContainer for File {
         }
     }
 
-    fn get_id(&self) -> String {
-        // unique id used in staging filter.
-        // it is used in comparing files and hunks
-        self.path.to_str().unwrap().to_string()
+    // file
+    fn is_active_by_child(
+        &self,
+        active: bool,
+        _context: &mut StatusRenderContext,
+    ) -> bool {
+        active
     }
+
 }
 
 impl ViewContainer for Hunk {
@@ -425,24 +441,24 @@ impl ViewContainer for Hunk {
         }
     }
 
-    fn get_view(&mut self) -> &mut View {
-        if self.view.line_no == 0 && !self.view.expanded {
+    fn get_view(&self) -> &View {
+        if self.view.line_no.get() == 0 && !self.view.is_expanded() {
             // hunks are expanded by default
-            self.view.expanded = true
+            self.view.expand(true)
         }
-        &mut self.view
+        &self.view
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(&self) -> Vec<&dyn ViewContainer> {
         self.lines
-            .iter_mut()
+            .iter()
             .filter(|l| {
                 !matches!(
                     l.origin,
                     DiffLineType::FileHeader | DiffLineType::HunkHeader
                 )
             })
-            .map(|vh| vh as &mut dyn ViewContainer)
+            .map(|vh| vh as &dyn ViewContainer)
             .collect()
     }
     // Hunk
@@ -466,19 +482,17 @@ impl ViewContainer for Hunk {
         // whole hunk is active
         active
     }
-    fn tags(&self) -> Vec<Tag> {
-        vec![Tag::Hunk, Tag::Pointer]
+    fn tags(&self) -> Vec<tags::TxtTag> {
+        vec![
+            make_tag(tags::HUNK),
+            make_tag(tags::POINTER),
+        ]
     }
 
     fn is_expandable_by_child(&self) -> bool {
         true
     }
 
-    fn get_id(&self) -> String {
-        // unique id used in staging filter.
-        // it is used in comparing files and hunks
-        self.header.clone()
-    }
 }
 
 impl ViewContainer for Line {
@@ -489,22 +503,22 @@ impl ViewContainer for Line {
         0
     }
 
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
     fn get_content(&self) -> String {
         self.content.to_string()
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(&self) -> Vec<&dyn ViewContainer> {
         Vec::new()
     }
 
     // Line
-    fn expand(&mut self, line_no: i32) -> Option<i32> {
+    fn expand(&self, line_no: i32) -> Option<i32> {
         // here we want to expand hunk
-        if self.get_view().line_no == line_no {
+        if self.get_view().line_no.get() == line_no {
             return Some(line_no);
         }
         None
@@ -551,22 +565,22 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn tags(&self) -> Vec<Tag> {
-        match self.kind {
-            LineKind::ConflictMarker(_) => return vec![Tag::ConflictMarker],
-            LineKind::Ours(_) => return vec![Tag::Ours],
+    fn tags(&self) -> Vec<tags::TxtTag> {
+        match self.kind {// 
+            LineKind::ConflictMarker(_) => return vec![make_tag(tags::CONFLICT_MARKER)],
+            LineKind::Ours(_) => return vec![make_tag(tags::CONFLICT_MARKER)],
             LineKind::Theirs(_) => {
                 // return Vec::new();
-                return vec![Tag::Theirs];
+                return vec![make_tag(tags::THEIRS)];
             }
             _ => {}
         }
         match self.origin {
             DiffLineType::Addition => {
-                vec![Tag::Added]
+                vec![make_tag(tags::ADDED)]
             }
             DiffLineType::Deletion => {
-                vec![Tag::Removed]
+                vec![make_tag(tags::REMOVED)]
             }
             _ => Vec::new(),
         }
@@ -574,17 +588,21 @@ impl ViewContainer for Line {
 }
 
 impl ViewContainer for Label {
+
+    fn is_markup(&self) -> bool {
+        true
+    }
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
     fn child_count(&self) -> usize {
         0
     }
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(&self) -> Vec<&dyn ViewContainer> {
         Vec::new()
     }
 
@@ -594,17 +612,21 @@ impl ViewContainer for Label {
 }
 
 impl ViewContainer for Head {
+
+    fn is_markup(&self) -> bool {
+        true
+    }
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
     fn child_count(&self) -> usize {
         0
     }
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(&self) -> Vec<&dyn ViewContainer> {
         Vec::new()
     }
 
@@ -623,17 +645,21 @@ impl ViewContainer for Head {
 }
 
 impl ViewContainer for State {
+
+    fn is_markup(&self) -> bool {
+        true
+    }
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
     fn child_count(&self) -> usize {
         0
     }
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(&self) -> Vec<&dyn ViewContainer> {
         Vec::new()
     }
 
@@ -679,9 +705,9 @@ impl ViewContainer for Untracked {
     }
 
     // untracked
-    fn get_view(&mut self) -> &mut View {
-        self.view.expanded = true;
-        &mut self.view
+    fn get_view(&self) -> &View {
+        self.view.expand(true);
+        &self.view
     }
 
     // Untracked
@@ -690,22 +716,23 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(&self) -> Vec<&dyn ViewContainer> {
         self.files
-            .iter_mut()
-            .map(|vh| vh as &mut dyn ViewContainer)
+            .iter()
+            .map(|vh| vh as &dyn ViewContainer)
             .collect()
     }
 
     // Untracked
-    fn expand(&mut self, line_no: i32) -> Option<i32> {
+    fn expand(&self, line_no: i32) -> Option<i32> {
         // here we want to expand hunk
-        if self.get_view().line_no == line_no {
+        if self.get_view().line_no.get() == line_no {
             return Some(line_no);
         }
         None
     }
 
+    // Untracked
     fn is_active_by_parent(
         &self,
         active: bool,
@@ -715,32 +742,33 @@ impl ViewContainer for Untracked {
         // this line is active
         active
     }
-    fn tags(&self) -> Vec<Tag> {
+
+    fn tags(&self) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
     // Untracked
     fn render(
-        &mut self,
+        &self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
         context: &mut StatusRenderContext,
     ) {
-        self.view.line_no = iter.line();
-        for file in &mut self.files {
+        self.view.line_no.replace(iter.line());
+        for file in &self.files {
             file.render(buffer, iter, context);
         }
     }
 
     // Untracked
     fn cursor(
-        &mut self,
+        &self,
         line_no: i32,
         parent_active: bool,
         context: &mut StatusRenderContext,
     ) -> bool {
         let mut result = false;
-        for file in &mut self.files {
+        for file in &self.files {
             result = file.cursor(line_no, parent_active, context) || result;
         }
         result
@@ -755,26 +783,28 @@ impl ViewContainer for UntrackedFile {
         0
     }
 
-    fn get_view(&mut self) -> &mut View {
-        &mut self.view
+    fn get_view(&self) -> &View {
+        &self.view
     }
 
     fn get_content(&self) -> String {
         self.path.to_str().unwrap().to_string()
     }
 
-    fn get_children(&mut self) -> Vec<&mut dyn ViewContainer> {
+    fn get_children(&self) -> Vec<&dyn ViewContainer> {
         Vec::new()
     }
 
-    fn expand(&mut self, line_no: i32) -> Option<i32> {
+    // untracked
+    fn expand(&self, line_no: i32) -> Option<i32> {
         // here we want to expand hunk
-        if self.get_view().line_no == line_no {
+        if self.get_view().line_no.get() == line_no {
             return Some(line_no);
         }
         None
     }
 
+    // untracked
     fn is_active_by_parent(
         &self,
         active: bool,
@@ -784,7 +814,7 @@ impl ViewContainer for UntrackedFile {
         // this line is active
         active
     }
-    fn tags(&self) -> Vec<Tag> {
+    fn tags(&self) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 }
