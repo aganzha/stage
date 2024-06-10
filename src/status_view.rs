@@ -42,7 +42,7 @@ use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, Banner, EntryRow, PasswordEntryRow, SwitchRow,
 }; // _Window,
-use log::{debug, trace};
+use log::{debug, trace, info};
 
 impl State {
     pub fn title_for_proceed_banner(&self) -> String {
@@ -423,7 +423,7 @@ impl Status {
     }
 
     pub fn push(
-        &mut self,
+        &self,
         window: &ApplicationWindow,
         remote_dialog: Option<(String, bool, bool)>,
     ) {
@@ -553,7 +553,7 @@ impl Status {
     }
 
     pub fn commit(
-        &mut self,
+        &self,
         window: &ApplicationWindow, // &impl IsA<Gtk4Window>,
     ) {
         let mut amend_message: Option<String> = None;
@@ -804,7 +804,7 @@ impl Status {
     }
     // status
     pub fn cursor(
-        &mut self,
+        &self,
         txt: &TextView,
         line_no: i32,
         offset: i32,
@@ -812,16 +812,16 @@ impl Status {
     ) {
         context.update_cursor_pos(line_no, offset);
         let mut changed = false;
-        if let Some(untracked) = &mut self.untracked {
+        if let Some(untracked) = &self.untracked {
             changed = untracked.cursor(line_no, false, context) || changed;
         }
-        if let Some(conflicted) = &mut self.conflicted {
+        if let Some(conflicted) = &self.conflicted {
             changed = conflicted.cursor(line_no, false, context) || changed;
         }
-        if let Some(unstaged) = &mut self.unstaged {
+        if let Some(unstaged) = &self.unstaged {
             changed = unstaged.cursor(line_no, false, context) || changed;
         }
-        if let Some(staged) = &mut self.staged {
+        if let Some(staged) = &self.staged {
             changed = staged.cursor(line_no, false, context) || changed;
         }
         if changed {
@@ -834,7 +834,7 @@ impl Status {
 
     // Status
     pub fn expand(
-        &mut self,
+        &self,
         txt: &TextView,
         line_no: i32,
         _offset: i32,
@@ -842,8 +842,8 @@ impl Status {
     ) {
         // let mut changed = false;
 
-        if let Some(conflicted) = &mut self.conflicted {
-            for file in &mut conflicted.files {
+        if let Some(conflicted) = &self.conflicted {
+            for file in &conflicted.files {
                 if let Some(expanded_line) = file.expand(line_no) {
                     self.render(
                         txt,
@@ -855,8 +855,8 @@ impl Status {
             }
         }
 
-        if let Some(unstaged) = &mut self.unstaged {
-            for file in &mut unstaged.files {
+        if let Some(unstaged) = &self.unstaged {
+            for file in &unstaged.files {
                 if let Some(expanded_line) = file.expand(line_no) {
                     self.render(
                         txt,
@@ -867,8 +867,8 @@ impl Status {
                 }
             }
         }
-        if let Some(staged) = &mut self.staged {
-            for file in &mut staged.files {
+        if let Some(staged) = &self.staged {
+            for file in &staged.files {
                 if let Some(expanded_line) = file.expand(line_no) {
                     self.render(
                         txt,
@@ -883,7 +883,7 @@ impl Status {
 
     // Status
     pub fn render(
-        &mut self,
+        &self,
         txt: &TextView,
         source: RenderSource,
         context: &mut StatusRenderContext,
@@ -891,19 +891,19 @@ impl Status {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
 
-        if let Some(head) = &mut self.head {
+        if let Some(head) = &self.head {
             head.render(&buffer, &mut iter, context);
         }
 
-        if let Some(upstream) = &mut self.upstream {
+        if let Some(upstream) = &self.upstream {
             upstream.render(&buffer, &mut iter, context);
         }
 
-        if let Some(state) = &mut self.state {
+        if let Some(state) = &self.state {
             state.render(&buffer, &mut iter, context);
         }
 
-        if let Some(untracked) = &mut self.untracked {
+        if let Some(untracked) = &self.untracked {
             if untracked.files.is_empty() {
                 // hack :( TODO - get rid of it
                 self.untracked_spacer.view.squash(true);
@@ -914,7 +914,7 @@ impl Status {
             untracked.render(&buffer, &mut iter, context);
         }
 
-        if let Some(conflicted) = &mut self.conflicted {
+        if let Some(conflicted) = &self.conflicted {
             if conflicted.files.is_empty() {
                 self.conflicted_spacer.view.squash(true);
                 self.conflicted_label.view.squash(true);
@@ -924,7 +924,7 @@ impl Status {
             conflicted.render(&buffer, &mut iter, context);
         }
 
-        if let Some(unstaged) = &mut self.unstaged {
+        if let Some(unstaged) = &self.unstaged {
             if unstaged.files.is_empty() {
                 // hack :(
                 self.unstaged_spacer.view.squash(true);
@@ -935,7 +935,7 @@ impl Status {
             unstaged.render(&buffer, &mut iter, context);
         }
 
-        if let Some(staged) = &mut self.staged {
+        if let Some(staged) = &self.staged {
             if staged.files.is_empty() {
                 // hack :(
                 self.staged_spacer.view.squash(true);
@@ -967,21 +967,22 @@ impl Status {
     }
 
     pub fn resize(
-        &mut self,
+        &self,
         txt: &TextView,
         context: &mut StatusRenderContext,
     ) {
         // it need to rerender all highlights and
         // background to match new window size
-        if let Some(diff) = &mut self.staged {
+        if let Some(diff) = &self.staged {
             diff.resize(&txt.buffer(), context)
         }
-        if let Some(diff) = &mut self.unstaged {
+        if let Some(diff) = &self.unstaged {
             diff.resize(&txt.buffer(), context)
         }
         self.render(txt, RenderSource::Resize, context);
     }
 
+    // TODO mut?
     pub fn ignore(
         &mut self,
         txt: &TextView,
@@ -989,8 +990,8 @@ impl Status {
         _offset: i32,
         context: &mut StatusRenderContext,
     ) {
-        if let Some(untracked) = &mut self.untracked {
-            for file in &mut untracked.files {
+        if let Some(untracked) = &self.untracked {
+            for file in &untracked.files {
                 // TODO!
                 // refactor to some generic method
                 // why other elements do not using this?
@@ -1103,17 +1104,17 @@ impl Status {
         subject: ApplySubject,
         window: &ApplicationWindow,
     ) {
-        if let Some(untracked) = &mut self.untracked {
-            for file in &mut untracked.files {
+        if let Some(untracked) = &self.untracked {
+            for file in &untracked.files {
                 if file.get_view().is_current() {
                     gio::spawn_blocking({
                         let path = self.path.clone();
                         let sender = self.sender.clone();
-                        let file = file.clone();
+                        let file_path = file.path.clone();
                         move || {
                             stage_untracked(
                                 path.expect("no path"),
-                                file,
+                                file_path,
                                 sender,
                             );
                         }
@@ -1149,71 +1150,50 @@ impl Status {
                 ApplySubject::Unstage => self.staged.as_mut().unwrap(),
             }
         };
-        let mut filter = ApplyFilter::new(subject);
+
+        let mut file_path: Option<PathBuf> = None;
+        let mut hunk_header: Option<String> = None;
         for file in &diff.files {
             debug!("---------------> {:?} {} {}", file.path, file.view.is_active(), file.view.is_current());
             if file.view.is_active() {
-                filter.file_id = file.path.to_str().unwrap().to_string();                
-                if file.view.is_current() {
-                    break;
-                } else {
-                    for hunk in &file.hunks {
-                        if hunk.view.is_active() {
-                            filter.hunk_id.replace(hunk.header.clone());
-                            break;
-                        }
-                    }
-                }
-                
+                file_path.replace(file.path.clone());
+                break
             }
+            for hunk in &file.hunks {
+                if hunk.view.is_active() {
+                    // if more then 1 hunks are active that means
+                    // that file is active and previous break
+                    // must prevent to going here
+                    assert!(hunk_header.is_none());
+                    file_path.replace(file.path.clone());
+                    hunk_header.replace(hunk.header.clone());
+                    break;
+                }
+            }
+        };
+        if file_path.is_none() {
+            info!("no file to stage");
+            return;
         }
-        // let mut file_path_so_stage = String::new();
-        // let mut hunks_staged = 0;
-        // there could be either file with all hunks
-        // or just 1 hunk
-        // diff.walk_down(&|vc: &dyn ViewContainer| {
-        //     let id = vc.get_id();
-        //     let kind = vc.get_kind();
-        //     let view = vc.get_view();
-        //     trace!("walks down on apply {:} {:?}", id, kind);
-        //     match kind {
-        //         ViewKind::File => {
-        //             // just store current file_path
-        //             // in this loop. temporary variable
-        //             file_path_so_stage = id;
-        //         }
-        //         ViewKind::Hunk => {
-        //             if !view.is_active() {
-        //                 return;
-        //             }
-        //             // store active hunk in filter
-        //             // if the cursor is on file, all
-        //             // hunks under it will be active
-        //             filter.file_id = file_path_so_stage.clone();
-        //             filter.hunk_id.replace(id);
-        //             hunks_staged += 1;
-        //         }
-        //         _ => (),
-        //     }
-        // })
-            ;
-        debug!("apply filter ----------------------> {:?}", filter);
-        if !filter.file_id.is_empty() {            
-            debug!("stage via apply {:?}", filter);
-            glib::spawn_future_local({
-                let window = window.clone();
-                let path = self.path.clone();
-                let sender = self.sender.clone();
-                async move {
-                    gio::spawn_blocking({
-                        move || {
-                            stage_via_apply(
-                                path.expect("no path"),
-                                filter,
-                                sender,
-                            )
-                        }
-                    })
+        let file_path = file_path.unwrap();
+        debug!("stage via apply ----------------------> {:?} {:?} {:?}", subject, file_path, hunk_header);
+
+        glib::spawn_future_local({
+            let window = window.clone();
+            let path = self.path.clone();
+            let sender = self.sender.clone();
+            async move {
+                gio::spawn_blocking({
+                    move || {
+                        stage_via_apply(
+                            path.expect("no path"),
+                            file_path,
+                            hunk_header,
+                            subject,
+                            sender,
+                        )
+                    }
+                })
                     .await
                     .unwrap_or_else(|e| {
                         alert(format!("{:?}", e)).present(&window);
@@ -1222,13 +1202,12 @@ impl Status {
                     .unwrap_or_else(|e| {
                         alert(e).present(&window);
                     });
-                }
-            });
-        }
+            }
+        });
     }
 
     pub fn choose_cursor_position(
-        &mut self,
+        &self,
         txt: &TextView,
         buffer: &TextBuffer,
         line_no: Option<i32>,
