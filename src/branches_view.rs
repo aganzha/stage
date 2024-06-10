@@ -524,6 +524,10 @@ impl BranchList {
                 if let Some(branch_data) = branch_data {
                     // branch_list.deactivate_current_branch();
                     branch_list.add_new_branch_item(branch_data);
+                    // let selected_item = branch_list.item(selected_pos).unwrap();
+                    // let selected_item = selected_item.downcast_ref::<BranchItem>().unwrap();
+                    // let item = branch_list.selected_item();
+                    // debug!("oooooooooooooo > {:?}", item.parent);
                 }
             })
         });
@@ -797,15 +801,17 @@ pub fn listview_factory(
 
     list_view.connect_activate({
         let repo_path = repo_path.clone();
+        let window = window.clone();
         move |lv: &ListView, _pos: u32| {
-            let root = lv.root().unwrap();
-            let window = root.downcast_ref::<Window>().unwrap();
-            let selection_model = lv.model().unwrap();
-            let single_selection =
-                selection_model.downcast_ref::<SingleSelection>().unwrap();
-            let list_model = single_selection.model().unwrap();
-            let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
-            branch_list.checkout(repo_path.clone(), window, sender.clone());
+            // let root = lv.root().unwrap();
+            // let window = root.downcast_ref::<Window>().unwrap();
+            // let selection_model = lv.model().unwrap();
+            // let single_selection =
+            //     selection_model.downcast_ref::<SingleSelection>().unwrap();
+            // let list_model = single_selection.model().unwrap();
+            // let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
+            let branch_list = get_branch_list(lv);
+            branch_list.checkout(repo_path.clone(), &window, sender.clone());
         }
     });
 
