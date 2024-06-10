@@ -1,3 +1,4 @@
+BUG: cursor now at the end of line??
 BUG: double message in log view after amend. added tabs to amend;
 BUG: monitors does not catch manual file editing during conflicts
 - switch cursor for sheme
