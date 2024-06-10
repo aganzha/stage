@@ -692,29 +692,24 @@ pub fn get_conflicted_v1(path: PathBuf) -> Diff {
         .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
 
-    // let mut patch = git2::Patch::from_diff(&git_diff, 0)
-    //     .expect("cant get patch")
-    //     .unwrap();
-    // let buff = patch.to_buf().expect("cant get buff");
-    // let raw = buff.as_str().unwrap();
-    // for line in raw.lines() {
-    //     debug!("{}", line);
-    // }
     make_diff(&git_diff, DiffKind::Conflicted)
 }
 
 pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
+
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut opts = make_diff_options();
 
-    let opts = opts.show_untracked_content(true);
+    let opts = opts.include_untracked(true);
 
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+
     let git_diff = repo
         .diff_tree_to_workdir_with_index(Some(&current_tree), Some(opts))
         .expect("can't get diff");
     let mut untracked = Untracked::new();
+
     let _ = git_diff.foreach(
         &mut |delta: DiffDelta, _num| {
             if delta.status() == Delta::Untracked {
@@ -727,6 +722,7 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
         None,
         None,
     );
+
     sender
         .send_blocking(crate::Event::Untracked(untracked))
         .expect("Could not send through channel");
