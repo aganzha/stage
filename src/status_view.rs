@@ -888,6 +888,7 @@ impl Status {
         context: &mut StatusRenderContext,
     ) {
         let buffer = txt.buffer();
+        let position_before_render = buffer.cursor_position();
         let mut iter = buffer.iter_at_offset(0);
 
         if let Some(head) = &self.head {
@@ -961,7 +962,10 @@ impl Status {
             RenderSource::Git => {
                 self.choose_cursor_position(txt, &buffer, None, context);
             }
-            RenderSource::Resize => {}
+            RenderSource::Resize => {
+                // self.choose_cursor_position(txt, &buffer, None, context);
+                debug!("do it need to choose cursor position in resize? {:?} vs {:?}", position_before_render, buffer.cursor_position());
+            }
         };
     }
 
@@ -1234,6 +1238,7 @@ impl Status {
                 }
             }
         }
+        // why do i need that back and forw?
         let mut iter = buffer.iter_at_offset(offset);
         iter.backward_line();
         iter.forward_lines(1);

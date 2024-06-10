@@ -278,10 +278,6 @@ pub trait ViewContainer {
             // child dirty triggers expand?
             // view.child_dirty = true;
         });
-        let mut iter = buffer
-            .iter_at_line(line_no)
-            .expect("can't get iter at line");
-        self.render(buffer, &mut iter, context);
     }
 
 }
