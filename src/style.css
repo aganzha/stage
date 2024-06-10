@@ -17,10 +17,6 @@ banner.error revealer widget {
 
 
 scheme_selector button {
-    // this one is some sort of init
-    --my-color: #3584e4;
-}
-scheme_selector button {
   padding: 0;
   min-height: 44px;
   min-width: 44px;
@@ -29,11 +25,6 @@ scheme_selector button {
   border-radius: 9999px;
   box-shadow: inset 0 0 0 1px @borders;
 }
-/* mine_selector button.follow:checked, */
-/* mine_selector button.light:checked, */
-/* mine_selector button.dark:checked { */
-/*   box-shadow: inset 0 0 0 2px @scheme_selected_bg_color; */
-/* } */
 
 scheme_selector button.default {
   background-image: linear-gradient(to bottom right, #fff 49.99%, #202020 50.01%);
@@ -49,7 +40,9 @@ scheme_selector button image {
     max-width: 0;
     max-height: 0;
 }
-
+scheme_selector button:checked {
+    box-shadow: inset 0 0 0 2px @accent_bg_color;
+}
 scheme_selector button:checked image {
     border: none;
     background: none;
@@ -62,10 +55,3 @@ scheme_selector button:checked image {
     border-radius: 9999px;
     color: @accent_fg_color;
 }
-
-/* mine_selector button image:checked { */
-/*   -gtk-icon-source: -gtk-icontheme("object-select-symbolic"); */
-/*   background-color: @scheme_selected_bg_color;   */
-/*   color: @scheme_selected_fg_color; */
-/* } */
-
