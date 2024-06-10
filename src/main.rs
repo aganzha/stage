@@ -84,7 +84,9 @@ fn load_css() {
     let display = Display::default().expect("Could not connect to a display.");
     let settings = Settings::for_display(&display);
     // todo! where is stored settings????
-    settings.set_gtk_font_name(Some("Cantarell 18")); // "Cantarell 21"
+    let stored_settings = get_settings();
+    let stored_font_size = stored_settings.get::<i32>("zoom");
+    settings.set_gtk_font_name(Some(&format!("Cantarell {}", stored_font_size)));
 
     let provider = CssProvider::new();
 
@@ -157,6 +159,8 @@ fn zoom(dir: bool) {
             int_size -= 1;
         }
         settings.set_gtk_font_name(Some(&format!("Cantarell {}", int_size)));
+        let settings = get_settings();
+        settings.set("zoom", int_size).expect("cant set settings")
     };
 }
 

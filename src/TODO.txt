@@ -1,9 +1,11 @@
+BUG: monitors does not catch manual file editing during conflicts
 - switch cursor for sheme
 - change switch to textview via apply_button of entry row
 - implement about popup with github issue
 - stage and revert hunks and files from any commit_view
-
 go with amend
+TODO: passing window in internal list methods, but window could be obtained by root inside those methods!
+
 TODO: rename _view.rs to _list.rs
 views must be connected with each other with large linked list. list across all view
 global array of text tag in buffer. each view stores indexes of self tags froms this array!
