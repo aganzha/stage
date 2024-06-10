@@ -2,12 +2,12 @@
 use crate::status_view::tags;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
-use gtk4::{TextBuffer, TextIter, TextTag, pango};
+use gtk4::{TextBuffer, TextIter, pango};
 use log::{debug, trace};
 use std::cell::Cell;
 use std::collections::HashSet;
-use std::fmt;
-use pango::Style;
+
+
 
 #[derive(Debug, Copy, Clone)]
 pub enum ViewState {
@@ -22,6 +22,12 @@ pub enum ViewState {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct RenderFlags(u8);
+
+impl Default for RenderFlags {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl RenderFlags{
     pub fn new() -> Self {

@@ -32,7 +32,7 @@ impl Line {
     }
     // line
     pub fn transfer_view(&self) -> View {
-        let mut clone = self.view.clone();
+        let clone = self.view.clone();
         clone.transfer(true);
         clone
     }
@@ -41,7 +41,7 @@ impl Line {
 impl Hunk {
     // Hunk
     pub fn transfer_view(&self) -> View {
-        let mut clone = self.view.clone();
+        let clone = self.view.clone();
         // hunk headers are changing always
         // during partial staging
         clone.dirty(true);
@@ -305,7 +305,7 @@ impl File {
 
     // // File
     pub fn transfer_view(&self) -> View {
-        let mut clone = self.view.clone();
+        let clone = self.view.clone();
         clone.transfer(true);
         clone
     }
@@ -360,7 +360,7 @@ impl UntrackedFile {
     }
 
     pub fn transfer_view(&self) -> View {
-        let mut clone = self.view.clone();
+        let clone = self.view.clone();
         clone.transfer(true);
         clone
     }
@@ -403,7 +403,7 @@ impl Head {
     }
     // head
     pub fn transfer_view(&self) -> View {
-        let mut clone = self.view.clone();
+        let clone = self.view.clone();
         clone.transfer(true);
         clone.dirty(true);
         clone
@@ -418,7 +418,7 @@ impl State {
     }
     // state
     pub fn transfer_view(&self) -> View {
-        let mut clone = self.view.clone();
+        let clone = self.view.clone();
         clone.transfer(true);
         clone.dirty(true);
         clone

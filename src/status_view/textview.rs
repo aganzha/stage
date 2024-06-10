@@ -5,11 +5,11 @@ use glib::ControlFlow;
 use gtk4::prelude::*;
 use gtk4::{
     gdk, glib, pango, EventControllerKey, EventControllerMotion,
-    EventSequenceState, GestureClick, MovementStep, TextIter, TextTag,
+    EventSequenceState, GestureClick, MovementStep, TextTag,
     TextView, TextWindowType,
 };
 use log::{debug, trace};
-use pango::Style;
+
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 

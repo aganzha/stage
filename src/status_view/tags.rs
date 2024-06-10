@@ -44,6 +44,12 @@ pub const TEXT_TAGS: [&str; 15] = [
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct TagIdx(u16);
 
+impl Default for TagIdx {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TagIdx {
     pub fn new() -> Self {
         Self(0)
@@ -60,7 +66,7 @@ impl TagIdx {
             if tag.name() == name {
                 break;
             }
-            bit_mask = bit_mask << 1;
+            bit_mask <<= 1;
         }
         Self(self.0 | bit_mask)
     }
@@ -73,7 +79,7 @@ impl TagIdx {
             if tag.name() == name {
                 break;
             }
-            bit_mask = bit_mask << 1;
+            bit_mask <<= 1;
         }
         Self(self.0 & !bit_mask)
     }
@@ -84,7 +90,7 @@ impl TagIdx {
             if tag.name() == name {
                 break;
             }
-            bit_mask = bit_mask << 1;
+            bit_mask <<= 1;
         }
         self.0 & bit_mask != 0
     }
@@ -184,7 +190,7 @@ impl TxtTag {
             }
             UNSTAGED => {
             }
-            CONFLICTMARKER => {
+            CONFLICT_MARKER => {
                 tag.set_foreground(Some("#ff0000"));
             }
             OURS => {
