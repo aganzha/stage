@@ -1,3 +1,8 @@
+- switch cursor for sheme
+- change switch to textview via apply_button of entry row
+- implement about popup with github issue
+- stage and revert hunks and files from any commit_view
+
 go with amend
 TODO: rename _view.rs to _list.rs
 views must be connected with each other with large linked list. list across all view
