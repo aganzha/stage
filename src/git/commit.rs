@@ -28,7 +28,11 @@ impl CommitRepr for git2::Commit<'_> {
         }
     }
     fn log_message(&self) -> String {
-        let message = self.message().unwrap_or("").replace('\n', "");
+        let message = self.message()
+            .unwrap_or("")
+            .split('\n')
+            .next()
+            .unwrap_or("");
         let mut encoded = String::new();
         html_escape::encode_safe_to_string(&message, &mut encoded);
         format!("{} {}", &self.id().to_string()[..7], encoded)
