@@ -8,7 +8,7 @@ use crate::branch::BranchData;
 use crate::commit::CommitRepr;
 use crate::gio;
 use crate::status_view::render::View;
-use std::cell::{Cell};
+
 use async_channel::Sender;
 
 use git2::build::CheckoutBuilder;
@@ -23,7 +23,7 @@ use log::{trace, debug};
 use regex::Regex;
 //use std::time::SystemTime;
 use std::path::PathBuf;
-use std::{collections::HashSet, env, path, str};
+use std::{collections::HashSet, env, str};
 
 pub fn make_diff_options() -> DiffOptions {
     let mut opts = DiffOptions::new();

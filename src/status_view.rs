@@ -5,7 +5,7 @@ pub mod headerbar;
 pub mod textview;
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{merge, remote};
-use container::{ViewContainer, ViewKind};
+use container::{ViewContainer};
 use core::time::Duration;
 use git2::RepositoryState;
 
@@ -21,8 +21,7 @@ use std::rc::Rc;
 use crate::status_view::render::View;
 use crate::{
     checkout_oid, get_current_repo_status, get_directories, git_debug,
-    stage_untracked, stage_via_apply, stash_changes, track_changes,
-    ApplyFilter, ApplySubject, Diff, Event, Head, Stashes, State,
+    stage_untracked, stage_via_apply, stash_changes, track_changes, ApplySubject, Diff, Event, Head, Stashes, State,
     StatusRenderContext, Untracked,
 };
 use async_channel::Sender;

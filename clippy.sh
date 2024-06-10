@@ -1,2 +1,2 @@
 #/bin/bash
-clean && cargo clippy --fix --bin "stage" --allow-dirty
+clear && cargo clippy --fix --bin "stage" --allow-dirty --no-deps
