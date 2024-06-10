@@ -909,13 +909,13 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
 
 pub fn stage_untracked(
     path: PathBuf,
-    file: UntrackedFile,
+    file_path: PathBuf,
     sender: Sender<crate::Event>,
 ) {
-    trace!("stage untracked! {:?}", file.path);
+
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut index = repo.index().expect("cant get index");
-    let pth = path::Path::new(&file.path);
+    let pth = file_path.as_path();
     if pth.is_file() {
         index.add_path(pth).expect("cant add path");
     } else if pth.is_dir() {
@@ -931,16 +931,18 @@ pub fn stage_untracked(
 
 pub fn stage_via_apply(
     path: PathBuf,
-    filter: ApplyFilter,
+    file_path: PathBuf,
+    hunk_header: Option<String>,
+    subject: ApplySubject,
     sender: Sender<crate::Event>,
 ) -> Result<(), Error> {
     // TODO! destruct filter to args. put file in pathspec for diff opts
     let repo = Repository::open(path.clone())?;
 
     let mut opts = make_diff_options();
-    opts.pathspec(&filter.file_id);
+    opts.pathspec(file_path.clone());
 
-    let git_diff = match filter.subject {
+    let git_diff = match subject {
         ApplySubject::Stage => {
             repo.diff_index_to_workdir(None, Some(&mut opts))?
         }
@@ -965,10 +967,10 @@ pub fn stage_via_apply(
     let mut options = ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
-        if let Some(hunk_header) = &filter.hunk_id {
+        if let Some(hunk_header) = &hunk_header {
             if let Some(dh) = odh {
                 let header = Hunk::get_header_from(&dh);
-                return match filter.subject {
+                return match subject {
                     ApplySubject::Stage => {
                         debug!("staging? {} {} {}", hunk_header, header, hunk_header == &header);
                         hunk_header == &header
@@ -989,12 +991,11 @@ pub fn stage_via_apply(
     options.delta_callback(|odd| -> bool {
         if let Some(dd) = odd {
             let path: PathBuf = dd.new_file().path().unwrap().into();
-            return filter.file_id
-                == path.into_os_string().into_string().unwrap();
+            return file_path == path;
         }
         todo!("diff without delta");
     });
-    let apply_location = match filter.subject {
+    let apply_location = match subject {
         ApplySubject::Stage | ApplySubject::Unstage => ApplyLocation::Index,
         ApplySubject::Kill => ApplyLocation::WorkDir,
     };

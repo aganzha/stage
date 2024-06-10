@@ -92,7 +92,6 @@ pub trait ViewContainer {
         let current_before = view.is_current();
         let active_before = view.is_active();
 
-        let view_expanded = view.is_expanded();
         let current = view.is_rendered_in(line_no);
         if current {
             self.fill_under_cursor(context)
@@ -101,10 +100,18 @@ pub trait ViewContainer {
             self.is_active_by_parent(parent_active, context);
         let mut active_by_child = false;
 
-        if view_expanded {
+        if view.is_expanded() {
+            // this is only 1 level.
+            // so when line is active, its hunk is active and file is not
+            // and thats ok.
+            // so, when file is active, all hunks below are active_by_parent
+            // and all lines below are active_by_parent
+            // and if line is active then only 1 hunk in file is active_by_child
             for child in self.get_children() {
                 active_by_child = child.get_view().is_rendered_in(line_no);
                 if active_by_child {
+                    // under cursor changed here BEFORE calling
+                    // child cursor
                     child.fill_under_cursor(context);
                     break;
                 }
@@ -113,8 +120,6 @@ pub trait ViewContainer {
         active_by_child = self.is_active_by_child(active_by_child, context);
 
         let self_active = active_by_parent || current || active_by_child;
-
-        let view = self.get_view();
         view.activate(self_active);
         view.make_current(current);
 
@@ -127,8 +132,9 @@ pub trait ViewContainer {
         }
         for child in self.get_children() {
             result = child.cursor(line_no, self_active, context) || result;
+            // see changing under_cursor ABOVE ^
             // if child.get_view().current {
-            //     // self.fill_under_cursor(child, context);
+            //     self.fill_under_cursor(child, context);
             // }
         }
         // result here just means view is changed
@@ -254,7 +260,7 @@ pub trait ViewContainer {
     }
 
     fn resize(
-        &mut self,
+        &self,
         buffer: &TextBuffer,
         context: &mut StatusRenderContext,
     ) {
