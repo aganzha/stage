@@ -17,5 +17,9 @@
       <default>''</default>
       <summary>choosen theme</summary>
     </key>
+    <key name="zoom" type="i">
+      <default>18</default>
+      <summary>font size</summary>
+    </key>
   </schema>
 </schemalist>

@@ -530,7 +530,7 @@ impl BranchList {
     }
 
     fn add_new_branch_item(&self, branch_data: branch::BranchData) {
-        debug!(
+        trace!(
             "add_new_branch_item {:?} {:?}",
             branch_data.is_head, branch_data.name
         );
@@ -543,14 +543,19 @@ impl BranchList {
             .list
             .borrow_mut()
             .insert(0, BranchItem::new(&self.imp().original_list.borrow()[0]));
-        debug!("inserted in list");
+        
         self.update_head_branch(branch_data);
-        debug!("updated head branch");
+
         self.items_changed(0, 0, 1);
-        debug!("items changed");
-        // works via bind to single_selection selected ?????
+
+        // set focus on new item
+        let item = self.item(0).unwrap();
+        let item = item.downcast_ref::<BranchItem>().unwrap();
+        item.set_initial_focus(true);
+        
+        // works via bind to single_selection selected
         self.set_selected_pos(0);
-        debug!("set selected pos");
+
     }
 
     pub fn cherry_pick(
@@ -709,9 +714,9 @@ pub fn item_factory() -> SignalListItemFactory {
                 // looks like it works only first time.
                 // set_selected_pos from outside does not
                 // trigger it
-                trace!(
-                    "item in connect selected {:?} {:?} {:?}",
-                    branch_item.title(),
+                debug!(
+                    ".............item in connect selected {:?} {:?} {:?}",
+                    branch_item.imp().branch.borrow().name,
                     branch_item.initial_focus(),
                     li.position()
                 );
@@ -797,15 +802,17 @@ pub fn listview_factory(
 
     list_view.connect_activate({
         let repo_path = repo_path.clone();
+        let window = window.clone();
         move |lv: &ListView, _pos: u32| {
-            let root = lv.root().unwrap();
-            let window = root.downcast_ref::<Window>().unwrap();
-            let selection_model = lv.model().unwrap();
-            let single_selection =
-                selection_model.downcast_ref::<SingleSelection>().unwrap();
-            let list_model = single_selection.model().unwrap();
-            let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
-            branch_list.checkout(repo_path.clone(), window, sender.clone());
+            // let root = lv.root().unwrap();
+            // let window = root.downcast_ref::<Window>().unwrap();
+            // let selection_model = lv.model().unwrap();
+            // let single_selection =
+            //     selection_model.downcast_ref::<SingleSelection>().unwrap();
+            // let list_model = single_selection.model().unwrap();
+            // let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
+            let branch_list = get_branch_list(lv);
+            branch_list.checkout(repo_path.clone(), &window, sender.clone());
         }
     });
 

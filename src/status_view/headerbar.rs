@@ -4,6 +4,7 @@ use libadwaita::{
 };
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
+use log::{debug};
 use async_channel::Sender;
 use gtk4::{
     gio, Align, Box, Button, FileDialog, Label, MenuButton, Orientation,
@@ -52,37 +53,8 @@ impl Scheme {
 pub struct MenuItem(String);
 pub const CUSTOM_ATTR: &str = "custom";
 pub const SCHEME_TOKEN: &str = "scheme";
+pub const ZOOM_TOKEN: &str = "zoom";
 
-// pub trait ThemeChoose {
-//     fn scheme_name(&self) -> &str;
-// }
-// impl ThemeChoose for ColorScheme {
-//     fn scheme_name(&self) -> &str {
-//         match self {
-//             ColorScheme::ForceLight => {
-//                 "light"
-//             }
-//             ColorScheme::ForceDark => {
-//                 "dark"
-//             }
-//             _ => "default"
-//         }
-//     }
-// }
-
-// impl ThemeChoose for String {
-//     fn scheme_name(&self) -> &str {
-//         // match self {
-//         //     ColorScheme::ForceLight => {
-//         //         "light"
-//         //     }
-//         //     ColorScheme::ForceDark => {
-//         //         "dark"
-//         //     }
-//         //     _ => "default"
-//         // }
-//     }
-// }
 
 pub fn scheme_selector(
     stored_scheme: Scheme,
@@ -153,50 +125,101 @@ pub fn scheme_selector(
     bx
 }
 
+
+pub fn zoom(
+    // stored_size: Scheme,
+    sender: Sender<crate::Event>,
+) -> Box {
+    let bx = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .halign(Align::Center)
+        .valign(Align::Center)
+        .margin_top(12)
+        .margin_bottom(4)
+        .margin_start(2)
+        .margin_end(2)
+        .spacing(12)
+        .build();
+    let zoom_out_btn = Button::builder()
+        .label("Zoom out")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Zoom out")
+        .icon_name("zoom-out-symbolic")
+        .can_shrink(true)
+        .margin_start(2)
+        .margin_end(2)
+        .build();
+    zoom_out_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::Zoom(false))
+                .expect("cant send through channel");
+        }
+    });
+
+    let zoom_in_btn = Button::builder()
+        .label("Zoom in")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Zoom in")
+        .icon_name("zoom-in-symbolic")
+        .can_shrink(true)
+        .margin_start(2)
+        .margin_end(2)
+        .build();
+    zoom_in_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::Zoom(true))
+                .expect("cant send through channel");
+        }
+    });
+    bx.append(&zoom_out_btn);
+    bx.append(&Label::new(Some("zoom")));
+    bx.append(&zoom_in_btn);
+    bx
+}
+
 pub fn burger_menu(
     stored_scheme: Scheme,
     sender: Sender<crate::Event>,
 ) -> MenuButton {
+
+
     let menu_model = gio::Menu::new();
+    
+    let scheme_model = gio::Menu::new();
 
     let menu_item =
         gio::MenuItem::new(Some(SCHEME_TOKEN), Some("win.menu::1"));
+
     let scheme_id = SCHEME_TOKEN.to_variant();
     menu_item.set_attribute_value(CUSTOM_ATTR, Some(&scheme_id));
-    menu_model.insert_item(0, &menu_item);
+    scheme_model.insert_item(0, &menu_item);    
 
-    // let menu_item = gio::MenuItem::new(Some("fontsize"), Some("win.menu::2"));
-    // let fontsize_id = "fontsize".to_variant();
-    // menu_item.set_attribute_value("custom", Some(&fontsize_id));
-    // menu_model.insert_item(1, &menu_item);
+    let zoom_model = gio::Menu::new();
+    let menu_item =
+        gio::MenuItem::new(Some(ZOOM_TOKEN), Some("win.menu::2"));
 
-    let popover_menu = PopoverMenu::from_model(Some(&menu_model));
-
-    // let scheme_box = Box::builder()
-    //     .orientation(Orientation::Horizontal)
-    //     .build();
-    // let dark = ToggleButton::builder()
-    //     .build();
-    // let light = ToggleButton::builder()
-    //     .group(&dark)
-    //     .build();
-    // let auto = ToggleButton::builder()
-    //     .group(&dark)
-    //     .build();
-    // scheme_box.append(&dark);
-    // scheme_box.append(&light);
-    // scheme_box.append(&auto);
-
-    // let scheme_label = Label::builder().label("theme").build();
-    // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
-
-    // let fontsize_label = Label::builder().label("fontsize").build();
-    // // https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/struct.PopoverMenu.html#method.add_child
-    // popover_menu.add_child(&fontsize_label, "fontsize");
+    let zoom_id = ZOOM_TOKEN.to_variant();
+    menu_item.set_attribute_value(CUSTOM_ATTR, Some(&zoom_id));
+    zoom_model.insert_item(1, &menu_item);
+    
+    menu_model.append_section(None, &scheme_model);
+    menu_model.append_section(None, &zoom_model);
+    
+    let popover_menu = PopoverMenu::from_model(Some(&menu_model));// menu_model
 
     popover_menu.add_child(
         &scheme_selector(stored_scheme, sender.clone()),
         SCHEME_TOKEN,
+    );
+    popover_menu.add_child(
+        &zoom(sender.clone()),
+        ZOOM_TOKEN,
     );
     MenuButton::builder()
         .popover(&popover_menu)
@@ -238,42 +261,6 @@ pub fn factory(
             sender
                 .send_blocking(crate::Event::Refresh)
                 .expect("Could not send through channel");
-        }
-    });
-    let zoom_out_btn = Button::builder()
-        .label("Zoom out")
-        .use_underline(true)
-        .can_focus(false)
-        .tooltip_text("Zoom out")
-        .icon_name("zoom-out-symbolic")
-        .can_shrink(true)
-        .margin_start(24)
-        .margin_end(0)
-        .build();
-    zoom_out_btn.connect_clicked({
-        let sender = sender.clone();
-        move |_| {
-            sender
-                .send_blocking(crate::Event::Zoom(false))
-                .expect("cant send through channel");
-        }
-    });
-
-    let zoom_in_btn = Button::builder()
-        .label("Zoom in")
-        .use_underline(true)
-        .can_focus(false)
-        .tooltip_text("Zoom in")
-        .icon_name("zoom-in-symbolic")
-        .can_shrink(true)
-        .margin_start(0)
-        .build();
-    zoom_in_btn.connect_clicked({
-        let sender = sender.clone();
-        move |_| {
-            sender
-                .send_blocking(crate::Event::Zoom(true))
-                .expect("cant send through channel");
         }
     });
 
@@ -479,9 +466,7 @@ pub fn factory(
     });
     let hb = HeaderBar::new();
     hb.pack_start(&stashes_btn);
-    hb.pack_start(&refresh_btn);
-    hb.pack_start(&zoom_out_btn);
-    hb.pack_start(&zoom_in_btn);
+    // hb.pack_start(&refresh_btn);
 
     hb.set_title_widget(Some(&repo_selector));
 
@@ -495,5 +480,6 @@ pub fn factory(
     hb.pack_end(&pull_btn);
     hb.pack_end(&log_btn);
     hb.pack_end(&reset_btn);
+    hb.pack_end(&refresh_btn);
     (hb, updater)
 }
