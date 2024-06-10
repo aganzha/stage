@@ -204,7 +204,7 @@ pub trait ViewContainer {
 
     // ViewContainer
     fn erase(
-        &mut self,
+        &self,
         buffer: &TextBuffer,
         context: &mut StatusRenderContext,
     ) {
