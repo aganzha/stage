@@ -1,3 +1,9 @@
+-- command line args in dbus https://wiki.gnome.org/Projects/GLib/GApplication/DBusAPI
+gdbus call --session --dest org.gnome.TextEditor --object-path /org/gnome/TextEditor --method org.gtk.Application.CommandLine /org/gnome/TextEditor /home/aganzha/stage/src/main.rs <-- here it waits for bytes
+gio open src/main.rs
+xdg-mime query filetype src/main.rs
+gio mime text/rust
+
 BUG: monitors does not catch manual file editing during conflicts
 - switch cursor for sheme
 - change switch to textview via apply_button of entry row
