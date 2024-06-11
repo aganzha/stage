@@ -1,7 +1,7 @@
 mod context;
 mod debug;
 use context::{StatusRenderContext, TextViewWidth, UnderCursor};
-
+use std::path::Path;
 mod status_view;
 use status_view::{
     headerbar::factory as headerbar_factory,
@@ -51,7 +51,7 @@ use libadwaita::{
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
     CssProvider, Orientation, ScrolledWindow, Settings,
-    STYLE_PROVIDER_PRIORITY_USER,
+    STYLE_PROVIDER_PRIORITY_USER, pango
 };
 
 use log::info;
@@ -201,42 +201,62 @@ fn try_open_editor() {
         None::<&gio::Cancellable>,
         |result| {
             if let Ok(proxy) = result {
-                // info!("ooooooooooooooooooooooo {:?}", proxy);
-                // // let args = Vec::new();
-                // // args.push("/home/aganzha/stage/src/main.rs");
+
+                let stored_settings = get_settings();
+                let stored_editor_args = stored_settings.default_value("editorargs");
+                // if let Some(editor_args) = stored_editor_args {
+                //     info!("-----------------------------------> {:?}", editor_args);
+                // }
                 let urls = ["file:///home/aganzha/stage/src/main.rs"].to_variant();
                 let hint = "".to_variant();
-                // // let platform = glib::Variant::from_dict_entry(&"ass".to_variant(), &"bass".to_variant());
-                // // let platform = glib::Variant::from_none(glib::VariantTy::VARDICT);
-                // // for Open must be “(assa{sv})”"
-                // // let args = glib::Variant:: tuple_from_iter([urls, hint, platform]);
-                // // let args = glib::Variant:: tuple_from_iter([platform]);
-                // // info!("argsssssssssssssss {:?}", args);
-                // let s_variant = glib::Variant::from_data_with_type("bass", glib::VariantTy::VARIANT);
-                // let platform = glib::Variant::from_dict_entry(
-                //     &"ass".to_variant(),
-                //     &s_variant
-                // );
-                // let platform_ob = glib::Variant::array_from_iter_with_type(
-                //     glib::VariantTy::DICT_ENTRY, [platform]
-                // );
-                // //info!("ppppppppppppppppppp {:?}", platform);
-                
-                
-                // let args = glib::Variant::tuple_from_iter([platform_ob]);
-                // // Type of message, “(s)”, does not match expected type “(a{sv})”" })
-                // // let args = glib::Variant:: tuple_from_iter([hint]);
-                // info!("xzzzzzzzzzzzzzzz {:?}", args);
 
                 let platform_type = glib::VariantTy::new("a{sv}").expect("bad type");
-                let platform_ob = glib::Variant::from_data_with_type("", platform_type);
+                let platform_ob = glib::Variant::from_data_with_type(
+                    "",
+                    platform_type
+                );
                 
 
-                let args = glib::Variant::tuple_from_iter([urls, hint, platform_ob]);
+                // let command_args_type = glib::VariantTy::new("a{b}").expect("bad type");
+                // let command_args = glib::Variant::from_data_with_type(
+
+                //     command_args_type
+                // );
+                let command_args = [
+                    "gnome-text-editor".as_bytes(),
+                    "/home/aganzha/stage/src/main.rs".as_bytes(),
+                    "+12".as_bytes()
+                ];
+                let arg1 = "gnome-text-editor".as_bytes().to_variant();
+                let arg2 = "/home/aganzha/stage/src/main.rs".as_bytes().to_variant();
+                let arg3 = "+12".as_bytes().to_variant();
+                
+                // let command_args_type = glib::VariantTy::new("a{ay}").expect("bad type");
+                // let command_args_arr = glib::Variant::tuple_from_iter([arg1, arg2, arg3]);
+                // let cat = glib::Variant::from_data_with_type(
+                //     [arg1, arg2, arg3],
+                //     command_args_type
+                // );
+                // info!("EEEEEEEEEEEEEEEEEEE command_args_type {:?}", command_args);
+                // hm. this one os ay...
+
+                // let path_type = glib::VariantTy::new("s").expect("bad type");
+                // info!("meeeeeeeeeeeeeeeeeeeeee {:?}", path_type);
+                // let path = Path::new("/org/gnome/TextEditor\n").to_variant();
+                // let op: glib::variant::ObjectPath = String::from("/org/gnome/TextEditor").into();
+                let object_path = glib::variant::ObjectPath::try_from(String::from("/org/gnome/TextEditor"));
+                //let path = glib::Variant::parse(Some(path_type), "[/org/gnome/TextEditor]")
+                   //  .expect("cant parse path");
+                info!("pppppppppppppppppppppp {:?}", object_path);
+                let path = object_path.unwrap().to_variant();
+                info!("iiiiiiiiiiiiiiiiiiiiii {:?}", path);
+                // let args = glib::Variant::tuple_from_iter([path, command_args_arr, platform_ob]);
+                let args = glib::Variant::tuple_from_iter([path, stored_editor_args.unwrap(), platform_ob]);
+                // “(s(ayayay) a{sv})”, does not match expected type “(o aay a{sv})”" })
 
                 info!("dbus args {:?}", args);
                 let result = proxy.call_sync(
-                    "Open",
+                    "CommandLine",
                     Some(
                         &args
                     ),
