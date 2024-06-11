@@ -157,6 +157,7 @@ impl MultiLineLabel {
         let user_split = content.split('\n');
 
         for line in user_split {
+            trace!("split {:?}", line);
             let mut split = line.split(' ');
             let mut mx = 0;
 
@@ -186,20 +187,23 @@ impl MultiLineLabel {
                                 self.labels.push(TextViewLabel::from_string(
                                     &acc.replace('\n', ""),
                                 ));
+                                trace!("init new acc after width end {:?}", acc);
                                 acc = String::from(word);
                             } else {
+                                trace!("just push word {:?}", word);
                                 acc.push_str(word);
                                 acc.push(' ');
                             }
                         } else {
-                            trace!("words are over! push last label!");
+                            trace!("words are over! push last label! {:?}", acc);
                             self.labels.push(TextViewLabel::from_string(
                                 &acc.replace('\n', ""),
                             ));
+                            acc = String::from("");
                             break 'words;
                         }
                     }
-                    trace!("reach line end. push label!");
+                    trace!("reach line end. push label! {:?}", acc);
                     self.labels.push(TextViewLabel::from_string(
                         &acc.replace('\n', ""),
                     ));
@@ -470,7 +474,7 @@ pub fn show_commit_window(
                     }
                 }
                 Event::Cursor(_offset, line_no) => {
-                    debug!("Cursor {}", line_no);
+                    trace!("Cursor {}", line_no);
                     if let Some(d) = &mut main_diff {
                         if d.diff.cursor(line_no, false, &mut ctx) {
                             let buffer = &txt.buffer();
@@ -511,7 +515,7 @@ pub fn show_commit_window(
                     }
                 }
                 _ => {
-                    debug!("unhandled event in commit_view {:?}", event);
+                    trace!("unhandled event in commit_view {:?}", event);
                 }
             }
         }
