@@ -190,6 +190,66 @@ pub fn get_settings() -> gio::Settings {
     gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None)
 }
 
+fn try_open_editor() {
+    let proxy = gio::DBusProxy::for_bus(
+        gio::BusType::Session,
+        gio::DBusProxyFlags::empty(),
+        None,
+        "org.gnome.TextEditor",
+        "/org/gnome/TextEditor",
+        "org.gtk.Application",
+        None::<&gio::Cancellable>,
+        |result| {
+            if let Ok(proxy) = result {
+                // info!("ooooooooooooooooooooooo {:?}", proxy);
+                // // let args = Vec::new();
+                // // args.push("/home/aganzha/stage/src/main.rs");
+                // let urls = ["/home/aganzha/stage/src/main.rs"].to_variant();
+                // let hint = "".to_variant();
+                // // let platform = glib::Variant::from_dict_entry(&"ass".to_variant(), &"bass".to_variant());
+                // // let platform = glib::Variant::from_none(glib::VariantTy::VARDICT);
+                // // for Open must be “(assa{sv})”"
+                // // let args = glib::Variant:: tuple_from_iter([urls, hint, platform]);
+                // // let args = glib::Variant:: tuple_from_iter([platform]);
+                // // info!("argsssssssssssssss {:?}", args);
+                // let s_variant = glib::Variant::from_data_with_type("bass", glib::VariantTy::VARIANT);
+                // let platform = glib::Variant::from_dict_entry(
+                //     &"ass".to_variant(),
+                //     &s_variant
+                // );
+                // let platform_ob = glib::Variant::array_from_iter_with_type(
+                //     glib::VariantTy::DICT_ENTRY, [platform]
+                // );
+                // //info!("ppppppppppppppppppp {:?}", platform);
+                
+                
+                // let args = glib::Variant::tuple_from_iter([platform_ob]);
+                // // Type of message, “(s)”, does not match expected type “(a{sv})”" })
+                // // let args = glib::Variant:: tuple_from_iter([hint]);
+                // info!("xzzzzzzzzzzzzzzz {:?}", args);
+
+                let platform_type = glib::VariantTy::new("a{sv}").expect("bad type");
+                let platform_ob = glib::Variant::from_data_with_type("", platform_type);
+                info!("constructed type {:?}", platform_ob);
+
+                let args = glib::Variant::tuple_from_iter([platform_ob]);
+                
+                let result = proxy.call_sync(
+                    "Activate",
+                    // None,
+                    Some(
+                        &args
+                    ),
+                    gio::DBusCallFlags::empty(),
+                    1000,
+                    None::<&gio::Cancellable>
+                );                                
+                info!("rrrrrrrrrrrrrrrrrresult {:?}", result);
+            }
+        }
+    );
+}
+
 fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     env_logger::builder().format_timestamp(None).init();
 
@@ -333,7 +393,51 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::Debug => {
                     info!("main. debug");
-                    play_with_tags();
+                    try_open_editor();
+                    // gio::DBusConnection::for_address(
+                    //     "unix:path=/run/flatpak/bus", //address: &str,
+                    //     gio::DBusConnectionFlags::empty(),
+                    //     None::<&gio::DBusAuthObserver>,
+                    //     None::<&gio::Cancellable>,
+                    //     |result| {
+                    //         info!("eeeeeeeeeeeeeeeeeeeeeeee {:?}", result);
+                    //     },
+                    // );
+                    // let file = gio::File::for_path("/home/aganzha/stage/src/main.rs");
+                    // // let file = gio::File::for_commandline_arg("/home/aganzha/stage/src/main.rs +10");
+                    // let opts: Option<&gio::AppLaunchContext> = None;
+                    // for app_info in gio::AppInfo::all_for_type("text/rust") {
+                    //     // new-window new-document
+                    //     info!("aaaaaaaaaaalll apps {:?} {:?}", app_info.id(), app_info.name());
+                    //     if app_info.name() == "Text Editor" { // Text Editor
+
+                    //         let ctx = Display::default().expect("Could not connect to a display.").
+                    //             app_launch_context();
+
+                    //         let desktop_app_info = gio::DesktopAppInfo::new(&app_info.id().unwrap())
+                    //             .expect("cant get dekstop app info");
+                    //         info!("got it! {:?} actions len {}", desktop_app_info.id(), desktop_app_info.list_actions().len());
+                    //         for a in desktop_app_info.list_actions() {
+                    //             info!("............................... > {}", a);
+                    //         }
+                    //         for e in ctx.environment() {
+                    //             info!("=========== {:?}", e);
+                    //         }
+                    //         app_info.launch(&[file], opts);
+                    //         break
+                    //     }
+                    //     // info!("----------> {:?} {:?}", app_info.id(), app_info.name());
+                    // }
+                    // if let Some(app_info) = gio::AppInfo::default_for_type("text/rust", true) {
+                    //     info!("llllllllllllllllluanch {:?}", app_info);
+                    //     let opts: Option<&gio::AppLaunchContext> = None;
+                    //     let file = gio::File::for_path("/home/aganzha/stage/src/main.rs");
+                    //     app_info.launch(&[file], opts);
+                    // }
+
+                    // gio::AppInfo::launch_default_for_uri("/home/aganzha/stage/src/main.rs", opts)
+
+                    // play_with_tags();
                     // debug::debug(&window, settings.get::<String>("theme"), sender.clone());
                 }
                 Event::Commit => {
