@@ -208,8 +208,8 @@ fn try_open_editor() {
                 // if let Some(editor_args) = stored_editor_args {
                 //     info!("-----------------------------------> {:?}", editor_args);
                 // }
-                let urls = ["file:///home/aganzha/stage/src/main.rs"].to_variant();
-                let hint = "".to_variant();
+                // let urls = ["file:///home/aganzha/stage/src/main.rs"].to_variant();
+                // let hint = "".to_variant();
 
                 let platform_type = glib::VariantTy::new("a{sv}").expect("bad type");
                 let platform_ob = glib::Variant::from_data_with_type(
@@ -217,37 +217,35 @@ fn try_open_editor() {
                     platform_type
                 );
                 
-
-                // let command_args_type = glib::VariantTy::new("a{b}").expect("bad type");
-                // let command_args = glib::Variant::from_data_with_type(
-
-                //     command_args_type
-                // );
-                // let command_args = [
-                //     "gnome-text-editor".as_bytes(),
-                //     "/home/aganzha/stage/src/main.rs".as_bytes(),
-                //     "+12".as_bytes()
-                // ];
-                // let arg1 = "gnome-text-editor".as_bytes().to_variant();
-                // let arg2 = "/home/aganzha/stage/src/main.rs".as_bytes().to_variant();
-                // let arg3 = "+12".as_bytes().to_variant();
-
                 let byte_array_type = glib::VariantTy::new("ay").expect("bad type");
                 info!("byte_array_type = {:?}", byte_array_type);
-                let byte_array = glib::Variant::from_data_with_type(
-                    "/home/aganzha/stage/src/main.rs".as_bytes(),
+
+                let exe = glib::Variant::from_data_with_type(
+                    "/usr/bin/gnome-text-editor %U\0",
+                    // "gnome-text-editor %U",
                     byte_array_type
                 );
-                info!("byte_array = {:?}", byte_array);
+                
+                let file_path = glib::Variant::from_data_with_type(
+                    "/home/aganzha/stage/src/main.rs\0",
+                    byte_array_type
+                );
+                let line_no = glib::Variant::from_data_with_type(
+                    "+12\0",
+                    byte_array_type
+                );
+
+                info!("byte_array = {:?} = {:?} = {:?}", exe, file_path, line_no);
                 // double encoding!
 
                 let byte_array_array_type = glib::VariantTy::new("aay").expect("bad type");
                 info!("byte_array_array_type == {:?}", byte_array_array_type);
                 let byte_array_array = glib::Variant::parse(
                     Some(byte_array_array_type),
-                    &format!("[{}]", byte_array.print(true))
+                    // &format!("[{},{}]", line_no.print(true), exe.print(true))
+                    &format!("[{},{},{}]", exe.print(true), file_path.print(true), line_no.print(true))
                 ).unwrap();
-                info!("byte_array_array == {:?}", byte_array_array);
+                info!(">byte_array_array == {:?}", byte_array_array);
                 info!("");
 
                 //  GLib-CRITICAL **: 00:01:25.683: g_variant_builder_add_value: assertion '!GVSB(builder)->expected_type || g_variant_is_of_type (value, GVSB(builder)->expected_type)' failed
@@ -256,26 +254,8 @@ fn try_open_editor() {
                 //     [byte_array]
                 // );
                 
-                // info!("1aaaaaaaaaaaaaaaaaaaaaaaa {:?}", byte_array_array);                
-                // [INFO  stage] boooooooooooooo Variant { ptr: 0x5598b4bfdd60, type: VariantTy { inner: "ay" }, value: "[byte 0x2f, 0x68, 0x6f, 0x6d, 0x65, 0x2f, 0x61, 0x67, 0x61, 0x6e, 0x7a, 0x68, 0x61, 0x2f, 0x73, 0x74, 0x61, 0x67, 0x65, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x6d, 0x61, 0x69, 0x6e, 0x2e, 0x72, 0x73]" }
-
-                // let command_args_type = glib::VariantTy::new("a{ay}").expect("bad type");
-                // let command_args_arr = glib::Variant::tuple_from_iter([arg1, arg2, arg3]);
-                // let cat = glib::Variant::from_data_with_type(
-                //     [arg1, arg2, arg3],
-                //     command_args_type
-                // );
-                // info!("EEEEEEEEEEEEEEEEEEE command_args_type {:?}", command_args);
-                // hm. this one os ay...
-
-                // let path_type = glib::VariantTy::new("s").expect("bad type");
-                // info!("meeeeeeeeeeeeeeeeeeeeee {:?}", path_type);
-                // let path = Path::new("/org/gnome/TextEditor\n").to_variant();
-                // let op: glib::variant::ObjectPath = String::from("/org/gnome/TextEditor").into();
                 let object_path = glib::variant::ObjectPath::try_from(String::from("/org/gnome/TextEditor"));
-                //let path = glib::Variant::parse(Some(path_type), "[/org/gnome/TextEditor]")
-                   //  .expect("cant parse path");
-                info!("pppppppppppppppppppppp {:?}", object_path);
+
                 let path = object_path.unwrap().to_variant();
                 info!("iiiiiiiiiiiiiiiiiiiiii {:?}", path);
                 // let args = glib::Variant::tuple_from_iter([path, command_args_arr, platform_ob]);
@@ -458,11 +438,11 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     // let file = gio::File::for_path("/home/aganzha/stage/src/main.rs");
                     // // let file = gio::File::for_commandline_arg("/home/aganzha/stage/src/main.rs +10");
                     // let opts: Option<&gio::AppLaunchContext> = None;
-                    // for app_info in gio::AppInfo::all_for_type("text/rust") {
+                    for app_info in gio::AppInfo::all_for_type("text/rust") {
                     //     // new-window new-document
-                    //     info!("aaaaaaaaaaalll apps {:?} {:?}", app_info.id(), app_info.name());
+                        info!("aaaaaaaaaaalll apps {:?} {:?} {:?} {:?}", app_info.id(), app_info.name(), app_info.commandline(), app_info.executable());
                     //     if app_info.name() == "Text Editor" { // Text Editor
-
+                    }
                     //         let ctx = Display::default().expect("Could not connect to a display.").
                     //             app_launch_context();
 
