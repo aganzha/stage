@@ -203,7 +203,8 @@ fn try_open_editor() {
             if let Ok(proxy) = result {
 
                 let stored_settings = get_settings();
-                let stored_editor_args = stored_settings.default_value("editorargs");
+                let stored_editor_args = stored_settings.default_value("editorargs").unwrap();
+                info!("-----------------------------------> {:?} = {}", stored_editor_args, stored_editor_args.print(true));
                 // if let Some(editor_args) = stored_editor_args {
                 //     info!("-----------------------------------> {:?}", editor_args);
                 // }
@@ -222,15 +223,42 @@ fn try_open_editor() {
 
                 //     command_args_type
                 // );
-                let command_args = [
-                    "gnome-text-editor".as_bytes(),
+                // let command_args = [
+                //     "gnome-text-editor".as_bytes(),
+                //     "/home/aganzha/stage/src/main.rs".as_bytes(),
+                //     "+12".as_bytes()
+                // ];
+                // let arg1 = "gnome-text-editor".as_bytes().to_variant();
+                // let arg2 = "/home/aganzha/stage/src/main.rs".as_bytes().to_variant();
+                // let arg3 = "+12".as_bytes().to_variant();
+
+                let byte_array_type = glib::VariantTy::new("ay").expect("bad type");
+                info!("byte_array_type = {:?}", byte_array_type);
+                let byte_array = glib::Variant::from_data_with_type(
                     "/home/aganzha/stage/src/main.rs".as_bytes(),
-                    "+12".as_bytes()
-                ];
-                let arg1 = "gnome-text-editor".as_bytes().to_variant();
-                let arg2 = "/home/aganzha/stage/src/main.rs".as_bytes().to_variant();
-                let arg3 = "+12".as_bytes().to_variant();
+                    byte_array_type
+                );
+                info!("byte_array = {:?}", byte_array);
+                // double encoding!
+
+                let byte_array_array_type = glib::VariantTy::new("aay").expect("bad type");
+                info!("byte_array_array_type == {:?}", byte_array_array_type);
+                let byte_array_array = glib::Variant::parse(
+                    Some(byte_array_array_type),
+                    &format!("[{}]", byte_array.print(true))
+                ).unwrap();
+                info!("byte_array_array == {:?}", byte_array_array);
+                info!("");
+
+                //  GLib-CRITICAL **: 00:01:25.683: g_variant_builder_add_value: assertion '!GVSB(builder)->expected_type || g_variant_is_of_type (value, GVSB(builder)->expected_type)' failed
+                // let byte_array_array = glib::Variant::array_from_iter_with_type(
+                //     &byte_array_type,
+                //     [byte_array]
+                // );
                 
+                // info!("1aaaaaaaaaaaaaaaaaaaaaaaa {:?}", byte_array_array);                
+                // [INFO  stage] boooooooooooooo Variant { ptr: 0x5598b4bfdd60, type: VariantTy { inner: "ay" }, value: "[byte 0x2f, 0x68, 0x6f, 0x6d, 0x65, 0x2f, 0x61, 0x67, 0x61, 0x6e, 0x7a, 0x68, 0x61, 0x2f, 0x73, 0x74, 0x61, 0x67, 0x65, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x6d, 0x61, 0x69, 0x6e, 0x2e, 0x72, 0x73]" }
+
                 // let command_args_type = glib::VariantTy::new("a{ay}").expect("bad type");
                 // let command_args_arr = glib::Variant::tuple_from_iter([arg1, arg2, arg3]);
                 // let cat = glib::Variant::from_data_with_type(
@@ -251,7 +279,11 @@ fn try_open_editor() {
                 let path = object_path.unwrap().to_variant();
                 info!("iiiiiiiiiiiiiiiiiiiiii {:?}", path);
                 // let args = glib::Variant::tuple_from_iter([path, command_args_arr, platform_ob]);
-                let args = glib::Variant::tuple_from_iter([path, stored_editor_args.unwrap(), platform_ob]);
+
+                let args = glib::Variant::tuple_from_iter([path, byte_array_array, platform_ob]);
+
+                // this works!
+                // let args = glib::Variant::tuple_from_iter([path, stored_editor_args, platform_ob]);
                 // “(s(ayayay) a{sv})”, does not match expected type “(o aay a{sv})”" })
 
                 info!("dbus args {:?}", args);
