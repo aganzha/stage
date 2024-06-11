@@ -976,6 +976,7 @@ impl Status {
     ) {
         // it need to rerender all highlights and
         // background to match new window size
+        let position_before = txt.buffer().cursor_position();
         if let Some(diff) = &self.staged {
             diff.resize(&txt.buffer(), context)
         }
@@ -983,6 +984,10 @@ impl Status {
             diff.resize(&txt.buffer(), context)
         }
         self.render(txt, RenderSource::Resize, context);
+        let position_now = txt.buffer().cursor_position();
+        if position_now != position_before {
+            debug!("CHANGED broken cursor position {:?} {:?}", position_before, position_now);
+        }
     }
 
     // TODO mut?
