@@ -204,8 +204,8 @@ fn try_open_editor() {
                 // info!("ooooooooooooooooooooooo {:?}", proxy);
                 // // let args = Vec::new();
                 // // args.push("/home/aganzha/stage/src/main.rs");
-                // let urls = ["/home/aganzha/stage/src/main.rs"].to_variant();
-                // let hint = "".to_variant();
+                let urls = ["file:///home/aganzha/stage/src/main.rs"].to_variant();
+                let hint = "".to_variant();
                 // // let platform = glib::Variant::from_dict_entry(&"ass".to_variant(), &"bass".to_variant());
                 // // let platform = glib::Variant::from_none(glib::VariantTy::VARDICT);
                 // // for Open must be “(assa{sv})”"
@@ -230,13 +230,13 @@ fn try_open_editor() {
 
                 let platform_type = glib::VariantTy::new("a{sv}").expect("bad type");
                 let platform_ob = glib::Variant::from_data_with_type("", platform_type);
-                info!("constructed type {:?}", platform_ob);
-
-                let args = glib::Variant::tuple_from_iter([platform_ob]);
                 
+
+                let args = glib::Variant::tuple_from_iter([urls, hint, platform_ob]);
+
+                info!("dbus args {:?}", args);
                 let result = proxy.call_sync(
-                    "Activate",
-                    // None,
+                    "Open",
                     Some(
                         &args
                     ),
