@@ -4,7 +4,7 @@ use core::time::Duration;
 use glib::ControlFlow;
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, glib, pango, EventControllerKey, EventControllerMotion,
+    gdk, glib, EventControllerKey, EventControllerMotion,
     EventSequenceState, GestureClick, MovementStep, TextTag,
     TextView, TextWindowType,
 };
@@ -27,8 +27,8 @@ impl CharView for TextView {
             buffer.insert(&mut iter, " ");
         };
         let x_after = self.cursor_locations(Some(&iter)).0.x();
-        let chars = self.width() / (x_after - x_before);
-        chars
+        
+        self.width() / (x_after - x_before)
     }
 }
 

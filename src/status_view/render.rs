@@ -2,7 +2,7 @@
 use crate::status_view::tags;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
-use gtk4::{TextBuffer, TextIter, pango};
+use gtk4::{TextBuffer, TextIter};
 use log::{debug, trace};
 use std::cell::Cell;
 use std::collections::HashSet;

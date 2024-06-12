@@ -2,12 +2,11 @@ mod context;
 mod debug;
 mod external;
 use context::{StatusRenderContext, TextViewWidth, UnderCursor};
-use std::path::Path;
+
 mod status_view;
 use status_view::{
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
-    render::play_with_tags,
     textview::factory as textview_factory,
     Status,
 };
@@ -33,7 +32,7 @@ mod git;
 use git::{
     apply_stash, branch, checkout_oid, commit, debug as git_debug, drop_stash,
     get_current_repo_status, get_directories, reset_hard, stage_untracked,
-    stage_via_apply, stash_changes, track_changes, ApplyFilter, ApplySubject,
+    stage_via_apply, stash_changes, track_changes, ApplySubject,
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, StashData, Stashes,
     State, Untracked, UntrackedFile,
 };
@@ -52,7 +51,7 @@ use libadwaita::{
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
     CssProvider, Orientation, ScrolledWindow, Settings,
-    STYLE_PROVIDER_PRIORITY_USER, pango
+    STYLE_PROVIDER_PRIORITY_USER
 };
 
 use log::info;

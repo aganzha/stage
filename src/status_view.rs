@@ -22,7 +22,7 @@ use crate::status_view::render::View;
 use crate::{
     checkout_oid, get_current_repo_status, get_directories, git_debug,
     stage_untracked, stage_via_apply, stash_changes, track_changes, ApplySubject, Diff, Event, Head, Stashes, State,
-    StatusRenderContext, Untracked, File as GitFile, Hunk as GitHunk, Line as GitLine, DiffKind
+    StatusRenderContext, Untracked, File as GitFile
 };
 use async_channel::Sender;
 

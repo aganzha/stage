@@ -4,7 +4,7 @@ use libadwaita::{
 };
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
-use log::{debug};
+
 use async_channel::Sender;
 use gtk4::{
     gio, Align, Box, Button, FileDialog, Label, MenuButton, Orientation,

@@ -261,12 +261,12 @@ pub trait ViewContainer {
 
     fn resize(
         &self,
-        buffer: &TextBuffer,
-        context: &mut StatusRenderContext,
+        _buffer: &TextBuffer,
+        _context: &mut StatusRenderContext,
     ) {
         // this is just RE render with build_up
         let view = self.get_view();
-        let line_no = view.line_no.get();
+        let _line_no = view.line_no.get();
         if view.is_rendered() {
             view.dirty(true);
             // TODO! why i need child dirty here?
