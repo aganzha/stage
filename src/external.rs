@@ -1,6 +1,6 @@
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
-use log::{info, debug};
+use log::{info};
 use std::path::PathBuf;
 use std::ffi::OsString;
 

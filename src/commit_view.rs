@@ -19,7 +19,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
-use log::{debug, info, trace};
+use log::{info, trace};
 
 use std::path::PathBuf;
 use std::rc::Rc;
