@@ -1,5 +1,6 @@
 mod context;
 mod debug;
+mod external;
 use context::{StatusRenderContext, TextViewWidth, UnderCursor};
 use std::path::Path;
 mod status_view;
@@ -139,6 +140,7 @@ pub enum Event {
     CheckoutError(Oid, String, String),
     LockMonitors(bool),
     StoreSettings(String, String),
+    OpenEditor,
 }
 
 fn zoom(dir: bool) {
@@ -188,71 +190,6 @@ pub fn get_settings() -> gio::Settings {
             .expect("no source");
     let schema = schema_source.lookup(APP_ID, false).expect("no schema");
     gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None)
-}
-
-fn try_open_editor() {
-    let proxy = gio::DBusProxy::for_bus(
-        gio::BusType::Session,
-        gio::DBusProxyFlags::empty(),
-        None,
-        "org.gnome.TextEditor",
-        "/org/gnome/TextEditor",
-        "org.gtk.Application",
-        None::<&gio::Cancellable>,
-        |result| {
-            if let Ok(proxy) = result {
-
-                let platform_type = glib::VariantTy::new("a{sv}").expect("bad type");
-                let platform_ob = glib::Variant::from_data_with_type(
-                    "",
-                    platform_type
-                );
-
-                let byte_array_type = glib::VariantTy::new("ay").expect("bad type");
-                let exe = glib::Variant::from_data_with_type(
-                    "gnome-text-editor %U\0",
-                    // "gnome-text-editor %U",
-                    byte_array_type
-                );
-
-                let file_path = glib::Variant::from_data_with_type(
-                    "/home/aganzha/stage/src/main.rs\0",
-                    byte_array_type
-                );
-                let line_no = glib::Variant::from_data_with_type(
-                    "+12\0",
-                    byte_array_type
-                );
-
-                let byte_array_array_type = glib::VariantTy::new("aay").expect("bad type");
-                info!("byte_array_array_type == {:?}", byte_array_array_type);
-                let byte_array_array = glib::Variant::parse(
-                    Some(byte_array_array_type),
-                    &format!("[{},{},{}]", exe.print(true), file_path.print(true), line_no.print(true))
-                ).unwrap();
-
-                let object_path = glib::variant::ObjectPath::try_from(String::from("/org/gnome/TextEditor"));
-
-                let path = object_path.unwrap().to_variant();
-
-                let args = glib::Variant::tuple_from_iter([path, byte_array_array, platform_ob]);
-
-
-                info!("dbus args {:?}", args);
-                // [INFO  stage] dbus args Variant { ptr: 0x560ee73df4f0, type: VariantTy { inner: "(oaaya{sv})" }, value: "(objectpath '/org/gnome/TextEditor', [b'gnome-text-editor %U', b'/home/aganzha/stage/src/main.rs', b'+12'], @a{sv} {})" }
-
-                let result = proxy.call_sync(
-                    "CommandLine",
-                    Some(
-                        &args
-                    ),
-                    gio::DBusCallFlags::empty(),
-                    1000,
-                    None::<&gio::Cancellable>
-                );
-            }
-        }
-    );
 }
 
 fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
@@ -396,9 +333,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     info!("main. state");
                     status.update_state(state, &txt, &mut ctx);
                 }
-                Event::Debug => {
-                    info!("main. debug");
-                    try_open_editor();
+                Event::OpenEditor => {
+                    external::try_open_editor();
                     // gio::DBusConnection::for_address(
                     //     "unix:path=/run/flatpak/bus", //address: &str,
                     //     gio::DBusConnectionFlags::empty(),
@@ -412,9 +348,9 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     // // let file = gio::File::for_commandline_arg("/home/aganzha/stage/src/main.rs +10");
                     // let opts: Option<&gio::AppLaunchContext> = None;
                     for app_info in gio::AppInfo::all_for_type("text/rust") {
-                    //     // new-window new-document
+                        //     // new-window new-document
                         info!("aaaaaaaaaaalll apps {:?} {:?} {:?} {:?}", app_info.id(), app_info.name(), app_info.commandline(), app_info.executable());
-                    //     if app_info.name() == "Text Editor" { // Text Editor
+                        //     if app_info.name() == "Text Editor" { // Text Editor
                     }
                     //         let ctx = Display::default().expect("Could not connect to a display.").
                     //             app_launch_context();
@@ -444,6 +380,9 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
 
                     // play_with_tags();
                     // debug::debug(&window, settings.get::<String>("theme"), sender.clone());
+                }
+                Event::Debug => {
+                    info!("main. debug");                    
                 }
                 Event::Commit => {
                     info!("main.commit");
