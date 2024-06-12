@@ -2,6 +2,7 @@ use crate::git::{
     branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff,
     make_diff_options, BranchData, DiffKind, Hunk, Line, MARKER_HUNK,
     MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE, SPACE,
+    Head, State
 };
 use async_channel::Sender;
 use git2;
@@ -170,16 +171,16 @@ pub fn branch(
     // let state = repo.state();
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
-    // let ob = head_ref.peel(git2::ObjectType::Commit)?;
-    // let commit = ob.peel_to_commit()?;
+    let ob = head_ref.peel(git2::ObjectType::Commit)?;
+    let commit = ob.peel_to_commit()?;
     let branch = git2::Branch::wrap(head_ref);
-    // let new_head = Head::new(&branch, &commit);
-    // sender
-    //     .send_blocking(crate::Event::State(State::new(state, branch.branch_name())))
-    //     .expect("Could not send through channel");
-    // sender
-    //     .send_blocking(crate::Event::Head(new_head))
-    //     .expect("Could not send through channel");
+    let new_head = Head::new(&branch, &commit);
+    sender
+        .send_blocking(crate::Event::State(State::new(repo.state(), branch.branch_name())))
+        .expect("Could not send through channel");
+    sender
+        .send_blocking(crate::Event::Head(new_head))
+        .expect("Could not send through channel");
     BranchData::from_branch(branch, git2::BranchType::Local)
 }
 

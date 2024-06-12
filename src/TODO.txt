@@ -1,4 +1,3 @@
-BUG: Head is not updated after merge!
 Rc::clone() instead of .clone()
 -- command line args in dbus https://wiki.gnome.org/Projects/GLib/GApplication/DBusAPI
 gdbus call --session --dest org.gnome.TextEditor --object-path /org/gnome/TextEditor --method org.gtk.Application.CommandLine /org/gnome/TextEditor /home/aganzha/stage/src/main.rs <-- here it waits for bytes
