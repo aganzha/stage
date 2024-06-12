@@ -1,28 +1,29 @@
-pub mod tags;
 pub mod commit;
 pub mod container;
 pub mod headerbar;
+pub mod tags;
 pub mod textview;
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{merge, remote};
-use container::{ViewContainer};
+use container::ViewContainer;
 use core::time::Duration;
 use git2::RepositoryState;
 
-pub mod render;
 pub mod reconciliation;
+pub mod render;
 pub mod tests;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::status_view::render::View;
 use crate::{
     checkout_oid, get_current_repo_status, get_directories, git_debug,
-    stage_untracked, stage_via_apply, stash_changes, track_changes, ApplySubject, Diff, Event, Head, Stashes, State,
-    StatusRenderContext, Untracked, File as GitFile
+    stage_untracked, stage_via_apply, stash_changes, track_changes,
+    ApplySubject, Diff, Event, File as GitFile, Head, Stashes, State,
+    StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
 
@@ -41,8 +42,7 @@ use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, Banner, EntryRow, PasswordEntryRow, SwitchRow,
 }; // _Window,
-use log::{debug, trace, info};
-
+use log::{debug, info, trace};
 
 impl State {
     pub fn title_for_proceed_banner(&self) -> String {
@@ -163,31 +163,33 @@ impl Status {
         for diff in [&self.staged, &self.unstaged] {
             if let Some(diff) = diff {
                 let maybe_file = diff.files.iter().find(|f| {
-                    f.view.is_current() || f.hunks.iter().any(|h| h.view.is_active())
+                    f.view.is_current()
+                        || f.hunks.iter().any(|h| h.view.is_active())
                 });
                 if maybe_file.is_some() {
-                    return maybe_file
+                    return maybe_file;
                 }
             }
         }
-	    None
+        None
     }
 
     pub fn editor_args_at_cursor(&self) -> Option<(PathBuf, u32)> {
-        if let Some(file) = self.file_at_cursor() {            
+        if let Some(file) = self.file_at_cursor() {
             if file.view.is_current() {
-                return Some((self.to_abs_path(&file.path), 0))
+                return Some((self.to_abs_path(&file.path), 0));
             }
             let hunk = file.hunks.iter().find(|h| h.view.is_active()).unwrap();
-            let mut line_no = hunk.new_start;                
+            let mut line_no = hunk.new_start;
             if !hunk.view.is_current() {
-                let line = hunk.lines.iter().find(|l| l.view.is_current()).unwrap();
+                let line =
+                    hunk.lines.iter().find(|l| l.view.is_current()).unwrap();
                 line_no = line.new_line_no.or(line.old_line_no).unwrap_or(0);
             }
             let mut base = self.path.clone().unwrap();
             base.pop();
             base.push(&file.path);
-            return Some((base, line_no))
+            return Some((base, line_no));
         }
         None
     }
@@ -198,7 +200,7 @@ impl Status {
         base.push(path);
         base
     }
-    
+
     pub fn branch_name(&self) -> String {
         if let Some(head) = &self.head {
             return head.branch.to_string();
@@ -1010,11 +1012,7 @@ impl Status {
         };
     }
 
-    pub fn resize(
-        &self,
-        txt: &TextView,
-        context: &mut StatusRenderContext,
-    ) {
+    pub fn resize(&self, txt: &TextView, context: &mut StatusRenderContext) {
         // it need to rerender all highlights and
         // background to match new window size
         let position_before = txt.buffer().cursor_position();
@@ -1027,7 +1025,10 @@ impl Status {
         self.render(txt, RenderSource::Resize, context);
         let position_now = txt.buffer().cursor_position();
         if position_now != position_before {
-            debug!("CHANGED broken cursor position {:?} {:?}", position_before, position_now);
+            debug!(
+                "CHANGED broken cursor position {:?} {:?}",
+                position_before, position_now
+            );
         }
     }
 
@@ -1203,10 +1204,15 @@ impl Status {
         let mut file_path: Option<PathBuf> = None;
         let mut hunk_header: Option<String> = None;
         for file in &diff.files {
-            debug!("---------------> {:?} {} {}", file.path, file.view.is_active(), file.view.is_current());
+            debug!(
+                "---------------> {:?} {} {}",
+                file.path,
+                file.view.is_active(),
+                file.view.is_current()
+            );
             if file.view.is_active() {
                 file_path.replace(file.path.clone());
-                break
+                break;
             }
             for hunk in &file.hunks {
                 if hunk.view.is_active() {
@@ -1219,13 +1225,16 @@ impl Status {
                     break;
                 }
             }
-        };
+        }
         if file_path.is_none() {
             info!("no file to stage");
             return;
         }
         let file_path = file_path.unwrap();
-        debug!("stage via apply ----------------------> {:?} {:?} {:?}", subject, file_path, hunk_header);
+        debug!(
+            "stage via apply ----------------------> {:?} {:?} {:?}",
+            subject, file_path, hunk_header
+        );
 
         glib::spawn_future_local({
             let window = window.clone();
@@ -1243,14 +1252,14 @@ impl Status {
                         )
                     }
                 })
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
-                        Ok(())
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(&window);
-                    });
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(())
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                });
             }
         });
     }
@@ -1310,7 +1319,11 @@ impl Status {
                 let view = vc.get_view();
                 // hack :(
                 if view.line_no.get() == current_line && view.is_rendered() {
-                    debug!("view under line {:?} {:?}", view.line_no.get(), content);
+                    debug!(
+                        "view under line {:?} {:?}",
+                        view.line_no.get(),
+                        content
+                    );
                     debug!(
                         "is rendered in {:?} {:?}",
                         view.is_rendered_in(current_line),

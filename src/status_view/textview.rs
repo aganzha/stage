@@ -1,12 +1,13 @@
+use crate::status_view::headerbar::{Scheme, SCHEME_TOKEN};
 use crate::status_view::tags;
 use async_channel::Sender;
 use core::time::Duration;
 use glib::ControlFlow;
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, glib, EventControllerKey, EventControllerMotion,
-    EventSequenceState, GestureClick, MovementStep, TextTag,
-    TextView, TextWindowType,
+    gdk, gio, glib, EventControllerKey, EventControllerMotion,
+    EventSequenceState, GestureClick, MovementStep, TextTag, TextView,
+    TextWindowType,
 };
 use log::{debug, trace};
 
@@ -27,7 +28,7 @@ impl CharView for TextView {
             buffer.insert(&mut iter, " ");
         };
         let x_after = self.cursor_locations(Some(&iter)).0.x();
-        
+
         self.width() / (x_after - x_before)
     }
 }
@@ -35,6 +36,7 @@ impl CharView for TextView {
 pub fn factory(
     sndr: Sender<crate::Event>,
     name: &str,
+    //settings: gio::Settings,
     text_view_width: Rc<RefCell<crate::context::TextViewWidth>>,
 ) -> TextView {
     let txt = TextView::builder()
@@ -49,9 +51,12 @@ pub fn factory(
     let mut pointer: Option<TextTag> = None;
     let mut staged: Option<TextTag> = None;
     let mut unstaged: Option<TextTag> = None;
-    
+
+    //let scheme = Scheme::new(settings.get::<String>(SCHEME_TOKEN));
+
     for tag_name in tags::TEXT_TAGS {
-        let text_tag = tags::TxtTag::from_str(tag_name).create();
+        let text_tag =
+            tags::TxtTag::from_str(tag_name).create();
         table.add(&text_tag);
         match tag_name {
             tags::POINTER => {
@@ -326,7 +331,7 @@ pub fn factory(
                     // initial render
                     let visible_char_width = view.calc_max_char_width();
                     text_view_width.borrow_mut().visible_chars =
-                        visible_char_width;                    
+                        visible_char_width;
                     sndr.send_blocking(crate::Event::TextCharVisibleWidth(
                         visible_char_width,
                     ))

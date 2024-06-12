@@ -32,9 +32,9 @@ mod git;
 use git::{
     apply_stash, branch, checkout_oid, commit, debug as git_debug, drop_stash,
     get_current_repo_status, get_directories, reset_hard, stage_untracked,
-    stage_via_apply, stash_changes, track_changes, ApplySubject,
-    Diff, DiffKind, File, Head, Hunk, Line, LineKind, StashData, Stashes,
-    State, Untracked, UntrackedFile,
+    stage_via_apply, stash_changes, track_changes, ApplySubject, Diff,
+    DiffKind, File, Head, Hunk, Line, LineKind, StashData, Stashes, State,
+    Untracked, UntrackedFile,
 };
 use git2::Oid;
 mod dialogs;
@@ -51,7 +51,7 @@ use libadwaita::{
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
     CssProvider, Orientation, ScrolledWindow, Settings,
-    STYLE_PROVIDER_PRIORITY_USER
+    STYLE_PROVIDER_PRIORITY_USER,
 };
 
 use log::info;
@@ -86,7 +86,8 @@ fn load_css() {
     // todo! where is stored settings????
     let stored_settings = get_settings();
     let stored_font_size = stored_settings.get::<i32>("zoom");
-    settings.set_gtk_font_name(Some(&format!("Cantarell {}", stored_font_size)));
+    settings
+        .set_gtk_font_name(Some(&format!("Cantarell {}", stored_font_size)));
 
     let provider = CssProvider::new();
 
@@ -333,54 +334,11 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     status.update_state(state, &txt, &mut ctx);
                 }
                 Event::OpenEditor => {
-                    if let Some((path, line_no)) = status.editor_args_at_cursor() {
+                    if let Some((path, line_no)) =
+                        status.editor_args_at_cursor()
+                    {
                         external::try_open_editor(path, line_no);
-                    }                    
-                    // gio::DBusConnection::for_address(
-                    //     "unix:path=/run/flatpak/bus", //address: &str,
-                    //     gio::DBusConnectionFlags::empty(),
-                    //     None::<&gio::DBusAuthObserver>,
-                    //     None::<&gio::Cancellable>,
-                    //     |result| {
-                    //         info!("eeeeeeeeeeeeeeeeeeeeeeee {:?}", result);
-                    //     },
-                    // );
-                    // let file = gio::File::for_path("/home/aganzha/stage/src/main.rs");
-                    // // let file = gio::File::for_commandline_arg("/home/aganzha/stage/src/main.rs +10");
-                    // let opts: Option<&gio::AppLaunchContext> = None;
-                    // for app_info in gio::AppInfo::all_for_type("text/rust") {
-                    //     //     // new-window new-document
-                    //     info!("aaaaaaaaaaalll apps {:?} {:?} {:?} {:?}", app_info.id(), app_info.name(), app_info.commandline(), app_info.executable());
-                    //     //     if app_info.name() == "Text Editor" { // Text Editor
-                    // }
-                    //         let ctx = Display::default().expect("Could not connect to a display.").
-                    //             app_launch_context();
-
-                    //         let desktop_app_info = gio::DesktopAppInfo::new(&app_info.id().unwrap())
-                    //             .expect("cant get dekstop app info");
-                    //         info!("got it! {:?} actions len {}", desktop_app_info.id(), desktop_app_info.list_actions().len());
-                    //         for a in desktop_app_info.list_actions() {
-                    //             info!("............................... > {}", a);
-                    //         }
-                    //         for e in ctx.environment() {
-                    //             info!("=========== {:?}", e);
-                    //         }
-                    //         app_info.launch(&[file], opts);
-                    //         break
-                    //     }
-                    //     // info!("----------> {:?} {:?}", app_info.id(), app_info.name());
-                    // }
-                    // if let Some(app_info) = gio::AppInfo::default_for_type("text/rust", true) {
-                    //     info!("llllllllllllllllluanch {:?}", app_info);
-                    //     let opts: Option<&gio::AppLaunchContext> = None;
-                    //     let file = gio::File::for_path("/home/aganzha/stage/src/main.rs");
-                    //     app_info.launch(&[file], opts);
-                    // }
-
-                    // gio::AppInfo::launch_default_for_uri("/home/aganzha/stage/src/main.rs", opts)
-
-                    // play_with_tags();
-                    // debug::debug(&window, settings.get::<String>("theme"), sender.clone());
+                    }
                 }
                 Event::Debug => {
                     info!("main. debug");

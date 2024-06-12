@@ -19,7 +19,7 @@ use git2::{
     ResetType, StashFlags,
 };
 
-use log::{trace, debug};
+use log::{debug, trace};
 use regex::Regex;
 //use std::time::SystemTime;
 use std::path::PathBuf;
@@ -64,7 +64,7 @@ impl Default for Line {
             content: "".to_string(),
             new_line_no: None,
             old_line_no: None,
-            kind: LineKind::None
+            kind: LineKind::None,
         }
     }
 }
@@ -612,7 +612,11 @@ pub fn get_current_repo_status(
             let current_tree =
                 repo.find_tree(ob.id()).expect("no working tree");
             let git_diff = repo
-                .diff_tree_to_index(Some(&current_tree), None, Some(&mut make_diff_options()))
+                .diff_tree_to_index(
+                    Some(&current_tree),
+                    None,
+                    Some(&mut make_diff_options()),
+                )
                 .expect("can't get diff tree to index");
             let diff = make_diff(&git_diff, DiffKind::Staged);
             sender
@@ -696,7 +700,6 @@ pub fn get_conflicted_v1(path: PathBuf) -> Diff {
 }
 
 pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
-
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut opts = make_diff_options();
 
@@ -908,7 +911,6 @@ pub fn stage_untracked(
     file_path: PathBuf,
     sender: Sender<crate::Event>,
 ) {
-
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut index = repo.index().expect("cant get index");
     let pth = file_path.as_path();
@@ -968,9 +970,14 @@ pub fn stage_via_apply(
                 let header = Hunk::get_header_from(&dh);
                 return match subject {
                     ApplySubject::Stage => {
-                        debug!("staging? {} {} {}", hunk_header, header, hunk_header == &header);
+                        debug!(
+                            "staging? {} {} {}",
+                            hunk_header,
+                            header,
+                            hunk_header == &header
+                        );
                         hunk_header == &header
-                    },
+                    }
                     ApplySubject::Unstage => {
                         hunk_header == &Hunk::reverse_header(&header)
                     }
@@ -1200,7 +1207,10 @@ pub fn track_changes(
             // why all? but there way not, ti update just 1 file!
             // but it is easy, really (just use existent diff and update only 1 file in it!)
             let git_diff = repo
-                .diff_index_to_workdir(Some(&index), Some(&mut make_diff_options()))
+                .diff_index_to_workdir(
+                    Some(&index),
+                    Some(&mut make_diff_options()),
+                )
                 .expect("cant' get diff index to workdir");
             let diff = make_diff(&git_diff, DiffKind::Unstaged);
             sender

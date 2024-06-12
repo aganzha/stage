@@ -205,7 +205,11 @@ pub fn abort(path: PathBuf, sender: Sender<crate::Event>) {
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
     let git_diff = repo
-        .diff_tree_to_index(Some(&current_tree), None, Some(&mut make_diff_options()))
+        .diff_tree_to_index(
+            Some(&current_tree),
+            None,
+            Some(&mut make_diff_options()),
+        )
         .expect("can't get diff tree to index");
     git_diff
         .foreach(

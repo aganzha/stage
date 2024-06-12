@@ -1,6 +1,6 @@
 use crate::git::{
-    get_current_repo_status, get_head, make_diff, Diff, DiffKind,
-    make_diff_options
+    get_current_repo_status, get_head, make_diff, make_diff_options, Diff,
+    DiffKind,
 };
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
@@ -28,7 +28,8 @@ impl CommitRepr for git2::Commit<'_> {
         }
     }
     fn log_message(&self) -> String {
-        let message = self.message()
+        let message = self
+            .message()
             .unwrap_or("")
             .split('\n')
             .next()
@@ -152,8 +153,11 @@ pub fn get_commit_diff(
     let parent = commit.parent(0)?;
 
     let parent_tree = parent.tree()?;
-    let git_diff =
-        repo.diff_tree_to_tree(Some(&parent_tree), Some(&tree), Some(&mut make_diff_options()))?;
+    let git_diff = repo.diff_tree_to_tree(
+        Some(&parent_tree),
+        Some(&tree),
+        Some(&mut make_diff_options()),
+    )?;
     Ok(CommitDiff::new(
         commit,
         make_diff(&git_diff, DiffKind::Staged),
@@ -210,10 +214,8 @@ pub fn create(
     let tree_oid = repo.index()?.write_tree()?;
 
     let tree = repo.find_tree(tree_oid)?;
-    let parent_oid = repo
-        .revparse_single("HEAD^{commit}")?
-        .id();
-    
+    let parent_oid = repo.revparse_single("HEAD^{commit}")?.id();
+
     let parent_commit = repo.find_commit(parent_oid)?;
     if amend {
         parent_commit.amend(
@@ -222,15 +224,26 @@ pub fn create(
             Some(&me),
             None, // message encoding
             Some(&message),
-            Some(&tree)
+            Some(&tree),
         )?;
     } else {
-        repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&parent_commit])?;
+        repo.commit(
+            Some("HEAD"),
+            &me,
+            &me,
+            &message,
+            &tree,
+            &[&parent_commit],
+        )?;
     }
     // update staged changes
     let ob = repo.revparse_single("HEAD^{tree}")?;
     let current_tree = repo.find_tree(ob.id())?;
-    let git_diff = repo.diff_tree_to_index(Some(&current_tree), None, Some(&mut make_diff_options()))?;
+    let git_diff = repo.diff_tree_to_index(
+        Some(&current_tree),
+        None,
+        Some(&mut make_diff_options()),
+    )?;
 
     sender
         .send_blocking(crate::Event::Staged(make_diff(
@@ -269,7 +282,8 @@ pub fn cherry_pick(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
-    let result = repo.cherrypick(&commit, Some(&mut git2::CherrypickOptions::new()));
+    let result =
+        repo.cherrypick(&commit, Some(&mut git2::CherrypickOptions::new()));
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");

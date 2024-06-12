@@ -158,7 +158,8 @@ pub fn checkout_branch(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
 
-    let checkout_error = repo.checkout_tree(commit.as_object(), Some(opts)).err();
+    let checkout_error =
+        repo.checkout_tree(commit.as_object(), Some(opts)).err();
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");

@@ -1,5 +1,5 @@
+use crate::status_view::render::{RenderFlags, View};
 use crate::status_view::tags;
-use crate::status_view::render::{View, RenderFlags};
 
 use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::{Diff, DiffKind, File, Hunk, Line, LineKind};
@@ -7,8 +7,8 @@ use git2::DiffLineType;
 use gtk4::prelude::*;
 use gtk4::TextBuffer;
 use log::debug;
+use std::cell::Cell;
 use std::sync::Once;
-use std::cell::{Cell};
 
 static INIT: Once = Once::new();
 
@@ -488,7 +488,6 @@ fn test_reconciliation() {
 
 #[test]
 fn test_tags() {
-
     let tag1 = tags::TxtTag::from_str(tags::TEXT_TAGS[10]);
     let tag3 = tags::TxtTag::from_str(tags::TEXT_TAGS[3]);
 
@@ -520,14 +519,22 @@ fn test_tags() {
 
 #[test]
 pub fn test_line() {
-
     let mut flags = RenderFlags::new();
 
     flags = flags.expand(true);
     flags = flags.squash(true);
 
-    debug!("------------- set {:b} {} {}", flags, flags.is_squashed(), flags.is_expanded());
+    debug!(
+        "------------- set {:b} {} {}",
+        flags,
+        flags.is_squashed(),
+        flags.is_expanded()
+    );
     flags = flags.expand(false);
-    debug!("------------- set {:b} {} {}", flags, flags.is_squashed(), flags.is_expanded());
-
+    debug!(
+        "------------- set {:b} {} {}",
+        flags,
+        flags.is_squashed(),
+        flags.is_expanded()
+    );
 }
