@@ -21,9 +21,5 @@
       <default>18</default>
       <summary>font size</summary>
     </key>
-    <key name="editorargs" type="aay">
-      <default>[[0x0001],[0x0002]]</default>
-      <summary>font size</summary>
-    </key>
   </schema>
 </schemalist>

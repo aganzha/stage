@@ -1274,10 +1274,6 @@ impl Status {
                 if !unstaged.files.is_empty() {
                     let line_no = unstaged.files[0].view.line_no.get();
                     let iter = buffer.iter_at_line(line_no).unwrap();
-                    debug!(
-                        "ccccccccccccccccccccccccccccccccccchoose cursor at first unstaged file {:?}",
-                        line_no
-                    );
                     buffer.place_cursor(&iter);
                     self.cursor(txt, line_no, iter.offset(), context);
                     return;
