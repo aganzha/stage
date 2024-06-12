@@ -269,11 +269,13 @@ pub fn cherry_pick(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
-    repo.cherrypick(&commit, Some(&mut git2::CherrypickOptions::new()))?;
+    let result = repo.cherrypick(&commit, Some(&mut git2::CherrypickOptions::new()));
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
-
+    if result.is_err() {
+        return result;
+    }
     debug!("cherry pick could not change the current branch, cause of merge conflict.
           So it need also update status.");
     // let state = repo.state();
@@ -311,11 +313,14 @@ pub fn revert(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
-    repo.revert(&commit, None)?;
+    let result = repo.revert(&commit, None);
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
 
+    if result.is_err() {
+        return result;
+    }
     gio::spawn_blocking({
         let sender = sender.clone();
         let path = path.clone();

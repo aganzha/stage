@@ -300,17 +300,19 @@ pub fn choose_conflict_side(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 
-    repo.apply(
+    let result = repo.apply(
         &git_diff,
         git2::ApplyLocation::WorkDir,
         Some(&mut apply_opts),
-    )
-    .expect("can't apply patch");
+    );
 
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("Could not send through channel");
 
+    if result.is_err() {
+        panic!("{:?}", result);
+    }
     // if their side is choosen, it need to stage all conflicted paths
     // because resolved conflicts will go to staged area, but other changes
     // will be on other side of stage (will be +- same hunks on both sides)

@@ -158,11 +158,14 @@ pub fn checkout_branch(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
 
-    repo.checkout_tree(commit.as_object(), Some(opts))?;
+    let checkout_error = repo.checkout_tree(commit.as_object(), Some(opts)).err();
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
 
+    if let Some(checkout_error) = checkout_error {
+        return Err(checkout_error);
+    }
     match branch_data.branch_type {
         git2::BranchType::Local => {}
         git2::BranchType::Remote => {
