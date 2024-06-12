@@ -15,14 +15,14 @@ pub mod tests;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::rc::Rc;
 
 use crate::status_view::render::View;
 use crate::{
     checkout_oid, get_current_repo_status, get_directories, git_debug,
     stage_untracked, stage_via_apply, stash_changes, track_changes, ApplySubject, Diff, Event, Head, Stashes, State,
-    StatusRenderContext, Untracked,
+    StatusRenderContext, Untracked, File as GitFile, Hunk as GitHunk, Line as GitLine, DiffKind
 };
 use async_channel::Sender;
 
@@ -42,6 +42,7 @@ use libadwaita::{
     ApplicationWindow, Banner, EntryRow, PasswordEntryRow, SwitchRow,
 }; // _Window,
 use log::{debug, trace, info};
+
 
 impl State {
     pub fn title_for_proceed_banner(&self) -> String {
@@ -158,6 +159,46 @@ impl Status {
         }
     }
 
+    pub fn file_at_cursor(&self) -> Option<&GitFile> {
+        for diff in [&self.staged, &self.unstaged] {
+            if let Some(diff) = diff {
+                let maybe_file = diff.files.iter().find(|f| {
+                    f.view.is_current() || f.hunks.iter().any(|h| h.view.is_active())
+                });
+                if maybe_file.is_some() {
+                    return maybe_file
+                }
+            }
+        }
+	    None
+    }
+
+    pub fn editor_args_at_cursor(&self) -> Option<(PathBuf, u32)> {
+        if let Some(file) = self.file_at_cursor() {            
+            if file.view.is_current() {
+                return Some((self.to_abs_path(&file.path), 0))
+            }
+            let hunk = file.hunks.iter().find(|h| h.view.is_active()).unwrap();
+            let mut line_no = hunk.new_start;                
+            if !hunk.view.is_current() {
+                let line = hunk.lines.iter().find(|l| l.view.is_current()).unwrap();
+                line_no = line.new_line_no.or(line.old_line_no).unwrap_or(0);
+            }
+            let mut base = self.path.clone().unwrap();
+            base.pop();
+            base.push(&file.path);
+            return Some((base, line_no))
+        }
+        None
+    }
+
+    pub fn to_abs_path(&self, path: &Path) -> PathBuf {
+        let mut base = self.path.clone().unwrap();
+        base.pop();
+        base.push(path);
+        base
+    }
+    
     pub fn branch_name(&self) -> String {
         if let Some(head) = &self.head {
             return head.branch.to_string();
