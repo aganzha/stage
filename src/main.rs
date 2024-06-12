@@ -202,30 +202,19 @@ fn try_open_editor() {
         |result| {
             if let Ok(proxy) = result {
 
-                let stored_settings = get_settings();
-                let stored_editor_args = stored_settings.default_value("editorargs").unwrap();
-                info!("-----------------------------------> {:?} = {}", stored_editor_args, stored_editor_args.print(true));
-                // if let Some(editor_args) = stored_editor_args {
-                //     info!("-----------------------------------> {:?}", editor_args);
-                // }
-                // let urls = ["file:///home/aganzha/stage/src/main.rs"].to_variant();
-                // let hint = "".to_variant();
-
                 let platform_type = glib::VariantTy::new("a{sv}").expect("bad type");
                 let platform_ob = glib::Variant::from_data_with_type(
                     "",
                     platform_type
                 );
-                
-                let byte_array_type = glib::VariantTy::new("ay").expect("bad type");
-                info!("byte_array_type = {:?}", byte_array_type);
 
+                let byte_array_type = glib::VariantTy::new("ay").expect("bad type");
                 let exe = glib::Variant::from_data_with_type(
-                    "/usr/bin/gnome-text-editor %U\0",
+                    "gnome-text-editor %U\0",
                     // "gnome-text-editor %U",
                     byte_array_type
                 );
-                
+
                 let file_path = glib::Variant::from_data_with_type(
                     "/home/aganzha/stage/src/main.rs\0",
                     byte_array_type
@@ -235,38 +224,23 @@ fn try_open_editor() {
                     byte_array_type
                 );
 
-                info!("byte_array = {:?} = {:?} = {:?}", exe, file_path, line_no);
-                // double encoding!
-
                 let byte_array_array_type = glib::VariantTy::new("aay").expect("bad type");
                 info!("byte_array_array_type == {:?}", byte_array_array_type);
                 let byte_array_array = glib::Variant::parse(
                     Some(byte_array_array_type),
-                    // &format!("[{},{}]", line_no.print(true), exe.print(true))
                     &format!("[{},{},{}]", exe.print(true), file_path.print(true), line_no.print(true))
                 ).unwrap();
-                info!(">byte_array_array == {:?}", byte_array_array);
-                info!("");
 
-                //  GLib-CRITICAL **: 00:01:25.683: g_variant_builder_add_value: assertion '!GVSB(builder)->expected_type || g_variant_is_of_type (value, GVSB(builder)->expected_type)' failed
-                // let byte_array_array = glib::Variant::array_from_iter_with_type(
-                //     &byte_array_type,
-                //     [byte_array]
-                // );
-                
                 let object_path = glib::variant::ObjectPath::try_from(String::from("/org/gnome/TextEditor"));
 
                 let path = object_path.unwrap().to_variant();
-                info!("iiiiiiiiiiiiiiiiiiiiii {:?}", path);
-                // let args = glib::Variant::tuple_from_iter([path, command_args_arr, platform_ob]);
 
                 let args = glib::Variant::tuple_from_iter([path, byte_array_array, platform_ob]);
 
-                // this works!
-                // let args = glib::Variant::tuple_from_iter([path, stored_editor_args, platform_ob]);
-                // “(s(ayayay) a{sv})”, does not match expected type “(o aay a{sv})”" })
 
                 info!("dbus args {:?}", args);
+                // [INFO  stage] dbus args Variant { ptr: 0x560ee73df4f0, type: VariantTy { inner: "(oaaya{sv})" }, value: "(objectpath '/org/gnome/TextEditor', [b'gnome-text-editor %U', b'/home/aganzha/stage/src/main.rs', b'+12'], @a{sv} {})" }
+
                 let result = proxy.call_sync(
                     "CommandLine",
                     Some(
@@ -275,8 +249,7 @@ fn try_open_editor() {
                     gio::DBusCallFlags::empty(),
                     1000,
                     None::<&gio::Cancellable>
-                );                                
-                info!("rrrrrrrrrrrrrrrrrresult {:?}", result);
+                );
             }
         }
     );
