@@ -1,6 +1,6 @@
 use crate::status_view::render::View;
 use crate::status_view::tags;
-use crate::status_view::{Label};
+use crate::status_view::Label;
 
 use crate::{
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
@@ -27,11 +27,10 @@ pub enum ViewKind {
 }
 
 pub trait ViewContainer {
-
     fn is_markup(&self) -> bool {
         false
     }
-    
+
     fn get_kind(&self) -> ViewKind;
 
     fn child_count(&self) -> usize;
@@ -68,8 +67,9 @@ pub trait ViewContainer {
         let content = self.get_content();
         let tags = self.tags();
         let is_markup = self.is_markup();
-        let view =
-            self.get_view().render_in_textview(buffer, iter, content, is_markup, tags, context);
+        let view = self.get_view().render_in_textview(
+            buffer, iter, content, is_markup, tags, context,
+        );
         if view.is_expanded() || view.is_child_dirty() {
             for child in self.get_children() {
                 child.render(buffer, iter, context);
@@ -126,7 +126,8 @@ pub trait ViewContainer {
         if view.is_rendered() {
             // repaint if highlight is changed
             view.dirty(
-                view.is_active() != active_before || view.is_current() != current_before
+                view.is_active() != active_before
+                    || view.is_current() != current_before,
             );
             result = view.is_dirty();
         }
@@ -203,11 +204,7 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn erase(
-        &self,
-        buffer: &TextBuffer,
-        context: &mut StatusRenderContext,
-    ) {
+    fn erase(&self, buffer: &TextBuffer, context: &mut StatusRenderContext) {
         // CAUTION. ATTENTION. IMPORTANT
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         // after this operation all prev iters bevome INVALID!
@@ -279,7 +276,6 @@ pub trait ViewContainer {
             // view.child_dirty = true;
         });
     }
-
 }
 
 impl ViewContainer for Diff {
@@ -389,12 +385,9 @@ impl ViewContainer for File {
             .collect()
     }
     fn tags(&self) -> Vec<tags::TxtTag> {
-        let mut tags = vec![
-            make_tag(tags::BOLD),
-            make_tag(tags::POINTER),
-        ];
+        let mut tags = vec![make_tag(tags::BOLD), make_tag(tags::POINTER)];
         if self.status == git2::Delta::Deleted {
-            tags.push(make_tag(tags::REMOVED));            
+            tags.push(make_tag(tags::REMOVED));
         }
         tags
     }
@@ -417,7 +410,6 @@ impl ViewContainer for File {
     ) -> bool {
         active
     }
-
 }
 
 impl ViewContainer for Hunk {
@@ -485,16 +477,12 @@ impl ViewContainer for Hunk {
         active
     }
     fn tags(&self) -> Vec<tags::TxtTag> {
-        vec![
-            make_tag(tags::HUNK),
-            make_tag(tags::POINTER),
-        ]
+        vec![make_tag(tags::HUNK), make_tag(tags::POINTER)]
     }
 
     fn is_expandable_by_child(&self) -> bool {
         true
     }
-
 }
 
 impl ViewContainer for Line {
@@ -568,8 +556,11 @@ impl ViewContainer for Line {
 
     // Line
     fn tags(&self) -> Vec<tags::TxtTag> {
-        match self.kind {// 
-            LineKind::ConflictMarker(_) => return vec![make_tag(tags::CONFLICT_MARKER)],
+        match self.kind {
+            //
+            LineKind::ConflictMarker(_) => {
+                return vec![make_tag(tags::CONFLICT_MARKER)]
+            }
             LineKind::Ours(_) => return vec![make_tag(tags::CONFLICT_MARKER)],
             LineKind::Theirs(_) => {
                 // return Vec::new();
@@ -590,7 +581,6 @@ impl ViewContainer for Line {
 }
 
 impl ViewContainer for Label {
-
     fn is_markup(&self) -> bool {
         true
     }
@@ -614,7 +604,6 @@ impl ViewContainer for Label {
 }
 
 impl ViewContainer for Head {
-
     fn is_markup(&self) -> bool {
         true
     }
@@ -647,7 +636,6 @@ impl ViewContainer for Head {
 }
 
 impl ViewContainer for State {
-
     fn is_markup(&self) -> bool {
         true
     }

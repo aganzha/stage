@@ -7,8 +7,6 @@ use log::{debug, trace};
 use std::cell::Cell;
 use std::collections::HashSet;
 
-
-
 #[derive(Debug, Copy, Clone)]
 pub enum ViewState {
     RenderedInPlace,
@@ -29,7 +27,7 @@ impl Default for RenderFlags {
     }
 }
 
-impl RenderFlags{
+impl RenderFlags {
     pub fn new() -> Self {
         Self(0)
     }
@@ -141,7 +139,6 @@ impl RenderFlags{
     }
 }
 
-
 impl Binary for RenderFlags {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         let val = self.0;
@@ -176,7 +173,6 @@ impl View {
             // active: false,
             // current: false,
             // transfered: false,
-
             flags: Cell::new(RenderFlags(0)),
             tag_indexes: Cell::new(tags::TagIdx::new()),
         }
@@ -200,14 +196,14 @@ impl View {
     pub fn activate(&self, value: bool) {
         self.flags.replace(self.flags.get().activate(value));
     }
-    
+
     pub fn make_current(&self, value: bool) {
         self.flags.replace(self.flags.get().make_current(value));
     }
     pub fn transfer(&self, value: bool) {
         self.flags.replace(self.flags.get().transfer(value));
     }
-    
+
     pub fn is_expanded(&self) -> bool {
         self.flags.get().is_expanded()
     }
@@ -364,7 +360,9 @@ impl View {
                     // max width is detected by diff max width and then resize
                     // event is come with larger with
                     let content = self.build_up(&content, line_no, context);
-                    self.replace_dirty_content(buffer, iter, &content, is_markup);
+                    self.replace_dirty_content(
+                        buffer, iter, &content, is_markup,
+                    );
                 }
                 self.apply_tags(buffer, &content_tags);
                 if !iter.forward_lines(1) {
@@ -445,7 +443,7 @@ impl View {
         }
     }
 
-    fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {        
+    fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
         if !self.tag_is_added(tag) {
             let (start_iter, end_iter) = self.start_end_iters(buffer);
             buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
@@ -453,7 +451,11 @@ impl View {
         }
     }
 
-    fn apply_tags(&self, buffer: &TextBuffer, content_tags: &Vec<tags::TxtTag>) {
+    fn apply_tags(
+        &self,
+        buffer: &TextBuffer,
+        content_tags: &Vec<tags::TxtTag>,
+    ) {
         let mut fltr: HashSet<&str> = HashSet::new();
         if self.is_current() {
             self.add_tag(buffer, &make_tag(tags::CURSOR));

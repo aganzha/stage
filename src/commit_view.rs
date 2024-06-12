@@ -187,7 +187,10 @@ impl MultiLineLabel {
                                 self.labels.push(TextViewLabel::from_string(
                                     &acc.replace('\n', ""),
                                 ));
-                                trace!("init new acc after width end {:?}", acc);
+                                trace!(
+                                    "init new acc after width end {:?}",
+                                    acc
+                                );
                                 acc = String::from(word);
                             } else {
                                 trace!("just push word {:?}", word);
@@ -195,7 +198,10 @@ impl MultiLineLabel {
                                 acc.push(' ');
                             }
                         } else {
-                            trace!("words are over! push last label! {:?}", acc);
+                            trace!(
+                                "words are over! push last label! {:?}",
+                                acc
+                            );
                             self.labels.push(TextViewLabel::from_string(
                                 &acc.replace('\n', ""),
                             ));
@@ -479,7 +485,9 @@ pub fn show_commit_window(
                         if d.diff.cursor(line_no, false, &mut ctx) {
                             let buffer = &txt.buffer();
                             let mut iter = buffer
-                                .iter_at_line(d.diff.files[0].view.line_no.get())
+                                .iter_at_line(
+                                    d.diff.files[0].view.line_no.get(),
+                                )
                                 .unwrap();
                             // will render diff whithout rendering
                             // preceeding elements!

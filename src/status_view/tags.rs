@@ -1,7 +1,9 @@
-use gtk4::prelude::*;
+use crate::status_view::render::View;
 use core::fmt::{Binary, Formatter, Result};
-use crate::status_view::render::{View};
-use gtk4::{TextTag, pango};
+use gtk4::prelude::*;
+use gtk4::{pango, TextTag};
+use libadwaita::prelude::*;
+use libadwaita::StyleManager;
 use pango::Style;
 
 pub const POINTER: &str = "pointer";
@@ -21,7 +23,6 @@ pub const ITALIC: &str = "italic";
 pub const CONFLICT_MARKER: &str = "conflictmarker";
 pub const OURS: &str = "ours";
 pub const THEIRS: &str = "theirs";
-
 
 pub const TEXT_TAGS: [&str; 15] = [
     BOLD,
@@ -108,7 +109,8 @@ impl View {
         self.tag_indexes.replace(self.tag_indexes.get().added(tag));
     }
     pub fn tag_removed(&self, tag: &TxtTag) {
-        self.tag_indexes.replace(self.tag_indexes.get().removed(tag));
+        self.tag_indexes
+            .replace(self.tag_indexes.get().removed(tag));
     }
     pub fn tag_is_added(&self, tag: &TxtTag) -> bool {
         self.tag_indexes.get().is_added(tag)
@@ -122,7 +124,6 @@ impl View {
 pub struct TxtTag(String);
 
 impl TxtTag {
-
     pub fn new(s: String) -> Self {
         if !TEXT_TAGS.contains(&&s[..]) {
             panic!("undeclared tag {}", s);
@@ -149,57 +150,86 @@ impl TxtTag {
         let new_name = match self.name() {
             ADDED => ENHANCED_ADDED,
             REMOVED => ENHANCED_REMOVED,
-            other => other
+            other => other,
         };
         Self::from_str(new_name)
     }
 
     pub fn create(&self) -> TextTag {
         let tag = TextTag::new(Some(&self.0));
+        let manager = StyleManager::default();
+        let is_dark = manager.is_dark();
         match &self.0[..] {
             BOLD => {
                 tag.set_weight(700);
             }
             ADDED => {
-                tag.set_foreground(Some("#2ec27e"));
+                if is_dark {
+                } else {
+                    tag.set_foreground(Some("#2ec27e"));
+                }
             }
             ENHANCED_ADDED => {
-                tag.set_foreground(Some("#26a269"));
+                if is_dark {
+                } else {
+                    tag.set_foreground(Some("#26a269"));
+                }
             }
             REMOVED => {
-                tag.set_foreground(Some("#c01c28"));
+                if is_dark {
+                } else {
+                    tag.set_foreground(Some("#c01c28"));
+                }
             }
             ENHANCED_REMOVED => {
-                tag.set_foreground(Some("#a51d2d"));
+                if is_dark {
+                } else {
+                    tag.set_foreground(Some("#a51d2d"));
+                }
             }
             CURSOR => {
-                tag.set_background(Some("#f6fecd"));
+                if is_dark {
+                } else {
+                    tag.set_background(Some("#f6fecd"));
+                }
             }
             REGION => {
-                tag.set_background(Some("#f6f5f4"));
+                if is_dark {
+                } else {
+                    tag.set_background(Some("#f6f5f4"));
+                }
             }
             HUNK => {
-                tag.set_background(Some("#deddda"));
+                if is_dark {
+                } else {
+                    tag.set_background(Some("#deddda"));
+                }
             }
             ITALIC => {
                 tag.set_style(Style::Italic);
             }
-            POINTER => {
-            }
-            STAGED => {
-            }
-            UNSTAGED => {
-            }
+            POINTER => {}
+            STAGED => {}
+            UNSTAGED => {}
             CONFLICT_MARKER => {
-                tag.set_foreground(Some("#ff0000"));
+                if is_dark {
+                } else {
+                    tag.set_foreground(Some("#ff0000"));
+                }
             }
             OURS => {
-                tag.set_foreground(Some("#2ec27e"));
+                if is_dark {
+                } else {
+                    tag.set_foreground(Some("#2ec27e"));
+                }
             }
             THEIRS => {
-                tag.set_foreground(Some("#2ec27e"));
+                if is_dark {
+                } else {
+                    tag.set_foreground(Some("#2ec27e"));
+                }
             }
-            unknown => todo!("unknown tag {}", unknown)
+            unknown => todo!("unknown tag {}", unknown),
         }
         tag
     }

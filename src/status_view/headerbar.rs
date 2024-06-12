@@ -55,7 +55,6 @@ pub const CUSTOM_ATTR: &str = "custom";
 pub const SCHEME_TOKEN: &str = "scheme";
 pub const ZOOM_TOKEN: &str = "zoom";
 
-
 pub fn scheme_selector(
     stored_scheme: Scheme,
     sender: Sender<crate::Event>,
@@ -125,7 +124,6 @@ pub fn scheme_selector(
     bx
 }
 
-
 pub fn zoom(
     // stored_size: Scheme,
     sender: Sender<crate::Event>,
@@ -187,10 +185,8 @@ pub fn burger_menu(
     stored_scheme: Scheme,
     sender: Sender<crate::Event>,
 ) -> MenuButton {
-
-
     let menu_model = gio::Menu::new();
-    
+
     let scheme_model = gio::Menu::new();
 
     let menu_item =
@@ -198,29 +194,25 @@ pub fn burger_menu(
 
     let scheme_id = SCHEME_TOKEN.to_variant();
     menu_item.set_attribute_value(CUSTOM_ATTR, Some(&scheme_id));
-    scheme_model.insert_item(0, &menu_item);    
+    scheme_model.insert_item(0, &menu_item);
 
     let zoom_model = gio::Menu::new();
-    let menu_item =
-        gio::MenuItem::new(Some(ZOOM_TOKEN), Some("win.menu::2"));
+    let menu_item = gio::MenuItem::new(Some(ZOOM_TOKEN), Some("win.menu::2"));
 
     let zoom_id = ZOOM_TOKEN.to_variant();
     menu_item.set_attribute_value(CUSTOM_ATTR, Some(&zoom_id));
     zoom_model.insert_item(1, &menu_item);
-    
+
     menu_model.append_section(None, &scheme_model);
     menu_model.append_section(None, &zoom_model);
-    
-    let popover_menu = PopoverMenu::from_model(Some(&menu_model));// menu_model
+
+    let popover_menu = PopoverMenu::from_model(Some(&menu_model)); // menu_model
 
     popover_menu.add_child(
         &scheme_selector(stored_scheme, sender.clone()),
         SCHEME_TOKEN,
     );
-    popover_menu.add_child(
-        &zoom(sender.clone()),
-        ZOOM_TOKEN,
-    );
+    popover_menu.add_child(&zoom(sender.clone()), ZOOM_TOKEN);
     MenuButton::builder()
         .popover(&popover_menu)
         .icon_name("open-menu-symbolic")

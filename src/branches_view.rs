@@ -532,7 +532,8 @@ impl BranchList {
     fn add_new_branch_item(&self, branch_data: branch::BranchData) {
         trace!(
             "add_new_branch_item {:?} {:?}",
-            branch_data.is_head, branch_data.name
+            branch_data.is_head,
+            branch_data.name
         );
         self.imp()
             .original_list
@@ -543,7 +544,7 @@ impl BranchList {
             .list
             .borrow_mut()
             .insert(0, BranchItem::new(&self.imp().original_list.borrow()[0]));
-        
+
         self.update_head_branch(branch_data);
 
         self.items_changed(0, 0, 1);
@@ -552,10 +553,9 @@ impl BranchList {
         let item = self.item(0).unwrap();
         let item = item.downcast_ref::<BranchItem>().unwrap();
         item.set_initial_focus(true);
-        
+
         // works via bind to single_selection selected
         self.set_selected_pos(0);
-
     }
 
     pub fn cherry_pick(
@@ -714,7 +714,7 @@ pub fn item_factory() -> SignalListItemFactory {
                 // looks like it works only first time.
                 // set_selected_pos from outside does not
                 // trigger it
-                debug!(
+                trace!(
                     ".............item in connect selected {:?} {:?} {:?}",
                     branch_item.imp().branch.borrow().name,
                     branch_item.initial_focus(),

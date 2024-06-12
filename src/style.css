@@ -1,6 +1,10 @@
-row:selected {
-    background-color: #f6fecd; /* mine original  #f6fecd; gnome f9f06b*/
-}
+/* row:selected { */
+/*     background-color: #f6fecd; /\* mine original  #f6fecd; gnome f9f06b*\/ */
+/* } */
+
+#cce0f8 - is original
+#99c1f1 - first blue in adwaita
+#74a8e8 - border of line
 
 .nocorners {
     border-top-left-radius: 0;
