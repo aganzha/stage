@@ -1,3 +1,4 @@
+/* this is original yellow cursor */
 /* row:selected { */
 /*     background-color: #f6fecd; /\* mine original  #f6fecd; gnome f9f06b*\/ */
 /* } */
@@ -6,6 +7,14 @@
 #99c1f1 - first blue in adwaita
 #74a8e8 - border of line
 
+#1e1e1e - mine dark
+#262626 - editor dark
+#242424 - adwaita dark
+#status_view {
+}
+#status_view.dark {
+    background-color: @window_bg_color;
+}
 .nocorners {
     border-top-left-radius: 0;
     border-top-right-radius: 0;

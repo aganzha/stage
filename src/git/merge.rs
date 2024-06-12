@@ -1,8 +1,8 @@
 use crate::git::{
     branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff,
-    make_diff_options, BranchData, DiffKind, Hunk, Line, MARKER_HUNK,
-    MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE, SPACE,
-    Head, State
+    make_diff_options, BranchData, DiffKind, Head, Hunk, Line, State,
+    MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE,
+    SPACE,
 };
 use async_channel::Sender;
 use git2;
@@ -176,7 +176,10 @@ pub fn branch(
     let branch = git2::Branch::wrap(head_ref);
     let new_head = Head::new(&branch, &commit);
     sender
-        .send_blocking(crate::Event::State(State::new(repo.state(), branch.branch_name())))
+        .send_blocking(crate::Event::State(State::new(
+            repo.state(),
+            branch.branch_name(),
+        )))
         .expect("Could not send through channel");
     sender
         .send_blocking(crate::Event::Head(new_head))

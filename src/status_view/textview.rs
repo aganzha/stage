@@ -9,6 +9,8 @@ use gtk4::{
     EventSequenceState, GestureClick, MovementStep, TextTag, TextView,
     TextWindowType,
 };
+use libadwaita::prelude::*;
+use libadwaita::StyleManager;
 use log::{debug, trace};
 
 use std::cell::{Cell, RefCell};
@@ -39,9 +41,14 @@ pub fn factory(
     //settings: gio::Settings,
     text_view_width: Rc<RefCell<crate::context::TextViewWidth>>,
 ) -> TextView {
+    let manager = StyleManager::default();
+    let is_dark = manager.is_dark();    
+    let dark_classes = ["dark"];
+    let light_classes = ["light"];
     let txt = TextView::builder()
         .margin_start(12)
         .name(name)
+        .css_classes(if is_dark { dark_classes } else { light_classes })
         .margin_end(12)
         .margin_top(12)
         .margin_bottom(12)
@@ -55,8 +62,7 @@ pub fn factory(
     //let scheme = Scheme::new(settings.get::<String>(SCHEME_TOKEN));
 
     for tag_name in tags::TEXT_TAGS {
-        let text_tag =
-            tags::TxtTag::from_str(tag_name).create();
+        let text_tag = tags::TxtTag::from_str(tag_name).create();
         table.add(&text_tag);
         match tag_name {
             tags::POINTER => {
@@ -74,21 +80,6 @@ pub fn factory(
     let pointer = pointer.unwrap();
     let staged = staged.unwrap();
     let unstaged = unstaged.unwrap();
-    // buffer.tag_table().add(&pointer);
-    // buffer.tag_table().add(&Tag::Cursor.create());
-    // buffer.tag_table().add(&Tag::Region.create());
-    // buffer.tag_table().add(&Tag::Bold.create());
-    // buffer.tag_table().add(&Tag::Added.create());
-    // buffer.tag_table().add(&Tag::EnhancedAdded.create());
-    // buffer.tag_table().add(&Tag::Removed.create());
-    // buffer.tag_table().add(&Tag::EnhancedRemoved.create());
-    // buffer.tag_table().add(&Tag::Hunk.create());
-    // buffer.tag_table().add(&staged);
-    // buffer.tag_table().add(&unstaged);
-
-    // buffer.tag_table().add(&Tag::ConflictMarker.create());
-    // buffer.tag_table().add(&Tag::Theirs.create());
-    // buffer.tag_table().add(&Tag::Ours.create());
 
     let key_controller = EventControllerKey::new();
     key_controller.connect_key_pressed({
@@ -408,7 +399,6 @@ pub fn factory(
     });
     txt.add_controller(motion_controller);
 
-    txt.add_css_class("stage");
     txt.set_monospace(true);
     txt.set_editable(false);
     // let sett = txt.settings();
