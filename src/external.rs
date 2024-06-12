@@ -1,8 +1,16 @@
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
-use log::info;
+use log::{info, debug};
+use std::path::PathBuf;
+use std::ffi::OsString;
 
-pub fn try_open_editor() {
+pub fn try_open_editor(path: PathBuf, line_no: u32) {
+    debug!("ooooooooooooooooooooooooooooooo > {:?} {:?}", path, line_no);
+    // for app_info in gio::AppInfo::all_for_type("text/rust") {
+    //     //     // new-window new-document
+    //     info!("aaaaaaaaaaalll apps {:?} {:?} {:?} {:?}", app_info.id(), app_info.name(), app_info.commandline(), app_info.executable());
+    //                     //     if app_info.name() == "Text Editor" { // Text Editor
+    // }
     let proxy = gio::DBusProxy::for_bus(
         gio::BusType::Session,
         gio::DBusProxyFlags::empty(),
@@ -11,7 +19,7 @@ pub fn try_open_editor() {
         "/org/gnome/TextEditor",
         "org.gtk.Application",
         None::<&gio::Cancellable>,
-        |result| {
+        move |result| {
             if let Ok(proxy) = result {
 
                 let platform_type = glib::VariantTy::new("a{sv}").expect("bad type");
@@ -27,12 +35,18 @@ pub fn try_open_editor() {
                     byte_array_type
                 );
 
+                let mut path = OsString::from(path);
+                path.push("\0");
                 let file_path = glib::Variant::from_data_with_type(
-                    "/home/aganzha/stage/src/main.rs\0",
+                    path.as_encoded_bytes(),
                     byte_array_type
                 );
+
+                let mut line = OsString::from("+");
+                line.push(line_no.to_string());
+                line.push("\0");
                 let line_no = glib::Variant::from_data_with_type(
-                    "+12\0",
+                    line.as_encoded_bytes(),
                     byte_array_type
                 );
 

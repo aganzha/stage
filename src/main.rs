@@ -334,7 +334,9 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     status.update_state(state, &txt, &mut ctx);
                 }
                 Event::OpenEditor => {
-                    external::try_open_editor();
+                    if let Some((path, line_no)) = status.editor_args_at_cursor() {
+                        external::try_open_editor(path, line_no);
+                    }                    
                     // gio::DBusConnection::for_address(
                     //     "unix:path=/run/flatpak/bus", //address: &str,
                     //     gio::DBusConnectionFlags::empty(),
@@ -347,11 +349,11 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     // let file = gio::File::for_path("/home/aganzha/stage/src/main.rs");
                     // // let file = gio::File::for_commandline_arg("/home/aganzha/stage/src/main.rs +10");
                     // let opts: Option<&gio::AppLaunchContext> = None;
-                    for app_info in gio::AppInfo::all_for_type("text/rust") {
-                        //     // new-window new-document
-                        info!("aaaaaaaaaaalll apps {:?} {:?} {:?} {:?}", app_info.id(), app_info.name(), app_info.commandline(), app_info.executable());
-                        //     if app_info.name() == "Text Editor" { // Text Editor
-                    }
+                    // for app_info in gio::AppInfo::all_for_type("text/rust") {
+                    //     //     // new-window new-document
+                    //     info!("aaaaaaaaaaalll apps {:?} {:?} {:?} {:?}", app_info.id(), app_info.name(), app_info.commandline(), app_info.executable());
+                    //     //     if app_info.name() == "Text Editor" { // Text Editor
+                    // }
                     //         let ctx = Display::default().expect("Could not connect to a display.").
                     //             app_launch_context();
 
@@ -382,7 +384,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     // debug::debug(&window, settings.get::<String>("theme"), sender.clone());
                 }
                 Event::Debug => {
-                    info!("main. debug");                    
+                    info!("main. debug");
                 }
                 Event::Commit => {
                     info!("main.commit");
@@ -391,10 +393,6 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                             "No changes were staged. Stage by hitting 's'",
                         ))
                         .present(&txt);
-                        // display_error(
-                        //     &window,
-                        //     "No changes were staged. Stage by hitting 's'",
-                        // );
                     } else {
                         status.commit(&window);
                     }
