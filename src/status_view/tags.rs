@@ -4,6 +4,7 @@ use gtk4::prelude::*;
 use gtk4::{pango, TextTag};
 use libadwaita::prelude::*;
 use libadwaita::StyleManager;
+use log::debug;
 use pango::Style;
 
 pub const POINTER: &str = "pointer";
@@ -159,48 +160,58 @@ impl TxtTag {
         let tag = TextTag::new(Some(&self.0));
         let manager = StyleManager::default();
         let is_dark = manager.is_dark();
+        debug!("_______________________ > {}", is_dark);
         match &self.0[..] {
             BOLD => {
                 tag.set_weight(700);
             }
             ADDED => {
                 if is_dark {
+                    tag.set_foreground(Some("#4a8e09"));
                 } else {
                     tag.set_foreground(Some("#2ec27e"));
                 }
             }
             ENHANCED_ADDED => {
                 if is_dark {
+                    tag.set_foreground(Some("#3fb907"));
                 } else {
                     tag.set_foreground(Some("#26a269"));
                 }
             }
             REMOVED => {
                 if is_dark {
+                    tag.set_foreground(Some("#a51d2d"));
+
                 } else {
                     tag.set_foreground(Some("#c01c28"));
                 }
             }
             ENHANCED_REMOVED => {
                 if is_dark {
+                    tag.set_foreground(Some("#cd0e1c"));
+                    // tag.set_foreground(Some("#a51d2d"));
                 } else {
                     tag.set_foreground(Some("#a51d2d"));
                 }
             }
             CURSOR => {
                 if is_dark {
+                    tag.set_background(Some("#23374f"));
                 } else {
-                    tag.set_background(Some("#f6fecd"));
+                    tag.set_background(Some("#cce0f8"));// #f6fecd - my original yellow
                 }
             }
             REGION => {
                 if is_dark {
+                    tag.set_background(Some("#494949"));
                 } else {
                     tag.set_background(Some("#f6f5f4"));
                 }
             }
             HUNK => {
                 if is_dark {
+                    tag.set_background(Some("#383838"));
                 } else {
                     tag.set_background(Some("#deddda"));
                 }
