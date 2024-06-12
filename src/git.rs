@@ -1104,10 +1104,13 @@ pub fn apply_stash(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
-    repo.stash_apply(num, None)?;
+    let result = repo.stash_apply(num, None);
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
+    if result.is_err() {
+        return result;
+    }
     gio::spawn_blocking({
         move || {
             get_current_repo_status(Some(path), sender);
@@ -1145,11 +1148,14 @@ pub fn reset_hard(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
 
-    repo.reset(&ob, ResetType::Hard, None)?;
+    let result = repo.reset(&ob, ResetType::Hard, None).err();
 
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
+    if let Some(error) = result {
+        return Err(error);
+    }
     gio::spawn_blocking({
         move || {
             get_current_repo_status(Some(path), sender);
@@ -1236,12 +1242,14 @@ pub fn checkout_oid(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
-    repo.checkout_tree(commit.as_object(), Some(builder))
-        .expect("cant checkout oid");
+    let result = repo.checkout_tree(commit.as_object(), Some(builder));
+
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
-
+    if result.is_err() {
+        panic!("{:?}", result);
+    }
     let mut head_ref = repo.head().expect("can't get head");
     head_ref
         .set_target(oid, &log_message)
