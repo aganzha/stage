@@ -328,6 +328,7 @@ pub fn factory(
                     ))
                     .expect("could not sent through channel");
                     if visible_char_width > text_view_width.borrow().chars {
+                        debug!("text_view_width is changed! {:?} {:?}", text_view_width, visible_char_width);
                         text_view_width.borrow_mut().chars =
                             visible_char_width;
                         sndr.send_blocking(crate::Event::TextViewResize(

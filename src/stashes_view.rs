@@ -13,15 +13,11 @@ use std::path::PathBuf;
 
 use crate::dialogs::alert;
 use crate::{
-    apply_stash as git_apply_stash,
-    confirm_dialog_factory, // display_error,
-    drop_stash,
-    stash_changes,
+    confirm_dialog_factory,
     Event,
-    StashData,
-    Stashes,
     Status,
 };
+use crate::git::stash;
 use libadwaita::prelude::*;
 use libadwaita::{
     ActionRow, ApplicationWindow, EntryRow, HeaderBar, PreferencesRow,
@@ -37,8 +33,8 @@ glib::wrapper! {
 }
 
 mod oid_row {
-    use crate::StashData;
-
+    use crate::git::stash::StashData;
+    use git2;
     use glib::Properties;
     use gtk4::glib;
     use gtk4::prelude::*;
@@ -79,7 +75,7 @@ impl OidRow {
         Object::builder().build()
     }
 
-    pub fn from_stash(stash: &StashData, sender: Sender<Event>) -> Self {
+    pub fn from_stash(stash: &stash::StashData, sender: Sender<Event>) -> Self {
         let row = Self::new();
         row.set_property("title", &stash.title);
         row.set_oid(stash.oid.to_string());
@@ -136,7 +132,7 @@ impl OidRow {
                         let stash = row.imp().stash.borrow().clone();
                         let sender = sender.clone();
                         move || {
-                            drop_stash(path.clone(), stash, sender.clone())
+                            stash::drop(path.clone(), stash, sender.clone())
                         }
                     }).await;
                     if let Ok(stashes) = result {
@@ -181,7 +177,7 @@ impl OidRow {
                         let stash = row.imp().stash.borrow().clone();
                         let sender = sender.clone();
                         move || {
-                            git_apply_stash(path, stash.num, sender)
+                            stash::apply(path, stash.num, sender)
                         }
                     }).await
                         .unwrap_or_else(|e| {
@@ -259,7 +255,7 @@ pub fn add_stash(
             let result = gio::spawn_blocking({
                 let sender = sender.clone();
                 move || {
-                    stash_changes(path, stash_message, stash_staged, sender)
+                    stash::stash(path, stash_message, stash_staged, sender)
                 }
             }).await;
             if let Ok(stashes) = result {
@@ -274,12 +270,12 @@ pub fn add_stash(
 
 pub fn adopt_stashes(
     lb: &ListBox,
-    stashes: Stashes,
+    stashes: stash::Stashes,
     sender: Sender<Event>,
     o_row_ind: Option<i32>,
 ) {
     let mut ind = 0;
-    let mut map: HashMap<Oid, StashData> = HashMap::new();
+    let mut map: HashMap<Oid, stash::StashData> = HashMap::new();
     stashes.stashes.iter().for_each(|stash| {
         map.insert(stash.oid, stash.clone());
     });
