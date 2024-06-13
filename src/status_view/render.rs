@@ -241,7 +241,14 @@ impl View {
         context: &mut crate::StatusRenderContext,
     ) -> bool {
         if let Some(width) = &context.screen_width {
-            let chars = width.borrow().chars;
+            let chars = {
+                let w = width.borrow();
+                if w.chars > w.visible_chars {
+                    w.chars
+                } else {
+                    w.visible_chars
+                }
+            };
             if chars > 0 {
                 let (start, end) = self.start_end_iters(buffer);
                 let len = buffer.slice(&start, &end, true).len() as i32;
@@ -284,7 +291,14 @@ impl View {
 
         if let Some(width) = &context.screen_width {
             let pixels = width.borrow().pixels;
-            let chars = width.borrow().chars;
+            let chars = {
+                let w = width.borrow();
+                if w.chars > w.visible_chars {
+                    w.chars
+                } else {
+                    w.visible_chars
+                }
+            };
             trace!(
                 "build_up. context width in pixels and chars {:?} {:?}",
                 pixels,
