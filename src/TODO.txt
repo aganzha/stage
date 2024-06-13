@@ -1,10 +1,9 @@
-BUG: start app. the cursor is on the end of line. expand - moves to the start
+BUG: expand - moves to the start
 BUG: higjlight 2 regions when set on the hunk line (from bottom)
 Rc::clone() instead of .clone()
 
 and some new lines to check, what?
 - пустое представление!
-- switch cursor for sheme
 - change switch to textview via apply_button of entry row
 - implement about popup with github issue
 - stage and revert hunks and files from any commit_view
