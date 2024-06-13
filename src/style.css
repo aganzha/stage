@@ -68,3 +68,7 @@ scheme_selector button:checked image {
     border-radius: 9999px;
     color: @accent_fg_color;
 }
+
+button.no_bg {
+	background: rgba(255,255,255,0);
+}

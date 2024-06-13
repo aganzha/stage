@@ -182,7 +182,7 @@ pub fn factory(
                     sndr.send_blocking(crate::Event::Zoom(false))
                         .expect("Could not send through channel");
                 }
-                (gdk::Key::e, gdk::ModifierType::CONTROL_MASK) => {
+                (gdk::Key::e, _) => {
                     sndr.send_blocking(crate::Event::OpenEditor)
                         .expect("Could not send through channel");
                 }

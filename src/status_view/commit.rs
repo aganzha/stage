@@ -39,6 +39,7 @@ pub fn commit(
 
             let expand_button = Button::builder()
                 .icon_name("pan-down-symbolic")
+                .css_classes(["no_bg"])
                 .build();
             entry_box.append(&expand_button);
 
