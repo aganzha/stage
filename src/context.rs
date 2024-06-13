@@ -21,8 +21,8 @@ pub struct CursorPos {
 #[derive(Debug, Clone, Default)]
 pub struct TextViewWidth {
     pub pixels: i32,
-    pub chars: i32,
-    pub visible_chars: i32,
+    pub chars: i32,// count of chars in max line on screen  
+    pub visible_chars: i32, // count of visible chars on screen. now used only in commit view for line wrapping.
 }
 
 #[derive(Debug, Clone)]

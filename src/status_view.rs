@@ -14,7 +14,7 @@ pub mod render;
 pub mod tests;
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -116,7 +116,8 @@ pub struct Status {
 
     pub rendered: bool, // what it is for ????
     pub stashes: Option<stash::Stashes>,
-    pub monitor_lock: Rc<RefCell<bool>>,
+    pub monitor_global_lock: Rc<RefCell<bool>>,
+    pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
     pub settings: gio::Settings,
 }
 
@@ -154,7 +155,8 @@ impl Status {
             conflicted: None,
             rendered: false,
             stashes: None,
-            monitor_lock: Rc::new(RefCell::<bool>::new(false)),
+            monitor_global_lock: Rc::new(RefCell::new(true)),
+            monitor_lock: Rc::new(RefCell::new(HashSet::new())),
             settings
         }
     }
@@ -247,7 +249,7 @@ impl Status {
     }
 
     pub fn lock_monitors(&mut self, lock: bool) {
-        self.monitor_lock.replace(lock);
+        self.monitor_global_lock.replace(lock);
     }
 
     pub fn setup_monitors(
@@ -258,6 +260,7 @@ impl Status {
         glib::spawn_future_local({
             let sender = self.sender.clone();
             let lock = self.monitor_lock.clone();
+            let global_lock = self.monitor_global_lock.clone();
             async move {
                 let mut directories = gio::spawn_blocking({
                     let path = path.clone();
@@ -292,12 +295,17 @@ impl Status {
                         let path = path.clone();
                         let sender = sender.clone();
                         let lock = lock.clone();
+                        let global_lock = global_lock.clone();
                         move |_monitor, file, _other_file, event| {
                             // TODO get from SELF.settings
+                            debug!("chaaaaaaaaaaaaaaaaaaaaaaaaange2 on monitor {:?} {:?}", file.path(), event);
+                            if *global_lock.borrow() {
+                                trace!("global monitor locked");
+                            }
                             let patterns_to_exclude: Vec<&str> =
                                 vec!["/.#", "/mout", "flycheck_", "/sed"];
                             match event {
-                                FileMonitorEvent::Changed => {
+                                FileMonitorEvent::Changed | FileMonitorEvent::ChangesDoneHint => {
                                     // ChangesDoneHint is not fired for small changes :(
                                     let file_path =
                                         file.path().expect("no file path");
@@ -311,12 +319,12 @@ impl Status {
                                             return;
                                         }
                                     }
-                                    if *lock.borrow() {
-                                        trace!("monitor locked");
+                                    if lock.borrow().contains(&file_path) {
+                                        debug!("NO WAY: monitor locked");
                                         return;
                                     }
-                                    lock.replace(true);
-                                    trace!("set monitor lock");
+                                    lock.borrow_mut().insert(file_path.clone());
+                                    debug!("set monitor lock");
                                     glib::source::timeout_add_local(
                                         Duration::from_millis(300),
                                         {
@@ -325,18 +333,18 @@ impl Status {
                                             let sender = sender.clone();
                                             let file_path = file_path.clone();
                                             move || {
+                                                debug!(".......... THROTTLED {:?}", file_path);
                                                 gio::spawn_blocking({
                                                     let path = path.clone();
                                                     let sender =
                                                         sender.clone();
                                                     let file_path =
                                                         file_path.clone();
-                                                    lock.replace(false);
+                                                    lock.borrow_mut().remove(&file_path);
                                                     trace!(
                                                         "release monitor lock"
                                                     );
                                                     move || {
-                                                        // TODO! throttle!
                                                         track_changes(
                                                             path, file_path,
                                                             sender,
