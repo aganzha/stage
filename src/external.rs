@@ -7,7 +7,8 @@ use std::path::PathBuf;
 pub fn open_at_line_via_dbus(
     executable: PathBuf,
     path: PathBuf,
-    line_no: u32,
+    line_no: i32,
+    col_no: i32
 ) {
     let proxy = gio::DBusProxy::for_bus_sync(
         gio::BusType::Session,
@@ -41,6 +42,8 @@ pub fn open_at_line_via_dbus(
 
     let mut line = OsString::from("+");
     line.push(line_no.to_string());
+    line.push(":");
+    line.push(col_no.to_string());
     line.push("\0");
     let line_no = glib::Variant::from_data_with_type(
         line.as_encoded_bytes(),
@@ -81,7 +84,7 @@ pub fn open_at_line_via_dbus(
     info!("result in dbus call {:?}", result);
 }
 
-pub fn try_open_editor(path: PathBuf, line_no: u32) {
+pub fn try_open_editor(path: PathBuf, line_no: i32, col_no: i32) {
     let (content_type, _) =
         gio::functions::content_type_guess(Some(path.clone()), &[]);
     if line_no > 0 {
@@ -92,7 +95,7 @@ pub fn try_open_editor(path: PathBuf, line_no: u32) {
                     gio::spawn_blocking({
                         let exe = app_info.commandline().unwrap();
                         let path = path.clone();
-                        move || open_at_line_via_dbus(exe, path, line_no)
+                        move || open_at_line_via_dbus(exe, path, line_no, col_no)
                     });
                     return;
                 }

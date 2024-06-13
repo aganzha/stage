@@ -176,22 +176,26 @@ impl Status {
         None
     }
 
-    pub fn editor_args_at_cursor(&self) -> Option<(PathBuf, u32)> {
+    pub fn editor_args_at_cursor(&self, txt: &TextView) -> Option<(PathBuf, i32, i32)> {
         if let Some(file) = self.file_at_cursor() {
             if file.view.is_current() {
-                return Some((self.to_abs_path(&file.path), 0));
+                return Some((self.to_abs_path(&file.path), 0, 0));
             }
             let hunk = file.hunks.iter().find(|h| h.view.is_active()).unwrap();
             let mut line_no = hunk.new_start;
+            let mut col_no = 0;
             if !hunk.view.is_current() {
                 let line =
                     hunk.lines.iter().find(|l| l.view.is_current()).unwrap();
                 line_no = line.new_line_no.or(line.old_line_no).unwrap_or(0);
+                let pos = txt.buffer().cursor_position();
+                let iter = txt.buffer().iter_at_offset(pos);
+                col_no = iter.line_offset();
             }
             let mut base = self.path.clone().unwrap();
             base.pop();
             base.push(&file.path);
-            return Some((base, line_no));
+            return Some((base, line_no as i32, col_no));
         }
         None
     }
