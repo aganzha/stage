@@ -1,13 +1,15 @@
 use crate::status_view::headerbar::{Scheme, SCHEME_TOKEN};
 use crate::status_view::tags;
+use std::array::from_fn;
 use async_channel::Sender;
 use core::time::Duration;
 use glib::ControlFlow;
+use gdk::Display;
 use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, EventControllerKey, EventControllerMotion,
     EventSequenceState, GestureClick, MovementStep, TextTag, TextView,
-    TextWindowType,
+    TextWindowType, Settings
 };
 use libadwaita::prelude::*;
 use libadwaita::StyleManager;
@@ -35,6 +37,9 @@ impl CharView for TextView {
     }
 }
 
+pub const DARK_CLASS: &str = "dark";
+pub const LIGHT_CLASS: &str = "light";
+
 pub fn factory(
     sndr: Sender<crate::Event>,
     name: &str,
@@ -42,13 +47,12 @@ pub fn factory(
     text_view_width: Rc<RefCell<crate::context::TextViewWidth>>,
 ) -> TextView {
     let manager = StyleManager::default();
-    let is_dark = manager.is_dark();    
-    let dark_classes = ["dark"];
-    let light_classes = ["light"];
+    let is_dark = manager.is_dark();
+
     let txt = TextView::builder()
         .margin_start(12)
         .name(name)
-        .css_classes(if is_dark { dark_classes } else { light_classes })
+        .css_classes(if is_dark { [DARK_CLASS] } else { [LIGHT_CLASS] })
         .margin_end(12)
         .margin_top(12)
         .margin_bottom(12)
@@ -77,6 +81,34 @@ pub fn factory(
             _ => {}
         };
     }
+
+    manager.connect_color_scheme_notify({
+        let txt = txt.clone();
+        move |manager| {
+            let is_dark = manager.is_dark();
+            let classes = txt.css_classes();
+            let mut new_classes = classes.iter().map(|gs| gs.as_str()).filter(|s| {
+                if is_dark {
+                    s != &LIGHT_CLASS
+                } else {
+                    s != &DARK_CLASS
+                }
+            }).collect::<Vec<&str>>();
+            if is_dark {
+                new_classes.push(&DARK_CLASS);
+            } else {
+                new_classes.push(&LIGHT_CLASS);
+            }
+            debug!("-------------------> {:?} {:?}", is_dark, new_classes);
+            txt.set_css_classes(&new_classes);
+            table.foreach(|tt| {
+                if let Some(name) = tt.name() {
+                    debug!("-----------------> {:?}", name);
+                    let t = tags::TxtTag::unknown_tag(name.to_string());
+                    t.fill_text_tag(&tt, is_dark);
+                }
+            });
+        }});
     let pointer = pointer.unwrap();
     let staged = staged.unwrap();
     let unstaged = unstaged.unwrap();

@@ -125,10 +125,15 @@ impl View {
 pub struct TxtTag(String);
 
 impl TxtTag {
+    
     pub fn new(s: String) -> Self {
         if !TEXT_TAGS.contains(&&s[..]) {
             panic!("undeclared tag {}", s);
         }
+        Self(s)
+    }
+
+    pub fn unknown_tag(s: String) -> Self {
         Self(s)
     }
 
@@ -156,11 +161,7 @@ impl TxtTag {
         Self::from_str(new_name)
     }
 
-    pub fn create(&self) -> TextTag {
-        let tag = TextTag::new(Some(&self.0));
-        let manager = StyleManager::default();
-        let is_dark = manager.is_dark();
-        debug!("_______________________ > {}", is_dark);
+    pub fn fill_text_tag(&self, tag: &TextTag, is_dark: bool) {
         match &self.0[..] {
             BOLD => {
                 tag.set_weight(700);
@@ -241,8 +242,17 @@ impl TxtTag {
                     tag.set_foreground(Some("#2ec27e"));
                 }
             }
-            unknown => todo!("unknown tag {}", unknown),
+            unknown => {
+                debug!("unknown tag {}", unknown);
+            }
         }
+    }
+    
+    pub fn create(&self) -> TextTag {
+        let tag = TextTag::new(Some(&self.0));
+        let manager = StyleManager::default();
+        let is_dark = manager.is_dark();
+        self.fill_text_tag(&tag, is_dark);
         tag
     }
 }
