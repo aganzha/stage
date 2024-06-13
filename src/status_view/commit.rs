@@ -4,7 +4,7 @@ use async_channel::Sender;
 use gtk4::prelude::*;
 use gtk4::{
     gio, glib, Box, ListBox, Orientation, ScrolledWindow, SelectionMode,
-    TextView, WrapMode,
+    TextView, WrapMode, Widget, Image, Button, Entry, ListBoxRow,
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, EntryRow, SwitchRow};
@@ -30,9 +30,17 @@ pub fn commit(
             let commit_message = EntryRow::builder()
                 .title("commit message")
                 .show_apply_button(true)
+                .show_apply_button(false)
                 .css_classes(vec!["input_field"])
                 .text("")
                 .build();
+            let entry = commit_message.last_child().unwrap();
+            let entry_box = entry.downcast_ref::<Box>().unwrap();
+
+            let expand_button = Button::builder()
+                .icon_name("pan-down-symbolic")
+                .build();
+            entry_box.append(&expand_button);
 
             let amend_switch = SwitchRow::builder()
                 .title("amend")
@@ -62,10 +70,11 @@ pub fn commit(
                 .min_content_height(320)
                 .build();
 
-            commit_message.connect_apply({
+            expand_button.connect_clicked({
                 let txt = txt.clone();
+                let entry = commit_message.clone();
                 let scroll = scroll.clone();
-                move |entry: &EntryRow| {
+                move |_| {
                     let mut iter = txt.buffer().iter_at_offset(0);
                     if !entry.text().is_empty() {
                         txt.buffer().insert(&mut iter, &entry.text());
@@ -140,6 +149,15 @@ pub fn commit(
                 "Commit",
                 "Commit",
             );
+
+            commit_message.connect_entry_activated({
+                let dialog = dialog.clone();
+                move |_| {
+                    // someone pressed enter
+                    dialog.response("confirm");
+                    dialog.close();
+                }
+            });
 
             let response = dialog.choose_future().await;
             if "confirm" != response {
