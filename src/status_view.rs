@@ -1360,7 +1360,7 @@ impl Status {
             }
         });
     }
-
+    
     pub fn checkout_error(
         &mut self,
         window: &ApplicationWindow,

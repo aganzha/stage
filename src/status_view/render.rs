@@ -313,7 +313,7 @@ impl View {
                 let chars_count = line_content.chars().count();
                 if chars as usize >  chars_count {
                     let spaces = chars as usize - chars_count;
-                    debug!("build up spaces {:?} in {}. len {:?}",
+                    trace!("build up spaces {:?} in {}. len {:?}",
                            spaces,
                            line_content,
                            chars_count
