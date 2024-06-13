@@ -30,11 +30,11 @@ use std::rc::Rc;
 
 mod git;
 use git::{
-    apply_stash, branch, checkout_oid, commit, debug as git_debug, drop_stash,
+    branch, checkout_oid, commit, debug as git_debug,
     get_current_repo_status, get_directories, reset_hard, stage_untracked,
-    stage_via_apply, stash_changes, track_changes, ApplySubject, Diff,
-    DiffKind, File, Head, Hunk, Line, LineKind, StashData, Stashes, State,
-    Untracked, UntrackedFile,
+    stage_via_apply, track_changes, ApplySubject, Diff,
+    DiffKind, File, Head, Hunk, Line, LineKind, State,
+    Untracked, UntrackedFile, stash::{Stashes}
 };
 use git2::Oid;
 mod dialogs;
@@ -83,7 +83,6 @@ fn main() -> glib::ExitCode {
 fn load_css() {
     let display = Display::default().expect("Could not connect to a display.");
     let settings = Settings::for_display(&display);
-    // todo! where is stored settings????
     let stored_settings = get_settings();
     let stored_font_size = stored_settings.get::<i32>("zoom");
     settings
@@ -245,6 +244,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
 
     let text_view_width =
         Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
+    // what about changing color_scheme from gnome settings?
     let txt = textview_factory(
         sender.clone(),
         "status_view",

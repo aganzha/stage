@@ -199,7 +199,8 @@ impl TxtTag {
                 if is_dark {
                     tag.set_background(Some("#23374f"));
                 } else {
-                    tag.set_background(Some("#cce0f8"));// #f6fecd - my original yellow
+                    // tag.set_background(Some("#f6fecd")); // original yellow
+                    tag.set_background(Some("#cce0f8")); // default blue
                 }
             }
             REGION => {

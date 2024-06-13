@@ -4,7 +4,7 @@ pub mod headerbar;
 pub mod tags;
 pub mod textview;
 use crate::dialogs::{alert, DangerDialog, YES};
-use crate::git::{merge, remote};
+use crate::git::{merge, remote, stash};
 use container::ViewContainer;
 use core::time::Duration;
 use git2::RepositoryState;
@@ -21,8 +21,8 @@ use std::rc::Rc;
 use crate::status_view::render::View;
 use crate::{
     checkout_oid, get_current_repo_status, get_directories, git_debug,
-    stage_untracked, stage_via_apply, stash_changes, track_changes,
-    ApplySubject, Diff, Event, File as GitFile, Head, Stashes, State,
+    stage_untracked, stage_via_apply, track_changes,
+    ApplySubject, Diff, Event, File as GitFile, Head, State,
     StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
@@ -115,7 +115,7 @@ pub struct Status {
     pub conflicted: Option<Diff>,
 
     pub rendered: bool, // what it is for ????
-    pub stashes: Option<Stashes>,
+    pub stashes: Option<stash::Stashes>,
     pub monitor_lock: Rc<RefCell<bool>>,
     pub settings: gio::Settings,
 }
@@ -365,7 +365,7 @@ impl Status {
         });
     }
 
-    pub fn update_stashes(&mut self, stashes: Stashes) {
+    pub fn update_stashes(&mut self, stashes: stash::Stashes) {
         self.stashes.replace(stashes);
     }
 
@@ -1418,7 +1418,7 @@ impl Status {
                     let sender = sender.clone();
                     move || {
                         if stash {
-                            stash_changes(
+                            stash::stash(
                                 path.clone(),
                                 ref_log_msg.clone(),
                                 true,

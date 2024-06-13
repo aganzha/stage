@@ -1,6 +1,6 @@
 use crate::context::{StatusRenderContext, TextViewWidth};
 use crate::dialogs::{alert, ConfirmDialog, YES};
-use crate::git::{apply_stash, commit};
+use crate::git::{stash, commit};
 use crate::status_view::{
     container::{ViewContainer, ViewKind},
     render::View,
@@ -86,7 +86,7 @@ pub fn headerbar_factory(
             if let Some(num) = stash_num {
                 glib::spawn_future_local({
                     git_oid_op(oid, window, "Apply stash?", move || {
-                        apply_stash(path, num, sender)
+                        stash::apply(path, num, sender)
                     })
                 });
             } else {
@@ -354,7 +354,7 @@ pub fn show_commit_window(
                                 oid,
                                 window,
                                 "Apply stash?",
-                                move || apply_stash(path, num, sender),
+                                move || stash::apply(path, num, sender),
                             )
                         });
                     } else {
