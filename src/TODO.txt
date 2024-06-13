@@ -4,7 +4,6 @@ Rc::clone() instead of .clone()
 
 and some new lines to check, what?
 - пустое представление!
-- change switch to textview via apply_button of entry row
 - implement about popup with github issue
 - stage and revert hunks and files from any commit_view
 go with amend
