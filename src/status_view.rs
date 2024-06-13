@@ -1019,7 +1019,12 @@ impl Status {
             }
             RenderSource::Resize => {
                 // self.choose_cursor_position(txt, &buffer, None, context);
-                debug!("do it need to choose cursor position in resize? {:?} vs {:?}", position_before_render, buffer.cursor_position());
+                let cursor_pos = buffer.cursor_position();
+                if position_before_render != cursor_pos {
+                    let iter = buffer.iter_at_offset(position_before_render);
+                    buffer.place_cursor(&iter);
+                    debug!("fix cursor position in resize? {:?} vs {:?}", position_before_render, cursor_pos);
+                }
             }
         };
     }
@@ -1035,13 +1040,6 @@ impl Status {
             diff.resize(&txt.buffer(), context)
         }
         self.render(txt, RenderSource::Resize, context);
-        let position_now = txt.buffer().cursor_position();
-        if position_now != position_before {
-            debug!(
-                "CHANGED broken cursor position {:?} {:?}",
-                position_before, position_now
-            );
-        }
     }
 
     // TODO mut?
