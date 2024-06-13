@@ -312,7 +312,7 @@ impl View {
                 );
                 if chars as usize > line_content.len() {
                     let spaces = chars as usize - line_content.len();
-                    trace!("build up spaces {:?}", spaces);
+                    debug!("build up spaces {:?} in {}", spaces, line_content);
                     return format!("{}{}", line_content, " ".repeat(spaces));
                 }
             }
