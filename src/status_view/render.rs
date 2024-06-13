@@ -310,10 +310,18 @@ impl View {
                     line_content,
                     line_content.len()
                 );
-                if chars as usize > line_content.len() {
-                    let spaces = chars as usize - line_content.len();
-                    debug!("build up spaces {:?} in {}", spaces, line_content);
-                    return format!("{}{}", line_content, " ".repeat(spaces));
+                let chars_count = line_content.chars().count();
+                if chars as usize >  chars_count {
+                    let spaces = chars as usize - chars_count;
+                    debug!("build up spaces {:?} in {}. len {:?}",
+                           spaces,
+                           line_content,
+                           chars_count
+                    );
+                    return format!("{}{}",
+                                   line_content,
+                                   " ".repeat(spaces)
+                    );
                 }
             }
         }
