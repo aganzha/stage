@@ -3,6 +3,7 @@ use crate::status_view::container::ViewKind;
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use log::{debug, trace};
 
 #[derive(Debug, Clone)]
 pub enum UnderCursor {
@@ -70,6 +71,18 @@ impl StatusRenderContext {
         if kind != ViewKind::Line {
             return;
         }
+        match kind {
+            ViewKind::Line => self.collect_region_highlights(line_no),
+            ViewKind::Hunk => self.collect_hunk_highlights(line_no),
+            _ => {}
+        }        
+    }
+
+    pub fn collect_hunk_highlights(&mut self, line_no: i32) {
+        debug!("collect hunk highlight--------------");
+    }
+    
+    pub fn collect_region_highlights(&mut self, line_no: i32) {
         match self.highlight_regions {
             Some((from, to)) if line_no < from => {
                 self.highlight_regions.replace((line_no, to));
