@@ -347,11 +347,11 @@ impl View {
 
         let line_no = iter.line();
         trace!(
-            "======= line {:?} render view {:?} which is at line {:?}. sstate: {:?}",
+            "======= line {:?} render state {:?} which is at line {:?}. content: {:?}",
             line_no,
+            self.get_state_for(line_no),
+            self.line_no.get(),
             content,
-            self.line_no,
-            self.get_state_for(line_no)
         );
         match self.get_state_for(line_no) {
             ViewState::RenderedInPlace => {
@@ -365,7 +365,8 @@ impl View {
             }
             ViewState::NotYetRendered => {
                 trace!("..render MATCH insert {:?}", line_no);
-                let content = self.build_up(&content, line_no, context);
+                // newhighlight
+                // let content = self.build_up(&content, line_no, context);
                 if is_markup {
                     buffer.insert_markup(iter, &format!("{}\n", content));
                 } else {
@@ -384,7 +385,8 @@ impl View {
                     // here is the case: view is rendered before resize event.
                     // max width is detected by diff max width and then resize
                     // event is come with larger with
-                    let content = self.build_up(&content, line_no, context);
+                    // newhighlight
+                    // let content = self.build_up(&content, line_no, context);
                     self.replace_dirty_content(
                         buffer, iter, &content, is_markup,
                     );
@@ -416,7 +418,8 @@ impl View {
             ViewState::UpdatedFromGit(l) => {
                 trace!(".. render MATCH UpdatedFromGit {:?}", l);
                 self.line_no.replace(line_no);
-                let content = self.build_up(&content, line_no, context);
+                // newhighlight
+                // let content = self.build_up(&content, line_no, context);
                 self.replace_dirty_content(buffer, iter, &content, is_markup);
                 self.apply_tags(buffer, &content_tags);
                 self.force_forward(buffer, iter);
@@ -482,38 +485,42 @@ impl View {
         content_tags: &Vec<tags::TxtTag>,
     ) {
         let mut fltr: HashSet<&str> = HashSet::new();
-        if self.is_current() {
-            self.add_tag(buffer, &make_tag(tags::CURSOR));
-            // it need to filter background tags
-            let hunk = make_tag(tags::HUNK);
-            let region = make_tag(tags::REGION);
-            self.remove_tag(buffer, &hunk);
-            self.remove_tag(buffer, &region);
-            fltr.insert(tags::HUNK);
-            fltr.insert(tags::REGION);
-        } else {
-            self.remove_tag(buffer, &make_tag(tags::CURSOR));
+        // newhighlight
+        // if self.is_current() {
+        //     self.add_tag(buffer, &make_tag(tags::CURSOR));
+        //     // it need to filter background tags
+        //     let hunk = make_tag(tags::HUNK);
+        //     let region = make_tag(tags::REGION);
+        //     self.remove_tag(buffer, &hunk);
+        //     self.remove_tag(buffer, &region);
+        //     fltr.insert(tags::HUNK);
+        //     fltr.insert(tags::REGION);
+        // } else {
+        //     self.remove_tag(buffer, &make_tag(tags::CURSOR));
+        // }
+        for t in content_tags {
+            self.add_tag(buffer, t);
         }
-        if self.is_active() {
-            if !fltr.contains(tags::REGION) {
-                self.add_tag(buffer, &make_tag(tags::REGION));
-            }
-            for t in content_tags {
-                if !fltr.contains(t.name()) {
-                    self.add_tag(buffer, &t.enhance());
-                }
-            }
-        } else {
-            self.remove_tag(buffer, &make_tag(tags::REGION));
-            for t in content_tags {
-                self.remove_tag(buffer, &t.enhance());
-            }
-            for t in content_tags {
-                if !fltr.contains(t.name()) {
-                    self.add_tag(buffer, t);
-                }
-            }
-        }
+        // if self.is_active() {
+        //     if !fltr.contains(tags::REGION) {
+        //         self.add_tag(buffer, &make_tag(tags::REGION));
+        //     }
+        //     for t in content_tags {
+        //         if !fltr.contains(t.name()) {
+        //             self.add_tag(buffer, &t.enhance());
+        //         }
+        //     }
+        // } else {
+        //     self.remove_tag(buffer, &make_tag(tags::REGION));
+        //     for t in content_tags {
+        //         self.remove_tag(buffer, &t.enhance());
+        //     }
+        //     for t in content_tags {
+        //         if !fltr.contains(t.name()) {
+        //             self.add_tag(buffer, t);
+        //         }
+        //     }
+        // }
     }
 
     fn get_state_for(&self, line_no: i32) -> ViewState {

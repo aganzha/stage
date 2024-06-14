@@ -126,11 +126,13 @@ pub trait ViewContainer {
         if view.is_rendered() {
             // repaint if highlight is changed
             // debug!("its me marking dirty, cursor! {} at {}", ((view.is_active() != active_before) || (view.is_current() != current_before)), view.line_no.get());
-            view.dirty(
-                view.is_active() != active_before
-                    || view.is_current() != current_before,
-            );
-            result = view.is_dirty();
+            result = view.is_active() != active_before || view.is_current() != current_before;
+            // newhighlight
+            // view.dirty(
+            //     view.is_active() != active_before
+            //         || view.is_current() != current_before,
+            // );
+            // result = view.is_dirty();
         }
         for child in self.get_children() {
             result = child.cursor(line_no, self_active, context) || result;
