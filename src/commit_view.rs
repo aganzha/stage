@@ -5,6 +5,7 @@ use crate::status_view::{
     container::{ViewContainer, ViewKind},
     render::View,
     Label as TextViewLabel,
+    textview::{StageView}
 };
 use crate::Event;
 use async_channel::Sender;
@@ -19,7 +20,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
-use log::{info, trace};
+use log::{info, trace, debug};
 
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -249,7 +250,7 @@ impl ViewContainer for MultiLineLabel {
 impl commit::CommitDiff {
     fn render(
         &mut self,
-        txt: &TextView,
+        txt: &StageView,
         ctx: &mut StatusRenderContext,
         labels: &mut [TextViewLabel],
         obody_label: &mut Option<MultiLineLabel>,
@@ -464,8 +465,17 @@ pub fn show_commit_window(
                     if let Some(d) = &mut main_diff {
                         let mut need_render = false;
                         for file in &mut d.diff.files {
+                            debug!(" view of next file. expanded? {} renderred_in? {} line_no {}, rendered? {} d {} s {}",
+                                   file.view.is_expanded(),
+                                   file.view.is_rendered_in(line_no),
+                                   file.view.line_no.get(),
+                                   file.view.is_rendered(),
+                                   file.view.is_dirty(),
+                                   file.view.is_squashed()
+                            );
                             need_render =
                                 need_render || file.expand(line_no).is_some();
+                            debug!("neeeeeed render {:?} for {:?} at line {:}", need_render, file.path, line_no);
                             if need_render {
                                 break;
                             }
@@ -474,6 +484,7 @@ pub fn show_commit_window(
                         let mut iter = buffer
                             .iter_at_line(d.diff.files[0].view.line_no.get())
                             .unwrap();
+                        debug!("go render diff after expand {:?} {:?}", need_render, iter.line());
                         if need_render {
                             d.diff.render(buffer, &mut iter, &mut ctx);
                         }
@@ -497,23 +508,23 @@ pub fn show_commit_window(
                     }
                 }
                 Event::TextViewResize(w) => {
-                    info!("TextViewResize {}", w);
+                    info!("TextViewResize {} {:?}", w, ctx);
                     ctx.screen_width.replace(text_view_width.clone());
-                    if let Some(d) = &mut main_diff {
-                        let buffer = &txt.buffer();
-                        // during resize some views are build up
-                        // and cursor could move
-                        let cursor_before = buffer.cursor_position();
-                        // calling diff resize will render it whithout rendering
-                        // preceeding elements!
-                        // is it ok? perhaps yes, cause they are on top of it
-                        d.diff.resize(buffer, &mut ctx);
-                        // restore it. DO IT NEEDED????
-                        // TODO! perhaps move it to common render method???
-                        buffer.place_cursor(
-                            &buffer.iter_at_offset(cursor_before),
-                        );
-                    }
+                    // if let Some(d) = &mut main_diff {
+                    //     let buffer = &txt.buffer();
+                    //     // during resize some views are build up
+                    //     // and cursor could move
+                    //     let cursor_before = buffer.cursor_position();
+                    //     // calling diff resize will render it whithout rendering
+                    //     // preceeding elements!
+                    //     // is it ok? perhaps yes, cause they are on top of it
+                    //     d.diff.resize(buffer, &mut ctx);
+                    //     // restore it. DO IT NEEDED????
+                    //     // TODO! perhaps move it to common render method???
+                    //     buffer.place_cursor(
+                    //         &buffer.iter_at_offset(cursor_before),
+                    //     );
+                    // }
                 }
                 Event::TextCharVisibleWidth(w) => {
                     info!("TextCharVisibleWidth {}", w);

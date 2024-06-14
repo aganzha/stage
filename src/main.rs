@@ -51,7 +51,7 @@ use libadwaita::{
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
     CssProvider, Orientation, ScrolledWindow, Settings,
-    STYLE_PROVIDER_PRIORITY_USER
+    STYLE_PROVIDER_PRIORITY_USER, Snapshot, TextView, graphene
 };
 
 use log::info;
@@ -342,6 +342,15 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::Debug => {
                     info!("main. debug");
+                    // let new_snapshot = Snapshot::new();
+                    // new_snapshot.append_color(
+                    //     &gdk::RGBA::new(0.0, 0.0, 0.0, 1.0),
+                    //     &graphene::Rect::new(0.0, 0.0, 100.0, 100.0)
+                    // );
+                    // new_snapshot.pop();
+                    // scroll.snapshot_child(&txt, &new_snapshot);
+                    // txt.snapshot_layer();
+                    // info!("meeeeeeeeeeeeeeeeeeeeeeeeeeee");
                 }
                 Event::Commit => {
                     info!("main.commit");

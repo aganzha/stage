@@ -188,6 +188,9 @@ impl View {
         self.flags.replace(self.flags.get().render(value));
     }
     pub fn dirty(&self, value: bool) {
+        // if value {
+        //     debug!("marking_dirty.............> {}", self.line_no.get());
+        // }
         self.flags.replace(self.flags.get().dirty(value));
     }
     pub fn child_dirty(&self, value: bool) {
