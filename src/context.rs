@@ -39,7 +39,8 @@ pub struct StatusRenderContext {
     pub under_cursor: UnderCursor,
     // TODO! kill it!
     pub screen_width: Option<Rc<RefCell<TextViewWidth>>>,
-    pub highlight_regions: Option<(i32, i32)>
+    pub highlight_regions: Option<(i32, i32)>,
+    pub highlight_hunks: Vec<i32>
     // pub cursor_pos: Option<CursorPos>,
 }
 
@@ -59,6 +60,7 @@ impl StatusRenderContext {
                 under_cursor: UnderCursor::None,
                 screen_width: None,
                 highlight_regions: None,
+                highlight_hunks: Vec::new()
             }
         }
     }
@@ -67,19 +69,9 @@ impl StatusRenderContext {
     //     self.cursor_pos.replace(CursorPos { line_no, offset });
     // }
 
-    pub fn collect_highlight(&mut self, line_no: i32, kind: ViewKind) {
-        if kind != ViewKind::Line {
-            return;
-        }
-        match kind {
-            ViewKind::Line => self.collect_region_highlights(line_no),
-            ViewKind::Hunk => self.collect_hunk_highlights(line_no),
-            _ => {}
-        }        
-    }
-
     pub fn collect_hunk_highlights(&mut self, line_no: i32) {
         debug!("collect hunk highlight--------------");
+        self.highlight_hunks.push(line_no);
     }
     
     pub fn collect_region_highlights(&mut self, line_no: i32) {
