@@ -258,29 +258,6 @@ pub trait ViewContainer {
 
         self.render(buffer, &mut iter, context);
     }
-
-    fn resize(
-        &self,
-        _buffer: &TextBuffer,
-        _context: &mut StatusRenderContext,
-    ) {
-        // this is just RE render with build_up
-        let view = self.get_view();
-        let _line_no = view.line_no.get();
-        if view.is_rendered() {
-            debug!("fuuuuuuuuuuuuuuuuuuuckin assel!");
-            view.dirty(true);
-            // TODO! why i need child dirty here?
-            view.child_dirty(true);
-        }
-        self.walk_down(&|vc: &dyn ViewContainer| {
-            let view = vc.get_view();
-            debug!("iiiiiiiiiiiiiiiiiiiiiiiiidiot! {:?}", self.get_kind());
-            view.dirty(true);
-            // child dirty triggers expand?
-            // view.child_dirty = true;
-        });
-    }
 }
 
 impl ViewContainer for Diff {

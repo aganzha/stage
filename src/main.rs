@@ -501,7 +501,6 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {}", w);
                     ctx.screen_width.replace(text_view_width.clone());
-                    status.resize(&txt, &mut ctx);
                 }
                 Event::TextCharVisibleWidth(w) => {
                     info!("TextCharVisibleWidth {}", w);
@@ -530,7 +529,6 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                             }
                         },
                     );
-                    status.resize(&txt, &mut ctx);
                 }
                 Event::Stashes(stashes) => {
                     info!("stashes data");

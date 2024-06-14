@@ -88,7 +88,6 @@ pub enum RenderSource {
     Git,
     Cursor(i32),
     Expand(i32),
-    Resize,
 }
 
 #[derive(Debug, Clone)]
@@ -1026,32 +1025,9 @@ impl Status {
             RenderSource::Git => {
                 self.choose_cursor_position(txt, &buffer, None, context);
             }
-            RenderSource::Resize => {
-                // self.choose_cursor_position(txt, &buffer, None, context);
-                let cursor_pos = buffer.cursor_position();
-                if position_before_render != cursor_pos {
-                    let iter = buffer.iter_at_offset(position_before_render);
-                    buffer.place_cursor(&iter);
-                    debug!("fix cursor position in resize? {:?} vs {:?}", position_before_render, cursor_pos);
-                }
-            }
         };
     }
 
-    pub fn resize(&self, txt: &StageView, context: &mut StatusRenderContext) {
-        // it need to rerender all highlights and
-        // background to match new window size
-        let position_before = txt.buffer().cursor_position();
-        if let Some(diff) = &self.staged {
-            diff.resize(&txt.buffer(), context)
-        }
-        if let Some(diff) = &self.unstaged {
-            diff.resize(&txt.buffer(), context)
-        }
-        self.render(txt, RenderSource::Resize, context);
-    }
-
-    // TODO mut?
     pub fn ignore(
         &mut self,
         txt: &StageView,

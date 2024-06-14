@@ -510,21 +510,6 @@ pub fn show_commit_window(
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {} {:?}", w, ctx);
                     ctx.screen_width.replace(text_view_width.clone());
-                    // if let Some(d) = &mut main_diff {
-                    //     let buffer = &txt.buffer();
-                    //     // during resize some views are build up
-                    //     // and cursor could move
-                    //     let cursor_before = buffer.cursor_position();
-                    //     // calling diff resize will render it whithout rendering
-                    //     // preceeding elements!
-                    //     // is it ok? perhaps yes, cause they are on top of it
-                    //     d.diff.resize(buffer, &mut ctx);
-                    //     // restore it. DO IT NEEDED????
-                    //     // TODO! perhaps move it to common render method???
-                    //     buffer.place_cursor(
-                    //         &buffer.iter_at_offset(cursor_before),
-                    //     );
-                    // }
                 }
                 Event::TextCharVisibleWidth(w) => {
                     info!("TextCharVisibleWidth {}", w);
