@@ -1,3 +1,4 @@
+om
 BUG: expand does not work on first line!
 BUG: expand - moves to the start.
 BUG: higjlight 2 regions when set on the hunk line (from bottom)
