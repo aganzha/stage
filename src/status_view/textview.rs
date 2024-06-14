@@ -9,8 +9,9 @@ use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, EventControllerKey, EventControllerMotion,
     EventSequenceState, GestureClick, MovementStep, TextTag, TextView,
-    TextWindowType, Settings
+    TextWindowType, Settings, Widget, Accessible, Buildable
 };
+use gtk4::subclass::prelude::*;
 use libadwaita::prelude::*;
 use libadwaita::StyleManager;
 use log::{debug, trace};
@@ -18,11 +19,153 @@ use log::{debug, trace};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+glib::wrapper! {
+    pub struct StageView(ObjectSubclass<stage_view::StageView>)
+        @extends TextView, Widget,
+        @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
+}
+
+mod stage_view {
+    use gtk4::prelude::*;
+    use gtk4::{glib, TextView, TextViewLayer, Snapshot, gdk, graphene,
+      //MovementStep//, DeleteType, TextIter, TextExtendSelection, 
+    };
+    use std::cell::{Cell, RefCell};
+    use glib::Properties;
+    
+    use gtk4::subclass::prelude::*;
+    use log::{debug, trace};
+    
+    // #[derive(Properties, Default)]
+    // #[properties(wrapper_type = super::StageView)]
+
+    #[derive(Default)]
+    pub struct StageView {
+
+        pub current_line: Cell<(i32, i32)>
+        // #[property(get, set)]        
+        // pub current_line: RefCell<i32>,
+    }
+
+    
+    #[glib::object_subclass]
+    impl ObjectSubclass for StageView {
+        const NAME: &'static str = "StageView";
+        type Type = super::StageView;
+        type ParentType = TextView;
+    }
+
+    impl StageView {
+        
+    }
+    
+    impl TextViewImpl for StageView {
+        // fn backspace(&self) {
+        //     self.parent_backspace()
+        // }
+
+        // fn copy_clipboard(&self) {
+        //     self.parent_copy_clipboard()
+        // }
+
+        // fn cut_clipboard(&self) {
+        //     self.parent_cut_clipboard()
+        // }
+
+        // fn delete_from_cursor(&self, type_: DeleteType, count: i32) {
+        //     self.parent_delete_from_cursor(type_, count)
+        // }
+
+        // fn extend_selection(
+        //     &self,
+        //     granularity: TextExtendSelection,
+        //     location: &TextIter,
+        //     start: &mut TextIter,
+        //     end: &mut TextIter,
+        // ) -> glib::ControlFlow {
+        //     self.parent_extend_selection(granularity, location, start, end)
+        // }
+
+        // fn insert_at_cursor(&self, text: &str) {
+        //     self.parent_insert_at_cursor(text)
+        // }
+
+        // fn insert_emoji(&self) {
+        //     self.parent_insert_emoji()
+        // }
+
+        // fn move_cursor(&self, step: MovementStep, count: i32, extend_selection: bool) {
+        //     debug!("oooooooooooooooooooooooooooo {:?} {:?}", step, count);
+        //     self.parent_move_cursor(step, count, extend_selection)
+        // }
+
+        // fn paste_clipboard(&self) {
+        //     self.parent_paste_clipboard()
+        // }
+
+        // fn set_anchor(&self) {
+        //     self.parent_set_anchor()
+        // }
+
+        fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
+            debug!("snapshot laaaaaaaaaaaaaaaaaaaaaaayer! {:?} {:?}", layer, snapshot);
+            // let new_snapshot = Snapshot::new();
+            snapshot.append_color(
+                &gdk::RGBA::new(0.0, 0.0, 0.0, 1.0),
+                &graphene::Rect::new(0.0, 0.0, 100.0, 100.0)
+            );
+            // new_snapshot.pop();
+
+            self.parent_snapshot_layer(layer, snapshot)
+        }
+
+        // fn toggle_overwrite(&self) {
+        //     self.parent_toggle_overwrite()
+        // }
+    }
+    impl ObjectImpl for StageView {}
+    impl WidgetImpl for StageView {}
+}
+
+impl StageView {
+    pub fn new() -> Self {
+        glib::Object::builder().build()
+    }
+
+    pub fn set_current_line(&self, line_no: i32) {
+        let (current, _) = self.imp().current_line.get();
+        self.imp().current_line.replace((line_no, current));
+    }
+    pub fn get_current_line(&self) -> i32{
+        let (current, _) = self.imp().current_line.get();
+        current
+    }
+    pub fn get_previous_line(&self) -> i32 {
+        let (_, previous) = self.imp().current_line.get();
+        previous
+    }
+}
+
 pub trait CharView {
     fn calc_max_char_width(&self) -> i32;
 }
 
 impl CharView for TextView {
+    fn calc_max_char_width(&self) -> i32 {
+        let buffer = self.buffer();
+        let mut iter = buffer.iter_at_offset(0);
+        let x_before = self.cursor_locations(Some(&iter)).0.x();
+        let forwarded = iter.forward_char();
+        if !forwarded {
+            buffer.insert(&mut iter, " ");
+        };
+        let x_after = self.cursor_locations(Some(&iter)).0.x();
+
+        self.width() / (x_after - x_before)
+    }
+}
+
+impl CharView for StageView {
     fn calc_max_char_width(&self) -> i32 {
         let buffer = self.buffer();
         let mut iter = buffer.iter_at_offset(0);
@@ -45,18 +188,30 @@ pub fn factory(
     name: &str,
     //settings: gio::Settings,
     text_view_width: Rc<RefCell<crate::context::TextViewWidth>>,
-) -> TextView {
+) -> StageView {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
-    let txt = TextView::builder()
-        .margin_start(12)
-        .name(name)
-        .css_classes(if is_dark { [DARK_CLASS] } else { [LIGHT_CLASS] })
-        .margin_end(12)
-        .margin_top(12)
-        .margin_bottom(12)
-        .build();
+    // let txt = TextView::builder()
+    //     .margin_start(12)
+    //     .name(name)
+    //     .css_classes(if is_dark { [DARK_CLASS] } else { [LIGHT_CLASS] })
+    //     .margin_end(12)
+    //     .margin_top(12)
+    //     .margin_bottom(12)
+    //     .build();
+    let txt = StageView::new();
+    txt.set_margin_start(12);
+    txt.set_widget_name(name);
+    txt.set_margin_end(12);
+    txt.set_margin_top(12);
+    txt.set_margin_bottom(12);
+    if is_dark {
+        txt.set_css_classes(&[&DARK_CLASS]);
+    } else {
+        txt.set_css_classes(&[&LIGHT_CLASS]);
+    }
+    
     let buffer = txt.buffer();
     let table = buffer.tag_table();
     let mut pointer: Option<TextTag> = None;
@@ -304,7 +459,7 @@ pub fn factory(
     txt.connect_move_cursor({
         let sndr = sndr.clone();
         // let latest_char_offset = RefCell::new(0);
-        move |view: &TextView, step, count, _selection| {
+        move |view: &StageView, step, count, _selection| {
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);

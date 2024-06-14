@@ -3,6 +3,7 @@ pub mod container;
 pub mod headerbar;
 pub mod tags;
 pub mod textview;
+use textview::{StageView};
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{merge, remote, stash};
 use container::ViewContainer;
@@ -176,7 +177,7 @@ impl Status {
         None
     }
 
-    pub fn editor_args_at_cursor(&self, txt: &TextView) -> Option<(PathBuf, i32, i32)> {
+    pub fn editor_args_at_cursor(&self, txt: &StageView) -> Option<(PathBuf, i32, i32)> {
         if let Some(file) = self.file_at_cursor() {
             if file.view.is_current() {
                 return Some((self.to_abs_path(&file.path), 0, 0));
@@ -302,7 +303,6 @@ impl Status {
                         let global_lock = global_lock.clone();
                         move |_monitor, file, _other_file, event| {
                             // TODO get from SELF.settings
-                            debug!("chaaaaaaaaaaaaaaaaaaaaaaaaange2 on monitor {:?} {:?}", file.path(), event);
                             if *global_lock.borrow() {
                                 trace!("global monitor locked");
                             }
@@ -324,11 +324,11 @@ impl Status {
                                         }
                                     }
                                     if lock.borrow().contains(&file_path) {
-                                        debug!("NO WAY: monitor locked");
+                                        trace!("NO WAY: monitor locked");
                                         return;
                                     }
                                     lock.borrow_mut().insert(file_path.clone());
-                                    debug!("set monitor lock");
+                                    trace!("set monitor lock");
                                     glib::source::timeout_add_local(
                                         Duration::from_millis(300),
                                         {
@@ -337,7 +337,7 @@ impl Status {
                                             let sender = sender.clone();
                                             let file_path = file_path.clone();
                                             move || {
-                                                debug!(".......... THROTTLED {:?}", file_path);
+                                                trace!(".......... THROTTLED {:?}", file_path);
                                                 gio::spawn_blocking({
                                                     let path = path.clone();
                                                     let sender =
@@ -629,7 +629,7 @@ impl Status {
     pub fn update_head(
         &mut self,
         mut head: Head,
-        txt: &TextView,
+        txt: &StageView,
         context: &mut StatusRenderContext,
     ) {
         // refactor.enrich
@@ -643,7 +643,7 @@ impl Status {
     pub fn update_upstream(
         &mut self,
         mut upstream: Option<Head>,
-        txt: &TextView,
+        txt: &StageView,
         context: &mut StatusRenderContext,
     ) {
         if let Some(rendered) = &mut self.upstream {
@@ -660,7 +660,7 @@ impl Status {
     pub fn update_state(
         &mut self,
         mut state: State,
-        txt: &TextView,
+        txt: &StageView,
         context: &mut StatusRenderContext,
     ) {
         if let Some(current_state) = &self.state {
@@ -673,7 +673,7 @@ impl Status {
     pub fn update_untracked(
         &mut self,
         mut untracked: Untracked,
-        txt: &TextView,
+        txt: &StageView,
         context: &mut StatusRenderContext,
     ) {
         let mut settings =
@@ -706,7 +706,7 @@ impl Status {
     pub fn update_conflicted(
         &mut self,
         mut diff: Diff,
-        txt: &TextView,
+        txt: &StageView,
         window: &ApplicationWindow,
         sender: Sender<Event>,
         banner: &Banner,
@@ -819,7 +819,7 @@ impl Status {
     pub fn update_staged(
         &mut self,
         mut diff: Diff,
-        txt: &TextView,
+        txt: &StageView,
         context: &mut StatusRenderContext,
     ) {
         if let Some(s) = &mut self.staged {
@@ -839,7 +839,7 @@ impl Status {
     pub fn update_unstaged(
         &mut self,
         mut diff: Diff,
-        txt: &TextView,
+        txt: &StageView,
         context: &mut StatusRenderContext,
     ) {
         if let Some(u) = &mut self.unstaged {
@@ -859,7 +859,7 @@ impl Status {
     // status
     pub fn cursor(
         &self,
-        txt: &TextView,
+        txt: &StageView,
         line_no: i32,
         offset: i32,
         context: &mut StatusRenderContext,
@@ -889,7 +889,7 @@ impl Status {
     // Status
     pub fn expand(
         &self,
-        txt: &TextView,
+        txt: &StageView,
         line_no: i32,
         _offset: i32,
         context: &mut StatusRenderContext,
@@ -938,7 +938,7 @@ impl Status {
     // Status
     pub fn render(
         &self,
-        txt: &TextView,
+        txt: &StageView,
         source: RenderSource,
         context: &mut StatusRenderContext,
     ) {
@@ -1029,7 +1029,7 @@ impl Status {
         };
     }
 
-    pub fn resize(&self, txt: &TextView, context: &mut StatusRenderContext) {
+    pub fn resize(&self, txt: &StageView, context: &mut StatusRenderContext) {
         // it need to rerender all highlights and
         // background to match new window size
         let position_before = txt.buffer().cursor_position();
@@ -1045,7 +1045,7 @@ impl Status {
     // TODO mut?
     pub fn ignore(
         &mut self,
-        txt: &TextView,
+        txt: &StageView,
         line_no: i32,
         _offset: i32,
         context: &mut StatusRenderContext,
@@ -1159,7 +1159,7 @@ impl Status {
 
     pub fn stage(
         &mut self,
-        _txt: &TextView,
+        _txt: &StageView,
         _line_no: i32,
         subject: ApplySubject,
         window: &ApplicationWindow,
@@ -1214,12 +1214,6 @@ impl Status {
         let mut file_path: Option<PathBuf> = None;
         let mut hunk_header: Option<String> = None;
         for file in &diff.files {
-            debug!(
-                "---------------> {:?} {} {}",
-                file.path,
-                file.view.is_active(),
-                file.view.is_current()
-            );
             if file.view.is_active() {
                 file_path.replace(file.path.clone());
                 break;
@@ -1276,7 +1270,7 @@ impl Status {
 
     pub fn choose_cursor_position(
         &self,
-        txt: &TextView,
+        txt: &StageView,
         buffer: &TextBuffer,
         line_no: Option<i32>,
         context: &mut StatusRenderContext,
@@ -1317,7 +1311,7 @@ impl Status {
         }
         false
     }
-    pub fn debug(&mut self, txt: &TextView) {
+    pub fn debug(&mut self, txt: &StageView) {
         let buffer = txt.buffer();
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         let current_line = iter.line();
