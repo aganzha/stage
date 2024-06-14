@@ -25,13 +25,13 @@ pub const CONFLICT_MARKER: &str = "conflictmarker";
 pub const OURS: &str = "ours";
 pub const THEIRS: &str = "theirs";
 
-pub const TEXT_TAGS: [&str; 15] = [
+pub const TEXT_TAGS: [&str; 14] = [
     BOLD,
     ADDED,
     ENHANCED_ADDED,
     REMOVED,
     ENHANCED_REMOVED,
-    CURSOR,
+    // CURSOR,
     REGION,
     HUNK,
     ITALIC,

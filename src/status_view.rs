@@ -864,6 +864,8 @@ impl Status {
         offset: i32,
         context: &mut StatusRenderContext,
     ) {
+        debug!("................ begin cursor");
+        txt.set_current_line(line_no);
         context.update_cursor_pos(line_no, offset);
         let mut changed = false;
         if let Some(untracked) = &self.untracked {
@@ -879,10 +881,15 @@ impl Status {
             changed = staged.cursor(line_no, false, context) || changed;
         }
         if changed {
+            debug!("................ BEFORE RENDER in cursor");
             self.render(txt, RenderSource::Cursor(line_no), context);
+            debug!("................ AFTER RENDER in cursor");
+            
             // let buffer = txt.buffer();
             // let iter = &buffer.iter_at_offset(offset);
             // buffer.place_cursor(iter);
+        } else {
+            debug!("IT NEED TO HIGHLIGHT CURSOR SOMEHOW!");
         }
     }
 
@@ -944,6 +951,7 @@ impl Status {
     ) {
         let buffer = txt.buffer();
         let position_before_render = buffer.cursor_position();
+        debug!("beeeeeeeeeeeeeeefooooooooore {:?}", position_before_render);
         let mut iter = buffer.iter_at_offset(0);
 
         if let Some(head) = &self.head {
@@ -1001,6 +1009,7 @@ impl Status {
             staged.render(&buffer, &mut iter, context);
         }
         trace!("render source {:?}", source);
+        debug!("aaaaaaaaaaaaaaaaaafter {:?}", buffer.cursor_position());
         match source {
             RenderSource::Cursor(_) => {
                 // avoid loops on cursor renders
@@ -1287,6 +1296,7 @@ impl Status {
                 if !unstaged.files.is_empty() {
                     let line_no = unstaged.files[0].view.line_no.get();
                     let iter = buffer.iter_at_line(line_no).unwrap();
+                    debug!("place_cursor in choose...........................");
                     buffer.place_cursor(&iter);
                     self.cursor(txt, line_no, iter.offset(), context);
                     return;
@@ -1300,7 +1310,7 @@ impl Status {
         // after git op view could be shifted.
         // cursor is on place and it is visually current,
         // but view under it is not current, cause line_no differs
-        trace!("choose cursor when NOT on eof {:?}", iter.line());
+        debug!("======================choose cursor when NOT on eof {:?}", iter.line());
         buffer.place_cursor(&iter);
         self.cursor(txt, iter.line(), iter.offset(), context);
     }

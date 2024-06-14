@@ -108,14 +108,14 @@ mod stage_view {
         // }
 
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
-            debug!("snapshot laaaaaaaaaaaaaaaaaaaaaaayer! {:?} {:?}", layer, snapshot);
-            // let new_snapshot = Snapshot::new();
-            snapshot.append_color(
-                &gdk::RGBA::new(0.0, 0.0, 0.0, 1.0),
-                &graphene::Rect::new(0.0, 0.0, 100.0, 100.0)
-            );
-            // new_snapshot.pop();
-
+            if layer == TextViewLayer::BelowText {
+                let (y_from, y_to) = self.current_line.get();
+                // HARCODE - 2000
+                snapshot.append_color(
+                    &gdk::RGBA::new(0.80, 0.87, 0.97, 1.0),                    
+                    &graphene::Rect::new(0.0, y_from as f32, 2000.0, y_to as f32)
+                );
+            }
             self.parent_snapshot_layer(layer, snapshot)
         }
 
@@ -133,8 +133,11 @@ impl StageView {
     }
 
     pub fn set_current_line(&self, line_no: i32) {
-        let (current, _) = self.imp().current_line.get();
-        self.imp().current_line.replace((line_no, current));
+        // let range = 
+        // let (current, _) = self.imp().current_line.get();
+        let iter = self.buffer().iter_at_line(line_no).unwrap();
+        let range = self.line_yrange(&iter);
+        self.imp().current_line.replace(range);
     }
     pub fn get_current_line(&self) -> i32{
         let (current, _) = self.imp().current_line.get();

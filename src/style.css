@@ -11,6 +11,19 @@
 /* #242424 - adwaita dark */
 #status_view, #commit_view {
 }
+
+/* #status_view.light, #commit_view.light { */
+/*     background-color: blue; */
+/*     outline-color: green; */
+/*     text-decoration-color: yellow; */
+/*     color: magenta; */
+/* } */
+/* #status_view.light text, #commit_view.light text { */
+/*     background-color: red; */
+/*     outline-color: green; */
+/*     text-decoration-color: yellow; */
+/*     color: magenta; */
+/* } */
 #status_view.dark, #commit_view.dark {
     background-color: @window_bg_color;
     color: @light_3;
