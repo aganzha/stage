@@ -117,22 +117,22 @@ mod stage_view {
             if layer == TextViewLayer::BelowText {
 
                 let (y_from, y_to) = self.active.get();
-                // HARCODE - 2000
+                // HARCODE - 2000. color #f6f5f4/494949 - 246/255 245/255 244/255
                 snapshot.append_color(
-                    &gdk::RGBA::new(0.965, 0.961, 0.957, 1.0),
+                    &gdk::RGBA::new(0.961, 0.961, 0.957, 1.0),
                     &graphene::Rect::new(0.0, y_from as f32, 2000.0, y_to as f32)
                 );
-                // HARCODE - 2000
+                // HARCODE - 2000; #deddda/383838 - 221/255 221/255 218/255
                 for (y_from, y_to) in self.hunks.borrow().iter() {
                     snapshot.append_color(
-                        &gdk::RGBA::new(222.0/255.0, 221.0/255.0, 218.0/255.0, 1.0),
+                        &gdk::RGBA::new(0.871, 0.871, 0.855, 1.0),
                         &graphene::Rect::new(0.0, *y_from as f32, 2000.0, *y_to as f32)
                     );
                 }
                 let (y_from, y_to) = self.cursor.get();
-                // HARCODE - 2000
+                // HARCODE - 2000; #cce0f8/23374f - 204/255 224/255 248/255
                 snapshot.append_color(
-                    &gdk::RGBA::new(0.80, 0.87, 0.97, 1.0),
+                    &gdk::RGBA::new(0.80, 0.878, 0.972, 1.0),
                     &graphene::Rect::new(0.0, y_from as f32, 2000.0, y_to as f32)
                 );
 
