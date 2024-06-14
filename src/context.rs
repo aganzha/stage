@@ -1,4 +1,5 @@
 use crate::{DiffKind, LineKind};
+use crate::status_view::container::ViewKind;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -28,14 +29,17 @@ pub struct TextViewWidth {
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext {
     pub erase_counter: Option<i32>,
-    // diff_kind is used by reconcilation
-    // it just passes DiffKind down to hunks
-    // and lines
+    /// diff_kind is used by reconcilation
+    /// it just passes DiffKind down to hunks
+    /// and lines
     pub diff_kind: Option<DiffKind>,
+    // TODO! kill it!
     pub max_len: Option<i32>,
     pub under_cursor: UnderCursor,
+    // TODO! kill it!
     pub screen_width: Option<Rc<RefCell<TextViewWidth>>>,
-    pub cursor_pos: Option<CursorPos>,
+    pub highlight_regions: Option<(i32, i32)>
+    // pub cursor_pos: Option<CursorPos>,
 }
 
 impl Default for StatusRenderContext {
@@ -53,15 +57,37 @@ impl StatusRenderContext {
                 max_len: None,
                 under_cursor: UnderCursor::None,
                 screen_width: None,
-                cursor_pos: None,
+                highlight_regions: None,
             }
         }
     }
 
-    pub fn update_cursor_pos(&mut self, line_no: i32, offset: i32) {
-        self.cursor_pos.replace(CursorPos { line_no, offset });
-    }
+    // pub fn update_cursor_pos(&mut self, line_no: i32, offset: i32) {
+    //     self.cursor_pos.replace(CursorPos { line_no, offset });
+    // }
 
+    pub fn collect_highlight(&mut self, line_no: i32, kind: ViewKind) {
+        if kind != ViewKind::Line {
+            return;
+        }
+        match self.highlight_regions {
+            Some((from, to)) if line_no < from => {
+                self.highlight_regions.replace((line_no, to));
+            }
+            Some((from, to)) if line_no > to => {
+                self.highlight_regions.replace((from, line_no));
+            }
+            Some((from, to)) if from <= line_no && line_no <= to => {
+            }
+            None => {
+                self.highlight_regions.replace((line_no, line_no));
+            },
+            _ => {
+                todo!("whats the case? {:?} {:?}", self.highlight_regions, line_no)
+            }
+        }
+    }
+    
     pub fn update_screen_line_width(&mut self, max_line_len: i32) {
         if let Some(sw) = &self.screen_width {
             if sw.borrow().chars < max_line_len {

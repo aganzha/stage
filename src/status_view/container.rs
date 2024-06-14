@@ -79,13 +79,14 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
+    /// returns if view is changed during cursor move
     fn cursor(
         &self,
         line_no: i32,
         parent_active: bool,
         context: &mut StatusRenderContext,
-    ) -> bool {
-        // returns if view is changed during cursor move
+    ) -> bool {        
+        
         let mut result = false;
         let view = self.get_view();
 
@@ -101,12 +102,12 @@ pub trait ViewContainer {
         let mut active_by_child = false;
 
         if view.is_expanded() {
-            // this is only 1 level.
-            // so when line is active, its hunk is active and file is not
-            // and thats ok.
-            // so, when file is active, all hunks below are active_by_parent
-            // and all lines below are active_by_parent
-            // and if line is active then only 1 hunk in file is active_by_child
+            /// this is only 1 level.
+            /// so when line is active, its hunk is active and file is not
+            /// and thats ok.
+            /// so, when file is active, all hunks below are active_by_parent
+            /// and all lines below are active_by_parent
+            /// and if line is active then only 1 hunk in file is active_by_child
             for child in self.get_children() {
                 active_by_child = child.get_view().is_rendered_in(line_no);
                 if active_by_child {
@@ -126,6 +127,12 @@ pub trait ViewContainer {
         if view.is_rendered() {
             // repaint if highlight is changed
             // debug!("its me marking dirty, cursor! {} at {}", ((view.is_active() != active_before) || (view.is_current() != current_before)), view.line_no.get());
+
+            // newhighlight
+            if view.is_active() && view.is_rendered() {
+                debug!("collect_highlight {:?} {:?}", self.get_kind(), view.line_no.get());
+                context.collect_highlight(view.line_no.get(), self.get_kind());
+            }
             result = view.is_active() != active_before || view.is_current() != current_before;
             // newhighlight
             // view.dirty(
@@ -136,10 +143,6 @@ pub trait ViewContainer {
         }
         for child in self.get_children() {
             result = child.cursor(line_no, self_active, context) || result;
-            // see changing under_cursor ABOVE ^
-            // if child.get_view().current {
-            //     self.fill_under_cursor(child, context);
-            // }
         }
         // result here just means view is changed
         // it does not actually means that view is under cursor
