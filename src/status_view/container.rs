@@ -128,11 +128,6 @@ pub trait ViewContainer {
             // repaint if highlight is changed
             // debug!("its me marking dirty, cursor! {} at {}", ((view.is_active() != active_before) || (view.is_current() != current_before)), view.line_no.get());
 
-            // newhighlight
-            if view.is_active() && view.is_rendered() {
-                debug!("collect_highlight {:?} {:?}", self.get_kind(), view.line_no.get());
-                context.collect_highlight(view.line_no.get(), self.get_kind());
-            }
             result = view.is_active() != active_before || view.is_current() != current_before;
             // newhighlight
             // view.dirty(
@@ -440,6 +435,14 @@ impl ViewContainer for Hunk {
             .map(|vh| vh as &dyn ViewContainer)
             .collect()
     }
+
+    // Hunk
+    fn fill_context(&self, ctx: &mut StatusRenderContext) {
+        if self.view.is_rendered() {
+            ctx.collect_hunk_highlights(self.view.line_no.get());
+        }
+    }
+    
     // Hunk
     fn is_active_by_parent(
         &self,
@@ -488,6 +491,13 @@ impl ViewContainer for Line {
 
     fn get_children(&self) -> Vec<&dyn ViewContainer> {
         Vec::new()
+    }
+
+    // Line
+    fn fill_context(&self, ctx: &mut StatusRenderContext) {
+        if self.view.is_rendered() && self.view.is_active() {
+            ctx.collect_region_highlights(self.view.line_no.get());
+        }
     }
 
     // Line

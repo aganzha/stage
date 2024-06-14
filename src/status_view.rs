@@ -864,7 +864,7 @@ impl Status {
         context: &mut StatusRenderContext,
     ) {
         debug!("................ begin cursor");
-        txt.set_current_line(line_no);
+        txt.highlight_cursor(line_no);
         // context.update_cursor_pos(line_no, offset);
         let mut changed = false;
         if let Some(untracked) = &self.untracked {
@@ -882,16 +882,10 @@ impl Status {
         // HARDCODE
         if changed {
             trace!("................ BEFORE RENDER in cursor {:?}", context.highlight_regions);
-            // if let Some(highlight_regions) = context.highlight_regions {
-            //     txt.set_highlight(highlight_regions);
-            // } else {
-            //     debug!("....................reset highlight in active cursor");
-            //     txt.reset_highlight();
-            // }
             self.render(txt, RenderSource::Cursor(line_no), context);
         } else {
             debug!("cursor is not active----------------------");
-            assert!(!txt.has_highlight());
+            assert!(!txt.has_active());
             // if txt.has_highlight() {
             //     panic!("no way to have highlight here!");
             //     debug!("-------------------- reset highlight in INACTIVE cursor");
@@ -1020,10 +1014,15 @@ impl Status {
 
         if let Some(highlight_regions) = context.highlight_regions {
             debug!("+++++++++++ highlight_regions at the END of render");
-            txt.set_highlight(highlight_regions);
+            txt.highlight_active(highlight_regions);
         } else {
             debug!("....................reset highlight in active cursor");
-            txt.reset_highlight();
+            txt.reset_active();            
+        }
+        if !context.highlight_hunks.is_empty() {
+            txt.set_highlight_hunks(&context.highlight_hunks);
+        } else {
+            txt.reset_highlight_hunks()
         }
         // debug!("aaaaaaaaaaaaaaaaaafter {:?}", buffer.cursor_position());
         // match source {

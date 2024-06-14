@@ -28,31 +28,32 @@ glib::wrapper! {
 mod stage_view {
     use gtk4::prelude::*;
     use gtk4::{glib, TextView, TextViewLayer, Snapshot, gdk, graphene,
-      //MovementStep//, DeleteType, TextIter, TextExtendSelection, 
+      //MovementStep//, DeleteType, TextIter, TextExtendSelection,
     };
     use std::cell::{Cell, RefCell};
     use glib::Properties;
-    
+
     use gtk4::subclass::prelude::*;
     use log::{debug, trace};
-    
+
     // #[derive(Properties, Default)]
     // #[properties(wrapper_type = super::StageView)]
 
     #[derive(Default)]
     pub struct StageView {
 
-        pub current_line: Cell<(i32, i32)>,
-        pub highlight_lines: Cell<(i32, i32)>,
-        
+        pub cursor: Cell<(i32, i32)>,
+        pub active: Cell<(i32, i32)>,
+        pub hunks: RefCell<Vec<(i32, i32)>>,
+
         // TODO! put it here!
         pub is_dark: bool,
-            
-        // #[property(get, set)]        
+
+        // #[property(get, set)]
         // pub current_line: RefCell<i32>,
     }
 
-    
+
     #[glib::object_subclass]
     impl ObjectSubclass for StageView {
         const NAME: &'static str = "StageView";
@@ -61,9 +62,9 @@ mod stage_view {
     }
 
     impl StageView {
-        
+
     }
-    
+
     impl TextViewImpl for StageView {
         // fn backspace(&self) {
         //     self.parent_backspace()
@@ -115,17 +116,23 @@ mod stage_view {
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
             if layer == TextViewLayer::BelowText {
 
-                let (y_from, y_to) = self.highlight_lines.get();
+                let (y_from, y_to) = self.active.get();
                 // HARCODE - 2000
                 snapshot.append_color(
-                    &gdk::RGBA::new(0.965, 0.961, 0.957, 1.0),                    
+                    &gdk::RGBA::new(0.965, 0.961, 0.957, 1.0),
                     &graphene::Rect::new(0.0, y_from as f32, 2000.0, y_to as f32)
                 );
-                
-                let (y_from, y_to) = self.current_line.get();
+                // HARCODE - 2000
+                for (y_from, y_to) in self.hunks.borrow().iter() {
+                    snapshot.append_color(
+                        &gdk::RGBA::new(222.0/255.0, 221.0/255.0, 218.0/255.0, 1.0),
+                        &graphene::Rect::new(0.0, *y_from as f32, 2000.0, *y_to as f32)
+                    );
+                }
+                let (y_from, y_to) = self.cursor.get();
                 // HARCODE - 2000
                 snapshot.append_color(
-                    &gdk::RGBA::new(0.80, 0.87, 0.97, 1.0),                    
+                    &gdk::RGBA::new(0.80, 0.87, 0.97, 1.0),
                     &graphene::Rect::new(0.0, y_from as f32, 2000.0, y_to as f32)
                 );
 
@@ -146,28 +153,46 @@ impl StageView {
         glib::Object::builder().build()
     }
 
-    pub fn set_current_line(&self, line_no: i32) {
+    pub fn highlight_cursor(&self, line_no: i32) {
         let iter = self.buffer().iter_at_line(line_no).unwrap();
         let range = self.line_yrange(&iter);
-        self.imp().current_line.replace(range);
+        self.imp().cursor.replace(range);
     }
 
-    pub fn set_highlight(&self, from_to: (i32, i32)) {        
+    pub fn highlight_active(&self, from_to: (i32, i32)) {
         let iter = self.buffer().iter_at_line(from_to.0).unwrap();
-        let from_range = self.line_yrange(&iter);   
+        let from_range = self.line_yrange(&iter);
         debug!("oixxxxxxxxxxxels {:?} {:?}", from_range, from_to);
-        self.imp().highlight_lines.replace((from_range.0, from_range.1 * (from_to.1 - from_to.0 + 1)));
+        self.imp().active.replace((from_range.0, from_range.1 * (from_to.1 - from_to.0 + 1)));
     }
 
-    pub fn has_highlight(&self) -> bool {
-        let (from, to) = self.imp().highlight_lines.get();
+    pub fn reset_active(&self) {
+        self.imp().active.replace((0, 0));
+    }
+
+    pub fn has_active(&self) -> bool {
+        let (from, to) = self.imp().active.get();
         return from > 0 || to > 0
     }
 
-    pub fn reset_highlight(&self) {
-        self.imp().highlight_lines.replace((0, 0));
+    pub fn set_highlight_hunks(&self, hunks: &Vec<i32>) {
+        if hunks.is_empty() {
+            return;
+        }
+        let iter = self.buffer().iter_at_line(hunks[0]).unwrap();
+        self.imp().hunks.replace(hunks.iter().filter_map(|h| {
+            if let Some(iter) = self.buffer().iter_at_line(*h) {
+                return Some(self.line_yrange(&iter))
+            }
+            None
+        }).collect());
+        debug!("EEEEEEEEEEEEEEEEEEEEEEEEEEEEE {:?}", self.imp().hunks);
     }
-    
+
+    pub fn reset_highlight_hunks(&self) {
+        self.imp().hunks.replace(Vec::new());
+    }
+
 }
 
 pub trait CharView {
@@ -235,7 +260,7 @@ pub fn factory(
     } else {
         txt.set_css_classes(&[&LIGHT_CLASS]);
     }
-    
+
     let buffer = txt.buffer();
     let table = buffer.tag_table();
     let mut pointer: Option<TextTag> = None;
