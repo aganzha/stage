@@ -117,7 +117,6 @@ mod stage_view {
 
                 let (y_from, y_to) = self.highlight_lines.get();
                 // HARCODE - 2000
-                debug!("............... HIGHLIGHT {:?} {:?}", y_from, y_to);
                 snapshot.append_color(
                     &gdk::RGBA::new(0.965, 0.961, 0.957, 1.0),                    
                     &graphene::Rect::new(0.0, y_from as f32, 2000.0, y_to as f32)

@@ -880,19 +880,24 @@ impl Status {
             changed = staged.cursor(line_no, false, context) || changed;
         }
         // HARDCODE
-        if changed || true {
+        if changed {
             trace!("................ BEFORE RENDER in cursor {:?}", context.highlight_regions);
-            if let Some(highlight_regions) = context.highlight_regions {
-                txt.set_highlight(highlight_regions);
-            } else {
-                txt.reset_highlight();
-            }
+            // if let Some(highlight_regions) = context.highlight_regions {
+            //     txt.set_highlight(highlight_regions);
+            // } else {
+            //     debug!("....................reset highlight in active cursor");
+            //     txt.reset_highlight();
+            // }
             self.render(txt, RenderSource::Cursor(line_no), context);
         } else {
-            if txt.has_highlight() {
-                txt.reset_highlight();
-                self.render(txt, RenderSource::Cursor(line_no), context);
-            }
+            debug!("cursor is not active----------------------");
+            assert!(!txt.has_highlight());
+            // if txt.has_highlight() {
+            //     panic!("no way to have highlight here!");
+            //     debug!("-------------------- reset highlight in INACTIVE cursor");
+            //     txt.reset_highlight();
+            //     self.render(txt, RenderSource::Cursor(line_no), context);
+            // }
         }
     }
 
@@ -1012,6 +1017,14 @@ impl Status {
             staged.render(&buffer, &mut iter, context);
         }
         trace!("render source {:?}", source);
+
+        if let Some(highlight_regions) = context.highlight_regions {
+            debug!("+++++++++++ highlight_regions at the END of render");
+            txt.set_highlight(highlight_regions);
+        } else {
+            debug!("....................reset highlight in active cursor");
+            txt.reset_highlight();
+        }
         // debug!("aaaaaaaaaaaaaaaaaafter {:?}", buffer.cursor_position());
         // match source {
         //     RenderSource::Cursor(_) => {
