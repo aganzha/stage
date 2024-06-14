@@ -464,8 +464,8 @@ impl ViewContainer for Hunk {
         // whole hunk is active
         active
     }
-    fn tags(&self) -> Vec<tags::TxtTag> {
-        vec![make_tag(tags::HUNK), make_tag(tags::POINTER)]
+    fn tags(&self) -> Vec<tags::TxtTag> {        
+        Vec::new()
     }
 
     fn is_expandable_by_child(&self) -> bool {
