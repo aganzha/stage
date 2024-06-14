@@ -42,7 +42,12 @@ mod stage_view {
     #[derive(Default)]
     pub struct StageView {
 
-        pub current_line: Cell<(i32, i32)>
+        pub current_line: Cell<(i32, i32)>,
+        pub highlight_lines: Cell<(i32, i32)>,
+        
+        // TODO! put it here!
+        pub is_dark: bool,
+            
         // #[property(get, set)]        
         // pub current_line: RefCell<i32>,
     }
@@ -109,12 +114,22 @@ mod stage_view {
 
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
             if layer == TextViewLayer::BelowText {
+
+                let (y_from, y_to) = self.highlight_lines.get();
+                // HARCODE - 2000
+                debug!("............... HIGHLIGHT {:?} {:?}", y_from, y_to);
+                snapshot.append_color(
+                    &gdk::RGBA::new(0.965, 0.961, 0.957, 1.0),                    
+                    &graphene::Rect::new(0.0, y_from as f32, 2000.0, y_to as f32)
+                );
+                
                 let (y_from, y_to) = self.current_line.get();
                 // HARCODE - 2000
                 snapshot.append_color(
                     &gdk::RGBA::new(0.80, 0.87, 0.97, 1.0),                    
                     &graphene::Rect::new(0.0, y_from as f32, 2000.0, y_to as f32)
                 );
+
             }
             self.parent_snapshot_layer(layer, snapshot)
         }
@@ -133,20 +148,18 @@ impl StageView {
     }
 
     pub fn set_current_line(&self, line_no: i32) {
-        // let range = 
-        // let (current, _) = self.imp().current_line.get();
         let iter = self.buffer().iter_at_line(line_no).unwrap();
         let range = self.line_yrange(&iter);
         self.imp().current_line.replace(range);
     }
-    pub fn get_current_line(&self) -> i32{
-        let (current, _) = self.imp().current_line.get();
-        current
+
+    pub fn set_highlight(&self, from_to: (i32, i32)) {        
+        let iter = self.buffer().iter_at_line(from_to.0).unwrap();
+        let from_range = self.line_yrange(&iter);   
+        debug!("oixxxxxxxxxxxels {:?} {:?}", from_range, from_to);
+        self.imp().highlight_lines.replace((from_range.0, from_range.1 * (from_to.1 - from_to.0)));
     }
-    pub fn get_previous_line(&self) -> i32 {
-        let (_, previous) = self.imp().current_line.get();
-        previous
-    }
+    
 }
 
 pub trait CharView {
@@ -257,11 +270,9 @@ pub fn factory(
             } else {
                 new_classes.push(&LIGHT_CLASS);
             }
-            debug!("-------------------> {:?} {:?}", is_dark, new_classes);
             txt.set_css_classes(&new_classes);
             table.foreach(|tt| {
                 if let Some(name) = tt.name() {
-                    debug!("-----------------> {:?}", name);
                     let t = tags::TxtTag::unknown_tag(name.to_string());
                     t.fill_text_tag(&tt, is_dark);
                 }
