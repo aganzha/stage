@@ -157,7 +157,16 @@ impl StageView {
         let iter = self.buffer().iter_at_line(from_to.0).unwrap();
         let from_range = self.line_yrange(&iter);   
         debug!("oixxxxxxxxxxxels {:?} {:?}", from_range, from_to);
-        self.imp().highlight_lines.replace((from_range.0, from_range.1 * (from_to.1 - from_to.0)));
+        self.imp().highlight_lines.replace((from_range.0, from_range.1 * (from_to.1 - from_to.0 + 1)));
+    }
+
+    pub fn has_highlight(&self) -> bool {
+        let (from, to) = self.imp().highlight_lines.get();
+        return from > 0 || to > 0
+    }
+
+    pub fn reset_highlight(&self) {
+        self.imp().highlight_lines.replace((0, 0));
     }
     
 }

@@ -879,25 +879,20 @@ impl Status {
         if let Some(staged) = &self.staged {
             changed = staged.cursor(line_no, false, context) || changed;
         }
-        if changed {
-            debug!("................ BEFORE RENDER in cursor {:?}", context.highlight_regions);
+        // HARDCODE
+        if changed || true {
+            trace!("................ BEFORE RENDER in cursor {:?}", context.highlight_regions);
             if let Some(highlight_regions) = context.highlight_regions {
                 txt.set_highlight(highlight_regions);
+            } else {
+                txt.reset_highlight();
             }
             self.render(txt, RenderSource::Cursor(line_no), context);
-            debug!("................ AFTER RENDER in cursor");
-
-            // let buffer = txt.buffer();
-            // let iter = &buffer.iter_at_offset(offset);
-            // buffer.place_cursor(iter);
         } else {
-            debug!("IT NEED TO HIGHLIGHT CURSOR SOMEHOW!");
-            // let buffer = txt.buffer();
-            // if let Some(mut iter) = buffer.iter_at_line(line_no) {
-            //     iter.forward_to_line_end();
-            //     buffer.insert(&mut iter, "XXX");
-            //     debug!("???????????????????? {:?}", line_no);
-            // }
+            if txt.has_highlight() {
+                txt.reset_highlight();
+                self.render(txt, RenderSource::Cursor(line_no), context);
+            }
         }
     }
 
