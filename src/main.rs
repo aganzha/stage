@@ -463,26 +463,28 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     );
                 }
                 Event::Staged(d) => {
-                    info!("main. staged");
+                    info!("Staged");
                     hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
                     status.update_staged(d, &txt, &mut ctx);
                 }
                 Event::Unstaged(d) => {
-                    info!("main. unstaged");
+                    info!("Unstaged");
                     status.update_unstaged(d, &txt, &mut ctx);
                 }
                 Event::Expand(offset, line_no) => {
+                    info!("Expand");
                     status.expand(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Cursor(offset, line_no) => {
+                    info!("Cursor");
                     status.cursor(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Stage(_offset, line_no) => {
-                    info!("main. stage");
+                    info!("Stage");
                     status.stage(&txt, line_no, ApplySubject::Stage, &window);
                 }
                 Event::UnStage(_offset, line_no) => {
-                    info!("main. unstage");
+                    info!("Unstage");
                     status.stage(
                         &txt,
                         line_no,
