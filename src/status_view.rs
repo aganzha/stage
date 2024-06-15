@@ -841,7 +841,19 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext,
     ) {
+        
         let buffer = &txt.buffer();
+        
+        let iter = buffer.iter_at_offset(buffer.cursor_position());
+        let initial_line_offset = iter.line_offset();
+        debug!("000  enter update unstaged line {:?} offset {}", iter.line(), iter.line_offset());
+        
+        // buffer.insert(&mut iter, "XXX");
+
+        // if self.unstaged.is_some() {
+        //     debug!("nooooooooooooooo way");
+        //     return;
+        // }        
         if let Some(u) = &mut self.unstaged {
             // hide untracked for now
             // DiffDirection is required here to choose which lines to
@@ -850,19 +862,41 @@ impl Status {
             // to main (during update)
             diff.enrich_view(u, buffer, context);
         }
+        let iter = buffer.iter_at_offset(buffer.cursor_position());
+        debug!("111 enriched view in unstaged line {:?} offset {}", iter.line(), iter.line_offset());
         self.unstaged.replace(diff);
         // it need to render now
         // BUT cursor could be changed in case user staged something
         // this hunk goes away. now another hunk will be rendered on same place!
         // or something else...
-        self.render(txt, RenderSource::Git, context);
 
-        let offset = buffer.cursor_position();
-        let iter = buffer.iter_at_offset(offset);
-        let line = iter.line();
-        debug!("just RENDERED unstaged and now calling cursor at line {:?}", line);
+        // buffer.insert(&mut iter, "XXX");
+
+        // if offset == 202 {
+        //     panic!("STOP");
+        // }
+        self.render(txt, RenderSource::Git, context);
+        // TODO! all this is only for diffs. use tag mehanics here! (i have tags around diffs!)
+        let  mut iter = buffer.iter_at_offset(buffer.cursor_position());
+        // let current_line_offset = iter.line_offset();
+        // GO TO START OF LINE THIS WAY
+        iter.backward_line();
+        iter.forward_lines(1);
+        iter.forward_chars(initial_line_offset);
+        buffer.place_cursor(&iter);
+        self.cursor(&txt, iter.line(), iter.offset(), context);
+        
+        debug!("2222  rendered in unstaged line {:?} offset {}", iter.line(), iter.line_offset());
         // thats by the way is choose_cursor_position !!!!!!!!!!!!!!!!
-        self.cursor(&txt, line, offset, context);
+        // important! content will change undernith, thats why it it
+        // to make cursor reposition
+        // self.cursor(&txt, line, offset, context);
+
+        // why do i need to place it?
+        // let iter = buffer.iter_at_offset(offset);
+        // buffer.place_cursor(&iter);
+
+        
         // WEIRD
         // why check both??? perhaps just for very first render
         // if self.staged.is_some() && self.unstaged.is_some() {
@@ -896,7 +930,7 @@ impl Status {
             self.render(txt, RenderSource::Cursor(line_no), context);
         } else {
             // assert!(!txt.has_highlight_lines());
-            debug!("CURSOR IS NOT CHANGED. do we have highlight? {:?}", txt.has_highlight_lines());
+            debug!("PUT HERE TRACEBACK!!!!!!!!! CURSOR IS NOT CHANGED. do we have highlight? {:?}", txt.has_highlight_lines());            
             // if txt.has_highlight() {
             //     debug!("-------------------- reset highlight in INACTIVE cursor");
             //     txt.reset_highlight();
@@ -1016,10 +1050,10 @@ impl Status {
         }
 
         if let Some(lines) = context.highlight_lines {
-            debug!("+++++++++++ highlight_lines at the END of render {:?}", &lines);
+            trace!("+++++++++++ highlight_lines at the END of render {:?}", &lines);
             txt.highlight_lines(lines);
         } else {
-            debug!("....................reset highlight lines at the END of render");
+            trace!("....................reset highlight lines at the END of render");
             txt.reset_highlight_lines();
         }
         
@@ -1305,6 +1339,7 @@ impl Status {
     //         }
     //     }
     //     // why do i need that back and forw?
+    //     // I KNOW! thats just moving to start of line!
     //     let mut iter = buffer.iter_at_offset(offset);
     //     iter.backward_line();
     //     iter.forward_lines(1);
@@ -1323,27 +1358,33 @@ impl Status {
         false
     }
     pub fn debug(&mut self, txt: &StageView, context: &mut StatusRenderContext) {
-        if let Some(unstaged) = &self.unstaged {
-            for file in &unstaged.files {
-                if !(file.path.as_path().to_str().unwrap()).contains(&"txt") {
-                    continue
-                }
-                debug!("file .. {} {}", file.view.line_no.get(), file.view.is_active());
-                for hunk in &file.hunks {
-                    debug!("hunk .. {} {}", hunk.view.line_no.get(), hunk.view.is_active());
-                    for line in &hunk.lines {
-                        debug!("line .. {} {}", line.view.line_no.get(), line.view.is_active());
-                    }
-                }
-                file.cursor(file.view.line_no.get() + 1, false, context);
-                for hunk in &file.hunks {
-                    debug!("hunk .. {} {}", hunk.view.line_no.get(), hunk.view.is_active());
-                    for line in &hunk.lines {
-                        debug!("line .. {} {}", line.view.line_no.get(), line.view.is_active());
-                    }
-                }
-            }
-        }
+        let buffer = txt.buffer();
+        let offset = buffer.cursor_position();
+        let iter = buffer.iter_at_offset(offset);
+        let line = iter.line();
+        let line_offset = iter.line_offset();
+        debug!("-------- offset, line, line_offset {} {} {}", offset, line, line_offset);
+        // if let Some(unstaged) = &self.unstaged {
+        //     for file in &unstaged.files {
+        //         if !(file.path.as_path().to_str().unwrap()).contains(&"txt") {
+        //             continue
+        //         }
+        //         debug!("file .. {} {}", file.view.line_no.get(), file.view.is_active());
+        //         for hunk in &file.hunks {
+        //             debug!("hunk .. {} {}", hunk.view.line_no.get(), hunk.view.is_active());
+        //             for line in &hunk.lines {
+        //                 debug!("line .. {} {}", line.view.line_no.get(), line.view.is_active());
+        //             }
+        //         }
+        //         file.cursor(file.view.line_no.get() + 1, false, context);
+        //         for hunk in &file.hunks {
+        //             debug!("hunk .. {} {}", hunk.view.line_no.get(), hunk.view.is_active());
+        //             for line in &hunk.lines {
+        //                 debug!("line .. {} {}", line.view.line_no.get(), line.view.is_active());
+        //             }
+        //         }
+        //     }
+        // }
         // let buffer = txt.buffer();
         // let iter = buffer.iter_at_offset(buffer.cursor_position());
         // let current_line = iter.line();
