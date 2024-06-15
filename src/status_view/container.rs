@@ -226,6 +226,8 @@ pub trait ViewContainer {
 
     // ViewContainer
     fn erase(&self, buffer: &TextBuffer, context: &mut StatusRenderContext) {
+        debug!("eeeeeeeeeeeeeeeerasing");
+        // return;
         // CAUTION. ATTENTION. IMPORTANT
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         // after this operation all prev iters bevome INVALID!

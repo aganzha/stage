@@ -169,7 +169,7 @@ impl StageView {
                 move || {
                     if let Some(iter) = textview.buffer().iter_at_line(from_to.0) {
                         let range = textview.line_yrange(&iter);
-                        debug!("highlight_lines in textview .............. {:?} {:?}", from_to, range);
+                        trace!("highlight_lines in textview .............. {:?} {:?}", from_to, range);
                         textview.imp().active_lines.replace((range.0, range.1 * (from_to.1 - from_to.0 + 1)));
                     }
                     glib::ControlFlow::Break
