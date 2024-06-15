@@ -123,10 +123,22 @@ impl StageView {
     }
 
     pub fn highlight_lines(&self, from_to: (i32, i32)) {
-        let iter = self.buffer().iter_at_line(from_to.0).unwrap();
-        let from_range = self.line_yrange(&iter);
-        trace!("highlight_lines in textview .............. {:?}", from_to);
-        self.imp().active_lines.replace((from_range.0, from_range.1 * (from_to.1 - from_to.0 + 1)));
+        // this is hack, because line_yrange just after
+        // rendering line returns wrong pixes coords and height!
+        // see timeout value - it is just 1 msec!
+        glib::source::timeout_add_local(
+            Duration::from_millis(1),
+            {         
+                let textview = self.clone();        
+                move || {
+                    let iter = textview.buffer().iter_at_line(from_to.0).unwrap();
+                    let range = textview.line_yrange(&iter);
+                    trace!("highlight_lines in textview .............. {:?} {:?}", from_to, range);
+                    textview.imp().active_lines.replace((range.0, range.1 * (from_to.1 - from_to.0 + 1)));
+                    glib::ControlFlow::Break
+                }
+            }
+        );                        
     }
 
     pub fn reset_highlight_lines(&self) {
@@ -466,7 +478,7 @@ pub fn factory(
                                     _ => {
                                     }
                                 }
-                                debug!("PERFORM REAL CLICK {:?}", n_clicks);
+                                trace!("PERFORM REAL CLICK {:?}", n_clicks);
                             }
                             ControlFlow::Break
                         }
@@ -538,7 +550,7 @@ pub fn factory(
                     ))
                     .expect("could not sent through channel");
                     if visible_char_width > text_view_width.borrow().chars {
-                        debug!("text_view_width is changed! {:?} {:?}", text_view_width, visible_char_width);
+                        trace!("text_view_width is changed! {:?} {:?}", text_view_width, visible_char_width);
                         text_view_width.borrow_mut().chars =
                             visible_char_width;
                         sndr.send_blocking(crate::Event::TextViewResize(

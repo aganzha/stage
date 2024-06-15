@@ -901,42 +901,67 @@ impl Status {
         // let mut changed = false;
 
         if let Some(conflicted) = &self.conflicted {
-            for file in &conflicted.files {
-                if let Some(expanded_line) = file.expand(line_no) {
-                    self.render(
-                        txt,
-                        RenderSource::Expand(expanded_line),
-                        context,
-                    );
-                    return;
-                }
-            }
+            if let Some(expanded_line) = conflicted.expand(line_no, context) {
+                self.render(
+                    txt,
+                    RenderSource::Expand(expanded_line),
+                    context,
+                );
+                return;
+            }            
+            // for file in &conflicted.files {
+            //     if let Some(expanded_line) = file.expand(line_no, context) {
+            //         self.render(
+            //             txt,
+            //             RenderSource::Expand(expanded_line),
+            //             context,
+            //         );
+            //         return;
+            //     }
+            // }
         }
 
         if let Some(unstaged) = &self.unstaged {
-            for file in &unstaged.files {
-                if let Some(expanded_line) = file.expand(line_no) {
-                    debug!("go render in expand --------------------->");
-                    self.render(
-                        txt,
-                        RenderSource::Expand(expanded_line),
-                        context,
-                    );
-                    return;
-                }
-            }
+            if let Some(expanded_line) = unstaged.expand(line_no, context) {
+                debug!("go render in expand --------------------->");             
+                self.render(
+                    txt,
+                    RenderSource::Expand(expanded_line),
+                    context,
+                );
+                return
+            }        
+            // for file in &unstaged.files {
+            //     if let Some(expanded_line) = file.expand(line_no, context) {
+            //         debug!("go render in expand --------------------->");             
+            //         self.render(
+            //             txt,
+            //             RenderSource::Expand(expanded_line),
+            //             context,
+            //         );
+            //         return;
+            //     }
+            // }
         }
         if let Some(staged) = &self.staged {
-            for file in &staged.files {
-                if let Some(expanded_line) = file.expand(line_no) {
-                    self.render(
-                        txt,
-                        RenderSource::Expand(expanded_line),
-                        context,
-                    );
-                    return;
-                }
+            if let Some(expanded_line) = staged.expand(line_no, context) {
+                self.render(
+                    txt,
+                    RenderSource::Expand(expanded_line),
+                    context,
+                );
+                return;
             }
+            // for file in &staged.files {
+            //     if let Some(expanded_line) = file.expand(line_no, context) {
+            //         self.render(
+            //             txt,
+            //             RenderSource::Expand(expanded_line),
+            //             context,
+            //         );
+            //         return;
+            //     }
+            // }
         }
     }
 
@@ -1211,7 +1236,7 @@ impl Status {
         let mut file_path: Option<PathBuf> = None;
         let mut hunk_header: Option<String> = None;
         for file in &diff.files {
-            if file.view.is_active() {
+            if file.view.is_current() {
                 file_path.replace(file.path.clone());
                 break;
             }

@@ -146,7 +146,7 @@ pub trait ViewContainer {
 
         if view.is_rendered() {
             // repaint if highlight is changed
-            // debug!("its me marking dirty, cursor! {} at {}", ((view.is_active() != active_before) || (view.is_current() != current_before)), view.line_no.get());
+            // trace!("its me marking dirty, cursor! {} at {}", ((view.is_active() != active_before) || (view.is_current() != current_before)), view.line_no.get());
 
             result = view.is_active() != active_before || view.is_current() != current_before;
             // newhighlight
@@ -185,7 +185,7 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn expand(&self, line_no: i32) -> Option<i32> {
+    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
         let mut found_line: Option<i32> = None;
         let v = self.get_view();
         if v.is_rendered_in(line_no) {
@@ -207,14 +207,14 @@ pub trait ViewContainer {
             // go deeper for self.children
             trace!("expand. ____________ go deeper");
             for child in self.get_children() {
-                found_line = child.expand(line_no);
+                found_line = child.expand(line_no, context);
                 if found_line.is_some() {
                     break;
                 }
             }
             if found_line.is_some() && self.is_expandable_by_child() {
                 let line_no = self.get_view().line_no.get();
-                return self.expand(line_no);
+                return self.expand(line_no, context);
             }
         }
         found_line
@@ -338,8 +338,14 @@ impl ViewContainer for Diff {
         }
     }
     // Diff
-    fn expand(&self, _line_no: i32) -> Option<i32> {
-        todo!("no one calls expand on diff");
+    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
+        let mut result: Option<i32> = None;
+        for file in &self.files {
+            if let Some(line) = file.expand(line_no, context) {
+                result.replace(line);
+            }
+        }
+        result
     }
 
     fn tags(&self) -> Vec<tags::TxtTag> {
@@ -441,10 +447,6 @@ impl ViewContainer for Hunk {
     }
 
     fn get_view(&self) -> &View {
-        if self.view.line_no.get() == 0 && !self.view.is_expanded() {
-            // hunks are expanded by default
-            self.view.expand(true)
-        }
         &self.view
     }
 
@@ -527,7 +529,7 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn expand(&self, line_no: i32) -> Option<i32> {
+    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
         // here we want to expand hunk
         if self.get_view().line_no.get() == line_no {
             return Some(line_no);
@@ -735,7 +737,7 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked (diff)
-    fn expand(&self, line_no: i32) -> Option<i32> {
+    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
         // here we want to expand hunk
         if self.get_view().line_no.get() == line_no {
             return Some(line_no);
@@ -807,7 +809,7 @@ impl ViewContainer for UntrackedFile {
     }
 
     // untracked file
-    fn expand(&self, line_no: i32) -> Option<i32> {
+    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
         // here we want to expand hunk
         if self.get_view().line_no.get() == line_no {
             return Some(line_no);
