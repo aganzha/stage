@@ -521,7 +521,7 @@ impl ViewContainer for Line {
     // Line
     fn fill_context(&self, ctx: &mut StatusRenderContext) {
         if self.view.is_rendered() && self.view.is_active() {
-            debug!("thats rendered and ACTIVE line {:?}", self.view.line_no);
+            trace!("thats rendered and ACTIVE line {:?}", self.view.line_no);
             ctx.collect_line_highlights(self.view.line_no.get());
         }
     }

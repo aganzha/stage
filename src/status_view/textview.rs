@@ -70,6 +70,10 @@ mod stage_view {
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
             if layer == TextViewLayer::BelowText {
 
+                // this is hack. for some reason line_yrange not always
+                // returns height of line :(
+                // let mut known_line_height: i32 = 0;
+                
                 // highlight active_lines ----------------------------
                 let (y_from, y_to) = self.active_lines.get();
                 // HARCODE - 2000. color #f6f5f4/494949 - 246/255 245/255 244/255
@@ -121,7 +125,7 @@ impl StageView {
     pub fn highlight_lines(&self, from_to: (i32, i32)) {
         let iter = self.buffer().iter_at_line(from_to.0).unwrap();
         let from_range = self.line_yrange(&iter);
-        debug!("highlight_lines in textview .............. {:?}", from_to);
+        trace!("highlight_lines in textview .............. {:?}", from_to);
         self.imp().active_lines.replace((from_range.0, from_range.1 * (from_to.1 - from_to.0 + 1)));
     }
 
@@ -137,15 +141,28 @@ impl StageView {
     pub fn set_highlight_hunks(&self, hunks: &Vec<i32>) {
         if hunks.is_empty() {
             return;
-        }
-        let iter = self.buffer().iter_at_line(hunks[0]).unwrap();
-        self.imp().hunks.replace(hunks.iter().filter_map(|h| {
-            if let Some(iter) = self.buffer().iter_at_line(*h) {
-                return Some(self.line_yrange(&iter))
+        }        
+        let buffer = self.buffer();
+        // this is hack, because line_yrange just after
+        // rendering line returns wrong pixes coords and height!
+        // see timeout value - it is just 1 msec!
+        glib::source::timeout_add_local(
+            Duration::from_millis(1),
+            {         
+                let textview = self.clone();
+                let hunks: Vec<i32> = hunks.into_iter().map(|h| *h).collect();
+                move || {
+                    textview.imp().hunks.replace(hunks.iter().filter_map(|h| {
+                        if let Some(iter) = buffer.iter_at_line(*h) {
+                            let range = textview.line_yrange(&iter);
+                            return Some(range);
+                        }
+                        None
+                    }).collect());
+                    glib::ControlFlow::Break
+                }
             }
-            None
-        }).collect());
-        debug!(">>>>>>hunks to highlight {:?}", self.imp().hunks);
+        );
     }
 
     pub fn reset_highlight_hunks(&self) {
