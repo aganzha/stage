@@ -341,7 +341,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     }
                 }
                 Event::Debug => {
-                    info!("main. debug");
+                    info!("Debug");
+                    status.debug(&txt, &mut ctx);
                     // let new_snapshot = Snapshot::new();
                     // new_snapshot.append_color(
                     //     &gdk::RGBA::new(0.0, 0.0, 0.0, 1.0),

@@ -73,7 +73,7 @@ mod stage_view {
                 // this is hack. for some reason line_yrange not always
                 // returns height of line :(
                 // let mut known_line_height: i32 = 0;
-                
+
                 // highlight active_lines ----------------------------
                 let (y_from, y_to) = self.active_lines.get();
                 // HARCODE - 2000. color #f6f5f4/494949 - 246/255 245/255 244/255
@@ -119,7 +119,28 @@ impl StageView {
     pub fn highlight_cursor(&self, line_no: i32) {
         let iter = self.buffer().iter_at_line(line_no).unwrap();
         let range = self.line_yrange(&iter);
-        self.imp().cursor.replace(range);
+        let first_line_iter = self.buffer().iter_at_line(line_no).unwrap();
+        let first_line_range = self.line_yrange(&first_line_iter);
+        let (y, mut height) = range;
+        if first_line_range.1 > 0 && first_line_range.1 < height {
+            // broken height on current line!
+            height = first_line_range.1;
+        }
+        debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>HIGHLIGHT CURSOR {:?} range {:?}, replaced height {}, first_line_range {:?}", line_no, range, height, first_line_range);
+        self.imp().cursor.replace((y, height));
+        // glib::source::timeout_add_local(
+        //     Duration::from_millis(1),
+        //     {
+        //         let textview = self.clone();
+        //         move || {
+        //             let iter = textview.buffer().iter_at_line(line_no).unwrap();
+        //             let range = textview.line_yrange(&iter);
+        //             debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>HIGHLIGHT CURSOR {:?} {:?}", line_no, range);
+        //             textview.imp().cursor.replace(range);
+        //             glib::ControlFlow::Break
+        //         }
+        //     }
+        // );
     }
 
     pub fn highlight_lines(&self, from_to: (i32, i32)) {
@@ -128,24 +149,25 @@ impl StageView {
         // see timeout value - it is just 1 msec!
         glib::source::timeout_add_local(
             Duration::from_millis(1),
-            {         
-                let textview = self.clone();        
+            {
+                let textview = self.clone();
                 move || {
-                    let iter = textview.buffer().iter_at_line(from_to.0).unwrap();
-                    let range = textview.line_yrange(&iter);
-                    trace!("highlight_lines in textview .............. {:?} {:?}", from_to, range);
-                    textview.imp().active_lines.replace((range.0, range.1 * (from_to.1 - from_to.0 + 1)));
+                    if let Some(iter) = textview.buffer().iter_at_line(from_to.0) {
+                        let range = textview.line_yrange(&iter);
+                        debug!("highlight_lines in textview .............. {:?} {:?}", from_to, range);
+                        textview.imp().active_lines.replace((range.0, range.1 * (from_to.1 - from_to.0 + 1)));
+                    }
                     glib::ControlFlow::Break
                 }
             }
-        );                        
+        );
     }
 
     pub fn reset_highlight_lines(&self) {
         self.imp().active_lines.replace((0, 0));
     }
 
-    pub fn has_active(&self) -> bool {
+    pub fn has_highlight_lines(&self) -> bool {
         let (from, to) = self.imp().active_lines.get();
         return from > 0 || to > 0
     }
@@ -153,14 +175,14 @@ impl StageView {
     pub fn set_highlight_hunks(&self, hunks: &Vec<i32>) {
         if hunks.is_empty() {
             return;
-        }        
+        }
         let buffer = self.buffer();
         // this is hack, because line_yrange just after
         // rendering line returns wrong pixes coords and height!
         // see timeout value - it is just 1 msec!
         glib::source::timeout_add_local(
             Duration::from_millis(1),
-            {         
+            {
                 let textview = self.clone();
                 let hunks: Vec<i32> = hunks.into_iter().map(|h| *h).collect();
                 move || {

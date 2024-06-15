@@ -841,19 +841,33 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext,
     ) {
+        let buffer = &txt.buffer();
         if let Some(u) = &mut self.unstaged {
             // hide untracked for now
             // DiffDirection is required here to choose which lines to
             // compare - new_ or old_
             // perhaps need to move to git.rs during sending event
             // to main (during update)
-            diff.enrich_view(u, &txt.buffer(), context);
+            diff.enrich_view(u, buffer, context);
         }
         self.unstaged.replace(diff);
+        // it need to render now
+        // BUT cursor could be changed in case user staged something
+        // this hunk goes away. now another hunk will be rendered on same place!
+        // or something else...
+        self.render(txt, RenderSource::Git, context);
+
+        let offset = buffer.cursor_position();
+        let iter = buffer.iter_at_offset(offset);
+        let line = iter.line();
+        debug!("just RENDERED unstaged and now calling cursor at line {:?}", line);
+        // thats by the way is choose_cursor_position !!!!!!!!!!!!!!!!
+        self.cursor(&txt, line, offset, context);
+        // WEIRD
         // why check both??? perhaps just for very first render
-        if self.staged.is_some() && self.unstaged.is_some() {
-            self.render(txt, RenderSource::Git, context);
-        }
+        // if self.staged.is_some() && self.unstaged.is_some() {
+        //     self.render(txt, RenderSource::Git, context);
+        // }
     }
     // status
     pub fn cursor(
@@ -862,7 +876,7 @@ impl Status {
         line_no: i32,
         offset: i32,
         context: &mut StatusRenderContext,
-    ) {
+    ) -> bool {
         txt.highlight_cursor(line_no);
         // context.update_cursor_pos(line_no, offset);
         let mut changed = false;
@@ -881,13 +895,15 @@ impl Status {
         if changed {
             self.render(txt, RenderSource::Cursor(line_no), context);
         } else {
-            assert!(!txt.has_active());
+            // assert!(!txt.has_highlight_lines());
+            debug!("CURSOR IS NOT CHANGED. do we have highlight? {:?}", txt.has_highlight_lines());
             // if txt.has_highlight() {
             //     debug!("-------------------- reset highlight in INACTIVE cursor");
             //     txt.reset_highlight();
             //     self.render(txt, RenderSource::Cursor(line_no), context);
             // }
         }
+        changed
     }
 
     // Status
@@ -898,7 +914,6 @@ impl Status {
         _offset: i32,
         context: &mut StatusRenderContext,
     ) {
-        // let mut changed = false;
 
         if let Some(conflicted) = &self.conflicted {
             if let Some(expanded_line) = conflicted.expand(line_no, context) {
@@ -908,40 +923,18 @@ impl Status {
                     context,
                 );
                 return;
-            }            
-            // for file in &conflicted.files {
-            //     if let Some(expanded_line) = file.expand(line_no, context) {
-            //         self.render(
-            //             txt,
-            //             RenderSource::Expand(expanded_line),
-            //             context,
-            //         );
-            //         return;
-            //     }
-            // }
+            }
         }
 
         if let Some(unstaged) = &self.unstaged {
             if let Some(expanded_line) = unstaged.expand(line_no, context) {
-                debug!("go render in expand --------------------->");             
                 self.render(
                     txt,
                     RenderSource::Expand(expanded_line),
                     context,
                 );
                 return
-            }        
-            // for file in &unstaged.files {
-            //     if let Some(expanded_line) = file.expand(line_no, context) {
-            //         debug!("go render in expand --------------------->");             
-            //         self.render(
-            //             txt,
-            //             RenderSource::Expand(expanded_line),
-            //             context,
-            //         );
-            //         return;
-            //     }
-            // }
+            }
         }
         if let Some(staged) = &self.staged {
             if let Some(expanded_line) = staged.expand(line_no, context) {
@@ -952,16 +945,6 @@ impl Status {
                 );
                 return;
             }
-            // for file in &staged.files {
-            //     if let Some(expanded_line) = file.expand(line_no, context) {
-            //         self.render(
-            //             txt,
-            //             RenderSource::Expand(expanded_line),
-            //             context,
-            //         );
-            //         return;
-            //     }
-            // }
         }
     }
 
@@ -1031,21 +1014,24 @@ impl Status {
             self.staged_label.render(&buffer, &mut iter, context);
             staged.render(&buffer, &mut iter, context);
         }
-        trace!("render source {:?}", source);
 
         if let Some(lines) = context.highlight_lines {
-            trace!("+++++++++++ highlight_lines at the END of render");
+            debug!("+++++++++++ highlight_lines at the END of render {:?}", &lines);
             txt.highlight_lines(lines);
         } else {
-            trace!("....................reset highlight lines at the END of render");
-            txt.reset_highlight_lines();            
+            debug!("....................reset highlight lines at the END of render");
+            txt.reset_highlight_lines();
         }
+        
         if !context.highlight_hunks.is_empty() {
             txt.set_highlight_hunks(&context.highlight_hunks);
         } else {
             txt.reset_highlight_hunks()
         }
-        // debug!("aaaaaaaaaaaaaaaaaafter {:?}", buffer.cursor_position());
+        // if source == RenderSource::Git {
+        //     let iter = buffer.iter_at_offset(buffer.cursor_position());
+        //     debug!("......THATS CURSOR AFTER RENDER INITIATED BY GIT {:?}", iter.line());
+        // }
         // match source {
         //     RenderSource::Cursor(_) => {
         //         // avoid loops on cursor renders
@@ -1336,48 +1322,69 @@ impl Status {
         }
         false
     }
-    pub fn debug(&mut self, txt: &StageView) {
-        let buffer = txt.buffer();
-        let iter = buffer.iter_at_offset(buffer.cursor_position());
-        let current_line = iter.line();
-
-        debug!("debug at line {:?}", current_line);
-        if let Some(diff) = &mut self.staged {
-            diff.walk_down(&|vc: &dyn ViewContainer| {
-                let content = vc.get_content();
-                let view = vc.get_view();
-                // hack :(
-                if view.line_no.get() == current_line && view.is_rendered() {
-                    debug!(
-                        "view under line {:?} {:?}",
-                        view.line_no.get(),
-                        content
-                    );
-                    debug!(
-                        "is rendered in {:?} {:?}",
-                        view.is_rendered_in(current_line),
-                        current_line
-                    );
-                    dbg!(view);
+    pub fn debug(&mut self, txt: &StageView, context: &mut StatusRenderContext) {
+        if let Some(unstaged) = &self.unstaged {
+            for file in &unstaged.files {
+                if !(file.path.as_path().to_str().unwrap()).contains(&"txt") {
+                    continue
                 }
-            });
-        }
-        if let Some(diff) = &mut self.unstaged {
-            diff.walk_down(&|vc: &dyn ViewContainer| {
-                let content = vc.get_content();
-                let view = vc.get_view();
-                if view.line_no.get() == current_line {
-                    println!("found view {:?}", content);
-                    dbg!(view);
+                debug!("file .. {} {}", file.view.line_no.get(), file.view.is_active());
+                for hunk in &file.hunks {
+                    debug!("hunk .. {} {}", hunk.view.line_no.get(), hunk.view.is_active());
+                    for line in &hunk.lines {
+                        debug!("line .. {} {}", line.view.line_no.get(), line.view.is_active());
+                    }
                 }
-            });
-        }
-        gio::spawn_blocking({
-            let path = self.path.clone().expect("no path");
-            move || {
-                git_debug(path);
+                file.cursor(file.view.line_no.get() + 1, false, context);
+                for hunk in &file.hunks {
+                    debug!("hunk .. {} {}", hunk.view.line_no.get(), hunk.view.is_active());
+                    for line in &hunk.lines {
+                        debug!("line .. {} {}", line.view.line_no.get(), line.view.is_active());
+                    }
+                }
             }
-        });
+        }
+        // let buffer = txt.buffer();
+        // let iter = buffer.iter_at_offset(buffer.cursor_position());
+        // let current_line = iter.line();
+
+        // debug!("debug at line {:?}", current_line);
+        // if let Some(diff) = &mut self.staged {
+        //     diff.walk_down(&|vc: &dyn ViewContainer| {
+        //         let content = vc.get_content();
+        //         let view = vc.get_view();
+        //         // hack :(
+        //         if view.line_no.get() == current_line && view.is_rendered() {
+        //             debug!(
+        //                 "view under line {:?} {:?}",
+        //                 view.line_no.get(),
+        //                 content
+        //             );
+        //             debug!(
+        //                 "is rendered in {:?} {:?}",
+        //                 view.is_rendered_in(current_line),
+        //                 current_line
+        //             );
+        //             dbg!(view);
+        //         }
+        //     });
+        // }
+        // if let Some(diff) = &mut self.unstaged {
+        //     diff.walk_down(&|vc: &dyn ViewContainer| {
+        //         let content = vc.get_content();
+        //         let view = vc.get_view();
+        //         if view.line_no.get() == current_line {
+        //             println!("found view {:?}", content);
+        //             dbg!(view);
+        //         }
+        //     });
+        // }
+        // gio::spawn_blocking({
+        //     let path = self.path.clone().expect("no path");
+        //     move || {
+        //         git_debug(path);
+        //     }
+        // });
     }
 
     pub fn checkout_error(
