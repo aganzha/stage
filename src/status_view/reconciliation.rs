@@ -20,7 +20,7 @@ impl Line {
     ) {
         self.view = rendered.transfer_view();
         if self.content != rendered.content || self.origin != rendered.origin {
-            debug!("mark dirty while enrich view in line");
+            trace!("mark dirty while enrich view in line");
             self.view.dirty(true);
             // line.view.replace(View{rendered: true, ..line.view.get()});
             trace!("*************dirty content in reconciliation: {} <> {} origins: {:?} {:?}",
@@ -45,7 +45,7 @@ impl Hunk {
         let clone = self.view.clone();
         // hunk headers are changing always
         // during partial staging
-        debug!("mark dirty 2. HUNK");
+        trace!("mark dirty 2. HUNK");
         clone.dirty(true);
         clone.transfer(true);
         clone
