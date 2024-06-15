@@ -63,7 +63,6 @@ pub trait ViewContainer {
         iter: &mut TextIter,
         context: &mut StatusRenderContext,
     ) {
-        self.fill_context(context);
         let content = self.get_content();
         let tags = self.tags();
         let is_markup = self.is_markup();
@@ -76,6 +75,7 @@ pub trait ViewContainer {
             }
         }
         self.get_view().child_dirty(false);
+        self.fill_context(context);
     }
 
     // ViewContainer
@@ -85,8 +85,8 @@ pub trait ViewContainer {
         line_no: i32,
         parent_active: bool,
         context: &mut StatusRenderContext,
-    ) -> bool {        
-        
+    ) -> bool {
+
         let mut result = false;
         let view = self.get_view();
 
@@ -102,12 +102,10 @@ pub trait ViewContainer {
         let mut active_by_child = false;
 
         if view.is_expanded() {
-            /// this is only 1 level.
-            /// so when line is active, its hunk is active and file is not
-            /// and thats ok.
-            /// so, when file is active, all hunks below are active_by_parent
-            /// and all lines below are active_by_parent
-            /// and if line is active then only 1 hunk in file is active_by_child
+            // this is only 1 level.
+            // when line is active, its hunk is active and file is not.
+            // when file is active, all hunks below are active_by_parent
+            // and all lines below are active_by_parent
             for child in self.get_children() {
                 active_by_child = child.get_view().is_rendered_in(line_no);
                 if active_by_child {
@@ -121,6 +119,28 @@ pub trait ViewContainer {
         active_by_child = self.is_active_by_child(active_by_child, context);
 
         let self_active = active_by_parent || current || active_by_child;
+        if self_active {
+            if self.get_kind() == ViewKind::Line {
+                trace!("active LINE in cursor. line {} active_by_parent? {} parent_active ? {}",
+                       view.line_no.get(),
+                       active_by_parent,
+                       parent_active);
+            }
+            if self.get_kind() == ViewKind::Hunk {
+                trace!("active HUNK in cursor. line {} active_by_parent? {} parent_active ? {}, active_by_child? {}",
+                       view.line_no.get(),
+                       active_by_parent,
+                       parent_active,
+                       active_by_child);
+            }
+            if self.get_kind() == ViewKind::File {
+                trace!("active FILE in cursor. line {} active_by_parent? {} parent_active ? {}, active_by_child? {}",
+                       view.line_no.get(),
+                       active_by_parent,
+                       parent_active,
+                       active_by_child);
+            }
+        }
         view.activate(self_active);
         view.make_current(current);
 
@@ -372,7 +392,9 @@ impl ViewContainer for File {
         tags
     }
 
+    // file
     fn fill_context(&self, context: &mut StatusRenderContext) {
+        // does not used
         if let Some(len) = context.max_len {
             if len < self.max_line_len {
                 context.max_len.replace(self.max_line_len);
@@ -382,13 +404,16 @@ impl ViewContainer for File {
         }
     }
 
-    // file
+    /// if something in file is active
+    /// the file IS NOT active
+    /// (because when file is active everything
+    /// in this file become active)
     fn is_active_by_child(
         &self,
         active: bool,
         _context: &mut StatusRenderContext,
     ) -> bool {
-        active
+        false
     }
 }
 
@@ -442,7 +467,7 @@ impl ViewContainer for Hunk {
             ctx.collect_hunk_highlights(self.view.line_no.get());
         }
     }
-    
+
     // Hunk
     fn is_active_by_parent(
         &self,
@@ -464,7 +489,7 @@ impl ViewContainer for Hunk {
         // whole hunk is active
         active
     }
-    fn tags(&self) -> Vec<tags::TxtTag> {        
+    fn tags(&self) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
@@ -496,7 +521,8 @@ impl ViewContainer for Line {
     // Line
     fn fill_context(&self, ctx: &mut StatusRenderContext) {
         if self.view.is_rendered() && self.view.is_active() {
-            ctx.collect_region_highlights(self.view.line_no.get());
+            debug!("thats rendered and ACTIVE line {:?}", self.view.line_no);
+            ctx.collect_line_highlights(self.view.line_no.get());
         }
     }
 

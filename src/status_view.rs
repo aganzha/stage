@@ -863,7 +863,6 @@ impl Status {
         offset: i32,
         context: &mut StatusRenderContext,
     ) {
-        debug!("................ begin cursor");
         txt.highlight_cursor(line_no);
         // context.update_cursor_pos(line_no, offset);
         let mut changed = false;
@@ -879,15 +878,11 @@ impl Status {
         if let Some(staged) = &self.staged {
             changed = staged.cursor(line_no, false, context) || changed;
         }
-        // HARDCODE
         if changed {
-            trace!("................ BEFORE RENDER in cursor {:?}", context.highlight_regions);
             self.render(txt, RenderSource::Cursor(line_no), context);
         } else {
-            debug!("cursor is not active----------------------");
             assert!(!txt.has_active());
             // if txt.has_highlight() {
-            //     panic!("no way to have highlight here!");
             //     debug!("-------------------- reset highlight in INACTIVE cursor");
             //     txt.reset_highlight();
             //     self.render(txt, RenderSource::Cursor(line_no), context);
@@ -921,6 +916,7 @@ impl Status {
         if let Some(unstaged) = &self.unstaged {
             for file in &unstaged.files {
                 if let Some(expanded_line) = file.expand(line_no) {
+                    debug!("go render in expand --------------------->");
                     self.render(
                         txt,
                         RenderSource::Expand(expanded_line),
@@ -1012,12 +1008,12 @@ impl Status {
         }
         trace!("render source {:?}", source);
 
-        if let Some(highlight_regions) = context.highlight_regions {
-            debug!("+++++++++++ highlight_regions at the END of render");
-            txt.highlight_active(highlight_regions);
+        if let Some(lines) = context.highlight_lines {
+            trace!("+++++++++++ highlight_lines at the END of render");
+            txt.highlight_lines(lines);
         } else {
-            debug!("....................reset highlight in active cursor");
-            txt.reset_active();            
+            trace!("....................reset highlight lines at the END of render");
+            txt.reset_highlight_lines();            
         }
         if !context.highlight_hunks.is_empty() {
             txt.set_highlight_hunks(&context.highlight_hunks);

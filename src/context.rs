@@ -39,7 +39,7 @@ pub struct StatusRenderContext {
     pub under_cursor: UnderCursor,
     // TODO! kill it!
     pub screen_width: Option<Rc<RefCell<TextViewWidth>>>,
-    pub highlight_regions: Option<(i32, i32)>,
+    pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>
     // pub cursor_pos: Option<CursorPos>,
 }
@@ -59,7 +59,7 @@ impl StatusRenderContext {
                 max_len: None,
                 under_cursor: UnderCursor::None,
                 screen_width: None,
-                highlight_regions: None,
+                highlight_lines: None,
                 highlight_hunks: Vec::new()
             }
         }
@@ -70,25 +70,24 @@ impl StatusRenderContext {
     // }
 
     pub fn collect_hunk_highlights(&mut self, line_no: i32) {
-        debug!("collect hunk highlight--------------");
         self.highlight_hunks.push(line_no);
     }
     
-    pub fn collect_region_highlights(&mut self, line_no: i32) {
-        match self.highlight_regions {
+    pub fn collect_line_highlights(&mut self, line_no: i32) {
+        match self.highlight_lines {
             Some((from, to)) if line_no < from => {
-                self.highlight_regions.replace((line_no, to));
+                self.highlight_lines.replace((line_no, to));
             }
             Some((from, to)) if line_no > to => {
-                self.highlight_regions.replace((from, line_no));
+                self.highlight_lines.replace((from, line_no));
             }
             Some((from, to)) if from <= line_no && line_no <= to => {
             }
             None => {
-                self.highlight_regions.replace((line_no, line_no));
+                self.highlight_lines.replace((line_no, line_no));
             },
             _ => {
-                todo!("whats the case? {:?} {:?}", self.highlight_regions, line_no)
+                todo!("whats the case? {:?} {:?}", self.highlight_lines, line_no)
             }
         }
     }

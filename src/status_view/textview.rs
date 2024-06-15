@@ -43,7 +43,7 @@ mod stage_view {
     pub struct StageView {
 
         pub cursor: Cell<(i32, i32)>,
-        pub active: Cell<(i32, i32)>,
+        pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<(i32, i32)>>,
 
         // TODO! put it here!
@@ -66,62 +66,19 @@ mod stage_view {
     }
 
     impl TextViewImpl for StageView {
-        // fn backspace(&self) {
-        //     self.parent_backspace()
-        // }
-
-        // fn copy_clipboard(&self) {
-        //     self.parent_copy_clipboard()
-        // }
-
-        // fn cut_clipboard(&self) {
-        //     self.parent_cut_clipboard()
-        // }
-
-        // fn delete_from_cursor(&self, type_: DeleteType, count: i32) {
-        //     self.parent_delete_from_cursor(type_, count)
-        // }
-
-        // fn extend_selection(
-        //     &self,
-        //     granularity: TextExtendSelection,
-        //     location: &TextIter,
-        //     start: &mut TextIter,
-        //     end: &mut TextIter,
-        // ) -> glib::ControlFlow {
-        //     self.parent_extend_selection(granularity, location, start, end)
-        // }
-
-        // fn insert_at_cursor(&self, text: &str) {
-        //     self.parent_insert_at_cursor(text)
-        // }
-
-        // fn insert_emoji(&self) {
-        //     self.parent_insert_emoji()
-        // }
-
-        // fn move_cursor(&self, step: MovementStep, count: i32, extend_selection: bool) {
-        //     debug!("oooooooooooooooooooooooooooo {:?} {:?}", step, count);
-        //     self.parent_move_cursor(step, count, extend_selection)
-        // }
-
-        // fn paste_clipboard(&self) {
-        //     self.parent_paste_clipboard()
-        // }
-
-        // fn set_anchor(&self) {
-        //     self.parent_set_anchor()
-        // }
 
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
             if layer == TextViewLayer::BelowText {
 
-                let (y_from, y_to) = self.active.get();
+                // highlight active_lines ----------------------------
+                let (y_from, y_to) = self.active_lines.get();
                 // HARCODE - 2000. color #f6f5f4/494949 - 246/255 245/255 244/255
                 snapshot.append_color(
                     &gdk::RGBA::new(0.961, 0.961, 0.957, 1.0),
                     &graphene::Rect::new(0.0, y_from as f32, 2000.0, y_to as f32)
                 );
+
+                // highlight hunks -----------------------------------
                 // HARCODE - 2000; #deddda/383838 - 221/255 221/255 218/255
                 for (y_from, y_to) in self.hunks.borrow().iter() {
                     snapshot.append_color(
@@ -129,6 +86,8 @@ mod stage_view {
                         &graphene::Rect::new(0.0, *y_from as f32, 2000.0, *y_to as f32)
                     );
                 }
+
+                // highlight cursor ---------------------------------
                 let (y_from, y_to) = self.cursor.get();
                 // HARCODE - 2000; #cce0f8/23374f - 204/255 224/255 248/255
                 snapshot.append_color(
@@ -159,19 +118,19 @@ impl StageView {
         self.imp().cursor.replace(range);
     }
 
-    pub fn highlight_active(&self, from_to: (i32, i32)) {
+    pub fn highlight_lines(&self, from_to: (i32, i32)) {
         let iter = self.buffer().iter_at_line(from_to.0).unwrap();
         let from_range = self.line_yrange(&iter);
-        debug!("oixxxxxxxxxxxels {:?} {:?}", from_range, from_to);
-        self.imp().active.replace((from_range.0, from_range.1 * (from_to.1 - from_to.0 + 1)));
+        debug!("highlight_lines in textview .............. {:?}", from_to);
+        self.imp().active_lines.replace((from_range.0, from_range.1 * (from_to.1 - from_to.0 + 1)));
     }
 
-    pub fn reset_active(&self) {
-        self.imp().active.replace((0, 0));
+    pub fn reset_highlight_lines(&self) {
+        self.imp().active_lines.replace((0, 0));
     }
 
     pub fn has_active(&self) -> bool {
-        let (from, to) = self.imp().active.get();
+        let (from, to) = self.imp().active_lines.get();
         return from > 0 || to > 0
     }
 
@@ -186,7 +145,7 @@ impl StageView {
             }
             None
         }).collect());
-        debug!("EEEEEEEEEEEEEEEEEEEEEEEEEEEEE {:?}", self.imp().hunks);
+        debug!(">>>>>>hunks to highlight {:?}", self.imp().hunks);
     }
 
     pub fn reset_highlight_hunks(&self) {

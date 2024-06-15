@@ -92,7 +92,44 @@ pub fn cursor(diff: &mut Diff, line_no: i32, ctx: &mut StatusRenderContext) {
 }
 
 #[test]
-pub fn test_single_diff() {
+pub fn test_file_active() {
+    env_logger::builder().format_timestamp(None).init();
+    let mut diff = create_diff();
+    mock_render(&mut diff);
+    let mut context = StatusRenderContext::new();
+    let mut line_no = (&diff.files[0]).view.line_no.get();
+    cursor(&mut diff, line_no, &mut context);
+    assert!((&diff.files[0]).view.is_current());
+    assert!((&diff.files[0]).view.is_active());
+    
+    (&diff.files[0]).expand(line_no);
+    mock_render(&mut diff);
+    
+    // cursor is on file and file is expanded
+    assert!((&diff.files[0]).view.is_current());
+    assert!((&diff.files[0]).view.is_active());
+    // file itself is active and everything inside file
+    // is active
+    for hunk in &diff.files[0].hunks {
+        assert!(hunk.view.is_active());
+        for line in &hunk.lines {
+            assert!(line.view.is_active());
+        }
+    }
+    line_no += 1;
+    cursor(&mut diff, line_no, &mut context);
+    assert!(!(&diff.files[0]).view.is_active());
+    assert!(diff.files[0].hunks[0].view.is_rendered());
+    assert!(diff.files[0].hunks[0].view.is_current());
+    assert!(diff.files[0].hunks[0].view.is_active());
+    for line in &diff.files[0].hunks[0].lines {
+        assert!(line.view.is_rendered());
+        assert!(line.view.is_active());
+    }
+}
+
+#[test]
+pub fn test_expand() {
     let mut diff = create_diff();
     mock_render(&mut diff);
 
@@ -230,9 +267,9 @@ fn test_render_view() {
     let mut iter = buffer.iter_at_line(0).unwrap();
     buffer.insert(&mut iter, "begin\n");
     // -------------------- test insert
-    let mut view1 = View::new();
-    let mut view2 = View::new();
-    let mut view3 = View::new();
+    let view1 = View::new();
+    let view2 = View::new();
+    let view3 = View::new();
 
     let mut ctx = StatusRenderContext::new();
 
@@ -381,18 +418,23 @@ fn test_render_view() {
     assert!(view3.line_no.get() == 3);
     assert!(view3.is_rendered());
     assert!(iter.line() == 4);
+
+
     // call it here, cause rust creates threads event with --test-threads=1
     // and gtk should be called only from main thread
     test_expand_line();
     test_reconciliation();
 }
 
+
+
+
 fn test_expand_line() {
     let buffer = TextBuffer::new(None);
     let mut iter = buffer.iter_at_line(0).unwrap();
     buffer.insert(&mut iter, "begin\n");
-    let mut diff = create_diff();
-    let mut context = StatusRenderContext::new();
+    let diff = create_diff();
+    let context = StatusRenderContext::new();
     let mut ctx = context;
     diff.render(&buffer, &mut iter, &mut ctx);
     // if cursor returns true it need to rerender as in Status!
