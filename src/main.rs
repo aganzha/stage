@@ -54,7 +54,7 @@ use gtk4::{
     STYLE_PROVIDER_PRIORITY_USER, Snapshot, TextView, graphene
 };
 
-use log::info;
+use log::{info, trace};
 use regex::Regex;
 
 const APP_ID: &str = "com.github.aganzha.stage";
@@ -476,7 +476,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     status.expand(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Cursor(offset, line_no) => {
-                    info!("Cursor");
+                    trace!("Cursor");
                     status.cursor(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Stage(_offset, line_no) => {

@@ -131,8 +131,10 @@ pub struct Hunk {
 
 impl Hunk {
     pub fn new(kind: DiffKind) -> Self {
+        let view = View::new();
+        view.expand(true);
         Self {
-            view: View::new(),
+            view: view,
             header: String::new(),
             lines: Vec::new(),
             old_start: 0,

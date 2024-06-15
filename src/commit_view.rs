@@ -474,7 +474,7 @@ pub fn show_commit_window(
                                    file.view.is_squashed()
                             );
                             need_render =
-                                need_render || file.expand(line_no).is_some();
+                                need_render || file.expand(line_no, &mut ctx).is_some();
                             debug!("neeeeeed render {:?} for {:?} at line {:}", need_render, file.path, line_no);
                             if need_render {
                                 break;

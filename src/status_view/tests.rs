@@ -101,7 +101,7 @@ pub fn test_file_active() {
     assert!((&diff.files[0]).view.is_current());
     assert!((&diff.files[0]).view.is_active());
     
-    (&diff.files[0]).expand(line_no);
+    (&diff.files[0]).expand(line_no, &mut context);
     mock_render(&mut diff);
     
     // cursor is on file and file is expanded
@@ -153,7 +153,7 @@ pub fn test_expand() {
     // the cursor is on it
     let mut cursor_line = 2;
     for file in &mut diff.files {
-        if let Some(_expanded_line) = file.expand(cursor_line) {
+        if let Some(_expanded_line) = file.expand(cursor_line, &mut context) {
             assert!(file.get_view().is_child_dirty());
             break;
         }
@@ -192,7 +192,7 @@ pub fn test_expand() {
     cursor(&mut diff, cursor_line, &mut context);
 
     for file in &mut diff.files {
-        if let Some(_expanded_line) = file.expand(cursor_line) {
+        if let Some(_expanded_line) = file.expand(cursor_line, &mut context) {
             break;
         }
     }
@@ -241,7 +241,7 @@ pub fn test_expand() {
     cursor_line = 2;
     cursor(&mut diff, cursor_line, &mut context);
     for file in &mut diff.files {
-        if let Some(_expanded_line) = file.expand(cursor_line) {
+        if let Some(_expanded_line) = file.expand(cursor_line, &mut context) {
             for child in file.get_children() {
                 let view = child.get_view();
                 if view.line_no.get() == cursor_line {
@@ -433,8 +433,7 @@ fn test_expand_line() {
     let mut iter = buffer.iter_at_line(0).unwrap();
     buffer.insert(&mut iter, "begin\n");
     let diff = create_diff();
-    let context = StatusRenderContext::new();
-    let mut ctx = context;
+    let mut ctx = StatusRenderContext::new();
     diff.render(&buffer, &mut iter, &mut ctx);
     // if cursor returns true it need to rerender as in Status!
     if diff.cursor(1, false, &mut ctx) {
@@ -442,7 +441,7 @@ fn test_expand_line() {
     }
 
     // expand first file
-    diff.files[0].expand(1);
+    diff.files[0].expand(1, &mut ctx);
     diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
 
     let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
@@ -467,7 +466,7 @@ fn test_expand_line() {
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
     }
     // expand on line inside first hunk
-    diff.files[0].expand(line_of_line);
+    diff.files[0].expand(line_of_line, &mut ctx);
     diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
 
     let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
@@ -503,7 +502,7 @@ fn test_reconciliation() {
         dbg!(&line.view);
         // assert!(&line.view.rendered);
     }
-    hunk.expand(0);
+    hunk.expand(0, &mut context);
     for line in &hunk.lines {
         dbg!(&line.view);
         // assert!(&line.view.rendered);
