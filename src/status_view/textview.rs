@@ -45,7 +45,8 @@ mod stage_view {
         pub cursor: Cell<(i32, i32)>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<(i32, i32)>>,
-
+        // TODO - update on event!
+        pub known_line_height: Cell<i32>,
         // TODO! put it here!
         pub is_dark: bool,
 
@@ -118,16 +119,30 @@ impl StageView {
 
     pub fn highlight_cursor(&self, line_no: i32) {
         let iter = self.buffer().iter_at_line(line_no).unwrap();
-        let range = self.line_yrange(&iter);
-        let first_line_iter = self.buffer().iter_at_line(line_no).unwrap();
-        let first_line_range = self.line_yrange(&first_line_iter);
-        let (y, mut height) = range;
-        if first_line_range.1 > 0 && first_line_range.1 < height {
-            // broken height on current line!
-            height = first_line_range.1;
+        let (y, mut height) = self.line_yrange(&iter);
+        // this is a hack. for some reason line_yrange returns wrong height :(
+        let known_line_height = self.imp().known_line_height.get();
+        if known_line_height == 0 {
+            self.imp().known_line_height.replace(height);
+        } else {
+            if height > known_line_height {
+                height = known_line_height;
+            }
         }
-        debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>HIGHLIGHT CURSOR {:?} range {:?}, replaced height {}, first_line_range {:?}", line_no, range, height, first_line_range);
         self.imp().cursor.replace((y, height));
+        
+        // let iter = self.buffer().iter_at_line(line_no).unwrap();
+        // let range = self.line_yrange(&iter);
+        // let first_line_iter = self.buffer().iter_at_line(line_no).unwrap();
+        // let first_line_range = self.line_yrange(&first_line_iter);
+        // let (y, mut height) = range;
+        // if first_line_range.1 > 0 && first_line_range.1 < height {
+        //     // broken height on current line!
+        //     height = first_line_range.1;
+        // }
+        // debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>HIGHLIGHT CURSOR {:?} range {:?}, replaced height {}, first_line_range {:?}", line_no, range, height, first_line_range);
+        // self.imp().cursor.replace((y, height));
+        
         // glib::source::timeout_add_local(
         //     Duration::from_millis(1),
         //     {
