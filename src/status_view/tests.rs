@@ -93,7 +93,6 @@ pub fn cursor(diff: &mut Diff, line_no: i32, ctx: &mut StatusRenderContext) {
 
 #[test]
 pub fn test_file_active() {
-    env_logger::builder().format_timestamp(None).init();
     let mut diff = create_diff();
     mock_render(&mut diff);
     let mut context = StatusRenderContext::new();
