@@ -230,7 +230,6 @@ pub trait ViewContainer {
                 return self.expand(line_no, context);
             }
         }
-        self.fill_context(context);
         found_line
     }
 

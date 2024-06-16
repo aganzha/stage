@@ -1,5 +1,6 @@
 use crate::status_view::headerbar::{Scheme, SCHEME_TOKEN};
 use crate::status_view::tags;
+use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use std::array::from_fn;
 use async_channel::Sender;
 use core::time::Duration;
@@ -178,24 +179,29 @@ impl StageView {
         self.imp().hunks.replace(Vec::new());
     }
 
-    pub fn bind_highlights(&self,
-                           highlight_cursor: i32,
-                           highlight_lines: Option<(i32, i32)>,
-                           highlight_hunks: &Vec<i32>) {
-        self.highlight_cursor(highlight_cursor);
-        if let Some(lines) = highlight_lines {
-            trace!("+++++++++++ highlight_lines at the END of render {:?}", &lines);
+    pub fn bind_highlights(&self, context: &StatusRenderContext) {
+        self.highlight_cursor(context.highlight_cursor);
+        if let Some(lines) = context.highlight_lines {
             self.highlight_lines(lines);
         } else {
-            trace!("....................reset highlight lines at the END of render");
             self.reset_highlight_lines();
         }
 
-        if !highlight_hunks.is_empty() {
-            self.set_highlight_hunks(&highlight_hunks);
+        if !context.highlight_hunks.is_empty() {
+            self.set_highlight_hunks(&context.highlight_hunks);
         } else {
             self.reset_highlight_hunks()
         }
+        // glib::source::timeout_add_local(
+        //     Duration::from_millis(1),
+        //     {
+        //         let txt = self.clone();
+        //         let ctx = context.clone();
+        //         move || {
+        //             txt.bind_highlights(&ctx);
+        //             glib::ControlFlow::Break
+        //         }
+        //     });
     }
 }
 
@@ -241,7 +247,7 @@ pub fn factory(
     sndr: Sender<crate::Event>,
     name: &str,
     //settings: gio::Settings,
-    text_view_width: Rc<RefCell<crate::context::TextViewWidth>>,
+    text_view_width: Rc<RefCell<TextViewWidth>>,
 ) -> StageView {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();

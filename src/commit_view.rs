@@ -1,4 +1,4 @@
-use crate::context::{StatusRenderContext, TextViewWidth};
+use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::dialogs::{alert, ConfirmDialog, YES};
 use crate::git::{stash, commit};
 use crate::status_view::{
@@ -459,17 +459,7 @@ pub fn show_commit_window(
                         &mut labels,
                         &mut body_label,
                     );
-                    txt.bind_highlights(ctx.highlight_cursor, ctx.highlight_lines, &ctx.highlight_hunks);
-                    glib::source::timeout_add_local(
-                        Duration::from_millis(1),
-                        {
-                            let txt = txt.clone();
-                            let ctx = ctx.clone();
-                            move || {
-                                txt.bind_highlights(ctx.highlight_cursor, ctx.highlight_lines, &ctx.highlight_hunks);
-                                glib::ControlFlow::Break
-                            }
-                        });
+                    txt.bind_highlights(&ctx);
                     main_diff.replace(commit_diff);
                 }
                 Event::Expand(_offset, line_no) => {
@@ -489,17 +479,7 @@ pub fn show_commit_window(
                             .unwrap();
                         if need_render {
                             d.diff.render(buffer, &mut iter, &mut ctx);
-                            txt.bind_highlights(ctx.highlight_cursor, ctx.highlight_lines, &ctx.highlight_hunks);
-                            glib::source::timeout_add_local(
-                                Duration::from_millis(1),
-                                {
-                                    let txt = txt.clone();
-                                    let ctx = ctx.clone();
-                                    move || {
-                                        txt.bind_highlights(ctx.highlight_cursor, ctx.highlight_lines, &ctx.highlight_hunks);
-                                        glib::ControlFlow::Break
-                                    }
-                                });
+                            txt.bind_highlights(&ctx);
                         }
                     }
                 }
@@ -521,17 +501,7 @@ pub fn show_commit_window(
                         }
                     }
                     debug!("where is my highlights? {:?}", ctx.highlight_cursor);
-                    txt.bind_highlights(ctx.highlight_cursor, ctx.highlight_lines, &ctx.highlight_hunks);
-                    glib::source::timeout_add_local(
-                        Duration::from_millis(1),
-                        {
-                            let txt = txt.clone();
-                            let ctx = ctx.clone();
-                            move || {
-                                txt.bind_highlights(ctx.highlight_cursor, ctx.highlight_lines, &ctx.highlight_hunks);
-                                glib::ControlFlow::Break
-                            }
-                        });
+                    txt.bind_highlights(&ctx);
                 }
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {} {:?}", w, ctx);

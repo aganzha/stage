@@ -1,13 +1,12 @@
-mod context;
 mod debug;
 mod external;
-use context::{StatusRenderContext, TextViewWidth, UnderCursor};
 
 mod status_view;
 use status_view::{
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
     textview::factory as textview_factory,
+    context::{StatusRenderContext, TextViewWidth, UnderCursor},
     Status,
 };
 

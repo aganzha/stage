@@ -1,3 +1,4 @@
+pub mod context;
 pub mod commit;
 pub mod container;
 pub mod headerbar;
@@ -883,17 +884,7 @@ impl Status {
             changed = staged.cursor(line_no, false, context) || changed;
         }
         // NO NEED TO RENDER!
-        txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
-        glib::source::timeout_add_local(
-                Duration::from_millis(1),
-                {
-                    let txt = txt.clone();
-                    let context = context.clone();
-                    move || {
-                        txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
-                        glib::ControlFlow::Break
-                    }
-                });
+        txt.bind_highlights(context);
         changed
     }
 
@@ -1021,17 +1012,7 @@ impl Status {
             self.cursor(&txt, iter.line(), iter.offset(), context);            
         }
 
-        txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
-        glib::source::timeout_add_local(
-            Duration::from_millis(1),
-            {
-                let txt = txt.clone();
-                let context = context.clone();
-                move || {
-                    txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
-                    glib::ControlFlow::Break
-                }
-            });
+        txt.bind_highlights(context);
         
         // match source {
         //     RenderSource::Cursor(_) => {
