@@ -135,14 +135,20 @@ impl StageView {
         (self.imp().cursor.get(), self.imp().cursor.get().0 / 34)
     }
 
-    pub fn highlight_cursor(&self, line_no: i32) {
+    pub fn highlight_cursor(&self, line_no: i32, delayed: bool) {
         if let Some(iter) = self.buffer().iter_at_line(line_no) {
             let (y, mut height) = self.line_yrange(&iter);
             // this is a hack. for some reason line_yrange returns wrong height :(
-            let known_line_height = self.imp().known_line_height.get();
+            let known_line_height = self.imp().known_line_height.get();            
             if known_line_height == 0 {
                 self.imp().known_line_height.replace(height);
             } else {
+                if delayed {
+                    // it was call, when line_yrange cant detect
+                    // y or height. but since then the y and length
+                    // is known, so nothing todo
+                    return;
+                }
                 if height > known_line_height {
                     height = known_line_height;
                 }
@@ -154,6 +160,25 @@ impl StageView {
                 y,
                 height
             );
+            if height == 0 {
+                // there is a bug in line_yrange
+                // and during initial render the length
+                // is not determined at all, couse
+                // this function is calling multiple times
+                // if height is 0 and call it in timeout
+                // it will pass wrong line!
+                // it need to add an option, that it is timeout call!
+                glib::source::timeout_add_local(
+                    Duration::from_millis(1),
+                    {
+                        let txt = self.clone();
+                        move || {
+                            trace!("...........................................");
+                            txt.highlight_cursor(line_no, true);
+                            glib::ControlFlow::Break
+                        }
+                    });
+            }
         } else {
             trace!("trying to highlight cursor BUT NO LINE HERE {}", line_no);
         }
@@ -213,7 +238,7 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-        self.highlight_cursor(context.highlight_cursor);
+        self.highlight_cursor(context.highlight_cursor, false);
         if let Some(lines) = context.highlight_lines {
             self.highlight_lines(lines);
         } else {

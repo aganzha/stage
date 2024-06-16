@@ -9,7 +9,6 @@ use crate::status_view::{
 };
 use crate::Event;
 use async_channel::Sender;
-use core::time::Duration;
 use git2::Oid;
 use std::cell::RefCell;
 

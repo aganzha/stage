@@ -215,7 +215,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     let window = ApplicationWindow::builder()
         .application(app)
         .default_width(1280)
-        .default_height(960)
+        .default_height(480)
         //.css_classes(vec!["devel"])
         .build();
 

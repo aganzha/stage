@@ -1347,13 +1347,12 @@ impl Status {
         let iter = buffer.iter_at_offset(offset);
         let line = iter.line();
         let line_offset = iter.line_offset();
-        trace!(
-            "-------- offset, line, line_offset {} {} {}",
-            offset,
+        debug!(
+            "-------- line, line_offset {} {}",
             line,
             line_offset
         );
-        trace!(
+        debug!(
             "--------- highlights. cursor {:?} vs {:?}",
             txt.get_highliught_cursor(),
             txt.line_yrange(&iter)
