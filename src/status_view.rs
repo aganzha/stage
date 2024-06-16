@@ -3,13 +3,13 @@ pub mod container;
 pub mod context;
 pub mod headerbar;
 pub mod tags;
-pub mod textview;
+pub mod stage_view;
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{merge, remote, stash};
 use container::ViewContainer;
 use core::time::Duration;
 use git2::RepositoryState;
-use textview::{cursor_to_line_offset, StageView};
+use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
 pub mod render;

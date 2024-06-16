@@ -1,6 +1,6 @@
 use crate::status_view::render::View;
 use crate::status_view::tags;
-use crate::status_view::textview::cursor_to_line_offset;
+use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::Label;
 use crate::{
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,

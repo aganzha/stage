@@ -4,7 +4,7 @@ use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::{
     container::{ViewContainer, ViewKind},
     render::View,
-    textview::StageView,
+    stage_view::{StageView, factory as stage_factory},
     Label as TextViewLabel,
 };
 use crate::Event;
@@ -319,7 +319,7 @@ pub fn show_commit_window(
 
     let text_view_width =
         Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
-    let txt = crate::textview_factory(
+    let txt = crate::stage_factory(
         sender.clone(),
         "commit_view",
         text_view_width.clone(),
