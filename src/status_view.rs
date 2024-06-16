@@ -854,27 +854,20 @@ impl Status {
 
     }
 
-    // status
+    /// cursor does not change structure, but changes highlights
+    /// it will collect highlights in context. no need further render
     pub fn cursor(
         &self,
         txt: &StageView,
         line_no: i32,
-        offset: i32,
+        _offset: i32,
         context: &mut StatusRenderContext,
     ) -> bool {
 
-        // cursor does not change structure, but changes highlights
-        // at the end there are for: either go to render (if cursor is inside diff)
-        // to collect all data for context, OR, just install highlights to txt
-        // if cursor is not inside diff
-        // aganzha
         // this is actually needed for views which are not implemented
         // ViewContainer, and does not affect context!
         context.highlight_cursor = line_no;
-        trace!("highlight cursor in fn_cursor ----------- > {}",
-               line_no
-        );
-
+        
         // context.update_cursor_pos(line_no, offset);
         let mut changed = false;
         if let Some(untracked) = &self.untracked {
@@ -901,24 +894,6 @@ impl Status {
                         glib::ControlFlow::Break
                     }
                 });
-        // if changed {
-        //     trace!("CURSOR IS CHANGED. go to render");
-        //     self.render(txt, RenderSource::Cursor(line_no), context);
-        // } else {
-        //     trace!("CURSOR IS NOT CHANGED. do we have highlight? {:?}", context);
-        //     // aganzha cursor for lines which are not belonging to diff
-        //     txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
-        //     glib::source::timeout_add_local(
-        //         Duration::from_millis(1),
-        //         {
-        //             let txt = txt.clone();
-        //             let context = context.clone();
-        //             move || {
-        //                 txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
-        //                 glib::ControlFlow::Break
-        //             }
-        //         });
-        // }
         changed
     }
 
@@ -964,7 +939,7 @@ impl Status {
         }
     }
 
-    // Status
+
     pub fn render(
         &self,
         txt: &StageView,
@@ -1030,25 +1005,20 @@ impl Status {
             self.staged_label.render(&buffer, &mut iter, context);
             staged.render(&buffer, &mut iter, context);
         }
+
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
-        
-        trace!("highlight cursor in fn_render ----------- > current line, {} context cursor {:?}",
-               buffer.iter_at_offset(buffer.cursor_position()).line(),
-               context.highlight_cursor,
-        );
-        
+                
         if source == RenderSource::GitDiff || source == RenderSource::Git {
-            // it need to put cursor here, cause cursor could be in unstaged
-            // hunk during staging. after staging, the content behind the cursor
-            // is changed, and it need to highlight new content on the same cursor
+            // it need to put cursor in place here,
+            // EVEN WITHOUT SMART CHOOSE
+            // cause cursor could be, for example, in unstaged hunk
+            // during staging. after staging, the content behind the cursor
+            // is changed (hunk is erased and new hunk come to its place),
+            // and it need to highlight new content on the same cursor
             // position
             let iter = self.smart_cursor_position(&buffer);
             buffer.place_cursor(&iter);
-            let changed = self.cursor(&txt, iter.line(), iter.offset(), context);
-            trace!("......THATS CURSOR AFTER RENDER INITIATED BY GIT. changed? {:?} line {:?} pixels {:?}",
-                   changed, iter.line(),
-                   txt.line_yrange(&iter)
-            );
+            self.cursor(&txt, iter.line(), iter.offset(), context);            
         }
 
         txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
