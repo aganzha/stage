@@ -1025,20 +1025,18 @@ impl Status {
                context.highlight_cursor,
                txt.line_yrange(&txt.buffer().iter_at_offset(context.highlight_cursor))
         );
-        txt.highlight_cursor(context.highlight_cursor);
-        if let Some(lines) = context.highlight_lines {
-            trace!("+++++++++++ highlight_lines at the END of render {:?}", &lines);
-            txt.highlight_lines(lines);
-        } else {
-            trace!("....................reset highlight lines at the END of render");
-            txt.reset_highlight_lines();
-        }
 
-        if !context.highlight_hunks.is_empty() {
-            txt.set_highlight_hunks(&context.highlight_hunks);
-        } else {
-            txt.reset_highlight_hunks()
-        }
+        txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
+        glib::source::timeout_add_local(
+            Duration::from_millis(1),
+            {
+                let txt = txt.clone();
+                let context = context.clone();
+                move || {
+                    txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
+                    glib::ControlFlow::Break
+                }
+            });
 
         let mut iter = buffer.iter_at_offset(buffer.cursor_position());
 
@@ -1056,17 +1054,6 @@ impl Status {
             debug!("finally cursor in render source Git {} {:?}", changed, context);
             let iter = buffer.iter_at_offset(buffer.cursor_position());
             debug!("......THATS CURSOR AFTER RENDER INITIATED BY GIT {:?} pixels {:?}", iter.line(), txt.line_yrange(&iter));
-            // glib::source::timeout_add_local(
-            //     Duration::from_millis(1),
-            //     {
-            //         let txt = txt.clone();
-            //         move || {
-            //             let buffer = txt.buffer();
-            //             let iter = buffer.iter_at_offset(buffer.cursor_position());
-            //             debug!("_____________________timout line {:?} pixels {:?}",iter.line(), txt.line_yrange(&iter));
-            //             glib::ControlFlow::Break
-            //         }
-            //     });
         }
         // match source {
         //     RenderSource::Cursor(_) => {
@@ -1364,7 +1351,7 @@ impl Status {
         let offset = buffer.cursor_position();
         let iter = buffer.iter_at_offset(offset);
         let line = iter.line();
-        let line_offset = iter.line_offset();        
+        let line_offset = iter.line_offset();
         debug!("-------- offset, line, line_offset {} {} {}", offset, line, line_offset);
         debug!("--------- highlights. cursor {:?} vs {:?}", txt.get_highliught_cursor(), txt.line_yrange(&iter));
         // if let Some(unstaged) = &self.unstaged {
