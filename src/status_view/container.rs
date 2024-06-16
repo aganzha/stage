@@ -54,7 +54,12 @@ pub trait ViewContainer {
         Vec::new()
     }
 
-    fn fill_context(&self, _: &mut StatusRenderContext) {}
+    fn fill_context(&self, ctx: &mut StatusRenderContext) {
+        let view = self.get_view();
+        if view.is_current() {
+            ctx.highlight_cursor = view.line_no.get();
+        }
+    }
 
     // ViewContainer
     fn render(
@@ -168,6 +173,7 @@ pub trait ViewContainer {
         }
         // result here just means view is changed
         // it does not actually means that view is under cursor
+        self.fill_context(context);
         result
     }
 
@@ -224,6 +230,7 @@ pub trait ViewContainer {
                 return self.expand(line_no, context);
             }
         }
+        self.fill_context(context);
         found_line
     }
 
@@ -359,6 +366,7 @@ impl ViewContainer for Diff {
                 result.replace(line);
             }
         }
+        self.fill_context(context);
         result
     }
 
@@ -413,7 +421,10 @@ impl ViewContainer for File {
     }
 
     // file
-    fn fill_context(&self, context: &mut StatusRenderContext) {
+    fn fill_context(&self, context: &mut StatusRenderContext) {        
+        if self.view.is_current() {
+            context.highlight_cursor = self.view.line_no.get();
+        }
         // does not used
         if let Some(len) = context.max_len {
             if len < self.max_line_len {
@@ -479,6 +490,9 @@ impl ViewContainer for Hunk {
 
     // Hunk
     fn fill_context(&self, ctx: &mut StatusRenderContext) {
+        if self.view.is_current() {
+            ctx.highlight_cursor = self.view.line_no.get();
+        }
         if self.view.is_rendered() {
             ctx.collect_hunk_highlights(self.view.line_no.get());
         }
@@ -536,6 +550,9 @@ impl ViewContainer for Line {
 
     // Line
     fn fill_context(&self, ctx: &mut StatusRenderContext) {
+        if self.view.is_current() {
+            ctx.highlight_cursor = self.view.line_no.get();
+        }
         if self.view.is_rendered() && self.view.is_active() {
             trace!("thats rendered and ACTIVE line {:?}", self.view.line_no);
             ctx.collect_line_highlights(self.view.line_no.get());
@@ -548,6 +565,7 @@ impl ViewContainer for Line {
         if self.get_view().line_no.get() == line_no {
             return Some(line_no);
         }
+        self.fill_context(context);
         None
     }
 
@@ -756,6 +774,7 @@ impl ViewContainer for Untracked {
         if self.get_view().line_no.get() == line_no {
             return Some(line_no);
         }
+        self.fill_context(context);
         None
     }
 
@@ -828,6 +847,7 @@ impl ViewContainer for UntrackedFile {
         if self.get_view().line_no.get() == line_no {
             return Some(line_no);
         }
+        self.fill_context(context);
         None
     }
 

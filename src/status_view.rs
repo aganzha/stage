@@ -867,6 +867,9 @@ impl Status {
         // at the end there are for: either go to render (if cursor is inside diff)
         // to collect all data for context, OR, just install highlights to txt
         // if cursor is not inside diff
+        // aganzha
+        // this is actually needed for views which are not implemented
+        // ViewContainer, and does not affect context!
         context.highlight_cursor = line_no;
         trace!("highlight cursor in fn_cursor ----------- > {}",
                line_no
@@ -886,14 +889,9 @@ impl Status {
         if let Some(staged) = &self.staged {
             changed = staged.cursor(line_no, false, context) || changed;
         }
-        if changed {
-            trace!("CURSOR IS CHANGED. go to render");
-            self.render(txt, RenderSource::Cursor(line_no), context);
-        } else {
-            trace!("CURSOR IS NOT CHANGED. do we have highlight? {:?}", context);
-            // aganzha cursor for lines which are not belonging to diff
-            txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
-            glib::source::timeout_add_local(
+        // NO NEED TO RENDER!
+        txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
+        glib::source::timeout_add_local(
                 Duration::from_millis(1),
                 {
                     let txt = txt.clone();
@@ -903,7 +901,24 @@ impl Status {
                         glib::ControlFlow::Break
                     }
                 });
-        }
+        // if changed {
+        //     trace!("CURSOR IS CHANGED. go to render");
+        //     self.render(txt, RenderSource::Cursor(line_no), context);
+        // } else {
+        //     trace!("CURSOR IS NOT CHANGED. do we have highlight? {:?}", context);
+        //     // aganzha cursor for lines which are not belonging to diff
+        //     txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
+        //     glib::source::timeout_add_local(
+        //         Duration::from_millis(1),
+        //         {
+        //             let txt = txt.clone();
+        //             let context = context.clone();
+        //             move || {
+        //                 txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
+        //                 glib::ControlFlow::Break
+        //             }
+        //         });
+        // }
         changed
     }
 

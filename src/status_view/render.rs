@@ -165,14 +165,6 @@ impl View {
     pub fn new() -> Self {
         View {
             line_no: Cell::new(0),
-            // expanded: false,
-            // squashed: false,
-            // rendered: false,
-            // dirty: false,
-            // child_dirty: false,
-            // active: false,
-            // current: false,
-            // transfered: false,
             flags: Cell::new(RenderFlags(0)),
             tag_indexes: Cell::new(tags::TagIdx::new()),
         }
@@ -188,9 +180,6 @@ impl View {
         self.flags.replace(self.flags.get().render(value));
     }
     pub fn dirty(&self, value: bool) {
-        // if value {
-        //     debug!("marking_dirty.............> {}", self.line_no.get());
-        // }
         self.flags.replace(self.flags.get().dirty(value));
     }
     pub fn child_dirty(&self, value: bool) {
