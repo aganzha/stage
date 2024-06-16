@@ -862,24 +862,11 @@ impl Status {
         offset: i32,
         context: &mut StatusRenderContext,
     ) -> bool {
-        // here is the problem
-        // 1. first called cursor.
-        // 2. cursor calls render and structure is changed :(
-        // so: render (change structure) + cursor to make highlights + render again to show highlights
-        // IT NEED TO IGHLIGHT CURSOR RIGHT IN THE RENDER!
-        // perhaps it need to separate evrything
-        // 3 functiions:
-        // 1. cursor - detect structure and make active/inactive - now store cursor pos for highlight
-        // 2. render - CRUD for structure. collect highlights also (in context!)
-        // 3. fn highlight - just to highlight? but who triggers rerendering???
-        // hm. so, there are 2 steps: CRUD and HIGHLIGHT.
-        // when user moves cursor - no structure changed, but render must trugger something.
-        // why it triggers, btw? looks like just by action itself
 
-        // if nothing is changed during render
-        // this direct highlight will work
-
-        // aganzha
+        // cursor does not change structure, but changes highlights
+        // at the end there are for: either go to render (if cursor is inside diff)
+        // to collect all data for context, OR, just install highlights to txt
+        // if cursor is not inside diff
         context.highlight_cursor = line_no;
         debug!("highlight cursor in fn_cursor ----------- > {}",
                line_no
@@ -1028,11 +1015,25 @@ impl Status {
             self.staged_label.render(&buffer, &mut iter, context);
             staged.render(&buffer, &mut iter, context);
         }
-
+        cursor_to_line_offset(&txt.buffer(), initial_line_offset);
+        
         debug!("highlight cursor in fn_render ----------- > current line, {} context cursor {:?}",
                buffer.iter_at_offset(buffer.cursor_position()).line(),
                context.highlight_cursor,
         );
+        
+        if source == RenderSource::GitDiff || source == RenderSource::Git {
+            // it need to put cursor here, cause cursor could be in unstaged
+            // hunk during staging. after staging, the content behind the cursor
+            // is changed, and it need to highlight new content on the same cursor
+            // position
+            let  iter = buffer.iter_at_offset(buffer.cursor_position());
+            let changed = self.cursor(&txt, iter.line(), iter.offset(), context);
+            debug!("......THATS CURSOR AFTER RENDER INITIATED BY GIT. changed? {:?} line {:?} pixels {:?}",
+                   changed, iter.line(),
+                   txt.line_yrange(&iter)
+            );
+        }
 
         txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
         glib::source::timeout_add_local(
@@ -1045,20 +1046,7 @@ impl Status {
                     glib::ControlFlow::Break
                 }
             });
-
-        cursor_to_line_offset(&txt.buffer(), initial_line_offset);
-        if source == RenderSource::GitDiff {
-            // it need to put cursor here, cause cursor could be in unstaged
-            // hunk during staging. after staging, the content behind the cursor
-            // is changed, and it need to highlight new content on the same cursor
-            // position
-            let  iter = buffer.iter_at_offset(buffer.cursor_position());
-            let changed = self.cursor(&txt, iter.line(), iter.offset(), context);
-            debug!("......THATS CURSOR AFTER RENDER INITIATED BY GIT. changed? {:?} line {:?} pixels {:?}",
-                   changed, iter.line(),
-                   txt.line_yrange(&iter)
-            );
-        }
+        
         // match source {
         //     RenderSource::Cursor(_) => {
         //         // avoid loops on cursor renders
