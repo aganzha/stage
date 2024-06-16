@@ -282,19 +282,13 @@ pub trait ViewContainer {
         });
         // GOT BUG HERE DURING STAGING SAME FILES!
         // trace!("line finally {:?}", line_no);
-        let mut iter = buffer
-            .iter_at_line(line_no)
-            .expect("can't get iter at line");
-        // trace!("!! erase one signgle view at buffer line = {:?}. orig view line {:?}", line_no, original_line_no);
-        // what if i will not render here?
-        // render is needed, because view which are rendered now will gone!
-        // next action will be replaceing diff! all data will gone, but
-        // canvas is full of garbage text!
-        // either need to do it here or...
-        self.render(buffer, &mut iter, context);
-
-        // restore original cursor
+        if let Some(mut iter) = buffer.iter_at_line(line_no) {
+            self.render(buffer, &mut iter, context);
+        } else {
+            panic!("no line at the end of erase!!!!!!!!! {}", line_no);
+        }
         cursor_to_line_offset(&buffer, initial_line_offset);        
+        
     }
 }
 

@@ -899,15 +899,21 @@ impl Status {
             changed = staged.cursor(line_no, false, context) || changed;
         }
         if changed {
+            debug!("CURSOR IS CHANGED. go to render");
             self.render(txt, RenderSource::Cursor(line_no), context);
         } else {
-            // assert!(!txt.has_highlight_lines());
-            trace!("PUT HERE TRACEBACK!!!!!!!!! CURSOR IS NOT CHANGED. do we have highlight? {:?}", txt.has_highlight_lines());
-            // if txt.has_highlight() {
-            //     debug!("-------------------- reset highlight in INACTIVE cursor");
-            //     txt.reset_highlight();
-            //     self.render(txt, RenderSource::Cursor(line_no), context);
-            // }
+            debug!("CURSOR IS NOT CHANGED. do we have highlight? {:?}", context);
+            txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
+            glib::source::timeout_add_local(
+                Duration::from_millis(1),
+                {
+                    let txt = txt.clone();
+                    let context = context.clone();
+                    move || {
+                        txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
+                        glib::ControlFlow::Break
+                    }
+                });
         }
         changed
     }
@@ -1039,12 +1045,6 @@ impl Status {
             });
 
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
-        // let mut iter = buffer.iter_at_offset(buffer.cursor_position());
-
-        // iter.backward_line();
-        // iter.forward_lines(1);
-        // iter.forward_chars(initial_line_offset);
-        // buffer.place_cursor(&iter);
         if source == RenderSource::GitDiff {
             // it need to put cursor here, cause cursor could be in unstaged
             // hunk during staging. after staging, the content behind the cursor
@@ -1052,9 +1052,10 @@ impl Status {
             // position
             let  iter = buffer.iter_at_offset(buffer.cursor_position());
             let changed = self.cursor(&txt, iter.line(), iter.offset(), context);
-            debug!("finally cursor in render source Git {} {:?}", changed, context);
-            let iter = buffer.iter_at_offset(buffer.cursor_position());
-            debug!("......THATS CURSOR AFTER RENDER INITIATED BY GIT {:?} pixels {:?}", iter.line(), txt.line_yrange(&iter));
+            debug!("......THATS CURSOR AFTER RENDER INITIATED BY GIT. changed? {:?} line {:?} pixels {:?}",
+                   changed, iter.line(),
+                   txt.line_yrange(&iter)
+            );
         }
         // match source {
         //     RenderSource::Cursor(_) => {
