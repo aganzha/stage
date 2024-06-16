@@ -9,7 +9,7 @@ use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, EventControllerKey, EventControllerMotion,
     EventSequenceState, GestureClick, MovementStep, TextTag, TextView,
-    TextWindowType, Settings, Widget, Accessible, Buildable
+    TextWindowType, Settings, Widget, Accessible, Buildable, TextBuffer
 };
 use gtk4::subclass::prelude::*;
 use libadwaita::prelude::*;
@@ -199,6 +199,7 @@ impl StageView {
     }
 }
 
+// TODO - kill it all
 pub trait CharView {
     fn calc_max_char_width(&self) -> i32;
 }
@@ -646,3 +647,12 @@ pub fn factory(
     // sett.set_gtk_cursor_aspect_ratio(0.05);
     txt
 }
+
+pub fn cursor_to_line_offset(buffer: &TextBuffer, line_offset: i32) {
+    let mut iter = buffer.iter_at_offset(buffer.cursor_position());
+    iter.backward_line();
+    iter.forward_lines(1);
+    iter.forward_chars(line_offset);
+    buffer.place_cursor(&iter);
+}
+

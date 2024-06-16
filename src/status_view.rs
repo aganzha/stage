@@ -3,7 +3,7 @@ pub mod container;
 pub mod headerbar;
 pub mod tags;
 pub mod textview;
-use textview::{StageView};
+use textview::{StageView, cursor_to_line_offset};
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{merge, remote, stash};
 use container::ViewContainer;
@@ -1038,12 +1038,13 @@ impl Status {
                 }
             });
 
-        let mut iter = buffer.iter_at_offset(buffer.cursor_position());
+        cursor_to_line_offset(&txt.buffer(), initial_line_offset);
+        // let mut iter = buffer.iter_at_offset(buffer.cursor_position());
 
-        iter.backward_line();
-        iter.forward_lines(1);
-        iter.forward_chars(initial_line_offset);
-        buffer.place_cursor(&iter);
+        // iter.backward_line();
+        // iter.forward_lines(1);
+        // iter.forward_chars(initial_line_offset);
+        // buffer.place_cursor(&iter);
         if source == RenderSource::GitDiff {
             // it need to put cursor here, cause cursor could be in unstaged
             // hunk during staging. after staging, the content behind the cursor
