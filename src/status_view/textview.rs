@@ -135,7 +135,7 @@ impl StageView {
         (self.imp().cursor.get(), self.imp().cursor.get().0 / 34)
     }
 
-    pub fn highlight_cursor(&self, line_no: i32, delayed: bool) {
+    pub fn highlight_cursor(&self, line_no: i32) {
         if let Some(iter) = self.buffer().iter_at_line(line_no) {
             let (y, mut height) = self.line_yrange(&iter);
             // this is a hack. for some reason line_yrange returns wrong height :(
@@ -143,12 +143,6 @@ impl StageView {
             if known_line_height == 0 {
                 self.imp().known_line_height.replace(height);
             } else {
-                if delayed {
-                    // it was call, when line_yrange cant detect
-                    // y or height. but since then the y and length
-                    // is known, so nothing todo
-                    return;
-                }
                 if height > known_line_height {
                     height = known_line_height;
                 }
@@ -169,12 +163,14 @@ impl StageView {
                 // it will pass wrong line!
                 // it need to add an option, that it is timeout call!
                 glib::source::timeout_add_local(
-                    Duration::from_millis(1),
+                    Duration::from_millis(5),
                     {
                         let txt = self.clone();
                         move || {
-                            trace!("...........................................");
-                            txt.highlight_cursor(line_no, true);
+                            let buffer = txt.buffer();
+                            let line_no = buffer.iter_at_offset(buffer.cursor_position()).line();
+                            trace!("........................................... {}", line_no);
+                            txt.highlight_cursor(line_no);
                             glib::ControlFlow::Break
                         }
                     });
@@ -238,7 +234,7 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-        self.highlight_cursor(context.highlight_cursor, false);
+        self.highlight_cursor(context.highlight_cursor);
         if let Some(lines) = context.highlight_lines {
             self.highlight_lines(lines);
         } else {
