@@ -495,7 +495,7 @@ pub fn factory(
                         .expect("Could not send through channel");
                 }
                 (key, modifier) => {
-                    debug!(
+                    trace!(
                         "key press in status view {:?} {:?}",
                         key.name(),
                         modifier
