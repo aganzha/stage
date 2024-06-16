@@ -75,6 +75,13 @@ pub trait ViewContainer {
             }
         }
         self.get_view().child_dirty(false);
+        // during the render the structure is changed
+        // and current highlighted line could be
+        // shifted. e.g. view is still current
+        // bit the line is changed!
+        if self.get_view().is_current() {
+            context.highlight_cursor = self.get_view().line_no.get();
+        }
         self.fill_context(context);
     }
 
@@ -252,10 +259,14 @@ pub trait ViewContainer {
         // hm. how to avoid it? lets not avoid it. lets try to pass it,
         // and also put there prev_line length!
 
+        let iter = buffer.iter_at_offset(buffer.cursor_position());
+        let initial_line_offset = iter.line_offset();
+        
         let view = self.get_view();
+        debug!("erasing {:?} at line {}", self.get_kind(), view.line_no.get());
         let mut line_no = view.line_no.get();
-        trace!("original line_no {:?}", line_no);
-        let original_line_no = view.line_no.get();
+        // trace!("original line_no {:?}", line_no);
+        // let original_line_no = view.line_no.get();
 
         if let Some(ec) = context.erase_counter {
             debug!("erase counter {:?}", ec);
@@ -270,13 +281,27 @@ pub trait ViewContainer {
             view.child_dirty(true);
         });
         // GOT BUG HERE DURING STAGING SAME FILES!
-        trace!("line finally {:?}", line_no);
+        // trace!("line finally {:?}", line_no);
         let mut iter = buffer
             .iter_at_line(line_no)
             .expect("can't get iter at line");
-        trace!("!! erase one signgle view at buffer line = {:?}. orig view line {:?}", line_no, original_line_no);
-
+        // trace!("!! erase one signgle view at buffer line = {:?}. orig view line {:?}", line_no, original_line_no);
+        // what if i will not render here?
+        // render is needed, because view which are rendered now will gone!
+        // next action will be replaceing diff! all data will gone, but
+        // canvas is full of garbage text!
+        // either need to do it here or...
         self.render(buffer, &mut iter, context);
+
+        // restore original cursor
+        let mut iter = buffer.iter_at_offset(buffer.cursor_position());
+        debug!("----------------line offset after erase> {} {}", initial_line_offset, iter.line_offset());
+        // go to start of line this way
+        iter.backward_line();
+        iter.forward_lines(1);
+        iter.forward_chars(initial_line_offset);
+        buffer.place_cursor(&iter);
+        
     }
 }
 

@@ -1,3 +1,12 @@
+TODO: when something panic in main thread, the next thing is panic at cant sent through channel.
+perhaps recover from it?
+TODO: when user is trying to stage in unstaged, show him commit confirm message!
+
+cursor is staying on same line and its highlighted.
+but content behind it changed. at this moment it need to tap cursor?
+yes, thats what i did before!
+
+TODO: attach this to errors, or rather just print to log! https://doc.rust-lang.org/std/backtrace/
 TODO: rename dirty to transfered. no more dirty :)
 BUG: expand does not work on first line!
 BUG: expand - moves to the start.
@@ -37,7 +46,7 @@ BUG: monitors sometimes are off, when switch to other repo
 BUG: panic when apply stage: thread '<unnamed>' panicked at src/git.rs:1039:10:
 cant apply stash: Error { code: -22, klass: 19, message: "4 uncommitted changes exist in the index" }
 
-
+loice
 
 TODO: measure line length for each line under cursor is not effective. perhaps introduce one
 more flag to view and during resize event reset those flags to perform buildup?

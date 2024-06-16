@@ -117,20 +117,57 @@ impl StageView {
         glib::Object::builder().build()
     }
 
+    pub fn get_highliught_cursor(&self) -> ((i32, i32), i32) {
+        (self.imp().cursor.get(), self.imp().cursor.get().0 / 34)
+    }
+
     pub fn highlight_cursor(&self, line_no: i32) {
-        let iter = self.buffer().iter_at_line(line_no).unwrap();
-        let (y, mut height) = self.line_yrange(&iter);
-        // this is a hack. for some reason line_yrange returns wrong height :(
-        let known_line_height = self.imp().known_line_height.get();
-        if known_line_height == 0 {
-            self.imp().known_line_height.replace(height);
-        } else {
-            if height > known_line_height {
-                height = known_line_height;
+        let textview = self;
+        if let Some(iter) = textview.buffer().iter_at_line(line_no) {
+
+            let (y, mut height) = textview.line_yrange(&iter);
+            // this is a hack. for some reason line_yrange returns wrong height :(
+            let known_line_height = textview.imp().known_line_height.get();
+            if known_line_height == 0 {
+                textview.imp().known_line_height.replace(height);
+            } else {
+                if height > known_line_height {
+                    height = known_line_height;
+                }
             }
+            textview.imp().cursor.replace((y, height));
+            debug!("real highligh cursor line_no {}, y {}, height {}", line_no, y, height);
+        } else {
+            debug!("trying to highlight cursor BUT NO LINE HERE {}", line_no);
         }
-        self.imp().cursor.replace((y, height));
-        
+
+        glib::source::timeout_add_local(
+            Duration::from_millis(1),
+            {
+                let textview = self.clone();
+                move || {
+                    if let Some(iter) = textview.buffer().iter_at_line(line_no) {
+
+                        let (y, mut height) = textview.line_yrange(&iter);
+                        // this is a hack. for some reason line_yrange returns wrong height :(
+                        let known_line_height = textview.imp().known_line_height.get();
+                        if known_line_height == 0 {
+                            textview.imp().known_line_height.replace(height);
+                        } else {
+                            if height > known_line_height {
+                                height = known_line_height;
+                            }
+                        }
+                        textview.imp().cursor.replace((y, height));
+                        debug!("real highligh cursor line_no {}, y {}, height {}", line_no, y, height);
+                    } else {
+                        debug!("trying to highlight cursor BUT NO LINE HERE {}", line_no);
+                    }
+                    glib::ControlFlow::Break
+                }
+            });
+
+
         // let iter = self.buffer().iter_at_line(line_no).unwrap();
         // let range = self.line_yrange(&iter);
         // let first_line_iter = self.buffer().iter_at_line(line_no).unwrap();
@@ -142,7 +179,7 @@ impl StageView {
         // }
         // debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>HIGHLIGHT CURSOR {:?} range {:?}, replaced height {}, first_line_range {:?}", line_no, range, height, first_line_range);
         // self.imp().cursor.replace((y, height));
-        
+
         // glib::source::timeout_add_local(
         //     Duration::from_millis(1),
         //     {

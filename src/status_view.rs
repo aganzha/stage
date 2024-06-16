@@ -86,6 +86,7 @@ impl Label {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RenderSource {
     Git,
+    GitDiff,
     Cursor(i32),
     Expand(i32),
 }
@@ -829,10 +830,9 @@ impl Status {
             diff.enrich_view(s, &txt.buffer(), context);
         }
         self.staged.replace(diff);
-        // why check both??? perhaps just for very first render
-        if self.staged.is_some() && self.unstaged.is_some() {
-            self.render(txt, RenderSource::Git, context);
-        }
+
+        self.render(txt, RenderSource::GitDiff, context);
+
     }
 
     pub fn update_unstaged(
@@ -841,68 +841,19 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext,
     ) {
-        
-        let buffer = &txt.buffer();
-        
-        let iter = buffer.iter_at_offset(buffer.cursor_position());
-        let initial_line_offset = iter.line_offset();
-        debug!("000  enter update unstaged line {:?} offset {}", iter.line(), iter.line_offset());
-        
-        // buffer.insert(&mut iter, "XXX");
 
-        // if self.unstaged.is_some() {
-        //     debug!("nooooooooooooooo way");
-        //     return;
-        // }        
+        let buffer = &txt.buffer();
+
         if let Some(u) = &mut self.unstaged {
-            // hide untracked for now
-            // DiffDirection is required here to choose which lines to
-            // compare - new_ or old_
-            // perhaps need to move to git.rs during sending event
-            // to main (during update)
             diff.enrich_view(u, buffer, context);
         }
-        let iter = buffer.iter_at_offset(buffer.cursor_position());
-        debug!("111 enriched view in unstaged line {:?} offset {}", iter.line(), iter.line_offset());
+
         self.unstaged.replace(diff);
-        // it need to render now
-        // BUT cursor could be changed in case user staged something
-        // this hunk goes away. now another hunk will be rendered on same place!
-        // or something else...
 
-        // buffer.insert(&mut iter, "XXX");
+        self.render(txt, RenderSource::GitDiff, context);
 
-        // if offset == 202 {
-        //     panic!("STOP");
-        // }
-        self.render(txt, RenderSource::Git, context);
-        // TODO! all this is only for diffs. use tag mehanics here! (i have tags around diffs!)
-        let  mut iter = buffer.iter_at_offset(buffer.cursor_position());
-        // let current_line_offset = iter.line_offset();
-        // GO TO START OF LINE THIS WAY
-        iter.backward_line();
-        iter.forward_lines(1);
-        iter.forward_chars(initial_line_offset);
-        buffer.place_cursor(&iter);
-        self.cursor(&txt, iter.line(), iter.offset(), context);
-        
-        debug!("2222  rendered in unstaged line {:?} offset {}", iter.line(), iter.line_offset());
-        // thats by the way is choose_cursor_position !!!!!!!!!!!!!!!!
-        // important! content will change undernith, thats why it it
-        // to make cursor reposition
-        // self.cursor(&txt, line, offset, context);
-
-        // why do i need to place it?
-        // let iter = buffer.iter_at_offset(offset);
-        // buffer.place_cursor(&iter);
-
-        
-        // WEIRD
-        // why check both??? perhaps just for very first render
-        // if self.staged.is_some() && self.unstaged.is_some() {
-        //     self.render(txt, RenderSource::Git, context);
-        // }
     }
+
     // status
     pub fn cursor(
         &self,
@@ -911,7 +862,28 @@ impl Status {
         offset: i32,
         context: &mut StatusRenderContext,
     ) -> bool {
+        // here is the problem
+        // 1. first called cursor.
+        // 2. cursor calls render and structure is changed :(
+        // so: render (change structure) + cursor to make highlights + render again to show highlights
+        // IT NEED TO IGHLIGHT CURSOR RIGHT IN THE RENDER!
+        // perhaps it need to separate evrything
+        // 3 functiions:
+        // 1. cursor - detect structure and make active/inactive - now store cursor pos for highlight
+        // 2. render - CRUD for structure. collect highlights also (in context!)
+        // 3. fn highlight - just to highlight? but who triggers rerendering???
+        // hm. so, there are 2 steps: CRUD and HIGHLIGHT.
+        // when user moves cursor - no structure changed, but render must trugger something.
+        // why it triggers, btw? looks like just by action itself
+
+        // if nothing is changed during render
+        // this direct highlight will work
+        debug!("highlight cursor in fn_cursor ----------- > {} pixels {:?}",
+               line_no,
+               txt.line_yrange(&txt.buffer().iter_at_offset(offset))
+        );
         txt.highlight_cursor(line_no);
+
         // context.update_cursor_pos(line_no, offset);
         let mut changed = false;
         if let Some(untracked) = &self.untracked {
@@ -930,7 +902,7 @@ impl Status {
             self.render(txt, RenderSource::Cursor(line_no), context);
         } else {
             // assert!(!txt.has_highlight_lines());
-            debug!("PUT HERE TRACEBACK!!!!!!!!! CURSOR IS NOT CHANGED. do we have highlight? {:?}", txt.has_highlight_lines());            
+            trace!("PUT HERE TRACEBACK!!!!!!!!! CURSOR IS NOT CHANGED. do we have highlight? {:?}", txt.has_highlight_lines());
             // if txt.has_highlight() {
             //     debug!("-------------------- reset highlight in INACTIVE cursor");
             //     txt.reset_highlight();
@@ -990,8 +962,8 @@ impl Status {
         context: &mut StatusRenderContext,
     ) {
         let buffer = txt.buffer();
-        let position_before_render = buffer.cursor_position();
-        // debug!("beeeeeeeeeeeeeeefooooooooore {:?}", position_before_render);
+        let initial_line_offset = buffer.iter_at_offset(buffer.cursor_position()).line_offset();
+
         let mut iter = buffer.iter_at_offset(0);
 
         if let Some(head) = &self.head {
@@ -1049,6 +1021,11 @@ impl Status {
             staged.render(&buffer, &mut iter, context);
         }
 
+        debug!("highlight cursor in render ----------- > {} pixels (from context) {:?}",
+               context.highlight_cursor,
+               txt.line_yrange(&txt.buffer().iter_at_offset(context.highlight_cursor))
+        );
+        txt.highlight_cursor(context.highlight_cursor);
         if let Some(lines) = context.highlight_lines {
             trace!("+++++++++++ highlight_lines at the END of render {:?}", &lines);
             txt.highlight_lines(lines);
@@ -1056,16 +1033,41 @@ impl Status {
             trace!("....................reset highlight lines at the END of render");
             txt.reset_highlight_lines();
         }
-        
+
         if !context.highlight_hunks.is_empty() {
             txt.set_highlight_hunks(&context.highlight_hunks);
         } else {
             txt.reset_highlight_hunks()
         }
-        // if source == RenderSource::Git {
-        //     let iter = buffer.iter_at_offset(buffer.cursor_position());
-        //     debug!("......THATS CURSOR AFTER RENDER INITIATED BY GIT {:?}", iter.line());
-        // }
+
+        let mut iter = buffer.iter_at_offset(buffer.cursor_position());
+
+        iter.backward_line();
+        iter.forward_lines(1);
+        iter.forward_chars(initial_line_offset);
+        buffer.place_cursor(&iter);
+        if source == RenderSource::GitDiff {
+            // it need to put cursor here, cause cursor could be in unstaged
+            // hunk during staging. after staging, the content behind the cursor
+            // is changed, and it need to highlight new content on the same cursor
+            // position
+            let  iter = buffer.iter_at_offset(buffer.cursor_position());
+            let changed = self.cursor(&txt, iter.line(), iter.offset(), context);
+            debug!("finally cursor in render source Git {} {:?}", changed, context);
+            let iter = buffer.iter_at_offset(buffer.cursor_position());
+            debug!("......THATS CURSOR AFTER RENDER INITIATED BY GIT {:?} pixels {:?}", iter.line(), txt.line_yrange(&iter));
+            // glib::source::timeout_add_local(
+            //     Duration::from_millis(1),
+            //     {
+            //         let txt = txt.clone();
+            //         move || {
+            //             let buffer = txt.buffer();
+            //             let iter = buffer.iter_at_offset(buffer.cursor_position());
+            //             debug!("_____________________timout line {:?} pixels {:?}",iter.line(), txt.line_yrange(&iter));
+            //             glib::ControlFlow::Break
+            //         }
+            //     });
+        }
         // match source {
         //     RenderSource::Cursor(_) => {
         //         // avoid loops on cursor renders
@@ -1362,8 +1364,9 @@ impl Status {
         let offset = buffer.cursor_position();
         let iter = buffer.iter_at_offset(offset);
         let line = iter.line();
-        let line_offset = iter.line_offset();
+        let line_offset = iter.line_offset();        
         debug!("-------- offset, line, line_offset {} {} {}", offset, line, line_offset);
+        debug!("--------- highlights. cursor {:?} vs {:?}", txt.get_highliught_cursor(), txt.line_yrange(&iter));
         // if let Some(unstaged) = &self.unstaged {
         //     for file in &unstaged.files {
         //         if !(file.path.as_path().to_str().unwrap()).contains(&"txt") {
