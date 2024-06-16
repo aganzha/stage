@@ -1,15 +1,15 @@
-pub mod context;
 pub mod commit;
 pub mod container;
+pub mod context;
 pub mod headerbar;
 pub mod tags;
 pub mod textview;
-use textview::{StageView, cursor_to_line_offset};
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{merge, remote, stash};
 use container::ViewContainer;
 use core::time::Duration;
 use git2::RepositoryState;
+use textview::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
 pub mod render;
@@ -23,9 +23,8 @@ use std::rc::Rc;
 use crate::status_view::render::View;
 use crate::{
     checkout_oid, get_current_repo_status, get_directories, git_debug,
-    stage_untracked, stage_via_apply, track_changes,
-    ApplySubject, Diff, Event, File as GitFile, Head, State,
-    StatusRenderContext, Untracked,
+    stage_untracked, stage_via_apply, track_changes, ApplySubject, Diff,
+    Event, File as GitFile, Head, State, StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
 
@@ -38,7 +37,7 @@ use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
     gio, glib, Box, Label as GtkLabel, ListBox, Orientation, SelectionMode,
-    TextBuffer, TextView, Widget, TextIter
+    TextBuffer, TextIter, TextView, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -178,7 +177,10 @@ impl Status {
         None
     }
 
-    pub fn editor_args_at_cursor(&self, txt: &StageView) -> Option<(PathBuf, i32, i32)> {
+    pub fn editor_args_at_cursor(
+        &self,
+        txt: &StageView,
+    ) -> Option<(PathBuf, i32, i32)> {
         if let Some(file) = self.file_at_cursor() {
             if file.view.is_current() {
                 return Some((self.to_abs_path(&file.path), 0, 0));
@@ -833,7 +835,6 @@ impl Status {
         self.staged.replace(diff);
 
         self.render(txt, RenderSource::GitDiff, context);
-
     }
 
     pub fn update_unstaged(
@@ -842,7 +843,6 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext,
     ) {
-
         let buffer = &txt.buffer();
 
         if let Some(u) = &mut self.unstaged {
@@ -852,7 +852,6 @@ impl Status {
         self.unstaged.replace(diff);
 
         self.render(txt, RenderSource::GitDiff, context);
-
     }
 
     /// cursor does not change structure, but changes highlights
@@ -864,11 +863,10 @@ impl Status {
         _offset: i32,
         context: &mut StatusRenderContext,
     ) -> bool {
-
         // this is actually needed for views which are not implemented
         // ViewContainer, and does not affect context!
         context.highlight_cursor = line_no;
-        
+
         // context.update_cursor_pos(line_no, offset);
         let mut changed = false;
         if let Some(untracked) = &self.untracked {
@@ -896,40 +894,26 @@ impl Status {
         _offset: i32,
         context: &mut StatusRenderContext,
     ) {
-
         if let Some(conflicted) = &self.conflicted {
             if let Some(expanded_line) = conflicted.expand(line_no, context) {
-                self.render(
-                    txt,
-                    RenderSource::Expand(expanded_line),
-                    context,
-                );
+                self.render(txt, RenderSource::Expand(expanded_line), context);
                 return;
             }
         }
 
         if let Some(unstaged) = &self.unstaged {
             if let Some(expanded_line) = unstaged.expand(line_no, context) {
-                self.render(
-                    txt,
-                    RenderSource::Expand(expanded_line),
-                    context,
-                );
-                return
+                self.render(txt, RenderSource::Expand(expanded_line), context);
+                return;
             }
         }
         if let Some(staged) = &self.staged {
             if let Some(expanded_line) = staged.expand(line_no, context) {
-                self.render(
-                    txt,
-                    RenderSource::Expand(expanded_line),
-                    context,
-                );
+                self.render(txt, RenderSource::Expand(expanded_line), context);
                 return;
             }
         }
     }
-
 
     pub fn render(
         &self,
@@ -938,7 +922,9 @@ impl Status {
         context: &mut StatusRenderContext,
     ) {
         let buffer = txt.buffer();
-        let initial_line_offset = buffer.iter_at_offset(buffer.cursor_position()).line_offset();
+        let initial_line_offset = buffer
+            .iter_at_offset(buffer.cursor_position())
+            .line_offset();
 
         let mut iter = buffer.iter_at_offset(0);
 
@@ -998,7 +984,7 @@ impl Status {
         }
 
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
-                
+
         if source == RenderSource::GitDiff || source == RenderSource::Git {
             // it need to put cursor in place here,
             // EVEN WITHOUT SMART CHOOSE
@@ -1009,11 +995,11 @@ impl Status {
             // position
             let iter = self.smart_cursor_position(&buffer);
             buffer.place_cursor(&iter);
-            self.cursor(&txt, iter.line(), iter.offset(), context);            
+            self.cursor(&txt, iter.line(), iter.offset(), context);
         }
 
         txt.bind_highlights(context);
-        
+
         // match source {
         //     RenderSource::Cursor(_) => {
         //         // avoid loops on cursor renders
@@ -1044,21 +1030,26 @@ impl Status {
         // - smart_choose_pos before cursor
         // - cursor to highlight whats behind
         // - smart_choose_pos AFTER cursor
-        let  iter = buffer.iter_at_offset(buffer.cursor_position());
+        let iter = buffer.iter_at_offset(buffer.cursor_position());
         let last_line = buffer.end_iter().line();
         if iter.line() == last_line {
             for diff in [&self.conflicted, &self.unstaged, &self.staged] {
                 if let Some(diff) = diff {
                     if !diff.files.is_empty() {
-                        return buffer.iter_at_line(diff.files[0].view.line_no.get()).unwrap();
-                        
+                        return buffer
+                            .iter_at_line(diff.files[0].view.line_no.get())
+                            .unwrap();
                     }
                 }
             }
             if iter.line() == last_line {
                 if let Some(untracked) = &self.untracked {
                     if !untracked.files.is_empty() {
-                        return buffer.iter_at_line(untracked.files[0].view.line_no.get()).unwrap();
+                        return buffer
+                            .iter_at_line(
+                                untracked.files[0].view.line_no.get(),
+                            )
+                            .unwrap();
                     }
                 }
             }
@@ -1071,7 +1062,7 @@ impl Status {
         }
         iter
     }
-    
+
     pub fn ignore(
         &mut self,
         txt: &StageView,
@@ -1089,7 +1080,7 @@ impl Status {
                     let ignore_path = file
                         .path
                         .clone()
-                        .into_os_string()    
+                        .into_os_string()
                         .into_string()
                         .expect("wrong string");
                     trace!("ignore path! {:?}", ignore_path);
@@ -1266,7 +1257,9 @@ impl Status {
         let file_path = file_path.unwrap();
         trace!(
             "stage via apply ----------------------> {:?} {:?} {:?}",
-            subject, file_path, hunk_header
+            subject,
+            file_path,
+            hunk_header
         );
 
         glib::spawn_future_local({
@@ -1344,14 +1337,27 @@ impl Status {
         }
         false
     }
-    pub fn debug(&mut self, txt: &StageView, context: &mut StatusRenderContext) {
+    pub fn debug(
+        &mut self,
+        txt: &StageView,
+        context: &mut StatusRenderContext,
+    ) {
         let buffer = txt.buffer();
         let offset = buffer.cursor_position();
         let iter = buffer.iter_at_offset(offset);
         let line = iter.line();
         let line_offset = iter.line_offset();
-        trace!("-------- offset, line, line_offset {} {} {}", offset, line, line_offset);
-        trace!("--------- highlights. cursor {:?} vs {:?}", txt.get_highliught_cursor(), txt.line_yrange(&iter));
+        trace!(
+            "-------- offset, line, line_offset {} {} {}",
+            offset,
+            line,
+            line_offset
+        );
+        trace!(
+            "--------- highlights. cursor {:?} vs {:?}",
+            txt.get_highliught_cursor(),
+            txt.line_yrange(&iter)
+        );
         // if let Some(unstaged) = &self.unstaged {
         //     for file in &unstaged.files {
         //         if !(file.path.as_path().to_str().unwrap()).contains(&"txt") {

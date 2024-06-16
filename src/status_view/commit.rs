@@ -3,8 +3,8 @@ use crate::{git::commit as git_commit, Event};
 use async_channel::Sender;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Box, ListBox, Orientation, ScrolledWindow, SelectionMode,
-    TextView, WrapMode, Widget, Image, Button, Entry, ListBoxRow,
+    gio, glib, Box, Button, Entry, Image, ListBox, ListBoxRow, Orientation,
+    ScrolledWindow, SelectionMode, TextView, Widget, WrapMode,
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, EntryRow, SwitchRow};

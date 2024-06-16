@@ -12,12 +12,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::dialogs::alert;
-use crate::{
-    confirm_dialog_factory,
-    Event,
-    Status,
-};
 use crate::git::stash;
+use crate::{confirm_dialog_factory, Event, Status};
 use libadwaita::prelude::*;
 use libadwaita::{
     ActionRow, ApplicationWindow, EntryRow, HeaderBar, PreferencesRow,
@@ -75,7 +71,10 @@ impl OidRow {
         Object::builder().build()
     }
 
-    pub fn from_stash(stash: &stash::StashData, sender: Sender<Event>) -> Self {
+    pub fn from_stash(
+        stash: &stash::StashData,
+        sender: Sender<Event>,
+    ) -> Self {
         let row = Self::new();
         row.set_property("title", &stash.title);
         row.set_oid(stash.oid.to_string());

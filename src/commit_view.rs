@@ -1,11 +1,11 @@
-use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::dialogs::{alert, ConfirmDialog, YES};
-use crate::git::{stash, commit};
+use crate::git::{commit, stash};
+use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::{
     container::{ViewContainer, ViewKind},
     render::View,
+    textview::StageView,
     Label as TextViewLabel,
-    textview::{StageView}
 };
 use crate::Event;
 use async_channel::Sender;
@@ -21,7 +21,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
-use log::{info, trace, debug};
+use log::{debug, info, trace};
 
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -467,8 +467,8 @@ pub fn show_commit_window(
                     if let Some(d) = &mut main_diff {
                         let mut need_render = false;
                         for file in &mut d.diff.files {
-                            need_render =
-                                need_render || file.expand(line_no, &mut ctx).is_some();
+                            need_render = need_render
+                                || file.expand(line_no, &mut ctx).is_some();
                             if need_render {
                                 break;
                             }
@@ -500,7 +500,10 @@ pub fn show_commit_window(
                             d.diff.render(buffer, &mut iter, &mut ctx);
                         }
                     }
-                    debug!("where is my highlights? {:?}", ctx.highlight_cursor);
+                    debug!(
+                        "where is my highlights? {:?}",
+                        ctx.highlight_cursor
+                    );
                     txt.bind_highlights(&ctx);
                 }
                 Event::TextViewResize(w) => {

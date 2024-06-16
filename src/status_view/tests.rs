@@ -100,10 +100,10 @@ pub fn test_file_active() {
     cursor(&mut diff, line_no, &mut context);
     assert!((&diff.files[0]).view.is_current());
     assert!((&diff.files[0]).view.is_active());
-    
+
     (&diff.files[0]).expand(line_no, &mut context);
     mock_render(&mut diff);
-    
+
     // cursor is on file and file is expanded
     assert!((&diff.files[0]).view.is_current());
     assert!((&diff.files[0]).view.is_active());
@@ -418,15 +418,11 @@ fn test_render_view() {
     assert!(view3.is_rendered());
     assert!(iter.line() == 4);
 
-
     // call it here, cause rust creates threads event with --test-threads=1
     // and gtk should be called only from main thread
     test_expand_line();
     test_reconciliation();
 }
-
-
-
 
 fn test_expand_line() {
     let buffer = TextBuffer::new(None);

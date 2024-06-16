@@ -1,9 +1,9 @@
-use crate::{DiffKind, LineKind};
 use crate::status_view::container::ViewKind;
+use crate::{DiffKind, LineKind};
 
+use log::{debug, trace};
 use std::cell::RefCell;
 use std::rc::Rc;
-use log::{debug, trace};
 
 #[derive(Debug, Clone)]
 pub enum UnderCursor {
@@ -23,7 +23,7 @@ pub struct CursorPos {
 #[derive(Debug, Clone, Default)]
 pub struct TextViewWidth {
     pub pixels: i32,
-    pub chars: i32,// count of chars in max line on screen  
+    pub chars: i32, // count of chars in max line on screen
     pub visible_chars: i32, // count of visible chars on screen. now used only in commit view for line wrapping.
 }
 
@@ -41,8 +41,7 @@ pub struct StatusRenderContext {
     pub screen_width: Option<Rc<RefCell<TextViewWidth>>>,
     pub highlight_cursor: i32,
     pub highlight_lines: Option<(i32, i32)>,
-    pub highlight_hunks: Vec<i32>
-    // pub cursor_pos: Option<CursorPos>,
+    pub highlight_hunks: Vec<i32>, // pub cursor_pos: Option<CursorPos>,
 }
 
 impl Default for StatusRenderContext {
@@ -62,7 +61,7 @@ impl StatusRenderContext {
                 screen_width: None,
                 highlight_cursor: 0,
                 highlight_lines: None,
-                highlight_hunks: Vec::new()
+                highlight_hunks: Vec::new(),
             }
         }
     }
@@ -70,11 +69,11 @@ impl StatusRenderContext {
     // pub fn update_cursor_pos(&mut self, line_no: i32, offset: i32) {
     //     self.cursor_pos.replace(CursorPos { line_no, offset });
     // }
-    
+
     pub fn collect_hunk_highlights(&mut self, line_no: i32) {
         self.highlight_hunks.push(line_no);
     }
-    
+
     pub fn collect_line_highlights(&mut self, line_no: i32) {
         match self.highlight_lines {
             Some((from, to)) if line_no < from => {
@@ -83,17 +82,20 @@ impl StatusRenderContext {
             Some((from, to)) if line_no > to => {
                 self.highlight_lines.replace((from, line_no));
             }
-            Some((from, to)) if from <= line_no && line_no <= to => {
-            }
+            Some((from, to)) if from <= line_no && line_no <= to => {}
             None => {
                 self.highlight_lines.replace((line_no, line_no));
-            },
+            }
             _ => {
-                todo!("whats the case? {:?} {:?}", self.highlight_lines, line_no)
+                todo!(
+                    "whats the case? {:?} {:?}",
+                    self.highlight_lines,
+                    line_no
+                )
             }
         }
     }
-    
+
     pub fn update_screen_line_width(&mut self, max_line_len: i32) {
         if let Some(sw) = &self.screen_width {
             if sw.borrow().chars < max_line_len {

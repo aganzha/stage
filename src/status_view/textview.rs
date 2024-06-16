@@ -1,21 +1,21 @@
+use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::headerbar::{Scheme, SCHEME_TOKEN};
 use crate::status_view::tags;
-use crate::status_view::context::{StatusRenderContext, TextViewWidth};
-use std::array::from_fn;
 use async_channel::Sender;
 use core::time::Duration;
-use glib::ControlFlow;
 use gdk::Display;
+use glib::ControlFlow;
 use gtk4::prelude::*;
-use gtk4::{
-    gdk, gio, glib, EventControllerKey, EventControllerMotion,
-    EventSequenceState, GestureClick, MovementStep, TextTag, TextView,
-    TextWindowType, Settings, Widget, Accessible, Buildable, TextBuffer
-};
 use gtk4::subclass::prelude::*;
+use gtk4::{
+    gdk, gio, glib, Accessible, Buildable, EventControllerKey,
+    EventControllerMotion, EventSequenceState, GestureClick, MovementStep,
+    Settings, TextBuffer, TextTag, TextView, TextWindowType, Widget,
+};
 use libadwaita::prelude::*;
 use libadwaita::StyleManager;
 use log::{debug, trace};
+use std::array::from_fn;
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -27,12 +27,18 @@ glib::wrapper! {
 }
 
 mod stage_view {
+    use glib::Properties;
     use gtk4::prelude::*;
-    use gtk4::{glib, TextView, TextViewLayer, Snapshot, gdk, graphene,
-      //MovementStep//, DeleteType, TextIter, TextExtendSelection,
+    use gtk4::{
+        gdk,
+        glib,
+        graphene,
+        //MovementStep//, DeleteType, TextIter, TextExtendSelection,
+        Snapshot,
+        TextView,
+        TextViewLayer,
     };
     use std::cell::{Cell, RefCell};
-    use glib::Properties;
 
     use gtk4::subclass::prelude::*;
     use log::{debug, trace};
@@ -42,7 +48,6 @@ mod stage_view {
 
     #[derive(Default)]
     pub struct StageView {
-
         pub cursor: Cell<(i32, i32)>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<(i32, i32)>>,
@@ -50,11 +55,9 @@ mod stage_view {
         pub known_line_height: Cell<i32>,
         // TODO! put it here!
         pub is_dark: bool,
-
         // #[property(get, set)]
         // pub current_line: RefCell<i32>,
     }
-
 
     #[glib::object_subclass]
     impl ObjectSubclass for StageView {
@@ -63,15 +66,11 @@ mod stage_view {
         type ParentType = TextView;
     }
 
-    impl StageView {
-
-    }
+    impl StageView {}
 
     impl TextViewImpl for StageView {
-
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
             if layer == TextViewLayer::BelowText {
-
                 // this is hack. for some reason line_yrange not always
                 // returns height of line :(
                 // let mut known_line_height: i32 = 0;
@@ -81,7 +80,12 @@ mod stage_view {
                 // HARCODE - 2000. color #f6f5f4/494949 - 246/255 245/255 244/255
                 snapshot.append_color(
                     &gdk::RGBA::new(0.961, 0.961, 0.957, 1.0),
-                    &graphene::Rect::new(0.0, y_from as f32, 2000.0, y_to as f32)
+                    &graphene::Rect::new(
+                        0.0,
+                        y_from as f32,
+                        2000.0,
+                        y_to as f32,
+                    ),
                 );
 
                 // highlight hunks -----------------------------------
@@ -89,7 +93,12 @@ mod stage_view {
                 for (y_from, y_to) in self.hunks.borrow().iter() {
                     snapshot.append_color(
                         &gdk::RGBA::new(0.871, 0.871, 0.855, 1.0),
-                        &graphene::Rect::new(0.0, *y_from as f32, 2000.0, *y_to as f32)
+                        &graphene::Rect::new(
+                            0.0,
+                            *y_from as f32,
+                            2000.0,
+                            *y_to as f32,
+                        ),
                     );
                 }
 
@@ -98,9 +107,13 @@ mod stage_view {
                 // HARCODE - 2000; #cce0f8/23374f - 204/255 224/255 248/255
                 snapshot.append_color(
                     &gdk::RGBA::new(0.80, 0.878, 0.972, 1.0),
-                    &graphene::Rect::new(0.0, y_from as f32, 2000.0, y_to as f32)
+                    &graphene::Rect::new(
+                        0.0,
+                        y_from as f32,
+                        2000.0,
+                        y_to as f32,
+                    ),
                 );
-
             }
             self.parent_snapshot_layer(layer, snapshot)
         }
@@ -135,10 +148,15 @@ impl StageView {
                 }
             }
             self.imp().cursor.replace((y, height));
-            trace!("real highligh cursor line_no {}, y {}, height {}", line_no, y, height);
+            trace!(
+                "real highligh cursor line_no {}, y {}, height {}",
+                line_no,
+                y,
+                height
+            );
         } else {
             trace!("trying to highlight cursor BUT NO LINE HERE {}", line_no);
-        }        
+        }
     }
 
     pub fn highlight_lines(&self, from_to: (i32, i32)) {
@@ -147,8 +165,14 @@ impl StageView {
         // see timeout value - it is just 1 msec!
         if let Some(iter) = self.buffer().iter_at_line(from_to.0) {
             let range = self.line_yrange(&iter);
-            trace!("highlight_lines in textview .............. {:?} {:?}", from_to, range);
-            self.imp().active_lines.replace((range.0, range.1 * (from_to.1 - from_to.0 + 1)));
+            trace!(
+                "highlight_lines in textview .............. {:?} {:?}",
+                from_to,
+                range
+            );
+            self.imp()
+                .active_lines
+                .replace((range.0, range.1 * (from_to.1 - from_to.0 + 1)));
         }
     }
 
@@ -158,21 +182,30 @@ impl StageView {
 
     pub fn has_highlight_lines(&self) -> bool {
         let (from, to) = self.imp().active_lines.get();
-        return from > 0 || to > 0
+        return from > 0 || to > 0;
     }
 
     pub fn set_highlight_hunks(&self, hunks: &Vec<i32>) {
         if hunks.is_empty() {
             return;
-        }        
+        }
         let buffer = self.buffer();
-        self.imp().hunks.replace(hunks.iter().filter_map(|h| {
-            if let Some(iter) = buffer.iter_at_line(*h) {
-                let range = self.line_yrange(&iter);
-                return Some(range);
-            }
-            None
-        }).collect());
+        self.imp().hunks.replace(
+            hunks
+                .iter()
+                .filter_map(|h| {
+                    if let Some(iter) = buffer.iter_at_line(*h) {
+                        let (y, mut height) = self.line_yrange(&iter);
+                        let known_line_height = self.imp().known_line_height.get();
+                        if known_line_height > 0 && known_line_height < height {
+                            height = known_line_height;
+                        }
+                        return Some((y, height));
+                    }
+                    None
+                })
+                .collect(),
+        );
     }
 
     pub fn reset_highlight_hunks(&self) {
@@ -302,13 +335,17 @@ pub fn factory(
         move |manager| {
             let is_dark = manager.is_dark();
             let classes = txt.css_classes();
-            let mut new_classes = classes.iter().map(|gs| gs.as_str()).filter(|s| {
-                if is_dark {
-                    s != &LIGHT_CLASS
-                } else {
-                    s != &DARK_CLASS
-                }
-            }).collect::<Vec<&str>>();
+            let mut new_classes = classes
+                .iter()
+                .map(|gs| gs.as_str())
+                .filter(|s| {
+                    if is_dark {
+                        s != &LIGHT_CLASS
+                    } else {
+                        s != &DARK_CLASS
+                    }
+                })
+                .collect::<Vec<&str>>();
             if is_dark {
                 new_classes.push(&DARK_CLASS);
             } else {
@@ -321,7 +358,8 @@ pub fn factory(
                     t.fill_text_tag(&tt, is_dark);
                 }
             });
-        }});
+        }
+    });
     let pointer = pointer.unwrap();
     let staged = staged.unwrap();
     let unstaged = unstaged.unwrap();
@@ -573,7 +611,11 @@ pub fn factory(
                     ))
                     .expect("could not sent through channel");
                     if visible_char_width > text_view_width.borrow().chars {
-                        trace!("text_view_width is changed! {:?} {:?}", text_view_width, visible_char_width);
+                        trace!(
+                            "text_view_width is changed! {:?} {:?}",
+                            text_view_width,
+                            visible_char_width
+                        );
                         text_view_width.borrow_mut().chars =
                             visible_char_width;
                         sndr.send_blocking(crate::Event::TextViewResize(
@@ -661,4 +703,3 @@ pub fn cursor_to_line_offset(buffer: &TextBuffer, line_offset: i32) {
     iter.forward_chars(line_offset);
     buffer.place_cursor(&iter);
 }
-

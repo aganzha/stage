@@ -1030,7 +1030,6 @@ pub fn stage_via_apply(
     Ok(())
 }
 
-
 pub fn reset_hard(
     path: PathBuf,
     ooid: Option<Oid>,
