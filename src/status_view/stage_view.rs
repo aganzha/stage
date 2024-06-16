@@ -150,12 +150,12 @@ impl StageView {
             // one more bug in line_yrange (perhaps its not even bug
             // the line is on place, but yrange thing it is on another line)
             if height != 0 && y != line_no * height {
-                debug!("WIIIIIIIIIIIIIL FIX Y. before {:?} after {:?}", y, line_no * height);
+                trace!("WIIIIIIIIIIIIIL FIX Y. before {:?} after {:?}", y, line_no * height);
                 y = line_no * height;
             }
             
             self.imp().cursor.replace((y, height));
-            debug!(
+            trace!(
                 "real highligh cursor line_no {}, y {}, height {}",
                 line_no,
                 y,
