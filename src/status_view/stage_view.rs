@@ -132,12 +132,12 @@ impl StageView {
     }
 
     pub fn get_highliught_cursor(&self) -> ((i32, i32), i32) {
-        (self.imp().cursor.get(), self.imp().cursor.get().0 / 34)
+        (self.imp().cursor.get(), self.imp().cursor.get().0 / 32)
     }
 
     pub fn highlight_cursor(&self, line_no: i32) {
         if let Some(iter) = self.buffer().iter_at_line(line_no) {
-            let (y, mut height) = self.line_yrange(&iter);
+            let (mut y, mut height) = self.line_yrange(&iter);
             // this is a hack. for some reason line_yrange returns wrong height :(
             let known_line_height = self.imp().known_line_height.get();            
             if known_line_height == 0 {
@@ -147,8 +147,15 @@ impl StageView {
                     height = known_line_height;
                 }
             }
+            // one more bug in line_yrange (perhaps its not even bug
+            // the line is on place, but yrange thing it is on another line)
+            if height != 0 && y != line_no * height {
+                debug!("WIIIIIIIIIIIIIL FIX Y. before {:?} after {:?}", y, line_no * height);
+                y = line_no * height;
+            }
+            
             self.imp().cursor.replace((y, height));
-            trace!(
+            debug!(
                 "real highligh cursor line_no {}, y {}, height {}",
                 line_no,
                 y,
