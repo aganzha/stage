@@ -134,9 +134,9 @@ impl StageView {
                 }
             }
             self.imp().cursor.replace((y, height));
-            debug!("real highligh cursor line_no {}, y {}, height {}", line_no, y, height);
+            trace!("real highligh cursor line_no {}, y {}, height {}", line_no, y, height);
         } else {
-            debug!("trying to highlight cursor BUT NO LINE HERE {}", line_no);
+            trace!("trying to highlight cursor BUT NO LINE HERE {}", line_no);
         }        
     }
 
