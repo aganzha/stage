@@ -122,97 +122,33 @@ impl StageView {
     }
 
     pub fn highlight_cursor(&self, line_no: i32) {
-        let textview = self;
-        if let Some(iter) = textview.buffer().iter_at_line(line_no) {
-
-            let (y, mut height) = textview.line_yrange(&iter);
+        if let Some(iter) = self.buffer().iter_at_line(line_no) {
+            let (y, mut height) = self.line_yrange(&iter);
             // this is a hack. for some reason line_yrange returns wrong height :(
-            let known_line_height = textview.imp().known_line_height.get();
+            let known_line_height = self.imp().known_line_height.get();
             if known_line_height == 0 {
-                textview.imp().known_line_height.replace(height);
+                self.imp().known_line_height.replace(height);
             } else {
                 if height > known_line_height {
                     height = known_line_height;
                 }
             }
-            textview.imp().cursor.replace((y, height));
+            self.imp().cursor.replace((y, height));
             debug!("real highligh cursor line_no {}, y {}, height {}", line_no, y, height);
         } else {
             debug!("trying to highlight cursor BUT NO LINE HERE {}", line_no);
-        }
-
-        glib::source::timeout_add_local(
-            Duration::from_millis(1),
-            {
-                let textview = self.clone();
-                move || {
-                    if let Some(iter) = textview.buffer().iter_at_line(line_no) {
-
-                        let (y, mut height) = textview.line_yrange(&iter);
-                        // this is a hack. for some reason line_yrange returns wrong height :(
-                        let known_line_height = textview.imp().known_line_height.get();
-                        if known_line_height == 0 {
-                            textview.imp().known_line_height.replace(height);
-                        } else {
-                            if height > known_line_height {
-                                height = known_line_height;
-                            }
-                        }
-                        textview.imp().cursor.replace((y, height));
-                        debug!("real highligh cursor line_no {}, y {}, height {}", line_no, y, height);
-                    } else {
-                        debug!("trying to highlight cursor BUT NO LINE HERE {}", line_no);
-                    }
-                    glib::ControlFlow::Break
-                }
-            });
-
-
-        // let iter = self.buffer().iter_at_line(line_no).unwrap();
-        // let range = self.line_yrange(&iter);
-        // let first_line_iter = self.buffer().iter_at_line(line_no).unwrap();
-        // let first_line_range = self.line_yrange(&first_line_iter);
-        // let (y, mut height) = range;
-        // if first_line_range.1 > 0 && first_line_range.1 < height {
-        //     // broken height on current line!
-        //     height = first_line_range.1;
-        // }
-        // debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>HIGHLIGHT CURSOR {:?} range {:?}, replaced height {}, first_line_range {:?}", line_no, range, height, first_line_range);
-        // self.imp().cursor.replace((y, height));
-
-        // glib::source::timeout_add_local(
-        //     Duration::from_millis(1),
-        //     {
-        //         let textview = self.clone();
-        //         move || {
-        //             let iter = textview.buffer().iter_at_line(line_no).unwrap();
-        //             let range = textview.line_yrange(&iter);
-        //             debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>HIGHLIGHT CURSOR {:?} {:?}", line_no, range);
-        //             textview.imp().cursor.replace(range);
-        //             glib::ControlFlow::Break
-        //         }
-        //     }
-        // );
+        }        
     }
 
     pub fn highlight_lines(&self, from_to: (i32, i32)) {
         // this is hack, because line_yrange just after
         // rendering line returns wrong pixes coords and height!
         // see timeout value - it is just 1 msec!
-        glib::source::timeout_add_local(
-            Duration::from_millis(1),
-            {
-                let textview = self.clone();
-                move || {
-                    if let Some(iter) = textview.buffer().iter_at_line(from_to.0) {
-                        let range = textview.line_yrange(&iter);
-                        trace!("highlight_lines in textview .............. {:?} {:?}", from_to, range);
-                        textview.imp().active_lines.replace((range.0, range.1 * (from_to.1 - from_to.0 + 1)));
-                    }
-                    glib::ControlFlow::Break
-                }
-            }
-        );
+        if let Some(iter) = self.buffer().iter_at_line(from_to.0) {
+            let range = self.line_yrange(&iter);
+            trace!("highlight_lines in textview .............. {:?} {:?}", from_to, range);
+            self.imp().active_lines.replace((range.0, range.1 * (from_to.1 - from_to.0 + 1)));
+        }
     }
 
     pub fn reset_highlight_lines(&self) {
@@ -227,34 +163,40 @@ impl StageView {
     pub fn set_highlight_hunks(&self, hunks: &Vec<i32>) {
         if hunks.is_empty() {
             return;
-        }
+        }        
         let buffer = self.buffer();
-        // this is hack, because line_yrange just after
-        // rendering line returns wrong pixes coords and height!
-        // see timeout value - it is just 1 msec!
-        glib::source::timeout_add_local(
-            Duration::from_millis(1),
-            {
-                let textview = self.clone();
-                let hunks: Vec<i32> = hunks.into_iter().map(|h| *h).collect();
-                move || {
-                    textview.imp().hunks.replace(hunks.iter().filter_map(|h| {
-                        if let Some(iter) = buffer.iter_at_line(*h) {
-                            let range = textview.line_yrange(&iter);
-                            return Some(range);
-                        }
-                        None
-                    }).collect());
-                    glib::ControlFlow::Break
-                }
+        self.imp().hunks.replace(hunks.iter().filter_map(|h| {
+            if let Some(iter) = buffer.iter_at_line(*h) {
+                let range = self.line_yrange(&iter);
+                return Some(range);
             }
-        );
+            None
+        }).collect());
     }
 
     pub fn reset_highlight_hunks(&self) {
         self.imp().hunks.replace(Vec::new());
     }
 
+    pub fn bind_highlights(&self,
+                           highlight_cursor: i32,
+                           highlight_lines: Option<(i32, i32)>,
+                           highlight_hunks: &Vec<i32>) {
+        self.highlight_cursor(highlight_cursor);
+        if let Some(lines) = highlight_lines {
+            trace!("+++++++++++ highlight_lines at the END of render {:?}", &lines);
+            self.highlight_lines(lines);
+        } else {
+            trace!("....................reset highlight lines at the END of render");
+            self.reset_highlight_lines();
+        }
+
+        if !highlight_hunks.is_empty() {
+            self.set_highlight_hunks(&highlight_hunks);
+        } else {
+            self.reset_highlight_hunks()
+        }
+    }
 }
 
 pub trait CharView {
