@@ -6,7 +6,7 @@ use status_view::{
     context::{StatusRenderContext, TextViewWidth, UnderCursor},
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
-    textview::factory as textview_factory,
+    stage_view::factory as stage_factory,
     Status,
 };
 
@@ -23,7 +23,7 @@ mod commit_view;
 use commit_view::show_commit_window;
 
 use core::time::Duration;
-use std::cell::RefCell;
+use std::cell::{RefCell, Cell};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -243,7 +243,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     let text_view_width =
         Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
     // what about changing color_scheme from gnome settings?
-    let txt = textview_factory(
+    let txt = stage_factory(
         sender.clone(),
         "status_view",
         text_view_width.clone(),
@@ -274,6 +274,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     bx.append(&banner);
     bx.append(&scroll);
 
+    let toast_lock: Rc<Cell<bool>> = Rc::new(Cell::new(false));
+    
     let toast_overlay = ToastOverlay::new();
     toast_overlay.set_child(Some(&bx)); // scroll bs bx
 
@@ -508,10 +510,18 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     ctx.screen_width.replace(text_view_width.clone());
                 }
                 Event::Toast(title) => {
-                    info!("toast");
-                    let toast =
-                        Toast::builder().title(title).timeout(2).build();
-                    toast_overlay.add_toast(toast);
+                    info!("Toast {:?}", toast_lock);
+                    if !toast_lock.get() {
+                        toast_lock.replace(true);
+                        let toast =
+                            Toast::builder().title(title).timeout(2).build();
+                        toast.connect_dismissed({
+                            let toast_lock = toast_lock.clone();
+                            move |t| {
+                                toast_lock.replace(false);
+                            }});
+                        toast_overlay.add_toast(toast);
+                    }                    
                 }
                 Event::Zoom(dir) => {
                     info!("Zoom");

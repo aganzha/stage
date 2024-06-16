@@ -490,8 +490,12 @@ pub fn factory(
                     sndr.send_blocking(crate::Event::OpenEditor)
                         .expect("Could not send through channel");
                 }
+                (_, gdk::ModifierType::LOCK_MASK) => {
+                    sndr.send_blocking(crate::Event::Toast(String::from("CapsLock pressed")))
+                        .expect("Could not send through channel");
+                }
                 (key, modifier) => {
-                    trace!(
+                    debug!(
                         "key press in status view {:?} {:?}",
                         key.name(),
                         modifier
