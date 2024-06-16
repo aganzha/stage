@@ -148,7 +148,7 @@ impl StageView {
                 }
             }
             self.imp().cursor.replace((y, height));
-            trace!(
+            debug!(
                 "real highligh cursor line_no {}, y {}, height {}",
                 line_no,
                 y,

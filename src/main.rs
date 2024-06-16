@@ -514,11 +514,13 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     toast_overlay.add_toast(toast);
                 }
                 Event::Zoom(dir) => {
+                    info!("Zoom");
                     zoom(dir);
                     // when zoom, TextView become offset from scroll
                     // on some step. this is a hack to force rerender
                     // this pair to allow TextView accomodate whole
                     // width of ScrollView
+                    status.resize_highlights(&txt, &mut ctx);
                     scroll.set_halign(Align::Start);
                     glib::source::timeout_add_local(
                         Duration::from_millis(30),
