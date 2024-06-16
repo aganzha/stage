@@ -9,6 +9,7 @@ use crate::status_view::{
 };
 use crate::Event;
 use async_channel::Sender;
+use core::time::Duration;
 use git2::Oid;
 use std::cell::RefCell;
 
@@ -458,6 +459,17 @@ pub fn show_commit_window(
                         &mut labels,
                         &mut body_label,
                     );
+                    txt.bind_highlights(ctx.highlight_cursor, ctx.highlight_lines, &ctx.highlight_hunks);
+                    glib::source::timeout_add_local(
+                        Duration::from_millis(1),
+                        {
+                            let txt = txt.clone();
+                            let ctx = ctx.clone();
+                            move || {
+                                txt.bind_highlights(ctx.highlight_cursor, ctx.highlight_lines, &ctx.highlight_hunks);
+                                glib::ControlFlow::Break
+                            }
+                        });
                     main_diff.replace(commit_diff);
                 }
                 Event::Expand(_offset, line_no) => {
@@ -465,17 +477,8 @@ pub fn show_commit_window(
                     if let Some(d) = &mut main_diff {
                         let mut need_render = false;
                         for file in &mut d.diff.files {
-                            debug!(" view of next file. expanded? {} renderred_in? {} line_no {}, rendered? {} d {} s {}",
-                                   file.view.is_expanded(),
-                                   file.view.is_rendered_in(line_no),
-                                   file.view.line_no.get(),
-                                   file.view.is_rendered(),
-                                   file.view.is_dirty(),
-                                   file.view.is_squashed()
-                            );
                             need_render =
                                 need_render || file.expand(line_no, &mut ctx).is_some();
-                            debug!("neeeeeed render {:?} for {:?} at line {:}", need_render, file.path, line_no);
                             if need_render {
                                 break;
                             }
@@ -484,14 +487,25 @@ pub fn show_commit_window(
                         let mut iter = buffer
                             .iter_at_line(d.diff.files[0].view.line_no.get())
                             .unwrap();
-                        debug!("go render diff after expand {:?} {:?}", need_render, iter.line());
                         if need_render {
                             d.diff.render(buffer, &mut iter, &mut ctx);
+                            txt.bind_highlights(ctx.highlight_cursor, ctx.highlight_lines, &ctx.highlight_hunks);
+                            glib::source::timeout_add_local(
+                                Duration::from_millis(1),
+                                {
+                                    let txt = txt.clone();
+                                    let ctx = ctx.clone();
+                                    move || {
+                                        txt.bind_highlights(ctx.highlight_cursor, ctx.highlight_lines, &ctx.highlight_hunks);
+                                        glib::ControlFlow::Break
+                                    }
+                                });
                         }
                     }
                 }
                 Event::Cursor(_offset, line_no) => {
-                    trace!("Cursor {}", line_no);
+                    info!("Cursor {}", line_no);
+                    ctx.highlight_cursor = line_no;
                     if let Some(d) = &mut main_diff {
                         if d.diff.cursor(line_no, false, &mut ctx) {
                             let buffer = &txt.buffer();
@@ -506,6 +520,18 @@ pub fn show_commit_window(
                             d.diff.render(buffer, &mut iter, &mut ctx);
                         }
                     }
+                    debug!("where is my highlights? {:?}", ctx.highlight_cursor);
+                    txt.bind_highlights(ctx.highlight_cursor, ctx.highlight_lines, &ctx.highlight_hunks);
+                    glib::source::timeout_add_local(
+                        Duration::from_millis(1),
+                        {
+                            let txt = txt.clone();
+                            let ctx = ctx.clone();
+                            move || {
+                                txt.bind_highlights(ctx.highlight_cursor, ctx.highlight_lines, &ctx.highlight_hunks);
+                                glib::ControlFlow::Break
+                            }
+                        });
                 }
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {} {:?}", w, ctx);
