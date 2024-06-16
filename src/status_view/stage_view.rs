@@ -43,6 +43,18 @@ mod stage_view {
     use gtk4::subclass::prelude::*;
     use log::{debug, trace};
 
+    // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79
+    const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
+    const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.137, 0.216, 0.310, 1.0);
+
+    // color #f6f5f4/494949 - 246/255 245/255 244/255
+    const LIGHT_LINES: gdk::RGBA = gdk::RGBA::new(0.961, 0.961, 0.957, 1.0);
+    const DARK_LINES: gdk::RGBA = gdk::RGBA::new(0.286, 0.286, 0.286, 1.0);
+
+    // #deddda/383838 - 221/255 221/255 218/255
+    const LIGHT_HUNKS: gdk::RGBA = gdk::RGBA::new(0.871, 0.871, 0.855, 1.0);
+    const DARK_HUNKS: gdk::RGBA = gdk::RGBA::new(0.22, 0.22, 0.22, 1.0);
+
     // #[derive(Properties, Default)]
     // #[properties(wrapper_type = super::StageView)]
 
@@ -51,10 +63,12 @@ mod stage_view {
         pub cursor: Cell<(i32, i32)>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<(i32, i32)>>,
-        // TODO - update on event!
+
         pub known_line_height: Cell<i32>,
+
         // TODO! put it here!
-        pub is_dark: bool,
+        pub is_dark: Cell<bool>,
+        pub is_dark_set: Cell<bool>,
         // #[property(get, set)]
         // pub current_line: RefCell<i32>,
     }
@@ -77,9 +91,13 @@ mod stage_view {
 
                 // highlight active_lines ----------------------------
                 let (y_from, y_to) = self.active_lines.get();
-                // HARCODE - 2000. color #f6f5f4/494949 - 246/255 245/255 244/255
+                // HARCODE - 2000.
                 snapshot.append_color(
-                    &gdk::RGBA::new(0.961, 0.961, 0.957, 1.0),
+                    if self.is_dark.get() {
+                        &DARK_LINES
+                    } else {
+                        &LIGHT_LINES
+                    },
                     &graphene::Rect::new(
                         0.0,
                         y_from as f32,
@@ -89,10 +107,14 @@ mod stage_view {
                 );
 
                 // highlight hunks -----------------------------------
-                // HARCODE - 2000; #deddda/383838 - 221/255 221/255 218/255
+                // HARCODE - 2000;
                 for (y_from, y_to) in self.hunks.borrow().iter() {
                     snapshot.append_color(
-                        &gdk::RGBA::new(0.871, 0.871, 0.855, 1.0),
+                        if self.is_dark.get() {
+                            &DARK_HUNKS
+                        } else {
+                            &LIGHT_HUNKS
+                        },
                         &graphene::Rect::new(
                             0.0,
                             *y_from as f32,
@@ -105,8 +127,13 @@ mod stage_view {
                 // highlight cursor ---------------------------------
                 let (y_from, y_to) = self.cursor.get();
                 // HARCODE - 2000; #cce0f8/23374f - 204/255 224/255 248/255
+
                 snapshot.append_color(
-                    &gdk::RGBA::new(0.80, 0.878, 0.972, 1.0),
+                    if self.is_dark.get() {
+                        &DARK_CURSOR
+                    } else {
+                        &LIGHT_CURSOR
+                    },
                     &graphene::Rect::new(
                         0.0,
                         y_from as f32,
@@ -139,7 +166,7 @@ impl StageView {
         if let Some(iter) = self.buffer().iter_at_line(line_no) {
             let (mut y, mut height) = self.line_yrange(&iter);
             // this is a hack. for some reason line_yrange returns wrong height :(
-            let known_line_height = self.imp().known_line_height.get();            
+            let known_line_height = self.imp().known_line_height.get();
             if known_line_height == 0 {
                 self.imp().known_line_height.replace(height);
             } else {
@@ -153,7 +180,7 @@ impl StageView {
                 trace!("WIIIIIIIIIIIIIL FIX Y. before {:?} after {:?}", y, line_no * height);
                 y = line_no * height;
             }
-            
+
             self.imp().cursor.replace((y, height));
             trace!(
                 "real highligh cursor line_no {}, y {}, height {}",
@@ -240,7 +267,23 @@ impl StageView {
         self.imp().hunks.replace(Vec::new());
     }
 
+    pub fn set_is_dark(&self, is_dark: bool, force:bool) {
+        if !force {
+            if self.imp().is_dark_set.get() {
+                return;
+            }
+        }
+        let manager = StyleManager::default();
+        let is_dark = manager.is_dark();
+        self.imp().is_dark.replace(is_dark);
+        self.imp().is_dark_set.replace(true);
+    }
+
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
+        // how to not call manager every time?
+        // set variable on init - is_dark_detected
+        // set it once on init and then on each scheme changes!
+
         self.highlight_cursor(context.highlight_cursor);
         if let Some(lines) = context.highlight_lines {
             self.highlight_lines(lines);
@@ -313,20 +356,14 @@ pub fn factory(
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
-    // let txt = TextView::builder()
-    //     .margin_start(12)
-    //     .name(name)
-    //     .css_classes(if is_dark { [DARK_CLASS] } else { [LIGHT_CLASS] })
-    //     .margin_end(12)
-    //     .margin_top(12)
-    //     .margin_bottom(12)
-    //     .build();
+
     let txt = StageView::new();
     txt.set_margin_start(12);
     txt.set_widget_name(name);
     txt.set_margin_end(12);
     txt.set_margin_top(12);
     txt.set_margin_bottom(12);
+    txt.set_is_dark(is_dark, true);
     if is_dark {
         txt.set_css_classes(&[&DARK_CLASS]);
     } else {

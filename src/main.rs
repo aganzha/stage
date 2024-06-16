@@ -613,7 +613,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::StoreSettings(name, value) => {
                     info!("StoreSettings {} {}", name, value);
-                    settings.set(&name, value).expect("cant set settings")
+                    settings.set(&name, value).expect("cant set settings");
+                    if name == SCHEME_TOKEN {
+                        txt.set_is_dark(StyleManager::default().is_dark(), true);
+                    }
                 }
             };
         }
