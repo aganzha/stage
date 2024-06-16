@@ -1269,6 +1269,8 @@ impl Status {
         }
         if file_path.is_none() {
             info!("no file to stage");
+            self.sender.send_blocking(Event::Toast(String::from("No file to stage")))
+                .expect("cant send through sender");
             return;
         }
         let file_path = file_path.unwrap();
