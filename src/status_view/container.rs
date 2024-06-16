@@ -375,8 +375,7 @@ impl ViewContainer for Diff {
             if let Some(line) = file.expand(line_no, context) {
                 result.replace(line);
             }
-        }        
-        // self.fill_context(context);
+        }
         result
     }
 
@@ -579,7 +578,6 @@ impl ViewContainer for Line {
         if self.get_view().line_no.get() == line_no {
             return Some(line_no);
         }
-        self.fill_context(context);
         None
     }
 
