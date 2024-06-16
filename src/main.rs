@@ -3,10 +3,10 @@ mod external;
 
 mod status_view;
 use status_view::{
+    context::{StatusRenderContext, TextViewWidth, UnderCursor},
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
     textview::factory as textview_factory,
-    context::{StatusRenderContext, TextViewWidth, UnderCursor},
     Status,
 };
 
@@ -29,11 +29,10 @@ use std::rc::Rc;
 
 mod git;
 use git::{
-    branch, checkout_oid, commit, debug as git_debug,
-    get_current_repo_status, get_directories, reset_hard, stage_untracked,
-    stage_via_apply, track_changes, ApplySubject, Diff,
-    DiffKind, File, Head, Hunk, Line, LineKind, State,
-    Untracked, UntrackedFile, stash::{Stashes}
+    branch, checkout_oid, commit, debug as git_debug, get_current_repo_status,
+    get_directories, reset_hard, stage_untracked, stage_via_apply,
+    stash::Stashes, track_changes, ApplySubject, Diff, DiffKind, File, Head,
+    Hunk, Line, LineKind, State, Untracked, UntrackedFile,
 };
 use git2::Oid;
 mod dialogs;
@@ -48,9 +47,9 @@ use libadwaita::{
 };
 
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
-    CssProvider, Orientation, ScrolledWindow, Settings,
-    STYLE_PROVIDER_PRIORITY_USER, Snapshot, TextView, graphene
+    gdk, gio, glib, graphene, style_context_add_provider_for_display, Align,
+    Box, CssProvider, Orientation, ScrolledWindow, Settings, Snapshot,
+    TextView, STYLE_PROVIDER_PRIORITY_USER,
 };
 
 use log::{info, trace};
@@ -216,7 +215,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     let window = ApplicationWindow::builder()
         .application(app)
         .default_width(1280)
-        .default_height(480)
+        .default_height(960)
         //.css_classes(vec!["devel"])
         .build();
 

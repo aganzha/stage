@@ -125,7 +125,6 @@ impl View {
 pub struct TxtTag(String);
 
 impl TxtTag {
-    
     pub fn new(s: String) -> Self {
         if !TEXT_TAGS.contains(&&s[..]) {
             panic!("undeclared tag {}", s);
@@ -183,7 +182,6 @@ impl TxtTag {
             REMOVED => {
                 if is_dark {
                     tag.set_foreground(Some("#a51d2d"));
-
                 } else {
                     tag.set_foreground(Some("#c01c28"));
                 }
@@ -247,7 +245,7 @@ impl TxtTag {
             }
         }
     }
-    
+
     pub fn create(&self) -> TextTag {
         let tag = TextTag::new(Some(&self.0));
         let manager = StyleManager::default();

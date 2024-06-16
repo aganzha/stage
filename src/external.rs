@@ -8,7 +8,7 @@ pub fn open_at_line_via_dbus(
     executable: PathBuf,
     path: PathBuf,
     line_no: i32,
-    col_no: i32
+    col_no: i32,
 ) {
     let proxy = gio::DBusProxy::for_bus_sync(
         gio::BusType::Session,
@@ -95,7 +95,9 @@ pub fn try_open_editor(path: PathBuf, line_no: i32, col_no: i32) {
                     gio::spawn_blocking({
                         let exe = app_info.commandline().unwrap();
                         let path = path.clone();
-                        move || open_at_line_via_dbus(exe, path, line_no, col_no)
+                        move || {
+                            open_at_line_via_dbus(exe, path, line_no, col_no)
+                        }
                     });
                     return;
                 }

@@ -5,7 +5,7 @@ use crate::{
 };
 use git2::RepositoryState;
 use gtk4::TextBuffer;
-use log::{trace, debug};
+use log::{debug, trace};
 use std::collections::HashSet;
 use std::iter::zip;
 

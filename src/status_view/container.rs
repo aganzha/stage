@@ -1,7 +1,7 @@
 use crate::status_view::render::View;
 use crate::status_view::tags;
-use crate::status_view::Label;
 use crate::status_view::textview::cursor_to_line_offset;
+use crate::status_view::Label;
 use crate::{
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
     StatusRenderContext, UnderCursor, Untracked, UntrackedFile,
@@ -98,7 +98,6 @@ pub trait ViewContainer {
         parent_active: bool,
         context: &mut StatusRenderContext,
     ) -> bool {
-
         let mut result = false;
         let view = self.get_view();
 
@@ -160,7 +159,8 @@ pub trait ViewContainer {
             // repaint if highlight is changed
             // trace!("its me marking dirty, cursor! {} at {}", ((view.is_active() != active_before) || (view.is_current() != current_before)), view.line_no.get());
 
-            result = view.is_active() != active_before || view.is_current() != current_before;
+            result = view.is_active() != active_before
+                || view.is_current() != current_before;
             // newhighlight
             // view.dirty(
             //     view.is_active() != active_before
@@ -198,7 +198,11 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
+    fn expand(
+        &self,
+        line_no: i32,
+        context: &mut StatusRenderContext,
+    ) -> Option<i32> {
         let mut found_line: Option<i32> = None;
         let v = self.get_view();
         if v.is_rendered_in(line_no) {
@@ -267,9 +271,13 @@ pub trait ViewContainer {
 
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         let initial_line_offset = iter.line_offset();
-        
+
         let view = self.get_view();
-        debug!("erasing {:?} at line {}", self.get_kind(), view.line_no.get());
+        debug!(
+            "erasing {:?} at line {}",
+            self.get_kind(),
+            view.line_no.get()
+        );
         let mut line_no = view.line_no.get();
         // trace!("original line_no {:?}", line_no);
         // let original_line_no = view.line_no.get();
@@ -293,8 +301,7 @@ pub trait ViewContainer {
         } else {
             panic!("no line at the end of erase!!!!!!!!! {}", line_no);
         }
-        cursor_to_line_offset(&buffer, initial_line_offset);        
-        
+        cursor_to_line_offset(&buffer, initial_line_offset);
     }
 }
 
@@ -358,7 +365,11 @@ impl ViewContainer for Diff {
         }
     }
     // Diff
-    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
+    fn expand(
+        &self,
+        line_no: i32,
+        context: &mut StatusRenderContext,
+    ) -> Option<i32> {
         let mut result: Option<i32> = None;
         for file in &self.files {
             if let Some(line) = file.expand(line_no, context) {
@@ -420,7 +431,7 @@ impl ViewContainer for File {
     }
 
     // file
-    fn fill_context(&self, context: &mut StatusRenderContext) {        
+    fn fill_context(&self, context: &mut StatusRenderContext) {
         if self.view.is_current() {
             context.highlight_cursor = self.view.line_no.get();
         }
@@ -559,7 +570,11 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
+    fn expand(
+        &self,
+        line_no: i32,
+        context: &mut StatusRenderContext,
+    ) -> Option<i32> {
         // here we want to expand hunk
         if self.get_view().line_no.get() == line_no {
             return Some(line_no);
@@ -768,7 +783,11 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked (diff)
-    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
+    fn expand(
+        &self,
+        line_no: i32,
+        context: &mut StatusRenderContext,
+    ) -> Option<i32> {
         // here we want to expand hunk
         if self.get_view().line_no.get() == line_no {
             return Some(line_no);
@@ -841,7 +860,11 @@ impl ViewContainer for UntrackedFile {
     }
 
     // untracked file
-    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
+    fn expand(
+        &self,
+        line_no: i32,
+        context: &mut StatusRenderContext,
+    ) -> Option<i32> {
         // here we want to expand hunk
         if self.get_view().line_no.get() == line_no {
             return Some(line_no);

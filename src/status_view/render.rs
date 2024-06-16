@@ -303,17 +303,15 @@ impl View {
                     line_content.len()
                 );
                 let chars_count = line_content.chars().count();
-                if chars as usize >  chars_count {
+                if chars as usize > chars_count {
                     let spaces = chars as usize - chars_count;
-                    trace!("build up spaces {:?} in {}. len {:?}",
-                           spaces,
-                           line_content,
-                           chars_count
+                    trace!(
+                        "build up spaces {:?} in {}. len {:?}",
+                        spaces,
+                        line_content,
+                        chars_count
                     );
-                    return format!("{}{}",
-                                   line_content,
-                                   " ".repeat(spaces)
-                    );
+                    return format!("{}{}", line_content, " ".repeat(spaces));
                 }
             }
         }

@@ -1,8 +1,8 @@
-use git2;
-use gtk4::{gio};
-use std::path::{PathBuf};
+use crate::get_current_repo_status;
 use async_channel::Sender;
-use crate::{get_current_repo_status};
+use git2;
+use gtk4::gio;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct StashData {
@@ -38,7 +38,8 @@ impl Stashes {
 }
 
 pub fn list(path: PathBuf, sender: Sender<crate::Event>) -> Stashes {
-    let mut repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let mut repo =
+        git2::Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
     repo.stash_foreach(|num, title, oid| {
         result.push(StashData::new(num, *oid, title.to_string()));
@@ -58,7 +59,8 @@ pub fn stash(
     stash_staged: bool,
     sender: Sender<crate::Event>,
 ) -> Stashes {
-    let mut repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let mut repo =
+        git2::Repository::open(path.clone()).expect("can't open repo");
     let me = repo.signature().expect("can't get signature");
     let flags = if stash_staged {
         git2::StashFlags::empty()
@@ -108,7 +110,8 @@ pub fn drop(
     stash_data: StashData,
     sender: Sender<crate::Event>,
 ) -> Stashes {
-    let mut repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let mut repo =
+        git2::Repository::open(path.clone()).expect("can't open repo");
     repo.stash_drop(stash_data.num).expect("cant drop stash");
     list(path, sender)
 }
