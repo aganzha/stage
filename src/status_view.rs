@@ -878,11 +878,12 @@ impl Status {
 
         // if nothing is changed during render
         // this direct highlight will work
-        debug!("highlight cursor in fn_cursor ----------- > {} pixels {:?}",
-               line_no,
-               txt.line_yrange(&txt.buffer().iter_at_offset(offset))
+
+        // aganzha
+        context.highlight_cursor = line_no;
+        debug!("highlight cursor in fn_cursor ----------- > {}",
+               line_no
         );
-        txt.highlight_cursor(line_no);
 
         // context.update_cursor_pos(line_no, offset);
         let mut changed = false;
@@ -903,6 +904,7 @@ impl Status {
             self.render(txt, RenderSource::Cursor(line_no), context);
         } else {
             debug!("CURSOR IS NOT CHANGED. do we have highlight? {:?}", context);
+            // aganzha cursor for lines which are not belonging to diff
             txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
             glib::source::timeout_add_local(
                 Duration::from_millis(1),
@@ -1027,9 +1029,9 @@ impl Status {
             staged.render(&buffer, &mut iter, context);
         }
 
-        debug!("highlight cursor in render ----------- > {} pixels (from context) {:?}",
+        debug!("highlight cursor in fn_render ----------- > current line, {} context cursor {:?}",
+               buffer.iter_at_offset(buffer.cursor_position()).line(),
                context.highlight_cursor,
-               txt.line_yrange(&txt.buffer().iter_at_offset(context.highlight_cursor))
         );
 
         txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
