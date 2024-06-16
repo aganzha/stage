@@ -450,7 +450,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     status.update_upstream(h, &txt, &mut ctx);
                 }
                 Event::Conflicted(d) => {
-                    info!("main. conflicted");
+                    info!("Conflicted");
                     // hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
                     status.update_conflicted(
                         d,
