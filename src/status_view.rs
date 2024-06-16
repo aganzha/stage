@@ -1027,7 +1027,30 @@ impl Status {
             // hunk during staging. after staging, the content behind the cursor
             // is changed, and it need to highlight new content on the same cursor
             // position
-            let  iter = buffer.iter_at_offset(buffer.cursor_position());
+            let  mut iter = buffer.iter_at_offset(buffer.cursor_position());
+            let last_line = buffer.end_iter().line();
+            if iter.line() == last_line {
+                // initial render choose_cursor_position !!!!!!!!!!!!!
+                for diff in [&self.conflicted, &self.unstaged, &self.staged] {
+                    if let Some(diff) = diff {
+                        if !diff.files.is_empty() {
+                            iter = buffer.iter_at_line(diff.files[0].view.line_no.get()).unwrap();
+                        }
+                    }
+                }
+                if iter.line() == last_line {
+                    if let Some(untracked) = &self.untracked {
+                        if !untracked.files.is_empty() {
+                            iter = buffer.iter_at_line(untracked.files[0].view.line_no.get()).unwrap();
+                        }
+                    }
+                }
+                if iter.line() == last_line {
+                    if let Some(state) = &self.state {
+                        iter = buffer.iter_at_line(state.view.line_no.get()).unwrap();
+                    }
+                }
+            }
             let changed = self.cursor(&txt, iter.line(), iter.offset(), context);
             debug!("......THATS CURSOR AFTER RENDER INITIATED BY GIT. changed? {:?} line {:?} pixels {:?}",
                    changed, iter.line(),
