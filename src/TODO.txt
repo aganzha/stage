@@ -1,3 +1,6 @@
+BUG: Highlight just was broken when push to remote.
+remote is apeared (new branch) below head and cursor shifted down, but hightlight was on same line
+
 TODO: when something panic in main thread, the next thing is panic at cant sent through channel.
 perhaps recover from it?
 TODO: when user is trying to stage in unstaged, show him commit confirm message!
