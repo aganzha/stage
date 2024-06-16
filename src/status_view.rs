@@ -854,6 +854,28 @@ impl Status {
         self.render(txt, RenderSource::GitDiff, context);
     }
 
+    pub fn resize_highlights(&self, txt: &StageView, ctx: &mut StatusRenderContext) {
+        let buffer = txt.buffer();
+        let iter = buffer.iter_at_offset(buffer.cursor_position());
+        let line_no = iter.line();
+        ctx.highlight_cursor = line_no;
+        glib::source::timeout_add_local(
+            Duration::from_millis(5),
+            {
+                let txt = txt.clone();
+                let ctx = ctx.clone();
+                move || {
+                    debug!("rrrrrrrrrrrrrrrrrrebind");
+                    txt.bind_highlights(&ctx);
+                    glib::ControlFlow::Break
+                }
+            },
+        );
+        // let buffer = txt.buffer();
+        // let iter = buffer.iter_at_offset(buffer.cursor_position());
+        // self.cursor(txt, iter.line(), iter.offset(), ctx);
+    }
+    
     /// cursor does not change structure, but changes highlights
     /// it will collect highlights in context. no need further render
     pub fn cursor(
