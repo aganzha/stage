@@ -1,7 +1,7 @@
 use crate::status_view::render::View;
 use crate::status_view::tags;
 use crate::status_view::Label;
-
+use crate::status_view::textview::cursor_to_line_offset;
 use crate::{
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
     StatusRenderContext, UnderCursor, Untracked, UntrackedFile,
@@ -294,14 +294,7 @@ pub trait ViewContainer {
         self.render(buffer, &mut iter, context);
 
         // restore original cursor
-        let mut iter = buffer.iter_at_offset(buffer.cursor_position());
-        debug!("----------------line offset after erase> {} {}", initial_line_offset, iter.line_offset());
-        // go to start of line this way
-        iter.backward_line();
-        iter.forward_lines(1);
-        iter.forward_chars(initial_line_offset);
-        buffer.place_cursor(&iter);
-        
+        cursor_to_line_offset(&buffer, initial_line_offset);        
     }
 }
 
