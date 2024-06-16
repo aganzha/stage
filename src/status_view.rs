@@ -37,7 +37,7 @@ use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
     gio, glib, Box, Label as GtkLabel, ListBox, Orientation, SelectionMode,
-    TextBuffer, TextView, Widget,
+    TextBuffer, TextView, Widget, TextIter
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -372,7 +372,7 @@ impl Status {
                     });
                     monitors.borrow_mut().push(monitor);
                 }
-                debug!("my monitors a set {:?}", monitors.borrow().len());
+                trace!("my monitors a set {:?}", monitors.borrow().len());
             }
         });
     }
@@ -868,7 +868,7 @@ impl Status {
         // to collect all data for context, OR, just install highlights to txt
         // if cursor is not inside diff
         context.highlight_cursor = line_no;
-        debug!("highlight cursor in fn_cursor ----------- > {}",
+        trace!("highlight cursor in fn_cursor ----------- > {}",
                line_no
         );
 
@@ -887,10 +887,10 @@ impl Status {
             changed = staged.cursor(line_no, false, context) || changed;
         }
         if changed {
-            debug!("CURSOR IS CHANGED. go to render");
+            trace!("CURSOR IS CHANGED. go to render");
             self.render(txt, RenderSource::Cursor(line_no), context);
         } else {
-            debug!("CURSOR IS NOT CHANGED. do we have highlight? {:?}", context);
+            trace!("CURSOR IS NOT CHANGED. do we have highlight? {:?}", context);
             // aganzha cursor for lines which are not belonging to diff
             txt.bind_highlights(context.highlight_cursor, context.highlight_lines, &context.highlight_hunks);
             glib::source::timeout_add_local(
@@ -1017,7 +1017,7 @@ impl Status {
         }
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
         
-        debug!("highlight cursor in fn_render ----------- > current line, {} context cursor {:?}",
+        trace!("highlight cursor in fn_render ----------- > current line, {} context cursor {:?}",
                buffer.iter_at_offset(buffer.cursor_position()).line(),
                context.highlight_cursor,
         );
@@ -1027,32 +1027,10 @@ impl Status {
             // hunk during staging. after staging, the content behind the cursor
             // is changed, and it need to highlight new content on the same cursor
             // position
-            let  mut iter = buffer.iter_at_offset(buffer.cursor_position());
-            let last_line = buffer.end_iter().line();
-            if iter.line() == last_line {
-                // initial render choose_cursor_position !!!!!!!!!!!!!
-                for diff in [&self.conflicted, &self.unstaged, &self.staged] {
-                    if let Some(diff) = diff {
-                        if !diff.files.is_empty() {
-                            iter = buffer.iter_at_line(diff.files[0].view.line_no.get()).unwrap();
-                        }
-                    }
-                }
-                if iter.line() == last_line {
-                    if let Some(untracked) = &self.untracked {
-                        if !untracked.files.is_empty() {
-                            iter = buffer.iter_at_line(untracked.files[0].view.line_no.get()).unwrap();
-                        }
-                    }
-                }
-                if iter.line() == last_line {
-                    if let Some(state) = &self.state {
-                        iter = buffer.iter_at_line(state.view.line_no.get()).unwrap();
-                    }
-                }
-            }
+            let iter = self.smart_cursor_position(&buffer);
+            buffer.place_cursor(&iter);
             let changed = self.cursor(&txt, iter.line(), iter.offset(), context);
-            debug!("......THATS CURSOR AFTER RENDER INITIATED BY GIT. changed? {:?} line {:?} pixels {:?}",
+            trace!("......THATS CURSOR AFTER RENDER INITIATED BY GIT. changed? {:?} line {:?} pixels {:?}",
                    changed, iter.line(),
                    txt.line_yrange(&iter)
             );
@@ -1089,6 +1067,45 @@ impl Status {
         // };
     }
 
+    pub fn smart_cursor_position(&self, buffer: &TextBuffer) -> TextIter {
+        // its buggy. it need to now what happens right now!
+        // it need to introduce what_it_was at the end of render
+        // then check "what it was" by previous UnderCursor and
+        // render source! then looks like it need to compare it
+        // with current UnderCursor, but how? the cursor is not
+        // set yet! looks like it need to do it AFTER cursor:
+        // - render (rendersource::Git)
+        // - smart_choose_pos before cursor
+        // - cursor to highlight whats behind
+        // - smart_choose_pos AFTER cursor
+        let  iter = buffer.iter_at_offset(buffer.cursor_position());
+        let last_line = buffer.end_iter().line();
+        if iter.line() == last_line {
+            for diff in [&self.conflicted, &self.unstaged, &self.staged] {
+                if let Some(diff) = diff {
+                    if !diff.files.is_empty() {
+                        return buffer.iter_at_line(diff.files[0].view.line_no.get()).unwrap();
+                        
+                    }
+                }
+            }
+            if iter.line() == last_line {
+                if let Some(untracked) = &self.untracked {
+                    if !untracked.files.is_empty() {
+                        return buffer.iter_at_line(untracked.files[0].view.line_no.get()).unwrap();
+                    }
+                }
+            }
+            // if iter.line() == last_line {
+            //     debug!("lets maybe state ? {:?}", self.state);
+            //     if let Some(state) = &self.state {
+            //         return buffer.iter_at_line(state.view.line_no.get()).unwrap();
+            //     }
+            // }
+        }
+        iter
+    }
+    
     pub fn ignore(
         &mut self,
         txt: &StageView,
@@ -1106,7 +1123,7 @@ impl Status {
                     let ignore_path = file
                         .path
                         .clone()
-                        .into_os_string()
+                        .into_os_string()    
                         .into_string()
                         .expect("wrong string");
                     trace!("ignore path! {:?}", ignore_path);
@@ -1281,7 +1298,7 @@ impl Status {
             return;
         }
         let file_path = file_path.unwrap();
-        debug!(
+        trace!(
             "stage via apply ----------------------> {:?} {:?} {:?}",
             subject, file_path, hunk_header
         );
@@ -1322,7 +1339,7 @@ impl Status {
     //     context: &mut StatusRenderContext,
     // ) {
     //     let offset = buffer.cursor_position();
-    //     debug!("choose_cursor_position. optional line {:?}. offset {:?}, line at offset {:?}. eof offset {:?}",
+    //     trace!("choose_cursor_position. optional line {:?}. offset {:?}, line at offset {:?}. eof offset {:?}",
     //            line_no,
     //            offset,
     //            buffer.iter_at_offset(offset).line(),
@@ -1330,12 +1347,12 @@ impl Status {
     //     );
     //     if offset == buffer.end_iter().offset() {
     //         // first render. buffer at eof
-    //         debug!("chooose cursor in first render passed line_no {:?}", line_no);
+    //         trace!("chooose cursor in first render passed line_no {:?}", line_no);
     //         if let Some(unstaged) = &self.unstaged {
     //             if !unstaged.files.is_empty() {
     //                 let line_no = unstaged.files[0].view.line_no.get();
     //                 let iter = buffer.iter_at_line(line_no).unwrap();
-    //                 debug!("place_cursor in choose...........................");
+    //                 trace!("place_cursor in choose...........................");
     //                 buffer.place_cursor(&iter);
     //                 self.cursor(txt, line_no, iter.offset(), context);
     //                 return;
@@ -1350,7 +1367,7 @@ impl Status {
     //     // after git op view could be shifted.
     //     // cursor is on place and it is visually current,
     //     // but view under it is not current, cause line_no differs
-    //     debug!("======================choose cursor when NOT on eof {:?}", iter.line());
+    //     trace!("======================choose cursor when NOT on eof {:?}", iter.line());
     //     buffer.place_cursor(&iter);
     //     self.cursor(txt, iter.line(), iter.offset(), context);
     // }
@@ -1367,25 +1384,25 @@ impl Status {
         let iter = buffer.iter_at_offset(offset);
         let line = iter.line();
         let line_offset = iter.line_offset();
-        debug!("-------- offset, line, line_offset {} {} {}", offset, line, line_offset);
-        debug!("--------- highlights. cursor {:?} vs {:?}", txt.get_highliught_cursor(), txt.line_yrange(&iter));
+        trace!("-------- offset, line, line_offset {} {} {}", offset, line, line_offset);
+        trace!("--------- highlights. cursor {:?} vs {:?}", txt.get_highliught_cursor(), txt.line_yrange(&iter));
         // if let Some(unstaged) = &self.unstaged {
         //     for file in &unstaged.files {
         //         if !(file.path.as_path().to_str().unwrap()).contains(&"txt") {
         //             continue
         //         }
-        //         debug!("file .. {} {}", file.view.line_no.get(), file.view.is_active());
+        //         trace!("file .. {} {}", file.view.line_no.get(), file.view.is_active());
         //         for hunk in &file.hunks {
-        //             debug!("hunk .. {} {}", hunk.view.line_no.get(), hunk.view.is_active());
+        //             trace!("hunk .. {} {}", hunk.view.line_no.get(), hunk.view.is_active());
         //             for line in &hunk.lines {
-        //                 debug!("line .. {} {}", line.view.line_no.get(), line.view.is_active());
+        //                 trace!("line .. {} {}", line.view.line_no.get(), line.view.is_active());
         //             }
         //         }
         //         file.cursor(file.view.line_no.get() + 1, false, context);
         //         for hunk in &file.hunks {
-        //             debug!("hunk .. {} {}", hunk.view.line_no.get(), hunk.view.is_active());
+        //             trace!("hunk .. {} {}", hunk.view.line_no.get(), hunk.view.is_active());
         //             for line in &hunk.lines {
-        //                 debug!("line .. {} {}", line.view.line_no.get(), line.view.is_active());
+        //                 trace!("line .. {} {}", line.view.line_no.get(), line.view.is_active());
         //             }
         //         }
         //     }
@@ -1394,19 +1411,19 @@ impl Status {
         // let iter = buffer.iter_at_offset(buffer.cursor_position());
         // let current_line = iter.line();
 
-        // debug!("debug at line {:?}", current_line);
+        // trace!("debug at line {:?}", current_line);
         // if let Some(diff) = &mut self.staged {
         //     diff.walk_down(&|vc: &dyn ViewContainer| {
         //         let content = vc.get_content();
         //         let view = vc.get_view();
         //         // hack :(
         //         if view.line_no.get() == current_line && view.is_rendered() {
-        //             debug!(
+        //             trace!(
         //                 "view under line {:?} {:?}",
         //                 view.line_no.get(),
         //                 content
         //             );
-        //             debug!(
+        //             trace!(
         //                 "is rendered in {:?} {:?}",
         //                 view.is_rendered_in(current_line),
         //                 current_line
