@@ -950,10 +950,7 @@ impl Status {
         }
 
         if let Some(upstream) = &self.upstream {
-            debug!("GOT UPSTREN!;");
             upstream.render(&buffer, &mut iter, context);
-        } else {
-            debug!("nooooooooooooooooooooo upstream");
         }
 
         if let Some(state) = &self.state {
