@@ -950,7 +950,10 @@ impl Status {
         }
 
         if let Some(upstream) = &self.upstream {
+            debug!("GOT UPSTREN!;");
             upstream.render(&buffer, &mut iter, context);
+        } else {
+            debug!("nooooooooooooooooooooo upstream");
         }
 
         if let Some(state) = &self.state {
@@ -1362,12 +1365,24 @@ impl Status {
         context: &mut StatusRenderContext,
     ) {
         let buffer = txt.buffer();
+        if self.upstream.is_none() {
+            debug!("render upstream------------------------------");
+            let head = self.head.clone().unwrap();
+            head.view.render(false);
+            self.upstream.replace(head);
+            self.render(txt, RenderSource::Git, context);        
+        } else {
+            debug!("CURSOR------------------------------");
+            let offset = buffer.cursor_position();
+            let iter = buffer.iter_at_offset(offset);
+            self.cursor(txt, iter.line(), iter.offset(), context);
+        }
         let offset = buffer.cursor_position();
         let iter = buffer.iter_at_offset(offset);
         let line = iter.line();
         let line_offset = iter.line_offset();
         debug!(
-            "-------- line, line_offset {} {}",
+            "?-------- line, line_offset {} {}",
             line,
             line_offset
         );
