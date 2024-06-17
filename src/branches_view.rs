@@ -977,12 +977,13 @@ pub fn headerbar_factory(
         .build();
 
     let merge_btn = Button::builder()
-        .icon_name("system-switch-user-symbolic")
+        .icon_name("view-restore-symbolic") // system-switch-user-symbolic
         .use_underline(true)
         .tooltip_text("Merge branch (M)")
         .sensitive(false)
         .can_shrink(true)
         .build();
+    
     let _ = branch_list
         .bind_property("selected-pos", &merge_btn, "sensitive")
         .transform_to(set_sensitive)
@@ -996,6 +997,26 @@ pub fn headerbar_factory(
         move |_| branch_list.merge(repo_path.clone(), &window, sender.clone())
     });
 
+    let rebase_btn = Button::builder()
+        .icon_name("media-playlist-repeat-song-symbolic") // system-switch-user-symbolic
+        .use_underline(true)
+        .tooltip_text("Rebase onto branch (R)")
+        .sensitive(false)
+        .can_shrink(true)
+        .build();
+    let _ = branch_list
+        .bind_property("selected-pos", &rebase_btn, "sensitive")
+        .transform_to(set_sensitive)
+        .build();
+
+    rebase_btn.connect_clicked({
+        let sender = sender.clone();
+        let window = window.clone();
+        let branch_list = branch_list.clone();
+        let repo_path = repo_path.clone();
+        move |_| branch_list.rebase(repo_path.clone(), &window, sender.clone())
+    });
+    
     let refresh_btn = Button::builder()
         .label("Update remote")
         .icon_name("view-refresh-symbolic")
@@ -1044,6 +1065,7 @@ pub fn headerbar_factory(
     hb.set_title_widget(Some(&search));
     hb.pack_end(&new_btn);
     hb.pack_end(&merge_btn);
+    hb.pack_end(&rebase_btn);
     hb.pack_end(&kill_btn);
     hb.pack_end(&log_btn);
     hb.pack_end(&refresh_btn);
