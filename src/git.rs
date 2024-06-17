@@ -17,7 +17,7 @@ use git2::{
     ApplyLocation, ApplyOptions, Branch, Commit, Delta, Diff as GitDiff,
     DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
     DiffOptions, Error, ObjectType, Oid, Repository, RepositoryState,
-    ResetType, StashFlags,
+    ResetType, StashFlags, RebaseOptions
 };
 
 use log::{debug, trace};
@@ -1167,19 +1167,29 @@ pub fn rebase(  path: PathBuf,
                 sender: Sender<crate::Event>) -> Result<bool, Error> {
     let repo = Repository::open(path.clone())?;
     let upstream_commit = repo.find_annotated_commit(upstream)?;
-    let mut rebase = repo.rebase(None, Some(&upstream_commit), None, None)?;
+
+    let mut builder = CheckoutBuilder::new();
+    builder.safe().allow_conflicts(true);
+
+    let mut rebase_options = RebaseOptions::new();
+    let rebase_options = rebase_options.checkout_options(builder);
+    
+    let mut rebase = repo.rebase(None, Some(&upstream_commit), None, Some(rebase_options))?;
     debug!("THATS REBASE {:?} {:?}", rebase.operation_current(), rebase.len());
+    let me = repo.signature()?;
     loop {
         if let Some(result) = rebase.next() {
+            debug!("got result in rebase ..... {:?}", result);
             let op = result?;
             debug!("ooooooooooooooooooooooooooooooooooooo {:?} {:?}", op.id(), op.kind());
+            rebase.commit(None, &me, None)?;
         } else {
             debug!("rebase is ooooooooooooover!");
-            let me = repo.signature()?;
             rebase.finish(Some(&me))?;
             break;
         }
     }
+    debug!("exit rebase loooooopppppppppppppppppp");
     gio::spawn_blocking({
         move || {
             get_current_repo_status(Some(path), sender);
