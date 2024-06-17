@@ -367,6 +367,7 @@ impl BranchList {
                        let result = gio::spawn_blocking(move || {
                            rebase(repo_path, branch_data.oid, None, sender)
                        }).await.unwrap_or_else(|e| {
+                           debug!("--------------------> {:?}", e.type_id());
                            alert(format!("{:?}", e)).present(&window);
                            Ok(false)
                        }).unwrap_or_else(|e| {
