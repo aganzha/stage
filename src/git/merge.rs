@@ -174,7 +174,7 @@ pub fn branch(
     let ob = head_ref.peel(git2::ObjectType::Commit)?;
     let commit = ob.peel_to_commit()?;
     let branch = git2::Branch::wrap(head_ref);
-    let new_head = Head::new(&branch, &commit);
+    let new_head = Head::new(&branch.branch_name(), &commit);
     sender
         .send_blocking(crate::Event::State(State::new(
             repo.state(),
