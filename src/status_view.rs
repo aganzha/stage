@@ -619,6 +619,8 @@ impl Status {
                 if head.oid != upstream.oid {
                     amend_message.replace(head.commit_body.clone());
                 }
+            } else {
+                amend_message.replace(head.commit_body.clone());
             }
         }
         commit::commit(

@@ -1168,11 +1168,15 @@ pub fn rebase(  path: PathBuf,
     let repo = Repository::open(path.clone())?;
     let upstream_commit = repo.find_annotated_commit(upstream)?;
     let mut rebase = repo.rebase(None, Some(&upstream_commit), None, None)?;
+    debug!("THATS REBASE {:?} {:?}", rebase.operation_current(), rebase.len());
     loop {
         if let Some(result) = rebase.next() {
             let op = result?;
-            debug!("ooooooooooooooooooooooooooooooooooooo {:?} {:?} {:?}", op.id(), op.kind(), op.exec());
+            debug!("ooooooooooooooooooooooooooooooooooooo {:?} {:?}", op.id(), op.kind());
         } else {
+            debug!("rebase is ooooooooooooover!");
+            let me = repo.signature()?;
+            rebase.finish(Some(&me))?;
             break;
         }
     }
