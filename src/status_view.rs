@@ -6,6 +6,8 @@ pub mod tags;
 pub mod stage_view;
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{merge, remote, stash, abort_rebase, continue_rebase};
+use crate::utils::StrPath;
+
 use container::ViewContainer;
 use core::time::Duration;
 use git2::RepositoryState;
@@ -683,22 +685,14 @@ impl Status {
     ) {
         let mut settings =
             self.settings.get::<HashMap<String, Vec<String>>>("ignored");
-        let repo_path = self
-            .path
-            .clone()
-            .expect("no path")
-            .into_os_string()
-            .into_string()
-            .expect("wrong path");
-        if let Some(ignored) = settings.get_mut(&repo_path) {
+
+        let repo_path = self.path.clone().unwrap();
+        let str_path = repo_path.as_str();
+        if let Some(ignored) = settings.get_mut(str_path) {
             untracked.files.retain(|f| {
                 let str_path = f
-                    .path
-                    .clone()
-                    .into_os_string()
-                    .into_string()
-                    .expect("wrong string");
-                !ignored.contains(&str_path)
+                    .path.as_str();
+                !ignored.contains(&str_path.to_string())
             });
         }
         if let Some(u) = &mut self.untracked {
