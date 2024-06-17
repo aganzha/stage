@@ -1199,6 +1199,22 @@ pub fn checkout_oid(
     get_current_repo_status(Some(path), sender);
 }
 
+pub fn abort_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
+    let updater = StatusUpdater::new(path.clone(), sender);
+    
+    let repo = Repository::open(path)?;
+
+    let mut builder = CheckoutBuilder::new();
+    builder.safe().allow_conflicts(true);
+
+    let mut rebase_options = RebaseOptions::new();
+    let rebase_options = rebase_options.checkout_options(builder);
+
+    let mut rebase = repo.open_rebase(Some(rebase_options))?;
+    rebase.abort()?;
+    Ok(())
+}
+
 pub fn rebase(  path: PathBuf,
                 upstream: Oid,
                 onto: Option<Oid>,

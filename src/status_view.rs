@@ -5,7 +5,7 @@ pub mod headerbar;
 pub mod tags;
 pub mod stage_view;
 use crate::dialogs::{alert, DangerDialog, YES};
-use crate::git::{merge, remote, stash};
+use crate::git::{merge, remote, stash, abort_rebase};
 use container::ViewContainer;
 use core::time::Duration;
 use git2::RepositoryState;
@@ -799,12 +799,17 @@ impl Status {
                 let new_handler_id = banner.connect_button_clicked({
                     let sender = sender.clone();
                     let path = self.path.clone();
+                    let state = self.state.clone().unwrap().state;
                     move |_| {
                         gio::spawn_blocking({
                             let sender = sender.clone();
                             let path = path.clone();
                             move || {
-                                merge::abort(path.expect("no path"), sender);
+                                match state {
+                                    RepositoryState::Merge => merge::abort(path.expect("no path"), sender),
+                                    RepositoryState::RebaseMerge => abort_rebase(path.expect("no path"), sender),
+                                    _ => todo!("whats the state of the repo for conflicts?")
+                                }
                             }
                         });
                     }

@@ -2,7 +2,7 @@ use crate::git::{
     branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff,
     make_diff_options, BranchData, DiffKind, Head, Hunk, Line, State,
     MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE,
-    SPACE,
+    SPACE, StatusUpdater
 };
 use async_channel::Sender;
 use git2;
@@ -187,14 +187,15 @@ pub fn branch(
     BranchData::from_branch(branch, git2::BranchType::Local)
 }
 
-pub fn abort(path: PathBuf, sender: Sender<crate::Event>) {
+pub fn abort(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {
     info!("git.abort merge");
+    let updater = StatusUpdater::new(path.clone(), sender);
 
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    let repo = git2::Repository::open(path.clone())?;
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
 
-    let index = repo.index().expect("cant get index");
-    let conflicts = index.conflicts().expect("no conflicts");
+    let index = repo.index()?;
+    let conflicts = index.conflicts()?;
     let mut has_conflicts = false;
     for conflict in conflicts.flatten() {
         if let Some(our) = conflict.our {
@@ -206,15 +207,14 @@ pub fn abort(path: PathBuf, sender: Sender<crate::Event>) {
         panic!("no way to abort merge without conflicts");
     }
 
-    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    let ob = repo.revparse_single("HEAD^{tree}")?;
+    let current_tree = repo.find_tree(ob.id())?;
     let git_diff = repo
         .diff_tree_to_index(
             Some(&current_tree),
             None,
             Some(&mut make_diff_options()),
-        )
-        .expect("can't get diff tree to index");
+        )?;
     git_diff
         .foreach(
             &mut |d: git2::DiffDelta, _| {
@@ -225,19 +225,17 @@ pub fn abort(path: PathBuf, sender: Sender<crate::Event>) {
             None,
             None,
             None,
-        )
-        .expect("cant foreach on diff");
+        )?;
 
-    let head_ref = repo.head().expect("can't get head");
+    let head_ref = repo.head()?;
 
     let ob = head_ref
-        .peel(git2::ObjectType::Commit)
-        .expect("can't get commit from ref!");
+        .peel(git2::ObjectType::Commit)?;
 
-    repo.reset(&ob, git2::ResetType::Hard, Some(&mut checkout_builder))
-        .expect("cant reset hard");
 
-    get_current_repo_status(Some(path), sender);
+    repo.reset(&ob, git2::ResetType::Hard, Some(&mut checkout_builder))?;
+
+    Ok(())
 }
 
 pub fn choose_conflict_side(
