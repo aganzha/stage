@@ -1209,6 +1209,7 @@ impl Status {
         false
     }
 
+    // regular commit
     pub fn stage(
         &mut self,
         _txt: &StageView,
