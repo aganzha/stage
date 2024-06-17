@@ -815,9 +815,8 @@ impl Status {
                             let path = path.clone();
                             move || {
                                 match state {
-                                    RepositoryState::Merge => merge::abort(path.expect("no path"), sender),
                                     RepositoryState::RebaseMerge => abort_rebase(path.expect("no path"), sender),
-                                    _ => todo!("whats the state of the repo for conflicts?")
+                                    _ => merge::abort(path.expect("no path"), sender)
                                 }
                             }
                         });
