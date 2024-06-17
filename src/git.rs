@@ -1234,6 +1234,7 @@ pub fn continue_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<()
 
     let mut rebase = repo.open_rebase(Some(rebase_options))?;
     let me = repo.signature()?;
+    rebase.commit(None, &me, None)?;
     loop {
         if let Some(result) = rebase.next() {
             debug!("CONTINUE got result in rebase ..... {:?}", result);
