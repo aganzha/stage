@@ -1192,7 +1192,10 @@ pub fn rebase(  path: PathBuf,
                 upstream: Oid,
                 onto: Option<Oid>,
                 sender: Sender<crate::Event>) -> Result<bool, Error> {
-    let repo = Repository::open(path.clone())?;
+
+    let updater = StatusUpdater::new(path.clone(), sender);
+    
+    let repo = Repository::open(path)?;
     let upstream_commit = repo.find_annotated_commit(upstream)?;
 
     let mut builder = CheckoutBuilder::new();
@@ -1217,11 +1220,6 @@ pub fn rebase(  path: PathBuf,
         }
     }
     debug!("exit rebase loooooopppppppppppppppppp");
-    gio::spawn_blocking({
-        move || {
-            get_current_repo_status(Some(path), sender);
-        }
-    });
     Ok(true)
 }
 
