@@ -5,7 +5,7 @@ pub mod merge;
 pub mod remote;
 pub mod stash;
 pub mod test_merge;
-use crate::branch::BranchData;
+use crate::branch::{BranchData, BranchName};
 use crate::commit::CommitRepr;
 use crate::gio;
 use crate::status_view::render::View;
@@ -488,10 +488,10 @@ pub struct Head {
 }
 
 impl Head {
-    pub fn new(branch: &Branch, commit: &Commit) -> Self {
+    pub fn new(head_title: &str, commit: &Commit) -> Self {
         Self {
             oid: commit.id(),
-            branch: String::from(branch.name().unwrap().unwrap()),
+            branch: head_title.to_string(),
             log_message: commit.log_message(),
             commit_body: commit.raw_message(),
             view: View::new(),
@@ -503,13 +503,18 @@ impl Head {
 pub fn get_head(path: PathBuf, sender: Sender<crate::Event>) {
     let repo = Repository::open(path).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
-    assert!(head_ref.is_branch());
     let ob = head_ref
         .peel(ObjectType::Commit)
         .expect("can't get commit from ref!");
     let commit = ob.peel_to_commit().expect("can't get commit from ob!");
-    let branch = Branch::wrap(head_ref);
-    let new_head = Head::new(&branch, &commit);
+
+    let head_title = if head_ref.is_branch() {
+        Branch::wrap(head_ref).branch_name()
+    } else {
+        "Detached head".to_string()
+    };
+
+    let new_head = Head::new(&head_title, &commit);
     sender
         .send_blocking(crate::Event::Head(new_head))
         .expect("Could not send through channel");
@@ -527,7 +532,7 @@ pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) {
             .peel(ObjectType::Commit)
             .expect("can't get commit from ref!");
         let commit = ob.peel_to_commit().expect("can't get commit from ob!");
-        let mut new_upstream = Head::new(&upstream, &commit);
+        let mut new_upstream = Head::new(&upstream.branch_name(), &commit);
         new_upstream.remote = true;
         sender
             .send_blocking(crate::Event::Upstream(Some(new_upstream)))
