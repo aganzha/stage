@@ -22,6 +22,8 @@ use stashes_view::factory as stashes_view_factory;
 mod commit_view;
 use commit_view::show_commit_window;
 
+mod utils;
+
 use core::time::Duration;
 use std::cell::{RefCell, Cell};
 use std::path::PathBuf;

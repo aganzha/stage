@@ -299,6 +299,7 @@ pub trait ViewContainer {
         if let Some(mut iter) = buffer.iter_at_line(line_no) {
             self.render(buffer, &mut iter, context);
         } else {
+            // todo - get all the buffer and write it to file completelly
             panic!("no line at the end of erase!!!!!!!!! {}", line_no);
         }
         cursor_to_line_offset(&buffer, initial_line_offset);
