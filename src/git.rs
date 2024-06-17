@@ -1181,10 +1181,10 @@ pub fn rebase(  path: PathBuf,
         if let Some(result) = rebase.next() {
             debug!("got result in rebase ..... {:?}", result);
             let op = result?;
-            debug!("ooooooooooooooooooooooooooooooooooooo {:?} {:?}", op.id(), op.kind());
+            debug!("rebase op {:?} {:?}", op.id(), op.kind());
             rebase.commit(None, &me, None)?;
         } else {
-            debug!("rebase is ooooooooooooover!");
+            debug!("rebase is over!");
             rebase.finish(Some(&me))?;
             break;
         }
