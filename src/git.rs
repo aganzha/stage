@@ -475,6 +475,12 @@ impl State {
             _ => false,
         }
     }
+    pub fn need_rebase_continue(&self) -> bool {
+        match self.state {
+            RepositoryState::RebaseMerge => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1212,6 +1218,35 @@ pub fn abort_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), E
 
     let mut rebase = repo.open_rebase(Some(rebase_options))?;
     rebase.abort()?;
+    Ok(())
+}
+
+pub fn continue_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
+    let updater = StatusUpdater::new(path.clone(), sender);
+    
+    let repo = Repository::open(path)?;
+
+    let mut builder = CheckoutBuilder::new();
+    builder.safe().allow_conflicts(true);
+
+    let mut rebase_options = RebaseOptions::new();
+    let rebase_options = rebase_options.checkout_options(builder);
+
+    let mut rebase = repo.open_rebase(Some(rebase_options))?;
+    let me = repo.signature()?;
+    loop {
+        if let Some(result) = rebase.next() {
+            debug!("CONTINUE got result in rebase ..... {:?}", result);
+            let op = result?;
+            debug!("CONTINUE rebase op {:?} {:?}", op.id(), op.kind());
+            rebase.commit(None, &me, None)?;
+        } else {
+            debug!("CONTINUE rebase is over!");
+            rebase.finish(Some(&me))?;
+            break;
+        }
+    }
+    debug!("CONTINUE exit rebase loooooopppppppppppppppppp");
     Ok(())
 }
 

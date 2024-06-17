@@ -5,7 +5,7 @@ pub mod headerbar;
 pub mod tags;
 pub mod stage_view;
 use crate::dialogs::{alert, DangerDialog, YES};
-use crate::git::{merge, remote, stash, abort_rebase};
+use crate::git::{merge, remote, stash, abort_rebase, continue_rebase};
 use container::ViewContainer;
 use core::time::Duration;
 use git2::RepositoryState;
@@ -734,10 +734,16 @@ impl Status {
                     banner.set_revealed(false);
                 }
 
-                if state.need_final_commit() {
+                if state.need_final_commit() || state.need_rebase_continue() {
                     banner.set_title(&state.title_for_proceed_banner());
                     banner.set_css_classes(&["success"]);
-                    banner.set_button_label(Some("Commit"));
+                    banner.set_button_label(
+                        if state.need_final_commit() {
+                            Some("Commit")
+                        } else {
+                            Some("Continue")
+                        }
+                    );
                     banner_button.set_css_classes(&["suggested-action"]);
                     banner.set_revealed(true);
                     if let Some(handler_id) = banner_button_clicked.take() {
@@ -756,19 +762,22 @@ impl Status {
                                 async move {
                                     gio::spawn_blocking({
                                         move || {
-                                            if state == RepositoryState::Merge
-                                            {
-                                                merge::final_merge_commit(
-                                                    path.clone()
-                                                        .expect("no path"),
+                                            match state {
+                                                RepositoryState::Merge =>                                                    
+                                                    merge::final_merge_commit(
+                                                        path.clone().unwrap(),
+                                                        sender,
+                                                    ),
+                                                RepositoryState::RebaseMerge => 
+                                                    continue_rebase(
+                                                        path.clone().unwrap(),
+                                                        sender,
+                                                    ),
+                                                _ => merge::final_commit(
+                                                    path.clone().unwrap(),
                                                     sender,
                                                 )
-                                            } else {
-                                                merge::final_commit(
-                                                    path.clone()
-                                                        .expect("no path"),
-                                                    sender,
-                                                )
+                                                    
                                             }
                                         }
                                     })
