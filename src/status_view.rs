@@ -23,7 +23,7 @@ use std::rc::Rc;
 use crate::status_view::render::View;
 use crate::{
     checkout_oid, get_current_repo_status, get_directories, git_debug,
-    stage_untracked, stage_via_apply, track_changes, ApplySubject, Diff,
+    stage_untracked, stage_via_apply, track_changes, StageOp, Diff,
     Event, File as GitFile, Head, State, StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
@@ -1200,7 +1200,7 @@ impl Status {
         &mut self,
         _txt: &StageView,
         _line_no: i32,
-        subject: ApplySubject,
+        op: StageOp,
         window: &ApplicationWindow,
     ) {
         if let Some(untracked) = &self.untracked {
@@ -1228,13 +1228,13 @@ impl Status {
         }
 
         // just a check
-        match subject {
-            ApplySubject::Stage | ApplySubject::Kill => {
+        match op {
+            StageOp::Stage | StageOp::Kill => {
                 if self.unstaged.is_none() {
                     return;
                 }
             }
-            ApplySubject::Unstage => {
+            StageOp::Unstage => {
                 if self.staged.is_none() {
                     return;
                 }
@@ -1242,11 +1242,11 @@ impl Status {
         }
 
         let diff = {
-            match subject {
-                ApplySubject::Stage | ApplySubject::Kill => {
+            match op {
+                StageOp::Stage | StageOp::Kill => {
                     self.unstaged.as_mut().unwrap()
                 }
-                ApplySubject::Unstage => self.staged.as_mut().unwrap(),
+                StageOp::Unstage => self.staged.as_mut().unwrap(),
             }
         };
 
@@ -1278,7 +1278,7 @@ impl Status {
         let file_path = file_path.unwrap();
         trace!(
             "stage via apply ----------------------> {:?} {:?} {:?}",
-            subject,
+            op,
             file_path,
             hunk_header
         );
@@ -1294,7 +1294,7 @@ impl Status {
                             path.expect("no path"),
                             file_path,
                             hunk_header,
-                            subject,
+                            op,
                             sender,
                         )
                     }

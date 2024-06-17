@@ -31,7 +31,7 @@ mod git;
 use git::{
     branch, checkout_oid, commit, debug as git_debug, get_current_repo_status,
     get_directories, reset_hard, stage_untracked, stage_via_apply,
-    stash::Stashes, track_changes, ApplySubject, Diff, DiffKind, File, Head,
+    stash::Stashes, track_changes, StageOp, Diff, DiffKind, File, Head,
     Hunk, Line, LineKind, State, Untracked, UntrackedFile,
 };
 use git2::Oid;
@@ -482,20 +482,20 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::Stage(_offset, line_no) => {
                     info!("Stage");
-                    status.stage(&txt, line_no, ApplySubject::Stage, &window);
+                    status.stage(&txt, line_no, StageOp::Stage, &window);
                 }
                 Event::UnStage(_offset, line_no) => {
                     info!("Unstage");
                     status.stage(
                         &txt,
                         line_no,
-                        ApplySubject::Unstage,
+                        StageOp::Unstage,
                         &window,
                     );
                 }
                 Event::Kill(_offset, line_no) => {
                     info!("main.kill");
-                    status.stage(&txt, line_no, ApplySubject::Kill, &window);
+                    status.stage(&txt, line_no, StageOp::Kill, &window);
                 }
                 Event::Ignore(offset, line_no) => {
                     info!("main.ignore");
