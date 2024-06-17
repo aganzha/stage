@@ -793,7 +793,7 @@ impl Untracked {
 }
 
 #[derive(Debug, Clone)]
-pub enum ApplySubject {
+pub enum StageOp {
     Stage,
     Unstage,
     Kill,
@@ -803,11 +803,11 @@ pub enum ApplySubject {
 pub struct ApplyFilter {
     pub file_id: String,
     pub hunk_id: Option<String>,
-    pub subject: ApplySubject,
+    pub subject: StageOp,
 }
 
 impl ApplyFilter {
-    pub fn new(subject: ApplySubject) -> Self {
+    pub fn new(subject: StageOp) -> Self {
         Self {
             file_id: String::from(""),
             hunk_id: None,
@@ -934,7 +934,7 @@ pub fn stage_via_apply(
     path: PathBuf,
     file_path: PathBuf,
     hunk_header: Option<String>,
-    subject: ApplySubject,
+    subject: StageOp,
     sender: Sender<crate::Event>,
 ) -> Result<(), Error> {
     // TODO! destruct filter to args. put file in pathspec for diff opts
@@ -944,10 +944,10 @@ pub fn stage_via_apply(
     opts.pathspec(file_path.clone());
 
     let git_diff = match subject {
-        ApplySubject::Stage => {
+        StageOp::Stage => {
             repo.diff_index_to_workdir(None, Some(&mut opts))?
         }
-        ApplySubject::Unstage => {
+        StageOp::Unstage => {
             opts.reverse(true);
             let ob =
                 repo.revparse_single("HEAD^{tree}").expect("fail revparse");
@@ -959,7 +959,7 @@ pub fn stage_via_apply(
                 Some(&mut opts),
             )?
         }
-        ApplySubject::Kill => {
+        StageOp::Kill => {
             opts.reverse(true);
             repo.diff_index_to_workdir(None, Some(&mut opts))?
         }
@@ -972,7 +972,7 @@ pub fn stage_via_apply(
             if let Some(dh) = odh {
                 let header = Hunk::get_header_from(&dh);
                 return match subject {
-                    ApplySubject::Stage => {
+                    StageOp::Stage => {
                         debug!(
                             "staging? {} {} {}",
                             hunk_header,
@@ -981,10 +981,10 @@ pub fn stage_via_apply(
                         );
                         hunk_header == &header
                     }
-                    ApplySubject::Unstage => {
+                    StageOp::Unstage => {
                         hunk_header == &Hunk::reverse_header(&header)
                     }
-                    ApplySubject::Kill => {
+                    StageOp::Kill => {
                         let reversed = Hunk::reverse_header(&header);
                         hunk_header == &reversed
                     }
@@ -1002,8 +1002,8 @@ pub fn stage_via_apply(
         todo!("diff without delta");
     });
     let apply_location = match subject {
-        ApplySubject::Stage | ApplySubject::Unstage => ApplyLocation::Index,
-        ApplySubject::Kill => ApplyLocation::WorkDir,
+        StageOp::Stage | StageOp::Unstage => ApplyLocation::Index,
+        StageOp::Kill => ApplyLocation::WorkDir,
     };
 
     sender
