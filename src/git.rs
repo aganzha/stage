@@ -1234,21 +1234,21 @@ pub fn continue_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<()
 
     let mut rebase = repo.open_rebase(Some(rebase_options))?;
     debug!("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! {:?}", rebase.next());
-    let me = repo.signature()?;
-    rebase.commit(None, &me, None)?;
-    loop {
-        if let Some(result) = rebase.next() {
-            debug!("CONTINUE got result in rebase ..... {:?}", result);
-            let op = result?;
-            debug!("CONTINUE rebase op {:?} {:?}", op.id(), op.kind());
-            rebase.commit(None, &me, None)?;
-        } else {
-            debug!("CONTINUE rebase is over!");
-            rebase.finish(Some(&me))?;
-            break;
-        }
-    }
-    debug!("CONTINUE exit rebase loooooopppppppppppppppppp");
+    // let me = repo.signature()?;
+    // rebase.commit(None, &me, None)?;
+    // loop {
+    //     if let Some(result) = rebase.next() {
+    //         debug!("CONTINUE got result in rebase ..... {:?}", result);
+    //         let op = result?;
+    //         debug!("CONTINUE rebase op {:?} {:?}", op.id(), op.kind());
+    //         rebase.commit(None, &me, None)?;
+    //     } else {
+    //         debug!("CONTINUE rebase is over!");
+    //         rebase.finish(Some(&me))?;
+    //         break;
+    //     }
+    // }
+    // debug!("CONTINUE exit rebase loooooopppppppppppppppppp");
     Ok(())
 }
 
