@@ -252,7 +252,7 @@ impl BranchList {
                     branch_list.update_head_branch(new_branch_data);
                 } else {
                     // adding new item from remote
-                    branch_list.add_new_branch_item(new_branch_data)
+                    branch_list.add_new_branch_item(new_branch_data, true)
                 }
             })
         });
@@ -569,15 +569,15 @@ impl BranchList {
                     None
                 });
                 if let Some(branch_data) = branch_data {
-                    // branch_list.deactivate_current_branch();
-                    branch_list.add_new_branch_item(branch_data);
+                    // aganzha what about optional checkout?
+                    branch_list.add_new_branch_item(branch_data, need_checkout);
                 }
             })
         });
     }
 
-    fn add_new_branch_item(&self, branch_data: branch::BranchData) {
-        trace!(
+    fn add_new_branch_item(&self, branch_data: branch::BranchData, need_checkout: bool) {
+        debug!(
             "add_new_branch_item {:?} {:?}",
             branch_data.is_head,
             branch_data.name
@@ -592,7 +592,13 @@ impl BranchList {
             .borrow_mut()
             .insert(0, BranchItem::new(&self.imp().original_list.borrow()[0]));
 
+        if !need_checkout {
+            self.items_changed(0, 0, 1);
+            return;
+        }
+
         self.update_head_branch(branch_data);
+            
 
         self.items_changed(0, 0, 1);
 
