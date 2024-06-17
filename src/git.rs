@@ -1030,11 +1030,38 @@ pub fn stage_via_apply(
     Ok(())
 }
 
+pub struct StatusUpdater {
+    pub path: PathBuf,
+    pub sender: Sender<crate::Event>,
+}
+
+impl StatusUpdater {
+    pub fn new(path: PathBuf, sender: Sender<crate::Event>) -> Self {
+        Self {
+            path,
+            sender
+        }
+    }
+}
+impl Drop for StatusUpdater {
+    fn drop(&mut self) {
+        gio::spawn_blocking({
+            let path = self.path.clone();
+            let sender = self.sender.clone();
+            debug!("DRRRRRRRRRROOOOOOOOOOOOOOOPP");
+            move || {
+                get_current_repo_status(Some(path), sender);
+            }
+        });
+    }
+}
+
 pub fn reset_hard(
     path: PathBuf,
     ooid: Option<Oid>,
     sender: Sender<crate::Event>,
 ) -> Result<bool, Error> {
+    
     let repo = Repository::open(path.clone())?;
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
