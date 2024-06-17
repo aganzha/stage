@@ -1,3 +1,9 @@
+TODO: disable all branch ops in branches view during rebase!
+
+in the rebase there is a conflict: path dc4 already applied! but it is not applied, it was cherry picked and now have another sha!
+think about it:
+the name is "display detached head" dc4e681f0a16dd8faad8282fc670c8b2bb738b04 in follow rebase and 06aa1eeac8e20c8f2321ee590e7d6edf32900ff5 in rebase
+
 remote is apeared (new branch) below head and cursor shifted down, but hightlight was on same line
 
 TODO: when something panic in main thread, the next thing is panic at cant sent through channel.
