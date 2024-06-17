@@ -1272,12 +1272,12 @@ pub fn rebase(  path: PathBuf,
     let me = repo.signature()?;
     loop {
         if let Some(result) = rebase.next() {
-            debug!("main got result in rebase ..... {:?}", result);
+            debug!("MAIN got result in rebase ..... {:?}", result);
             let op = result?;
-            debug!("main rebase op {:?} {:?}", op.id(), op.kind());
+            debug!("MAIN rebase op {:?} {:?}", op.id(), op.kind());
             rebase.commit(None, &me, None)?;
         } else {
-            debug!("main rebase is over!");
+            debug!("MAIN rebase is over!");
             rebase.finish(Some(&me))?;
             break;
         }
