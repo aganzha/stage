@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Aleksey Ganzha <aganzha@yandex.ru>
+//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 use crate::git::{branch::BranchName, get_head, get_upstream};
 use async_channel::Sender;
 use git2;

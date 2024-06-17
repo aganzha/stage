@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Aleksey Ganzha <aganzha@yandex.ru>
+//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 use crate::dialogs::{alert, ConfirmDialog, YES};
 use crate::git::{commit, stash};
 use crate::status_view::context::{StatusRenderContext, TextViewWidth};
