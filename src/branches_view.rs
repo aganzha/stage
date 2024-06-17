@@ -1,7 +1,7 @@
 use async_channel::Sender;
 
 use crate::dialogs::{alert, ConfirmDialog, YES};
-use crate::git::{branch, commit, merge, remote};
+use crate::git::{branch, commit, merge, remote, rebase};
 use git2::BranchType;
 use glib::{clone, closure, Object};
 use gtk4::prelude::*;
@@ -333,6 +333,52 @@ impl BranchList {
         });
     }
 
+    pub fn rebase(
+        &self,
+        repo_path: PathBuf,
+        window: &Window,
+        sender: Sender<crate::Event>,
+    ) {
+        let current_branch =
+            self.get_head_branch().expect("cant get current branch");
+        let selected_branch = self.get_selected_branch();
+        if selected_branch.is_head {
+            return;
+        }
+        let title = format!(
+            "rebase branch {} onto {}",
+            current_branch.name, selected_branch.name
+        );
+
+        glib::spawn_future_local({
+            clone!(@weak self as branch_list,
+                   @weak window as window,
+                   @strong selected_branch as branch_data => async move {
+                       let dialog = crate::confirm_dialog_factory(
+                           &window,
+                           Some(&Label::new(Some(&title))),
+                           "Rebase",
+                           "Rebase"
+                       );
+                       let result = dialog.choose_future().await;
+                       if "confirm" != result {
+                           return;
+                       }
+                       let result = gio::spawn_blocking(move || {
+                           rebase(repo_path, branch_data.oid, None, sender)
+                       }).await.unwrap_or_else(|e| {
+                           alert(format!("{:?}", e)).present(&window);
+                           Ok(false)
+                       }).unwrap_or_else(|e| {
+                           alert(e).present(&window);
+                           false
+                       });
+                       debug!("rrrrrrrrrrrrrrrrrrrr {:?}", result);
+                       window.close();
+                   })
+        });
+    }
+    
     pub fn merge(
         &self,
         repo_path: PathBuf,
@@ -381,7 +427,7 @@ impl BranchList {
             })
         });
     }
-
+    
     pub fn kill_branch(
         &self,
         repo_path: PathBuf,
@@ -1090,6 +1136,14 @@ pub fn show_branches_window(
                 (gdk::Key::m, _) => {
                     let branch_list = get_branch_list(&list_view);
                     branch_list.merge(
+                        repo_path.clone(),
+                        &window,
+                        sender.clone(),
+                    )
+                }
+                (gdk::Key::r, _) => {
+                    let branch_list = get_branch_list(&list_view);
+                    branch_list.rebase(
                         repo_path.clone(),
                         &window,
                         sender.clone(),

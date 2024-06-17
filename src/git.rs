@@ -1161,6 +1161,30 @@ pub fn checkout_oid(
     get_current_repo_status(Some(path), sender);
 }
 
+pub fn rebase(  path: PathBuf,
+                upstream: Oid,
+                onto: Option<Oid>,
+                sender: Sender<crate::Event>) -> Result<bool, Error> {
+    let repo = Repository::open(path.clone())?;
+    let upstream_commit = repo.find_annotated_commit(upstream)?;
+    let mut rebase = repo.rebase(None, Some(&upstream_commit), None, None)?;
+    loop {
+        if let Some(result) = rebase.next() {
+            let op = result?;
+            debug!("ooooooooooooooooooooooooooooooooooooo {:?} {:?} {:?}", op.id(), op.kind(), op.exec());
+        } else {
+            break;
+        }
+    }
+    gio::spawn_blocking({
+        move || {
+            get_current_repo_status(Some(path), sender);
+        }
+    });
+    Ok(true)
+}
+
+
 pub fn debug(path: PathBuf) {
     let repo = Repository::open(path.clone()).expect("cant open repo");
     repo.cleanup_state().expect("cant cleanup state");
