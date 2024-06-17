@@ -524,6 +524,12 @@ pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) {
     trace!("get upstream");
     let repo = Repository::open(path).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
+    if !head_ref.is_branch() {
+        sender
+            .send_blocking(crate::Event::Upstream(None))
+            .expect("Could not send through channel");
+        return;
+    }
     assert!(head_ref.is_branch());
     let branch = Branch::wrap(head_ref);
     if let Ok(upstream) = branch.upstream() {
