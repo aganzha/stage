@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Aleksey Ganzha <aganzha@yandex.ru>
+//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 pub mod commit;
 pub mod container;
 pub mod context;

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Aleksey Ganzha <aganzha@yandex.ru>
+//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 use crate::git::merge::choose_conflict_side_of_blob;
 use crate::git::{
     make_diff, DiffKind, Hunk, LineKind, MARKER_OURS, MARKER_THEIRS,

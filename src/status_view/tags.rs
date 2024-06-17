@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Aleksey Ganzha <aganzha@yandex.ru>
+//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 use crate::status_view::render::View;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;

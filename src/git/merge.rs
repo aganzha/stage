@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Aleksey Ganzha <aganzha@yandex.ru>
+//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 use crate::git::{
     branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff,
     make_diff_options, BranchData, DiffKind, Head, Hunk, Line, State,

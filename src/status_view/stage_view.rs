@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Aleksey Ganzha <aganzha@yandex.ru>
+//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::headerbar::{Scheme, SCHEME_TOKEN};
 use crate::status_view::tags;
