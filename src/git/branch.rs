@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::commit::CommitRepr;
-use crate::get_current_repo_status;
-use crate::git::remote::set_remote_callbacks;
+use crate::git::{remote::set_remote_callbacks, DeferRefresh};
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset};
 use git2;
@@ -133,28 +132,10 @@ pub fn checkout_branch(
     sender: Sender<crate::Event>,
 ) -> Result<Option<BranchData>, git2::Error> {
     info!("checkout branch");
+    let updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(branch_data.oid)?;
 
-    // weird....................
-    // if branch_data.branch_type == git2::BranchType::Remote {
-    //     // handle case when checkout remote branch and local branch
-    //     // is ahead of remote
-    //     let head_ref = repo.head()?;
-    //     assert!(head_ref.is_branch());
-
-    //     // wtf? when checkout 24.2155 and head is 24.3100
-    //     // SO. here it need to check branch names!!!!!!
-    //     // it just skips altogether and returns head. why???
-    //     let ob = head_ref.peel(git2::ObjectType::Commit)?;
-    //     let commit = ob.peel_to_commit()?;
-
-    //     if repo.graph_descendant_of(commit.id(), branch_data.oid)? {
-    //         panic!("skip checkout ancestor tree");
-    //         let branch = git2::Branch::wrap(head_ref);
-    //         return BranchData::from_branch(branch, git2::BranchType::Local);
-    //     }
-    // }
     let mut builder = git2::build::CheckoutBuilder::new();
     let opts = builder.safe();
 
@@ -164,9 +145,6 @@ pub fn checkout_branch(
 
     let checkout_error =
         repo.checkout_tree(commit.as_object(), Some(opts)).err();
-    sender
-        .send_blocking(crate::Event::LockMonitors(false))
-        .expect("can send through channel");
 
     if let Some(checkout_error) = checkout_error {
         return Err(checkout_error);
@@ -192,11 +170,7 @@ pub fn checkout_branch(
         }
     }
     repo.set_head(&branch_data.refname)?;
-    gio::spawn_blocking({
-        move || {
-            get_current_repo_status(Some(path), sender);
-        }
-    });
+
     branch_data.is_head = true;
     Ok(Some(branch_data))
 }

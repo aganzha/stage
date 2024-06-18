@@ -6,7 +6,7 @@ use crate::git::{
     branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff,
     make_diff_options, BranchData, DiffKind, Head, Hunk, Line, State,
     MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE,
-    SPACE, StatusUpdater
+    SPACE, DeferRefresh
 };
 use async_channel::Sender;
 use git2;
@@ -193,8 +193,7 @@ pub fn branch(
 
 pub fn abort(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {
     info!("git.abort merge");
-    let updater = StatusUpdater::new(path.clone(), sender);
-
+    let updater = DeferRefresh::new(path.clone(), sender, true, true);
     let repo = git2::Repository::open(path.clone())?;
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
 

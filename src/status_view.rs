@@ -313,7 +313,7 @@ impl Status {
                         move |_monitor, file, _other_file, event| {
                             // TODO get from SELF.settings
                             if *global_lock.borrow() {
-                                trace!("global monitor locked");
+                                return;
                             }
                             let patterns_to_exclude: Vec<&str> =
                                 vec!["/.#", "/mout", "flycheck_", "/sed"];
