@@ -1051,29 +1051,42 @@ pub fn stage_via_apply(
     Ok(())
 }
 
-pub struct StatusUpdater {
+pub struct DeferRefresh {
     pub path: PathBuf,
     pub sender: Sender<crate::Event>,
+    pub update_status: bool,
+    pub unlock_monitors: bool,
 }
 
-impl StatusUpdater {
-    pub fn new(path: PathBuf, sender: Sender<crate::Event>) -> Self {
+impl DeferRefresh {
+    pub fn new(path: PathBuf, sender: Sender<crate::Event>, update_status: bool, unlock_monitors: bool) -> Self {
         Self {
             path,
-            sender
+            sender,
+            update_status,
+            unlock_monitors
         }
     }
 }
-impl Drop for StatusUpdater {
+
+
+impl Drop for DeferRefresh {
     fn drop(&mut self) {
-        gio::spawn_blocking({
-            let path = self.path.clone();
-            let sender = self.sender.clone();
-            debug!("DRRRRRRRRRROOOOOOOOOOOOOOOPP");
-            move || {
-                get_current_repo_status(Some(path), sender);
-            }
-        });
+        debug!("DeferRefresh");
+        if self.update_status {
+            gio::spawn_blocking({
+                let path = self.path.clone();
+                let sender = self.sender.clone();
+                move || {
+                    get_current_repo_status(Some(path), sender);
+                }
+            });
+        }
+        if self.unlock_monitors {
+            self.sender
+                .send_blocking(crate::Event::LockMonitors(false))
+                .expect("can send through channel");
+        }
     }
 }
 
@@ -1082,7 +1095,7 @@ pub fn reset_hard(
     ooid: Option<Oid>,
     sender: Sender<crate::Event>,
 ) -> Result<bool, Error> {
-    
+
     let repo = Repository::open(path.clone())?;
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
@@ -1144,7 +1157,7 @@ pub fn track_changes(
     for entry in index.iter() {
         let entry_path = format!("{}", String::from_utf8_lossy(&entry.path));
         if file_path.ends_with(&entry_path) {
-            trace!("got modified file {:?}", file_path);
+            debug!("got modified file {:?}", file_path);
             // TODO. so. here ir need to collect dif only for 1 file.
             // why all? but there way not, ti update just 1 file!
             // but it is easy, really (just use existent diff and update only 1 file in it!)
@@ -1177,6 +1190,7 @@ pub fn checkout_oid(
     ref_log_msg: Option<String>,
 ) {
     // DANGEROUS! see in status_view!
+    let updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let commit = repo.find_commit(oid).expect("can't find commit");
     let head_ref = repo.head().expect("can't get head");
@@ -1196,9 +1210,6 @@ pub fn checkout_oid(
         .expect("can send through channel");
     let result = repo.checkout_tree(commit.as_object(), Some(builder));
 
-    sender
-        .send_blocking(crate::Event::LockMonitors(false))
-        .expect("can send through channel");
     if result.is_err() {
         panic!("{:?}", result);
     }
@@ -1206,12 +1217,11 @@ pub fn checkout_oid(
     head_ref
         .set_target(oid, &log_message)
         .expect("cant set target");
-    get_current_repo_status(Some(path), sender);
 }
 
 pub fn abort_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
-    let updater = StatusUpdater::new(path.clone(), sender);
-    
+    let updater = DeferRefresh::new(path.clone(), sender, true, true);
+
     let repo = Repository::open(path)?;
 
     let mut builder = CheckoutBuilder::new();
@@ -1226,8 +1236,8 @@ pub fn abort_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), E
 }
 
 pub fn continue_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
-    let updater = StatusUpdater::new(path.clone(), sender);
-    
+    let updater = DeferRefresh::new(path.clone(), sender, true, true);
+
     let repo = Repository::open(path)?;
 
     let mut builder = CheckoutBuilder::new();
@@ -1261,8 +1271,8 @@ pub fn rebase(  path: PathBuf,
                 onto: Option<Oid>,
                 sender: Sender<crate::Event>) -> Result<bool, Error> {
 
-    let updater = StatusUpdater::new(path.clone(), sender);
-    
+    let deref = DeferRefresh::new(path.clone(), sender, true, true);
+
     let repo = Repository::open(path)?;
     let upstream_commit = repo.find_annotated_commit(upstream)?;
 
@@ -1271,7 +1281,7 @@ pub fn rebase(  path: PathBuf,
 
     let mut rebase_options = RebaseOptions::new();
     let rebase_options = rebase_options.checkout_options(builder);
-    
+
     let mut rebase = repo.rebase(None, Some(&upstream_commit), None, Some(rebase_options))?;
     debug!("THATS REBASE {:?} {:?}", rebase.operation_current(), rebase.len());
     let me = repo.signature()?;

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::git::{branch::BranchName, get_head, get_upstream};
+use crate::git::{branch::BranchName, get_head, get_upstream, DeferRefresh};
 use async_channel::Sender;
 use git2;
 use log::{debug, trace};
@@ -130,9 +130,10 @@ pub fn set_remote_callbacks(
 
 pub fn update_remote(
     path: PathBuf,
-    _sender: Sender<crate::Event>,
+    sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
 ) -> Result<(), ()> {
+    let updater = DeferRefresh::new(path.clone(), sender, true, true);
     let repo = git2::Repository::open(path).expect("can't open repo");
     let mut remote = repo
         .find_remote("origin") // TODO here is hardcode
@@ -275,6 +276,7 @@ pub fn pull(
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
 ) {
+    let updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let mut remote = repo
         .find_remote("origin") // TODO here is hardcode

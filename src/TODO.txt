@@ -1,4 +1,3 @@
-BUG: when pull changes from long untached branch got huge amount of erase message and huge amount of Unstaged events
 TODO: disable all branch ops in branches view during rebase!
 
 in the rebase there is a conflict: path dc4 already applied! but it is not applied, it was cherry picked and now have another sha!
