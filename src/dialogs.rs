@@ -163,9 +163,12 @@ where
         dialog = dialog.extra_child(&body);
     }
     let dialog = dialog.build();
+    let mut default_response: Option<&str> = None;
     for (id, label, appearance) in conversation.get_response() {
         dialog.add_response(id, label);
         dialog.set_response_appearance(id, appearance);
+        default_response.replace(id);
     }
+    dialog.set_default_response(default_response);
     dialog
 }
