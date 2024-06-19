@@ -180,7 +180,7 @@ impl OidRow {
                         let stash = row.imp().stash.borrow().clone();
                         let sender = sender.clone();
                         move || {
-                            stash::apply(path, stash.num, sender)
+                            stash::apply(path, stash.num, None, None, sender)
                         }
                     }).await
                         .unwrap_or_else(|e| {

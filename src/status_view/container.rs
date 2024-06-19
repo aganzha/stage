@@ -888,7 +888,7 @@ impl ViewContainer for UntrackedFile {
 }
 
 impl Diff {
-    pub fn chosen_file_and_hunk(&self) -> (Option<PathBuf>, Option<String>) {
+    pub fn chosen_file_and_hunk_old(&self) -> (Option<PathBuf>, Option<String>) {
         let mut file_path: Option<PathBuf> = None;
         let mut hunk_header: Option<String> = None;
         for file in &self.files {
@@ -904,6 +904,28 @@ impl Diff {
                     assert!(hunk_header.is_none());
                     file_path.replace(file.path.clone());
                     hunk_header.replace(hunk.header.clone());
+                    break;
+                }
+            }
+        }
+        (file_path, hunk_header)
+    }
+    pub fn chosen_file_and_hunk(&self) -> (Option<&File>, Option<&Hunk>) {
+        let mut file_path: Option<&File> = None;
+        let mut hunk_header: Option<&Hunk> = None;
+        for file in &self.files {
+            if file.view.is_current() {
+                file_path.replace(&file);
+                break;
+            }
+            for hunk in &file.hunks {
+                if hunk.view.is_active() {
+                    // if more then 1 hunks are active that means
+                    // that file is active and previous break
+                    // must prevent to going here
+                    assert!(hunk_header.is_none());
+                    file_path.replace(&file);
+                    hunk_header.replace(&hunk);
                     break;
                 }
             }
