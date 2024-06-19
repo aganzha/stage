@@ -120,7 +120,7 @@ pub fn headerbar_factory(
                 let window = window.clone();
                 glib::spawn_future_local({
                     git_oid_op(ConfirmDialog("Revert commit?".to_string(), "".to_string()), window, move || {
-                        commit::revert(path, oid, sender)
+                        commit::revert(path, oid, None, None, sender)
                     })
                 });
             }
@@ -340,53 +340,10 @@ pub fn show_commit_window(
     let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
         let window = window.clone();
-        let main_sender = main_sender.clone();
-        let path = repo_path.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
-                (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
+                (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) | (gdk::Key::Escape, _) => {
                     window.close();
-                }
-                (gdk::Key::Escape, _) => {
-                    window.close();
-                }
-                // (gdk::Key::a, _) => {
-                //     let sender = main_sender.clone();
-                //     let path = path.clone();
-                //     let window = window.clone();
-                //     if let Some(num) = stash_num {
-                //         glib::spawn_future_local({
-                //             git_oid_op(
-                //                 oid,
-                //                 window,
-                //                 "Apply stash?",
-                //                 move || stash::apply(path, num, sender),
-                //             )
-                //         });
-                //     } else {
-                //         glib::spawn_future_local({
-                //             git_oid_op(
-                //                 oid,
-                //                 window,
-                //                 "Cherry pick commit?",
-                //                 move || commit::cherry_pick(path, oid, sender),
-                //             )
-                //         });
-                //     }
-                // }
-                (gdk::Key::r, _) => {
-                    if stash_num.is_none() {
-                        let sender = main_sender.clone();
-                        let path = path.clone();
-                        let window = window.clone();
-                        glib::spawn_future_local({
-                            git_oid_op(
-                                ConfirmDialog("Revert commit?".to_string(), "".to_string()),
-                                window,
-                                move || commit::revert(path, oid, sender),
-                            )
-                        });
-                    }
                 }
                 _ => {}
             }
@@ -517,19 +474,22 @@ pub fn show_commit_window(
                         d.render(&txt, &mut ctx, &mut labels, &mut body_label);
                     }
                 }
-                Event::Stage(line_no, _offset) => {
-                    info!("Stage {}", line_no);
+                Event::Stage(_, _) | Event::UnStage(_, _) | Event::RepoPopup => {
+                    info!("Stage/Unstage ot r pressed");
                     if let Some(diff) = &diff {
                         let title = if stash_num.is_some() {
                             "Apply stash"
                         } else {
-                            "Cherry pick"
+                            match event {
+                                Event::Stage(_, _) => "Cherry pick",
+                                _ => "Revert"
+                            }
                         };
 
                         let (body, file_path, hunk_header) = match diff.diff.chosen_file_and_hunk() {
                             (Some(file), Some(hunk)) => {
                                 (
-                                    format!("File: {} Hunk: {}", file.get_content(), hunk.get_content()),
+                                    format!("File: {}\nHunk: {}", file.get_content(), hunk.get_content()),
                                     Some(file.path.clone()),
                                     Some(hunk.header.clone())
                                 )
@@ -553,15 +513,21 @@ pub fn show_commit_window(
                             }
                         };
                         let path = repo_path.clone();
-                        let sender = sender.clone();
+                        let sender = main_sender.clone();
                         let window = window.clone();
                         glib::spawn_future_local({
                             git_oid_op(ConfirmDialog(title.to_string(), body.to_string()), window, move || {
-                                if let Some(stash_num) = stash_num {
-                                    stash::apply(path, stash_num, file_path, hunk_header, sender)
-                                } else {
-                                    commit::cherry_pick(path, oid, file_path, hunk_header, sender)
+                                match event {
+                                    Event::Stage(_, _) => {
+                                        if let Some(stash_num) = stash_num {
+                                            stash::apply(path, stash_num, file_path, hunk_header, sender)
+                                        } else {
+                                            commit::cherry_pick(path, oid, file_path, hunk_header, sender)
+                                        }                                    
+                                    }
+                                    _ => commit::revert(path, oid, file_path, hunk_header, sender)
                                 }
+                                                                
                             })
                         });
                         debug!("++++++++++++++++++++++++ {:?} {:?}", title, body);

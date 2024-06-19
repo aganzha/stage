@@ -3,14 +3,13 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::git::{
-    get_current_repo_status, get_head, make_diff, make_diff_options, Diff,
-    DiffKind,
+    get_head, make_diff, make_diff_options, Diff,
+    DiffKind, DeferRefresh
 };
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use git2;
 use gtk4::gio;
-use log::debug;
 use std::path::PathBuf;
 
 pub trait CommitRepr {
@@ -168,30 +167,7 @@ pub fn get_commit_diff(
     ))
 }
 
-pub fn get_parents_for_commit(path: PathBuf) -> Vec<git2::Oid> {
-    let mut repo =
-        git2::Repository::open(path.clone()).expect("can't open repo");
-    let mut result = Vec::new();
-    let id = repo
-        .revparse_single("HEAD^{commit}")
-        .expect("fail revparse")
-        .id();
-    result.push(id);
-    match repo.state() {
-        git2::RepositoryState::Clean => {}
-        git2::RepositoryState::Merge => {
-            repo.mergehead_foreach(|oid: &git2::Oid| -> bool {
-                result.push(*oid);
-                true
-            })
-            .expect("cant get merge heads");
-        }
-        _ => {
-            todo!("commit in another state")
-        }
-    }
-    result
-}
+
 
 pub fn create(
     path: PathBuf,
@@ -204,17 +180,6 @@ pub fn create(
     if message.is_empty() {
         return Err(git2::Error::from_str("Commit message is required"));
     }
-    // let ob = repo.revparse_single("HEAD^{commit}")
-    //     .expect("fail revparse");
-    // let id = repo.revparse_single("HEAD^{commit}")
-    //     .expect("fail revparse").id();
-    // let parent_commit = repo.find_commit(id).expect("cant find parent commit");
-    // update_ref: Option<&str>,
-    // author: &Signature<'_>,
-    // committer: &Signature<'_>,
-    // message: &str,
-    // tree: &Tree<'_>,
-    // parents: &[&Commit<'_>]
     let tree_oid = repo.index()?.write_tree()?;
 
     let tree = repo.find_tree(tree_oid)?;
@@ -282,34 +247,23 @@ pub fn cherry_pick(
     hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
+
+    let updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+    
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(oid)?;
 
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
+
     let mut cherry_pick_options = git2::CherrypickOptions::new();
     if let Some(file_path) = file_path {
         let mut cb = git2::build::CheckoutBuilder::new();
         cb.path(file_path);
         cherry_pick_options.checkout_builder(cb);
     };
-    let result =
-        repo.cherrypick(&commit, Some(&mut cherry_pick_options));
-    sender
-        .send_blocking(crate::Event::LockMonitors(false))
-        .expect("can send through channel");
-    if result.is_err() {
-        return result;
-    }
-
-    gio::spawn_blocking({
-        let sender = sender.clone();
-        let path = path.clone();
-        move || {
-            get_current_repo_status(Some(path), sender.clone());
-        }
-    });
+    repo.cherrypick(&commit, Some(&mut cherry_pick_options))?;
     Ok(())
 
 }
@@ -317,28 +271,26 @@ pub fn cherry_pick(
 pub fn revert(
     path: PathBuf,
     oid: git2::Oid,
+    file_path: Option<PathBuf>,
+    hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
+    let updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(oid)?;
 
+
+    let mut revert_options = git2::RevertOptions::new();
+    if let Some(file_path) = file_path {
+        let mut cb = git2::build::CheckoutBuilder::new();
+        cb.path(file_path);
+        revert_options.checkout_builder(cb);
+    };
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
-    let result = repo.revert(&commit, None);
-    sender
-        .send_blocking(crate::Event::LockMonitors(false))
-        .expect("can send through channel");
+    
+    repo.revert(&commit, Some(&mut revert_options))?;
 
-    if result.is_err() {
-        return result;
-    }
-    gio::spawn_blocking({
-        let sender = sender.clone();
-        let path = path.clone();
-        move || {
-            get_current_repo_status(Some(path), sender.clone());
-        }
-    });
     Ok(())
 }

@@ -1078,6 +1078,7 @@ impl Drop for DeferRefresh {
                 let path = self.path.clone();
                 let sender = self.sender.clone();
                 move || {
+                    debug!("??????????????????? {:?}", path);
                     get_current_repo_status(Some(path), sender);
                 }
             });

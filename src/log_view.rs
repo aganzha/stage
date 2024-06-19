@@ -401,7 +401,7 @@ impl CommitList {
                 gio::spawn_blocking({
                     let sender = sender.clone();
                     let path = path.clone();
-                    move || commit::revert(path, oid, sender)
+                    move || commit::revert(path, oid, None, None, sender)
                 })
                 .await
                 .unwrap_or_else(|e| {
