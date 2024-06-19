@@ -9,7 +9,6 @@ use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
 use log::{debug, trace};
 use std::cell::Cell;
-use std::collections::HashSet;
 
 #[derive(Debug, Copy, Clone)]
 pub enum ViewState {
@@ -475,43 +474,9 @@ impl View {
         buffer: &TextBuffer,
         content_tags: &Vec<tags::TxtTag>,
     ) {
-        let mut fltr: HashSet<&str> = HashSet::new();
-        // newhighlight
-        // if self.is_current() {
-        //     self.add_tag(buffer, &make_tag(tags::CURSOR));
-        //     // it need to filter background tags
-        //     let hunk = make_tag(tags::HUNK);
-        //     let region = make_tag(tags::REGION);
-        //     self.remove_tag(buffer, &hunk);
-        //     self.remove_tag(buffer, &region);
-        //     fltr.insert(tags::HUNK);
-        //     fltr.insert(tags::REGION);
-        // } else {
-        //     self.remove_tag(buffer, &make_tag(tags::CURSOR));
-        // }
         for t in content_tags {
             self.add_tag(buffer, t);
         }
-        // if self.is_active() {
-        //     if !fltr.contains(tags::REGION) {
-        //         self.add_tag(buffer, &make_tag(tags::REGION));
-        //     }
-        //     for t in content_tags {
-        //         if !fltr.contains(t.name()) {
-        //             self.add_tag(buffer, &t.enhance());
-        //         }
-        //     }
-        // } else {
-        //     self.remove_tag(buffer, &make_tag(tags::REGION));
-        //     for t in content_tags {
-        //         self.remove_tag(buffer, &t.enhance());
-        //     }
-        //     for t in content_tags {
-        //         if !fltr.contains(t.name()) {
-        //             self.add_tag(buffer, t);
-        //         }
-        //     }
-        // }
     }
 
     fn get_state_for(&self, line_no: i32) -> ViewState {

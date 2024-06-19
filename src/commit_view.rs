@@ -11,7 +11,7 @@ use crate::status_view::{
     stage_view::{StageView, factory as stage_factory},
     Label as TextViewLabel,
 };
-use crate::Event;
+use crate::{Event, utils::StrPath};
 use async_channel::Sender;
 use git2::Oid;
 use std::cell::RefCell;
@@ -30,14 +30,13 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 async fn git_oid_op<F>(
-    oid: git2::Oid,
+    dialog: ConfirmDialog,
     window: impl IsA<Widget>,
-    msg: &str,
     op: F,
 ) where
     F: FnOnce() -> Result<(), git2::Error> + Send + 'static,
 {
-    let response = alert(ConfirmDialog(msg.to_string(), format!("{}", oid)))
+    let response = alert(dialog)
         .choose_future(&window)
         .await;
     if response != YES {
@@ -90,13 +89,13 @@ pub fn headerbar_factory(
             let window = window.clone();
             if let Some(num) = stash_num {
                 glib::spawn_future_local({
-                    git_oid_op(oid, window, "Apply stash?", move || {
+                    git_oid_op(ConfirmDialog("Apply stash?".to_string(), "".to_string()), window, move || {
                         stash::apply(path, num, sender)
                     })
                 });
             } else {
                 glib::spawn_future_local({
-                    git_oid_op(oid, window, "Cherry pick commit?", move || {
+                    git_oid_op(ConfirmDialog("Cherry pick commit?".to_string(), "".to_string()), window, move || {
                         commit::cherry_pick(path, oid, sender)
                     })
                 });
@@ -120,7 +119,7 @@ pub fn headerbar_factory(
                 let path = repo_path.clone();
                 let window = window.clone();
                 glib::spawn_future_local({
-                    git_oid_op(oid, window, "Revert commit?", move || {
+                    git_oid_op(ConfirmDialog("Revert commit?".to_string(), "".to_string()), window, move || {
                         commit::revert(path, oid, sender)
                     })
                 });
@@ -304,6 +303,8 @@ pub fn show_commit_window(
 ) {
     let (sender, receiver) = async_channel::unbounded();
 
+    let mut diff: Option<commit::CommitDiff> = None;
+
     let window = Window::builder()
         .transient_for(app_window)
         .default_width(640)
@@ -349,30 +350,30 @@ pub fn show_commit_window(
                 (gdk::Key::Escape, _) => {
                     window.close();
                 }
-                (gdk::Key::a, _) => {
-                    let sender = main_sender.clone();
-                    let path = path.clone();
-                    let window = window.clone();
-                    if let Some(num) = stash_num {
-                        glib::spawn_future_local({
-                            git_oid_op(
-                                oid,
-                                window,
-                                "Apply stash?",
-                                move || stash::apply(path, num, sender),
-                            )
-                        });
-                    } else {
-                        glib::spawn_future_local({
-                            git_oid_op(
-                                oid,
-                                window,
-                                "Cherry pick commit?",
-                                move || commit::cherry_pick(path, oid, sender),
-                            )
-                        });
-                    }
-                }
+                // (gdk::Key::a, _) => {
+                //     let sender = main_sender.clone();
+                //     let path = path.clone();
+                //     let window = window.clone();
+                //     if let Some(num) = stash_num {
+                //         glib::spawn_future_local({
+                //             git_oid_op(
+                //                 oid,
+                //                 window,
+                //                 "Apply stash?",
+                //                 move || stash::apply(path, num, sender),
+                //             )
+                //         });
+                //     } else {
+                //         glib::spawn_future_local({
+                //             git_oid_op(
+                //                 oid,
+                //                 window,
+                //                 "Cherry pick commit?",
+                //                 move || commit::cherry_pick(path, oid, sender),
+                //             )
+                //         });
+                //     }
+                // }
                 (gdk::Key::r, _) => {
                     if stash_num.is_none() {
                         let sender = main_sender.clone();
@@ -380,9 +381,8 @@ pub fn show_commit_window(
                         let window = window.clone();
                         glib::spawn_future_local({
                             git_oid_op(
-                                oid,
+                                ConfirmDialog("Revert commit?".to_string(), "".to_string()),
                                 window,
-                                "Revert commit?",
                                 move || commit::revert(path, oid, sender),
                             )
                         });
@@ -397,7 +397,6 @@ pub fn show_commit_window(
 
     window.present();
 
-    let mut main_diff: Option<commit::CommitDiff> = None;
     let mut body_label: Option<MultiLineLabel> = None;
 
     let path = repo_path.clone();
@@ -405,7 +404,7 @@ pub fn show_commit_window(
     glib::spawn_future_local({
         let window = window.clone();
         async move {
-            let commit_diff = gio::spawn_blocking(move || {
+            let diff = gio::spawn_blocking(move || {
                 commit::get_commit_diff(path, oid)
             })
             .await
@@ -418,7 +417,7 @@ pub fn show_commit_window(
                 commit::CommitDiff::default()
             });
             sender
-                .send_blocking(Event::CommitDiff(commit_diff))
+                .send_blocking(Event::CommitDiff(diff))
                 .expect("Could not send through channel");
         }
     });
@@ -463,11 +462,11 @@ pub fn show_commit_window(
                         &mut body_label,
                     );
                     txt.bind_highlights(&ctx);
-                    main_diff.replace(commit_diff);
+                    diff.replace(commit_diff);
                 }
                 Event::Expand(_offset, line_no) => {
                     info!("Expand {}", line_no);
-                    if let Some(d) = &mut main_diff {
+                    if let Some(d) = &mut diff {
                         let mut need_render = false;
                         for file in &mut d.diff.files {
                             need_render = need_render
@@ -487,9 +486,8 @@ pub fn show_commit_window(
                     }
                 }
                 Event::Cursor(_offset, line_no) => {
-                    info!("Cursor {}", line_no);
                     ctx.highlight_cursor = line_no;
-                    if let Some(d) = &mut main_diff {
+                    if let Some(d) = &mut diff {
                         if d.diff.cursor(line_no, false, &mut ctx) {
                             let buffer = &txt.buffer();
                             let mut iter = buffer
@@ -503,10 +501,6 @@ pub fn show_commit_window(
                             d.diff.render(buffer, &mut iter, &mut ctx);
                         }
                     }
-                    debug!(
-                        "where is my highlights? {:?}",
-                        ctx.highlight_cursor
-                    );
                     txt.bind_highlights(&ctx);
                 }
                 Event::TextViewResize(w) => {
@@ -516,8 +510,39 @@ pub fn show_commit_window(
                 Event::TextCharVisibleWidth(w) => {
                     info!("TextCharVisibleWidth {}", w);
                     ctx.screen_width.replace(text_view_width.clone());
-                    if let Some(d) = &mut main_diff {
+                    if let Some(d) = &mut diff {
                         d.render(&txt, &mut ctx, &mut labels, &mut body_label);
+                    }
+                }
+                Event::Stage(line_no, _offset) => {
+                    info!("Stage {}", line_no);
+                    if let Some(diff) = &diff {
+                        let title = if stash_num.is_some() {
+                            "Apply stash"
+                        } else {
+                            "Cherry pick"
+                        };
+
+                        let body = match diff.diff.chosen_file_and_hunk() {
+                            (Some(file_path), Some(hunk_header)) => {
+                                format!("File {} hunk {}", file_path.as_str(), hunk_header)
+                            }
+                            (Some(file_path), None) => {
+                                format!("File {}", file_path.as_str())
+                            }
+                            (None, Some(hunk_header)) => {
+                                panic!("hunk header without file {:?}", hunk_header);
+                            }
+                            (None, None) => {
+                                "".to_string()
+                            }
+                        };
+                        // glib::spawn_future_local({
+                        //     git_oid_op(ConfirmDialog(title.to_string(), body.to_string()), window, move || {
+                        //         stash::apply(path, stash_num.unwrap(), sender)
+                        //     })
+                        // });
+                        debug!("++++++++++++++++++++++++ {:?} {:?}", title, body);
                     }
                 }
                 _ => {

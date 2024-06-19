@@ -14,6 +14,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
 use log::{debug, trace};
+use std::path::PathBuf;
 
 pub fn make_tag(name: &str) -> tags::TxtTag {
     tags::TxtTag::from_str(name)
@@ -226,7 +227,6 @@ pub trait ViewContainer {
             });
         } else if v.is_expanded() && v.is_rendered() {
             // go deeper for self.children
-            trace!("expand. ____________ go deeper");
             for child in self.get_children() {
                 found_line = child.expand(line_no, context);
                 if found_line.is_some() {
@@ -247,7 +247,6 @@ pub trait ViewContainer {
 
     // ViewContainer
     fn erase(&self, buffer: &TextBuffer, context: &mut StatusRenderContext) {
-        debug!("eeeeeeeeeeeeeeeerasing");
         // return;
         // CAUTION. ATTENTION. IMPORTANT
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -455,7 +454,7 @@ impl ViewContainer for File {
     /// in this file become active)
     fn is_active_by_child(
         &self,
-        active: bool,
+        _active: bool,
         _context: &mut StatusRenderContext,
     ) -> bool {
         false
@@ -568,7 +567,6 @@ impl ViewContainer for Line {
             ctx.highlight_cursor = self.view.line_no.get();
         }
         if self.view.is_rendered() && self.view.is_active() {
-            trace!("thats rendered and ACTIVE line {:?}", self.view.line_no);
             ctx.collect_line_highlights(self.view.line_no.get());
         }
     }
@@ -577,7 +575,7 @@ impl ViewContainer for Line {
     fn expand(
         &self,
         line_no: i32,
-        context: &mut StatusRenderContext,
+        _context: &mut StatusRenderContext,
     ) -> Option<i32> {
         // here we want to expand hunk
         if self.get_view().line_no.get() == line_no {
@@ -789,7 +787,7 @@ impl ViewContainer for Untracked {
     fn expand(
         &self,
         line_no: i32,
-        context: &mut StatusRenderContext,
+        _context: &mut StatusRenderContext,
     ) -> Option<i32> {
         // here we want to expand hunk
         if self.get_view().line_no.get() == line_no {
@@ -865,7 +863,7 @@ impl ViewContainer for UntrackedFile {
     fn expand(
         &self,
         line_no: i32,
-        context: &mut StatusRenderContext,
+        _context: &mut StatusRenderContext,
     ) -> Option<i32> {
         // here we want to expand hunk
         if self.get_view().line_no.get() == line_no {
@@ -886,5 +884,30 @@ impl ViewContainer for UntrackedFile {
     }
     fn tags(&self) -> Vec<tags::TxtTag> {
         Vec::new()
+    }
+}
+
+impl Diff {
+    pub fn chosen_file_and_hunk(&self) -> (Option<PathBuf>, Option<String>) {
+        let mut file_path: Option<PathBuf> = None;
+        let mut hunk_header: Option<String> = None;
+        for file in &self.files {
+            if file.view.is_current() {
+                file_path.replace(file.path.clone());
+                break;
+            }
+            for hunk in &file.hunks {
+                if hunk.view.is_active() {
+                    // if more then 1 hunks are active that means
+                    // that file is active and previous break
+                    // must prevent to going here
+                    assert!(hunk_header.is_none());
+                    file_path.replace(file.path.clone());
+                    hunk_header.replace(hunk.header.clone());
+                    break;
+                }
+            }
+        }
+        (file_path, hunk_header)
     }
 }

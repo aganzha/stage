@@ -45,42 +45,6 @@ pub fn confirm_dialog_factory(
     dialog
 }
 
-// pub const OURS: &str = "ours";
-// pub const THEIRS: &str = "theirs";
-// pub const ABORT: &str = "abort";
-// pub const PROCEED: &str = "proceed";
-
-// pub fn merge_dialog_factory(
-//     window: &impl IsA<Gtk4Window>,
-//     _sender: Sender<crate::Event>,
-// ) -> MessageDialog {
-//     // let abort = "abort";
-//     // let merge_ours = "ours";
-//     // let merge_theirs = "theirs";
-//     // let proceed = "proceed";
-//     let body = "Conflicts during merging. You can Abort merge, choose Our side, Their side or proceed with resolving conflicts ";
-//     let dialog = MessageDialog::builder()
-//         .heading("Conflicts during merge")
-//         .transient_for(window)
-//         .modal(true)
-//         .destroy_with_parent(true)
-//         .default_width(720)
-//         .default_height(120)
-//         .body(body)
-//         .build();
-
-//     dialog.add_responses(&[
-//         (ABORT, "Abort"),
-//         (OURS, "Ours"),
-//         (THEIRS, "Theirs"),
-//         (PROCEED, "Proceed"),
-//     ]);
-
-//     dialog.set_response_appearance(PROCEED, ResponseAppearance::Suggested);
-//     dialog.set_response_appearance(ABORT, ResponseAppearance::Destructive);
-//     dialog
-// }
-
 pub const YES: &str = "yes";
 pub const NO: &str = "no";
 const CLOSE: &str = "close";
