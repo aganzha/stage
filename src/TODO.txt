@@ -1,6 +1,7 @@
 TODO: add default response to all alerts (to just press enter!)
 BUG: create branch. change 2 files. commit. checkout main. cherry pick 1 file from that branch - stage view is not refreshed!
-looks like something with monitors!
+looks like something with monitors! well, it need to switch monitors when switch repo, of course
+
 TODO: disable all branch ops in branches view during rebase!
 
 in the rebase there is a conflict: path dc4 already applied! but it is not applied, it was cherry picked and now have another sha!
