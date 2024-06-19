@@ -90,7 +90,7 @@ pub fn headerbar_factory(
             if let Some(num) = stash_num {
                 glib::spawn_future_local({
                     git_oid_op(ConfirmDialog("Apply stash?".to_string(), "".to_string()), window, move || {
-                        stash::apply(path, num, sender)
+                        stash::apply(path, num, None, None, sender)
                     })
                 });
             } else {
@@ -401,8 +401,10 @@ pub fn show_commit_window(
 
     let path = repo_path.clone();
 
+    
     glib::spawn_future_local({
         let window = window.clone();
+        let sender = sender.clone();
         async move {
             let diff = gio::spawn_blocking(move || {
                 commit::get_commit_diff(path, oid)
@@ -430,6 +432,7 @@ pub fn show_commit_window(
         TextViewLabel::from_string(""),
         TextViewLabel::from_string(""),
     ];
+
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
@@ -523,25 +526,40 @@ pub fn show_commit_window(
                             "Cherry pick"
                         };
 
-                        let body = match diff.diff.chosen_file_and_hunk() {
-                            (Some(file_path), Some(hunk_header)) => {
-                                format!("File {} hunk {}", file_path.as_str(), hunk_header)
+                        let (body, file_path, hunk_header) = match diff.diff.chosen_file_and_hunk() {
+                            (Some(file), Some(hunk)) => {
+                                (
+                                    format!("File: {} Hunk: {}", file.get_content(), hunk.get_content()),
+                                    Some(file.path.clone()),
+                                    Some(hunk.header.clone())
+                                )
                             }
-                            (Some(file_path), None) => {
-                                format!("File {}", file_path.as_str())
+                            (Some(file), None) => {
+                                (
+                                    format!("File: {}", file.get_content()),
+                                    Some(file.path.clone()),
+                                    None
+                                )
                             }
-                            (None, Some(hunk_header)) => {
-                                panic!("hunk header without file {:?}", hunk_header);
+                            (None, Some(hunk)) => {
+                                panic!("hunk header without file {:?}", hunk.get_content());
                             }
                             (None, None) => {
-                                "".to_string()
+                                (
+                                    "".to_string(),
+                                    None,
+                                    None
+                                )
                             }
                         };
-                        // glib::spawn_future_local({
-                        //     git_oid_op(ConfirmDialog(title.to_string(), body.to_string()), window, move || {
-                        //         stash::apply(path, stash_num.unwrap(), sender)
-                        //     })
-                        // });
+                        let path = repo_path.clone();
+                        let sender = sender.clone();
+                        let window = window.clone();
+                        glib::spawn_future_local({
+                            git_oid_op(ConfirmDialog(title.to_string(), body.to_string()), window, move || {
+                                stash::apply(path, stash_num.unwrap(), file_path, hunk_header, sender)
+                            })
+                        });
                         debug!("++++++++++++++++++++++++ {:?} {:?}", title, body);
                     }
                 }

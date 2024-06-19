@@ -1262,51 +1262,33 @@ impl Status {
             }
         };
 
-        // let mut file_path: Option<PathBuf> = None;
-        // let mut hunk_header: Option<String> = None;
-        // for file in &diff.files {
-        //     if file.view.is_current() {
-        //         file_path.replace(file.path.clone());
-        //         break;
-        //     }
-        //     for hunk in &file.hunks {
-        //         if hunk.view.is_active() {
-        //             // if more then 1 hunks are active that means
-        //             // that file is active and previous break
-        //             // must prevent to going here
-        //             assert!(hunk_header.is_none());
-        //             file_path.replace(file.path.clone());
-        //             hunk_header.replace(hunk.header.clone());
-        //             break;
-        //         }
-        //     }
-        // }
-        let (file_path, hunk_header) = diff.chosen_file_and_hunk();
-        if file_path.is_none() {
+        let (file, hunk) = diff.chosen_file_and_hunk();
+        if file.is_none() {
             info!("no file to stage");
             self.sender.send_blocking(Event::Toast(String::from("No file to stage")))
                 .expect("cant send through sender");
             return;
         }
-        let file_path = file_path.unwrap();
         trace!(
             "stage via apply ----------------------> {:?} {:?} {:?}",
             op,
-            file_path,
-            hunk_header
+            file,
+            hunk
         );
 
         glib::spawn_future_local({
             let window = window.clone();
             let path = self.path.clone();
             let sender = self.sender.clone();
+            let file_path = file.unwrap().path.clone();
+            let hunk = hunk.and_then(|h| Some(h.header.clone()));
             async move {
                 gio::spawn_blocking({
                     move || {
                         stage_via_apply(
                             path.expect("no path"),
                             file_path,
-                            hunk_header,
+                            hunk,
                             op,
                             sender,
                         )
@@ -1323,47 +1305,6 @@ impl Status {
             }
         });
     }
-
-    // pub fn choose_cursor_position(
-    //     &self,
-    //     txt: &StageView,
-    //     buffer: &TextBuffer,
-    //     line_no: Option<i32>,
-    //     context: &mut StatusRenderContext,
-    // ) {
-    //     let offset = buffer.cursor_position();
-    //     trace!("choose_cursor_position. optional line {:?}. offset {:?}, line at offset {:?}. eof offset {:?}",
-    //            line_no,
-    //            offset,
-    //            buffer.iter_at_offset(offset).line(),
-    //            buffer.end_iter().offset()
-    //     );
-    //     if offset == buffer.end_iter().offset() {
-    //         // first render. buffer at eof
-    //         trace!("chooose cursor in first render passed line_no {:?}", line_no);
-    //         if let Some(unstaged) = &self.unstaged {
-    //             if !unstaged.files.is_empty() {
-    //                 let line_no = unstaged.files[0].view.line_no.get();
-    //                 let iter = buffer.iter_at_line(line_no).unwrap();
-    //                 trace!("place_cursor in choose...........................");
-    //                 buffer.place_cursor(&iter);
-    //                 self.cursor(txt, line_no, iter.offset(), context);
-    //                 return;
-    //             }
-    //         }
-    //     }
-    //     // why do i need that back and forw?
-    //     // I KNOW! thats just moving to start of line!
-    //     let mut iter = buffer.iter_at_offset(offset);
-    //     iter.backward_line();
-    //     iter.forward_lines(1);
-    //     // after git op view could be shifted.
-    //     // cursor is on place and it is visually current,
-    //     // but view under it is not current, cause line_no differs
-    //     trace!("======================choose cursor when NOT on eof {:?}", iter.line());
-    //     buffer.place_cursor(&iter);
-    //     self.cursor(txt, iter.line(), iter.offset(), context);
-    // }
 
     pub fn has_staged(&self) -> bool {
         if let Some(staged) = &self.staged {
