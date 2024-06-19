@@ -449,7 +449,7 @@ pub fn factory(
                     .expect("Could not send through channel");
                     return glib::Propagation::Stop;
                 }
-                (gdk::Key::s, _) => {
+                (gdk::Key::s | gdk::Key::a | gdk::Key::ISO_Enter | gdk::Key::KP_Enter, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Stage(
                         iter.offset(),

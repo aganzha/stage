@@ -1262,25 +1262,26 @@ impl Status {
             }
         };
 
-        let mut file_path: Option<PathBuf> = None;
-        let mut hunk_header: Option<String> = None;
-        for file in &diff.files {
-            if file.view.is_current() {
-                file_path.replace(file.path.clone());
-                break;
-            }
-            for hunk in &file.hunks {
-                if hunk.view.is_active() {
-                    // if more then 1 hunks are active that means
-                    // that file is active and previous break
-                    // must prevent to going here
-                    assert!(hunk_header.is_none());
-                    file_path.replace(file.path.clone());
-                    hunk_header.replace(hunk.header.clone());
-                    break;
-                }
-            }
-        }
+        // let mut file_path: Option<PathBuf> = None;
+        // let mut hunk_header: Option<String> = None;
+        // for file in &diff.files {
+        //     if file.view.is_current() {
+        //         file_path.replace(file.path.clone());
+        //         break;
+        //     }
+        //     for hunk in &file.hunks {
+        //         if hunk.view.is_active() {
+        //             // if more then 1 hunks are active that means
+        //             // that file is active and previous break
+        //             // must prevent to going here
+        //             assert!(hunk_header.is_none());
+        //             file_path.replace(file.path.clone());
+        //             hunk_header.replace(hunk.header.clone());
+        //             break;
+        //         }
+        //     }
+        // }
+        let (file_path, hunk_header) = diff.chosen_file_and_hunk();
         if file_path.is_none() {
             info!("no file to stage");
             self.sender.send_blocking(Event::Toast(String::from("No file to stage")))
