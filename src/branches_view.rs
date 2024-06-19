@@ -639,7 +639,7 @@ impl BranchList {
                 gio::spawn_blocking({
                     let sender = sender.clone();
                     let path = path.clone();
-                    move || commit::cherry_pick(path, oid, sender)
+                    move || commit::cherry_pick(path, oid, None, None, sender)
                 })
                 .await
                 .unwrap_or_else(|e| {

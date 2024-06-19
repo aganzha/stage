@@ -278,6 +278,8 @@ pub fn create(
 pub fn cherry_pick(
     path: PathBuf,
     oid: git2::Oid,
+    file_path: Option<PathBuf>,
+    hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
@@ -286,29 +288,21 @@ pub fn cherry_pick(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
+    let mut cherry_pick_options = git2::CherrypickOptions::new();
+    if let Some(file_path) = file_path {
+        let mut cb = git2::build::CheckoutBuilder::new();
+        cb.path(file_path);
+        cherry_pick_options.checkout_builder(cb);
+    };
     let result =
-        repo.cherrypick(&commit, Some(&mut git2::CherrypickOptions::new()));
+        repo.cherrypick(&commit, Some(&mut cherry_pick_options));
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("can send through channel");
     if result.is_err() {
         return result;
     }
-    debug!("cherry pick could not change the current branch, cause of merge conflict.
-          So it need also update status.");
-    // let state = repo.state();
-    // let head_ref = repo.head()?;
-    // assert!(head_ref.is_branch());
-    // let ob = head_ref.peel(git2::ObjectType::Commit)?;
-    // let commit = ob.peel_to_commit()?;
-    // let branch = git2::Branch::wrap(head_ref);
-    // let new_head = Head::new(&branch, &commit);
-    // sender
-    //     .send_blocking(crate::Event::State(State::new(state, oid.to_string())))
-    //     .expect("Could not send through channel");
-    // sender
-    //     .send_blocking(crate::Event::Head(new_head))
-    //     .expect("Could not send through channel");
+
     gio::spawn_blocking({
         let sender = sender.clone();
         let path = path.clone();
@@ -317,7 +311,7 @@ pub fn cherry_pick(
         }
     });
     Ok(())
-    // branch::BranchData::from_branch(branch, git2::BranchType::Local)
+
 }
 
 pub fn revert(

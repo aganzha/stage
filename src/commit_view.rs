@@ -96,7 +96,7 @@ pub fn headerbar_factory(
             } else {
                 glib::spawn_future_local({
                     git_oid_op(ConfirmDialog("Cherry pick commit?".to_string(), "".to_string()), window, move || {
-                        commit::cherry_pick(path, oid, sender)
+                        commit::cherry_pick(path, oid, None, None, sender)
                     })
                 });
             }
@@ -557,7 +557,11 @@ pub fn show_commit_window(
                         let window = window.clone();
                         glib::spawn_future_local({
                             git_oid_op(ConfirmDialog(title.to_string(), body.to_string()), window, move || {
-                                stash::apply(path, stash_num.unwrap(), file_path, hunk_header, sender)
+                                if let Some(stash_num) = stash_num {
+                                    stash::apply(path, stash_num, file_path, hunk_header, sender)
+                                } else {
+                                    commit::cherry_pick(path, oid, file_path, hunk_header, sender)
+                                }
                             })
                         });
                         debug!("++++++++++++++++++++++++ {:?} {:?}", title, body);
