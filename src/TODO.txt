@@ -1,4 +1,5 @@
 TODO: squash
+BUG: stage 1 file. expand 1 unstaged hunk and view hunk highlights. they are jumped!
 TODO: show spaces in diffs!
 BUG: create branch. change 2 files. commit. checkout main. cherry pick 1 file from that branch - stage view is not refreshed!
 looks like something with monitors! well, it need to switch monitors when switch repo, of course
