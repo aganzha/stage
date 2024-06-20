@@ -1,3 +1,5 @@
+TODO: multiple windows are possible. what about window stack? double branches - is not ok! kill it! multiple commit window is ok! multiple log window is ok!
+TODO: editor on centos.
 TODO: show spaces in diffs!
 BUG: create branch. change 2 files. commit. checkout main. cherry pick 1 file from that branch - stage view is not refreshed!
 looks like something with monitors! well, it need to switch monitors when switch repo, of course
