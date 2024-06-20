@@ -14,7 +14,7 @@ use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, Accessible, Buildable, EventControllerKey,
     EventControllerMotion, EventSequenceState, GestureClick, MovementStep,
-    Settings, TextBuffer, TextTag, TextView, TextWindowType, Widget,
+    Settings, TextBuffer, TextTag, TextView, TextWindowType, Widget
 };
 use libadwaita::prelude::*;
 use libadwaita::StyleManager;
@@ -64,15 +64,17 @@ mod stage_view {
 
     #[derive(Default)]
     pub struct StageView {
-        pub cursor: Cell<(i32, i32)>,
+
+        pub cursor: Cell<i32>,
         pub active_lines: Cell<(i32, i32)>,
-        pub hunks: RefCell<Vec<(i32, i32)>>,
+        pub hunks: RefCell<Vec<i32>>,
 
         pub known_line_height: Cell<i32>,
 
         // TODO! put it here!
         pub is_dark: Cell<bool>,
         pub is_dark_set: Cell<bool>,
+
         // #[property(get, set)]
         // pub current_line: RefCell<i32>,
     }
@@ -89,12 +91,15 @@ mod stage_view {
     impl TextViewImpl for StageView {
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
             if layer == TextViewLayer::BelowText {
-                // this is hack. for some reason line_yrange not always
-                // returns height of line :(
-                // let mut known_line_height: i32 = 0;
 
+                let buffer = self.obj().buffer();
+                let (line_from, line_to) = self.active_lines.get();
+                let mut iter = buffer.iter_at_line(line_from).unwrap();
+                let y_from = self.obj().line_yrange(&iter).0;
+                iter.set_line(line_to);
+                let (y, height) = self.obj().line_yrange(&iter);
+                let y_to = y + height;
                 // highlight active_lines ----------------------------
-                let (y_from, y_to) = self.active_lines.get();
                 // HARCODE - 2000.
                 snapshot.append_color(
                     if self.is_dark.get() {
@@ -112,7 +117,9 @@ mod stage_view {
 
                 // highlight hunks -----------------------------------
                 // HARCODE - 2000;
-                for (y_from, y_to) in self.hunks.borrow().iter() {
+                for line in self.hunks.borrow().iter() {
+                    iter.set_line(*line);
+                    let (y_from, y_to) = self.obj().line_yrange(&iter);
                     snapshot.append_color(
                         if self.is_dark.get() {
                             &DARK_HUNKS
@@ -121,17 +128,18 @@ mod stage_view {
                         },
                         &graphene::Rect::new(
                             0.0,
-                            *y_from as f32,
+                            y_from as f32,
                             2000.0,
-                            *y_to as f32,
+                            y_to as f32,
                         ),
                     );
                 }
 
                 // highlight cursor ---------------------------------
-                let (y_from, y_to) = self.cursor.get();
+                let cursor_line = self.cursor.get();
+                iter.set_line(cursor_line);
                 // HARCODE - 2000; #cce0f8/23374f - 204/255 224/255 248/255
-
+                let (y_from, y_to) = self.obj().line_yrange(&iter);
                 snapshot.append_color(
                     if self.is_dark.get() {
                         &DARK_CURSOR
@@ -149,9 +157,6 @@ mod stage_view {
             self.parent_snapshot_layer(layer, snapshot)
         }
 
-        // fn toggle_overwrite(&self) {
-        //     self.parent_toggle_overwrite()
-        // }
     }
     impl ObjectImpl for StageView {}
     impl WidgetImpl for StageView {}
@@ -160,115 +165,6 @@ mod stage_view {
 impl StageView {
     pub fn new() -> Self {
         glib::Object::builder().build()
-    }
-
-    pub fn get_highliught_cursor(&self) -> ((i32, i32), i32) {
-        (self.imp().cursor.get(), self.imp().cursor.get().0 / 32)
-    }
-
-    pub fn highlight_cursor(&self, line_no: i32) {
-        if let Some(iter) = self.buffer().iter_at_line(line_no) {
-            let (mut y, mut height) = self.line_yrange(&iter);
-            // this is a hack. for some reason line_yrange returns wrong height :(
-            let known_line_height = self.imp().known_line_height.get();
-            if known_line_height == 0 {
-                self.imp().known_line_height.replace(height);
-            } else {
-                if height > known_line_height {
-                    height = known_line_height;
-                }
-            }
-            // one more bug in line_yrange (perhaps its not even bug
-            // the line is on place, but yrange thing it is on another line)
-            if height != 0 && y != line_no * height {
-                trace!("WIIIIIIIIIIIIIL FIX Y. before {:?} after {:?}", y, line_no * height);
-                y = line_no * height;
-            }
-
-            self.imp().cursor.replace((y, height));
-            trace!(
-                "real highligh cursor line_no {}, y {}, height {}",
-                line_no,
-                y,
-                height
-            );
-            if height == 0 {
-                // there is a bug in line_yrange
-                // and during initial render the length
-                // is not determined at all, couse
-                // this function is calling multiple times
-                // if height is 0 and call it in timeout
-                // it will pass wrong line!
-                // it need to add an option, that it is timeout call!
-                glib::source::timeout_add_local(
-                    Duration::from_millis(5),
-                    {
-                        let txt = self.clone();
-                        move || {
-                            let buffer = txt.buffer();
-                            let line_no = buffer.iter_at_offset(buffer.cursor_position()).line();
-                            trace!("........................................... {}", line_no);
-                            txt.highlight_cursor(line_no);
-                            glib::ControlFlow::Break
-                        }
-                    });
-            }
-        } else {
-            trace!("trying to highlight cursor BUT NO LINE HERE {}", line_no);
-        }
-    }
-
-    pub fn highlight_lines(&self, from_to: (i32, i32)) {
-        // this is hack, because line_yrange just after
-        // rendering line returns wrong pixes coords and height!
-        // see timeout value - it is just 1 msec!
-        if let Some(iter) = self.buffer().iter_at_line(from_to.0) {
-            let range = self.line_yrange(&iter);
-            trace!(
-                "highlight_lines in textview .............. {:?} {:?}",
-                from_to,
-                range
-            );
-            self.imp()
-                .active_lines
-                .replace((range.0, range.1 * (from_to.1 - from_to.0 + 1)));
-        }
-    }
-
-    pub fn reset_highlight_lines(&self) {
-        self.imp().active_lines.replace((0, 0));
-    }
-
-    pub fn has_highlight_lines(&self) -> bool {
-        let (from, to) = self.imp().active_lines.get();
-        return from > 0 || to > 0;
-    }
-
-    pub fn set_highlight_hunks(&self, hunks: &Vec<i32>) {
-        if hunks.is_empty() {
-            return;
-        }
-        let buffer = self.buffer();
-        self.imp().hunks.replace(
-            hunks
-                .iter()
-                .filter_map(|h| {
-                    if let Some(iter) = buffer.iter_at_line(*h) {
-                        let (y, mut height) = self.line_yrange(&iter);
-                        let known_line_height = self.imp().known_line_height.get();
-                        if known_line_height > 0 && known_line_height < height {
-                            height = known_line_height;
-                        }
-                        return Some((y, height));
-                    }
-                    None
-                })
-                .collect(),
-        );
-    }
-
-    pub fn reset_highlight_hunks(&self) {
-        self.imp().hunks.replace(Vec::new());
     }
 
     pub fn set_is_dark(&self, is_dark: bool, force:bool) {
@@ -284,32 +180,17 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-        // how to not call manager every time?
-        // set variable on init - is_dark_detected
-        // set it once on init and then on each scheme changes!
-
-        self.highlight_cursor(context.highlight_cursor);
+        self.imp().cursor.replace(context.highlight_cursor);
         if let Some(lines) = context.highlight_lines {
-            self.highlight_lines(lines);
+            self.imp().active_lines.replace(lines);
         } else {
-            self.reset_highlight_lines();
+            self.imp().active_lines.replace((0, 0));
+        }
+        self.imp().hunks.replace(Vec::new());
+        for h in &context.highlight_hunks {
+            self.imp().hunks.borrow_mut().push(*h);
         }
 
-        if !context.highlight_hunks.is_empty() {
-            self.set_highlight_hunks(&context.highlight_hunks);
-        } else {
-            self.reset_highlight_hunks()
-        }
-        // glib::source::timeout_add_local(
-        //     Duration::from_millis(1),
-        //     {
-        //         let txt = self.clone();
-        //         let ctx = context.clone();
-        //         move || {
-        //             txt.bind_highlights(&ctx);
-        //             glib::ControlFlow::Break
-        //         }
-        //     });
     }
 }
 
