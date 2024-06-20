@@ -235,8 +235,10 @@ impl Status {
         // came from git with /.git/ suffix
         // but the 'dirty' path will be used first
         // for querying repo status and investigate real one
+        debug!("chaaaaaaaaaaaaange path {:?}", user_action);
         if user_action {
             monitors.borrow_mut().retain(|fm: &FileMonitor| {
+                debug!("CANCEL MONITOR!!!!!!!!!!!!!!!!!!!");
                 fm.cancel();
                 false
             });

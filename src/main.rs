@@ -340,6 +340,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     status.update_state(state, &txt, &mut ctx);
                 }
                 Event::OpenEditor => {
+                    info!("OpenEditor");
                     if let Some((path, line_no, col_no)) =
                         status.editor_args_at_cursor(&txt)
                     {

@@ -4,7 +4,7 @@
 
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
-use log::info;
+use log::{info, debug};
 use std::ffi::OsString;
 use std::path::PathBuf;
 
@@ -89,11 +89,25 @@ pub fn open_at_line_via_dbus(
 }
 
 pub fn try_open_editor(path: PathBuf, line_no: i32, col_no: i32) {
-    let (content_type, _) =
+    let (mut content_type, _) =
         gio::functions::content_type_guess(Some(path.clone()), &[]);
+
+    if content_type == "application/x-zerosize" {
+        let file = gio::File::for_path(path.clone());        
+        let info = file.query_info("standard::content-type", gio::FileQueryInfoFlags::empty(), None::<&gio::Cancellable>);
+        if let Ok(info) = info {
+            if let Some(ct) = info.content_type() {
+                content_type = ct;
+            }
+        }
+    }
+    let mime_type = gio::functions::content_type_get_mime_type(&content_type);
+    
+    debug!("path and content type-------------------> {:?} {:?} {:?}", path, content_type, mime_type);
     if line_no > 0 {
         // it is possible to open TextEditor on certain line with DBUS
         for app_info in gio::AppInfo::all_for_type(&content_type) {
+            debug!(".............. {:?}", app_info);
             if let Some(id) = app_info.id() {
                 if id.contains("org.gnome.TextEditor") {
                     gio::spawn_blocking({
@@ -112,8 +126,12 @@ pub fn try_open_editor(path: PathBuf, line_no: i32, col_no: i32) {
     if let Some(app_info) =
         gio::AppInfo::default_for_type(&content_type, false)
     {
+        debug!("open default ----------------- app info {:?}", app_info);
         let file = gio::File::for_path(path);
         let opts: Option<&gio::AppLaunchContext> = None;
         app_info.launch(&[file], opts).expect("cant launch app");
+    } else {
+        debug!("nooooooooooooo app info");
+        debug!("________________________ {:?}", gio::AppInfo::all_for_type(&content_type));
     }
 }
