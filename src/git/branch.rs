@@ -132,7 +132,7 @@ pub fn checkout_branch(
     sender: Sender<crate::Event>,
 ) -> Result<Option<BranchData>, git2::Error> {
     info!("checkout branch");
-    let updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(branch_data.oid)?;
 

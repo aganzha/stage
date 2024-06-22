@@ -43,14 +43,14 @@ use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
     gio, glib, Box, Label as GtkLabel, ListBox, Orientation, SelectionMode,
-    TextBuffer, TextIter, TextView, Widget,
+    TextBuffer, TextIter, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, Banner, EntryRow, PasswordEntryRow, SwitchRow,
 };
 use chrono::{DateTime, offset::Utc};
-use log::{debug, info, trace};
+use log::{info, trace};
 
 impl State {
     pub fn title_for_proceed_banner(&self) -> String {
@@ -944,7 +944,6 @@ impl Status {
         if let Some(staged) = &self.staged {
             if let Some(expanded_line) = staged.expand(line_no, context) {
                 self.render(txt, RenderSource::Expand(expanded_line), context);
-                return;
             }
         }
     }
@@ -1029,7 +1028,7 @@ impl Status {
             // position
             let iter = self.smart_cursor_position(&buffer);
             buffer.place_cursor(&iter);
-            self.cursor(&txt, iter.line(), iter.offset(), context);
+            self.cursor(txt, iter.line(), iter.offset(), context);
         }
 
         txt.bind_highlights(context);
@@ -1285,7 +1284,7 @@ impl Status {
             let path = self.path.clone();
             let sender = self.sender.clone();
             let file_path = file.unwrap().path.clone();
-            let hunk = hunk.and_then(|h| Some(h.header.clone()));
+            let hunk = hunk.map(|h| h.header.clone());
             async move {
                 gio::spawn_blocking({
                     move || {
@@ -1318,8 +1317,8 @@ impl Status {
     }
     pub fn dump(
         &mut self,
-        txt: &StageView,
-        context: &mut StatusRenderContext,
+        _txt: &StageView,
+        _context: &mut StatusRenderContext,
     ) {
         let mut path = self.path.clone().unwrap();
         path.push(DUMP_DIR);
@@ -1336,12 +1335,12 @@ impl Status {
         let datetime: DateTime<Utc> = std::time::SystemTime::now().into();
         let fname = format!("dump_{}.txt", datetime.format("%d_%m_%Y_%T"));
         path.push(fname);
-        let file = std::fs::File::create(path).unwrap();
+        let _file = std::fs::File::create(path).unwrap();
     }
     pub fn debug(
         &mut self,
-        txt: &StageView,
-        context: &mut StatusRenderContext,
+        _txt: &StageView,
+        _context: &mut StatusRenderContext,
     ) {
 
     }

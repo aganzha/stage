@@ -193,7 +193,7 @@ pub fn branch(
 
 pub fn abort(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {
     info!("git.abort merge");
-    let updater = DeferRefresh::new(path.clone(), sender, true, true);
+    let _updater = DeferRefresh::new(path.clone(), sender, true, true);
     let repo = git2::Repository::open(path.clone())?;
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
 

@@ -305,7 +305,7 @@ pub trait ViewContainer {
             // todo - get all the buffer and write it to file completelly
             panic!("no line at the end of erase!!!!!!!!! {}", line_no);
         }
-        cursor_to_line_offset(&buffer, initial_line_offset);
+        cursor_to_line_offset(buffer, initial_line_offset);
     }
 }
 
@@ -915,7 +915,7 @@ impl Diff {
         let mut hunk_header: Option<&Hunk> = None;
         for file in &self.files {
             if file.view.is_current() {
-                file_path.replace(&file);
+                file_path.replace(file);
                 break;
             }
             for hunk in &file.hunks {
@@ -924,8 +924,8 @@ impl Diff {
                     // that file is active and previous break
                     // must prevent to going here
                     assert!(hunk_header.is_none());
-                    file_path.replace(&file);
-                    hunk_header.replace(&hunk);
+                    file_path.replace(file);
+                    hunk_header.replace(hunk);
                     break;
                 }
             }

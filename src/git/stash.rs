@@ -5,7 +5,7 @@
 use crate::git::DeferRefresh;
 use async_channel::Sender;
 use git2;
-use gtk4::gio;
+
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -63,7 +63,7 @@ pub fn stash(
     stash_staged: bool,
     sender: Sender<crate::Event>,
 ) -> Result<Option<Stashes>, git2::Error> {
-    let defer = DeferRefresh::new(path.clone(), sender.clone(), true, false);
+    let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, false);
     let mut repo =
         git2::Repository::open(path.clone())?;
     let me = repo.signature()?;
@@ -80,10 +80,10 @@ pub fn apply(
     path: PathBuf,
     num: usize,
     file_path: Option<PathBuf>,
-    hunk_header: Option<String>,
+    _hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
-    let defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+    let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let mut repo = git2::Repository::open(path.clone())?;
     // let opts = StashApplyOptions::new();
     sender

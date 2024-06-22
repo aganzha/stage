@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::status_view::container::ViewKind;
+
 use crate::{DiffKind, LineKind};
 
-use log::{debug, trace};
+
 use std::cell::RefCell;
 use std::rc::Rc;
 

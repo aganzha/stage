@@ -53,9 +53,8 @@ use libadwaita::{
 };
 
 use gtk4::{
-    gdk, gio, glib, graphene, style_context_add_provider_for_display, Align,
-    Box, CssProvider, Orientation, ScrolledWindow, Settings, Snapshot,
-    TextView, STYLE_PROVIDER_PRIORITY_USER,
+    gdk, gio, glib, style_context_add_provider_for_display, Align,
+    Box, CssProvider, Orientation, ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
 };
 
 use log::{info, trace};
@@ -528,7 +527,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                             Toast::builder().title(title).timeout(2).build();
                         toast.connect_dismissed({
                             let toast_lock = toast_lock.clone();
-                            move |t| {
+                            move |_t| {
                                 toast_lock.replace(false);
                             }});
                         toast_overlay.add_toast(toast);
