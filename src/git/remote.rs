@@ -133,7 +133,7 @@ pub fn update_remote(
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
 ) -> Result<(), ()> {
-    let updater = DeferRefresh::new(path.clone(), sender, true, true);
+    let _updater = DeferRefresh::new(path.clone(), sender, true, true);
     let repo = git2::Repository::open(path).expect("can't open repo");
     let mut remote = repo
         .find_remote("origin") // TODO here is hardcode
@@ -276,7 +276,7 @@ pub fn pull(
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
 ) {
-    let updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let mut remote = repo
         .find_remote("origin") // TODO here is hardcode

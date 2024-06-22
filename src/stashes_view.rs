@@ -10,7 +10,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, Button, EventControllerKey, Label, ListBox,
-    ScrolledWindow, SelectionMode, Window as Gtk4Window,
+    ScrolledWindow, SelectionMode,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -34,7 +34,7 @@ glib::wrapper! {
 
 mod oid_row {
     use crate::git::stash::StashData;
-    use git2;
+    
     use glib::Properties;
     use gtk4::glib;
     use gtk4::prelude::*;

@@ -244,11 +244,11 @@ pub fn cherry_pick(
     path: PathBuf,
     oid: git2::Oid,
     file_path: Option<PathBuf>,
-    hunk_header: Option<String>,
+    _hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
 
-    let updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(oid)?;
@@ -272,10 +272,10 @@ pub fn revert(
     path: PathBuf,
     oid: git2::Oid,
     file_path: Option<PathBuf>,
-    hunk_header: Option<String>,
+    _hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
-    let updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(oid)?;
 

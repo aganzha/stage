@@ -8,18 +8,17 @@ use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::{
     container::{ViewContainer, ViewKind},
     render::View,
-    stage_view::{StageView, factory as stage_factory},
+    stage_view::{StageView},
     Label as TextViewLabel,
 };
-use crate::{Event, utils::StrPath};
+use crate::{Event};
 use async_channel::Sender;
 use git2::Oid;
 use std::cell::RefCell;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow,
-    TextView, Widget, Window as Gtk4Window,
+    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};

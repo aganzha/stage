@@ -3,23 +3,22 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::status_view::context::{StatusRenderContext, TextViewWidth};
-use crate::status_view::headerbar::{Scheme, SCHEME_TOKEN};
+
 use crate::status_view::tags;
 use async_channel::Sender;
 use core::time::Duration;
-use gdk::Display;
+
 use glib::ControlFlow;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Accessible, Buildable, EventControllerKey,
-    EventControllerMotion, EventSequenceState, GestureClick, MovementStep,
-    Settings, TextBuffer, TextTag, TextView, TextWindowType, Widget
+    gdk, glib, EventControllerKey,
+    EventControllerMotion, EventSequenceState, GestureClick, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget
 };
 use libadwaita::prelude::*;
 use libadwaita::StyleManager;
-use log::{debug, trace};
-use std::array::from_fn;
+use log::{trace};
+
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -31,7 +30,7 @@ glib::wrapper! {
 }
 
 mod stage_view {
-    use glib::Properties;
+    
     use gtk4::prelude::*;
     use gtk4::{
         gdk,
@@ -45,7 +44,7 @@ mod stage_view {
     use std::cell::{Cell, RefCell};
 
     use gtk4::subclass::prelude::*;
-    use log::{debug, trace};
+    
 
     // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
@@ -162,16 +161,20 @@ mod stage_view {
     impl WidgetImpl for StageView {}
 }
 
+impl Default for StageView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StageView {
     pub fn new() -> Self {
         glib::Object::builder().build()
     }
 
-    pub fn set_is_dark(&self, is_dark: bool, force:bool) {
-        if !force {
-            if self.imp().is_dark_set.get() {
-                return;
-            }
+    pub fn set_is_dark(&self, _is_dark: bool, force:bool) {
+        if !force && self.imp().is_dark_set.get() {
+            return;
         }
         let manager = StyleManager::default();
         let is_dark = manager.is_dark();
@@ -297,15 +300,15 @@ pub fn factory(
                 })
                 .collect::<Vec<&str>>();
             if is_dark {
-                new_classes.push(&DARK_CLASS);
+                new_classes.push(DARK_CLASS);
             } else {
-                new_classes.push(&LIGHT_CLASS);
+                new_classes.push(LIGHT_CLASS);
             }
             txt.set_css_classes(&new_classes);
             table.foreach(|tt| {
                 if let Some(name) = tt.name() {
                     let t = tags::TxtTag::unknown_tag(name.to_string());
-                    t.fill_text_tag(&tt, is_dark);
+                    t.fill_text_tag(tt, is_dark);
                 }
             });
         }

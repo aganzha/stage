@@ -21,7 +21,7 @@ use git2::{
     ApplyLocation, ApplyOptions, Branch, Commit, Delta, Diff as GitDiff,
     DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
     DiffOptions, Error, ObjectType, Oid, Repository, RepositoryState,
-    ResetType, StashFlags, RebaseOptions
+    ResetType, RebaseOptions
 };
 
 use log::{debug, trace};
@@ -138,7 +138,7 @@ impl Hunk {
         let view = View::new();
         view.expand(true);
         Self {
-            view: view,
+            view,
             header: String::new(),
             lines: Vec::new(),
             old_start: 0,
@@ -1191,7 +1191,7 @@ pub fn checkout_oid(
     ref_log_msg: Option<String>,
 ) {
     // DANGEROUS! see in status_view!
-    let updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let commit = repo.find_commit(oid).expect("can't find commit");
     let head_ref = repo.head().expect("can't get head");
@@ -1221,7 +1221,7 @@ pub fn checkout_oid(
 }
 
 pub fn abort_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
-    let updater = DeferRefresh::new(path.clone(), sender, true, true);
+    let _updater = DeferRefresh::new(path.clone(), sender, true, true);
 
     let repo = Repository::open(path)?;
 
@@ -1237,7 +1237,7 @@ pub fn abort_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), E
 }
 
 pub fn continue_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
-    let updater = DeferRefresh::new(path.clone(), sender, true, true);
+    let _updater = DeferRefresh::new(path.clone(), sender, true, true);
 
     let repo = Repository::open(path)?;
 
@@ -1269,10 +1269,10 @@ pub fn continue_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<()
 
 pub fn rebase(  path: PathBuf,
                 upstream: Oid,
-                onto: Option<Oid>,
+                _onto: Option<Oid>,
                 sender: Sender<crate::Event>) -> Result<bool, Error> {
 
-    let deref = DeferRefresh::new(path.clone(), sender, true, true);
+    let _deref = DeferRefresh::new(path.clone(), sender, true, true);
 
     let repo = Repository::open(path)?;
     let upstream_commit = repo.find_annotated_commit(upstream)?;
