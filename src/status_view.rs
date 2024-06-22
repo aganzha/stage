@@ -166,7 +166,7 @@ impl Status {
             conflicted: None,
             rendered: false,
             stashes: None,
-            monitor_global_lock: Rc::new(RefCell::new(true)),
+            monitor_global_lock: Rc::new(RefCell::new(false)),
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
             settings
         }
