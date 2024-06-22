@@ -1,3 +1,5 @@
+TODO: TextView::extra_menu - for search and for stage/unstage/kill.
+TODO: implement search with ctrl-f, ctrl-s, f3
 TODO: add margins to text view in commit form
 BUG: maybe related: staged 2 hunks in dn_scanner. then kill in unstaged hank. then. maybe, expand. panic in result
 BUG: Crytical: garbage in text. file is invisible! garbage hunks in the end of view and they are expandable!
