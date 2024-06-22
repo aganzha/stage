@@ -981,7 +981,7 @@ pub fn headerbar_factory(
         .build();
 
     let merge_btn = Button::builder()
-        .icon_name("view-restore-symbolic") // system-switch-user-symbolic
+        .icon_name("media-playlist-shuffle")
         .use_underline(true)
         .tooltip_text("Merge branch (M)")
         .sensitive(false)
