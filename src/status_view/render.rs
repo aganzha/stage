@@ -156,13 +156,6 @@ pub struct View {
     pub tag_indexes: Cell<tags::TagIdx>,
 }
 
-pub fn make_tag(name: &str) -> tags::TxtTag {
-    tags::TxtTag::from_str(name)
-}
-
-pub fn play_with_tags() {
-    debug!("play_with_tags--------------------");
-}
 
 impl View {
     pub fn new() -> Self {
@@ -223,6 +216,20 @@ impl View {
     pub fn is_transfered(&self) -> bool {
         self.flags.get().is_transfered()
     }
+
+    pub fn repr(&self) -> String {
+        format!("line_no: {} rendred: {} squashed: {} active: {} current: {} expanded: {} dirty: {} child_dirty: {}",
+                self.line_no.get(),
+                self.is_rendered(),
+                self.is_squashed(),
+                self.is_active(),
+                self.is_current(),
+                self.is_expanded(),
+                self.is_dirty(),
+                self.is_child_dirty()
+        )
+    }
+
     pub fn is_rendered_in(&self, line_no: i32) -> bool {
         self.is_rendered()
             && self.line_no.get() == line_no
