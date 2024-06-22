@@ -932,4 +932,27 @@ impl Diff {
         }
         (file_path, hunk_header)
     }
+
+    pub fn dump(&self) -> String {
+        let mut result = String::new();
+        for file in &self.files {
+            result.push_str(&format!("FILE: {}", file.get_content()));
+            result.push_str("\n\t");
+            result.push_str(&file.view.repr());
+            result.push('\n');
+            for hunk in &file.hunks {
+                result.push_str(&format!("HUNK: {}", hunk.get_content()));
+                result.push_str("\n\t");
+                result.push_str(&hunk.view.repr());
+                result.push('\n');
+                for line in &hunk.lines {
+                    result.push_str(&format!("LINE: {}", line.get_content()));
+                    result.push_str("\n\t");
+                    result.push_str(&line.view.repr());
+                    result.push('\n');
+                }
+            }
+        }
+        result
+    }
 }

@@ -347,7 +347,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     }
                 }
                 Event::Dump => {
-                    info!("Debug");
+                    info!("Dump");
                     status.dump(&txt, &mut ctx);
                 }
                 Event::Debug => {

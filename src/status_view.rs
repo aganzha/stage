@@ -25,6 +25,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::io::{Write, ErrorKind};
 
 use crate::status_view::render::View;
 use crate::{
@@ -94,7 +95,6 @@ impl Label {
 pub enum RenderSource {
     Git,
     GitDiff,
-    Cursor(i32),
     Expand(i32),
 }
 
@@ -129,7 +129,7 @@ pub struct Status {
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
     pub settings: gio::Settings,
-    
+
 }
 
 impl Status {
@@ -765,12 +765,12 @@ impl Status {
                                     gio::spawn_blocking({
                                         move || {
                                             match state {
-                                                RepositoryState::Merge =>                                                    
+                                                RepositoryState::Merge =>
                                                     merge::final_merge_commit(
                                                         path.clone().unwrap(),
                                                         sender,
                                                     ),
-                                                RepositoryState::RebaseMerge => 
+                                                RepositoryState::RebaseMerge =>
                                                     continue_rebase(
                                                         path.clone().unwrap(),
                                                         sender,
@@ -779,7 +779,7 @@ impl Status {
                                                     path.clone().unwrap(),
                                                     sender,
                                                 )
-                                                    
+
                                             }
                                         }
                                     })
@@ -887,7 +887,7 @@ impl Status {
             },
         );
     }
-    
+
     /// cursor does not change structure, but changes highlights
     /// it will collect highlights in context. no need further render
     pub fn cursor(
@@ -1317,16 +1317,16 @@ impl Status {
     }
     pub fn dump(
         &mut self,
-        _txt: &StageView,
-        _context: &mut StatusRenderContext,
+        txt: &StageView,
+        context: &mut StatusRenderContext,
     ) {
         let mut path = self.path.clone().unwrap();
         path.push(DUMP_DIR);
         let create_result = std::fs::create_dir(&path);
         match create_result {
-            Ok(_) => {                
+            Ok(_) => {
             },
-            Err(err) => if err.kind() == std::io::ErrorKind::AlreadyExists {
+            Err(err) => if err.kind() == ErrorKind::AlreadyExists {
             }
             Err(err) => {
                 panic!("Error {}", err);
@@ -1335,7 +1335,36 @@ impl Status {
         let datetime: DateTime<Utc> = std::time::SystemTime::now().into();
         let fname = format!("dump_{}.txt", datetime.format("%d_%m_%Y_%T"));
         path.push(fname);
-        let _file = std::fs::File::create(path).unwrap();
+        let mut file = std::fs::File::create(path).unwrap();
+
+        let buffer = txt.buffer();
+
+        let pos = buffer.cursor_position();
+        let iter = buffer.iter_at_offset(pos);
+        self.cursor(txt, iter.line(), iter.offset(), context);
+        self.render(txt, RenderSource::Git, context);
+
+        let iter = buffer.iter_at_offset(0);
+        let end_iter = buffer.end_iter();
+        let content = buffer.text(&iter, &end_iter, true);
+        file.write_all(content.as_bytes()).unwrap();
+        file.write_all("\n ================================= \n".as_bytes()).unwrap();
+        file.write_all(format!("context: {:?}", context).as_bytes());
+        if let Some(conflicted) = &self.conflicted {
+            file.write_all("\n ==============Coflicted================= \n".as_bytes()).unwrap();
+            file.write_all(conflicted.dump().as_bytes()).unwrap();
+        }
+        if let Some(unstaged) = &self.unstaged {
+            file.write_all("\n ==============UnStaged================= \n".as_bytes()).unwrap();
+            file.write_all(unstaged.dump().as_bytes()).unwrap();
+        }
+        if let Some(staged) = &self.staged {
+            file.write_all("\n ==============Staged================= \n".as_bytes()).unwrap();
+            file.write_all(staged.dump().as_bytes()).unwrap();
+        }
+        self.sender.send_blocking(Event::Toast(String::from("dumped")))
+            .expect("cant send through sender");
+
     }
     pub fn debug(
         &mut self,
