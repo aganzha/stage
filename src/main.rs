@@ -106,6 +106,7 @@ fn load_css() {
 #[derive(Debug)]
 pub enum Event {
     Debug,
+    Dump,
     OpenRepo(PathBuf),
     CurrentRepo(PathBuf),
     Conflicted(Diff),
@@ -345,6 +346,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     {
                         external::try_open_editor(path, line_no, col_no);
                     }
+                }
+                Event::Dump => {
+                    info!("Debug");
+                    status.dump(&txt, &mut ctx);
                 }
                 Event::Debug => {
                     info!("Debug");
