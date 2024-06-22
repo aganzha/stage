@@ -51,7 +51,7 @@ use libadwaita::{
     ApplicationWindow, Banner, EntryRow, PasswordEntryRow, SwitchRow,
 };
 use chrono::{DateTime, offset::Utc};
-use log::{info, trace};
+use log::{info, trace, debug};
 
 impl State {
     pub fn title_for_proceed_banner(&self) -> String {
@@ -1086,12 +1086,6 @@ impl Status {
                     }
                 }
             }
-            // if iter.line() == last_line {
-            //     debug!("lets maybe state ? {:?}", self.state);
-            //     if let Some(state) = &self.state {
-            //         return buffer.iter_at_line(state.view.line_no.get()).unwrap();
-            //     }
-            // }
         }
         iter
     }
@@ -1349,7 +1343,7 @@ impl Status {
         let content = buffer.text(&iter, &end_iter, true);
         file.write_all(content.as_bytes()).unwrap();
         file.write_all("\n ================================= \n".as_bytes()).unwrap();
-        file.write_all(format!("context: {:?}", context).as_bytes());
+        file.write_all(format!("context: {:?}", context).as_bytes()).unwrap();
         if let Some(conflicted) = &self.conflicted {
             file.write_all("\n ==============Coflicted================= \n".as_bytes()).unwrap();
             file.write_all(conflicted.dump().as_bytes()).unwrap();
@@ -1361,17 +1355,32 @@ impl Status {
         if let Some(staged) = &self.staged {
             file.write_all("\n ==============Staged================= \n".as_bytes()).unwrap();
             file.write_all(staged.dump().as_bytes()).unwrap();
-        }
+        }        
         self.sender.send_blocking(Event::Toast(String::from("dumped")))
             .expect("cant send through sender");
 
     }
     pub fn debug(
         &mut self,
-        _txt: &StageView,
-        _context: &mut StatusRenderContext,
+        txt: &StageView,
+        context: &mut StatusRenderContext,
     ) {
+        let buffer = txt.buffer();
+        self.render(txt, RenderSource::Git, context);
+        let (line_from, line_to) = context.highlight_lines.unwrap();
+        let mut iter = buffer.iter_at_line(line_from).unwrap();
+        let y_from = txt.line_yrange(&iter).0;
+        iter.set_line(line_to);
+        let (y, height) = txt.line_yrange(&iter);
+        debug!("+++++++++++++++++++++++++ line_from {:?} line_to {:?} y_from {:?} y {:?} height {:?}",
+               line_from, line_to, y_from, y, height
+        );
+        let me = buffer.cursor_position();
+        let iter = buffer.iter_at_offset(me);
+        let (y, height) = txt.line_yrange(&iter);
+        debug!("and thats me on line {:?} y {:?} height {:?}", iter.line(), y, height);
 
+        
     }
 
     pub fn checkout_error(

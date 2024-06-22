@@ -30,7 +30,7 @@ glib::wrapper! {
 }
 
 mod stage_view {
-    
+
     use gtk4::prelude::*;
     use gtk4::{
         gdk,
@@ -44,7 +44,7 @@ mod stage_view {
     use std::cell::{Cell, RefCell};
 
     use gtk4::subclass::prelude::*;
-    
+
 
     // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
@@ -90,29 +90,43 @@ mod stage_view {
     impl TextViewImpl for StageView {
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
             if layer == TextViewLayer::BelowText {
+                let rect = self.obj().visible_rect();
+                snapshot.append_color(
+                    &gdk::RGBA::new(1.0, 1.0, 1.0, 1.0),
+                    &graphene::Rect::new(rect.x() as f32, rect.y() as f32, rect.width() as f32, rect.height() as f32)
+                );
 
                 let buffer = self.obj().buffer();
+                let mut iter = buffer.iter_at_offset(0);
                 let (line_from, line_to) = self.active_lines.get();
-                let mut iter = buffer.iter_at_line(line_from).unwrap();
-                let y_from = self.obj().line_yrange(&iter).0;
-                iter.set_line(line_to);
-                let (y, height) = self.obj().line_yrange(&iter);
-                let y_to = y + height;
-                // highlight active_lines ----------------------------
-                // HARCODE - 2000.
-                snapshot.append_color(
-                    if self.is_dark.get() {
-                        &DARK_LINES
-                    } else {
-                        &LIGHT_LINES
-                    },
-                    &graphene::Rect::new(
-                        0.0,
-                        y_from as f32,
-                        2000.0,
-                        y_to as f32,
-                    ),
-                );
+
+                if line_from > 0 && line_to > 0 {
+                    iter.set_line(line_from);
+                    let y_from = self.obj().line_yrange(&iter).0;
+                    iter.set_line(line_to);
+                    let (y, height) = self.obj().line_yrange(&iter);
+                    let y_to = y + height;
+                    // highlight active_lines ----------------------------
+                    // HARCODE - 2000.
+                    snapshot.append_color(
+                        if self.is_dark.get() {
+                            &DARK_LINES
+                        } else {
+                            &LIGHT_LINES
+                        },
+                        &graphene::Rect::new(
+                            0.0,
+                            y_from as f32,
+                            2000.0,
+                            y_to as f32,
+                        ),
+                    );
+                    snapshot.append_color(
+                        &gdk::RGBA::new(1.0, 1.0, 1.0, 1.0),
+                        &graphene::Rect::new(rect.x() as f32, y_to as f32, rect.width() as f32, rect.height() as f32)
+                    );
+
+                }
 
                 // highlight hunks -----------------------------------
                 // HARCODE - 2000;
@@ -134,6 +148,7 @@ mod stage_view {
                     );
                 }
 
+
                 // highlight cursor ---------------------------------
                 let cursor_line = self.cursor.get();
                 iter.set_line(cursor_line);
@@ -153,7 +168,8 @@ mod stage_view {
                     ),
                 );
             }
-            self.parent_snapshot_layer(layer, snapshot)
+            // is it required?
+            // self.parent_snapshot_layer(layer, snapshot)
         }
 
     }
