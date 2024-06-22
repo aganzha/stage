@@ -207,7 +207,7 @@ impl Default for OidRow {
 
 pub fn add_stash(
     path: PathBuf,
-    window: &impl IsA<Gtk4Window>,
+    window: &ApplicationWindow,
     stashes_box: &ListBox,
     sender: Sender<Event>,
 ) {
@@ -260,12 +260,17 @@ pub fn add_stash(
                 move || {
                     stash::stash(path, stash_message, stash_staged, sender)
                 }
-            }).await;
-            if let Ok(stashes) = result {
+            }).await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(None)
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                    None
+                });
+            if let Some(stashes) = result {
                 adopt_stashes(&stashes_box, stashes, sender, None);
-            } else {
-                alert(String::from("cant create stash")).present(&stashes_box);
-                // display_error(&window, "cant create stash");
             }
         })
     });

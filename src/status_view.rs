@@ -28,7 +28,7 @@ use std::rc::Rc;
 
 use crate::status_view::render::View;
 use crate::{
-    checkout_oid, get_current_repo_status, get_directories, git_debug,
+    checkout_oid, get_current_repo_status, get_directories,
     stage_untracked, stage_via_apply, track_changes, StageOp, Diff,
     Event, File as GitFile, Head, State, StatusRenderContext, Untracked,
 };
