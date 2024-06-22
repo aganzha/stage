@@ -121,6 +121,9 @@ mod stage_view {
                             y_to as f32,
                         ),
                     );
+                    // there is a garbage from previous highlights
+                    // or perhaps i am doing something. but this will
+                    // cleanup the garbage
                     snapshot.append_color(
                         &gdk::RGBA::new(1.0, 1.0, 1.0, 1.0),
                         &graphene::Rect::new(rect.x() as f32, y_to as f32, rect.width() as f32, rect.height() as f32)
