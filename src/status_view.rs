@@ -48,7 +48,8 @@ use gtk4::{
 use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, Banner, EntryRow, PasswordEntryRow, SwitchRow,
-}; // _Window,
+};
+use chrono::{DateTime, offset::Utc};
 use log::{debug, info, trace};
 
 impl State {
@@ -97,6 +98,8 @@ pub enum RenderSource {
     Expand(i32),
 }
 
+pub const DUMP_DIR: &str = "stage_dump";
+
 #[derive(Debug, Clone)]
 pub struct Status {
     pub path: Option<PathBuf>,
@@ -126,6 +129,7 @@ pub struct Status {
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
     pub settings: gio::Settings,
+    
 }
 
 impl Status {
@@ -1311,6 +1315,28 @@ impl Status {
             return !staged.files.is_empty();
         }
         false
+    }
+    pub fn dump(
+        &mut self,
+        txt: &StageView,
+        context: &mut StatusRenderContext,
+    ) {
+        let mut path = self.path.clone().unwrap();
+        path.push(DUMP_DIR);
+        let create_result = std::fs::create_dir(&path);
+        match create_result {
+            Ok(_) => {                
+            },
+            Err(err) => if err.kind() == std::io::ErrorKind::AlreadyExists {
+            }
+            Err(err) => {
+                panic!("Error {}", err);
+            }
+        }
+        let datetime: DateTime<Utc> = std::time::SystemTime::now().into();
+        let fname = format!("dump_{}.txt", datetime.format("%d_%m_%Y_%T"));
+        path.push(fname);
+        let file = std::fs::File::create(path).unwrap();
     }
     pub fn debug(
         &mut self,

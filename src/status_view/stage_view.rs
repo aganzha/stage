@@ -401,6 +401,12 @@ pub fn factory(
                     sndr.send_blocking(crate::Event::StashesPanel)
                         .expect("cant send through channel");
                 }
+                (gdk::Key::d, gdk::ModifierType::CONTROL_MASK) => {
+                    let _iter =
+                        buffer.iter_at_offset(buffer.cursor_position());
+                    sndr.send_blocking(crate::Event::Dump)
+                        .expect("Could not send through channel");
+                }
                 (gdk::Key::d, _) => {
                     let _iter =
                         buffer.iter_at_offset(buffer.cursor_position());
