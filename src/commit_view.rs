@@ -17,7 +17,6 @@ use git2::Oid;
 use std::cell::RefCell;
 
 use gtk4::prelude::*;
-use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow,
     TextView, Widget, Window as Gtk4Window,

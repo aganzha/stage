@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::get_current_repo_status;
+use crate::git::DeferRefresh;
 use async_channel::Sender;
 use git2;
 use gtk4::gio;
@@ -62,26 +62,18 @@ pub fn stash(
     stash_message: String,
     stash_staged: bool,
     sender: Sender<crate::Event>,
-) -> Stashes {
+) -> Result<Option<Stashes>, git2::Error> {
+    let defer = DeferRefresh::new(path.clone(), sender.clone(), true, false);
     let mut repo =
-        git2::Repository::open(path.clone()).expect("can't open repo");
-    let me = repo.signature().expect("can't get signature");
+        git2::Repository::open(path.clone())?;
+    let me = repo.signature()?;
     let flags = if stash_staged {
         git2::StashFlags::empty()
     } else {
         git2::StashFlags::KEEP_INDEX
     };
-    let _oid = repo
-        .stash_save(&me, &stash_message, Some(flags))
-        .expect("cant stash");
-    gio::spawn_blocking({
-        let path = path.clone();
-        let sender = sender.clone();
-        move || {
-            get_current_repo_status(Some(path), sender);
-        }
-    });
-    list(path, sender)
+    repo.stash_save(&me, &stash_message, Some(flags))?;
+    Ok(Some(list(path, sender)))
 }
 
 pub fn apply(
@@ -91,6 +83,7 @@ pub fn apply(
     hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
+    let defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let mut repo = git2::Repository::open(path.clone())?;
     // let opts = StashApplyOptions::new();
     sender
@@ -102,18 +95,7 @@ pub fn apply(
         cb.path(file_path);
         stash_options.checkout_options(cb);
     };
-    let result = repo.stash_apply(num, Some(&mut stash_options));
-    sender
-        .send_blocking(crate::Event::LockMonitors(false))
-        .expect("can send through channel");
-    if result.is_err() {
-        return result;
-    }
-    gio::spawn_blocking({
-        move || {
-            get_current_repo_status(Some(path), sender);
-        }
-    });
+    repo.stash_apply(num, Some(&mut stash_options))?;
     Ok(())
 }
 
