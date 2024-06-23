@@ -1,3 +1,22 @@
+******************************** from scratch ******************************
+BUG: open branches. open log. hard reset from log. close. the branch data in branch list is not changed!
+BUG: when doing any git op with result? error returned to branch, but it need also to update remo status!
+to do that it need to implement object with drop interface. and inside its drop it need to call get_current_repo_status!
+
+
+repo has method open_rebase
+
+
+TODO: disable all branch ops in branches view during rebase!
+
+in the rebase there is a conflict: path dc4 already applied! but it is not applied, it was cherry picked and now have another sha!
+think about it:
+the name is "display detached head" dc4e681f0a16dd8faad8282fc670c8b2bb738b04 in follow rebase and 06aa1eeac8e20c8f2321ee590e7d6edf32900ff5 in rebase
+
+
+perhaps the problem is - it is going to stage during conflict resolution!
+*********************************************************************************
+
 TODO: TextView::extra_menu - for search and for stage/unstage/kill.
 TODO: implement search with ctrl-f, ctrl-s, f3
 TODO: add margins to text view in commit form
@@ -145,3 +164,69 @@ display hook here agai
 and resolve
 TODO: display killed spaces please
 /usr/bin/gtk4-launch org.gtk.WidgetFactory4
+/usr/bin/gtk4-launch org.gnome.Tour
+cat /usr/share/applications/org.gnome.Tour.desktop
+
+
+ls -la /var/lib/flatpak/app/io.gitlab.liferooter.TextPieces/
+ls -la /var/lib/flatpak/exports/share/applications/ | grep Text
+lrwxrwxrwx. 1 root root  125 Jun 17 18:15 io.gitlab.liferooter.TextPieces.desktop -> ../../../app/io.gitlab.liferooter.TextPieces/current/active/export/share/applications/io.gitlab.liferooter.TextPieces.desktop
+
+so
+/home/aganzha/.local/share/flatpak/exports/share must repeat /var/lib/flatpak/exports/share
+
+ls -la /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/
+vs
+/var/lib/flatpak/app/io.gitlab.liferooter.TextPieces/current/active/export/share/applications/io.gitlab.liferooter.TextPieces.desktop
+
+ouh !!!!!!!!!!!!!
+cat /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/bin/com.github.aganzha.stage 
+#!/bin/sh
+exec /usr/bin/flatpak run --branch=master --arch=x86_64 com.github.aganzha.stage "$@"
+
+so:
+ mkdir /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/applications
+ cp ~/stage/com.github.aganzha.stage.desktop /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/applications/
+
+icon: ls -la /var/lib/flatpak/app/io.gitlab.liferooter.TextPieces/current/active/export/share/icons/hicolor/symbolic/apps/
+cat /var/lib/flatpak/app/io.gitlab.liferooter.TextPieces/current/active/export/share/metainfo/io.gitlab.liferooter.TextPieces.metainfo.xml
+
+do:
+ mkdir /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share
+
+ mkdir /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/applications
+
+hm. looks the same:
+aganzha@fedora:~/interpreter$ ls -la /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/applications
+total 4
+drwxr-xr-x. 1 aganzha aganzha  64 Jun 23 20:19 .
+drwxr-xr-x. 1 aganzha aganzha  24 Jun 23 20:18 ..
+-rw-r--r--. 1 aganzha aganzha 475 Jun 23 20:19 com.github.aganzha.stage.desktop
+aganzha@fedora:~/interpreter$ ls -la /var/lib/flatpak/app/io.gitlab.liferooter.TextPieces/current/active/export/share/applications/
+total 4
+drwxr-xr-x. 1 root root   78 Jun 17 18:15 .
+drwxr-xr-x. 1 root root   50 Jan  1  1970 ..
+-rwxr-xr-x. 1 root root 1105 Jun 17 18:15 io.gitlab.liferooter.TextPieces.desktop
+
+perhaps needs reloading?
+nope. restart does not work.
+perhaps it requird xml.
+
+aganzha@fedora:~/stage$ mkdir /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/icons
+aganzha@fedora:~/stage$ mkdir /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/icons/hicolor
+aganzha@fedora:~/stage$ mkdir /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/icons/hicolor/symbolic
+aganzha@fedora:~/stage$ mkdir /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/icons/hicolor/symbolic/apps
+
+mkdir /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/icons/hicolor/scalable/
+mkdir /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/icons/hicolor/scalable/apps
+
+cp logo.svg /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/icons/hicolor/scalable/apps/
+cp symbolic.svg /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/icons/hicolor/symbolic/apps/com.github.aganzha.stage-symbolic.svg
+
+cd /home/aganzha/.local/share/flatpak/exports/share/applications
+ln -s /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/applications/com.github.aganzha.stage.desktop
+
+
+update-desktop-database --help
+update-desktop-database /home/aganzha/.local/share/flatpak/exports/share
+YES!
