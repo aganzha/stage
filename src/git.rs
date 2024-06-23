@@ -108,6 +108,16 @@ impl Line {
     pub fn is_side_of_conflict(&self) -> bool {
         self.is_our_side_of_conflict() || self.is_their_side_of_conflict()
     }
+
+    pub fn repr(&self, title: &str, chars_to_take: usize) -> String {
+        format!("{} new_line_no: {:?} old_line_no: {:?} knd: {:?} orgn: {:?} cnt: {}",
+                title,
+                self.new_line_no,
+                self.old_line_no,
+                self.kind,
+                self.origin,
+                self.content.trim().chars().take(chars_to_take).collect::<String>())
+    }
 }
 
 pub const MARKER_OURS: &str = "<<<<<<<";

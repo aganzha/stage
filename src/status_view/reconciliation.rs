@@ -9,8 +9,8 @@ use crate::{
 };
 use git2::RepositoryState;
 use gtk4::TextBuffer;
-use log::{trace};
-use std::collections::HashSet;
+use log::{trace, debug};
+use std::collections::{HashSet, HashMap};
 use std::iter::zip;
 
 pub const MAX_LINES: i32 = 50000;
@@ -54,8 +54,79 @@ impl Hunk {
         clone.transfer(true);
         clone
     }
+
     // hunk
     pub fn enrich_view(
+        &mut self,
+        rendered: &mut Hunk,
+        buffer: &TextBuffer,
+        context: &mut crate::StatusRenderContext,
+    ) {
+        self.view = rendered.transfer_view();
+        debug!("---------------> NEW");
+        for line in &self.lines {
+            debug!("{}", line.repr("", 5));
+        }
+        debug!("");
+        debug!("---------------> OLD");
+        for line in &rendered.lines {
+            debug!("{}", line.repr("", 5));
+        }
+        debug!("");
+        debug!("GOOOOOOOOOOOOOOOOOOOOO");
+        // iter over new lines. normalize line_nos to hunk start.
+        let mut rendered_map:HashMap<(i32, i32), &Line> = HashMap::new();
+        
+        for line in &rendered.lines {
+            let mut new: i32 = 0 - 1;
+            let mut old: i32 = 0 - 1;
+            if let Some(new_start) = line.new_line_no {
+                new = (new_start - self.new_start) as i32;
+            }
+            if let Some(old_start) = line.old_line_no {
+                old = (old_start - self.old_start) as i32;
+            }
+            rendered_map.insert((new, old), &line);
+        }
+        let mut added_counter = 0;
+        for line in &mut self.lines {
+            let mut new: i32 = 0 - 1;
+            let mut old: i32 = 0 - 1;
+            if let Some(new_start) = line.new_line_no {
+                new = (new_start - self.new_start) as i32;
+            }
+            if let Some(old_start) = line.old_line_no {
+                old = (old_start - self.old_start) as i32;
+            }
+            if let Some(old_line) = rendered_map.remove(&(new, old)) {
+                debug!("{}", line.repr("ENRICH", 5));
+                line.enrich_view(old_line, context);
+            } else {
+                // debug!("miss {} {} cnt {}", new, old, added_counter);
+                // if old < 0 || new < 0 {
+                //     // debug!("THATS NEW LINE (either addition or deletion)");
+                //     debug!("{}", line.repr("NEW", 5));
+                //     added_counter += 1;
+                // } else {
+                //     debug!("...............missed line which HAD new and old_line_no");
+                //     debug!("{}", line.repr("", 5));
+                //     debug!("restore counters {} {}", self.new_start + (new as u32), self.old_start + (old as u32));
+                //     // debug!("look for {:?}", rendered_map.get(&(new + added_counter, old + added_counter)));
+                // }
+            }
+        }
+        debug!("enrich is oveeeeeeeeeeeeeeeeeerrrrrrrr");
+        debug!("remaining lines in rendered");
+        let mut srt = rendered_map.into_iter().map(|x|x).collect::<Vec<((i32, i32), &Line)>>();
+        srt.sort_by(|x, y| x.0.cmp(&y.0));
+        for (_, line) in  &srt {
+            debug!("{}", line.repr("ERASE", 5));
+            line.erase(buffer, context);
+        }
+    }
+    
+    
+    pub fn enrich_view_old(
         &mut self,
         rendered: &mut Hunk,
         buffer: &TextBuffer,
