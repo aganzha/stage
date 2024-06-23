@@ -184,7 +184,6 @@ impl Hunk {
         self.new_lines = dh.new_lines();
     }
 
-    // TODO! use it in reconciliation!!!!!!!!!
     pub fn shift_new_start_and_lines(
         header: &str,
         hunk_delta: i32,
@@ -227,6 +226,49 @@ impl Hunk {
         panic!("cant replace num in header")
     }
 
+    // used in reconsilation
+    pub fn shift_new_start(header: &str, delta: i32) -> String {
+        let re = Regex::new(r"@@ [+-][0-9]+,[0-9]+ ([+-]([0-9]+),[0-9]+ @@)")
+            .unwrap();
+        if let Some((_, [whole_new, nums])) =
+            re.captures_iter(header).map(|c| c.extract()).next()
+        {
+            let old_nums: i32 = nums.parse().expect("cant parse nums");
+
+            let new_nums: i32 = old_nums + delta;
+            let new = whole_new.replace(
+                &format!("{},", old_nums),
+                &format!("{},", new_nums)
+            );        
+            return header.replace(
+                whole_new,
+                &new,
+            );
+        }
+        panic!("cant replace num in header")
+    }
+
+    pub fn shift_old_start(header: &str, delta: i32) -> String {
+        let re = Regex::new(r"(@@ [+-]([0-9]+),[0-9]+) [+-][0-9]+,[0-9]+ @@")
+            .unwrap();
+        if let Some((_, [whole_new, nums])) =
+            re.captures_iter(header).map(|c| c.extract()).next()
+        {
+            let old_nums: i32 = nums.parse().expect("cant parse nums");
+
+            let new_nums: i32 = old_nums + delta;
+            let new = whole_new.replace(
+                &format!("{},", old_nums),
+                &format!("{},", new_nums)
+            );        
+            return header.replace(
+                whole_new,
+                &new,
+            );
+        }
+        panic!("cant replace num in header")
+    }
+    
     // THE REGEX IS WRONG! remove .* !!!!!!!!!!!!! for +
     pub fn reverse_header(header: &str) -> String {
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"

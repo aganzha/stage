@@ -63,6 +63,12 @@ impl Hunk {
         context: &mut crate::StatusRenderContext,
     ) {
         self.view = rendered.transfer_view();
+        if !self.view.is_expanded() {
+            return
+        }
+        // TODO! expanded/collapsed!
+
+
         debug!("---------------> NEW");
         for line in &self.lines {
             debug!("{}", line.repr("", 5));
@@ -74,21 +80,21 @@ impl Hunk {
         }
         debug!("");
         debug!("GOOOOOOOOOOOOOOOOOOOOO");
+
         // iter over new lines. normalize line_nos to hunk start.
         let mut rendered_map:HashMap<(i32, i32), &Line> = HashMap::new();
-        
+
         for line in &rendered.lines {
             let mut new: i32 = 0 - 1;
             let mut old: i32 = 0 - 1;
             if let Some(new_start) = line.new_line_no {
-                new = (new_start - self.new_start) as i32;
+                new = (new_start - rendered.new_start) as i32;
             }
             if let Some(old_start) = line.old_line_no {
-                old = (old_start - self.old_start) as i32;
+                old = (old_start - rendered.old_start) as i32;
             }
             rendered_map.insert((new, old), &line);
         }
-        let mut added_counter = 0;
         for line in &mut self.lines {
             let mut new: i32 = 0 - 1;
             let mut old: i32 = 0 - 1;
@@ -102,21 +108,9 @@ impl Hunk {
                 debug!("{}", line.repr("ENRICH", 5));
                 line.enrich_view(old_line, context);
             } else {
-                // debug!("miss {} {} cnt {}", new, old, added_counter);
-                // if old < 0 || new < 0 {
-                //     // debug!("THATS NEW LINE (either addition or deletion)");
-                //     debug!("{}", line.repr("NEW", 5));
-                //     added_counter += 1;
-                // } else {
-                //     debug!("...............missed line which HAD new and old_line_no");
-                //     debug!("{}", line.repr("", 5));
-                //     debug!("restore counters {} {}", self.new_start + (new as u32), self.old_start + (old as u32));
-                //     // debug!("look for {:?}", rendered_map.get(&(new + added_counter, old + added_counter)));
-                // }
+                debug!("{}", line.repr("NEW", 5));
             }
         }
-        debug!("enrich is oveeeeeeeeeeeeeeeeeerrrrrrrr");
-        debug!("remaining lines in rendered");
         let mut srt = rendered_map.into_iter().map(|x|x).collect::<Vec<((i32, i32), &Line)>>();
         srt.sort_by(|x, y| x.0.cmp(&y.0));
         for (_, line) in  &srt {
@@ -124,86 +118,86 @@ impl Hunk {
             line.erase(buffer, context);
         }
     }
-    
-    
-    pub fn enrich_view_old(
-        &mut self,
-        rendered: &mut Hunk,
-        buffer: &TextBuffer,
-        context: &mut crate::StatusRenderContext,
-    ) {
-        self.view = rendered.transfer_view();
-        if self.lines.len() == rendered.lines.len() {
-            for pair in zip(&mut self.lines, &rendered.lines) {
-                pair.0.enrich_view(pair.1, context);
-            }
-            return;
-        }
-        // all lines are ordered
-        let (mut r_ind, mut n_ind) = (0, 0);
-        let mut guard = 0;
-        trace!("++++++++++++++++ line roconciliation");
-        loop {
-            trace!("++++++loop");
-            guard += 1;
-            if guard > MAX_LINES {
-                panic!("guard");
-            }
-            let r_line = &rendered.lines[r_ind];
-            let n_line = &self.lines[n_ind];
-            // hunks could be shifted
-            // and line_nos could differ a lot
-            // it need to find first matched line
-            // THIS IS ACTUAL ONLY FOR UNSTAGED
-            match (r_line.old_line_no, n_line.old_line_no) {
-                (Some(r_no), Some(n_no)) => {
-                    trace!("both lines are changed");
-                    trace!("r_no n_no {:?} {:?}", r_no, n_no);
-                    let m_n_line = &mut self.lines[n_ind];
-                    m_n_line.enrich_view(r_line, context);
-                    r_ind += 1;
-                    n_ind += 1;
-                }
-                (Some(r_no), None) => {
-                    trace!("new line is added before old one");
-                    trace!("r_no n_no {:?} _", r_no);
-                    n_ind += 1;
-                }
-                (None, Some(n_no)) => {
-                    trace!("rendered line is added before new one");
-                    trace!("r_no n_no _ {:?}", n_no);
-                    let m_r_line = &mut rendered.lines[r_ind];
-                    m_r_line.erase(buffer, context);
-                    r_ind += 1;
-                }
-                (None, None) => {
-                    trace!("both lines are added",);
-                    trace!("r_no n_no _ _");
-                    let m_n_line = &mut self.lines[n_ind];
-                    m_n_line.enrich_view(r_line, context);
-                    r_ind += 1;
-                    n_ind += 1;
-                }
-            }
-            trace!("");
-            if r_ind == rendered.lines.len() {
-                trace!("rendered lines are over");
-                break;
-            }
-            if n_ind == self.lines.len() {
-                trace!("new lines are over");
-                for r_line in &mut rendered.lines[r_ind..] {
-                    trace!("erase remainign rendered lines!");
-                    r_line.erase(buffer, context);
-                }
-                break;
-            }
-        }
-    }
+
+
+    // pub fn enrich_view_old(
+    //     &mut self,
+    //     rendered: &mut Hunk,
+    //     buffer: &TextBuffer,
+    //     context: &mut crate::StatusRenderContext,
+    // ) {
+    //     self.view = rendered.transfer_view();
+    //     if self.lines.len() == rendered.lines.len() {
+    //         for pair in zip(&mut self.lines, &rendered.lines) {
+    //             pair.0.enrich_view(pair.1, context);
+    //         }
+    //         return;
+    //     }
+    //     // all lines are ordered
+    //     let (mut r_ind, mut n_ind) = (0, 0);
+    //     let mut guard = 0;
+    //     trace!("++++++++++++++++ line roconciliation");
+    //     loop {
+    //         trace!("++++++loop");
+    //         guard += 1;
+    //         if guard > MAX_LINES {
+    //             panic!("guard");
+    //         }
+    //         let r_line = &rendered.lines[r_ind];
+    //         let n_line = &self.lines[n_ind];
+    //         // hunks could be shifted
+    //         // and line_nos could differ a lot
+    //         // it need to find first matched line
+    //         // THIS IS ACTUAL ONLY FOR UNSTAGED
+    //         match (r_line.old_line_no, n_line.old_line_no) {
+    //             (Some(r_no), Some(n_no)) => {
+    //                 trace!("both lines are changed");
+    //                 trace!("r_no n_no {:?} {:?}", r_no, n_no);
+    //                 let m_n_line = &mut self.lines[n_ind];
+    //                 m_n_line.enrich_view(r_line, context);
+    //                 r_ind += 1;
+    //                 n_ind += 1;
+    //             }
+    //             (Some(r_no), None) => {
+    //                 trace!("new line is added before old one");
+    //                 trace!("r_no n_no {:?} _", r_no);
+    //                 n_ind += 1;
+    //             }
+    //             (None, Some(n_no)) => {
+    //                 trace!("rendered line is added before new one");
+    //                 trace!("r_no n_no _ {:?}", n_no);
+    //                 let m_r_line = &mut rendered.lines[r_ind];
+    //                 m_r_line.erase(buffer, context);
+    //                 r_ind += 1;
+    //             }
+    //             (None, None) => {
+    //                 trace!("both lines are added",);
+    //                 trace!("r_no n_no _ _");
+    //                 let m_n_line = &mut self.lines[n_ind];
+    //                 m_n_line.enrich_view(r_line, context);
+    //                 r_ind += 1;
+    //                 n_ind += 1;
+    //             }
+    //         }
+    //         trace!("");
+    //         if r_ind == rendered.lines.len() {
+    //             trace!("rendered lines are over");
+    //             break;
+    //         }
+    //         if n_ind == self.lines.len() {
+    //             trace!("new lines are over");
+    //             for r_line in &mut rendered.lines[r_ind..] {
+    //                 trace!("erase remainign rendered lines!");
+    //                 r_line.erase(buffer, context);
+    //             }
+    //             break;
+    //         }
+    //     }
+    // }
 }
 
 impl File {
-    // file
+
     pub fn enrich_view(
         &mut self,
         rendered: &mut File,
@@ -211,7 +205,148 @@ impl File {
         context: &mut crate::StatusRenderContext,
     ) {
         self.view = rendered.transfer_view();
+        if !self.view.is_expanded() {
+            return
+        }
+        for h in &rendered.hunks {
+            debug!("RENDERED: {}", h.header);
+        }
+        for h in &self.hunks {
+            debug!("NEW: {}", h.header);
+        }
 
+        if self.hunks.len() > rendered.hunks.len() {
+            // hunk was added to 'self'
+            // if self.kind == DiffKind::Staged {
+                assert!(self.hunks.len() - 1 == rendered.hunks.len());
+                // [INFO  stage] Staged
+                // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -63,6 +63,12 @@ impl Hunk {
+                // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -102,116 +108,122 @@ impl Hunk {
+                // [DEBUG stage::status_view::reconciliation] NEW: @@ -63,6 +63,12 @@ impl Hunk {
+                // [DEBUG stage::status_view::reconciliation] NEW: @@ -74,21 +80,24 @@ impl Hunk {
+                // [DEBUG stage::status_view::reconciliation] NEW: @@ -102,116 +111,122 @@ impl Hunk {
+
+                // it need to add new hunk and increment header metrics in all later hunks
+                let mut in_render = 0;
+                let mut delta = 0;
+                for h in &mut self.hunks {
+                    let rendered = &mut rendered.hunks[in_render];
+                    if h.new_start == rendered.new_start + delta {
+                        // hunk matched!
+                        h.enrich_view(rendered, buffer, context);
+                        in_render += 1;
+                    } else if h.new_start < rendered.new_start + delta {
+                        // this is new hunk in self!
+                        delta += h.new_lines - h.old_lines;
+                    } else {
+                        panic!("whats the case in Staged? new:{} rendered:{} delta:{}", h.header, rendered.header, delta);
+                    }
+                }
+            // } else { // aganzha do it neded ???????????????????????????????????
+            //     panic!("stop")
+            // }
+        } else if self.hunks.len() < rendered.hunks.len() {
+             // if self.kind == DiffKind::Unstaged {
+                // here there is no assert, cause it could be any amount of hunks in Unstaged
+                // [INFO  stage] Unstaged
+                // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -80,21 +80,21 @@ impl Hunk {
+                // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -198,22 +198,57 @@ impl Hunk {
+                // [DEBUG stage::status_view::reconciliation] NEW: @@ -198,22 +198,57 @@ impl Hunk {
+
+            // in staged if hunk is killed - all next NEW lines are affected
+            // in staged if hunk is staged - all next OLD lines are affected
+            // how to deal with that?
+            // e.g. stage hunk
+            // RENDERED: @@ -70,7 +70,8 @@ function findDepsInFile(filePath, setOfDeps, findImport, findAsync) {
+            // RENDERED: @@ -98,8 +99,8 @@ function getLibDirPath(acc, value, index, array) {
+            // RENDERED: @@ -128,7 +129,8 @@ function getDepsList() {
+            // NEW: @@ -99,8 +99,8 @@ function getLibDirPath(acc, value, index, array) {
+            // NEW: @@ -129,7 +129,8 @@ function getDepsList() {
+            // e.g. kill hunk
+            // RENDERED: @@ -75,7 +75,8 @@ function findDepsInDirectory(dir, setOfDeps, findImport, findAsync) {
+            // RENDERED: @@ -106,9 +107,9 @@ function getDepsList() {
+            // RENDERED: @@ -128,7 +129,8 @@ function getDepsList() {
+            // NEW: @@ -106,9 +106,9 @@ function getDepsList() {
+            // NEW: @@ -128,7 +128,8 @@ function getDepsList() {
+
+                let mut in_self = 0;
+                let mut delta: i32 = 0;
+                for h in &mut rendered.hunks {
+                    debug!("....delta {}", delta);
+                    let new = &mut self.hunks[in_self];
+                    let header1 = Hunk::shift_old_start(&new.header, 0 - delta);
+                    let header2 = Hunk::shift_new_start(&new.header, 0 - delta);
+                    let header3 = Hunk::shift_old_start(&new.header, 0 + delta);
+                    let header4 = Hunk::shift_new_start(&new.header, 0 + delta);
+                    debug!("rrrrrrrrrrrrrrrrrrrr");
+                    debug!("{}", header1);
+                    debug!("{}", header2);
+                    debug!("{}", header3);
+                    debug!("{}", header4);
+                    debug!("vssss {}", h.header);
+                    if h.header == header1 || h.header == header2 || h.header == header3 || h.header == header4 {
+                        // hunk matched!
+                        debug!("++++++++++enrich! {}", h.header);
+                        new.enrich_view(h, buffer, context);
+                        in_self += 1;
+                    } else {
+                        // this rendered hunk was deleted
+                        debug!("----------erase! {}", h.header);
+                        h.erase(buffer, context);
+                        //if self.kind == DiffKind::Staged {
+                        let new_lines = h.new_lines as i32;
+                        let old_lines = h.old_lines as i32;
+                        // sign is important!    
+                        delta += new_lines - old_lines;
+                        //}
+                    }
+                }
+            // } else if self.kind == DiffKind::Staged { // aganzha do it needed?????????????????????????
+            //     // [INFO  stage] Staged
+            //     // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -63,6 +63,12 @@ impl Hunk {
+            //     // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -74,21 +80,21 @@ impl Hunk {
+            //     // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -102,116 +108,122 @@ impl Hunk {
+            //     // [DEBUG stage::status_view::reconciliation] NEW: @@ -63,6 +63,12 @@ impl Hunk {
+            //     // [DEBUG stage::status_view::reconciliation] NEW: @@ -102,116 +108,122 @@ impl Hunk {
+            //     let mut in_self = 0;
+            //     let mut delta = 0;
+            //     for h in &mut rendered.hunks {
+            //         let new = &mut self.hunks[in_self];
+            //         if h.new_start == new.new_start + delta {
+            //             // hunk matched!
+            //             debug!("s enrich!");
+            //             new.enrich_view(h, buffer, context);
+            //             in_self += 1;
+            //         } else if h.new_start < new.new_start + delta {
+            //             // this rendered hunk was deleted
+            //             debug!("s erase!");
+            //             h.erase(buffer, context);
+            //             // ???????????????????
+            //             delta += h.new_lines - h.old_lines;
+            //         } else {
+            //             // it is not possible to do so in git op, but we are in Untsaged
+            //             panic!("whats the case in Unstaged? new:{} rendered:{} delta:{}", new.header, h.header, delta);
+            //         }
+            //     }
+            // }
+            // else {
+            //     panic!("no way1");
+            // }
+        }
+    }
+
+    // file
+    pub fn enrich_view_old(
+        &mut self,
+        rendered: &mut File,
+        buffer: &TextBuffer,
+        context: &mut crate::StatusRenderContext,
+    ) {
+        self.view = rendered.transfer_view();
+        // aganzha!
+        if !self.view.is_expanded() {
+            return
+        }
         trace!("-- enrich_view for file {:?} hunks {:?}, rendered {:?}, hunks {:?}, context {:?}",
                self.path, self.hunks.len(), rendered.path, rendered.hunks.len(), context);
 
