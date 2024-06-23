@@ -69,17 +69,17 @@ impl Hunk {
         // TODO! expanded/collapsed!
 
 
-        debug!("---------------> NEW");
-        for line in &self.lines {
-            debug!("{}", line.repr("", 5));
-        }
-        debug!("");
-        debug!("---------------> OLD");
-        for line in &rendered.lines {
-            debug!("{}", line.repr("", 5));
-        }
-        debug!("");
-        debug!("GOOOOOOOOOOOOOOOOOOOOO");
+        // debug!("---------------> NEW");
+        // for line in &self.lines {
+        //     debug!("{}", line.repr("", 5));
+        // }
+        // debug!("");
+        // debug!("---------------> OLD");
+        // for line in &rendered.lines {
+        //     debug!("{}", line.repr("", 5));
+        // }
+        // debug!("");
+        // debug!("GOOOOOOOOOOOOOOOOOOOOO");
 
         // iter over new lines. normalize line_nos to hunk start.
         let mut rendered_map:HashMap<(i32, i32), &Line> = HashMap::new();
@@ -105,10 +105,10 @@ impl Hunk {
                 old = (old_start - self.old_start) as i32;
             }
             if let Some(old_line) = rendered_map.remove(&(new, old)) {
-                debug!("{}", line.repr("ENRICH", 5));
+                trace!("{}", line.repr("ENRICH", 5));
                 line.enrich_view(old_line, context);
             } else {
-                debug!("{}", line.repr("NEW", 5));
+                trace!("{}", line.repr("NEW", 5));
             }
         }
         let mut srt = rendered_map.into_iter().map(|x|x).collect::<Vec<((i32, i32), &Line)>>();
@@ -216,31 +216,30 @@ impl File {
         }
 
         if self.hunks.len() >= rendered.hunks.len() {
-            // hunk was added to 'self'
-            // if self.kind == DiffKind::Staged {
-            assert!(self.hunks.len() - 1 == rendered.hunks.len());
+
             // [INFO  stage] Staged
-            // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -63,6 +63,12 @@ impl Hunk {
-            // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -102,116 +108,122 @@ impl Hunk {
-            // [DEBUG stage::status_view::reconciliation] NEW: @@ -63,6 +63,12 @@ impl Hunk {
-            // [DEBUG stage::status_view::reconciliation] NEW: @@ -74,21 +80,24 @@ impl Hunk {
-            // [DEBUG stage::status_view::reconciliation] NEW: @@ -102,116 +111,122 @@ impl Hunk {
+            // RENDERED: @@ -63,6 +63,12 @@ impl Hunk {
+            // RENDERED: @@ -102,116 +108,122 @@ impl Hunk {
+            // NEW: @@ -63,6 +63,12 @@ impl Hunk {
+            // NEW: @@ -74,21 +80,24 @@ impl Hunk {
+            // NEW: @@ -102,116 +111,122 @@ impl Hunk {
 
             let mut in_render = 0;
             let mut delta: i32 = 0;
             for h in &mut self.hunks {
+                trace!("....delta {}", delta);
                 let rendered = &mut rendered.hunks[in_render];
                 let header = rendered.header.clone();
                 let header1 = Hunk::shift_old_start(&rendered.header, 0 - delta);
                 let header2 = Hunk::shift_new_start(&rendered.header, 0 - delta);
                 let header3 = Hunk::shift_old_start(&rendered.header, 0 + delta);
                 let header4 = Hunk::shift_new_start(&rendered.header, 0 + delta);
-                debug!("headers in_rendered");
-                debug!("{}", header1);
-                debug!("{}", header2);
-                debug!("{}", header3);
-                debug!("{}", header4);
-                debug!("vssss {}", h.header);
+                trace!("headers in_rendered");
+                trace!("{}", header1);
+                trace!("{}", header2);
+                trace!("{}", header3);
+                trace!("{}", header4);
+                trace!("vssss {}", h.header);
                 if [header, header1, header2, header3, header4].contains(&h.header) {
                     debug!("in_rendered++++++++++enrich! {}", h.header);
                     h.enrich_view(rendered, buffer, context);
@@ -248,15 +247,12 @@ impl File {
                 } else {
                     // this is new hunk in self!
                     debug!("in_rendered----------erase! {}", h.header);
-                    h.erase(buffer, context);
+                    rendered.erase(buffer, context);
                     let new_lines = h.new_lines as i32;
                     let old_lines = h.old_lines as i32;
                     delta += new_lines - old_lines;
                 }
             }
-            // } else { // aganzha do it neded ???????????????????????????????????
-            //     panic!("stop")
-            // }
         } else if self.hunks.len() < rendered.hunks.len() {
 
             // e.g. stage hunk
@@ -275,26 +271,25 @@ impl File {
             let mut in_self = 0;
             let mut delta: i32 = 0;
             for h in &mut rendered.hunks {
-                debug!("....delta {}", delta);
+                trace!("....delta {}", delta);
                 let new = &mut self.hunks[in_self];
                 let header = new.header.clone();
                 let header1 = Hunk::shift_old_start(&new.header, 0 - delta);
                 let header2 = Hunk::shift_new_start(&new.header, 0 - delta);
                 let header3 = Hunk::shift_old_start(&new.header, 0 + delta);
                 let header4 = Hunk::shift_new_start(&new.header, 0 + delta);
-                debug!("headers in_self");
-                debug!("{}", header1);
-                debug!("{}", header2);
-                debug!("{}", header3);
-                debug!("{}", header4);
-                debug!("vssss {}", h.header);
+                trace!("headers in_self");
+                trace!("{}", header1);
+                trace!("{}", header2);
+                trace!("{}", header3);
+                trace!("{}", header4);
+                trace!("vssss {}", h.header);
                 if [header, header1, header2, header3, header4].contains(&h.header) {
                     // if [&new.header, &header1, &header2, &header3, &header4].contains(h.header[..]) {
                     debug!("in_self++++++++++enrich! {}", h.header);
                     new.enrich_view(h, buffer, context);
                     in_self += 1;
                 } else {
-
                     debug!("in_self----------erase! {}", h.header);
                     h.erase(buffer, context);
                     let new_lines = h.new_lines as i32;
