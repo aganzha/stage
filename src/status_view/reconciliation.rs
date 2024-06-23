@@ -215,47 +215,50 @@ impl File {
             debug!("NEW: {}", h.header);
         }
 
-        if self.hunks.len() > rendered.hunks.len() {
+        if self.hunks.len() >= rendered.hunks.len() {
             // hunk was added to 'self'
             // if self.kind == DiffKind::Staged {
-                assert!(self.hunks.len() - 1 == rendered.hunks.len());
-                // [INFO  stage] Staged
-                // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -63,6 +63,12 @@ impl Hunk {
-                // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -102,116 +108,122 @@ impl Hunk {
-                // [DEBUG stage::status_view::reconciliation] NEW: @@ -63,6 +63,12 @@ impl Hunk {
-                // [DEBUG stage::status_view::reconciliation] NEW: @@ -74,21 +80,24 @@ impl Hunk {
-                // [DEBUG stage::status_view::reconciliation] NEW: @@ -102,116 +111,122 @@ impl Hunk {
+            assert!(self.hunks.len() - 1 == rendered.hunks.len());
+            // [INFO  stage] Staged
+            // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -63,6 +63,12 @@ impl Hunk {
+            // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -102,116 +108,122 @@ impl Hunk {
+            // [DEBUG stage::status_view::reconciliation] NEW: @@ -63,6 +63,12 @@ impl Hunk {
+            // [DEBUG stage::status_view::reconciliation] NEW: @@ -74,21 +80,24 @@ impl Hunk {
+            // [DEBUG stage::status_view::reconciliation] NEW: @@ -102,116 +111,122 @@ impl Hunk {
 
-                // it need to add new hunk and increment header metrics in all later hunks
-                let mut in_render = 0;
-                let mut delta = 0;
-                for h in &mut self.hunks {
-                    let rendered = &mut rendered.hunks[in_render];
-                    if h.new_start == rendered.new_start + delta {
-                        // hunk matched!
-                        h.enrich_view(rendered, buffer, context);
-                        in_render += 1;
-                    } else if h.new_start < rendered.new_start + delta {
-                        // this is new hunk in self!
-                        delta += h.new_lines - h.old_lines;
-                    } else {
-                        panic!("whats the case in Staged? new:{} rendered:{} delta:{}", h.header, rendered.header, delta);
-                    }
+            let mut in_render = 0;
+            let mut delta: i32 = 0;
+            for h in &mut self.hunks {
+                let rendered = &mut rendered.hunks[in_render];
+                let header = rendered.header.clone();
+                let header1 = Hunk::shift_old_start(&rendered.header, 0 - delta);
+                let header2 = Hunk::shift_new_start(&rendered.header, 0 - delta);
+                let header3 = Hunk::shift_old_start(&rendered.header, 0 + delta);
+                let header4 = Hunk::shift_new_start(&rendered.header, 0 + delta);
+                debug!("headers in_rendered");
+                debug!("{}", header1);
+                debug!("{}", header2);
+                debug!("{}", header3);
+                debug!("{}", header4);
+                debug!("vssss {}", h.header);
+                if [header, header1, header2, header3, header4].contains(&h.header) {
+                    debug!("in_rendered++++++++++enrich! {}", h.header);
+                    h.enrich_view(rendered, buffer, context);
+                    in_render += 1;
+                } else {
+                    // this is new hunk in self!
+                    debug!("in_rendered----------erase! {}", h.header);
+                    h.erase(buffer, context);
+                    let new_lines = h.new_lines as i32;
+                    let old_lines = h.old_lines as i32;
+                    delta += new_lines - old_lines;
                 }
+            }
             // } else { // aganzha do it neded ???????????????????????????????????
             //     panic!("stop")
             // }
         } else if self.hunks.len() < rendered.hunks.len() {
-             // if self.kind == DiffKind::Unstaged {
-                // here there is no assert, cause it could be any amount of hunks in Unstaged
-                // [INFO  stage] Unstaged
-                // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -80,21 +80,21 @@ impl Hunk {
-                // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -198,22 +198,57 @@ impl Hunk {
-                // [DEBUG stage::status_view::reconciliation] NEW: @@ -198,22 +198,57 @@ impl Hunk {
 
-            // in staged if hunk is killed - all next NEW lines are affected
-            // in staged if hunk is staged - all next OLD lines are affected
-            // how to deal with that?
             // e.g. stage hunk
             // RENDERED: @@ -70,7 +70,8 @@ function findDepsInFile(filePath, setOfDeps, findImport, findAsync) {
             // RENDERED: @@ -98,8 +99,8 @@ function getLibDirPath(acc, value, index, array) {
@@ -269,69 +272,36 @@ impl File {
             // NEW: @@ -106,9 +106,9 @@ function getDepsList() {
             // NEW: @@ -128,7 +128,8 @@ function getDepsList() {
 
-                let mut in_self = 0;
-                let mut delta: i32 = 0;
-                for h in &mut rendered.hunks {
-                    debug!("....delta {}", delta);
-                    let new = &mut self.hunks[in_self];
-                    let header1 = Hunk::shift_old_start(&new.header, 0 - delta);
-                    let header2 = Hunk::shift_new_start(&new.header, 0 - delta);
-                    let header3 = Hunk::shift_old_start(&new.header, 0 + delta);
-                    let header4 = Hunk::shift_new_start(&new.header, 0 + delta);
-                    debug!("rrrrrrrrrrrrrrrrrrrr");
-                    debug!("{}", header1);
-                    debug!("{}", header2);
-                    debug!("{}", header3);
-                    debug!("{}", header4);
-                    debug!("vssss {}", h.header);
-                    if h.header == header1 || h.header == header2 || h.header == header3 || h.header == header4 {
-                        // hunk matched!
-                        debug!("++++++++++enrich! {}", h.header);
-                        new.enrich_view(h, buffer, context);
-                        in_self += 1;
-                    } else {
-                        // this rendered hunk was deleted
-                        debug!("----------erase! {}", h.header);
-                        h.erase(buffer, context);
-                        //if self.kind == DiffKind::Staged {
-                        let new_lines = h.new_lines as i32;
-                        let old_lines = h.old_lines as i32;
-                        // sign is important!    
-                        delta += new_lines - old_lines;
-                        //}
-                    }
+            let mut in_self = 0;
+            let mut delta: i32 = 0;
+            for h in &mut rendered.hunks {
+                debug!("....delta {}", delta);
+                let new = &mut self.hunks[in_self];
+                let header = new.header.clone();
+                let header1 = Hunk::shift_old_start(&new.header, 0 - delta);
+                let header2 = Hunk::shift_new_start(&new.header, 0 - delta);
+                let header3 = Hunk::shift_old_start(&new.header, 0 + delta);
+                let header4 = Hunk::shift_new_start(&new.header, 0 + delta);
+                debug!("headers in_self");
+                debug!("{}", header1);
+                debug!("{}", header2);
+                debug!("{}", header3);
+                debug!("{}", header4);
+                debug!("vssss {}", h.header);
+                if [header, header1, header2, header3, header4].contains(&h.header) {
+                    // if [&new.header, &header1, &header2, &header3, &header4].contains(h.header[..]) {
+                    debug!("in_self++++++++++enrich! {}", h.header);
+                    new.enrich_view(h, buffer, context);
+                    in_self += 1;
+                } else {
+
+                    debug!("in_self----------erase! {}", h.header);
+                    h.erase(buffer, context);
+                    let new_lines = h.new_lines as i32;
+                    let old_lines = h.old_lines as i32;
+                    delta += new_lines - old_lines;
                 }
-            // } else if self.kind == DiffKind::Staged { // aganzha do it needed?????????????????????????
-            //     // [INFO  stage] Staged
-            //     // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -63,6 +63,12 @@ impl Hunk {
-            //     // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -74,21 +80,21 @@ impl Hunk {
-            //     // [DEBUG stage::status_view::reconciliation] RENDERED: @@ -102,116 +108,122 @@ impl Hunk {
-            //     // [DEBUG stage::status_view::reconciliation] NEW: @@ -63,6 +63,12 @@ impl Hunk {
-            //     // [DEBUG stage::status_view::reconciliation] NEW: @@ -102,116 +108,122 @@ impl Hunk {
-            //     let mut in_self = 0;
-            //     let mut delta = 0;
-            //     for h in &mut rendered.hunks {
-            //         let new = &mut self.hunks[in_self];
-            //         if h.new_start == new.new_start + delta {
-            //             // hunk matched!
-            //             debug!("s enrich!");
-            //             new.enrich_view(h, buffer, context);
-            //             in_self += 1;
-            //         } else if h.new_start < new.new_start + delta {
-            //             // this rendered hunk was deleted
-            //             debug!("s erase!");
-            //             h.erase(buffer, context);
-            //             // ???????????????????
-            //             delta += h.new_lines - h.old_lines;
-            //         } else {
-            //             // it is not possible to do so in git op, but we are in Untsaged
-            //             panic!("whats the case in Unstaged? new:{} rendered:{} delta:{}", new.header, h.header, delta);
-            //         }
-            //     }
-            // }
-            // else {
-            //     panic!("no way1");
-            // }
+            }
         }
     }
 
