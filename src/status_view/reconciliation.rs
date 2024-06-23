@@ -215,89 +215,249 @@ impl File {
             debug!("NEW: {}", h.header);
         }
 
-        if self.hunks.len() >= rendered.hunks.len() {
+        // @@@@@@@@@@@@@@@@@ NEW IS LESS THEN RENDERED
+        // have 3 hunks in unstaged
+        // @@ -11,7 +11,8 @@ const path = require('path');
+        // @@ -106,9 +107,9 @@ function getDepsList() {
+        // @@ -128,7 +129,8 @@ function getDepsList() {
 
-            // [INFO  stage] Staged
-            // RENDERED: @@ -63,6 +63,12 @@ impl Hunk {
-            // RENDERED: @@ -102,116 +108,122 @@ impl Hunk {
-            // NEW: @@ -63,6 +63,12 @@ impl Hunk {
-            // NEW: @@ -74,21 +80,24 @@ impl Hunk {
-            // NEW: @@ -102,116 +111,122 @@ impl Hunk {
 
-            let mut in_render = 0;
-            let mut delta: i32 = 0;
-            for h in &mut self.hunks {
-                trace!("....delta {}", delta);
-                let rendered = &mut rendered.hunks[in_render];
-                let header = rendered.header.clone();
-                let header1 = Hunk::shift_old_start(&rendered.header, 0 - delta);
-                let header2 = Hunk::shift_new_start(&rendered.header, 0 - delta);
-                let header3 = Hunk::shift_old_start(&rendered.header, 0 + delta);
-                let header4 = Hunk::shift_new_start(&rendered.header, 0 + delta);
-                trace!("headers in_rendered");
-                trace!("{}", header1);
-                trace!("{}", header2);
-                trace!("{}", header3);
-                trace!("{}", header4);
-                trace!("vssss {}", h.header);
-                if [header, header1, header2, header3, header4].contains(&h.header) {
-                    debug!("in_rendered++++++++++enrich! {}", h.header);
-                    h.enrich_view(rendered, buffer, context);
-                    in_render += 1;
+        // 1.1 kill top one
+        // will have new
+        // @@ -106,9 +106,9 @@ function getDepsList() {
+        // @@ -128,7 +128,8 @@ function getDepsList() {
+
+        // 1.2 stage top one
+        // will get new in staged
+        // @@ -107,9 +107,9 @@ function getDepsList() {
+        // @@ -129,7 +129,8 @@ function getDepsList() {
+
+
+        // @@@@@@@@@@@@@@@@ NEW IS MORE THEN RENDEREDED
+        // have 2 hunks
+        // @@ -107,9 +107,9 @@ function getDepsList() {
+        // @@ -129,7 +129,8 @@ function getDepsList() {
+
+        // 2.1 unstage one for top and will have
+        // @@ -11,7 +11,8 @@ const path = require('path');
+        // @@ -106,9 +107,9 @@ function getDepsList() {
+        // @@ -128,7 +129,8 @@ function getDepsList() {
+
+        // have 2 hunks
+        // @@ -106,9 +106,9 @@ function getDepsList() {
+        // @@ -128,7 +128,8 @@ function getDepsList() {
+
+        // 2.2 intoduce (via editing) top one
+        // @@ -11,7 +11,8 @@ const path = require('path');
+        // @@ -106,9 +107,9 @@ function getDepsList() {
+        // @@ -128,7 +129,8 @@ function getDepsList() {
+
+        // so. the hunk which is not matched first, determine next cycle.
+        // if first is rendered - erase it and use rendered_delta. delta compared to new
+        // if first is new, use new_delta. delta compared to rendered.
+        let mut in_rendered = 0;
+        let mut in_new = 0;
+        let mut rendered_delta: i32 = 0;
+        let mut new_delta: i32 = 0;
+        loop {
+            if in_rendered == rendered.hunks.len() {
+                debug!("rendered hunks are over!");
+                break;
+            }
+            if in_new == self.hunks.len() {
+                debug!("new hunks are over!");
+                loop {
+                    let rndrd = &mut rendered.hunks[in_rendered];
+                    rndrd.erase(buffer, context);
+                    in_rendered += 1;
+                    if in_rendered == rendered.hunks.len() {
+                        break;
+                    }
+                }
+                break;
+            }
+            let rendered = &mut rendered.hunks[in_rendered];
+            let new = &mut self.hunks[in_new];
+            if rendered_delta > 0 {
+                // rendered was erased
+                if rendered.header == Hunk::shift_new_start(&new.header, rendered_delta)  // 1.1
+                    ||
+                    rendered.header == Hunk::shift_old_start(&new.header, 0 - rendered_delta) { // 1.2
+                        // matched!
+                        debug!("++++++enrich case 1.1 or 1.2");
+                        new.enrich_view(rendered, buffer, context);
+                        in_new += 1;
+                        in_rendered += 1;
+                    } else {
+                        // proceed with erasing
+                        debug!("------erase case 1.1 or 1.2");
+                        in_rendered += 1;
+                        rendered.erase(buffer, context);
+                        let new_lines = rendered.new_lines as i32;
+                        let old_lines = rendered.old_lines as i32;
+                        rendered_delta += new_lines - old_lines;
+                    }
+            } else if new_delta > 0 {
+                // new was inserted
+                if new.header == Hunk::shift_new_start(&rendered.header, new_delta)
+                    ||
+                    new.header == Hunk::shift_old_start(&rendered.header, 0 - new_delta) {
+                        debug!("++++++++ enrich cases 2.1 or 2.2 ");
+                        new.enrich_view(rendered, buffer, context);
+                        in_new += 1;
+                        in_rendered += 1;
+                    } else {
+                        debug!("++++++++ skip cases 2.1 or 2.2 ");
+                        in_new += 1;
+                        let new_lines = new.new_lines as i32;
+                        let old_lines = new.old_lines as i32;
+                        new_delta += new_lines - old_lines;
+                    }
+
+            } else {
+                // first loop or loop on equal hunks
+                if rendered.header == new.header {
+                    // same hunks
+                    debug!("just free first match");
+                    new.enrich_view(rendered, buffer, context);
+                    in_new += 1;
+                    in_rendered += 1;
                 } else {
-                    // this is new hunk in self!
-                    debug!("in_rendered----------erase! {}", h.header);
-                    rendered.erase(buffer, context);
-                    let new_lines = h.new_lines as i32;
-                    let old_lines = h.old_lines as i32;
-                    delta += new_lines - old_lines;
+                    if new.new_start < rendered.new_start && new.old_start < rendered.old_start {
+                        // cases 2.1 and 2.1 - insert first new hunk
+                        debug!("first new hunk without rendered. SKIP");
+                        in_new += 1;
+                        let new_lines = new.new_lines as i32;
+                        let old_lines = new.old_lines as i32;
+                        new_delta = new_lines - old_lines;
+                    } else if new.new_start > rendered.new_start && new.old_start > rendered.old_start {
+                        // cases 1.1 and 1.2 - delete first rendered hunk
+                        debug!("first rendered hunk without new. ERASE");
+                        in_rendered += 1;
+                        rendered.erase(buffer, context);
+                        let new_lines = rendered.new_lines as i32;
+                        let old_lines = rendered.old_lines as i32;
+                        rendered_delta = new_lines - old_lines;
+                    }
                 }
             }
-        } else if self.hunks.len() < rendered.hunks.len() {
+            // ******************** concept *************************
+            // let header1 = Hunk::shift_old_start(&new.header, 0 - rendered_delta);
+            // let header2 = Hunk::shift_new_start(&new.header, 0 - rendered_delta);
+            // let header3 = Hunk::shift_old_start(&new.header, 0 + rendered_delta);
+            // let header4 = Hunk::shift_new_start(&new.header, 0 + rendered_delta);
+            // if [header, header1, header2, header3, header4].contains(&rendered.header) {
+            //     debug!("++++++++++enrich! {}", new.header);
+            //     new.enrich_view(rendered, buffer, context);
+            //     in_rendered += 1;
+            //     in_new += 1;
+            // } else {
+            //     // how to check that it need erase rendered?
+            //     if is_rendered_before {
+            //         // rendered is before
+            //         rendered.erase(buffer, context);
+            //         let new_lines = rendered.new_lines as i32;
+            //         let old_lines = rendered.old_lines as i32;
+            //         rendered_delta += new_lines - old_lines;
+            //         in_rendered += 1;
+            //     } else {
+            //         // new hunk is before
+            //         // ??????????????
+            //         let new_lines = new.new_lines as i32;
+            //         let old_lines = new.old_lines as i32;
+            //         new_delta += new_lines - old_lines;
+            //         in_new += 1;
+            //     }
+            // }
+            // ******************** concept *************************
 
-            // e.g. stage hunk
-            // RENDERED: @@ -70,7 +70,8 @@ function findDepsInFile(filePath, setOfDeps, findImport, findAsync) {
-            // RENDERED: @@ -98,8 +99,8 @@ function getLibDirPath(acc, value, index, array) {
-            // RENDERED: @@ -128,7 +129,8 @@ function getDepsList() {
-            // NEW: @@ -99,8 +99,8 @@ function getLibDirPath(acc, value, index, array) {
-            // NEW: @@ -129,7 +129,8 @@ function getDepsList() {
-            // e.g. kill hunk
-            // RENDERED: @@ -75,7 +75,8 @@ function findDepsInDirectory(dir, setOfDeps, findImport, findAsync) {
-            // RENDERED: @@ -106,9 +107,9 @@ function getDepsList() {
-            // RENDERED: @@ -128,7 +129,8 @@ function getDepsList() {
-            // NEW: @@ -106,9 +106,9 @@ function getDepsList() {
-            // NEW: @@ -128,7 +128,8 @@ function getDepsList() {
-
-            let mut in_self = 0;
-            let mut delta: i32 = 0;
-            for h in &mut rendered.hunks {
-                trace!("....delta {}", delta);
-                let new = &mut self.hunks[in_self];
-                let header = new.header.clone();
-                let header1 = Hunk::shift_old_start(&new.header, 0 - delta);
-                let header2 = Hunk::shift_new_start(&new.header, 0 - delta);
-                let header3 = Hunk::shift_old_start(&new.header, 0 + delta);
-                let header4 = Hunk::shift_new_start(&new.header, 0 + delta);
-                trace!("headers in_self");
-                trace!("{}", header1);
-                trace!("{}", header2);
-                trace!("{}", header3);
-                trace!("{}", header4);
-                trace!("vssss {}", h.header);
-                if [header, header1, header2, header3, header4].contains(&h.header) {
-                    // if [&new.header, &header1, &header2, &header3, &header4].contains(h.header[..]) {
-                    debug!("in_self++++++++++enrich! {}", h.header);
-                    new.enrich_view(h, buffer, context);
-                    in_self += 1;
-                } else {
-                    debug!("in_self----------erase! {}", h.header);
-                    h.erase(buffer, context);
-                    let new_lines = h.new_lines as i32;
-                    let old_lines = h.old_lines as i32;
-                    delta += new_lines - old_lines;
-                }
-            }
         }
+
+        // &&&&&&&&&&&&&&&&&&&&&& this worked!!!!!!!!!!!!!!
+        // if self.hunks.len() >= rendered.hunks.len() {
+
+        //     // [INFO  stage] Staged
+        //     // RENDERED: @@ -63,6 +63,12 @@ impl Hunk {
+        //     // RENDERED: @@ -102,116 +108,122 @@ impl Hunk {
+        //     // NEW: @@ -63,6 +63,12 @@ impl Hunk {
+        //     // NEW: @@ -74,21 +80,24 @@ impl Hunk {
+        //     // NEW: @@ -102,116 +111,122 @@ impl Hunk {
+
+        //     let mut in_render = 0;
+        //     let mut delta: i32 = 0;
+        //     for h in &mut self.hunks {
+        //         trace!("....delta {}", delta);
+        //         let rendered = &mut rendered.hunks[in_render];
+        //         let header = rendered.header.clone();
+        //         let header1 = Hunk::shift_old_start(&rendered.header, 0 - delta);
+        //         let header2 = Hunk::shift_new_start(&rendered.header, 0 - delta);
+        //         let header3 = Hunk::shift_old_start(&rendered.header, 0 + delta);
+        //         let header4 = Hunk::shift_new_start(&rendered.header, 0 + delta);
+        //         trace!("headers in_rendered");
+        //         trace!("{}", header1);
+        //         trace!("{}", header2);
+        //         trace!("{}", header3);
+        //         trace!("{}", header4);
+        //         trace!("vssss {}", h.header);
+        //         if [header, header1, header2, header3, header4].contains(&h.header) {
+        //             debug!("in_rendered++++++++++enrich! {}", h.header);
+        //             h.enrich_view(rendered, buffer, context);
+        //             in_render += 1;
+        //         } else {
+        //             // this is new hunk in self!
+        //             debug!("in_rendered----------erase! {}", h.header);
+        //             rendered.erase(buffer, context);
+        //             let new_lines = h.new_lines as i32;
+        //             let old_lines = h.old_lines as i32;
+        //             delta += new_lines - old_lines;
+        //         }
+        //     }
+        // } else if self.hunks.len() < rendered.hunks.len() {
+
+        //     // e.g. stage hunk
+        //     // RENDERED: @@ -70,7 +70,8 @@ function findDepsInFile(filePath, setOfDeps, findImport, findAsync) {
+        //     // RENDERED: @@ -98,8 +99,8 @@ function getLibDirPath(acc, value, index, array) {
+        //     // RENDERED: @@ -128,7 +129,8 @@ function getDepsList() {
+        //     // NEW: @@ -99,8 +99,8 @@ function getLibDirPath(acc, value, index, array) {
+        //     // NEW: @@ -129,7 +129,8 @@ function getDepsList() {
+        //     // e.g. kill hunk
+        //     // RENDERED: @@ -75,7 +75,8 @@ function findDepsInDirectory(dir, setOfDeps, findImport, findAsync) {
+        //     // RENDERED: @@ -106,9 +107,9 @@ function getDepsList() {
+        //     // RENDERED: @@ -128,7 +129,8 @@ function getDepsList() {
+        //     // NEW: @@ -106,9 +106,9 @@ function getDepsList() {
+        //     // NEW: @@ -128,7 +128,8 @@ function getDepsList() {
+
+        //     let mut in_self = 0;
+        //     let mut delta: i32 = 0;
+        //     for h in &mut rendered.hunks {
+        //         trace!("....delta {}", delta);
+        //         let new = &mut self.hunks[in_self];
+        //         let header = new.header.clone();
+        //         let header1 = Hunk::shift_old_start(&new.header, 0 - delta);
+        //         let header2 = Hunk::shift_new_start(&new.header, 0 - delta);
+        //         let header3 = Hunk::shift_old_start(&new.header, 0 + delta);
+        //         let header4 = Hunk::shift_new_start(&new.header, 0 + delta);
+        //         trace!("headers in_self");
+        //         trace!("{}", header1);
+        //         trace!("{}", header2);
+        //         trace!("{}", header3);
+        //         trace!("{}", header4);
+        //         trace!("vssss {}", h.header);
+        //         if [header, header1, header2, header3, header4].contains(&h.header) {
+        //             // if [&new.header, &header1, &header2, &header3, &header4].contains(h.header[..]) {
+        //             debug!("in_self++++++++++enrich! {}", h.header);
+        //             new.enrich_view(h, buffer, context);
+        //             in_self += 1;
+        //         } else {
+        //             debug!("in_self----------erase! {}", h.header);
+        //             h.erase(buffer, context);
+        //             let new_lines = h.new_lines as i32;
+        //             let old_lines = h.old_lines as i32;
+        //             delta += new_lines - old_lines;
+        //         }
+        //     }
+        // }
+        // &&&&&&&&&&&&&&&&&&&&&& this worked!!!!!!!!!!!!!!
     }
 
     // file
