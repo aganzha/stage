@@ -1,0 +1,16 @@
+# cp ~/stage/com.github.aganzha.stage.desktop /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/applications
+# cd /home/aganzha/.local/share/flatpak/exports/share/applications
+# ln -s /home/aganzha/.local/share/flatpak/app/com.github.aganzha.stage/current/active/export/share/applications/com.github.aganzha.stage.desktop
+# update-desktop-database /home/aganzha/.local/share/flatpak/exports/share
+
+[Desktop Entry]
+Name=Stage
+Comment=Git client inspited by Magit
+Exec=stage %U
+Exec=/usr/bin/flatpak run --branch=master --arch=x86_64 --command=stage --file-forwarding com.github.aganzha.stage @@u %U @@
+Actions=new-window;
+Icon=@icon@
+Terminal=false
+Type=Application
+StartupNotify=true
+Categories=Development;
