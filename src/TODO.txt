@@ -1,3 +1,6 @@
+BUG: stage 1 file from list of files when this file is expanded. cursor become wide as several rows
+BUG: SPACES are important in diff! crytical
+BUG: infinite loop in new reconciliation
 ******************************** from scratch ******************************
 BUG: open branches. open log. hard reset from log. close. the branch data in branch list is not changed!
 BUG: when doing any git op with result? error returned to branch, but it need also to update remo status!

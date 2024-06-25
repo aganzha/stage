@@ -215,7 +215,7 @@ impl File {
             debug!("NEW: {}", h.header);
         }
 
-        // @@@@@@@@@@@@@@@@@ NEW IS LESS THEN RENDERED
+        // @@@@@@@@@@@@@@@@@ there are FEWER NEW ones than old ones
         // have 3 hunks in unstaged
         // @@ -11,7 +11,8 @@ const path = require('path');
         // @@ -106,9 +107,9 @@ function getDepsList() {
@@ -233,7 +233,7 @@ impl File {
         // @@ -129,7 +129,8 @@ function getDepsList() {
 
 
-        // @@@@@@@@@@@@@@@@ NEW IS MORE THEN RENDEREDED
+        // @@@@@@@@@@@@@@@@ there are MORE NEW ones than old ones
         // have 2 hunks
         // @@ -107,9 +107,9 @@ function getDepsList() {
         // @@ -129,7 +129,8 @@ function getDepsList() {
@@ -255,11 +255,26 @@ impl File {
         // so. the hunk which is not matched first, determine next cycle.
         // if first is rendered - erase it and use rendered_delta. delta compared to new
         // if first is new, use new_delta. delta compared to rendered.
+
+        // case 3 - different number of lines
+        // new header      @@ -1876,7 +1897,8 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):
+        // rendered header @@ -1876,7 +1897,7 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):
         let mut in_rendered = 0;
         let mut in_new = 0;
         let mut rendered_delta: i32 = 0;
         let mut new_delta: i32 = 0;
+        let mut guard = 0;
         loop {
+            guard += 1;
+            if guard > 100 {
+                debug!("wtf????????????????????????????????? rendered {:?} in_rendered {:?} new {:?} in_new {:?}",
+                       rendered.hunks.len(),
+                       in_rendered,
+                       self.hunks.len(),
+                       in_new
+                );
+                break;
+            }
             if in_rendered == rendered.hunks.len() {
                 debug!("rendered hunks are over!");
                 break;
@@ -279,6 +294,7 @@ impl File {
             let rendered = &mut rendered.hunks[in_rendered];
             let new = &mut self.hunks[in_new];
             if rendered_delta > 0 {
+                debug!("1.....");
                 // rendered was erased
                 if rendered.header == Hunk::shift_new_start(&new.header, rendered_delta)  // 1.1
                     ||
@@ -299,6 +315,7 @@ impl File {
                     }
             } else if new_delta > 0 {
                 // new was inserted
+                debug!("2.....");
                 if new.header == Hunk::shift_new_start(&rendered.header, new_delta)
                     ||
                     new.header == Hunk::shift_old_start(&rendered.header, 0 - new_delta) {
@@ -316,9 +333,27 @@ impl File {
 
             } else {
                 // first loop or loop on equal hunks
+                debug!("3.....");
                 if rendered.header == new.header {
                     // same hunks
                     debug!("just free first match");
+                    new.enrich_view(rendered, buffer, context);
+                    in_new += 1;
+                    in_rendered += 1;
+                } else if rendered.new_start == new.new_start && rendered.old_start == new.old_start {
+                    // hunks are same, but number of lines are changed
+
+                    // this is tricky.test is required
+                    let new_lines = new.new_lines as i32;
+                    let rendered_lines = rendered.new_lines as i32;
+                    rendered_delta += new_lines - rendered_lines;
+                    debug!("changed rendered delta {}", rendered_delta);
+                    // ??????
+                    // if new.new_lines > rendered.new_lines {
+                    //     rendered_delta += new.new_lines as i32 - rendered.new_lines as i32;
+                    // } else {
+                        
+                    // }
                     new.enrich_view(rendered, buffer, context);
                     in_new += 1;
                     in_rendered += 1;
@@ -338,6 +373,11 @@ impl File {
                         let new_lines = rendered.new_lines as i32;
                         let old_lines = rendered.old_lines as i32;
                         rendered_delta = new_lines - old_lines;
+                    } else {
+                        debug!("++++++++++++++++++++++++++++++++++");
+                        debug!("new header {}", new.header);
+                        debug!("rendered header {}", rendered.header);
+                        panic!("STOP");
                     }
                 }
             }
