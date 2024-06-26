@@ -274,9 +274,15 @@ impl View {
     ) {
         let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
         eol_iter.forward_to_line_end();
-        buffer.remove_all_tags(iter, &eol_iter);
+        
+        // if content is empty - eol iter will drop onto next line!
+        // no need to delete in this case!
+        if iter.line() == eol_iter.line() {            
+            buffer.remove_all_tags(iter, &eol_iter);
+            buffer.delete(iter, &mut eol_iter);
+        }
         self.cleanup_tags();
-        buffer.delete(iter, &mut eol_iter);
+
         if is_markup {
             buffer.insert_markup(iter, content);
         } else {
@@ -379,16 +385,17 @@ impl View {
             ViewState::TagsModified => {
                 trace!("..render MATCH TagsModified {:?}", line_no);
                 // this means only tags are changed.
-                if self.does_not_match_width(buffer, context) {
-                    // here is the case: view is rendered before resize event.
-                    // max width is detected by diff max width and then resize
-                    // event is come with larger with
-                    // newhighlight
-                    // let content = self.build_up(&content, line_no, context);
-                    self.replace_dirty_content(
-                        buffer, iter, &content, is_markup,
-                    );
-                }
+                // // TODO! kill it
+                // if self.does_not_match_width(buffer, context) {
+                //     // here is the case: view is rendered before resize event.
+                //     // max width is detected by diff max width and then resize
+                //     // event is come with larger with
+                //     // newhighlight
+                //     // let content = self.build_up(&content, line_no, context);
+                //     self.replace_dirty_content(
+                //         buffer, iter, &content, is_markup,
+                //     );
+                // }
                 self.apply_tags(buffer, &content_tags);
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
@@ -416,10 +423,10 @@ impl View {
             ViewState::UpdatedFromGit(l) => {
                 trace!(".. render MATCH UpdatedFromGit {:?}", l);
                 self.line_no.replace(line_no);
-                // newhighlight
-                // let content = self.build_up(&content, line_no, context);
                 self.replace_dirty_content(buffer, iter, &content, is_markup);
-                self.apply_tags(buffer, &content_tags);
+                if !content.is_empty() {
+                    self.apply_tags(buffer, &content_tags);
+                }
                 self.force_forward(buffer, iter);
             }
             ViewState::RenderedNotInPlace(l) => {
