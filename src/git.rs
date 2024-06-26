@@ -174,7 +174,7 @@ impl Hunk {
         }
     }
 
-    pub fn fill_from(&mut self, dh: &DiffHunk) {
+    pub fn fill_from_git_hunk(&mut self, dh: &DiffHunk) {
         let header = Self::get_header_from(dh);
         self.handle_max(&header);
         self.header = header;
@@ -239,7 +239,7 @@ impl Hunk {
             let new = whole_new.replace(
                 &format!("{},", old_nums),
                 &format!("{},", new_nums)
-            );        
+            );
             return header.replace(
                 whole_new,
                 &new,
@@ -260,7 +260,7 @@ impl Hunk {
             let new = whole_new.replace(
                 &format!("{},", old_nums),
                 &format!("{},", new_nums)
-            );        
+            );
             return header.replace(
                 whole_new,
                 &new,
@@ -268,7 +268,7 @@ impl Hunk {
         }
         panic!("cant replace num in header")
     }
-    
+
     // THE REGEX IS WRONG! remove .* !!!!!!!!!!!!! for +
     pub fn reverse_header(header: &str) -> String {
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
@@ -289,6 +289,19 @@ impl Hunk {
         }
         panic!("cant reverse header {}", header);
     }
+    pub fn fill_from_header(&mut self) {
+        let re = Regex::new(r"@@ [+-]([0-9]+),([0-9]+) [+-]([0-9]+),([0-9]+) @@")
+            .unwrap();
+        if let Some((_, [old_start_s, old_lines_s, new_start_s, new_lines_s])) =
+            re.captures_iter(&self.header).map(|c| c.extract()).next()
+        {
+            self.old_start = old_start_s.parse().expect("cant parse nums");
+            self.old_lines = old_lines_s.parse().expect("cant parse nums");
+            self.new_start = new_start_s.parse().expect("cant parse nums");
+            self.new_lines = new_lines_s.parse().expect("cant parse nums");
+        };
+    }
+
     pub fn delta_in_lines(&self) -> i32 {
         // returns how much lines this hunk
         // will add to file (could be negative when lines are deleted)
@@ -950,14 +963,14 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                 if current_hunk.header.is_empty() {
                     // init hunk
                     prev_line_kind = LineKind::None;
-                    current_hunk.fill_from(&diff_hunk)
+                    current_hunk.fill_from_git_hunk(&diff_hunk)
                 }
                 if current_hunk.header != hh {
                     // go to next hunk
                     prev_line_kind = LineKind::None;
                     current_file.push_hunk(current_hunk.clone());
                     current_hunk = Hunk::new(kind.clone());
-                    current_hunk.fill_from(&diff_hunk)
+                    current_hunk.fill_from_git_hunk(&diff_hunk)
                 }
                 prev_line_kind = current_hunk.push_line(
                     Line::from_diff_line(&diff_line),

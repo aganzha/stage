@@ -218,7 +218,7 @@ impl View {
     }
 
     pub fn repr(&self) -> String {
-        format!("line_no: {} rendred: {} squashed: {} active: {} current: {} expanded: {} dirty: {} child_dirty: {}",
+        format!("line_no: {} rendred: {} squashed: {} active: {} current: {} expanded: {} dirty: {} child_dirty: {}, transfered: {}",
                 self.line_no.get(),
                 self.is_rendered(),
                 self.is_squashed(),
@@ -226,7 +226,8 @@ impl View {
                 self.is_current(),
                 self.is_expanded(),
                 self.is_dirty(),
-                self.is_child_dirty()
+                self.is_child_dirty(),
+                self.is_transfered()
         )
     }
 
