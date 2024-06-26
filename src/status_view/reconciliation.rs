@@ -62,6 +62,7 @@ impl Hunk {
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) {
+        debug!("enriching hunk {} with {}", self.header, rendered.header);
         self.view = rendered.transfer_view();
         if !self.view.is_expanded() {
             return
@@ -294,7 +295,7 @@ impl File {
             let rendered = &mut rendered.hunks[in_rendered];
             let new = &mut self.hunks[in_new];
             if rendered_delta > 0 {
-                debug!("1.....");
+                debug!("A.....has rendered delta");
                 // rendered was erased
                 if rendered.header == Hunk::shift_new_start(&new.header, rendered_delta)  // 1.1
                     ||
@@ -315,7 +316,7 @@ impl File {
                     }
             } else if new_delta > 0 {
                 // new was inserted
-                debug!("2.....");
+                debug!("B..... has new delta");
                 if new.header == Hunk::shift_new_start(&rendered.header, new_delta)
                     ||
                     new.header == Hunk::shift_old_start(&rendered.header, 0 - new_delta) {
@@ -333,7 +334,7 @@ impl File {
 
             } else {
                 // first loop or loop on equal hunks
-                debug!("3.....");
+                debug!("C.....first loop or loop on equal hunks");
                 if rendered.header == new.header {
                     // same hunks
                     debug!("just free first match");
@@ -358,6 +359,11 @@ impl File {
                     in_new += 1;
                     in_rendered += 1;
                 } else {
+                    debug!("hunks are not equal r_start {} r_lines {} n_start {} n_lines {}",
+                           rendered.new_start,
+                           rendered.new_lines,
+                           new.new_start,
+                           new.new_lines);
                     if new.new_start < rendered.new_start && new.old_start < rendered.old_start {
                         // cases 2.1 and 2.1 - insert first new hunk
                         debug!("first new hunk without rendered. SKIP");
