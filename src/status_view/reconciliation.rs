@@ -260,6 +260,8 @@ impl File {
         // case 3 - different number of lines
         // new header      @@ -1876,7 +1897,8 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):
         // rendered header @@ -1876,7 +1897,7 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):
+
+
         let mut in_rendered = 0;
         let mut in_new = 0;
         let mut rendered_delta: i32 = 0;
@@ -294,7 +296,7 @@ impl File {
             }
             let rendered = &mut rendered.hunks[in_rendered];
             let new = &mut self.hunks[in_new];
-            if rendered_delta > 0 {
+            if rendered_delta != 0 {
                 debug!("A.....has rendered delta");
                 // rendered was erased
                 if rendered.header == Hunk::shift_new_start(&new.header, rendered_delta)  // 1.1
@@ -314,7 +316,7 @@ impl File {
                         let old_lines = rendered.old_lines as i32;
                         rendered_delta += new_lines - old_lines;
                     }
-            } else if new_delta > 0 {
+            } else if new_delta != 0 {
                 // new was inserted
                 debug!("B..... has new delta");
                 if new.header == Hunk::shift_new_start(&rendered.header, new_delta)
@@ -342,8 +344,7 @@ impl File {
                     in_new += 1;
                     in_rendered += 1;
                 } else if rendered.new_start == new.new_start && rendered.old_start == new.old_start {
-                    // hunks are same, but number of lines are changed
-
+                    debug!("hunks are same, but number of lines are changed");
                     // this is tricky.test is required
                     let new_lines = new.new_lines as i32;
                     let rendered_lines = rendered.new_lines as i32;
@@ -380,6 +381,10 @@ impl File {
                         let old_lines = rendered.old_lines as i32;
                         rendered_delta = new_lines - old_lines;
                     } else {
+                        // [DEBUG stage::status_view::reconciliation] ++++++++++++++++++++++++++++++++++
+                        // [DEBUG stage::status_view::reconciliation] new header @@ -344,13 +350,14 @@ impl View {
+                        // [DEBUG stage::status_view::reconciliation] rendered header @@ -344,13 +351,14 @@ impl View {
+                        // rendered_delta = -1 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                         debug!("++++++++++++++++++++++++++++++++++");
                         debug!("new header {}", new.header);
                         debug!("rendered header {}", rendered.header);
