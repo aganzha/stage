@@ -19,7 +19,7 @@ static INIT: Once = Once::new();
 pub fn initialize() {
     INIT.call_once(|| {
         env_logger::builder().format_timestamp(None).init();
-        _ = gtk4::init();
+        debug!("----------------> {:?}", gtk4::init());
     });
 }
 
@@ -524,12 +524,18 @@ fn test_reconciliation_new() {
     
     new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
     debug!("ooooooooooooooooooooooooold");
-    for h in &rendered_file.hunks {
+    for (i, h) in rendered_file.hunks.iter().enumerate() {
         debug!("{}", h.view.repr());
+        if i == 0 {
+            assert!(!h.view.is_rendered());
+        } else {
+            assert!(h.view.is_rendered());
+        }
     }
     debug!("neeeeeeeeeeeeeeeeeeeeeeeeeew");
     for h in &new_file.hunks {
         debug!("{}", h.view.repr());
+        assert!(h.view.is_transfered())
     }
     
     // assert!(rendered_file.hunks[0].view.is_squashed());
