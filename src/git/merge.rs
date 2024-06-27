@@ -149,7 +149,14 @@ pub fn branch(
             if analysis.is_normal() && !preference.is_fastforward_only() =>
         {
             info!("merge.normal");
+            sender
+                .send_blocking(crate::Event::LockMonitors(true))
+                .expect("Could not send through channel");
+
             repo.merge(&[&annotated_commit], None, None)?;
+            sender
+                .send_blocking(crate::Event::LockMonitors(false))
+                .expect("Could not send through channel");
 
             let index = repo.index()?;
             if index.has_conflicts() {
@@ -193,7 +200,7 @@ pub fn branch(
 
 pub fn abort(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {
     info!("git.abort merge");
-    let _updater = DeferRefresh::new(path.clone(), sender, true, true);
+    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
 
@@ -235,6 +242,9 @@ pub fn abort(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Er
     let ob = head_ref
         .peel(git2::ObjectType::Commit)?;
 
+    sender
+        .send_blocking(crate::Event::LockMonitors(true))
+        .expect("Could not send through channel");
 
     repo.reset(&ob, git2::ResetType::Hard, Some(&mut checkout_builder))?;
 

@@ -46,12 +46,15 @@ mod stage_view {
     use gtk4::subclass::prelude::*;
 
 
-    // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79
+    // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79    
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
     const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.137, 0.216, 0.310, 1.0);
 
     // color #f6f5f4/494949 - 246/255 245/255 244/255
-    const LIGHT_LINES: gdk::RGBA = gdk::RGBA::new(0.961, 0.961, 0.957, 1.0);
+    // f3f3f3 - 243/255
+    // f4f4f4 - 244/255
+    // const LIGHT_LINES: gdk::RGBA = gdk::RGBA::new(0.961, 0.961, 0.957, 1.0);
+    const LIGHT_LINES: gdk::RGBA = gdk::RGBA::new(0.957, 0.957, 0.957, 1.0);
     const DARK_LINES: gdk::RGBA = gdk::RGBA::new(0.286, 0.286, 0.286, 1.0);
 
     // #deddda/383838 - 221/255 221/255 218/255
