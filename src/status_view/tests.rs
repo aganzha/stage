@@ -492,7 +492,9 @@ fn test_reconciliation_new() {
     let mut context = StatusRenderContext::new();
     let buffer = TextBuffer::new(None);
     let mut iter = buffer.iter_at_line(0).unwrap();
-    
+
+    debug!("............... Case 1.1");
+
     let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
     
@@ -537,7 +539,74 @@ fn test_reconciliation_new() {
         debug!("{}", h.view.repr());
         assert!(h.view.is_transfered())
     }
+
+
+    // --------------------------- 1.2 -----------
+    debug!("............... Case 1.2");
+    iter = buffer.iter_at_offset(0);
     
+    buffer.delete(&mut iter, &mut buffer.end_iter());
+
+    rendered_file.hunks = Vec::new();
+    
+    for header in [
+        "@@ -11,7 +11,8 @@ const path = require('path');",
+        "@@ -106,9 +107,9 @@ function getDepsList() {",
+        "@@ -128,7 +129,8 @@ function getDepsList() {",
+    ] {
+        let mut hunk = create_hunk(header);
+        hunk.fill_from_header();
+        rendered_file.hunks.push(hunk);
+    }
+    rendered_file.view.expand(true);
+    rendered_file.render(&buffer, &mut iter, &mut context);
+            
+    new_file.hunks = Vec::new();
+
+    for header in [
+        "@@ -107,9 +107,9 @@ function getDepsList() {",
+        "@@ -129,7 +129,8 @@ function getDepsList() {"
+
+    ] {
+        let mut hunk = create_hunk(header);
+        hunk.fill_from_header();
+        new_file.hunks.push(hunk);
+    }
+
+    rendered_file.hunks = Vec::new();
+    
+    for header in [
+        "@@ -11,7 +11,8 @@ const path = require('path');",
+        "@@ -106,9 +107,9 @@ function getDepsList() {",
+        "@@ -128,7 +129,8 @@ function getDepsList() {",
+    ] {
+        let mut hunk = create_hunk(header);
+        hunk.fill_from_header();
+        rendered_file.hunks.push(hunk);
+    }
+    iter.set_line(0);
+    
+    rendered_file.view.expand(true);
+    rendered_file.render(&buffer, &mut iter, &mut context);
+
+        
+    new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
+
+    debug!("ooooooooooooooooooooooooold");
+    for (i, h) in rendered_file.hunks.iter().enumerate() {
+        debug!("{}", h.view.repr());
+        if i == 0 {
+            assert!(!h.view.is_rendered());
+        } else {
+            assert!(h.view.is_rendered());
+        }
+    }
+    debug!("neeeeeeeeeeeeeeeeeeeeeeeeeew");
+    for h in &new_file.hunks {
+        debug!("{}", h.view.repr());
+        assert!(h.view.is_transfered())
+    }
+
     // assert!(rendered_file.hunks[0].view.is_squashed());
 }
 
