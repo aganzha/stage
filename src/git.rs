@@ -1002,12 +1002,12 @@ pub fn stage_untracked(
 ) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut index = repo.index().expect("cant get index");
-    let pth = file_path.as_path();
+    let pth = path.parent().unwrap().join(&file_path);
     if pth.is_file() {
-        index.add_path(pth).expect("cant add path");
+        index.add_path(file_path.as_path()).expect("cant add path");
     } else if pth.is_dir() {
         index
-            .add_all([pth], git2::IndexAddOption::DEFAULT, None)
+            .add_all([file_path], git2::IndexAddOption::DEFAULT, None)
             .expect("cant add path");
     } else {
         panic!("unknown path {:?}", pth);
