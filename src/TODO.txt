@@ -1,3 +1,4 @@
+BUG: open old_docs. expand all hunks. switch to spare_docs - garbage in textview
 BUG: stage 1 file from list of files when this file is expanded. cursor become wide as several rows
 BUG: SPACES are important in diff! crytical
 BUG: infinite loop in new reconciliation
