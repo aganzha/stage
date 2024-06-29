@@ -1,3 +1,21 @@
++++++++++++++++++++++
+for the merge bug. store conflict hunk size for current repo in gsettings. when conflicts are removed
+- cleanup that settings. i've stored something allready per repo!
+++++++++++++++++++++++++++++++
+TODO: all that must just go to private cloud, must be buildable on command. means flatpack build.
+and then on client machine it must be easily updated with flatpak update. no any flatpak builders
+are required. just own repo. it need to try install flatpak from remote!
+so. plan. make private remote server. in container? try install flatpack inside container! and build there.
+and install from that remote cloud container!
+--------------------------
+so, create container with https://github.com/flatpak/flat-manager
+usually, it must be local server running it. it could be run locally in container.
+but for public it must be run with lambda, of course.
+==========================
+it need to start with local builds as local server. how to save data between lambdas calls?
+it uses postgres. postgres data must be stored somewhere. permamently between lambda calls.
+
+
 BUG: cursor does not work sometimes on first click. thats why i killed whole file, while trying to kill just first hunk
 BUG: open old_docs. expand all hunks. switch to spare_docs - garbage in textview
 BUG: stage 1 file from list of files when this file is expanded. cursor become wide as several rows
