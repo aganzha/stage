@@ -192,8 +192,12 @@ impl File {
         let mut new_delta: i32 = 0;
         let mut guard = 0;
 
-        pub fn increment_delta(delta: i32, line_from: u32, line_to: u32) {
+        pub fn count_delta(line_from: u32, line_to: u32) -> i32 {
+            let new_lines = line_from as i32;
+            let old_lines = line_to as i32;
+            new_lines - old_lines
         }
+
         loop {
             guard += 1;
             if guard > 1000 {
@@ -238,10 +242,8 @@ impl File {
                         trace!("------erase case 1.1 or 1.2");
                         in_rendered += 1;
                         rendered.erase(buffer, context);
-                        // @delta
-                        let new_lines = rendered.new_lines as i32;
-                        let old_lines = rendered.old_lines as i32;
-                        rendered_delta += new_lines - old_lines;
+
+                        rendered_delta += count_delta(rendered.new_lines, rendered.old_lines);
                     }
             } else if new_delta != 0 {
                 // new was inserted
@@ -256,10 +258,9 @@ impl File {
                     } else {
                         trace!("++++++++ skip cases 2.1 or 2.2 ");
                         in_new += 1;
-                        // @delta
-                        let new_lines = new.new_lines as i32;
-                        let old_lines = new.old_lines as i32;
-                        new_delta += new_lines - old_lines;
+
+                        new_delta += count_delta(new.new_lines, new.old_lines);
+
                     }
 
             } else {
@@ -274,11 +275,8 @@ impl File {
                 } else if rendered.new_start == new.new_start && rendered.old_start == new.old_start {
                     trace!("hunks are same, but number of lines are changed");
 
-                    // @delta
-                    let new_lines = new.new_lines as i32;
-                    let rendered_lines = rendered.new_lines as i32;
-                    rendered_delta += new_lines - rendered_lines;
-                    
+                    rendered_delta += count_delta(new.new_lines, rendered.new_lines);
+
                     trace!("changed rendered delta {}", rendered_delta);
 
                     new.enrich_view(rendered, buffer, context);
@@ -295,23 +293,18 @@ impl File {
                         trace!("first new hunk without rendered. SKIP");
                         in_new += 1;
 
-                        // @delta
-                        let new_lines = new.new_lines as i32;
-                        let old_lines = new.old_lines as i32;
-                        new_delta = new_lines - old_lines;
-                        
+                        new_delta += count_delta(new.new_lines, new.old_lines);
+
+
                     } else if new.new_start > rendered.new_start && new.old_start > rendered.old_start {
                         // cases 1.1 and 1.2 - delete first rendered hunk
                         trace!("first rendered hunk without new. ERASE");
                         in_rendered += 1;
 
-                        // @delta
-                        let new_lines = rendered.new_lines as i32;
-                        let old_lines = rendered.old_lines as i32;
-                        rendered_delta = new_lines - old_lines;
+                        rendered_delta += count_delta(rendered.new_lines, rendered.old_lines);
 
                         rendered.erase(buffer, context);
-                        
+
                     } else {
                         panic!("UNKNOWN CASE IN RECONCILIATION {} {}", new.header, rendered.header);
                     }
