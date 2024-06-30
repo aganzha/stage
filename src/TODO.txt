@@ -9,9 +9,6 @@ stack backtrace:
 [INFO  stage] main. untracked
    0: rust_begin_unwind
 
-+++++++++++++++++++++
-for the merge bug. store conflict hunk size for current repo in gsettings. when conflicts are removed
-- cleanup that settings. i've stored something allready per repo!
 ++++++++++++++++++++++++++++++
 TODO: all that must just go to private cloud, must be buildable on command. means flatpack build.
 and then on client machine it must be easily updated with flatpak update. no any flatpak builders
@@ -31,7 +28,7 @@ BUG: cursor does not work sometimes on first click. thats why i killed whole fil
 BUG: open old_docs. expand all hunks. switch to spare_docs - garbage in textview
 BUG: stage 1 file from list of files when this file is expanded. cursor become wide as several rows
 BUG: SPACES are important in diff! crytical
-BUG: infinite loop in new reconciliation
+
 ******************************** from scratch ******************************
 BUG: open branches. open log. hard reset from log. close. the branch data in branch list is not changed!
 BUG: when doing any git op with result? error returned to branch, but it need also to update remo status!
