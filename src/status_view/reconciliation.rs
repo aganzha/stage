@@ -119,82 +119,6 @@ impl Hunk {
             line.erase(buffer, context);
         }
     }
-
-
-    // pub fn enrich_view_old(
-    //     &mut self,
-    //     rendered: &mut Hunk,
-    //     buffer: &TextBuffer,
-    //     context: &mut crate::StatusRenderContext,
-    // ) {
-    //     self.view = rendered.transfer_view();
-    //     if self.lines.len() == rendered.lines.len() {
-    //         for pair in zip(&mut self.lines, &rendered.lines) {
-    //             pair.0.enrich_view(pair.1, context);
-    //         }
-    //         return;
-    //     }
-    //     // all lines are ordered
-    //     let (mut r_ind, mut n_ind) = (0, 0);
-    //     let mut guard = 0;
-    //     trace!("++++++++++++++++ line roconciliation");
-    //     loop {
-    //         trace!("++++++loop");
-    //         guard += 1;
-    //         if guard > MAX_LINES {
-    //             panic!("guard");
-    //         }
-    //         let r_line = &rendered.lines[r_ind];
-    //         let n_line = &self.lines[n_ind];
-    //         // hunks could be shifted
-    //         // and line_nos could differ a lot
-    //         // it need to find first matched line
-    //         // THIS IS ACTUAL ONLY FOR UNSTAGED
-    //         match (r_line.old_line_no, n_line.old_line_no) {
-    //             (Some(r_no), Some(n_no)) => {
-    //                 trace!("both lines are changed");
-    //                 trace!("r_no n_no {:?} {:?}", r_no, n_no);
-    //                 let m_n_line = &mut self.lines[n_ind];
-    //                 m_n_line.enrich_view(r_line, context);
-    //                 r_ind += 1;
-    //                 n_ind += 1;
-    //             }
-    //             (Some(r_no), None) => {
-    //                 trace!("new line is added before old one");
-    //                 trace!("r_no n_no {:?} _", r_no);
-    //                 n_ind += 1;
-    //             }
-    //             (None, Some(n_no)) => {
-    //                 trace!("rendered line is added before new one");
-    //                 trace!("r_no n_no _ {:?}", n_no);
-    //                 let m_r_line = &mut rendered.lines[r_ind];
-    //                 m_r_line.erase(buffer, context);
-    //                 r_ind += 1;
-    //             }
-    //             (None, None) => {
-    //                 trace!("both lines are added",);
-    //                 trace!("r_no n_no _ _");
-    //                 let m_n_line = &mut self.lines[n_ind];
-    //                 m_n_line.enrich_view(r_line, context);
-    //                 r_ind += 1;
-    //                 n_ind += 1;
-    //             }
-    //         }
-    //         trace!("");
-    //         if r_ind == rendered.lines.len() {
-    //             trace!("rendered lines are over");
-    //             break;
-    //         }
-    //         if n_ind == self.lines.len() {
-    //             trace!("new lines are over");
-    //             for r_line in &mut rendered.lines[r_ind..] {
-    //                 trace!("erase remainign rendered lines!");
-    //                 r_line.erase(buffer, context);
-    //             }
-    //             break;
-    //         }
-    //     }
-    // }
 }
 
 impl File {
@@ -269,14 +193,13 @@ impl File {
         let mut guard = 0;
         loop {
             guard += 1;
-            if guard > 100 {
-                debug!("wtf????????????????????????????????? rendered {:?} in_rendered {:?} new {:?} in_new {:?}",
+            if guard > 1000 {
+                panic!("infinite loop in reconciliation rendered {:?} in_rendered {:?} new {:?} in_new {:?}",
                        rendered.hunks.len(),
                        in_rendered,
                        self.hunks.len(),
                        in_new
                 );
-                break;
             }
             if in_rendered == rendered.hunks.len() {
                 debug!("rendered hunks are over!");
@@ -345,17 +268,12 @@ impl File {
                     in_rendered += 1;
                 } else if rendered.new_start == new.new_start && rendered.old_start == new.old_start {
                     debug!("hunks are same, but number of lines are changed");
-                    // this is tricky.test is required
+
                     let new_lines = new.new_lines as i32;
                     let rendered_lines = rendered.new_lines as i32;
                     rendered_delta += new_lines - rendered_lines;
                     debug!("changed rendered delta {}", rendered_delta);
-                    // ??????
-                    // if new.new_lines > rendered.new_lines {
-                    //     rendered_delta += new.new_lines as i32 - rendered.new_lines as i32;
-                    // } else {
-                        
-                    // }
+
                     new.enrich_view(rendered, buffer, context);
                     in_new += 1;
                     in_rendered += 1;
@@ -381,312 +299,9 @@ impl File {
                         let old_lines = rendered.old_lines as i32;
                         rendered_delta = new_lines - old_lines;
                     } else {
-                        // [DEBUG stage::status_view::reconciliation] ++++++++++++++++++++++++++++++++++
-                        // [DEBUG stage::status_view::reconciliation] new header @@ -344,13 +350,14 @@ impl View {
-                        // [DEBUG stage::status_view::reconciliation] rendered header @@ -344,13 +351,14 @@ impl View {
-                        // rendered_delta = -1 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                        debug!("++++++++++++++++++++++++++++++++++");
-                        debug!("new header {}", new.header);
-                        debug!("rendered header {}", rendered.header);
-                        panic!("STOP");
+                        panic!("UNKNOWN CASE IN RECONCILIATION {} {}", new.header, rendered.header);
                     }
                 }
-            }
-            // ******************** concept *************************
-            // let header1 = Hunk::shift_old_start(&new.header, 0 - rendered_delta);
-            // let header2 = Hunk::shift_new_start(&new.header, 0 - rendered_delta);
-            // let header3 = Hunk::shift_old_start(&new.header, 0 + rendered_delta);
-            // let header4 = Hunk::shift_new_start(&new.header, 0 + rendered_delta);
-            // if [header, header1, header2, header3, header4].contains(&rendered.header) {
-            //     debug!("++++++++++enrich! {}", new.header);
-            //     new.enrich_view(rendered, buffer, context);
-            //     in_rendered += 1;
-            //     in_new += 1;
-            // } else {
-            //     // how to check that it need erase rendered?
-            //     if is_rendered_before {
-            //         // rendered is before
-            //         rendered.erase(buffer, context);
-            //         let new_lines = rendered.new_lines as i32;
-            //         let old_lines = rendered.old_lines as i32;
-            //         rendered_delta += new_lines - old_lines;
-            //         in_rendered += 1;
-            //     } else {
-            //         // new hunk is before
-            //         // ??????????????
-            //         let new_lines = new.new_lines as i32;
-            //         let old_lines = new.old_lines as i32;
-            //         new_delta += new_lines - old_lines;
-            //         in_new += 1;
-            //     }
-            // }
-            // ******************** concept *************************
-
-        }
-
-        // &&&&&&&&&&&&&&&&&&&&&& this worked!!!!!!!!!!!!!!
-        // if self.hunks.len() >= rendered.hunks.len() {
-
-        //     // [INFO  stage] Staged
-        //     // RENDERED: @@ -63,6 +63,12 @@ impl Hunk {
-        //     // RENDERED: @@ -102,116 +108,122 @@ impl Hunk {
-        //     // NEW: @@ -63,6 +63,12 @@ impl Hunk {
-        //     // NEW: @@ -74,21 +80,24 @@ impl Hunk {
-        //     // NEW: @@ -102,116 +111,122 @@ impl Hunk {
-
-        //     let mut in_render = 0;
-        //     let mut delta: i32 = 0;
-        //     for h in &mut self.hunks {
-        //         trace!("....delta {}", delta);
-        //         let rendered = &mut rendered.hunks[in_render];
-        //         let header = rendered.header.clone();
-        //         let header1 = Hunk::shift_old_start(&rendered.header, 0 - delta);
-        //         let header2 = Hunk::shift_new_start(&rendered.header, 0 - delta);
-        //         let header3 = Hunk::shift_old_start(&rendered.header, 0 + delta);
-        //         let header4 = Hunk::shift_new_start(&rendered.header, 0 + delta);
-        //         trace!("headers in_rendered");
-        //         trace!("{}", header1);
-        //         trace!("{}", header2);
-        //         trace!("{}", header3);
-        //         trace!("{}", header4);
-        //         trace!("vssss {}", h.header);
-        //         if [header, header1, header2, header3, header4].contains(&h.header) {
-        //             debug!("in_rendered++++++++++enrich! {}", h.header);
-        //             h.enrich_view(rendered, buffer, context);
-        //             in_render += 1;
-        //         } else {
-        //             // this is new hunk in self!
-        //             debug!("in_rendered----------erase! {}", h.header);
-        //             rendered.erase(buffer, context);
-        //             let new_lines = h.new_lines as i32;
-        //             let old_lines = h.old_lines as i32;
-        //             delta += new_lines - old_lines;
-        //         }
-        //     }
-        // } else if self.hunks.len() < rendered.hunks.len() {
-
-        //     // e.g. stage hunk
-        //     // RENDERED: @@ -70,7 +70,8 @@ function findDepsInFile(filePath, setOfDeps, findImport, findAsync) {
-        //     // RENDERED: @@ -98,8 +99,8 @@ function getLibDirPath(acc, value, index, array) {
-        //     // RENDERED: @@ -128,7 +129,8 @@ function getDepsList() {
-        //     // NEW: @@ -99,8 +99,8 @@ function getLibDirPath(acc, value, index, array) {
-        //     // NEW: @@ -129,7 +129,8 @@ function getDepsList() {
-        //     // e.g. kill hunk
-        //     // RENDERED: @@ -75,7 +75,8 @@ function findDepsInDirectory(dir, setOfDeps, findImport, findAsync) {
-        //     // RENDERED: @@ -106,9 +107,9 @@ function getDepsList() {
-        //     // RENDERED: @@ -128,7 +129,8 @@ function getDepsList() {
-        //     // NEW: @@ -106,9 +106,9 @@ function getDepsList() {
-        //     // NEW: @@ -128,7 +128,8 @@ function getDepsList() {
-
-        //     let mut in_self = 0;
-        //     let mut delta: i32 = 0;
-        //     for h in &mut rendered.hunks {
-        //         trace!("....delta {}", delta);
-        //         let new = &mut self.hunks[in_self];
-        //         let header = new.header.clone();
-        //         let header1 = Hunk::shift_old_start(&new.header, 0 - delta);
-        //         let header2 = Hunk::shift_new_start(&new.header, 0 - delta);
-        //         let header3 = Hunk::shift_old_start(&new.header, 0 + delta);
-        //         let header4 = Hunk::shift_new_start(&new.header, 0 + delta);
-        //         trace!("headers in_self");
-        //         trace!("{}", header1);
-        //         trace!("{}", header2);
-        //         trace!("{}", header3);
-        //         trace!("{}", header4);
-        //         trace!("vssss {}", h.header);
-        //         if [header, header1, header2, header3, header4].contains(&h.header) {
-        //             // if [&new.header, &header1, &header2, &header3, &header4].contains(h.header[..]) {
-        //             debug!("in_self++++++++++enrich! {}", h.header);
-        //             new.enrich_view(h, buffer, context);
-        //             in_self += 1;
-        //         } else {
-        //             debug!("in_self----------erase! {}", h.header);
-        //             h.erase(buffer, context);
-        //             let new_lines = h.new_lines as i32;
-        //             let old_lines = h.old_lines as i32;
-        //             delta += new_lines - old_lines;
-        //         }
-        //     }
-        // }
-        // &&&&&&&&&&&&&&&&&&&&&& this worked!!!!!!!!!!!!!!
-    }
-
-    // file
-    pub fn enrich_view_old(
-        &mut self,
-        rendered: &mut File,
-        buffer: &TextBuffer,
-        context: &mut crate::StatusRenderContext,
-    ) {
-        self.view = rendered.transfer_view();
-        // aganzha!
-        if !self.view.is_expanded() {
-            return
-        }
-        trace!("-- enrich_view for file {:?} hunks {:?}, rendered {:?}, hunks {:?}, context {:?}",
-               self.path, self.hunks.len(), rendered.path, rendered.hunks.len(), context);
-
-        if self.hunks.len() == rendered.hunks.len() {
-            for pair in zip(&mut self.hunks, &mut rendered.hunks) {
-                pair.0.enrich_view(pair.1, buffer, context);
-            }
-            return;
-        }
-        // all hunks are ordered!!!
-        // either will be hunks removed from rendered
-        // or added to rendered
-        let (mut n_ind, mut r_ind) = (0, 0);
-        let mut guard = 0;
-        let r_le = rendered.hunks.len();
-        loop {
-            trace!("loop........................");
-            guard += 1;
-            if guard >= MAX_LINES {
-                panic!("guard");
-            }
-            let n_hunk = &self.hunks[n_ind];
-
-            let r_hunk = &rendered.hunks[r_ind];
-            let r_delta = r_hunk.delta_in_lines();
-
-            // why kind here is required?????
-            // it is required to compare old_new/new_lines and thats it
-            // it could be refactored to some method, which will return
-            // proper start to compare to
-            if let Some(knd) = &context.diff_kind {
-                if (n_hunk.new_start == r_hunk.new_start
-                    && (knd == &DiffKind::Staged
-                        || knd == &DiffKind::Conflicted))
-                    || (n_hunk.old_start == r_hunk.old_start
-                        && knd == &DiffKind::Unstaged)
-                {
-                    trace!(
-                        "HUNKS MATCHED new: {:?} old: {:?}",
-                        n_hunk.header,
-                        r_hunk.header
-                    );
-                    let m_n_hunk = &mut self.hunks[n_ind];
-                    let m_r_hunk = &mut rendered.hunks[r_ind];
-                    m_n_hunk.enrich_view(m_r_hunk, buffer, context);
-                    n_ind += 1;
-                    r_ind += 1;
-                } else if (knd == &DiffKind::Staged
-                    || knd == &DiffKind::Conflicted)
-                    && n_hunk.new_start < r_hunk.new_start
-                {
-                    trace!(
-                        "^^^^^^^^new hunk is BEFORE rendered hunk in STAGED"
-                    );
-                    for hunk in &mut rendered.hunks[r_ind..] {
-                        trace!(
-                            "-> move forward hunk {:?} by {:?} lines",
-                            hunk.header,
-                            n_hunk.delta_in_lines()
-                        );
-                        hunk.new_start = ((hunk.new_start as i32)
-                            + n_hunk.delta_in_lines())
-                            as u32;
-                    }
-                    n_ind += 1;
-                } else if (knd == &DiffKind::Staged
-                    || knd == &DiffKind::Conflicted)
-                    && n_hunk.new_start > r_hunk.new_start
-                {
-                    trace!(
-                        "^^^^^^^^new hunk is AFTER rendered hunk in STAGED"
-                    );
-                    // hunk was unstaged and must be erased. means all other rendered hunks
-                    // must increment their new lines cause in erased hunk its lines
-                    // are no longer new
-                    if r_ind < r_le {
-                        let ind = r_ind + 1;
-                        for hunk in &mut rendered.hunks[ind..] {
-                            trace!("<- before erasing staged hunk add delta to remaining hunks {:?} by {:?} lines",
-                                   hunk.header,
-                                   r_delta
-                            );
-                            hunk.new_start = ((hunk.new_start as i32) - // - !
-                                              r_delta)
-                                as u32;
-                        }
-                    }
-                    let m_r_hunk = &mut rendered.hunks[r_ind];
-                    trace!("erase AFTER rendered hunk {:?}", m_r_hunk.header);
-                    m_r_hunk.erase(buffer, context);
-                    r_ind += 1;
-                } else if knd == &DiffKind::Unstaged
-                    && n_hunk.old_start < r_hunk.old_start
-                {
-                    trace!(
-                        "^^^^^^^^new hunk is BEFORE rendered hunk in UNSTAGED"
-                    );
-                    for hunk in &mut rendered.hunks[r_ind..] {
-                        trace!(
-                            "<- move backward hunk {:?} by {:?} lines",
-                            hunk.header,
-                            n_hunk.delta_in_lines()
-                        );
-                        // the minus here in old_start
-                        // means when inserting hunk before
-                        // it need to REDUCE old lines in next hunks!
-                        // old_lines in each hunk are independent on each other.
-                        // so when unstage in previous position means LESS old_lines
-                        // (when staged there are more old lines - those are considered already added!
-                        hunk.old_start = ((hunk.old_start as i32) - // !
-                                          n_hunk.delta_in_lines())
-                            as u32;
-                    }
-                    n_ind += 1;
-                } else if knd == &DiffKind::Unstaged
-                    && n_hunk.old_start > r_hunk.old_start
-                {
-                    trace!("^^^^^^^^new hunk is AFTER rendered hunk in UNSTAGED (erasing hunk which was staged)");
-                    // hunk was staged and must be erased. means all other rendered hunks
-                    // must increment their old lines cause in erased hunk its lines are no
-                    // longer old.
-                    if r_ind < r_le {
-                        let ind = r_ind + 1;
-                        for hunk in &mut rendered.hunks[ind..] {
-                            trace!("<- before erasing UNstaged hunk add delta to remaining hunks {:?} by {:?} lines",
-                                   hunk.header,
-                                   r_delta
-                            );
-                            hunk.old_start = ((hunk.old_start as i32) + // + !
-                                              r_delta)
-                                as u32;
-                        }
-                    }
-                    let m_r_hunk = &mut rendered.hunks[r_ind];
-                    trace!("erase AFTER rendered hunk {:?}", m_r_hunk.header);
-                    m_r_hunk.erase(buffer, context);
-                    r_ind += 1;
-                } else {
-                    panic!(
-                        "whats the case here? {:?} {:?} {:?}",
-                        knd, r_hunk.header, n_hunk.header
-                    );
-                }
-            }
-
-            // completed all new hunks
-            // all remained rendered hunks must be erased
-            if n_ind == self.hunks.len() {
-                trace!("new hunks are over");
-                // handle all new hunks
-                for r_hunk in &mut rendered.hunks[r_ind..] {
-                    trace!(
-                        "erase remaining rendered hunk {:?}",
-                        r_hunk.header
-                    );
-                    r_hunk.erase(buffer, context);
-                }
-                break;
-            }
-            if r_ind == rendered.hunks.len() {
-                // old hunks are over.
-                // there is nothing to enrich for new hunks
-                trace!("rendered hunks are over");
-                break;
             }
         }
     }
