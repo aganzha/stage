@@ -1,3 +1,18 @@
+NO BUG: pish branch stage to origin in flat-manager
+[DEBUG stage::git::remote] push_transfer_progress 10 10 26765
+[DEBUG stage::git::remote] updated local references "refs/remotes/origin/stage" 0000000000000000000000000000000000000000 97daef005e2e5fd73a7af3ff86978cf6a37db2fa
+thats because i had 2 remotes in config both lead to refs/heads/remotes/origin
+TODO: do something for remotes. maybe adding/deleting
+
+thread '<unnamed>' panicked at src/git/remote.rs:220:22:
+cant set upstream: Error { code: -1, klass: 4, message: "reference 'refs/remotes/origin/stage' is ambiguous" }
+
+
+NO BUG: rename file. it is not renamed in Unstaged, though all content inside is deleted and new file is in Untracked
+after staging everything works just nice.
+BUG: open repo. it will be stored in settings. then delete repo! will have permanent panics of it and now way to delete.
+it need delete when path is not found and show empty view!
+TODO: tags, of course
 THINK: is it a good idea, that each module (e.g. git::merge) whil contain its own implementation of methods
 required by this module? 
 BUG: panic
