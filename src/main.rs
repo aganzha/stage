@@ -340,9 +340,9 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     status.update_state(state, &txt, &mut ctx);
                 }
                 Event::OpenEditor => {
-                    if let Some((path, line_no, col_no)) =
-                        status.editor_args_at_cursor(&txt)
-                    {
+                    let args = status.editor_args_at_cursor(&txt);
+                    info!("OpenEditor {:?}", args);
+                    if let Some((path, line_no, col_no)) = args {
                         external::try_open_editor(path, line_no, col_no);
                     }
                 }
