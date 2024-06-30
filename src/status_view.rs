@@ -1160,6 +1160,7 @@ impl Status {
                                 let hunk = hunk.clone();
                                 let line = line.clone();
                                 let window = window.clone();
+                                let interhunk = conflicted.interhunk.clone();
                                 async move {
                                     if hunk.conflicts_count > 0
                                         && line.is_side_of_conflict()
@@ -1168,7 +1169,7 @@ impl Status {
                                             move || {
                                                 merge::choose_conflict_side_of_hunk(
                                                     path, file_path, hunk, line,
-                                                    sender,
+                                                    interhunk, sender,
                                                 )
                                             }
                                         }).await.unwrap_or_else(|e| {

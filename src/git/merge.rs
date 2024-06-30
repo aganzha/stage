@@ -309,7 +309,7 @@ pub fn choose_conflict_side(
         if let Some(dh) = odh {
             let header = Hunk::get_header_from(&dh);
             let matched = conflicted_headers.contains(&header);
-            debug!("header in callback  {:?} ??= {:?}", header, matched);
+            trace!("header in callback  {:?} ??= {:?}", header, matched);
             return matched;
         }
         false
@@ -560,6 +560,7 @@ pub fn choose_conflict_side_of_hunk(
     file_path: PathBuf,
     hunk: Hunk,
     line: Line,
+    interhunk: Option<u32>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     info!(
@@ -603,7 +604,10 @@ pub fn choose_conflict_side_of_hunk(
 
     let mut opts = make_diff_options();
     let mut opts = opts.pathspec(&file_path).reverse(true);
-
+    if let Some(ih) = interhunk {
+        opts.interhunk_lines(ih);
+    }
+    
     let mut git_diff =
         repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))?;
 
