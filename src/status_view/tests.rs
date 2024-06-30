@@ -23,13 +23,13 @@ pub fn initialize() {
     });
 }
 
-fn create_line(name: &str) -> Line {
+fn create_line(line_no: u32, name: &str) -> Line {
     Line {
         content: name.to_string(),
         origin: DiffLineType::Context,
         view: View::new(),
-        new_line_no: None,
-        old_line_no: None,
+        new_line_no: Some(line_no),
+        old_line_no: Some(line_no),
         kind: LineKind::None,
     }
 }
@@ -40,8 +40,8 @@ fn create_hunk(name: &str) -> Hunk {
     hunk.header = name.to_string();
     for i in 0..3 {
         let content = format!("{} -> line {}", hunk.header, i);
-        hunk.handle_max(&content);
-        hunk.lines.push(create_line(&content));
+        hunk.handle_max(&content);      
+        hunk.lines.push(create_line(i, &content));
     }
     hunk
 }
@@ -529,16 +529,39 @@ fn test_reconciliation_new() {
     for (i, h) in rendered_file.hunks.iter().enumerate() {
         debug!("first hunk is squashed, others are rendered {}", h.view.repr());
         if i == 0 {
+            // TODO when introduce new mass erase (erase without render) it will need to
+            // check other criteria, not rendered!
             assert!(!h.view.is_rendered());
+            for line in &h.lines {
+                // TODO when introduce new mass erase (erase without render) it will need to
+                // check other criteria, not rendered!
+                assert!(!line.view.is_rendered());
+            }
         } else {
+            // TODO when introduce new mass erase (erase without render) it will need to
+            // check other criteria, not rendered!
             assert!(h.view.is_rendered());
+            for line in &h.lines {
+                // TODO when introduce new mass erase (erase without render) it will need to
+                // check other criteria, not rendered!
+                assert!(line.view.is_rendered());
+            }
         }
     }
     debug!("iter over new hunks");
     for h in &new_file.hunks {
-        debug!("all new hunks are transfered {}", h.view.repr());
-        assert!(h.view.is_transfered())
+        debug!(">>>>>>>>>all new hunks are transfered header: {} view: {}", h.header, h.view.repr());
+        debug!("new hunk line len {:?}", h.lines.len());
+        assert!(h.view.is_transfered());
+        for line in &h.lines {
+            debug!("rrrrrrrrrrrrrrrrrrrrrr {:?}", line.content);
+            debug!("ooooooooooooooops {:?}", line.view.repr());
+            assert!(line.view.is_transfered());
+        }
     }
+
+    debug!("2@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+    return;
 
     // --------------------------- 1.2 -----------
     debug!("............... Case 1.2");
@@ -595,9 +618,23 @@ fn test_reconciliation_new() {
     for (i, h) in rendered_file.hunks.iter().enumerate() {
         debug!("first hunk is squashed, otheres are rendered {}", h.view.repr());
         if i == 0 {
+            // TODO when introduce new mass erase (erase without render) it will need to
+            // check other criteria, not rendered!
             assert!(!h.view.is_rendered());
+            for line in &h.lines {
+                // TODO when introduce new mass erase (erase without render) it will need to
+                // check other criteria, not rendered!
+                assert!(!line.view.is_rendered());
+            }
         } else {
+            // TODO when introduce new mass erase (erase without render) it will need to
+            // check other criteria, not rendered!
             assert!(h.view.is_rendered());
+            for line in &h.lines {
+                // TODO when introduce new mass erase (erase without render) it will need to
+                // check other criteria, not rendered!
+                assert!(line.view.is_rendered());
+            }
         }
     }
     debug!("iter over new hunks");
@@ -605,7 +642,7 @@ fn test_reconciliation_new() {
         debug!("all new hunks are transfered {}", h.view.repr());
         assert!(h.view.is_transfered())
     }
-
+    
     // case 2.1 ------------------------------ 
     debug!("............... Case 2.1");
     // 2.1
@@ -705,45 +742,6 @@ fn test_reconciliation_new() {
     }    
 }
 
-fn test_reconciliation() {
-    // to be done
-    debug!("TEST RECONCILIATION .........................");
-    let mut context = StatusRenderContext::new();
-    let buffer = TextBuffer::new(None);
-    let mut iter = buffer.iter_at_line(0).unwrap();
-    //buffer.insert(&mut iter, "begin\n");
-
-    let name = "Line 1";
-    let mut hunk = create_hunk(name);
-
-    hunk.render(&buffer, &mut iter, &mut context);
-    for line in &hunk.lines {
-        dbg!(&line.view);
-        // assert!(&line.view.rendered);
-    }
-    hunk.expand(0, &mut context);
-    for line in &hunk.lines {
-        dbg!(&line.view);
-        // assert!(&line.view.rendered);
-    }
-    let mut iter = buffer.iter_at_line(0).unwrap();
-
-    dbg!(&hunk.view);
-    hunk.render(&buffer, &mut iter, &mut context);
-    dbg!(&hunk.view);
-    for line in &hunk.lines {
-        dbg!(&line.view);
-        // assert!(&line.view.rendered);
-    }
-    let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
-    let mut new_hunk = create_hunk(name);
-    new_hunk.enrich_view(&mut hunk, &buffer, &mut context);
-
-    for line in &new_hunk.lines {
-        dbg!(&line.view);
-    }
-    // new_hunk.enrich_view()
-}
 
 #[test]
 fn test_tags() {

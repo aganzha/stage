@@ -289,6 +289,8 @@ impl Hunk {
         }
         panic!("cant reverse header {}", header);
     }
+
+    // used in tests only
     pub fn fill_from_header(&mut self) {
         let re = Regex::new(r"@@ [+-]([0-9]+),([0-9]+) [+-]([0-9]+),([0-9]+) @@")
             .unwrap();
@@ -299,6 +301,15 @@ impl Hunk {
             self.old_lines = old_lines_s.parse().expect("cant parse nums");
             self.new_start = new_start_s.parse().expect("cant parse nums");
             self.new_lines = new_lines_s.parse().expect("cant parse nums");
+            for line in &mut self.lines {
+                if let Some(line_no) = line.new_line_no {
+                    debug!("INCREMENT LINE_NO IN FILL BY HEADER me {:?} line {:?}", self.new_start, line_no);
+                    line.new_line_no.replace(self.new_start + line_no);
+                }
+                if let Some(line_no) = line.old_line_no {
+                    line.old_line_no.replace(self.old_start + line_no);
+                }
+            }
         };
     }
 
