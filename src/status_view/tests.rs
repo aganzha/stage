@@ -13,6 +13,7 @@ use gtk4::TextBuffer;
 use log::debug;
 use std::cell::Cell;
 use std::sync::Once;
+use regex::Regex;
 
 static INIT: Once = Once::new();
 
@@ -21,6 +22,31 @@ pub fn initialize() {
         env_logger::builder().format_timestamp(None).init();
         debug!("----------------> {:?}", gtk4::init());
     });
+}
+
+impl Hunk {
+    // used in tests only
+    pub fn fill_from_header(&mut self) {
+        let re = Regex::new(r"@@ [+-]([0-9]+),([0-9]+) [+-]([0-9]+),([0-9]+) @@")
+            .unwrap();
+        if let Some((_, [old_start_s, old_lines_s, new_start_s, new_lines_s])) =
+            re.captures_iter(&self.header).map(|c| c.extract()).next()
+        {
+            self.old_start = old_start_s.parse().expect("cant parse nums");
+            self.old_lines = old_lines_s.parse().expect("cant parse nums");
+            self.new_start = new_start_s.parse().expect("cant parse nums");
+            self.new_lines = new_lines_s.parse().expect("cant parse nums");
+            for line in &mut self.lines {
+                if let Some(line_no) = line.new_line_no {
+                    debug!("INCREMENT LINE_NO IN FILL BY HEADER me {:?} line {:?}", self.new_start, line_no);
+                    line.new_line_no.replace(self.new_start + line_no);
+                }
+                if let Some(line_no) = line.old_line_no {
+                    line.old_line_no.replace(self.old_start + line_no);
+                }
+            }
+        };
+    }
 }
 
 fn create_line(line_no: u32, name: &str) -> Line {
