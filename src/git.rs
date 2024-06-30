@@ -39,7 +39,8 @@ pub fn make_diff_options() -> DiffOptions {
     // not full one. perhaps it need to increate that position
     // to something big. actually it must be larger
     // line count between <<<< and =========
-    opts.interhunk_lines(3);
+    
+    opts.interhunk_lines(3);// try to put 0 here
     opts
 }
 
@@ -90,7 +91,7 @@ impl Line {
     pub fn is_our_side_of_conflict(&self) -> bool {
         match &self.kind {
             LineKind::Ours(_) => true,
-            LineKind::ConflictMarker(m) if m == &MARKER_OURS.to_string() => {
+            LineKind::ConflictMarker(m) if m == MARKER_OURS => {
                 true
             }
             _ => false,
@@ -99,7 +100,7 @@ impl Line {
     pub fn is_their_side_of_conflict(&self) -> bool {
         match &self.kind {
             LineKind::Theirs(_) => true,
-            LineKind::ConflictMarker(m) if m == &MARKER_THEIRS.to_string() => {
+            LineKind::ConflictMarker(m) if m == MARKER_THEIRS => {
                 true
             }
             _ => false,
@@ -471,6 +472,9 @@ pub struct Diff {
     pub view: View,
     pub kind: DiffKind,
     pub max_line_len: i32,
+    /// option for diff if it differs
+    /// from the common obtained by make_diff_options
+    pub interhunk: Option<u32>
 }
 
 impl Diff {
@@ -480,6 +484,7 @@ impl Diff {
             view: View::new(),
             kind,
             max_line_len: 0,
+            interhunk: None
         }
     }
 
@@ -754,13 +759,19 @@ pub fn get_current_repo_status(
 }
 
 pub fn get_conflicted_v1(path: PathBuf) -> Diff {
-    // so, when file is in conflictduring merge, this means nothing
+    // so, when file is in conflict during merge, this means nothing
     // was staged to that file, cause mergeing in such state is PROHIBITED!
-    // sure? Yes, it must be true!
+
+    // what is important here: all conflicts hunks must accomodate
+    // both side: ours and theirs. if those come separated everything
+    // will be broken!
     let repo = Repository::open(path).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
     let mut opts = make_diff_options();
+    // 6 - for 3 context lines in eacj hunk? 
+    opts.interhunk_lines(10);
+    
     for conflict in conflicts {
         let conflict = conflict.unwrap();
         let our = conflict.our.unwrap();
@@ -773,7 +784,56 @@ pub fn get_conflicted_v1(path: PathBuf) -> Diff {
         .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
 
-    make_diff(&git_diff, DiffKind::Conflicted)
+    let diff = make_diff(&git_diff, DiffKind::Conflicted);
+    // this vec store tuples with last line_no of prev hunk
+    // and first line_no of next hunk
+    let mut hunks_to_join = Vec::new();
+    let mut missing_theirs = 0;
+    for file in &diff.files {
+        for hunk in &file.hunks {
+            debug!("hunk in conflicted {}", hunk.header);
+            let (ours, theirs, separator) = hunk.lines.iter().fold((0, 0, 0), |acc, line| {
+                match &line.kind {
+                    LineKind::ConflictMarker(m) if m == MARKER_OURS => {            
+                        (acc.0 + 1, acc.1, acc.2)
+                    }
+                    LineKind::ConflictMarker(m) if m == MARKER_THEIRS => {            
+                        (acc.0, acc.1 + 1, acc.2)
+                    }
+                    LineKind::ConflictMarker(m) if m == MARKER_VS => {            
+                        (acc.0, acc.1, acc.2 + 1)
+                    }
+                    _ => acc
+                }
+            });
+            // perhaps it need to increment interhunk space to join hunks
+            // into one. possible 2 variants
+            // ours vs - theirs
+            // ours - vs theirs
+            if ours > theirs {
+                missing_theirs = hunk.new_start + hunk.lines.len() as u32;
+            } else if theirs > ours {
+                assert!(missing_theirs > 0);
+                hunks_to_join.push((missing_theirs, hunk.new_start));
+            }            
+        }
+    }
+    if !hunks_to_join.is_empty() {
+        let interhunk = hunks_to_join.iter().fold(0, |acc, from_to| {
+            if acc < from_to.1 - from_to.0 {
+                return from_to.1 - from_to.0;
+            }
+            acc
+        });
+        opts.interhunk_lines(interhunk);
+        let git_diff = repo
+            .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
+            .expect("cant get diff");
+        let mut diff = make_diff(&git_diff, DiffKind::Conflicted);
+        diff.interhunk.replace(interhunk);
+        return diff;
+    }
+    diff
 }
 
 pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
