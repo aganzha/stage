@@ -38,7 +38,6 @@ impl Hunk {
             self.new_lines = new_lines_s.parse().expect("cant parse nums");
             for line in &mut self.lines {
                 if let Some(line_no) = line.new_line_no {
-                    debug!("INCREMENT LINE_NO IN FILL BY HEADER me {:?} line {:?}", self.new_start, line_no);
                     line.new_line_no.replace(self.new_start + line_no);
                 }
                 if let Some(line_no) = line.old_line_no {
@@ -576,18 +575,11 @@ fn test_reconciliation_new() {
     }
     debug!("iter over new hunks");
     for h in &new_file.hunks {
-        debug!(">>>>>>>>>all new hunks are transfered header: {} view: {}", h.header, h.view.repr());
-        debug!("new hunk line len {:?}", h.lines.len());
         assert!(h.view.is_transfered());
         for line in &h.lines {
-            debug!("rrrrrrrrrrrrrrrrrrrrrr {:?}", line.content);
-            debug!("ooooooooooooooops {:?}", line.view.repr());
             assert!(line.view.is_transfered());
         }
     }
-
-    debug!("2@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-    return;
 
     // --------------------------- 1.2 -----------
     debug!("............... Case 1.2");
@@ -666,7 +658,10 @@ fn test_reconciliation_new() {
     debug!("iter over new hunks");
     for h in &new_file.hunks {
         debug!("all new hunks are transfered {}", h.view.repr());
-        assert!(h.view.is_transfered())
+        assert!(h.view.is_transfered());
+        for line in &h.lines {
+            assert!(line.view.is_transfered());
+        }
     }
     
     // case 2.1 ------------------------------ 
@@ -714,7 +709,10 @@ fn test_reconciliation_new() {
         if i == 0 {
             assert!(!h.view.is_transfered())
         } else {
-            assert!(h.view.is_transfered())
+            assert!(h.view.is_transfered());
+            for line in &h.lines {
+                assert!(line.view.is_transfered());
+            }
         }
     }
 
@@ -763,7 +761,10 @@ fn test_reconciliation_new() {
         if i == 0 {
             assert!(!h.view.is_transfered())
         } else {
-            assert!(h.view.is_transfered())
+            assert!(h.view.is_transfered());
+            for line in &h.lines {
+                assert!(line.view.is_transfered());
+            }
         }
     }    
 }
