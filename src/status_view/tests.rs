@@ -450,7 +450,7 @@ fn test_render_view() {
     // call it here, cause rust creates threads event with --test-threads=1
     // and gtk should be called only from main thread
     test_expand_line();
-    // test_reconciliation_new();
+    test_reconciliation_new();
 }
 
 fn test_expand_line() {
@@ -511,9 +511,8 @@ fn test_expand_line() {
     }
 }
 
-#[test]
 fn test_reconciliation_new() {
-    initialize();
+    // initialize();
     let mut context = StatusRenderContext::new();
     let buffer = TextBuffer::new(None);
     let mut iter = buffer.iter_at_line(0).unwrap();
@@ -687,7 +686,6 @@ fn test_reconciliation_new() {
     let mut new_file = create_file("File");
     new_file.hunks = Vec::new();
 
-
     iter.set_line(0);
     for header in [
         "@@ -11,7 +11,8 @@ const path = require('path');",
@@ -766,7 +764,34 @@ fn test_reconciliation_new() {
                 assert!(line.view.is_transfered());
             }
         }
-    }    
+    }
+
+    // -------------------- case 3 - different number of lines
+    debug!("case 3");
+    iter = buffer.iter_at_offset(0);    
+    buffer.delete(&mut iter, &mut buffer.end_iter());
+
+    rendered_file.hunks = Vec::new();
+    let mut hunk = create_hunk("@@ -1876,7 +1897,8 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):");
+    hunk.fill_from_header();
+    rendered_file.hunks.push(hunk);
+    rendered_file.view.expand(true);
+    rendered_file.render(&buffer, &mut iter, &mut context);
+
+    let mut new_file = create_file("File");
+    new_file.hunks = Vec::new();
+
+    iter.set_line(0);
+    let mut hunk = create_hunk("@@ -1876,7 +1897,7 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):");
+    hunk.fill_from_header();
+    new_file.hunks.push(hunk);
+    iter.set_line(0);
+    new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
+    assert!(rendered_file.hunks[0].view.is_rendered());
+    assert!(new_file.hunks[0].view.is_transfered());
+    for line in &new_file.hunks[0].lines {
+        assert!(line.view.is_transfered());
+    }
 }
 
 
