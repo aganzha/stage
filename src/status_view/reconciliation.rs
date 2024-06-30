@@ -62,7 +62,7 @@ impl Hunk {
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) {
-        debug!("enriching hunk {} with {}", self.header, rendered.header);
+        trace!("enriching hunk {} with {}", self.header, rendered.header);
         self.view = rendered.transfer_view();
         if !self.view.is_expanded() {
             return
@@ -70,17 +70,17 @@ impl Hunk {
         // TODO! expanded/collapsed!
 
 
-        // debug!("---------------> NEW");
+        // trace!("---------------> NEW");
         // for line in &self.lines {
-        //     debug!("{}", line.repr("", 5));
+        //     trace!("{}", line.repr("", 5));
         // }
-        // debug!("");
-        // debug!("---------------> OLD");
+        // trace!("");
+        // trace!("---------------> OLD");
         // for line in &rendered.lines {
-        //     debug!("{}", line.repr("", 5));
+        //     trace!("{}", line.repr("", 5));
         // }
-        // debug!("");
-        // debug!("GOOOOOOOOOOOOOOOOOOOOO");
+        // trace!("");
+        // trace!("GOOOOOOOOOOOOOOOOOOOOO");
 
         // iter over new lines. normalize line_nos to hunk start.
         let mut rendered_map:HashMap<(i32, i32), &Line> = HashMap::new();
@@ -115,7 +115,7 @@ impl Hunk {
         let mut srt = rendered_map.into_iter().map(|x|x).collect::<Vec<((i32, i32), &Line)>>();
         srt.sort_by(|x, y| x.0.cmp(&y.0));
         for (_, line) in  &srt {
-            debug!("{}", line.repr("ERASE", 5));
+            trace!("{}", line.repr("ERASE", 5));
             line.erase(buffer, context);
         }
     }
@@ -134,10 +134,10 @@ impl File {
             return
         }
         for h in &rendered.hunks {
-            debug!("RENDERED: {}", h.header);
+            trace!("RENDERED: {}", h.header);
         }
         for h in &self.hunks {
-            debug!("NEW: {}", h.header);
+            trace!("NEW: {}", h.header);
         }
 
         // @@@@@@@@@@@@@@@@@ there are FEWER NEW ones than old ones
@@ -191,6 +191,9 @@ impl File {
         let mut rendered_delta: i32 = 0;
         let mut new_delta: i32 = 0;
         let mut guard = 0;
+
+        pub fn increment_delta(delta: i32, line_from: u32, line_to: u32) {
+        }
         loop {
             guard += 1;
             if guard > 1000 {
@@ -202,11 +205,11 @@ impl File {
                 );
             }
             if in_rendered == rendered.hunks.len() {
-                debug!("rendered hunks are over!");
+                trace!("rendered hunks are over!");
                 break;
             }
             if in_new == self.hunks.len() {
-                debug!("new hunks are over!");
+                trace!("new hunks are over!");
                 loop {
                     let rndrd = &mut rendered.hunks[in_rendered];
                     rndrd.erase(buffer, context);
@@ -220,38 +223,40 @@ impl File {
             let rendered = &mut rendered.hunks[in_rendered];
             let new = &mut self.hunks[in_new];
             if rendered_delta != 0 {
-                debug!("A.....has rendered delta");
+                trace!("A.....has rendered delta");
                 // rendered was erased
                 if rendered.header == Hunk::shift_new_start(&new.header, rendered_delta)  // 1.1
                     ||
                     rendered.header == Hunk::shift_old_start(&new.header, 0 - rendered_delta) { // 1.2
                         // matched!
-                        debug!("++++++enrich case 1.1 or 1.2");
+                        trace!("++++++enrich case 1.1 or 1.2");
                         new.enrich_view(rendered, buffer, context);
                         in_new += 1;
                         in_rendered += 1;
                     } else {
                         // proceed with erasing
-                        debug!("------erase case 1.1 or 1.2");
+                        trace!("------erase case 1.1 or 1.2");
                         in_rendered += 1;
                         rendered.erase(buffer, context);
+                        // @delta
                         let new_lines = rendered.new_lines as i32;
                         let old_lines = rendered.old_lines as i32;
                         rendered_delta += new_lines - old_lines;
                     }
             } else if new_delta != 0 {
                 // new was inserted
-                debug!("B..... has new delta");
+                trace!("B..... has new delta");
                 if new.header == Hunk::shift_new_start(&rendered.header, new_delta)
                     ||
                     new.header == Hunk::shift_old_start(&rendered.header, 0 - new_delta) {
-                        debug!("++++++++ enrich cases 2.1 or 2.2 ");
+                        trace!("++++++++ enrich cases 2.1 or 2.2 ");
                         new.enrich_view(rendered, buffer, context);
                         in_new += 1;
                         in_rendered += 1;
                     } else {
-                        debug!("++++++++ skip cases 2.1 or 2.2 ");
+                        trace!("++++++++ skip cases 2.1 or 2.2 ");
                         in_new += 1;
+                        // @delta
                         let new_lines = new.new_lines as i32;
                         let old_lines = new.old_lines as i32;
                         new_delta += new_lines - old_lines;
@@ -259,45 +264,54 @@ impl File {
 
             } else {
                 // first loop or loop on equal hunks
-                debug!("C.....first loop or loop on equal hunks");
+                trace!("C.....first loop or loop on equal hunks");
                 if rendered.header == new.header {
                     // same hunks
-                    debug!("just free first match");
+                    trace!("just free first match");
                     new.enrich_view(rendered, buffer, context);
                     in_new += 1;
                     in_rendered += 1;
                 } else if rendered.new_start == new.new_start && rendered.old_start == new.old_start {
-                    debug!("hunks are same, but number of lines are changed");
+                    trace!("hunks are same, but number of lines are changed");
 
+                    // @delta
                     let new_lines = new.new_lines as i32;
                     let rendered_lines = rendered.new_lines as i32;
                     rendered_delta += new_lines - rendered_lines;
-                    debug!("changed rendered delta {}", rendered_delta);
+                    
+                    trace!("changed rendered delta {}", rendered_delta);
 
                     new.enrich_view(rendered, buffer, context);
                     in_new += 1;
                     in_rendered += 1;
                 } else {
-                    debug!("hunks are not equal r_start {} r_lines {} n_start {} n_lines {}",
+                    trace!("hunks are not equal r_start {} r_lines {} n_start {} n_lines {}",
                            rendered.new_start,
                            rendered.new_lines,
                            new.new_start,
                            new.new_lines);
                     if new.new_start < rendered.new_start && new.old_start < rendered.old_start {
                         // cases 2.1 and 2.1 - insert first new hunk
-                        debug!("first new hunk without rendered. SKIP");
+                        trace!("first new hunk without rendered. SKIP");
                         in_new += 1;
+
+                        // @delta
                         let new_lines = new.new_lines as i32;
                         let old_lines = new.old_lines as i32;
                         new_delta = new_lines - old_lines;
+                        
                     } else if new.new_start > rendered.new_start && new.old_start > rendered.old_start {
                         // cases 1.1 and 1.2 - delete first rendered hunk
-                        debug!("first rendered hunk without new. ERASE");
+                        trace!("first rendered hunk without new. ERASE");
                         in_rendered += 1;
-                        rendered.erase(buffer, context);
+
+                        // @delta
                         let new_lines = rendered.new_lines as i32;
                         let old_lines = rendered.old_lines as i32;
                         rendered_delta = new_lines - old_lines;
+
+                        rendered.erase(buffer, context);
+                        
                     } else {
                         panic!("UNKNOWN CASE IN RECONCILIATION {} {}", new.header, rendered.header);
                     }
