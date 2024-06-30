@@ -173,7 +173,7 @@ impl Status {
     }
 
     pub fn file_at_cursor(&self) -> Option<&GitFile> {
-        for diff in [&self.staged, &self.unstaged] {
+        for diff in [&self.staged, &self.unstaged, &self.conflicted] {
             if let Some(diff) = diff {
                 let maybe_file = diff.files.iter().find(|f| {
                     f.view.is_current()
