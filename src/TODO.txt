@@ -1,3 +1,12 @@
+BUG: panic
+[INFO  stage] Staged
+thread '<unnamed>' panicked at src/git/remote.rs:317:38:
+called `Result::unwrap()` on an `Err` value: Error { code: -3, klass: 7, message: "config value 'branch.provoke_conflict.remote' was not found" }
+stack backtrace:
+[INFO  stage] Unstaged
+[INFO  stage] main. untracked
+   0: rust_begin_unwind
+
 +++++++++++++++++++++
 for the merge bug. store conflict hunk size for current repo in gsettings. when conflicts are removed
 - cleanup that settings. i've stored something allready per repo!
