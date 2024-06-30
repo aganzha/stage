@@ -1,3 +1,5 @@
+THINK: is it a good idea, that each module (e.g. git::merge) whil contain its own implementation of methods
+required by this module? 
 BUG: panic
 [INFO  stage] Staged
 thread '<unnamed>' panicked at src/git/remote.rs:317:38:
