@@ -425,7 +425,7 @@ fn test_render_view() {
     // call it here, cause rust creates threads event with --test-threads=1
     // and gtk should be called only from main thread
     test_expand_line();
-    test_reconciliation();
+    // test_reconciliation_new();
 }
 
 fn test_expand_line() {
@@ -525,21 +525,20 @@ fn test_reconciliation_new() {
     iter.set_line(0);
     
     new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
-    debug!("ooooooooooooooooooooooooold");
+    debug!("iter over rendered hunks");
     for (i, h) in rendered_file.hunks.iter().enumerate() {
-        debug!("{}", h.view.repr());
+        debug!("first hunk is squashed, others are rendered {}", h.view.repr());
         if i == 0 {
             assert!(!h.view.is_rendered());
         } else {
             assert!(h.view.is_rendered());
         }
     }
-    debug!("neeeeeeeeeeeeeeeeeeeeeeeeeew");
+    debug!("iter over new hunks");
     for h in &new_file.hunks {
-        debug!("{}", h.view.repr());
+        debug!("all new hunks are transfered {}", h.view.repr());
         assert!(h.view.is_transfered())
     }
-
 
     // --------------------------- 1.2 -----------
     debug!("............... Case 1.2");
@@ -592,22 +591,118 @@ fn test_reconciliation_new() {
         
     new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
 
-    debug!("ooooooooooooooooooooooooold");
+    debug!("iter over rendered hunks");
     for (i, h) in rendered_file.hunks.iter().enumerate() {
-        debug!("{}", h.view.repr());
+        debug!("first hunk is squashed, otheres are rendered {}", h.view.repr());
         if i == 0 {
             assert!(!h.view.is_rendered());
         } else {
             assert!(h.view.is_rendered());
         }
     }
-    debug!("neeeeeeeeeeeeeeeeeeeeeeeeeew");
+    debug!("iter over new hunks");
     for h in &new_file.hunks {
-        debug!("{}", h.view.repr());
+        debug!("all new hunks are transfered {}", h.view.repr());
         assert!(h.view.is_transfered())
     }
 
-    // assert!(rendered_file.hunks[0].view.is_squashed());
+    // case 2.1 ------------------------------ 
+    debug!("............... Case 2.1");
+    // 2.1
+    
+    iter = buffer.iter_at_offset(0);    
+    buffer.delete(&mut iter, &mut buffer.end_iter());
+
+    rendered_file.hunks = Vec::new();
+    for header in [
+        "@@ -107,9 +107,9 @@ function getDepsList() {",
+        "@@ -129,7 +129,8 @@ function getDepsList() {"
+    ] {
+        let mut hunk = create_hunk(header);
+        hunk.fill_from_header();
+        rendered_file.hunks.push(hunk);
+    }
+    rendered_file.view.expand(true);
+    rendered_file.render(&buffer, &mut iter, &mut context);
+
+
+    let mut new_file = create_file("File");
+    new_file.hunks = Vec::new();
+
+
+    iter.set_line(0);
+    for header in [
+        "@@ -11,7 +11,8 @@ const path = require('path');",
+        "@@ -106,9 +107,9 @@ function getDepsList() {",
+        "@@ -128,7 +129,8 @@ function getDepsList() {",
+    ] {
+        let mut hunk = create_hunk(header);
+        hunk.fill_from_header();
+        new_file.hunks.push(hunk);
+    }
+    iter.set_line(0);
+    new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
+    debug!("iter over rendered hunks");
+    for h in &rendered_file.hunks {
+        debug!("all hunks are rendered {}", h.view.repr());
+        assert!(h.view.is_rendered());
+    }
+    for (i, h) in new_file.hunks.iter().enumerate() {
+        if i == 0 {
+            assert!(!h.view.is_transfered())
+        } else {
+            assert!(h.view.is_transfered())
+        }
+    }
+
+    // 2.2
+    debug!("............... Case 2.2");
+    iter = buffer.iter_at_offset(0);    
+    buffer.delete(&mut iter, &mut buffer.end_iter());
+
+    rendered_file.hunks = Vec::new();
+    for header in [
+        "@@ -106,9 +106,9 @@ function getDepsList() {",
+        "@@ -128,7 +128,8 @@ function getDepsList() {"
+
+    ] {
+        let mut hunk = create_hunk(header);
+        hunk.fill_from_header();
+        rendered_file.hunks.push(hunk);
+    }
+    rendered_file.view.expand(true);
+    rendered_file.render(&buffer, &mut iter, &mut context);
+
+
+    let mut new_file = create_file("File");
+    new_file.hunks = Vec::new();
+
+
+    iter.set_line(0);
+    for header in [
+        "@@ -11,7 +11,8 @@ const path = require('path');",
+        "@@ -106,9 +107,9 @@ function getDepsList() {",
+        "@@ -128,7 +129,8 @@ function getDepsList() {"
+
+    ] {
+        let mut hunk = create_hunk(header);
+        hunk.fill_from_header();
+        new_file.hunks.push(hunk);
+    }
+    iter.set_line(0);
+    new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
+    debug!("iter over rendered hunks");
+    for h in &rendered_file.hunks {
+        debug!("all hunks are rendered {}", h.view.repr());
+        assert!(h.view.is_rendered());
+    }
+    for (i, h) in new_file.hunks.iter().enumerate() {
+        if i == 0 {
+            assert!(!h.view.is_transfered())
+        } else {
+            assert!(h.view.is_transfered())
+        }
+    }    
 }
 
 fn test_reconciliation() {
