@@ -1,3 +1,7 @@
+BUG: when close commit window  opened from stah - there are no focus in main window! any window, actually. perhaps related to cinnamon or flatpak.
+BUG: checkout 3100. apply debug_linked and choose large hunk. BTW - there are 2 hunks! must be just 1!
+     then manually edit file and refresh. wtf is there? deleted file?
+
 NO BUG: pish branch stage to origin in flat-manager
 [DEBUG stage::git::remote] push_transfer_progress 10 10 26765
 [DEBUG stage::git::remote] updated local references "refs/remotes/origin/stage" 0000000000000000000000000000000000000000 97daef005e2e5fd73a7af3ff86978cf6a37db2fa
