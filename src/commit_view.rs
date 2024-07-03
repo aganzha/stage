@@ -487,7 +487,7 @@ pub fn show_commit_window(
                         let (body, file_path, hunk_header) = match diff.diff.chosen_file_and_hunk() {
                             (Some(file), Some(hunk)) => {
                                 (
-                                    format!("File: {}\nHunk: {}", file.get_content(), hunk.get_content()),
+                                    format!("File: {}\nApplying single hunks is not yet implemented :(", file.get_content()),
                                     Some(file.path.clone()),
                                     Some(hunk.header.clone())
                                 )

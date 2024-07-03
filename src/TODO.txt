@@ -1,3 +1,5 @@
+BUG: black theme on centos: textview is not black
+BUG: pull affect monitors again
 TODO: pull must choose merge vs rebase
 TODO: swap find_annotated_commit in merge to reference_to_annotated_commit to get proper branch name in merge 
 BUG: lost commit e6272a140d85adadf62cf86e475cef25bb68b347. reproduce: create commit/ push to remote: denied: non fast forward.
