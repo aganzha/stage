@@ -1,3 +1,5 @@
+BUG: lost commit e6272a140d85adadf62cf86e475cef25bb68b347. reproduce: create commit/ push to remote: denied: non fast forward.
+pull remote - commit is lost
 BUG: when close commit window  opened from stah - there are no focus in main window! any window, actually. perhaps related to cinnamon or flatpak.
 BUG: checkout 3100. apply debug_linked and choose large hunk. BTW - there are 2 hunks! must be just 1!
      then manually edit file and refresh. wtf is there? deleted file?
