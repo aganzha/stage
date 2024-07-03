@@ -1,3 +1,4 @@
+a local 4
 simple
 BUG: lost commit e6272a140d85adadf62cf86e475cef25bb68b347. reproduce: create commit/ push to remote: denied: non fast forward.
 pull remote - commit is lost
