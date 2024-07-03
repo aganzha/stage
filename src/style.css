@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-// this is original yellow cursor
 /* row:selected { */
 /*     background-color: #f6fecd; /\* mine original  #f6fecd; gnome f9f06b*\/ */
 /* } */
@@ -30,10 +29,12 @@
 /*     text-decoration-color: yellow; */
 /*     color: magenta; */
 /* } */
-#status_view.dark, #commit_view.dark {
-    background-color: @window_bg_color;
-    color: @light_3;
-}
+
+/* #status_view.dark, #commit_view.dark { */
+/*     background-color: @window_bg_color; */
+/*     color: @light_3; */
+/* } */
+
 .nocorners {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
