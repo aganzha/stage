@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::git::{branch::BranchName, get_head, get_upstream, DeferRefresh};
+use crate::git::{branch::{BranchName,BranchData}, get_head, get_upstream, DeferRefresh, merge};
 use async_channel::Sender;
 use git2;
 use log::{debug, trace};
@@ -316,69 +316,72 @@ pub fn pull(
     let branch = git2::Branch::wrap(head_ref);
     let upstream = branch.upstream().unwrap();
 
-    let u_oid = upstream.get().target().unwrap();
-    let mut head_ref = repo.head().expect("can't get head");
-    let log_message = format!(
-        "(HEAD -> {}, {}) HEAD@{0}: pull: Fast-forward",
-        branch.branch_name(),
-        upstream.branch_name()
-    );
+    let branch_data = BranchData::from_branch(upstream, git2::BranchType::Remote).unwrap().unwrap();
+    let result = merge::branch(path, branch_data, sender);    
+    debug!("--------------------------------> {:?}", result);
+    // let u_oid = upstream.get().target().unwrap();
+    // let mut head_ref = repo.head().expect("can't get head");
+    // let log_message = format!(
+    //     "(HEAD -> {}, {}) HEAD@{0}: pull: Fast-forward",
+    //     branch.branch_name(),
+    //     upstream.branch_name()
+    // );
 
-    // think about it! perhaps it need to call merge analysys
-    // during pull! if its fast formard - ok. if not - do merge, please.
-    // see what git suggests:
-    // Pulling without specifying how to reconcile divergent branches is
-    // discouraged. You can squelch this message by running one of the following
-    // commands sometime before your next pull:
+    // // think about it! perhaps it need to call merge analysys
+    // // during pull! if its fast formard - ok. if not - do merge, please.
+    // // see what git suggests:
+    // // Pulling without specifying how to reconcile divergent branches is
+    // // discouraged. You can squelch this message by running one of the following
+    // // commands sometime before your next pull:
 
-    //   git config pull.rebase false  # merge (the default strategy)
-    //   git config pull.rebase true   # rebase
-    //   git config pull.ff only       # fast-forward only
+    // //   git config pull.rebase false  # merge (the default strategy)
+    // //   git config pull.rebase true   # rebase
+    // //   git config pull.ff only       # fast-forward only
 
-    // You can replace "git config" with "git config --global" to set a default
-    // preference for all repositories. You can also pass --rebase, --no-rebase,
-    // or --ff-only on the command line to override the configured default per
-    // invocation.
-    let mut builder = git2::build::CheckoutBuilder::new();
-    let opts = builder.safe();
-    let commit = repo.find_commit(u_oid).expect("can't find commit");
+    // // You can replace "git config" with "git config --global" to set a default
+    // // preference for all repositories. You can also pass --rebase, --no-rebase,
+    // // or --ff-only on the command line to override the configured default per
+    // // invocation.
+    // let mut builder = git2::build::CheckoutBuilder::new();
+    // let opts = builder.safe();
+    // let commit = repo.find_commit(u_oid).expect("can't find commit");
 
-    sender
-        .send_blocking(crate::Event::LockMonitors(true))
-        .expect("can send through channel");
-    let result = repo.checkout_tree(commit.as_object(), Some(opts));
-    sender
-        .send_blocking(crate::Event::LockMonitors(false))
-        .expect("can send through channel");
+    // sender
+    //     .send_blocking(crate::Event::LockMonitors(true))
+    //     .expect("can send through channel");
+    // let result = repo.checkout_tree(commit.as_object(), Some(opts));
+    // sender
+    //     .send_blocking(crate::Event::LockMonitors(false))
+    //     .expect("can send through channel");
 
-    match result {
-        Ok(_) => {
-            head_ref
-                .set_target(u_oid, &log_message)
-                .expect("cant set target");
-            get_head(path.clone(), sender.clone());
-        }
-        Err(err) => {
-            trace!(
-                "errrrrrrrrrrror {:?} {:?} {:?}",
-                err,
-                err.code(),
-                err.class()
-            );
-            match (err.code(), err.class()) {
-                (git2::ErrorCode::Conflict, git2::ErrorClass::Checkout) => {
-                    sender
-                        .send_blocking(crate::Event::CheckoutError(
-                            u_oid,
-                            log_message,
-                            String::from(err.message()),
-                        ))
-                        .expect("cant send through channel")
-                }
-                (code, class) => {
-                    panic!("unknown checkout error {:?} {:?}", code, class)
-                }
-            };
-        }
-    }
+    // match result {
+    //     Ok(_) => {
+    //         head_ref
+    //             .set_target(u_oid, &log_message)
+    //             .expect("cant set target");
+    //         get_head(path.clone(), sender.clone());
+    //     }
+    //     Err(err) => {
+    //         trace!(
+    //             "errrrrrrrrrrror {:?} {:?} {:?}",
+    //             err,
+    //             err.code(),
+    //             err.class()
+    //         );
+    //         match (err.code(), err.class()) {
+    //             (git2::ErrorCode::Conflict, git2::ErrorClass::Checkout) => {
+    //                 sender
+    //                     .send_blocking(crate::Event::CheckoutError(
+    //                         u_oid,
+    //                         log_message,
+    //                         String::from(err.message()),
+    //                     ))
+    //                     .expect("cant send through channel")
+    //             }
+    //             (code, class) => {
+    //                 panic!("unknown checkout error {:?} {:?}", code, class)
+    //             }
+    //         };
+    //     }
+    // }
 }
