@@ -1,3 +1,9 @@
+TODO: spaces!
+TODO: tags!
+TODO: blame - just hit b on filename and introduce Blame section (as conflicted).
+each click on blame opens commit view. then in commit view each hit b on file
+opens blame again!
+NOW: display pull error, please
 TODO: pull must choose merge vs rebase
 TODO: swap find_annotated_commit in merge to reference_to_annotated_commit to get proper branch name in merge 
 BUG: lost commit e6272a140d85adadf62cf86e475cef25bb68b347. reproduce: create commit/ push to remote: denied: non fast forward.
@@ -20,11 +26,10 @@ NO BUG: rename file. it is not renamed in Unstaged, though all content inside is
 after staging everything works just nice.
 BUG: open repo. it will be stored in settings. then delete repo! will have permanent panics of it and now way to delete.
 it need delete when path is not found and show empty view!
+
 TODO: tags, of course
 THINK: is it a good idea, that each module (e.g. git::merge) whil contain its own implementation of methods
-required by this module? 
 BUG: panic
-[INFO  stage] Staged
 thread '<unnamed>' panicked at src/git/remote.rs:317:38:
 called `Result::unwrap()` on an `Err` value: Error { code: -3, klass: 7, message: "config value 'branch.provoke_conflict.remote' was not found" }
 stack backtrace:
