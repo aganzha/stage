@@ -55,70 +55,29 @@ impl Hunk {
         clone
     }
 
-    // hunk
-    pub fn enrich_view(
-        &mut self,
+    // Hunk.
+    pub fn enrich_view(&mut self,
         rendered: &mut Hunk,
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
-    ) {
-        trace!("enriching hunk {} with {}", self.header, rendered.header);
+    ){
         self.view = rendered.transfer_view();
         if !self.view.is_expanded() {
             return
         }
-        // TODO! expanded/collapsed!
-
-
-        // trace!("---------------> NEW");
-        // for line in &self.lines {
-        //     trace!("{}", line.repr("", 5));
-        // }
-        // trace!("");
-        // trace!("---------------> OLD");
-        // for line in &rendered.lines {
-        //     trace!("{}", line.repr("", 5));
-        // }
-        // trace!("");
-        // trace!("GOOOOOOOOOOOOOOOOOOOOO");
-
-        // iter over new lines. normalize line_nos to hunk start.
-        let mut rendered_map:HashMap<(i32, i32), &Line> = HashMap::new();
-
-        for line in &rendered.lines {
-            let mut new: i32 = 0 - 1;
-            let mut old: i32 = 0 - 1;
-            if let Some(new_start) = line.new_line_no {
-                new = (new_start - rendered.new_start) as i32;
-            }
-            if let Some(old_start) = line.old_line_no {
-                old = (old_start - rendered.old_start) as i32;
-            }
-            rendered_map.insert((new, old), &line);
+        let mut last_rendered = 0;
+        self.lines.iter_mut().zip(rendered.lines.iter_mut()).for_each(&mut |lines: (&mut Line, &mut Line)|{
+            trace!("zip on lines {:?} {:?}", context, lines);
+            lines.0.enrich_view(lines.1, context);
+            last_rendered += 1;
+        });
+        if rendered.lines.len() > last_rendered {
+            rendered.lines[last_rendered ..rendered.lines.len()].iter().for_each(|line| {
+                trace!("erase line{:?}", line);
+                line.erase(buffer, context);
+            });
         }
-        for line in &mut self.lines {
-            let mut new: i32 = 0 - 1;
-            let mut old: i32 = 0 - 1;
-            if let Some(new_start) = line.new_line_no {
-                new = (new_start - self.new_start) as i32;
-            }
-            if let Some(old_start) = line.old_line_no {
-                old = (old_start - self.old_start) as i32;
-            }
-            if let Some(old_line) = rendered_map.remove(&(new, old)) {
-                trace!("{}", line.repr("ENRICH", 5));
-                line.enrich_view(old_line, context);
-            } else {
-                trace!("{}", line.repr("NEW", 5));
-            }
-        }
-        let mut srt = rendered_map.into_iter().map(|x|x).collect::<Vec<((i32, i32), &Line)>>();
-        srt.sort_by(|x, y| x.0.cmp(&y.0));
-        for (_, line) in  &srt {
-            trace!("{}", line.repr("ERASE", 5));
-            line.erase(buffer, context);
-        }
-    }
+    }    
 }
 
 impl File {
