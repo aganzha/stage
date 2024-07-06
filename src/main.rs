@@ -140,7 +140,6 @@ pub enum Event {
     CommitDiff(commit::CommitDiff),
     PushUserPass(String, bool),
     PullUserPass,
-    CheckoutError(Oid, String, String),
     LockMonitors(bool),
     StoreSettings(String, String),
     OpenEditor,
@@ -605,17 +604,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     status.push(&window, Some((remote, tracking, true)))
                 }
                 Event::PullUserPass => {
+                    // does it used? yes.
+                    // just pulling via ssh.
                     info!("main. userpass");
                     status.pull(&window, Some(true))
-                }
-                Event::CheckoutError(oid, ref_message, error_message) => {
-                    info!("main. checkout error");
-                    status.checkout_error(
-                        &window,
-                        oid,
-                        ref_message,
-                        error_message,
-                    )
                 }
                 Event::LockMonitors(lock) => {
                     info!("main. lock monitors {}", lock);

@@ -480,10 +480,16 @@ impl Status {
                         ));
                     }
                 }
-                gio::spawn_blocking({
+                let result = gio::spawn_blocking({
                     move || {
-                        remote::pull(path, sender, user_pass);
+                        remote::pull(path, sender, user_pass)
                     }
+                }).await.unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(())
+                }).unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                    ()
                 });
             }
         });
@@ -599,7 +605,7 @@ impl Status {
                         .unwrap_or_else(|e| {
                             alert(format!("{:?}", e)).present(&window);
                             Ok(())
-                        })
+                        })                            
                         .unwrap_or_else(|e| {
                             alert(e).present(&window);
                         });
@@ -1380,106 +1386,5 @@ impl Status {
         let iter = buffer.iter_at_offset(me);
         let (y, height) = txt.line_yrange(&iter);
         debug!("and thats me on line {:?} y {:?} height {:?}", iter.line(), y, height);
-
-        
-    }
-
-    pub fn checkout_error(
-        &mut self,
-        window: &ApplicationWindow,
-        oid: crate::Oid,
-        ref_log_msg: String,
-        err_msg: String,
-    ) {
-        glib::spawn_future_local({
-            let window = window.clone();
-            let sender = self.sender.clone();
-            let path = self.path.clone();
-            async move {
-                let bx = Box::builder()
-                    .orientation(Orientation::Vertical)
-                    .margin_top(2)
-                    .margin_bottom(2)
-                    .margin_start(2)
-                    .margin_end(2)
-                    .spacing(12)
-                    .build();
-                let label = GtkLabel::builder().label(&err_msg).build();
-
-                let lb = ListBox::builder()
-                    .selection_mode(SelectionMode::None)
-                    .css_classes(vec![String::from("boxed-list")])
-                    .build();
-                let stash = SwitchRow::builder()
-                    .title("Stash changes and checkout")
-                    .css_classes(vec!["input_field"])
-                    .active(true)
-                    .build();
-                let conflicts = SwitchRow::builder()
-                    .title("Checkout with conflicts")
-                    .css_classes(vec!["input_field"])
-                    .active(false)
-                    .build();
-                lb.append(&stash);
-                lb.append(&conflicts);
-                let _bind = stash
-                    .bind_property("active", &conflicts, "active")
-                    .transform_to(move |_, value: bool| Some(!value))
-                    //.bidirectional()
-                    .build();
-                let _bind = conflicts
-                    .bind_property("active", &stash, "active")
-                    .transform_to(move |_, value: bool| Some(!value))
-                    //.bidirectional()
-                    .build();
-                bx.append(&label);
-                bx.append(&lb);
-
-                let dialog = crate::confirm_dialog_factory(
-                    &window,
-                    Some(&bx),
-                    "Checkout error ",
-                    "Proceed",
-                );
-                let response = dialog.choose_future().await;
-                if "confirm" != response {
-                    return;
-                }
-                let stash = stash.is_active();
-                gio::spawn_blocking({
-                    let path = path.clone().expect("no path");
-                    let sender = sender.clone();
-                    move || {
-                        if stash {
-                            stash::stash(
-                                path.clone(),
-                                ref_log_msg.clone(),
-                                true,
-                                sender.clone(),
-                            );
-                        }
-                        // DOES NOT WORK! if local branch has commits diverged from upstream
-                        // all commit become lost! because you simple checkout ortogonal tree
-                        // and put head on it! IT NEED TO MERGE upstream branch of course!
-                        // think about it! perhaps it need to call merge analysys
-                        // during pull! if its fast formard - ok. if not - do merge, please.
-                        // see what git suggests:
-                        // Pulling without specifying how to reconcile divergent branches is
-                        // discouraged. You can squelch this message by running one of the following
-                        // commands sometime before your next pull:
-
-                        //   git config pull.rebase false  # merge (the default strategy)
-                        //   git config pull.rebase true   # rebase
-                        //   git config pull.ff only       # fast-forward only
-
-                        // You can replace "git config" with "git config --global" to set a default
-                        // preference for all repositories. You can also pass --rebase, --no-rebase,
-                        // or --ff-only on the command line to override the configured default per
-                        // invocation.
-                        checkout_oid(path, sender, oid, Some(ref_log_msg));
-                    }
-                });
-            }
-        });
     }
 }
