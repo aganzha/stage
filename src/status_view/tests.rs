@@ -11,9 +11,9 @@ use git2::DiffLineType;
 use gtk4::prelude::*;
 use gtk4::TextBuffer;
 use log::debug;
+use regex::Regex;
 use std::cell::Cell;
 use std::sync::Once;
-use regex::Regex;
 
 static INIT: Once = Once::new();
 
@@ -27,10 +27,13 @@ pub fn initialize() {
 impl Hunk {
     // used in tests only
     pub fn fill_from_header(&mut self) {
-        let re = Regex::new(r"@@ [+-]([0-9]+),([0-9]+) [+-]([0-9]+),([0-9]+) @@")
-            .unwrap();
-        if let Some((_, [old_start_s, old_lines_s, new_start_s, new_lines_s])) =
-            re.captures_iter(&self.header).map(|c| c.extract()).next()
+        let re =
+            Regex::new(r"@@ [+-]([0-9]+),([0-9]+) [+-]([0-9]+),([0-9]+) @@")
+                .unwrap();
+        if let Some((
+            _,
+            [old_start_s, old_lines_s, new_start_s, new_lines_s],
+        )) = re.captures_iter(&self.header).map(|c| c.extract()).next()
         {
             self.old_start = old_start_s.parse().expect("cant parse nums");
             self.old_lines = old_lines_s.parse().expect("cant parse nums");
@@ -65,7 +68,7 @@ fn create_hunk(name: &str) -> Hunk {
     hunk.header = name.to_string();
     for i in 0..3 {
         let content = format!("{} -> line {}", hunk.header, i);
-        hunk.handle_max(&content);      
+        hunk.handle_max(&content);
         hunk.lines.push(create_line(i, &content));
     }
     hunk
@@ -521,7 +524,7 @@ fn test_reconciliation_new() {
 
     let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
-    
+
     for header in [
         "@@ -11,7 +11,8 @@ const path = require('path');",
         "@@ -106,9 +107,9 @@ function getDepsList() {",
@@ -534,24 +537,27 @@ fn test_reconciliation_new() {
     rendered_file.view.expand(true);
     rendered_file.render(&buffer, &mut iter, &mut context);
 
-    // 1.1    
+    // 1.1
     let mut new_file = create_file("File");
     new_file.hunks = Vec::new();
 
     for header in [
         "@@ -106,9 +106,9 @@ function getDepsList() {",
-        "@@ -128,7 +128,8 @@ function getDepsList() {"
+        "@@ -128,7 +128,8 @@ function getDepsList() {",
     ] {
         let mut hunk = create_hunk(header);
         hunk.fill_from_header();
         new_file.hunks.push(hunk);
     }
     iter.set_line(0);
-    
+
     new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
     debug!("iter over rendered hunks");
     for (i, h) in rendered_file.hunks.iter().enumerate() {
-        debug!("first hunk is squashed, others are rendered {}", h.view.repr());
+        debug!(
+            "first hunk is squashed, others are rendered {}",
+            h.view.repr()
+        );
         if i == 0 {
             // TODO when introduce new mass erase (erase without render) it will need to
             // check other criteria, not rendered!
@@ -583,11 +589,11 @@ fn test_reconciliation_new() {
     // --------------------------- 1.2 -----------
     debug!("............... Case 1.2");
     iter = buffer.iter_at_offset(0);
-    
+
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
     rendered_file.hunks = Vec::new();
-    
+
     for header in [
         "@@ -11,7 +11,8 @@ const path = require('path');",
         "@@ -106,9 +107,9 @@ function getDepsList() {",
@@ -599,13 +605,12 @@ fn test_reconciliation_new() {
     }
     rendered_file.view.expand(true);
     rendered_file.render(&buffer, &mut iter, &mut context);
-            
+
     new_file.hunks = Vec::new();
 
     for header in [
         "@@ -107,9 +107,9 @@ function getDepsList() {",
-        "@@ -129,7 +129,8 @@ function getDepsList() {"
-
+        "@@ -129,7 +129,8 @@ function getDepsList() {",
     ] {
         let mut hunk = create_hunk(header);
         hunk.fill_from_header();
@@ -613,7 +618,7 @@ fn test_reconciliation_new() {
     }
 
     rendered_file.hunks = Vec::new();
-    
+
     for header in [
         "@@ -11,7 +11,8 @@ const path = require('path');",
         "@@ -106,9 +107,9 @@ function getDepsList() {",
@@ -624,16 +629,18 @@ fn test_reconciliation_new() {
         rendered_file.hunks.push(hunk);
     }
     iter.set_line(0);
-    
+
     rendered_file.view.expand(true);
     rendered_file.render(&buffer, &mut iter, &mut context);
 
-        
     new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
 
     debug!("iter over rendered hunks");
     for (i, h) in rendered_file.hunks.iter().enumerate() {
-        debug!("first hunk is squashed, otheres are rendered {}", h.view.repr());
+        debug!(
+            "first hunk is squashed, otheres are rendered {}",
+            h.view.repr()
+        );
         if i == 0 {
             // TODO when introduce new mass erase (erase without render) it will need to
             // check other criteria, not rendered!
@@ -662,18 +669,18 @@ fn test_reconciliation_new() {
             assert!(line.view.is_transfered());
         }
     }
-    
-    // case 2.1 ------------------------------ 
+
+    // case 2.1 ------------------------------
     debug!("............... Case 2.1");
     // 2.1
-    
-    iter = buffer.iter_at_offset(0);    
+
+    iter = buffer.iter_at_offset(0);
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
     rendered_file.hunks = Vec::new();
     for header in [
         "@@ -107,9 +107,9 @@ function getDepsList() {",
-        "@@ -129,7 +129,8 @@ function getDepsList() {"
+        "@@ -129,7 +129,8 @@ function getDepsList() {",
     ] {
         let mut hunk = create_hunk(header);
         hunk.fill_from_header();
@@ -681,7 +688,6 @@ fn test_reconciliation_new() {
     }
     rendered_file.view.expand(true);
     rendered_file.render(&buffer, &mut iter, &mut context);
-
 
     let mut new_file = create_file("File");
     new_file.hunks = Vec::new();
@@ -716,14 +722,13 @@ fn test_reconciliation_new() {
 
     // 2.2
     debug!("............... Case 2.2");
-    iter = buffer.iter_at_offset(0);    
+    iter = buffer.iter_at_offset(0);
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
     rendered_file.hunks = Vec::new();
     for header in [
         "@@ -106,9 +106,9 @@ function getDepsList() {",
-        "@@ -128,7 +128,8 @@ function getDepsList() {"
-
+        "@@ -128,7 +128,8 @@ function getDepsList() {",
     ] {
         let mut hunk = create_hunk(header);
         hunk.fill_from_header();
@@ -732,17 +737,14 @@ fn test_reconciliation_new() {
     rendered_file.view.expand(true);
     rendered_file.render(&buffer, &mut iter, &mut context);
 
-
     let mut new_file = create_file("File");
     new_file.hunks = Vec::new();
-
 
     iter.set_line(0);
     for header in [
         "@@ -11,7 +11,8 @@ const path = require('path');",
         "@@ -106,9 +107,9 @@ function getDepsList() {",
-        "@@ -128,7 +129,8 @@ function getDepsList() {"
-
+        "@@ -128,7 +129,8 @@ function getDepsList() {",
     ] {
         let mut hunk = create_hunk(header);
         hunk.fill_from_header();
@@ -768,7 +770,7 @@ fn test_reconciliation_new() {
 
     // -------------------- case 3 - different number of lines
     debug!("case 3");
-    iter = buffer.iter_at_offset(0);    
+    iter = buffer.iter_at_offset(0);
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
     rendered_file.hunks = Vec::new();
@@ -793,7 +795,6 @@ fn test_reconciliation_new() {
         assert!(line.view.is_transfered());
     }
 }
-
 
 #[test]
 fn test_tags() {

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::git::{branch::{BranchData}, get_upstream, DeferRefresh, merge};
+use crate::git::{branch::BranchData, get_upstream, merge, DeferRefresh};
 use async_channel::Sender;
 use git2;
 use log::{debug, trace};
@@ -275,12 +275,11 @@ pub fn pull(
     path: PathBuf,
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
-) -> Result<(), git2::Error>{
+) -> Result<(), git2::Error> {
     let defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
-     // TODO here is hardcode
-    let mut remote = repo
-        .find_remote("origin")?;
+    // TODO here is hardcode
+    let mut remote = repo.find_remote("origin")?;
     let head_ref = repo.head()?;
 
     let mut opts = git2::FetchOptions::new();
@@ -308,14 +307,16 @@ pub fn pull(
     set_remote_callbacks(&mut callbacks, &user_pass);
     opts.remote_callbacks(callbacks);
 
-    remote
-        .fetch(&[head_ref.name().unwrap()], Some(&mut opts), None)?;
+    remote.fetch(&[head_ref.name().unwrap()], Some(&mut opts), None)?;
 
     assert!(head_ref.is_branch());
     let branch = git2::Branch::wrap(head_ref);
     let upstream = branch.upstream().unwrap();
 
-    let branch_data = BranchData::from_branch(upstream, git2::BranchType::Remote).unwrap().unwrap();
+    let branch_data =
+        BranchData::from_branch(upstream, git2::BranchType::Remote)
+            .unwrap()
+            .unwrap();
     merge::branch(path.clone(), branch_data, sender.clone(), Some(defer))?;
     Ok(())
 }

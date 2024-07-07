@@ -5,7 +5,7 @@
 use async_channel::Sender;
 
 use crate::dialogs::{alert, ConfirmDialog, YES};
-use crate::git::{branch, commit, merge, remote, rebase};
+use crate::git::{branch, commit, merge, rebase, remote};
 use git2::BranchType;
 use glib::{clone, closure, Object};
 use gtk4::prelude::*;
@@ -356,34 +356,34 @@ impl BranchList {
 
         glib::spawn_future_local({
             clone!(@weak self as branch_list,
-                   @weak window as window,
-                   @strong selected_branch as branch_data => async move {
-                       let dialog = crate::confirm_dialog_factory(
-                           &window,
-                           Some(&Label::new(Some(&title))),
-                           "Rebase",
-                           "Rebase"
-                       );
-                       let result = dialog.choose_future().await;
-                       if "confirm" != result {
-                           return;
-                       }
-                       let result = gio::spawn_blocking(move || {
-                           rebase(repo_path, branch_data.oid, None, sender)
-                       }).await.unwrap_or_else(|e| {
-                           debug!("--------------------> {:?}", e.type_id());
-                           alert(format!("{:?}", e)).present(&window);
-                           Ok(false)
-                       }).unwrap_or_else(|e| {
-                           alert(e).present(&window);
-                           false
-                       });
-                       debug!("rrrrrrrrrrrrrrrrrrrr {:?}", result);
-                       window.close();
-                   })
+            @weak window as window,
+            @strong selected_branch as branch_data => async move {
+                let dialog = crate::confirm_dialog_factory(
+                    &window,
+                    Some(&Label::new(Some(&title))),
+                    "Rebase",
+                    "Rebase"
+                );
+                let result = dialog.choose_future().await;
+                if "confirm" != result {
+                    return;
+                }
+                let result = gio::spawn_blocking(move || {
+                    rebase(repo_path, branch_data.oid, None, sender)
+                }).await.unwrap_or_else(|e| {
+                    debug!("--------------------> {:?}", e.type_id());
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(false)
+                }).unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                    false
+                });
+                debug!("rrrrrrrrrrrrrrrrrrrr {:?}", result);
+                window.close();
+            })
         });
     }
-    
+
     pub fn merge(
         &self,
         repo_path: PathBuf,
@@ -432,7 +432,7 @@ impl BranchList {
             })
         });
     }
-    
+
     pub fn kill_branch(
         &self,
         repo_path: PathBuf,
@@ -580,11 +580,14 @@ impl BranchList {
         });
     }
 
-    fn add_new_branch_item(&self, branch_data: branch::BranchData, need_checkout: bool) {
+    fn add_new_branch_item(
+        &self,
+        branch_data: branch::BranchData,
+        need_checkout: bool,
+    ) {
         debug!(
             "add_new_branch_item {:?} {:?}",
-            branch_data.is_head,
-            branch_data.name
+            branch_data.is_head, branch_data.name
         );
         self.imp()
             .original_list
@@ -602,7 +605,6 @@ impl BranchList {
         }
 
         self.update_head_branch(branch_data);
-            
 
         self.items_changed(0, 0, 1);
 
@@ -987,7 +989,7 @@ pub fn headerbar_factory(
         .sensitive(false)
         .can_shrink(true)
         .build();
-    
+
     let _ = branch_list
         .bind_property("selected-pos", &merge_btn, "sensitive")
         .transform_to(set_sensitive)
@@ -1020,7 +1022,7 @@ pub fn headerbar_factory(
         let repo_path = repo_path.clone();
         move |_| branch_list.rebase(repo_path.clone(), &window, sender.clone())
     });
-    
+
     let refresh_btn = Button::builder()
         .label("Update remote")
         .icon_name("view-refresh-symbolic")

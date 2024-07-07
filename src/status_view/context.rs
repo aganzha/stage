@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-
 use crate::{DiffKind, LineKind};
-
 
 use std::cell::RefCell;
 use std::rc::Rc;

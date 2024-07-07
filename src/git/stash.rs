@@ -64,8 +64,7 @@ pub fn stash(
     sender: Sender<crate::Event>,
 ) -> Result<Option<Stashes>, git2::Error> {
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, false);
-    let mut repo =
-        git2::Repository::open(path.clone())?;
+    let mut repo = git2::Repository::open(path.clone())?;
     let me = repo.signature()?;
     let flags = if stash_staged {
         git2::StashFlags::empty()

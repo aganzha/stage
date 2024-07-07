@@ -8,17 +8,18 @@ use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::{
     container::{ViewContainer, ViewKind},
     render::View,
-    stage_view::{StageView},
+    stage_view::StageView,
     Label as TextViewLabel,
 };
-use crate::{Event};
+use crate::Event;
 use async_channel::Sender;
 use git2::Oid;
 use std::cell::RefCell;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, Widget, Window as Gtk4Window,
+    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, Widget,
+    Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -27,16 +28,11 @@ use log::{debug, info, trace};
 use std::path::PathBuf;
 use std::rc::Rc;
 
-async fn git_oid_op<F>(
-    dialog: ConfirmDialog,
-    window: impl IsA<Widget>,
-    op: F,
-) where
+async fn git_oid_op<F>(dialog: ConfirmDialog, window: impl IsA<Widget>, op: F)
+where
     F: FnOnce() -> Result<(), git2::Error> + Send + 'static,
 {
-    let response = alert(dialog)
-        .choose_future(&window)
-        .await;
+    let response = alert(dialog).choose_future(&window).await;
     if response != YES {
         return;
     }
@@ -87,15 +83,27 @@ pub fn headerbar_factory(
             let window = window.clone();
             if let Some(num) = stash_num {
                 glib::spawn_future_local({
-                    git_oid_op(ConfirmDialog("Apply stash?".to_string(), "".to_string()), window, move || {
-                        stash::apply(path, num, None, None, sender)
-                    })
+                    git_oid_op(
+                        ConfirmDialog(
+                            "Apply stash?".to_string(),
+                            "".to_string(),
+                        ),
+                        window,
+                        move || stash::apply(path, num, None, None, sender),
+                    )
                 });
             } else {
                 glib::spawn_future_local({
-                    git_oid_op(ConfirmDialog("Cherry pick commit?".to_string(), "".to_string()), window, move || {
-                        commit::cherry_pick(path, oid, None, None, sender)
-                    })
+                    git_oid_op(
+                        ConfirmDialog(
+                            "Cherry pick commit?".to_string(),
+                            "".to_string(),
+                        ),
+                        window,
+                        move || {
+                            commit::cherry_pick(path, oid, None, None, sender)
+                        },
+                    )
                 });
             }
         }
@@ -117,9 +125,14 @@ pub fn headerbar_factory(
                 let path = repo_path.clone();
                 let window = window.clone();
                 glib::spawn_future_local({
-                    git_oid_op(ConfirmDialog("Revert commit?".to_string(), "".to_string()), window, move || {
-                        commit::revert(path, oid, None, None, sender)
-                    })
+                    git_oid_op(
+                        ConfirmDialog(
+                            "Revert commit?".to_string(),
+                            "".to_string(),
+                        ),
+                        window,
+                        move || commit::revert(path, oid, None, None, sender),
+                    )
                 });
             }
         });
@@ -340,7 +353,8 @@ pub fn show_commit_window(
         let window = window.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
-                (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) | (gdk::Key::Escape, _) => {
+                (gdk::Key::w, gdk::ModifierType::CONTROL_MASK)
+                | (gdk::Key::Escape, _) => {
                     window.close();
                 }
                 _ => {}
@@ -356,7 +370,6 @@ pub fn show_commit_window(
 
     let path = repo_path.clone();
 
-    
     glib::spawn_future_local({
         let window = window.clone();
         let sender = sender.clone();
@@ -387,7 +400,6 @@ pub fn show_commit_window(
         TextViewLabel::from_string(""),
         TextViewLabel::from_string(""),
     ];
-
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
@@ -472,7 +484,9 @@ pub fn show_commit_window(
                         d.render(&txt, &mut ctx, &mut labels, &mut body_label);
                     }
                 }
-                Event::Stage(_, _) | Event::UnStage(_, _) | Event::RepoPopup => {
+                Event::Stage(_, _)
+                | Event::UnStage(_, _)
+                | Event::RepoPopup => {
                     info!("Stage/Unstage ot r pressed");
                     if let Some(diff) = &diff {
                         let title = if stash_num.is_some() {
@@ -480,7 +494,7 @@ pub fn show_commit_window(
                         } else {
                             match event {
                                 Event::Stage(_, _) => "Cherry pick",
-                                _ => "Revert"
+                                _ => "Revert",
                             }
                         };
 
@@ -514,21 +528,46 @@ pub fn show_commit_window(
                         let sender = main_sender.clone();
                         let window = window.clone();
                         glib::spawn_future_local({
-                            git_oid_op(ConfirmDialog(title.to_string(), body.to_string()), window, move || {
-                                match event {
+                            git_oid_op(
+                                ConfirmDialog(
+                                    title.to_string(),
+                                    body.to_string(),
+                                ),
+                                window,
+                                move || match event {
                                     Event::Stage(_, _) => {
                                         if let Some(stash_num) = stash_num {
-                                            stash::apply(path, stash_num, file_path, hunk_header, sender)
+                                            stash::apply(
+                                                path,
+                                                stash_num,
+                                                file_path,
+                                                hunk_header,
+                                                sender,
+                                            )
                                         } else {
-                                            commit::cherry_pick(path, oid, file_path, hunk_header, sender)
-                                        }                                    
+                                            commit::cherry_pick(
+                                                path,
+                                                oid,
+                                                file_path,
+                                                hunk_header,
+                                                sender,
+                                            )
+                                        }
                                     }
-                                    _ => commit::revert(path, oid, file_path, hunk_header, sender)
-                                }
-                                                                
-                            })
+                                    _ => commit::revert(
+                                        path,
+                                        oid,
+                                        file_path,
+                                        hunk_header,
+                                        sender,
+                                    ),
+                                },
+                            )
                         });
-                        debug!("++++++++++++++++++++++++ {:?} {:?}", title, body);
+                        debug!(
+                            "++++++++++++++++++++++++ {:?} {:?}",
+                            title, body
+                        );
                     }
                 }
                 _ => {

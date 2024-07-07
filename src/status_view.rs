@@ -6,11 +6,11 @@ pub mod commit;
 pub mod container;
 pub mod context;
 pub mod headerbar;
-pub mod tags;
-pub mod stage_view;
 pub mod monitor;
+pub mod stage_view;
+pub mod tags;
 use crate::dialogs::{alert, DangerDialog, YES};
-use crate::git::{merge, remote, stash, abort_rebase, continue_rebase};
+use crate::git::{abort_rebase, continue_rebase, merge, remote, stash};
 use crate::utils::StrPath;
 
 use container::ViewContainer;
@@ -24,35 +24,29 @@ pub mod tests;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::io::{Write, ErrorKind};
 
 use crate::status_view::render::View;
 use crate::{
-    get_current_repo_status,
-    stage_untracked, stage_via_apply, StageOp, Diff,
-    Event, File as GitFile, Head, State, StatusRenderContext, Untracked,
+    get_current_repo_status, stage_untracked, stage_via_apply, Diff, Event,
+    File as GitFile, Head, StageOp, State, StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
 
-use gio::{
-    FileMonitor,
-};
+use gio::FileMonitor;
 
+use chrono::{offset::Utc, DateTime};
 use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
-use gtk4::{
-    gio, glib, ListBox, SelectionMode,
-    TextBuffer, TextIter, Widget,
-};
+use gtk4::{gio, glib, ListBox, SelectionMode, TextBuffer, TextIter, Widget};
 use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, Banner, EntryRow, PasswordEntryRow, SwitchRow,
 };
-use chrono::{DateTime, offset::Utc};
-use log::{info, trace, debug};
+use log::{debug, info, trace};
 
 impl State {
     pub fn title_for_proceed_banner(&self) -> String {
@@ -130,7 +124,6 @@ pub struct Status {
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
     pub settings: gio::Settings,
-
 }
 
 impl Status {
@@ -265,7 +258,7 @@ impl Status {
             }
         }
         self.path.replace(path.clone());
-    }    
+    }
 
     pub fn update_stashes(&mut self, stashes: stash::Stashes) {
         self.stashes.replace(stashes);
@@ -358,15 +351,15 @@ impl Status {
                     }
                 }
                 gio::spawn_blocking({
-                    move || {
-                        remote::pull(path, sender, user_pass)
-                    }
-                }).await.unwrap_or_else(|e| {
+                    move || remote::pull(path, sender, user_pass)
+                })
+                .await
+                .unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(&window);
                     Ok(())
-                }).unwrap_or_else(|e| {
+                })
+                .unwrap_or_else(|e| {
                     alert(e).present(&window);
-                    
                 });
             }
         });
@@ -482,7 +475,7 @@ impl Status {
                         .unwrap_or_else(|e| {
                             alert(format!("{:?}", e)).present(&window);
                             Ok(())
-                        })                            
+                        })
                         .unwrap_or_else(|e| {
                             alert(e).present(&window);
                         });
@@ -581,8 +574,7 @@ impl Status {
         let str_path = repo_path.as_str();
         if let Some(ignored) = settings.get_mut(str_path) {
             untracked.files.retain(|f| {
-                let str_path = f
-                    .path.as_str();
+                let str_path = f.path.as_str();
                 !ignored.contains(&str_path.to_string())
             });
         }
@@ -604,14 +596,16 @@ impl Status {
         banner_button_clicked: Rc<RefCell<Option<SignalHandlerId>>>,
         context: &mut StatusRenderContext,
     ) {
-
-        if !diff.is_empty() && !diff.has_conflicts() && !self.conflicted_label.content.contains("resolved") {
+        if !diff.is_empty()
+            && !diff.has_conflicts()
+            && !self.conflicted_label.content.contains("resolved")
+        {
             self.conflicted_label.content = String::from("<span weight=\"bold\"\
                                                           color=\"#1c71d8\">Conflicts resolved</span> \
                                                           stage changes to complete merge");
             // both dirty and transfer is required.
             // only dirty means TagsModified state in render
-            
+
             self.conflicted_label.view.dirty(true);
             self.conflicted_label.view.transfer(true);
         }
@@ -632,13 +626,11 @@ impl Status {
                 if state.need_final_commit() || state.need_rebase_continue() {
                     banner.set_title(&state.title_for_proceed_banner());
                     banner.set_css_classes(&["success"]);
-                    banner.set_button_label(
-                        if state.need_final_commit() {
-                            Some("Commit")
-                        } else {
-                            Some("Continue")
-                        }
-                    );
+                    banner.set_button_label(if state.need_final_commit() {
+                        Some("Commit")
+                    } else {
+                        Some("Continue")
+                    });
                     banner_button.set_css_classes(&["suggested-action"]);
                     banner.set_revealed(true);
                     if let Some(handler_id) = banner_button_clicked.take() {
@@ -656,24 +648,23 @@ impl Status {
                             glib::spawn_future_local({
                                 async move {
                                     gio::spawn_blocking({
-                                        move || {
-                                            match state {
-                                                RepositoryState::Merge =>
-                                                    merge::final_merge_commit(
-                                                        path.clone().unwrap(),
-                                                        sender,
-                                                    ),
-                                                RepositoryState::RebaseMerge =>
-                                                    continue_rebase(
-                                                        path.clone().unwrap(),
-                                                        sender,
-                                                    ),
-                                                _ => merge::final_commit(
+                                        move || match state {
+                                            RepositoryState::Merge => {
+                                                merge::final_merge_commit(
                                                     path.clone().unwrap(),
                                                     sender,
                                                 )
-
                                             }
+                                            RepositoryState::RebaseMerge => {
+                                                continue_rebase(
+                                                    path.clone().unwrap(),
+                                                    sender,
+                                                )
+                                            }
+                                            _ => merge::final_commit(
+                                                path.clone().unwrap(),
+                                                sender,
+                                            ),
                                         }
                                     })
                                     .await
@@ -708,11 +699,15 @@ impl Status {
                         gio::spawn_blocking({
                             let sender = sender.clone();
                             let path = path.clone();
-                            move || {
-                                match state {
-                                    RepositoryState::RebaseMerge => abort_rebase(path.expect("no path"), sender),
-                                    _ => merge::abort(path.expect("no path"), sender)
-                                }
+                            move || match state {
+                                RepositoryState::RebaseMerge => abort_rebase(
+                                    path.expect("no path"),
+                                    sender,
+                                ),
+                                _ => merge::abort(
+                                    path.expect("no path"),
+                                    sender,
+                                ),
                             }
                         });
                     }
@@ -759,21 +754,22 @@ impl Status {
         self.render(txt, RenderSource::GitDiff, context);
     }
 
-    pub fn resize_highlights(&self, txt: &StageView, ctx: &mut StatusRenderContext) {
+    pub fn resize_highlights(
+        &self,
+        txt: &StageView,
+        ctx: &mut StatusRenderContext,
+    ) {
         let buffer = txt.buffer();
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         self.cursor(txt, iter.line(), iter.offset(), ctx);
-        glib::source::timeout_add_local(
-            Duration::from_millis(10),
-            {
-                let txt = txt.clone();
-                let ctx = ctx.clone();
-                move || {
-                    txt.bind_highlights(&ctx);
-                    glib::ControlFlow::Break
-                }
-            },
-        );
+        glib::source::timeout_add_local(Duration::from_millis(10), {
+            let txt = txt.clone();
+            let ctx = ctx.clone();
+            move || {
+                txt.bind_highlights(&ctx);
+                glib::ControlFlow::Break
+            }
+        });
     }
 
     /// cursor does not change structure, but changes highlights
@@ -1071,7 +1067,9 @@ impl Status {
                                     } else {
                                         // this should be never called
                                         // conflicts are resolved in branch above
-                                        info!("cleanup_last_conflict_for_file");
+                                        info!(
+                                            "cleanup_last_conflict_for_file"
+                                        );
                                         gio::spawn_blocking({
                                             move || {
                                                 merge::cleanup_last_conflict_for_file(
@@ -1154,7 +1152,8 @@ impl Status {
         let (file, hunk) = diff.chosen_file_and_hunk();
         if file.is_none() {
             info!("no file to stage");
-            self.sender.send_blocking(Event::Toast(String::from("No file to stage")))
+            self.sender
+                .send_blocking(Event::Toast(String::from("No file to stage")))
                 .expect("cant send through sender");
             return;
         }
@@ -1210,10 +1209,8 @@ impl Status {
         path.push(DUMP_DIR);
         let create_result = std::fs::create_dir(&path);
         match create_result {
-            Ok(_) => {
-            },
-            Err(err) => if err.kind() == ErrorKind::AlreadyExists {
-            }
+            Ok(_) => {}
+            Err(err) => if err.kind() == ErrorKind::AlreadyExists {},
             Err(err) => {
                 panic!("Error {}", err);
             }
@@ -1234,23 +1231,34 @@ impl Status {
         let end_iter = buffer.end_iter();
         let content = buffer.text(&iter, &end_iter, true);
         file.write_all(content.as_bytes()).unwrap();
-        file.write_all("\n ================================= \n".as_bytes()).unwrap();
-        file.write_all(format!("context: {:?}", context).as_bytes()).unwrap();
+        file.write_all("\n ================================= \n".as_bytes())
+            .unwrap();
+        file.write_all(format!("context: {:?}", context).as_bytes())
+            .unwrap();
         if let Some(conflicted) = &self.conflicted {
-            file.write_all("\n ==============Coflicted================= \n".as_bytes()).unwrap();
+            file.write_all(
+                "\n ==============Coflicted================= \n".as_bytes(),
+            )
+            .unwrap();
             file.write_all(conflicted.dump().as_bytes()).unwrap();
         }
         if let Some(unstaged) = &self.unstaged {
-            file.write_all("\n ==============UnStaged================= \n".as_bytes()).unwrap();
+            file.write_all(
+                "\n ==============UnStaged================= \n".as_bytes(),
+            )
+            .unwrap();
             file.write_all(unstaged.dump().as_bytes()).unwrap();
         }
         if let Some(staged) = &self.staged {
-            file.write_all("\n ==============Staged================= \n".as_bytes()).unwrap();
+            file.write_all(
+                "\n ==============Staged================= \n".as_bytes(),
+            )
+            .unwrap();
             file.write_all(staged.dump().as_bytes()).unwrap();
-        }        
-        self.sender.send_blocking(Event::Toast(String::from("dumped")))
+        }
+        self.sender
+            .send_blocking(Event::Toast(String::from("dumped")))
             .expect("cant send through sender");
-
     }
     pub fn debug(
         &mut self,
@@ -1270,6 +1278,11 @@ impl Status {
         let me = buffer.cursor_position();
         let iter = buffer.iter_at_offset(me);
         let (y, height) = txt.line_yrange(&iter);
-        debug!("and thats me on line {:?} y {:?} height {:?}", iter.line(), y, height);
+        debug!(
+            "and thats me on line {:?} y {:?} height {:?}",
+            iter.line(),
+            y,
+            height
+        );
     }
 }

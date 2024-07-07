@@ -4,14 +4,11 @@
 
 use crate::status_view::render::View;
 use crate::status_view::ViewContainer;
-use crate::{
-    Diff, File, Head, Hunk, Line, State, Untracked, UntrackedFile,
-};
+use crate::{Diff, File, Head, Hunk, Line, State, Untracked, UntrackedFile};
 use git2::RepositoryState;
 use gtk4::TextBuffer;
-use log::{trace};
-use std::collections::{HashSet};
-
+use log::trace;
+use std::collections::HashSet;
 
 pub const MAX_LINES: i32 = 50000;
 
@@ -56,32 +53,37 @@ impl Hunk {
     }
 
     // Hunk.
-    pub fn enrich_view(&mut self,
+    pub fn enrich_view(
+        &mut self,
         rendered: &mut Hunk,
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
-    ){
+    ) {
         self.view = rendered.transfer_view();
         if !self.view.is_expanded() {
-            return
+            return;
         }
         let mut last_rendered = 0;
-        self.lines.iter_mut().zip(rendered.lines.iter_mut()).for_each(&mut |lines: (&mut Line, &mut Line)|{
-            trace!("zip on lines {:?} {:?}", context, lines);
-            lines.0.enrich_view(lines.1, context);
-            last_rendered += 1;
-        });
-        if rendered.lines.len() > last_rendered {
-            rendered.lines[last_rendered ..rendered.lines.len()].iter().for_each(|line| {
-                trace!("erase line{:?}", line);
-                line.erase(buffer, context);
+        self.lines
+            .iter_mut()
+            .zip(rendered.lines.iter_mut())
+            .for_each(&mut |lines: (&mut Line, &mut Line)| {
+                trace!("zip on lines {:?} {:?}", context, lines);
+                lines.0.enrich_view(lines.1, context);
+                last_rendered += 1;
             });
+        if rendered.lines.len() > last_rendered {
+            rendered.lines[last_rendered..rendered.lines.len()]
+                .iter()
+                .for_each(|line| {
+                    trace!("erase line{:?}", line);
+                    line.erase(buffer, context);
+                });
         }
-    }    
+    }
 }
 
 impl File {
-
     pub fn enrich_view(
         &mut self,
         rendered: &mut File,
@@ -90,7 +92,7 @@ impl File {
     ) {
         self.view = rendered.transfer_view();
         if !self.view.is_expanded() {
-            return
+            return;
         }
         for h in &rendered.hunks {
             trace!("RENDERED: {}", h.header);
@@ -105,7 +107,6 @@ impl File {
         // @@ -106,9 +107,9 @@ function getDepsList() {
         // @@ -128,7 +129,8 @@ function getDepsList() {
 
-
         // 1.1 kill top one
         // will have new
         // @@ -106,9 +106,9 @@ function getDepsList() {
@@ -115,7 +116,6 @@ impl File {
         // will get new in staged
         // @@ -107,9 +107,9 @@ function getDepsList() {
         // @@ -129,7 +129,8 @@ function getDepsList() {
-
 
         // @@@@@@@@@@@@@@@@ there are MORE NEW ones than old ones
         // have 2 hunks
@@ -143,7 +143,6 @@ impl File {
         // case 3 - different number of lines
         // new header      @@ -1876,7 +1897,8 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):
         // rendered header @@ -1876,7 +1897,7 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):
-
 
         let mut in_rendered = 0;
         let mut in_new = 0;
@@ -190,38 +189,44 @@ impl File {
                 // rendered was erased
                 if rendered.header == Hunk::shift_new_start(&new.header, rendered_delta)  // 1.1
                     ||
-                    rendered.header == Hunk::shift_old_start(&new.header, 0 - rendered_delta) { // 1.2
-                        // matched!
-                        trace!("++++++enrich case 1.1 or 1.2");
-                        new.enrich_view(rendered, buffer, context);
-                        in_new += 1;
-                        in_rendered += 1;
-                    } else {
-                        // proceed with erasing
-                        trace!("------erase case 1.1 or 1.2");
-                        in_rendered += 1;
-                        rendered.erase(buffer, context);
+                    rendered.header == Hunk::shift_old_start(&new.header, 0 - rendered_delta)
+                {
+                    // 1.2
+                    // matched!
+                    trace!("++++++enrich case 1.1 or 1.2");
+                    new.enrich_view(rendered, buffer, context);
+                    in_new += 1;
+                    in_rendered += 1;
+                } else {
+                    // proceed with erasing
+                    trace!("------erase case 1.1 or 1.2");
+                    in_rendered += 1;
+                    rendered.erase(buffer, context);
 
-                        rendered_delta += count_delta(rendered.new_lines, rendered.old_lines);
-                    }
+                    rendered_delta +=
+                        count_delta(rendered.new_lines, rendered.old_lines);
+                }
             } else if new_delta != 0 {
                 // new was inserted
                 trace!("B..... has new delta");
-                if new.header == Hunk::shift_new_start(&rendered.header, new_delta)
-                    ||
-                    new.header == Hunk::shift_old_start(&rendered.header, 0 - new_delta) {
-                        trace!("++++++++ enrich cases 2.1 or 2.2 ");
-                        new.enrich_view(rendered, buffer, context);
-                        in_new += 1;
-                        in_rendered += 1;
-                    } else {
-                        trace!("++++++++ skip cases 2.1 or 2.2 ");
-                        in_new += 1;
+                if new.header
+                    == Hunk::shift_new_start(&rendered.header, new_delta)
+                    || new.header
+                        == Hunk::shift_old_start(
+                            &rendered.header,
+                            0 - new_delta,
+                        )
+                {
+                    trace!("++++++++ enrich cases 2.1 or 2.2 ");
+                    new.enrich_view(rendered, buffer, context);
+                    in_new += 1;
+                    in_rendered += 1;
+                } else {
+                    trace!("++++++++ skip cases 2.1 or 2.2 ");
+                    in_new += 1;
 
-                        new_delta += count_delta(new.new_lines, new.old_lines);
-
-                    }
-
+                    new_delta += count_delta(new.new_lines, new.old_lines);
+                }
             } else {
                 // first loop or loop on equal hunks
                 trace!("C.....first loop or loop on equal hunks");
@@ -231,10 +236,13 @@ impl File {
                     new.enrich_view(rendered, buffer, context);
                     in_new += 1;
                     in_rendered += 1;
-                } else if rendered.new_start == new.new_start && rendered.old_start == new.old_start {
+                } else if rendered.new_start == new.new_start
+                    && rendered.old_start == new.old_start
+                {
                     trace!("hunks are same, but number of lines are changed");
 
-                    rendered_delta += count_delta(new.new_lines, rendered.new_lines);
+                    rendered_delta +=
+                        count_delta(new.new_lines, rendered.new_lines);
 
                     trace!("changed rendered delta {}", rendered_delta);
 
@@ -247,25 +255,32 @@ impl File {
                            rendered.new_lines,
                            new.new_start,
                            new.new_lines);
-                    if new.new_start < rendered.new_start && new.old_start < rendered.old_start {
+                    if new.new_start < rendered.new_start
+                        && new.old_start < rendered.old_start
+                    {
                         // cases 2.1 and 2.1 - insert first new hunk
                         trace!("first new hunk without rendered. SKIP");
                         in_new += 1;
 
                         new_delta += count_delta(new.new_lines, new.old_lines);
-
-
-                    } else if new.new_start > rendered.new_start && new.old_start > rendered.old_start {
+                    } else if new.new_start > rendered.new_start
+                        && new.old_start > rendered.old_start
+                    {
                         // cases 1.1 and 1.2 - delete first rendered hunk
                         trace!("first rendered hunk without new. ERASE");
                         in_rendered += 1;
 
-                        rendered_delta += count_delta(rendered.new_lines, rendered.old_lines);
+                        rendered_delta += count_delta(
+                            rendered.new_lines,
+                            rendered.old_lines,
+                        );
 
                         rendered.erase(buffer, context);
-
                     } else {
-                        panic!("UNKNOWN CASE IN RECONCILIATION {} {}", new.header, rendered.header);
+                        panic!(
+                            "UNKNOWN CASE IN RECONCILIATION {} {}",
+                            new.header, rendered.header
+                        );
                     }
                 }
             }
