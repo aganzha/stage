@@ -50,6 +50,8 @@ mod stage_view {
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
     const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.137, 0.216, 0.310, 1.0);
 
+    const DARK_BF_FILL: gdk::RGBA = gdk::RGBA::new(0.0, 0.0, 0.0, 1.0);
+    const LIGHT_BG_FILL: gdk::RGBA = gdk::RGBA::new(1.0, 1.0, 1.0, 1.0);
     // color #f6f5f4/494949 - 246/255 245/255 244/255
     // f3f3f3 - 243/255
     // f4f4f4 - 244/255
@@ -94,8 +96,13 @@ mod stage_view {
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
             if layer == TextViewLayer::BelowText {
                 let rect = self.obj().visible_rect();
+                let bg_fill = if self.is_dark.get() {
+                    &DARK_BF_FILL
+                }else {
+                    &LIGHT_BG_FILL
+                };
                 snapshot.append_color(
-                    &gdk::RGBA::new(1.0, 1.0, 1.0, 1.0),
+                    &bg_fill,
                     &graphene::Rect::new(rect.x() as f32, rect.y() as f32, rect.width() as f32, rect.height() as f32)
                 );
 
@@ -110,7 +117,6 @@ mod stage_view {
                     let (y, height) = self.obj().line_yrange(&iter);
                     let y_to = y + height;
                     // highlight active_lines ----------------------------
-                    // HARCODE - 2000.
                     snapshot.append_color(
                         if self.is_dark.get() {
                             &DARK_LINES
@@ -120,7 +126,7 @@ mod stage_view {
                         &graphene::Rect::new(
                             0.0,
                             y_from as f32,
-                            2000.0,
+                            rect.width() as f32,
                             y_to as f32,
                         ),
                     );
@@ -128,14 +134,13 @@ mod stage_view {
                     // or perhaps i am doing something. but this will
                     // cleanup the garbage
                     snapshot.append_color(
-                        &gdk::RGBA::new(1.0, 1.0, 1.0, 1.0),
+                        &bg_fill,
                         &graphene::Rect::new(rect.x() as f32, y_to as f32, rect.width() as f32, rect.height() as f32)
                     );
 
                 }
 
                 // highlight hunks -----------------------------------
-                // HARCODE - 2000;
                 for line in self.hunks.borrow().iter() {
                     iter.set_line(*line);
                     let (y_from, y_to) = self.obj().line_yrange(&iter);
@@ -148,7 +153,7 @@ mod stage_view {
                         &graphene::Rect::new(
                             0.0,
                             y_from as f32,
-                            2000.0,
+                            rect.width() as f32,
                             y_to as f32,
                         ),
                     );
@@ -158,7 +163,6 @@ mod stage_view {
                 // highlight cursor ---------------------------------
                 let cursor_line = self.cursor.get();
                 iter.set_line(cursor_line);
-                // HARCODE - 2000; #cce0f8/23374f - 204/255 224/255 248/255
                 let (y_from, y_to) = self.obj().line_yrange(&iter);
                 snapshot.append_color(
                     if self.is_dark.get() {
@@ -169,7 +173,7 @@ mod stage_view {
                     &graphene::Rect::new(
                         0.0,
                         y_from as f32,
-                        2000.0,
+                        rect.width() as f32,
                         y_to as f32,
                     ),
                 );
