@@ -73,7 +73,7 @@ impl Status {
                                 return;
                             }
                             let patterns_to_exclude: Vec<&str> =
-                                vec!["/.#", "/mout", "flycheck_", "/sed"];
+                                vec!["/.#", "/mout", "flycheck_", "/sed", ".goutputstream"];
                             match event {
                                 FileMonitorEvent::Changed | FileMonitorEvent::Created | FileMonitorEvent::Deleted => {
                                     // ChangesDoneHint is not fired for small changes :(
@@ -103,7 +103,7 @@ impl Status {
                                             let sender = sender.clone();
                                             let file_path = file_path.clone();
                                             move || {
-                                                trace!(".......... THROTTLED {:?}", file_path);
+                                                debug!(".......... THROTTLED {:?}", file_path);
                                                 gio::spawn_blocking({
                                                     let path = path.clone();
                                                     let sender =
