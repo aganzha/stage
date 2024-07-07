@@ -30,21 +30,21 @@ use std::io::{Write, ErrorKind};
 
 use crate::status_view::render::View;
 use crate::{
-    checkout_oid, get_current_repo_status, get_directories,
-    stage_untracked, stage_via_apply, track_changes, StageOp, Diff,
+    get_current_repo_status,
+    stage_untracked, stage_via_apply, StageOp, Diff,
     Event, File as GitFile, Head, State, StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
 
 use gio::{
-    Cancellable, File, FileMonitor, FileMonitorEvent, FileMonitorFlags,
+    FileMonitor,
 };
 
 use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Box, Label as GtkLabel, ListBox, Orientation, SelectionMode,
+    gio, glib, ListBox, SelectionMode,
     TextBuffer, TextIter, Widget,
 };
 use libadwaita::prelude::*;
@@ -357,7 +357,7 @@ impl Status {
                         ));
                     }
                 }
-                let result = gio::spawn_blocking({
+                gio::spawn_blocking({
                     move || {
                         remote::pull(path, sender, user_pass)
                     }
@@ -366,7 +366,7 @@ impl Status {
                     Ok(())
                 }).unwrap_or_else(|e| {
                     alert(e).present(&window);
-                    ()
+                    
                 });
             }
         });
@@ -1049,7 +1049,7 @@ impl Status {
                                 let hunk = hunk.clone();
                                 let line = line.clone();
                                 let window = window.clone();
-                                let interhunk = conflicted.interhunk.clone();
+                                let interhunk = conflicted.interhunk;
                                 async move {
                                     if hunk.conflicts_count > 0
                                         && line.is_side_of_conflict()

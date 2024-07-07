@@ -35,7 +35,7 @@ use std::rc::Rc;
 
 mod git;
 use git::{
-    branch, checkout_oid, commit, get_current_repo_status,
+    branch, commit, get_current_repo_status,
     get_directories, reset_hard, stage_untracked, stage_via_apply,
     stash::Stashes, track_changes, StageOp, Diff, DiffKind, File, Head,
     Hunk, Line, LineKind, State, Untracked, UntrackedFile,

@@ -799,7 +799,7 @@ pub fn get_conflicted_v1(path: PathBuf,  interhunk: Option<u32>) -> Diff {
         for file in &diff.files {
             for hunk in &file.hunks {
                 debug!("hunk in conflicted {}", hunk.header);
-                let (ours, theirs, separator) = hunk.lines.iter().fold((0, 0, 0), |acc, line| {
+                let (ours, theirs, _separator) = hunk.lines.iter().fold((0, 0, 0), |acc, line| {
                     match &line.kind {
                         LineKind::ConflictMarker(m) if m == MARKER_OURS => {            
                             (acc.0 + 1, acc.1, acc.2)
