@@ -813,8 +813,27 @@ pub fn get_conflicted_v1(path: PathBuf) -> Diff {
             if ours > theirs {
                 missing_theirs = hunk.new_start + hunk.lines.len() as u32;
             } else if theirs > ours {
-                assert!(missing_theirs > 0);
-                hunks_to_join.push((missing_theirs, hunk.new_start));
+                // missing_theirs == 0 is possible
+                // when manualy edit conflict files.
+                // markers are removed 1 by 1.
+                // what todo? just skip it?
+                // assert!(missing_theirs > 0);
+                // BUGS:
+                // - no highlight in final hunk when conflicts are resolved
+                // - comparing has_conflicts does not worked in update conflicted.
+                // cause there is always true true (Conflicted come several times)
+                // - trying to stage and got git error
+                if missing_theirs == 0 {
+                    // this means we have theirs section, but there are no ours
+                    // section before. this is possible, when user edit conflict file
+                    // manually. but, in this case this means interhunk was chosen before
+                    // we do not want to select interhunk on every Conflicted update.
+                    // So, in case of conflict lets store interhunk globally in status
+                    // and use it during conflict resolution.
+                }
+                if missing_theirs > 0 {
+                    hunks_to_join.push((missing_theirs, hunk.new_start));
+                }
             }            
         }
     }
