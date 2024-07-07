@@ -630,7 +630,7 @@ pub fn get_current_repo_status(
     sender: Sender<crate::Event>,
 ) {
     let backtrace = Backtrace::capture();
-    debug!("+++++++++++++++++++++++> {:?}", backtrace);
+    debug!("----------------calling get current repo status> {:?}", backtrace);
     // path could came from command args or from choosing path
     // by user
     let path = {
@@ -1208,7 +1208,7 @@ impl DeferRefresh {
 impl Drop for DeferRefresh {
     fn drop(&mut self) {        
         let backtrace = Backtrace::capture();
-        debug!("DeferRefresh ................ {}", backtrace);
+        debug!("droping DeferRefresh ................ {}", backtrace);
         if self.update_status {
             gio::spawn_blocking({
                 let path = self.path.clone();
