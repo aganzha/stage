@@ -604,17 +604,18 @@ impl Status {
         banner_button_clicked: Rc<RefCell<Option<SignalHandlerId>>>,
         context: &mut StatusRenderContext,
     ) {
+
+        if !diff.has_conflicts() && !self.conflicted_label.content.contains("resolved") {
+            self.conflicted_label.content = String::from("<span weight=\"bold\"\
+                                                          color=\"#1c71d8\">Conflicts resolved</span> \
+                                                          stage changes to complete merge");
+            // both dirty and transfer is required.
+            // only dirty means TagsModified state in render
+            
+            self.conflicted_label.view.dirty(true);
+            self.conflicted_label.view.transfer(true);
+        }
         if let Some(s) = &mut self.conflicted {
-            debug!("--------------------> {} {}", s.has_conflicts(), diff.has_conflicts());
-            if s.has_conflicts() && !diff.has_conflicts() {
-                self.conflicted_label.content = String::from("<span weight=\"bold\"\
-                                                              color=\"#1c71d8\">Conflicts resolved</span> \
-                                                              stage changes to complete merge");
-                // both dirty and transfer is required.
-                // only dirty means TagsModified state in render
-                self.conflicted_label.view.dirty(true);
-                self.conflicted_label.view.transfer(true);
-            }
             diff.enrich_view(s, &txt.buffer(), context);
         }
         if let Some(state) = &self.state {
