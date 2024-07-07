@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::{Status, get_directories, track_changes};
-use log::trace;
+use log::{trace, debug, info};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
@@ -67,13 +67,15 @@ impl Status {
                         let global_lock = global_lock.clone();
                         move |_monitor, file, _other_file, event| {
                             // TODO get from SELF.settings
+                            info!("event in monitor {:?} {:?}", event, file.path());
                             if *global_lock.borrow() {
+                                trace!("no way, global lock on monitor");
                                 return;
                             }
                             let patterns_to_exclude: Vec<&str> =
                                 vec!["/.#", "/mout", "flycheck_", "/sed"];
                             match event {
-                                FileMonitorEvent::Changed | FileMonitorEvent::ChangesDoneHint => {
+                                FileMonitorEvent::Changed | FileMonitorEvent::Created | FileMonitorEvent::Deleted => {
                                     // ChangesDoneHint is not fired for small changes :(
                                     let file_path =
                                         file.path().expect("no file path");
@@ -92,7 +94,7 @@ impl Status {
                                         return;
                                     }
                                     lock.borrow_mut().insert(file_path.clone());
-                                    trace!("set monitor lock");
+                                    trace!("set monitor lock for file {:?}", &file_path);
                                     glib::source::timeout_add_local(
                                         Duration::from_millis(300),
                                         {
@@ -110,7 +112,8 @@ impl Status {
                                                         file_path.clone();
                                                     lock.borrow_mut().remove(&file_path);
                                                     trace!(
-                                                        "release monitor lock"
+                                                        "release monitor lock for file {:?}",
+                                                        file_path
                                                     );
                                                     move || {
                                                         track_changes(
