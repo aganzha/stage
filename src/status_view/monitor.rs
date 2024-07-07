@@ -30,6 +30,12 @@ impl Status {
             let sender = self.sender.clone();
             let lock = self.monitor_lock.clone();
             let global_lock = self.monitor_global_lock.clone();
+            let mut interhunk = None;
+            if let Some(diff) = &self.conflicted {
+                if let Some(stored_interhunk) = diff.interhunk {
+                    interhunk.replace(stored_interhunk);
+                }
+            }
             async move {
                 let mut directories = gio::spawn_blocking({
                     let path = path.clone();
@@ -117,7 +123,9 @@ impl Status {
                                                     );
                                                     move || {
                                                         track_changes(
-                                                            path, file_path,
+                                                            path,
+                                                            file_path,
+                                                            interhunk,
                                                             sender,
                                                         )
                                                     }
