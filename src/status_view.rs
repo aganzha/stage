@@ -1033,6 +1033,7 @@ impl Status {
     pub fn stage_in_conflict(&self, window: &ApplicationWindow) -> bool {
         // it need to implement method for diff, which will return current Hunk, Line and File and use it in stage.
         // also it must return indicator what of this 3 is current.
+        info!("Stage in conflict");
         if let Some(conflicted) = &self.conflicted {
             // also someone can press stage on label!
             for f in &conflicted.files {
@@ -1053,6 +1054,7 @@ impl Status {
                                     if hunk.conflicts_count > 0
                                         && line.is_side_of_conflict()
                                     {
+                                        info!("choose_conflict_side_of_hunk");
                                         gio::spawn_blocking({
                                             move || {
                                                 merge::choose_conflict_side_of_hunk(
@@ -1069,10 +1071,11 @@ impl Status {
                                     } else {
                                         // this should be never called
                                         // conflicts are resolved in branch above
+                                        info!("cleanup_last_conflict_for_file");
                                         gio::spawn_blocking({
                                             move || {
                                                 merge::cleanup_last_conflict_for_file(
-                                                    path, None, file_path, sender,
+                                                    path, file_path, interhunk, sender,
                                                 )
                                             }
                                         }).await.unwrap_or_else(|e| {

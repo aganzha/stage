@@ -697,8 +697,8 @@ pub fn choose_conflict_side_of_hunk(
     }
     cleanup_last_conflict_for_file(
         path,
-        Some(index),
         file_path_clone,
+        interhunk,
         sender,
     )?;
     Ok(())
@@ -706,18 +706,15 @@ pub fn choose_conflict_side_of_hunk(
 
 pub fn cleanup_last_conflict_for_file(
     path: PathBuf,
-    index: Option<git2::Index>,
     file_path: PathBuf,
+    interhunk: Option<u32>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
-    let mut index = if let Some(index) = index {
-        index
-    } else {
-        let repo = git2::Repository::open(path.clone())?;
-        repo.index()?
-    };
 
-    let diff = get_conflicted_v1(path.clone(), None);
+    let repo = git2::Repository::open(path.clone())?;
+    let mut index = repo.index()?;
+    
+    let diff = get_conflicted_v1(path.clone(), interhunk);
     // 1 - all conflicts in all files are resolved - update all
     // 2 - only this file is resolved, but have other conflicts - update all
     // 3 - conflicts are remaining in all files - just update conflicted
