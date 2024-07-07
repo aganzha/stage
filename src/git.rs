@@ -29,7 +29,8 @@ use regex::Regex;
 //use std::time::SystemTime;
 use std::path::PathBuf;
 use std::{collections::HashSet, env, str};
-
+use std::backtrace::Backtrace;
+    
 pub fn make_diff_options() -> DiffOptions {
     let mut opts = DiffOptions::new();
     opts.indent_heuristic(true);
@@ -628,6 +629,8 @@ pub fn get_current_repo_status(
     current_path: Option<PathBuf>,
     sender: Sender<crate::Event>,
 ) {
+    let backtrace = Backtrace::capture();
+    debug!("+++++++++++++++++++++++> {:?}", backtrace);
     // path could came from command args or from choosing path
     // by user
     let path = {
@@ -1203,14 +1206,14 @@ impl DeferRefresh {
 
 
 impl Drop for DeferRefresh {
-    fn drop(&mut self) {
-        debug!("DeferRefresh");
+    fn drop(&mut self) {        
+        let backtrace = Backtrace::capture();
+        debug!("DeferRefresh ................ {}", backtrace);
         if self.update_status {
             gio::spawn_blocking({
                 let path = self.path.clone();
                 let sender = self.sender.clone();
                 move || {
-                    debug!("??????????????????? {:?}", path);
                     get_current_repo_status(Some(path), sender);
                 }
             });
@@ -1309,6 +1312,7 @@ pub fn track_changes(
     }
     if index.has_conflicts() {
         // same here - update just 1 file, please
+        debug!("traaaaaaaaaaaaaaaaaack changes!");
         let diff = get_conflicted_v1(path);
         sender
             .send_blocking(crate::Event::Conflicted(diff))
@@ -1404,7 +1408,7 @@ pub fn rebase(  path: PathBuf,
                 _onto: Option<Oid>,
                 sender: Sender<crate::Event>) -> Result<bool, Error> {
 
-    let _deref = DeferRefresh::new(path.clone(), sender, true, true);
+    let _defer = DeferRefresh::new(path.clone(), sender, true, true);
 
     let repo = Repository::open(path)?;
     let upstream_commit = repo.find_annotated_commit(upstream)?;
