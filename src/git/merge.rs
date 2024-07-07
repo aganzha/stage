@@ -120,6 +120,7 @@ pub fn branch(
     path: PathBuf,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
+    mut defer: Option<DeferRefresh>
 ) -> Result<Option<BranchData>, git2::Error> {
     info!("merging {:?}", branch_data.name);
     let repo = git2::Repository::open(path.clone())?;
@@ -160,13 +161,10 @@ pub fn branch(
 
             let index = repo.index()?;
             if index.has_conflicts() {
-                gio::spawn_blocking({
-                    let sender = sender.clone();
-                    let path = path.clone();
-                    move || {
-                        get_current_repo_status(Some(path), sender.clone());
-                    }
-                });
+                // udpate repo status via defer
+                if defer.is_none() {
+                    defer.replace(DeferRefresh::new(path.clone(), sender.clone(), true, false));
+                }
                 return Ok(None);
             }
             final_merge_commit(path, sender.clone())?;
@@ -607,7 +605,7 @@ pub fn choose_conflict_side_of_hunk(
     if let Some(ih) = interhunk {
         opts.interhunk_lines(ih);
     }
-    
+
     let mut git_diff =
         repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))?;
 

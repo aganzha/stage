@@ -416,7 +416,7 @@ impl BranchList {
                     return;
                 }
                 let branch_data = gio::spawn_blocking(move || {
-                    merge::branch(repo_path, branch_data, sender)
+                    merge::branch(repo_path, branch_data, sender, None)
                 }).await.unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(&window);
                     Ok(None)
