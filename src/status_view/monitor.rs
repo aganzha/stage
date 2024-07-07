@@ -6,7 +6,7 @@ use crate::{Status, get_directories, track_changes};
 use log::{trace, debug, info};
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use core::time::Duration;
 use gtk4::prelude::*;
 use gtk4::{

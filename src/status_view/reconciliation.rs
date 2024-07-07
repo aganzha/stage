@@ -5,13 +5,13 @@
 use crate::status_view::render::View;
 use crate::status_view::ViewContainer;
 use crate::{
-    Diff, DiffKind, File, Head, Hunk, Line, State, Untracked, UntrackedFile,
+    Diff, File, Head, Hunk, Line, State, Untracked, UntrackedFile,
 };
 use git2::RepositoryState;
 use gtk4::TextBuffer;
-use log::{trace, debug};
-use std::collections::{HashSet, HashMap};
-use std::iter::zip;
+use log::{trace};
+use std::collections::{HashSet};
+
 
 pub const MAX_LINES: i32 = 50000;
 

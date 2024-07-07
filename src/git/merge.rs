@@ -11,7 +11,7 @@ use crate::git::{
 use async_channel::Sender;
 use git2;
 use gtk4::gio;
-use log::{debug, info, trace};
+use log::{info, trace};
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},

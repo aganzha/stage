@@ -102,7 +102,7 @@ mod stage_view {
                     &LIGHT_BG_FILL
                 };
                 snapshot.append_color(
-                    &bg_fill,
+                    bg_fill,
                     &graphene::Rect::new(rect.x() as f32, rect.y() as f32, rect.width() as f32, rect.height() as f32)
                 );
 
@@ -134,7 +134,7 @@ mod stage_view {
                     // or perhaps i am doing something. but this will
                     // cleanup the garbage
                     snapshot.append_color(
-                        &bg_fill,
+                        bg_fill,
                         &graphene::Rect::new(rect.x() as f32, y_to as f32, rect.width() as f32, rect.height() as f32)
                     );
 
