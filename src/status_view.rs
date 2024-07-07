@@ -728,6 +728,7 @@ impl Status {
         context: &mut StatusRenderContext,
     ) {
         if let Some(s) = &mut self.conflicted {
+            debug!("--------------------> {} {}", s.has_conflicts(), diff.has_conflicts());
             if s.has_conflicts() && !diff.has_conflicts() {
                 self.conflicted_label.content = String::from("<span weight=\"bold\"\
                                                               color=\"#1c71d8\">Conflicts resolved</span>\
