@@ -738,7 +738,7 @@ pub fn get_current_repo_status(
             let sender = sender.clone();
             let path = path.clone();
             move || {
-                let diff = get_conflicted_v1(path);
+                let diff = get_conflicted_v1(path, None);
                 sender
                     .send_blocking(crate::Event::Conflicted(diff))
                     .expect("Could not send through channel");
@@ -761,7 +761,7 @@ pub fn get_current_repo_status(
         .expect("Could not send through channel");
 }
 
-pub fn get_conflicted_v1(path: PathBuf) -> Diff {
+pub fn get_conflicted_v1(path: PathBuf,  interhunk: Option<u32>) -> Diff {
     // so, when file is in conflict during merge, this means nothing
     // was staged to that file, cause mergeing in such state is PROHIBITED!
 
@@ -773,7 +773,7 @@ pub fn get_conflicted_v1(path: PathBuf) -> Diff {
     let conflicts = index.conflicts().expect("no conflicts");
     let mut opts = make_diff_options();
     // 6 - for 3 context lines in eacj hunk? 
-    opts.interhunk_lines(10);
+    opts.interhunk_lines(interhunk.unwrap_or(10));
     
     for conflict in conflicts {
         let conflict = conflict.unwrap();
@@ -788,72 +788,88 @@ pub fn get_conflicted_v1(path: PathBuf) -> Diff {
         .expect("cant get diff");
 
     let diff = make_diff(&git_diff, DiffKind::Conflicted);
-    // this vec store tuples with last line_no of prev hunk
-    // and first line_no of next hunk
-    let mut hunks_to_join = Vec::new();
-    let mut missing_theirs = 0;
-    for file in &diff.files {
-        for hunk in &file.hunks {
-            debug!("hunk in conflicted {}", hunk.header);
-            let (ours, theirs, separator) = hunk.lines.iter().fold((0, 0, 0), |acc, line| {
-                match &line.kind {
-                    LineKind::ConflictMarker(m) if m == MARKER_OURS => {            
-                        (acc.0 + 1, acc.1, acc.2)
+    // if intehunk in unknown it need to check missing hunks
+    // (either ours or theirs could go to separate hunk)
+    // and recreate diff to accomodate both ours and theirs in single hunk
+    if interhunk.is_none() {        
+        // this vec store tuples with last line_no of prev hunk
+        // and first line_no of next hunk
+        let mut hunks_to_join = Vec::new();
+        let mut missing_theirs = 0;
+        for file in &diff.files {
+            for hunk in &file.hunks {
+                debug!("hunk in conflicted {}", hunk.header);
+                let (ours, theirs, separator) = hunk.lines.iter().fold((0, 0, 0), |acc, line| {
+                    match &line.kind {
+                        LineKind::ConflictMarker(m) if m == MARKER_OURS => {            
+                            (acc.0 + 1, acc.1, acc.2)
+                        }
+                        LineKind::ConflictMarker(m) if m == MARKER_THEIRS => {            
+                            (acc.0, acc.1 + 1, acc.2)
+                        }
+                        LineKind::ConflictMarker(m) if m == MARKER_VS => {            
+                            (acc.0, acc.1, acc.2 + 1)
+                        }
+                        _ => acc
                     }
-                    LineKind::ConflictMarker(m) if m == MARKER_THEIRS => {            
-                        (acc.0, acc.1 + 1, acc.2)
+                });
+                // perhaps it need to increment interhunk space to join hunks
+                // into one. possible 2 variants
+                // ours vs - theirs
+                // ours - vs theirs
+                if ours > theirs {
+                    // store last line of hunk without theirs
+                    missing_theirs = hunk.new_start + hunk.lines.len() as u32;
+                } else if theirs > ours {
+                    // hunk with theirs, but without ours
+                    
+                    // BUGS:
+                    // - no highlight in final hunk when conflicts are resolved
+                    // - FIXED comparing has_conflicts does not worked in update conflicted.
+                    // cause there is always true true (Conflicted come several times)
+                    // - trying to stage and got git error
+                    // if missing_theirs == 0 {
+                    //     // this means we have theirs section, but there are no ours
+                    //     // section before. this is possible, when user edit conflict file
+                    //     // manually. but, in this case this means interhunk was chosen before
+                    //     // we do not want to select interhunk on every Conflicted update.
+                    //     // So, in case of conflict lets store interhunk globally in status
+                    //     // and use it during conflict resolution.
+                    // }
+
+                    // missing_theirs == 0 is possible
+                    // when manualy edit conflict files.
+                    // markers are removed 1 by 1.
+                    // assert!(missing_theirs > 0);
+                    // hunks_to_join.push((missing_theirs, hunk.new_start));
+                    if missing_theirs > 0 {
+                        hunks_to_join.push((missing_theirs, hunk.new_start));
                     }
-                    LineKind::ConflictMarker(m) if m == MARKER_VS => {            
-                        (acc.0, acc.1, acc.2 + 1)
+                } else {
+                    // if hunk is ok, reset missing theirs, which, possibly
+                    // came from manual conflict resolution
+                    if missing_theirs > 0 {
+                        debug!("reset missing theirs in conflict {:?}", missing_theirs);
+                        missing_theirs = 0;
                     }
-                    _ => acc
                 }
-            });
-            // perhaps it need to increment interhunk space to join hunks
-            // into one. possible 2 variants
-            // ours vs - theirs
-            // ours - vs theirs
-            if ours > theirs {
-                missing_theirs = hunk.new_start + hunk.lines.len() as u32;
-            } else if theirs > ours {
-                // missing_theirs == 0 is possible
-                // when manualy edit conflict files.
-                // markers are removed 1 by 1.
-                // what todo? just skip it?
-                // assert!(missing_theirs > 0);
-                // BUGS:
-                // - no highlight in final hunk when conflicts are resolved
-                // - comparing has_conflicts does not worked in update conflicted.
-                // cause there is always true true (Conflicted come several times)
-                // - trying to stage and got git error
-                if missing_theirs == 0 {
-                    // this means we have theirs section, but there are no ours
-                    // section before. this is possible, when user edit conflict file
-                    // manually. but, in this case this means interhunk was chosen before
-                    // we do not want to select interhunk on every Conflicted update.
-                    // So, in case of conflict lets store interhunk globally in status
-                    // and use it during conflict resolution.
-                }
-                if missing_theirs > 0 {
-                    hunks_to_join.push((missing_theirs, hunk.new_start));
-                }
-            }            
-        }
-    }
-    if !hunks_to_join.is_empty() {
-        let interhunk = hunks_to_join.iter().fold(0, |acc, from_to| {
-            if acc < from_to.1 - from_to.0 {
-                return from_to.1 - from_to.0;
             }
-            acc
-        });
-        opts.interhunk_lines(interhunk);
-        let git_diff = repo
-            .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
-            .expect("cant get diff");
-        let mut diff = make_diff(&git_diff, DiffKind::Conflicted);
-        diff.interhunk.replace(interhunk);
-        return diff;
+        }
+        if !hunks_to_join.is_empty() {
+            let interhunk = hunks_to_join.iter().fold(0, |acc, from_to| {
+                if acc < from_to.1 - from_to.0 {
+                    return from_to.1 - from_to.0;
+                }
+                acc
+            });
+            opts.interhunk_lines(interhunk);
+            let git_diff = repo
+                .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
+                .expect("cant get diff");
+            let mut diff = make_diff(&git_diff, DiffKind::Conflicted);
+            diff.interhunk.replace(interhunk);
+            return diff;
+        }
     }
     diff
 }
@@ -1281,6 +1297,7 @@ pub fn get_directories(path: PathBuf) -> HashSet<String> {
 pub fn track_changes(
     path: PathBuf,
     file_path: PathBuf,
+    interhunk: Option<u32>,
     sender: Sender<crate::Event>,
 ) {
     // TODO throttle!
@@ -1312,8 +1329,8 @@ pub fn track_changes(
     }
     if index.has_conflicts() {
         // same here - update just 1 file, please
-        debug!("traaaaaaaaaaaaaaaaaack changes!");
-        let diff = get_conflicted_v1(path);
+        debug!("track changes in conflicted path");
+        let diff = get_conflicted_v1(path, interhunk);
         sender
             .send_blocking(crate::Event::Conflicted(diff))
             .expect("Could not send through channel");

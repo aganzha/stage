@@ -717,7 +717,7 @@ pub fn cleanup_last_conflict_for_file(
         repo.index()?
     };
 
-    let diff = get_conflicted_v1(path.clone());
+    let diff = get_conflicted_v1(path.clone(), None);
     // 1 - all conflicts in all files are resolved - update all
     // 2 - only this file is resolved, but have other conflicts - update all
     // 3 - conflicts are remaining in all files - just update conflicted

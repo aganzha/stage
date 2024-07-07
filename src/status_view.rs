@@ -605,7 +605,7 @@ impl Status {
         context: &mut StatusRenderContext,
     ) {
 
-        if !diff.has_conflicts() && !self.conflicted_label.content.contains("resolved") {
+        if !diff.is_empty() && !diff.has_conflicts() && !self.conflicted_label.content.contains("resolved") {
             self.conflicted_label.content = String::from("<span weight=\"bold\"\
                                                           color=\"#1c71d8\">Conflicts resolved</span> \
                                                           stage changes to complete merge");
