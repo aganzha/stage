@@ -340,7 +340,14 @@ impl ViewContainer for Diff {
         parent_active: bool,
         context: &mut StatusRenderContext,
     ) -> bool {
-        context.under_cursor_diff(&self.kind);
+        if self.kind == DiffKind::Conflicted && !self.has_conflicts() {
+            // when all conflicts are resolved, Conflicted
+            // highlights must behave just line Unstaged
+            // (highlight normally instead of ours/theirs
+            context.under_cursor_diff(&DiffKind::Unstaged);
+        } else {
+            context.under_cursor_diff(&self.kind);
+        }
         let mut result = false;
         for file in &self.files {
             result = file.cursor(line_no, parent_active, context) || result;
