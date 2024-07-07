@@ -608,9 +608,12 @@ impl Status {
             debug!("--------------------> {} {}", s.has_conflicts(), diff.has_conflicts());
             if s.has_conflicts() && !diff.has_conflicts() {
                 self.conflicted_label.content = String::from("<span weight=\"bold\"\
-                                                              color=\"#1c71d8\">Conflicts resolved</span>\
+                                                              color=\"#1c71d8\">Conflicts resolved</span> \
                                                               stage changes to complete merge");
+                // both dirty and transfer is required.
+                // only dirty means TagsModified state in render
                 self.conflicted_label.view.dirty(true);
+                self.conflicted_label.view.transfer(true);
             }
             diff.enrich_view(s, &txt.buffer(), context);
         }
@@ -618,6 +621,11 @@ impl Status {
             if diff.is_empty() {
                 if banner.is_revealed() {
                     banner.set_revealed(false);
+                    // restore original label for future conflicts
+                    self.conflicted_label.content = String::from(
+                        "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>",
+                    );
+                    self.conflicted_label.view.dirty(true);
                 }
 
                 if state.need_final_commit() || state.need_rebase_continue() {
@@ -713,11 +721,6 @@ impl Status {
         }
         self.conflicted.replace(diff);
         self.render(txt, RenderSource::Git, context);
-        // restore original label for future conflicts
-        self.conflicted_label.content = String::from(
-            "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>",
-        );
-        self.conflicted_label.view.dirty(true);
     }
 
     pub fn update_staged(
