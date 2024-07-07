@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::git::{
-    get_head, make_diff, make_diff_options, Diff,
-    DiffKind, DeferRefresh
+    get_head, make_diff, make_diff_options, DeferRefresh, Diff, DiffKind,
 };
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
@@ -167,8 +166,6 @@ pub fn get_commit_diff(
     ))
 }
 
-
-
 pub fn create(
     path: PathBuf,
     message: String,
@@ -247,9 +244,8 @@ pub fn cherry_pick(
     _hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
-
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
-    
+
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(oid)?;
 
@@ -265,7 +261,6 @@ pub fn cherry_pick(
     };
     repo.cherrypick(&commit, Some(&mut cherry_pick_options))?;
     Ok(())
-
 }
 
 pub fn revert(
@@ -279,7 +274,6 @@ pub fn revert(
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(oid)?;
 
-
     let mut revert_options = git2::RevertOptions::new();
     if let Some(file_path) = file_path {
         let mut cb = git2::build::CheckoutBuilder::new();
@@ -289,7 +283,7 @@ pub fn revert(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
-    
+
     repo.revert(&commit, Some(&mut revert_options))?;
 
     Ok(())

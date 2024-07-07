@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use std::path::{PathBuf};
+use std::path::PathBuf;
 
 pub trait StrPath {
     fn as_str(&self) -> &str;

@@ -20,17 +20,17 @@ use git2::build::CheckoutBuilder;
 use git2::{
     ApplyLocation, ApplyOptions, Branch, Commit, Delta, Diff as GitDiff,
     DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
-    DiffOptions, Error, ObjectType, Oid, Repository, RepositoryState,
-    ResetType, RebaseOptions
+    DiffOptions, Error, ObjectType, Oid, RebaseOptions, Repository,
+    RepositoryState, ResetType,
 };
 
 use log::{debug, trace};
 use regex::Regex;
 //use std::time::SystemTime;
+use std::backtrace::Backtrace;
 use std::path::PathBuf;
 use std::{collections::HashSet, env, str};
-use std::backtrace::Backtrace;
-    
+
 pub fn make_diff_options() -> DiffOptions {
     let mut opts = DiffOptions::new();
     opts.indent_heuristic(true);
@@ -40,8 +40,8 @@ pub fn make_diff_options() -> DiffOptions {
     // not full one. perhaps it need to increate that position
     // to something big. actually it must be larger
     // line count between <<<< and =========
-    
-    opts.interhunk_lines(3);// try to put 0 here
+
+    opts.interhunk_lines(3); // try to put 0 here
     opts
 }
 
@@ -92,18 +92,14 @@ impl Line {
     pub fn is_our_side_of_conflict(&self) -> bool {
         match &self.kind {
             LineKind::Ours(_) => true,
-            LineKind::ConflictMarker(m) if m == MARKER_OURS => {
-                true
-            }
+            LineKind::ConflictMarker(m) if m == MARKER_OURS => true,
             _ => false,
         }
     }
     pub fn is_their_side_of_conflict(&self) -> bool {
         match &self.kind {
             LineKind::Theirs(_) => true,
-            LineKind::ConflictMarker(m) if m == MARKER_THEIRS => {
-                true
-            }
+            LineKind::ConflictMarker(m) if m == MARKER_THEIRS => true,
             _ => false,
         }
     }
@@ -238,14 +234,9 @@ impl Hunk {
             let old_nums: i32 = nums.parse().expect("cant parse nums");
 
             let new_nums: i32 = old_nums + delta;
-            let new = whole_new.replace(
-                &format!("{},", old_nums),
-                &format!("{},", new_nums)
-            );
-            return header.replace(
-                whole_new,
-                &new,
-            );
+            let new = whole_new
+                .replace(&format!("{},", old_nums), &format!("{},", new_nums));
+            return header.replace(whole_new, &new);
         }
         panic!("cant replace num in header")
     }
@@ -259,14 +250,9 @@ impl Hunk {
             let old_nums: i32 = nums.parse().expect("cant parse nums");
 
             let new_nums: i32 = old_nums + delta;
-            let new = whole_new.replace(
-                &format!("{},", old_nums),
-                &format!("{},", new_nums)
-            );
-            return header.replace(
-                whole_new,
-                &new,
-            );
+            let new = whole_new
+                .replace(&format!("{},", old_nums), &format!("{},", new_nums));
+            return header.replace(whole_new, &new);
         }
         panic!("cant replace num in header")
     }
@@ -475,7 +461,7 @@ pub struct Diff {
     pub max_line_len: i32,
     /// option for diff if it differs
     /// from the common obtained by make_diff_options
-    pub interhunk: Option<u32>
+    pub interhunk: Option<u32>,
 }
 
 impl Diff {
@@ -485,7 +471,7 @@ impl Diff {
             view: View::new(),
             kind,
             max_line_len: 0,
-            interhunk: None
+            interhunk: None,
         }
     }
 
@@ -630,7 +616,10 @@ pub fn get_current_repo_status(
     sender: Sender<crate::Event>,
 ) {
     let backtrace = Backtrace::capture();
-    debug!("----------------calling get current repo status> {:?}", backtrace);
+    debug!(
+        "----------------calling get current repo status> {:?}",
+        backtrace
+    );
     // path could came from command args or from choosing path
     // by user
     let path = {
@@ -761,7 +750,7 @@ pub fn get_current_repo_status(
         .expect("Could not send through channel");
 }
 
-pub fn get_conflicted_v1(path: PathBuf,  interhunk: Option<u32>) -> Diff {
+pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Diff {
     // so, when file is in conflict during merge, this means nothing
     // was staged to that file, cause mergeing in such state is PROHIBITED!
 
@@ -772,9 +761,9 @@ pub fn get_conflicted_v1(path: PathBuf,  interhunk: Option<u32>) -> Diff {
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
     let mut opts = make_diff_options();
-    // 6 - for 3 context lines in eacj hunk? 
+    // 6 - for 3 context lines in eacj hunk?
     opts.interhunk_lines(interhunk.unwrap_or(10));
-    
+
     for conflict in conflicts {
         let conflict = conflict.unwrap();
         let our = conflict.our.unwrap();
@@ -791,7 +780,7 @@ pub fn get_conflicted_v1(path: PathBuf,  interhunk: Option<u32>) -> Diff {
     // if intehunk in unknown it need to check missing hunks
     // (either ours or theirs could go to separate hunk)
     // and recreate diff to accomodate both ours and theirs in single hunk
-    if interhunk.is_none() {        
+    if interhunk.is_none() {
         // this vec store tuples with last line_no of prev hunk
         // and first line_no of next hunk
         let mut hunks_to_join = Vec::new();
@@ -799,20 +788,21 @@ pub fn get_conflicted_v1(path: PathBuf,  interhunk: Option<u32>) -> Diff {
         for file in &diff.files {
             for hunk in &file.hunks {
                 debug!("hunk in conflicted {}", hunk.header);
-                let (ours, theirs, _separator) = hunk.lines.iter().fold((0, 0, 0), |acc, line| {
-                    match &line.kind {
-                        LineKind::ConflictMarker(m) if m == MARKER_OURS => {            
+                let (ours, theirs, _separator) =
+                    hunk.lines.iter().fold((0, 0, 0), |acc, line| match &line
+                        .kind
+                    {
+                        LineKind::ConflictMarker(m) if m == MARKER_OURS => {
                             (acc.0 + 1, acc.1, acc.2)
                         }
-                        LineKind::ConflictMarker(m) if m == MARKER_THEIRS => {            
+                        LineKind::ConflictMarker(m) if m == MARKER_THEIRS => {
                             (acc.0, acc.1 + 1, acc.2)
                         }
-                        LineKind::ConflictMarker(m) if m == MARKER_VS => {            
+                        LineKind::ConflictMarker(m) if m == MARKER_VS => {
                             (acc.0, acc.1, acc.2 + 1)
                         }
-                        _ => acc
-                    }
-                });
+                        _ => acc,
+                    });
                 // perhaps it need to increment interhunk space to join hunks
                 // into one. possible 2 variants
                 // ours vs - theirs
@@ -822,7 +812,7 @@ pub fn get_conflicted_v1(path: PathBuf,  interhunk: Option<u32>) -> Diff {
                     missing_theirs = hunk.new_start + hunk.lines.len() as u32;
                 } else if theirs > ours {
                     // hunk with theirs, but without ours
-                    
+
                     // BUGS:
                     // - no highlight in final hunk when conflicts are resolved
                     // - FIXED comparing has_conflicts does not worked in update conflicted.
@@ -849,7 +839,10 @@ pub fn get_conflicted_v1(path: PathBuf,  interhunk: Option<u32>) -> Diff {
                     // if hunk is ok, reset missing theirs, which, possibly
                     // came from manual conflict resolution
                     if missing_theirs > 0 {
-                        debug!("reset missing theirs in conflict {:?}", missing_theirs);
+                        debug!(
+                            "reset missing theirs in conflict {:?}",
+                            missing_theirs
+                        );
                         missing_theirs = 0;
                     }
                 }
@@ -1116,9 +1109,7 @@ pub fn stage_via_apply(
     opts.pathspec(file_path.clone());
 
     let git_diff = match subject {
-        StageOp::Stage => {
-            repo.diff_index_to_workdir(None, Some(&mut opts))?
-        }
+        StageOp::Stage => repo.diff_index_to_workdir(None, Some(&mut opts))?,
         StageOp::Unstage => {
             opts.reverse(true);
             let ob =
@@ -1210,19 +1201,23 @@ pub struct DeferRefresh {
 }
 
 impl DeferRefresh {
-    pub fn new(path: PathBuf, sender: Sender<crate::Event>, update_status: bool, unlock_monitors: bool) -> Self {
+    pub fn new(
+        path: PathBuf,
+        sender: Sender<crate::Event>,
+        update_status: bool,
+        unlock_monitors: bool,
+    ) -> Self {
         Self {
             path,
             sender,
             update_status,
-            unlock_monitors
+            unlock_monitors,
         }
     }
 }
 
-
 impl Drop for DeferRefresh {
-    fn drop(&mut self) {        
+    fn drop(&mut self) {
         let backtrace = Backtrace::capture();
         debug!("droping DeferRefresh ................ {}", backtrace);
         if self.update_status {
@@ -1247,7 +1242,6 @@ pub fn reset_hard(
     ooid: Option<Oid>,
     sender: Sender<crate::Event>,
 ) -> Result<bool, Error> {
-
     let repo = Repository::open(path.clone())?;
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
@@ -1373,7 +1367,10 @@ pub fn checkout_oid(
         .expect("cant set target");
 }
 
-pub fn abort_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
+pub fn abort_rebase(
+    path: PathBuf,
+    sender: Sender<crate::Event>,
+) -> Result<(), Error> {
     let _updater = DeferRefresh::new(path.clone(), sender, true, true);
 
     let repo = Repository::open(path)?;
@@ -1389,7 +1386,10 @@ pub fn abort_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), E
     Ok(())
 }
 
-pub fn continue_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
+pub fn continue_rebase(
+    path: PathBuf,
+    sender: Sender<crate::Event>,
+) -> Result<(), Error> {
     let _updater = DeferRefresh::new(path.clone(), sender, true, true);
 
     let repo = Repository::open(path)?;
@@ -1420,11 +1420,12 @@ pub fn continue_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<()
     Ok(())
 }
 
-pub fn rebase(  path: PathBuf,
-                upstream: Oid,
-                _onto: Option<Oid>,
-                sender: Sender<crate::Event>) -> Result<bool, Error> {
-
+pub fn rebase(
+    path: PathBuf,
+    upstream: Oid,
+    _onto: Option<Oid>,
+    sender: Sender<crate::Event>,
+) -> Result<bool, Error> {
     let _defer = DeferRefresh::new(path.clone(), sender, true, true);
 
     let repo = Repository::open(path)?;
@@ -1436,8 +1437,13 @@ pub fn rebase(  path: PathBuf,
     let mut rebase_options = RebaseOptions::new();
     let rebase_options = rebase_options.checkout_options(builder);
 
-    let mut rebase = repo.rebase(None, Some(&upstream_commit), None, Some(rebase_options))?;
-    debug!("THATS REBASE {:?} {:?}", rebase.operation_current(), rebase.len());
+    let mut rebase =
+        repo.rebase(None, Some(&upstream_commit), None, Some(rebase_options))?;
+    debug!(
+        "THATS REBASE {:?} {:?}",
+        rebase.operation_current(),
+        rebase.len()
+    );
     let me = repo.signature()?;
     loop {
         if let Some(result) = rebase.next() {
@@ -1454,7 +1460,6 @@ pub fn rebase(  path: PathBuf,
     debug!("exit rebase loooooopppppppppppppppppp");
     Ok(true)
 }
-
 
 pub fn debug(path: PathBuf) {
     let repo = Repository::open(path.clone()).expect("cant open repo");

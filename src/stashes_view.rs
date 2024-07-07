@@ -34,7 +34,7 @@ glib::wrapper! {
 
 mod oid_row {
     use crate::git::stash::StashData;
-    
+
     use glib::Properties;
     use gtk4::glib;
     use gtk4::prelude::*;

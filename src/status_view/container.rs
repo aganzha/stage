@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::status_view::render::View;
-use crate::status_view::tags;
 use crate::status_view::stage_view::cursor_to_line_offset;
+use crate::status_view::tags;
 use crate::status_view::Label;
 use crate::{
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
@@ -895,7 +895,9 @@ impl ViewContainer for UntrackedFile {
 }
 
 impl Diff {
-    pub fn chosen_file_and_hunk_old(&self) -> (Option<PathBuf>, Option<String>) {
+    pub fn chosen_file_and_hunk_old(
+        &self,
+    ) -> (Option<PathBuf>, Option<String>) {
         let mut file_path: Option<PathBuf> = None;
         let mut hunk_header: Option<String> = None;
         for file in &self.files {

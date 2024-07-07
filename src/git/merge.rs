@@ -4,9 +4,9 @@
 
 use crate::git::{
     branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff,
-    make_diff_options, BranchData, DiffKind, Head, Hunk, Line, State,
-    MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE,
-    SPACE, DeferRefresh
+    make_diff_options, BranchData, DeferRefresh, DiffKind, Head, Hunk, Line,
+    State, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS,
+    NEW_LINE, SPACE,
 };
 use async_channel::Sender;
 use git2;
@@ -120,7 +120,7 @@ pub fn branch(
     path: PathBuf,
     branch_data: BranchData,
     sender: Sender<crate::Event>,
-    mut defer: Option<DeferRefresh>
+    mut defer: Option<DeferRefresh>,
 ) -> Result<Option<BranchData>, git2::Error> {
     info!("merging {:?}", branch_data.name);
     let repo = git2::Repository::open(path.clone())?;
@@ -163,7 +163,12 @@ pub fn branch(
             if index.has_conflicts() {
                 // udpate repo status via defer
                 if defer.is_none() {
-                    defer.replace(DeferRefresh::new(path.clone(), sender.clone(), true, false));
+                    defer.replace(DeferRefresh::new(
+                        path.clone(),
+                        sender.clone(),
+                        true,
+                        false,
+                    ));
                 }
                 return Ok(None);
             }
@@ -196,7 +201,10 @@ pub fn branch(
     BranchData::from_branch(branch, git2::BranchType::Local)
 }
 
-pub fn abort(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {
+pub fn abort(
+    path: PathBuf,
+    sender: Sender<crate::Event>,
+) -> Result<(), git2::Error> {
     info!("git.abort merge");
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
@@ -217,28 +225,25 @@ pub fn abort(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Er
 
     let ob = repo.revparse_single("HEAD^{tree}")?;
     let current_tree = repo.find_tree(ob.id())?;
-    let git_diff = repo
-        .diff_tree_to_index(
-            Some(&current_tree),
-            None,
-            Some(&mut make_diff_options()),
-        )?;
-    git_diff
-        .foreach(
-            &mut |d: git2::DiffDelta, _| {
-                let path = d.new_file().path().expect("cant get path");
-                checkout_builder.path(path);
-                true
-            },
-            None,
-            None,
-            None,
-        )?;
+    let git_diff = repo.diff_tree_to_index(
+        Some(&current_tree),
+        None,
+        Some(&mut make_diff_options()),
+    )?;
+    git_diff.foreach(
+        &mut |d: git2::DiffDelta, _| {
+            let path = d.new_file().path().expect("cant get path");
+            checkout_builder.path(path);
+            true
+        },
+        None,
+        None,
+        None,
+    )?;
 
     let head_ref = repo.head()?;
 
-    let ob = head_ref
-        .peel(git2::ObjectType::Commit)?;
+    let ob = head_ref.peel(git2::ObjectType::Commit)?;
 
     sender
         .send_blocking(crate::Event::LockMonitors(true))
@@ -695,12 +700,7 @@ pub fn choose_conflict_side_of_hunk(
     if let Some(error) = apply_error {
         return Err(error);
     }
-    cleanup_last_conflict_for_file(
-        path,
-        file_path_clone,
-        interhunk,
-        sender,
-    )?;
+    cleanup_last_conflict_for_file(path, file_path_clone, interhunk, sender)?;
     Ok(())
 }
 
@@ -710,10 +710,9 @@ pub fn cleanup_last_conflict_for_file(
     interhunk: Option<u32>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
-
     let repo = git2::Repository::open(path.clone())?;
     let mut index = repo.index()?;
-    
+
     let diff = get_conflicted_v1(path.clone(), interhunk);
     // 1 - all conflicts in all files are resolved - update all
     // 2 - only this file is resolved, but have other conflicts - update all

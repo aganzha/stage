@@ -29,16 +29,16 @@ use commit_view::show_commit_window;
 mod utils;
 
 use core::time::Duration;
-use std::cell::{RefCell, Cell};
+use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
 
 mod git;
 use git::{
-    branch, commit, get_current_repo_status,
-    get_directories, reset_hard, stage_untracked, stage_via_apply,
-    stash::Stashes, track_changes, StageOp, Diff, DiffKind, File, Head,
-    Hunk, Line, LineKind, State, Untracked, UntrackedFile,
+    branch, commit, get_current_repo_status, get_directories, reset_hard,
+    stage_untracked, stage_via_apply, stash::Stashes, track_changes, Diff,
+    DiffKind, File, Head, Hunk, Line, LineKind, StageOp, State, Untracked,
+    UntrackedFile,
 };
 use git2::Oid;
 mod dialogs;
@@ -53,8 +53,9 @@ use libadwaita::{
 };
 
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Align,
-    Box, CssProvider, Orientation, ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
+    gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
+    CssProvider, Orientation, ScrolledWindow, Settings,
+    STYLE_PROVIDER_PRIORITY_USER,
 };
 
 use log::{info, trace};
@@ -248,11 +249,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     let text_view_width =
         Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
     // what about changing color_scheme from gnome settings?
-    let txt = stage_factory(
-        sender.clone(),
-        "status_view",
-        text_view_width.clone(),
-    );
+    let txt =
+        stage_factory(sender.clone(), "status_view", text_view_width.clone());
 
     let scroll = ScrolledWindow::builder()
         .vexpand(true)
@@ -280,7 +278,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     bx.append(&scroll);
 
     let toast_lock: Rc<Cell<bool>> = Rc::new(Cell::new(false));
-    
+
     let toast_overlay = ToastOverlay::new();
     toast_overlay.set_child(Some(&bx)); // scroll bs bx
 
@@ -495,12 +493,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::UnStage(_offset, line_no) => {
                     info!("Unstage");
-                    status.stage(
-                        &txt,
-                        line_no,
-                        StageOp::Unstage,
-                        &window,
-                    );
+                    status.stage(&txt, line_no, StageOp::Unstage, &window);
                 }
                 Event::Kill(_offset, line_no) => {
                     info!("main.kill");
@@ -528,9 +521,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                             let toast_lock = toast_lock.clone();
                             move |_t| {
                                 toast_lock.replace(false);
-                            }});
+                            }
+                        });
                         toast_overlay.add_toast(toast);
-                    }                    
+                    }
                 }
                 Event::Zoom(dir) => {
                     info!("Zoom");
@@ -617,7 +611,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     info!("StoreSettings {} {}", name, value);
                     settings.set(&name, value).expect("cant set settings");
                     if name == SCHEME_TOKEN {
-                        txt.set_is_dark(StyleManager::default().is_dark(), true);
+                        txt.set_is_dark(
+                            StyleManager::default().is_dark(),
+                            true,
+                        );
                     }
                 }
             };

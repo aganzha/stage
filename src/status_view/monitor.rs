@@ -2,19 +2,17 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::{Status, get_directories, track_changes};
-use log::{trace, debug, info};
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::path::{PathBuf};
+use crate::{get_directories, track_changes, Status};
 use core::time::Duration;
-use gtk4::prelude::*;
-use gtk4::{
-    glib, gio
-};
 use gio::{
     Cancellable, File, FileMonitor, FileMonitorEvent, FileMonitorFlags,
 };
+use gtk4::prelude::*;
+use gtk4::{gio, glib};
+use log::{debug, info, trace};
+use std::cell::RefCell;
+use std::path::PathBuf;
+use std::rc::Rc;
 
 impl Status {
     pub fn lock_monitors(&mut self, lock: bool) {
@@ -41,8 +39,8 @@ impl Status {
                     let path = path.clone();
                     move || get_directories(path)
                 })
-                    .await
-                    .expect("cant get direcories");
+                .await
+                .expect("cant get direcories");
                 let root = path
                     .to_str()
                     .expect("cant get string from path")

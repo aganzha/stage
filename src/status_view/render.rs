@@ -7,7 +7,7 @@ use crate::status_view::tags;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::{trace};
+use log::trace;
 use std::cell::Cell;
 
 #[derive(Debug, Copy, Clone)]
@@ -156,7 +156,6 @@ pub struct View {
     pub tag_indexes: Cell<tags::TagIdx>,
 }
 
-
 impl View {
     pub fn new() -> Self {
         View {
@@ -274,10 +273,10 @@ impl View {
     ) {
         let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
         eol_iter.forward_to_line_end();
-        
+
         // if content is empty - eol iter will drop onto next line!
         // no need to delete in this case!
-        if iter.line() == eol_iter.line() {            
+        if iter.line() == eol_iter.line() {
             buffer.remove_all_tags(iter, &eol_iter);
             buffer.delete(iter, &mut eol_iter);
         }

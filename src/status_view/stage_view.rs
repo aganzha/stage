@@ -12,13 +12,13 @@ use glib::ControlFlow;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, glib, EventControllerKey,
-    EventControllerMotion, EventSequenceState, GestureClick, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget
+    gdk, glib, EventControllerKey, EventControllerMotion, EventSequenceState,
+    GestureClick, MovementStep, TextBuffer, TextTag, TextView, TextWindowType,
+    Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::StyleManager;
-use log::{trace};
-
+use log::trace;
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -45,8 +45,7 @@ mod stage_view {
 
     use gtk4::subclass::prelude::*;
 
-
-    // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79    
+    // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
     const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.137, 0.216, 0.310, 1.0);
 
@@ -68,7 +67,6 @@ mod stage_view {
 
     #[derive(Default)]
     pub struct StageView {
-
         pub cursor: Cell<i32>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
@@ -78,7 +76,6 @@ mod stage_view {
         // TODO! put it here!
         pub is_dark: Cell<bool>,
         pub is_dark_set: Cell<bool>,
-
         // #[property(get, set)]
         // pub current_line: RefCell<i32>,
     }
@@ -98,12 +95,17 @@ mod stage_view {
                 let rect = self.obj().visible_rect();
                 let bg_fill = if self.is_dark.get() {
                     &DARK_BF_FILL
-                }else {
+                } else {
                     &LIGHT_BG_FILL
                 };
                 snapshot.append_color(
                     bg_fill,
-                    &graphene::Rect::new(rect.x() as f32, rect.y() as f32, rect.width() as f32, rect.height() as f32)
+                    &graphene::Rect::new(
+                        rect.x() as f32,
+                        rect.y() as f32,
+                        rect.width() as f32,
+                        rect.height() as f32,
+                    ),
                 );
 
                 let buffer = self.obj().buffer();
@@ -135,9 +137,13 @@ mod stage_view {
                     // cleanup the garbage
                     snapshot.append_color(
                         bg_fill,
-                        &graphene::Rect::new(rect.x() as f32, y_to as f32, rect.width() as f32, rect.height() as f32)
+                        &graphene::Rect::new(
+                            rect.x() as f32,
+                            y_to as f32,
+                            rect.width() as f32,
+                            rect.height() as f32,
+                        ),
                     );
-
                 }
 
                 // highlight hunks -----------------------------------
@@ -158,7 +164,6 @@ mod stage_view {
                         ),
                     );
                 }
-
 
                 // highlight cursor ---------------------------------
                 let cursor_line = self.cursor.get();
@@ -181,7 +186,6 @@ mod stage_view {
             // is it required?
             // self.parent_snapshot_layer(layer, snapshot)
         }
-
     }
     impl ObjectImpl for StageView {}
     impl WidgetImpl for StageView {}
@@ -198,7 +202,7 @@ impl StageView {
         glib::Object::builder().build()
     }
 
-    pub fn set_is_dark(&self, _is_dark: bool, force:bool) {
+    pub fn set_is_dark(&self, _is_dark: bool, force: bool) {
         if !force && self.imp().is_dark_set.get() {
             return;
         }
@@ -219,7 +223,6 @@ impl StageView {
         for h in &context.highlight_hunks {
             self.imp().hunks.borrow_mut().push(*h);
         }
-
     }
 }
 
@@ -269,7 +272,6 @@ pub fn factory(
 ) -> StageView {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
-
 
     let txt = StageView::new();
     txt.set_margin_start(12);
@@ -359,7 +361,13 @@ pub fn factory(
                     .expect("Could not send through channel");
                     return glib::Propagation::Stop;
                 }
-                (gdk::Key::s | gdk::Key::a | gdk::Key::ISO_Enter | gdk::Key::KP_Enter, _) => {
+                (
+                    gdk::Key::s
+                    | gdk::Key::a
+                    | gdk::Key::ISO_Enter
+                    | gdk::Key::KP_Enter,
+                    _,
+                ) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Stage(
                         iter.offset(),
@@ -455,8 +463,10 @@ pub fn factory(
                         .expect("Could not send through channel");
                 }
                 (_, gdk::ModifierType::LOCK_MASK) => {
-                    sndr.send_blocking(crate::Event::Toast(String::from("CapsLock pressed")))
-                        .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Toast(String::from(
+                        "CapsLock pressed",
+                    )))
+                    .expect("Could not send through channel");
                 }
                 (key, modifier) => {
                     trace!(
