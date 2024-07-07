@@ -276,7 +276,7 @@ pub fn pull(
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
 ) -> Result<(), git2::Error>{
-    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+    let defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
      // TODO here is hardcode
     let mut remote = repo
@@ -316,7 +316,6 @@ pub fn pull(
     let upstream = branch.upstream().unwrap();
 
     let branch_data = BranchData::from_branch(upstream, git2::BranchType::Remote).unwrap().unwrap();
-    merge::branch(path.clone(), branch_data, sender.clone())?;
-    get_head(path, sender);
+    merge::branch(path.clone(), branch_data, sender.clone(), Some(defer))?;
     Ok(())
 }
