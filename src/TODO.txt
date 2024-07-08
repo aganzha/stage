@@ -1,15 +1,12 @@
+BUG: empty deleted line is not shown (deleted are show by text coloring, not background
 TODO: spaces!
 TODO: tags!
 TODO: blame - just hit b on filename and introduce Blame section (as conflicted).
 each click on blame opens commit view. then in commit view each hit b on file
 opens blame again!
 NOW: display pull error, please
-BUG: black theme on centos: textview is not black
-BUG: pull affect monitors again
 TODO: pull must choose merge vs rebase
 TODO: swap find_annotated_commit in merge to reference_to_annotated_commit to get proper branch name in merge 
-BUG: lost commit e6272a140d85adadf62cf86e475cef25bb68b347. reproduce: create commit/ push to remote: denied: non fast forward.
-pull remote - commit is lost
 BUG: when close commit window  opened from stah - there are no focus in main window! any window, actually. perhaps related to cinnamon or flatpak.
 BUG: checkout 3100. apply debug_linked and choose large hunk. BTW - there are 2 hunks! must be just 1!
      then manually edit file and refresh. wtf is there? deleted file?
