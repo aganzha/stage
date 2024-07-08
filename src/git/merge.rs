@@ -140,10 +140,16 @@ pub fn branch(
                 branch_data.oid,
                 Some(git2::ObjectType::Commit),
             )?;
+            sender
+                .send_blocking(crate::Event::LockMonitors(true))
+                .expect("Could not send through channel");
             repo.checkout_tree(
                 &ob,
                 Some(git2::build::CheckoutBuilder::new().safe()),
             )?;
+            sender
+                .send_blocking(crate::Event::LockMonitors(false))
+                .expect("Could not send through channel");
             repo.reset(&ob, git2::ResetType::Soft, None)?;
         }
         Ok((analysis, preference))
