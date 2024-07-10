@@ -4,6 +4,7 @@
 
 pub mod branch;
 pub mod commit;
+pub mod tag;
 pub mod git_log;
 pub mod merge;
 pub mod remote;

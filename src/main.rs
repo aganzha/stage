@@ -20,6 +20,9 @@ use branches_view::show_branches_window;
 mod log_view;
 use log_view::show_log_window;
 
+mod tags_view;
+use tags_view::show_tags_window;
+
 mod stashes_view;
 use stashes_view::factory as stashes_view_factory;
 
@@ -144,6 +147,7 @@ pub enum Event {
     LockMonitors(bool),
     StoreSettings(String, String),
     OpenEditor,
+    Tags
 }
 
 fn zoom(dir: bool) {
@@ -401,6 +405,13 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         }
                     });
                     window_stack.borrow_mut().push(w);
+                }
+                Event::Tags => {
+                    show_tags_window(
+                        status.path.clone().expect("no path"),                    
+                        &window,
+                        sender.clone(),
+                    );
                 }
                 Event::Log(ooid, obranch_name) => {
                     info!("main.log");
