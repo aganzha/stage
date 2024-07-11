@@ -276,7 +276,7 @@ pub trait ViewContainer {
         let initial_line_offset = iter.line_offset();
 
         let view = self.get_view();
-        debug!(
+        trace!(
             "erasing {:?} at line {}",
             self.get_kind(),
             view.line_no.get()
@@ -286,7 +286,7 @@ pub trait ViewContainer {
         // let original_line_no = view.line_no.get();
 
         if let Some(ec) = context.erase_counter {
-            debug!("erase counter {:?}", ec);
+            trace!("erase counter {:?}", ec);
             line_no -= ec;
         }
 

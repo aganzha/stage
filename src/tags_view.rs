@@ -317,8 +317,6 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
         });
         oid_label.add_controller(gesture_controller);
 
-        let from = Image::new();
-
         let author_label = Label::builder()
             .label("")
             .width_chars(18)
@@ -366,10 +364,9 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
             .build();
 
         bx.append(&oid_label);
-        bx.append(&from);
-        bx.append(&author_label);
+        // bx.append(&author_label);
         bx.append(&label_tag);
-        bx.append(&label_dt);
+        // bx.append(&label_dt);
 
         let list_item = list_item
             .downcast_ref::<ListItem>()
@@ -385,33 +382,23 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
             "label",
             Widget::NONE,
         );
-        item.chain_property::<TagItem>("from").bind(
-            &from,
-            "icon-name",
-            Widget::NONE,
-        );
-        item.chain_property::<TagItem>("from_tooltip").bind(
-            &from,
-            "tooltip-text",
-            Widget::NONE,
-        );
 
-        item.chain_property::<TagItem>("author").bind(
-            &author_label,
-            "label",
-            Widget::NONE,
-        );
-        item.chain_property::<TagItem>("message").bind(
+        // item.chain_property::<TagItem>("author").bind(
+        //     &author_label,
+        //     "label",
+        //     Widget::NONE,
+        // );
+        item.chain_property::<TagItem>("name").bind(
             &label_tag,
             "label",
             Widget::NONE,
         );
 
-        item.chain_property::<TagItem>("dt").bind(
-            &label_dt,
-            "label",
-            Widget::NONE,
-        );
+        // item.chain_property::<TagItem>("dt").bind(
+        //     &label_dt,
+        //     "label",
+        //     Widget::NONE,
+        // );
         let focus = focus.clone();
         list_item.connect_selected_notify(move |li: &ListItem| {
             glib::source::timeout_add_local(Duration::from_millis(300), {
@@ -437,7 +424,6 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
 
 pub fn headerbar_factory(
     list_view: &ListView,
-    branch_name: String,
     window: &impl IsA<Widget>,
     sender: Sender<crate::Event>,
     repo_path: PathBuf,
@@ -450,7 +436,7 @@ pub fn headerbar_factory(
     entry.connect_stop_search(|e| {
         e.stop_signal_emission_by_name("stop-search");
     });
-    let commit_list = get_commit_list(list_view);
+    let commit_list = get_tags_list(list_view);
 
     let search = SearchBar::builder()
         .tooltip_text("search commits")
@@ -498,10 +484,7 @@ pub fn headerbar_factory(
     let title = Label::builder()
         .margin_start(12)
         .use_markup(true)
-        .label(format!(
-            "Commits in <span color=\"#4a708b\">{}</span>",
-            branch_name
-        ))
+        .label("Tags")
         .build();
     let hb = HeaderBar::builder().build();
     hb.set_title_widget(Some(&search));
@@ -597,7 +580,6 @@ pub fn show_tags_window(
 
     let hb = headerbar_factory(
         &list_view,
-        branch_name,
         &window,
         main_sender.clone(),
         repo_path.clone(),
