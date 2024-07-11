@@ -171,6 +171,7 @@ impl TagList {
     pub fn get_tags_inside(
         &self,
         repo_path: PathBuf,
+        mut start_oid: Option<Oid>,
         widget: &impl IsA<Widget>,
     ) {
         glib::spawn_future_local({
@@ -194,11 +195,21 @@ impl TagList {
                 }
             };
             async move {
+                let list_le = tag_list.imp().list.borrow().len() as u32;
+                let mut append_to_existing = false;
+                if list_le > 0 {
+                    let item = tag_list.item(list_le - 1).unwrap();
+                    let commit_item =
+                        item.downcast_ref::<TagItem>().unwrap();
+                    let oid = commit_item.imp().tag.borrow().oid;
+                    start_oid.replace(oid);
+                    append_to_existing = true;
+                }
 
                 let tags = gio::spawn_blocking({
                     let search_term = search_term.clone();
-                    let repo_path = repo_path.clone();
-                    move || tag::get_tag_list(repo_path, search_term)
+                    let repo_path = repo_path.clone();                    
+                    move || tag::get_tag_list(repo_path, start_oid, search_term)
                 })
                 .await
                 .unwrap_or_else(|e| {
@@ -228,15 +239,39 @@ impl TagList {
                         tag
                     })
                     .map(TagItem::new)
-                {                    
-                    tag_list.imp().list.borrow_mut().push(item);
+                {
+                    if append_to_existing {
+                        if let Some(oid) = start_oid {
+                            if item.imp().tag.borrow().oid == oid {
+                                // trace!("skip previously found commit {:?}", oid);
+                                continue;
+                            }
+                        }
+                    }
+                    last_added_oid.replace(item.imp().tag.borrow().oid);
+                    tag_list.imp().list.borrow_mut().push(item);                    
                     added += 1;
                 }
+                debug!("added some tags {:?}", added);
                 if added > 0 {
                     tag_list.items_changed(
                         0,
                         0,
                         added,
+                    );
+                }
+                if search_term.is_some()
+                    && last_added_oid.is_some()
+                    && term_count < tag::TAG_PAGE_SIZE
+                {
+                    trace!(
+                        "go next loop with start >>>>>>>>   oid {:?}",
+                        last_added_oid
+                    );
+                    tag_list.get_tags_inside(
+                        repo_path,
+                        last_added_oid,
+                        &widget,
                     );
                 }
             }
@@ -275,7 +310,7 @@ impl TagList {
         let current_length = self.imp().list.borrow().len();
         self.imp().list.borrow_mut().clear();
         self.items_changed(0, current_length as u32, 0);
-        self.get_tags_inside(repo_path, widget);
+        self.get_tags_inside(repo_path, None, widget);
     }
 
     pub fn get_selected_oid(&self) -> Oid {
@@ -571,7 +606,7 @@ pub fn show_tags_window(
             // because tags pull 1 by 1. it need to reset counter
             let (term, _) = tags_list.imp().search_term.take();
             tags_list.imp().search_term.replace((term, 0));
-            tags_list.get_tags_inside(repo_path.clone(), list_view);
+            tags_list.get_tags_inside(repo_path.clone(), None, list_view);
         }
     });
     scroll.set_child(Some(&list_view));
@@ -627,6 +662,7 @@ pub fn show_tags_window(
     list_view.grab_focus();
     get_tags_list(&list_view).get_tags_inside(
         repo_path.clone(),
+        None,
         &list_view,
     );
     window
