@@ -102,7 +102,7 @@ mod tag_item {
 impl TagItem {
     pub fn new(tag: tag::Tag) -> Self {
         let ob = Object::builder::<TagItem>().build();
-        ob.imp().tag.replace(tag);
+        ob.imp().tag.replace(tag.clone());
         ob
     }
 }
@@ -436,6 +436,7 @@ impl TagList {
                         });
                         if let Some(created_tag) = created_tag {
                             // aganzha what about optional checkout?
+                            debug!("???????????????????? {:?}", created_tag);
                             tag_list.add_new_tag(created_tag);
                         }
                     }
@@ -446,7 +447,11 @@ impl TagList {
         self.imp()
             .original_list
             .borrow_mut()
-            .push(created_tag);
+        .insert(0, created_tag.clone());
+        self.imp()
+            .list
+            .borrow_mut()
+            .insert(0, TagItem::new(created_tag));
         self.items_changed(
             0,
             0,

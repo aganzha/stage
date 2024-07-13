@@ -101,7 +101,6 @@ pub fn create_tag(path: PathBuf, tag_name: String, target_oid: git2::Oid, sender
     let repo = git2::Repository::open(path.clone())?;
     let target = repo.find_object(target_oid, Some(git2::ObjectType::Commit))?;
     let created_oid = repo.tag_lightweight(&tag_name, &target, false)?;
-    // let created_tag = repo.find_tag(created_oid)?;
     let commit = target.peel_to_commit()?;
     let commit_log = CommitLog::from_log(commit, CommitRelation::None);
     Ok(
