@@ -22,8 +22,8 @@ use core::time::Duration;
 
 use log::{trace, debug};
 
-use crate::git::tag;
-use crate::dialogs::{alert};
+use crate::git::{tag, commit};
+use crate::dialogs::{alert, ConfirmDialog, DangerDialog, YES};
 
 glib::wrapper! {
     pub struct TagItem(ObjectSubclass<tag_item::TagItem>);
@@ -220,15 +220,15 @@ impl TagList {
                     let repo_path = repo_path.clone();                    
                     move || tag::get_tag_list(repo_path, start_oid, search_term)
                 })
-                .await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&widget);
-                    Ok(Vec::new())
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(&widget);
-                    Vec::new()
-                });
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&widget);
+                        Ok(Vec::new())
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&widget);
+                        Vec::new()
+                    });
                 // trace!("tags in response {:?}", tags.len());
                 if tags.is_empty() {
                     return;
@@ -328,7 +328,163 @@ impl TagList {
         let tag_item = item.downcast_ref::<TagItem>().unwrap();
         let oid = tag_item.imp().tag.borrow().oid;
         oid
-    }    
+    }
+
+    pub fn get_selected_commit_oid(&self) -> Oid {
+        let pos = self.selected_pos();
+        let item = self.item(pos).unwrap();
+        let tag_item = item.downcast_ref::<TagItem>().unwrap();
+        let oid = tag_item.imp().tag.borrow().commit.oid;
+        oid
+    }
+
+    pub fn cherry_pick(
+        &self,
+        repo_path: PathBuf,
+        window: &impl IsA<Widget>,
+        sender: Sender<crate::Event>,
+    ) {
+        glib::spawn_future_local({
+            let sender = sender.clone();
+            let path = repo_path.clone();
+            let window = window.clone();
+            let oid = self.get_selected_commit_oid();
+            async move {
+                let response = alert(ConfirmDialog(
+                    "Cherry pick commit?".to_string(),
+                    format!("{}", oid),
+                ))
+                    .choose_future(&window)
+                    .await;
+                if response != YES {
+                    return;
+                }
+                gio::spawn_blocking({
+                    let sender = sender.clone();
+                    let path = path.clone();
+                    move || commit::cherry_pick(path, oid, None, None, sender)
+                })
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(())
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                    });
+            }
+        });
+    }
+
+    pub fn revert(
+        &self,
+        repo_path: PathBuf,
+        window: &impl IsA<Widget>,
+        sender: Sender<crate::Event>,
+    ) {
+        glib::spawn_future_local({
+            let sender = sender.clone();
+            let path = repo_path.clone();
+            let window = window.clone();
+            let oid = self.get_selected_commit_oid();
+            async move {
+                let response = alert(ConfirmDialog(
+                    "Revert commit?".to_string(),
+                    format!("{}", oid),
+                ))
+                    .choose_future(&window)
+                    .await;
+                if response != YES {
+                    return;
+                }
+                gio::spawn_blocking({
+                    let sender = sender.clone();
+                    let path = path.clone();
+                    move || commit::revert(path, oid, None, None, sender)
+                })
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(())
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                    });
+            }
+        });
+    }
+
+    pub fn reset_hard(
+        &self,
+        repo_path: PathBuf,
+        window: &impl IsA<Widget>,
+        sender: Sender<crate::Event>,
+    ) {
+        let oid = self.get_selected_commit_oid();
+        glib::spawn_future_local({
+            let window = window.clone();
+            let sender = sender.clone();
+            let commit_list = self.clone();
+            async move {
+                let response = alert(DangerDialog(
+                    String::from("Reset"),
+                    format!("Hard reset to {}", oid),
+                ))
+                    .choose_future(&window)
+                    .await;
+                if response != YES {
+                    return;
+                }
+                let result = gio::spawn_blocking({
+                    let sender = sender.clone();
+                    let path = repo_path.clone();
+                    move || crate::reset_hard(path, Some(oid), sender)
+                })
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(false)
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                        false
+                    });
+                if result {
+                    loop {
+                        // let original = *commit_list.imp().original_list.borrow_mut();
+                        let first_oid =
+                            commit_list.imp().original_list.borrow()[0].oid;
+                        commit_list.imp().original_list.borrow_mut().remove(0);
+                        if first_oid == oid {
+                            break;
+                        }
+                    }
+                    if commit_list.imp().search_term.borrow().0.is_empty() {
+                        // remove from visual list only if it is not in search
+                        let mut removed = 0;
+                        loop {
+                            // let original = *commit_list.imp().original_list.borrow_mut();
+                            let first_oid = {
+                                let first_item =
+                                    &commit_list.imp().list.borrow()[0];
+                                let first_oid =
+                                    first_item.imp().tag.borrow().commit.oid;
+                                first_oid
+                            };
+                            if first_oid == oid {
+                                break;
+                            }
+                            commit_list.imp().list.borrow_mut().remove(0);
+                            removed += 1;
+                        }
+                        if removed > 0 {
+                            commit_list.items_changed(0, removed, 0);
+                        }
+                    }
+                }
+            }
+        });
+    }
 }
 
 pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
@@ -572,6 +728,63 @@ pub fn headerbar_factory(
     let hb = HeaderBar::builder().build();
     hb.set_title_widget(Some(&search));
     hb.pack_start(&title);
+
+    
+    let cherry_pick_btn = Button::builder()
+        .icon_name("emblem-shared-symbolic")
+        .can_shrink(true)
+        .tooltip_text("Cherry-pick")
+        .sensitive(true)
+        .use_underline(true)
+        .build();
+    cherry_pick_btn.connect_clicked({
+        let sender = sender.clone();
+        let path = repo_path.clone();
+        let window = window.clone();
+        let tag_list = tag_list.clone();
+        move |_btn| {
+            tag_list.cherry_pick(path.clone(), &window, sender.clone());
+        }
+    });
+
+    let revert_btn = Button::builder()
+        .icon_name("edit-undo-symbolic")
+        .can_shrink(true)
+        .tooltip_text("Revert")
+        .sensitive(true)
+        .use_underline(true)
+        .build();
+    revert_btn.connect_clicked({
+        let sender = sender.clone();
+        let path = repo_path.clone();
+        let window = window.clone();
+        let tag_list = tag_list.clone();
+        move |_btn| {
+            tag_list.revert(path.clone(), &window, sender.clone());
+        }
+    });
+
+    hb.pack_end(&cherry_pick_btn);
+    hb.pack_end(&revert_btn);
+
+    let reset_btn = Button::builder()
+        .label("Reset hard")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Reset hard")
+        .icon_name("software-update-urgent-symbolic")
+        .can_shrink(true)
+        .build();
+    reset_btn.connect_clicked({
+        // let sender = sender.clone();
+        let window = window.clone();
+        let repo_path = repo_path.clone();
+        move |_| {
+            tag_list.reset_hard(repo_path.clone(), &window, sender.clone());
+        }
+    });
+    hb.pack_end(&reset_btn);
+
     hb
 }
 
