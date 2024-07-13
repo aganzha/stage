@@ -338,6 +338,18 @@ impl TagList {
         oid
     }
 
+    pub fn kill_tag(&self,
+        repo_path: PathBuf,
+        window: &impl IsA<Widget>,
+        sender: Sender<crate::Event>,) {
+    }
+
+    pub fn create_tag(&self,
+        repo_path: PathBuf,
+        window: &impl IsA<Widget>,
+        sender: Sender<crate::Event>,) {
+    }
+    
     pub fn cherry_pick(
         &self,
         repo_path: PathBuf,
@@ -764,9 +776,6 @@ pub fn headerbar_factory(
         }
     });
 
-    hb.pack_end(&cherry_pick_btn);
-    hb.pack_end(&revert_btn);
-
     let reset_btn = Button::builder()
         .label("Reset hard")
         .use_underline(true)
@@ -776,15 +785,64 @@ pub fn headerbar_factory(
         .can_shrink(true)
         .build();
     reset_btn.connect_clicked({
-        // let sender = sender.clone();
+        let sender = sender.clone();
         let window = window.clone();
         let repo_path = repo_path.clone();
+        let tag_list = tag_list.clone();
         move |_| {
             tag_list.reset_hard(repo_path.clone(), &window, sender.clone());
         }
     });
-    hb.pack_end(&reset_btn);
 
+    let new_btn = Button::builder()
+        // .label("N")
+        .icon_name("list-add-symbolic")
+        .can_shrink(true)
+        .tooltip_text("Create branch (N)")
+        .sensitive(true)
+        .use_underline(true)
+        // .action_name("branches.new")
+        .build();
+
+    new_btn.connect_clicked({
+        let sender = sender.clone();
+        let window = window.clone();
+        let tag_list = tag_list.clone();
+        let repo_path = repo_path.clone();
+        move |_| {
+            tag_list.create_tag(
+                repo_path.clone(),
+                &window,
+                sender.clone(),
+            );
+        }
+    });
+    let kill_btn = Button::builder()
+        .icon_name("user-trash-symbolic") // process-stop-symbolic
+        .use_underline(true)
+        .tooltip_text("Delete branch (K)")
+        .sensitive(false)
+        .can_shrink(true)
+        .build();
+    kill_btn.connect_clicked({
+        let sender = sender.clone();
+        let window = window.clone();
+        let tag_list = tag_list.clone();
+        let repo_path = repo_path.clone();
+        move |_| {
+            tag_list.kill_tag(
+                repo_path.clone(),
+                &window,
+                sender.clone(),
+            );
+        }
+    });
+
+    hb.pack_end(&new_btn);
+    hb.pack_end(&kill_btn);
+    hb.pack_end(&reset_btn);
+    hb.pack_end(&cherry_pick_btn);
+    hb.pack_end(&revert_btn);    
     hb
 }
 
