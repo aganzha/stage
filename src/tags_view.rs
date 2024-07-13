@@ -42,21 +42,21 @@ mod tag_item {
     pub struct TagItem {
         pub tag: RefCell<tag::Tag>,
 
-        // #[property(get = Self::get_author)]
-        // pub author: String,
-
         #[property(get = Self::get_commit_oid)]
         pub commit_oid: String,
 
-        // #[property(get = Self::get_from)]
-        // pub from: String,
-
-        // #[property(get = Self::get_from_tooltip)]
-        // pub from_tooltip: String,
-
         #[property(get = Self::get_name)]
         pub name: String,
+
+        #[property(get = Self::get_message)]
+        pub message: String,
         
+        #[property(get = Self::get_commit_message)]
+        pub commit_message: String,
+
+        #[property(get = Self::get_author)]
+        pub author: String,
+
         #[property(get = Self::get_dt)]
         pub dt: String,
     }
@@ -77,12 +77,20 @@ mod tag_item {
             )
         }
 
-        // pub fn get_author(&self) -> String {
-        //     self.tag.borrow().author.to_string()
-        // }
-
         pub fn get_name(&self) -> String {
-            self.tag.borrow().name.to_string()
+            self.tag.borrow().name.to_string().replace("refs/tags/", "")
+        }
+
+        pub fn get_author(&self) -> String {
+            self.tag.borrow().commit.author.to_string()
+        }
+
+        pub fn get_message(&self) -> String {
+            self.tag.borrow().message.to_string()
+        }
+
+        pub fn get_commit_message(&self) -> String {
+            self.tag.borrow().commit.message.to_string()
         }
         
         pub fn get_dt(&self) -> String {
@@ -361,13 +369,39 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
             .ellipsize(pango::EllipsizeMode::End)
             .build();
 
-        let label_tag = Label::builder()
+        let label_name = Label::builder()
             .label("")
             .lines(1)
             .single_line_mode(true)
             .xalign(0.0)
-            .width_chars(36)
-            .max_width_chars(36)
+            .width_chars(16)
+            .max_width_chars(16)
+            .ellipsize(pango::EllipsizeMode::End)
+            .use_markup(true)
+            .can_focus(true)
+            .can_target(true)
+            .build();
+
+        let label_message = Label::builder()
+            .label("")
+            .lines(1)
+            .single_line_mode(true)
+            .xalign(0.0)
+            .width_chars(16)
+            .max_width_chars(16)
+            .ellipsize(pango::EllipsizeMode::End)
+            .use_markup(true)
+            .can_focus(true)
+            .can_target(true)
+            .build();
+
+        let label_commit_message = Label::builder()
+            .label("")
+            .lines(1)
+            .single_line_mode(true)
+            .xalign(0.0)
+            .width_chars(16)
+            .max_width_chars(16)
             .ellipsize(pango::EllipsizeMode::End)
             .use_markup(true)
             .can_focus(true)
@@ -400,9 +434,11 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
             .build();
 
         bx.append(&oid_label);
-        // bx.append(&author_label);
-        bx.append(&label_tag);
-        // bx.append(&label_dt);
+        bx.append(&label_name);
+        bx.append(&label_message);
+        bx.append(&label_commit_message);
+        bx.append(&author_label);        
+        bx.append(&label_dt);
 
         let list_item = list_item
             .downcast_ref::<ListItem>()
@@ -419,22 +455,31 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
             Widget::NONE,
         );
 
-        // item.chain_property::<TagItem>("author").bind(
-        //     &author_label,
-        //     "label",
-        //     Widget::NONE,
-        // );
-        item.chain_property::<TagItem>("name").bind(
-            &label_tag,
+        item.chain_property::<TagItem>("author").bind(
+            &author_label,
             "label",
             Widget::NONE,
         );
-
-        // item.chain_property::<TagItem>("dt").bind(
-        //     &label_dt,
-        //     "label",
-        //     Widget::NONE,
-        // );
+        item.chain_property::<TagItem>("name").bind(
+            &label_name,
+            "label",
+            Widget::NONE,
+        );
+        item.chain_property::<TagItem>("message").bind(
+            &label_message,
+            "label",
+            Widget::NONE,
+        );
+        item.chain_property::<TagItem>("commit_message").bind(
+            &label_commit_message,
+            "label",
+            Widget::NONE,
+        );
+        item.chain_property::<TagItem>("dt").bind(
+            &label_dt,
+            "label",
+            Widget::NONE,
+        );
         let focus = focus.clone();
         list_item.connect_selected_notify(move |li: &ListItem| {
             glib::source::timeout_add_local(Duration::from_millis(300), {
