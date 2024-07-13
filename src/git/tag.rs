@@ -38,7 +38,7 @@ impl Default for Tag {
     }
 }
 
-pub const TAG_PAGE_SIZE: usize = 10;
+pub const TAG_PAGE_SIZE: usize = 100;
 
 pub fn get_tag_list(path: PathBuf, start_oid: Option<git2::Oid>, search_term: Option<String>) -> Result<Vec<Tag>, git2::Error> {
     info!("get_tag_list {:?}", start_oid);
