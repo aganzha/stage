@@ -1260,6 +1260,10 @@ impl Status {
             .send_blocking(Event::Toast(String::from("dumped")))
             .expect("cant send through sender");
     }
+    pub fn head_oid(&self) -> crate::Oid {
+        self.head.as_ref().unwrap().oid
+    }
+    
     pub fn debug(
         &mut self,
         txt: &StageView,

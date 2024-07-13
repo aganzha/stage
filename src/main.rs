@@ -147,7 +147,7 @@ pub enum Event {
     LockMonitors(bool),
     StoreSettings(String, String),
     OpenEditor,
-    Tags
+    Tags(Option<Oid>)
 }
 
 fn zoom(dir: bool) {
@@ -406,18 +406,21 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     });
                     window_stack.borrow_mut().push(w);
                 }
-                Event::Tags => {
+                Event::Tags(ooid) => {
+                    let oid = ooid.unwrap_or(status.head_oid());
                     let w = {
                         if let Some(stack) = window_stack.borrow().last() {
                             show_tags_window(
                                 status.path.clone().expect("no path"),
                                 stack,
+                                oid,
                                 sender.clone(),
                             )
                         } else {
                             show_tags_window(
                                 status.path.clone().expect("no path"),
                                 &window,
+                                oid,
                                 sender.clone(),
                             )
                         }
@@ -433,12 +436,6 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         }
                     });
                     window_stack.borrow_mut().push(w);
-
-                    // show_tags_window(
-                    //     status.path.clone().expect("no path"),                    
-                    //     &window,
-                    //     sender.clone(),
-                    // );
                 }
                 Event::Log(ooid, obranch_name) => {
                     info!("main.log");

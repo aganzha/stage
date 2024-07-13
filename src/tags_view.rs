@@ -4,14 +4,14 @@
 
 use async_channel::Sender;
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, ToolbarView, Window};
+use libadwaita::{HeaderBar, ToolbarView, Window, EntryRow, SwitchRow};
 use glib::{Object, clone};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick,
     Image, Label, ListItem, ListView, Orientation, PositionType,
-    ScrolledWindow, SearchBar, SearchEntry, SignalListItemFactory,
+    ScrolledWindow, SearchBar, SearchEntry, SignalListItemFactory, ListBox, SelectionMode,
     SingleSelection, Widget, Window as Gtk4Window,
 };
 use std::path::PathBuf;
@@ -23,7 +23,7 @@ use core::time::Duration;
 use log::{trace, debug};
 
 use crate::git::{tag, commit};
-use crate::dialogs::{alert, ConfirmDialog, DangerDialog, YES};
+use crate::dialogs::{alert, ConfirmDialog, DangerDialog, YES, confirm_dialog_factory};
 
 glib::wrapper! {
     pub struct TagItem(ObjectSubclass<tag_item::TagItem>);
@@ -340,14 +340,83 @@ impl TagList {
 
     pub fn kill_tag(&self,
         repo_path: PathBuf,
-        window: &impl IsA<Widget>,
+        window: &Window,
         sender: Sender<crate::Event>,) {
     }
 
     pub fn create_tag(&self,
-        repo_path: PathBuf,
-        window: &impl IsA<Widget>,
-        sender: Sender<crate::Event>,) {
+                      repo_path: PathBuf,
+                      target_oid: git2::Oid,
+                      window: &Window,
+                      sender: Sender<crate::Event>,) {
+        
+                glib::spawn_future_local({
+                    let tag_list = self.clone();
+                    let window = window.clone();
+                    async move {
+                        let lb = ListBox::builder()
+                            .selection_mode(SelectionMode::None)
+                            .css_classes(vec![String::from("boxed-list")])
+                            .build();
+                        let input = EntryRow::builder()
+                            .title("New tag name:")
+                            .css_classes(vec!["input_field"])
+                            .build();
+                        let lightweight = SwitchRow::builder()
+                            .title("Lightweight")
+                            .css_classes(vec!["input_field"])
+                            .active(true)
+                            .build();
+                        lb.append(&input);
+                        lb.append(&lightweight);
+                        let dialog = confirm_dialog_factory(
+                            &window,
+                            Some(&lb),
+                            "Create new tag",
+                            "Create"
+                        );
+                        input.connect_apply(clone!(@strong dialog as dialog => move |_entry| {
+                            // someone pressed enter
+                            dialog.response("confirm");
+                            dialog.close();
+                        }));
+                        input.connect_entry_activated(clone!(@strong dialog as dialog => move |_entry| {
+                            // someone pressed enter
+                            dialog.response("confirm");
+                            dialog.close();
+                        }));
+
+                        if "confirm" != dialog.choose_future().await {
+                            return;
+                        }
+                        let new_tag_name = format!("{}", input.text());
+                        let created_tag = gio::spawn_blocking(move || {
+                            tag::create_tag(repo_path, new_tag_name, target_oid, sender)
+                        }).await.unwrap_or_else(|e| {
+                            alert(format!("{:?}", e)).present(&window);
+                            Ok(None)
+                        }).unwrap_or_else(|e| {
+                            alert(e).present(&window);
+                            None
+                        });
+                        if let Some(created_tag) = created_tag {
+                            // aganzha what about optional checkout?
+                            tag_list.add_new_tag(created_tag);
+                        }
+                    }
+                });            
+    }
+
+    pub fn add_new_tag(&self, created_tag: tag::Tag) {
+        self.imp()
+            .original_list
+            .borrow_mut()
+            .push(created_tag);
+        self.items_changed(
+            0,
+            0,
+            1,
+        );
     }
     
     pub fn cherry_pick(
@@ -675,9 +744,10 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
 
 pub fn headerbar_factory(
     list_view: &ListView,
-    window: &impl IsA<Widget>,
+    window: &Window,
     sender: Sender<crate::Event>,
     repo_path: PathBuf,
+    target_oid: git2::Oid,
 ) -> HeaderBar {
     let entry = SearchEntry::builder()
         .search_delay(300)
@@ -812,6 +882,7 @@ pub fn headerbar_factory(
         move |_| {
             tag_list.create_tag(
                 repo_path.clone(),
+                target_oid,
                 &window,
                 sender.clone(),
             );
@@ -895,6 +966,7 @@ pub fn get_tags_list(list_view: &ListView) -> TagList {
 pub fn show_tags_window(
     repo_path: PathBuf,
     app_window: &impl IsA<Gtk4Window>,
+    target_oid: git2::Oid,
     main_sender: Sender<crate::Event>,
 ) -> Window {
     // let (sender, receiver) = async_channel::unbounded();
@@ -937,6 +1009,7 @@ pub fn show_tags_window(
         &window,
         main_sender.clone(),
         repo_path.clone(),
+        target_oid
     );
 
     tb.add_top_bar(&hb);
@@ -968,6 +1041,13 @@ pub fn show_tags_window(
                 }
                 (gdk::Key::c | gdk::Key::n, _) => {
                     debug!("create new tag");
+                    let tag_list = get_tags_list(&list_view);
+                    tag_list.create_tag(
+                        repo_path.clone(),
+                        target_oid,
+                        &window,
+                        main_sender.clone(),
+                    );
                 }
                 (key, modifier) => {
                     trace!("key pressed {:?} {:?}", key, modifier);
