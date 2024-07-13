@@ -407,11 +407,38 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     window_stack.borrow_mut().push(w);
                 }
                 Event::Tags => {
-                    show_tags_window(
-                        status.path.clone().expect("no path"),                    
-                        &window,
-                        sender.clone(),
-                    );
+                    let w = {
+                        if let Some(stack) = window_stack.borrow().last() {
+                            show_tags_window(
+                                status.path.clone().expect("no path"),
+                                stack,
+                                sender.clone(),
+                            )
+                        } else {
+                            show_tags_window(
+                                status.path.clone().expect("no path"),
+                                &window,
+                                sender.clone(),
+                            )
+                        }
+                    };
+                    w.connect_close_request({
+                        let window_stack = window_stack.clone();
+                        move |_| {
+                            info!(
+                                "popping stack while close log {:?}",
+                                window_stack.borrow_mut().pop()
+                            );
+                            glib::signal::Propagation::Proceed
+                        }
+                    });
+                    window_stack.borrow_mut().push(w);
+
+                    // show_tags_window(
+                    //     status.path.clone().expect("no path"),                    
+                    //     &window,
+                    //     sender.clone(),
+                    // );
                 }
                 Event::Log(ooid, obranch_name) => {
                     info!("main.log");
