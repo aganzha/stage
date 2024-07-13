@@ -78,7 +78,7 @@ mod tag_item {
         }
 
         pub fn get_name(&self) -> String {
-            self.tag.borrow().name.to_string().replace("refs/tags/", "")
+            self.tag.borrow().name.clone()
         }
 
         pub fn get_author(&self) -> String {
@@ -338,10 +338,45 @@ impl TagList {
         oid
     }
 
+    pub fn get_selected_tag(&self) -> (String, u32) {
+        let pos = self.selected_pos();
+        let item = self.item(pos).unwrap();
+        let tag_item = item.downcast_ref::<TagItem>().unwrap();
+        let name = tag_item.imp().tag.borrow().name.clone();
+        (name, pos)
+    }
+    
     pub fn kill_tag(&self,
         repo_path: PathBuf,
         window: &Window,
         sender: Sender<crate::Event>,) {
+        glib::spawn_future_local({
+            let tags_list = self.clone();
+            let window = window.clone();
+            async move {
+                let (tag_name, selected_pos) = tags_list.get_selected_tag();
+                let tg_name = tag_name.clone();
+                let result = gio::spawn_blocking(move || {
+                    tag::kill_tag(repo_path, tg_name, sender)
+                }).await.unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(None)
+                }).unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                    None
+                });
+                if result.is_none() {
+                    return
+                }
+                // put borrow in block
+                tags_list.imp().list.borrow_mut().remove(selected_pos as usize);
+                tags_list.imp().original_list.borrow_mut().retain(|tag| {
+                    tag.name != tag_name
+                });
+                tags_list.items_changed(selected_pos, 1, 0);
+            }
+        });
+
     }
 
     pub fn create_tag(&self,
@@ -1045,6 +1080,14 @@ pub fn show_tags_window(
                     tag_list.create_tag(
                         repo_path.clone(),
                         target_oid,
+                        &window,
+                        main_sender.clone(),
+                    );
+                }
+                (gdk::Key::k | gdk::Key::d, _) => {
+                    let tag_list = get_tags_list(&list_view);
+                    tag_list.kill_tag(
+                        repo_path.clone(),
                         &window,
                         main_sender.clone(),
                     );
