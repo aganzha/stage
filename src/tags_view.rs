@@ -384,6 +384,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
 
         let label_message = Label::builder()
             .label("")
+            .use_markup(true)
             .lines(1)
             .single_line_mode(true)
             .xalign(0.0)
@@ -397,6 +398,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
 
         let label_commit_message = Label::builder()
             .label("")
+            .use_markup(true)
             .lines(1)
             .single_line_mode(true)
             .xalign(0.0)
