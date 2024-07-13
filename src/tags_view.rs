@@ -45,8 +45,8 @@ mod tag_item {
         // #[property(get = Self::get_author)]
         // pub author: String,
 
-        #[property(get = Self::get_oid)]
-        pub oid: String,
+        #[property(get = Self::get_commit_oid)]
+        pub commit_oid: String,
 
         // #[property(get = Self::get_from)]
         // pub from: String,
@@ -56,9 +56,9 @@ mod tag_item {
 
         #[property(get = Self::get_name)]
         pub name: String,
-
-        // #[property(get = Self::get_dt)]
-        // pub dt: String,
+        
+        #[property(get = Self::get_dt)]
+        pub dt: String,
     }
 
     #[glib::object_subclass]
@@ -70,10 +70,10 @@ mod tag_item {
     impl ObjectImpl for TagItem {}
 
     impl TagItem {
-        pub fn get_oid(&self) -> String {
+        pub fn get_commit_oid(&self) -> String {
             format!(
                 "<span color=\"#1C71D8\"> {}</span>",
-                self.tag.borrow().oid
+                self.tag.borrow().commit.oid
             )
         }
 
@@ -84,9 +84,10 @@ mod tag_item {
         pub fn get_name(&self) -> String {
             self.tag.borrow().name.to_string()
         }
-        // pub fn get_dt(&self) -> String {
-        //     self.tag.borrow().tag_dt.to_string()
-        // }
+        
+        pub fn get_dt(&self) -> String {
+            self.tag.borrow().commit.commit_dt.to_string()
+        }
     }
 }
 
@@ -199,9 +200,9 @@ impl TagList {
                 let mut append_to_existing = false;
                 if list_le > 0 {
                     let item = tag_list.item(list_le - 1).unwrap();
-                    let commit_item =
+                    let tag_item =
                         item.downcast_ref::<TagItem>().unwrap();
-                    let oid = commit_item.imp().tag.borrow().oid;
+                    let oid = tag_item.imp().tag.borrow().oid;
                     start_oid.replace(oid);
                     append_to_existing = true;
                 }
@@ -243,7 +244,7 @@ impl TagList {
                     if append_to_existing {
                         if let Some(oid) = start_oid {
                             if item.imp().tag.borrow().oid == oid {
-                                // trace!("skip previously found commit {:?}", oid);
+                                // trace!("skip previously found tag {:?}", oid);
                                 continue;
                             }
                         }
@@ -344,7 +345,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
                 let tag_item = list_item.item().unwrap();
                 let tag_item =
                     tag_item.downcast_ref::<TagItem>().unwrap();
-                let oid = tag_item.imp().tag.borrow().oid;
+                let oid = tag_item.imp().tag.borrow().commit.oid;
                 sender
                     .send_blocking(crate::Event::ShowOid(oid, None))
                     .expect("cant send through sender");
@@ -412,7 +413,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
         list_item.set_focusable(true);
 
         let item = list_item.property_expression("item");
-        item.chain_property::<TagItem>("oid").bind(
+        item.chain_property::<TagItem>("commit_oid").bind(
             &oid_label,
             "label",
             Widget::NONE,
@@ -471,10 +472,10 @@ pub fn headerbar_factory(
     entry.connect_stop_search(|e| {
         e.stop_signal_emission_by_name("stop-search");
     });
-    let commit_list = get_tags_list(list_view);
+    let tag_list = get_tags_list(list_view);
 
     let search = SearchBar::builder()
-        .tooltip_text("search commits")
+        .tooltip_text("search tags")
         .search_mode_enabled(true)
         .visible(true)
         .show_close_button(false)
@@ -483,7 +484,7 @@ pub fn headerbar_factory(
     let very_first_search = Rc::new(RefCell::new(true));
     let threshold = Rc::new(RefCell::new(String::from("")));
     entry.connect_search_changed(
-        clone!(@weak commit_list, @weak list_view, @strong very_first_search, @weak entry, @strong repo_path => move |e| {
+        clone!(@weak tag_list, @weak list_view, @strong very_first_search, @weak entry, @strong repo_path => move |e| {
             let term = e.text().to_lowercase();
             if !term.is_empty() && term.len() < 3 {
                 return;
@@ -496,7 +497,7 @@ pub fn headerbar_factory(
                 if *very_first_search.borrow() {
                     very_first_search.replace(false);
                 } else {
-                    commit_list.reset_search();
+                    tag_list.reset_search();
                     single_selection.set_can_unselect(false);
                 }
             } else {
@@ -508,7 +509,7 @@ pub fn headerbar_factory(
                     move || {
                         let term = entry.text().to_lowercase();
                         if term == *threshold.borrow() {
-                            commit_list.search(term, repo_path.clone(), &list_view);
+                            tag_list.search(term, repo_path.clone(), &list_view);
                         }
                         glib::ControlFlow::Break
                     }
@@ -555,7 +556,7 @@ pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
                 selection_model.downcast_ref::<SingleSelection>().unwrap();
             let list_item = single_selection.selected_item().unwrap();
             let tag_item = list_item.downcast_ref::<TagItem>().unwrap();
-            let oid = tag_item.imp().tag.borrow().oid;
+            let oid = tag_item.imp().tag.borrow().commit.oid;
             sender
                 .send_blocking(crate::Event::ShowOid(oid, None))
                 .expect("cant send through sender");
