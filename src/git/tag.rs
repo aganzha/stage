@@ -20,6 +20,7 @@ impl Tag {
     pub fn new(oid: git2::Oid, name: String, commit: CommitLog, message: String) -> Tag {
         let mut encoded = String::from("");
         html_escape::encode_safe_to_string(message, &mut encoded);
+        let name = name.replace("refs/tags/", "");
         Tag {
             oid,
             name,
@@ -113,4 +114,11 @@ pub fn create_tag(path: PathBuf, tag_name: String, target_oid: git2::Oid, sender
             )
         )
     )
+}
+
+pub fn kill_tag(path: PathBuf, tag_name: String, sender: Sender<crate::Event>,) -> Result<Option<()>, git2::Error> {
+    info!("kill_tag {:?}", tag_name);
+    let repo = git2::Repository::open(path.clone())?;
+    repo.tag_delete(&tag_name)?;
+    Ok(Some(()))
 }
