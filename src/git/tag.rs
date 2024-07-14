@@ -50,7 +50,6 @@ pub fn get_tag_list(path: PathBuf, start_oid: Option<git2::Oid>, search_term: Op
     let mut result = Vec::new();
     let mut cnt = 0;
     repo.tag_foreach(|oid, name| {
-        debug!("--------------------> {:?} {:?}", oid, name);
         if cnt == 0 {
             if let Some(begin_oid) = start_oid {
                 if oid != begin_oid {
@@ -96,11 +95,16 @@ pub fn get_tag_list(path: PathBuf, start_oid: Option<git2::Oid>, search_term: Op
     Ok(result)
 }
 
-pub fn create_tag(path: PathBuf, tag_name: String, target_oid: git2::Oid, sender: Sender<crate::Event>,) -> Result<Option<Tag>, git2::Error> {
+pub fn create_tag(path: PathBuf, tag_name: String, target_oid: git2::Oid, message: String, lightweight: bool, sender: Sender<crate::Event>,) -> Result<Option<Tag>, git2::Error> {
     info!("create_tag {:?}", target_oid);
     let repo = git2::Repository::open(path.clone())?;
     let target = repo.find_object(target_oid, Some(git2::ObjectType::Commit))?;
-    let created_oid = repo.tag_lightweight(&tag_name, &target, false)?;
+    let created_oid = if lightweight {
+        repo.tag_lightweight(&tag_name, &target, false)?
+    } else {
+        let me = repo.signature()?;
+        repo.tag(&tag_name, &target, &me, &message, false)?
+    };    
     let commit = target.peel_to_commit()?;
     let commit_log = CommitLog::from_log(commit, CommitRelation::None);
     Ok(
@@ -109,7 +113,7 @@ pub fn create_tag(path: PathBuf, tag_name: String, target_oid: git2::Oid, sender
                 created_oid,
                 tag_name,
                 commit_log,
-                String::from("")
+                message
             )
         )
     )

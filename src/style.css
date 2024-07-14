@@ -4,49 +4,19 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-/* row:selected { */
-/*     background-color: #f6fecd; /\* mine original  #f6fecd; gnome f9f06b*\/ */
-/* } */
-
-/* #cce0f8 - is original */
-/* #99c1f1 - first blue in adwaita */
-/* #74a8e8 - border of line */
-/* #1e1e1e - mine dark */
-/* #262626 - editor dark */
-/* #242424 - adwaita dark */
-#status_view, #commit_view {
-}
-
-/* #status_view.light, #commit_view.light { */
-/*     background-color: blue; */
-/*     outline-color: green; */
-/*     text-decoration-color: yellow; */
-/*     color: magenta; */
-/* } */
-/* #status_view.light text, #commit_view.light text { */
-/*     background-color: red; */
-/*     outline-color: green; */
-/*     text-decoration-color: yellow; */
-/*     color: magenta; */
-/* } */
-
-/* #status_view.dark, #commit_view.dark { */
-/*     background-color: @window_bg_color; */
-/*     color: @light_3; */
-/* } */
 
 .nocorners {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
 }
 
+.hidden_row {
+    padding: 0;
+}
+
 banner.error revealer widget {
     background-color: #fbf0f3;
 }
-/* banner.error button { */
-/*     background-color:  @destructive_bg_color; */
-/*     color: @destructive_fg_color; */
-/* } */
 
 
 scheme_selector button {
