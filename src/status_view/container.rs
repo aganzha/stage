@@ -13,7 +13,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::{debug, trace};
+use log::{trace};
 use std::path::PathBuf;
 
 pub fn make_tag(name: &str) -> tags::TxtTag {
