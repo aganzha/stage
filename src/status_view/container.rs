@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::status_view::render::{View, ViewState};
+use crate::status_view::view_state::{View, ViewState};
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
 use crate::status_view::Label;

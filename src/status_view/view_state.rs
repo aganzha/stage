@@ -2,12 +2,9 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-//use crate::status_view::Tag;
+
 use crate::status_view::tags;
 use core::fmt::{Binary, Formatter, Result};
-use gtk4::prelude::*;
-use gtk4::{TextBuffer, TextIter};
-use log::trace;
 use std::cell::Cell;
 
 #[derive(Debug, Copy, Clone)]
@@ -236,40 +233,6 @@ impl View {
             && !self.is_dirty()
             && !self.is_squashed()
     }
-
-    // fn start_end_iters(&self, buffer: &TextBuffer) -> (TextIter, TextIter) {
-    //     let mut start_iter = buffer.iter_at_line(self.line_no.get()).unwrap();
-    //     start_iter.set_line_offset(0);
-    //     let mut end_iter = buffer.iter_at_line(self.line_no.get()).unwrap();
-    //     end_iter.forward_to_line_end();
-    //     (start_iter, end_iter)
-    // }
-
-    // fn remove_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
-    //     if self.tag_is_added(tag) {
-    //         let (start_iter, end_iter) = self.start_end_iters(buffer);
-    //         buffer.remove_tag_by_name(tag.name(), &start_iter, &end_iter);
-    //         self.tag_removed(tag);
-    //     }
-    // }
-
-    // fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
-    //     if !self.tag_is_added(tag) {
-    //         let (start_iter, end_iter) = self.start_end_iters(buffer);
-    //         buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
-    //         self.tag_added(tag);
-    //     }
-    // }
-
-    // pub fn apply_tags(
-    //     &self,
-    //     buffer: &TextBuffer,
-    //     content_tags: &Vec<tags::TxtTag>,
-    // ) {
-    //     for t in content_tags {
-    //         self.add_tag(buffer, t);
-    //     }
-    // }
 
     pub fn get_state_for(&self, line_no: i32) -> ViewState {
         if self.is_rendered_in(line_no) {

@@ -7,7 +7,7 @@ use crate::git::{commit, stash};
 use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::{
     container::{ViewContainer, ViewKind},
-    render::View,
+    view_state::View,
     stage_view::StageView,
     Label as TextViewLabel,
 };

@@ -19,7 +19,7 @@ use git2::RepositoryState;
 use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
-pub mod render;
+pub mod view_state;
 pub mod tests;
 
 use std::cell::RefCell;
@@ -28,7 +28,7 @@ use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use crate::status_view::render::View;
+use crate::status_view::view_state::View;
 use crate::{
     get_current_repo_status, stage_untracked, stage_via_apply, Diff, Event,
     File as GitFile, Head, StageOp, State, StatusRenderContext, Untracked,

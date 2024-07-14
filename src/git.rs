@@ -13,7 +13,7 @@ pub mod test_merge;
 use crate::branch::{BranchData, BranchName};
 use crate::commit::CommitRepr;
 use crate::gio;
-use crate::status_view::render::View;
+use crate::status_view::view_state::View;
 
 use async_channel::Sender;
 
