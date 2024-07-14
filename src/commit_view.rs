@@ -7,8 +7,8 @@ use crate::git::{commit, stash};
 use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::{
     container::{ViewContainer, ViewKind},
-    view_state::View,
     stage_view::StageView,
+    view_state::View,
     Label as TextViewLabel,
 };
 use crate::Event;
@@ -18,8 +18,8 @@ use std::cell::RefCell;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, Widget,
-    Window as Gtk4Window, TextIter, TextBuffer
+    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow,
+    TextBuffer, TextIter, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -239,11 +239,10 @@ impl MultiLineLabel {
 }
 
 impl ViewContainer for MultiLineLabel {
-
     fn is_empty(&self) -> bool {
         self.labels.is_empty()
     }
-    
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
@@ -259,8 +258,7 @@ impl ViewContainer for MultiLineLabel {
             .collect()
     }
 
-    fn write_content(&self, _iter: &mut TextIter, _buffer: &TextBuffer) {
-    }    
+    fn write_content(&self, _iter: &mut TextIter, _buffer: &TextBuffer) {}
 }
 
 impl commit::CommitDiff {
