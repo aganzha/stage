@@ -19,7 +19,7 @@ use std::cell::RefCell;
 use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, Widget,
-    Window as Gtk4Window,
+    Window as Gtk4Window, TextIter, TextBuffer
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -256,9 +256,8 @@ impl ViewContainer for MultiLineLabel {
             .collect()
     }
 
-    fn get_content(&self) -> String {
-        "".to_string()
-    }
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
+    }    
 }
 
 impl commit::CommitDiff {
@@ -501,20 +500,20 @@ pub fn show_commit_window(
                         let (body, file_path, hunk_header) = match diff.diff.chosen_file_and_hunk() {
                             (Some(file), Some(hunk)) => {
                                 (
-                                    format!("File: {}\nApplying single hunks is not yet implemented :(", file.get_content()),
+                                    format!("File: {}\nApplying single hunks is not yet implemented :(", file.path.to_str().unwrap()),
                                     Some(file.path.clone()),
                                     Some(hunk.header.clone())
                                 )
                             }
                             (Some(file), None) => {
                                 (
-                                    format!("File: {}", file.get_content()),
+                                    format!("File: {}", file.path.to_str().unwrap()),
                                     Some(file.path.clone()),
                                     None
                                 )
                             }
                             (None, Some(hunk)) => {
-                                panic!("hunk header without file {:?}", hunk.get_content());
+                                panic!("hunk header without file {:?}", hunk.header);
                             }
                             (None, None) => {
                                 (

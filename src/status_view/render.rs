@@ -4,6 +4,7 @@
 
 //use crate::status_view::Tag;
 use crate::status_view::tags;
+use crate::status_view::container::{ViewContainer};
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
@@ -264,30 +265,31 @@ impl View {
         false
     }
 
-    fn replace_dirty_content(
-        &self,
-        buffer: &TextBuffer,
-        iter: &mut TextIter,
-        content: &str,
-        is_markup: bool,
-    ) {
-        let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
-        eol_iter.forward_to_line_end();
+    // fn _replace_dirty_content(
+    //     &self,
+    //     buffer: &TextBuffer,
+    //     iter: &mut TextIter,
+    //     container: &dyn ViewContainer,// CLOSURE HERE. WHICH ACCEPT BUFFER!
+    //     is_markup: bool,
+    // ) {
+    //     let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
+    //     eol_iter.forward_to_line_end();
 
-        // if content is empty - eol iter will drop onto next line!
-        // no need to delete in this case!
-        if iter.line() == eol_iter.line() {
-            buffer.remove_all_tags(iter, &eol_iter);
-            buffer.delete(iter, &mut eol_iter);
-        }
-        self.cleanup_tags();
+    //     // if content is empty - eol iter will drop onto next line!
+    //     // no need to delete in this case!
+    //     if iter.line() == eol_iter.line() {
+    //         buffer.remove_all_tags(iter, &eol_iter);
+    //         buffer.delete(iter, &mut eol_iter);
+    //     }
+    //     self.cleanup_tags();
 
-        if is_markup {
-            buffer.insert_markup(iter, content);
-        } else {
-            buffer.insert(iter, content);
-        }
-    }
+    //     container.write_content(iter, buffer);
+    //     // if is_markup {
+    //     //     buffer.insert_markup(iter, content);
+    //     // } else {
+    //     //     buffer.insert(iter, content);
+    //     // }
+    // }
 
     fn build_up(
         &self,
@@ -336,113 +338,118 @@ impl View {
     }
 
     // View
-    pub fn render_in_textview(
-        &self,
-        buffer: &TextBuffer,
-        iter: &mut TextIter,
-        content: String,
-        is_markup: bool,
-        content_tags: Vec<tags::TxtTag>,
-        context: &mut crate::StatusRenderContext,
-    ) -> &Self {
-        // important. self.line_no is assigned only in 2 cases
-        // below!!!!
+    // pub fn _render_in_textview<F>(
+    //     &self,
+    //     buffer: &TextBuffer,
+    //     iter: &mut TextIter,
+    //     container: &dyn ViewContainer,
+    //     is_markup: bool,
+    //     content_tags: Vec<tags::TxtTag>,
+    //     context: &mut crate::StatusRenderContext,
+    // ) -> &Self  {
+    //     // important. self.line_no is assigned only in 2 cases
+    //     // below!!!!
 
-        let line_no = iter.line();
-        trace!(
-            "======= line {:?} render state {:?} which is at line {:?}. content: {:?}",
-            line_no,
-            self.get_state_for(line_no),
-            self.line_no.get(),
-            content,
-        );
-        match self.get_state_for(line_no) {
-            ViewState::RenderedInPlace => {
-                trace!("..render MATCH rendered_in_line {:?}", line_no);
-                iter.forward_lines(1);
-            }
-            ViewState::Deleted => {
-                // nothing todo. calling render on
-                // some whuch will be destroyed
-                trace!("..render MATCH !rendered squashed {:?}", line_no);
-            }
-            ViewState::NotYetRendered => {
-                trace!("..render MATCH insert {:?}", line_no);
-                // newhighlight
-                // let content = self.build_up(&content, line_no, context);
-                if is_markup {
-                    buffer.insert_markup(iter, &format!("{}\n", content));
-                } else {
-                    buffer.insert(iter, &format!("{}\n", content));
-                }
-                self.line_no.replace(line_no);
-                self.render(true);
-                if !content.is_empty() {
-                    self.apply_tags(buffer, &content_tags);
-                }
-            }
-            ViewState::TagsModified => {
-                trace!("..render MATCH TagsModified {:?}", line_no);
-                // this means only tags are changed.
-                // // TODO! kill it
-                // if self.does_not_match_width(buffer, context) {
-                //     // here is the case: view is rendered before resize event.
-                //     // max width is detected by diff max width and then resize
-                //     // event is come with larger with
-                //     // newhighlight
-                //     // let content = self.build_up(&content, line_no, context);
-                //     self.replace_dirty_content(
-                //         buffer, iter, &content, is_markup,
-                //     );
-                // }
-                self.apply_tags(buffer, &content_tags);
-                if !iter.forward_lines(1) {
-                    assert!(iter.offset() == buffer.end_iter().offset());
-                }
-                self.render(true);
-            }
-            ViewState::MarkedForDeletion => {
-                trace!("..render MATCH squashed {:?}", line_no);
-                let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
-                nel_iter.forward_lines(1);
-                buffer.delete(iter, &mut nel_iter);
-                self.render(false);
-                self.cleanup_tags();
+    //     let line_no = iter.line();
+    //     trace!(
+    //         "======= line {:?} render state {:?} which is at line {:?}. content was here",
+    //         line_no,
+    //         self.get_state_for(line_no),
+    //         self.line_no.get(),
+    //         // content,
+    //     );
+    //     match self.get_state_for(line_no) {
+    //         ViewState::RenderedInPlace => {
+    //             trace!("..render MATCH rendered_in_line {:?}", line_no);
+    //             iter.forward_lines(1);
+    //         }
+    //         ViewState::Deleted => {
+    //             // nothing todo. calling render on
+    //             // some whuch will be destroyed
+    //             trace!("..render MATCH !rendered squashed {:?}", line_no);
+    //         }
+    //         ViewState::NotYetRendered => {
+    //             trace!("..render MATCH insert {:?}", line_no);
+    //             // newhighlight
+    //             // let content = self.build_up(&content, line_no, context);
+    //             container.write_content(iter, &buffer);
+    //             buffer.insert(iter, "\n");
+    //             // if is_markup {
+    //             //     buffer.insert_markup(iter, &format!("{}\n", content));
+    //             // } else {
+    //             //     buffer.insert(iter, content);
+    //             //     buffer.insert(iter, "\n");
+    //             // }
+                
+    //             self.line_no.replace(line_no);
+    //             self.render(true);
+    //             // if !content.is_empty() {
+    //                 self.apply_tags(buffer, &content_tags);
+    //             //}
+    //         }
+    //         ViewState::TagsModified => {
+    //             trace!("..render MATCH TagsModified {:?}", line_no);
+    //             // this means only tags are changed.
+    //             // // TODO! kill it
+    //             // if self.does_not_match_width(buffer, context) {
+    //             //     // here is the case: view is rendered before resize event.
+    //             //     // max width is detected by diff max width and then resize
+    //             //     // event is come with larger with
+    //             //     // newhighlight
+    //             //     // let content = self.build_up(&content, line_no, context);
+    //             //     self.replace_dirty_content(
+    //             //         buffer, iter, &content, is_markup,
+    //             //     );
+    //             // }
+    //             self.apply_tags(buffer, &content_tags);
+    //             if !iter.forward_lines(1) {
+    //                 assert!(iter.offset() == buffer.end_iter().offset());
+    //             }
+    //             self.render(true);
+    //         }
+    //         ViewState::MarkedForDeletion => {
+    //             trace!("..render MATCH squashed {:?}", line_no);
+    //             let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+    //             nel_iter.forward_lines(1);
+    //             buffer.delete(iter, &mut nel_iter);
+    //             self.render(false);
+    //             self.cleanup_tags();
 
-                if let Some(ec) = context.erase_counter {
-                    context.erase_counter.replace(ec + 1);
-                } else {
-                    context.erase_counter.replace(1);
-                }
-                trace!(
-                    ">>>>>>>>>>>>>>>>>>>> just erased line. context {:?}",
-                    context
-                );
-            }
-            ViewState::UpdatedFromGit(l) => {
-                trace!(".. render MATCH UpdatedFromGit {:?}", l);
-                self.line_no.replace(line_no);
-                self.replace_dirty_content(buffer, iter, &content, is_markup);
-                if !content.is_empty() {
-                    self.apply_tags(buffer, &content_tags);
-                }
-                self.force_forward(buffer, iter);
-            }
-            ViewState::RenderedNotInPlace(l) => {
-                // TODO: somehow it is related to transfered!
-                trace!(".. render match not in place {:?}", l);
-                self.line_no.replace(line_no);
-                self.force_forward(buffer, iter);
-            }
-        }
+    //             if let Some(ec) = context.erase_counter {
+    //                 context.erase_counter.replace(ec + 1);
+    //             } else {
+    //                 context.erase_counter.replace(1);
+    //             }
+    //             trace!(
+    //                 ">>>>>>>>>>>>>>>>>>>> just erased line. context {:?}",
+    //                 context
+    //             );
+    //         }
+    //         ViewState::UpdatedFromGit(l) => {
+    //             trace!(".. render MATCH UpdatedFromGit {:?}", l);
+    //             self.line_no.replace(line_no);
+    //             self.replace_dirty_content(buffer, iter, container, is_markup);
+    //             self.apply_tags(buffer, &content_tags);
+    //             // if !content.is_empty() {
+    //             //     self.apply_tags(buffer, &content_tags);
+    //             // }
+    //             self.force_forward(buffer, iter);
+    //         }
+    //         ViewState::RenderedNotInPlace(l) => {
+    //             // TODO: somehow it is related to transfered!
+    //             trace!(".. render match not in place {:?}", l);
+    //             self.line_no.replace(line_no);
+    //             self.force_forward(buffer, iter);
+    //         }
+    //     }
 
-        self.dirty(false);
-        self.squash(false);
-        self.transfer(false);
-        self
-    }
+    //     self.dirty(false);
+    //     self.squash(false);
+    //     self.transfer(false);
+    //     self
+    // }
 
-    fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
+    pub fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
         let current_line = iter.line();
         let moved = iter.forward_lines(1);
         if !moved {
@@ -483,7 +490,7 @@ impl View {
         }
     }
 
-    fn apply_tags(
+    pub fn apply_tags(
         &self,
         buffer: &TextBuffer,
         content_tags: &Vec<tags::TxtTag>,
@@ -493,7 +500,7 @@ impl View {
         }
     }
 
-    fn get_state_for(&self, line_no: i32) -> ViewState {
+    pub fn get_state_for(&self, line_no: i32) -> ViewState {
         if self.is_rendered_in(line_no) {
             return ViewState::RenderedInPlace;
         }
