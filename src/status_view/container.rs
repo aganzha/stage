@@ -32,9 +32,8 @@ pub enum ViewKind {
 }
 
 pub trait ViewContainer {
-    fn is_markup(&self) -> bool {
-        false
-    }
+
+    fn is_empty(&self) -> bool;
 
     fn get_kind(&self) -> ViewKind;
 
@@ -114,6 +113,10 @@ pub trait ViewContainer {
         buffer: &TextBuffer,
         content_tags: &Vec<tags::TxtTag>,
     ) {
+        if self.is_empty() {
+            // TAGS BECOME BROKEN ON EMPTY LINES!
+            return
+        }
         for t in content_tags {
             self.add_tag(buffer, t);
         }
@@ -127,7 +130,6 @@ pub trait ViewContainer {
         context: &mut StatusRenderContext,
     ) {
         let tags = self.tags();
-        let is_markup = self.is_markup();
 
         // render_in_textview +++++++++++++++++++++++++++++++++++++++++++
         let line_no = iter.line();
@@ -144,12 +146,7 @@ pub trait ViewContainer {
                 trace!("..render MATCH insert {:?}", line_no);
                 self.write_content(iter, &buffer);
                 buffer.insert(iter, "\n");
-                // if is_markup {
-                //     buffer.insert_markup(iter, &format!("{}\n", content));
-                // } else {
-                //     buffer.insert(iter, content);
-                //     buffer.insert(iter, "\n");
-                // }                
+
                 view.line_no.replace(line_no);
                 view.render(true);
                 // if !content.is_empty() {
@@ -458,6 +455,11 @@ pub trait ViewContainer {
 }
 
 impl ViewContainer for Diff {
+
+    fn is_empty(&self) -> bool {
+        self.files.is_empty()
+    }
+    
     fn get_kind(&self) -> ViewKind {
         ViewKind::Diff
     }
@@ -549,6 +551,11 @@ impl ViewContainer for Diff {
 }
 
 impl ViewContainer for File {
+
+    fn is_empty(&self) -> bool {
+        false
+    }
+    
     fn get_kind(&self) -> ViewKind {
         ViewKind::File
     }
@@ -611,6 +618,11 @@ impl ViewContainer for File {
 }
 
 impl ViewContainer for Hunk {
+
+    fn is_empty(&self) -> bool {
+        false
+    }
+    
     fn get_kind(&self) -> ViewKind {
         ViewKind::Hunk
     }
@@ -692,6 +704,11 @@ impl ViewContainer for Hunk {
 }
 
 impl ViewContainer for Line {
+
+    fn is_empty(&self) -> bool {
+        self.content.is_empty()
+    }
+    
     fn get_kind(&self) -> ViewKind {
         ViewKind::Line
     }
@@ -801,6 +818,10 @@ impl ViewContainer for Line {
 }
 
 impl ViewContainer for Label {
+
+    fn is_empty(&self) -> bool {
+        self.content.is_empty()
+    }
     
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
@@ -823,6 +844,10 @@ impl ViewContainer for Label {
 
 impl ViewContainer for Head {
 
+    fn is_empty(&self) -> bool {
+        false
+    }
+    
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
@@ -852,6 +877,10 @@ impl ViewContainer for Head {
 
 impl ViewContainer for State {
 
+    fn is_empty(&self) -> bool {
+        false
+    }
+    
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
@@ -910,9 +939,15 @@ impl ViewContainer for State {
 }
 
 impl ViewContainer for Untracked {
+
+    fn is_empty(&self) -> bool {
+        self.files.is_empty()
+    }
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::Untracked
     }
+    
     fn child_count(&self) -> usize {
         self.files.len()
     }
@@ -992,6 +1027,11 @@ impl ViewContainer for Untracked {
 }
 
 impl ViewContainer for UntrackedFile {
+
+    fn is_empty(&self) -> bool {
+        false
+    }
+    
     fn get_kind(&self) -> ViewKind {
         ViewKind::UntrackedFile
     }
