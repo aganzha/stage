@@ -1,3 +1,4 @@
+TODO: changing file permission shows file in unstaged without any signs
 TODO: replace all -> String to -> &str for rendering. is it possible?
 TODO: reflog
 TODO: squash merge
