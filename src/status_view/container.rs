@@ -147,9 +147,8 @@ pub trait ViewContainer {
 
                 view.line_no.replace(line_no);
                 view.render(true);
-                // if !content.is_empty() {
-                self.apply_tags(buffer, &tags);
-                //}
+           
+                self.apply_tags(buffer, &tags);           
             }
             ViewState::TagsModified => {
                 trace!("..render MATCH TagsModified {:?}", line_no);
@@ -192,16 +191,9 @@ pub trait ViewContainer {
                 }
                 view.cleanup_tags();
                 self.write_content(iter, buffer);
-                // if is_markup {
-                //     buffer.insert_markup(iter, content);
-                // } else {
-                //     buffer.insert(iter, content);
-                // }            
 
                 self.apply_tags(buffer, &tags);
-                // if !content.is_empty() {
-                //     self.apply_tags(buffer, &content_tags);
-                // }
+
                 self.force_forward(buffer, iter);
             }
             ViewState::RenderedNotInPlace(l) => {
@@ -220,7 +212,7 @@ pub trait ViewContainer {
         
 
 
-        // post render @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        // recursive render @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         if view.is_expanded() || view.is_child_dirty() {
             for child in self.get_children() {
                 child.render(buffer, iter, context);
@@ -304,17 +296,8 @@ pub trait ViewContainer {
         view.make_current(current);
 
         if view.is_rendered() {
-            // repaint if highlight is changed
-            // trace!("its me marking dirty, cursor! {} at {}", ((view.is_active() != active_before) || (view.is_current() != current_before)), view.line_no.get());
-
             result = view.is_active() != active_before
                 || view.is_current() != current_before;
-            // newhighlight
-            // view.dirty(
-            //     view.is_active() != active_before
-            //         || view.is_current() != current_before,
-            // );
-            // result = view.is_dirty();
         }
         for child in self.get_children() {
             result = child.cursor(line_no, self_active, context) || result;
