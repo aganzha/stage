@@ -5,12 +5,11 @@
 use async_channel::Sender;
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window, EntryRow, SwitchRow};
-use glib::{Object, clone, GString};
-use gtk4::prelude::*;
+use glib::{Object, clone};
+
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick,
-    Image, Label, ListItem, ListView, Orientation, PositionType,
+    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick, Label, ListItem, ListView, Orientation, PositionType,
     ScrolledWindow, SearchBar, SearchEntry, SignalListItemFactory, ListBox, SelectionMode, TextView, WrapMode,
     SingleSelection, Widget, Window as Gtk4Window,
 };

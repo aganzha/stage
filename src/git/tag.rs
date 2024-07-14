@@ -4,7 +4,7 @@
 
 use git2;
 use std::path::{PathBuf};
-use log::{info, debug};
+use log::{info};
 use async_channel::Sender;
 use crate::git::commit::{CommitLog, CommitRelation};
 
@@ -95,7 +95,7 @@ pub fn get_tag_list(path: PathBuf, start_oid: Option<git2::Oid>, search_term: Op
     Ok(result)
 }
 
-pub fn create_tag(path: PathBuf, tag_name: String, target_oid: git2::Oid, message: String, lightweight: bool, sender: Sender<crate::Event>,) -> Result<Option<Tag>, git2::Error> {
+pub fn create_tag(path: PathBuf, tag_name: String, target_oid: git2::Oid, message: String, lightweight: bool, _sender: Sender<crate::Event>,) -> Result<Option<Tag>, git2::Error> {
     info!("create_tag {:?}", target_oid);
     let repo = git2::Repository::open(path.clone())?;
     let target = repo.find_object(target_oid, Some(git2::ObjectType::Commit))?;
@@ -119,7 +119,7 @@ pub fn create_tag(path: PathBuf, tag_name: String, target_oid: git2::Oid, messag
     )
 }
 
-pub fn kill_tag(path: PathBuf, tag_name: String, sender: Sender<crate::Event>,) -> Result<Option<()>, git2::Error> {
+pub fn kill_tag(path: PathBuf, tag_name: String, _sender: Sender<crate::Event>,) -> Result<Option<()>, git2::Error> {
     info!("kill_tag {:?}", tag_name);
     let repo = git2::Repository::open(path.clone())?;
     repo.tag_delete(&tag_name)?;
