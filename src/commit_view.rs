@@ -239,6 +239,11 @@ impl MultiLineLabel {
 }
 
 impl ViewContainer for MultiLineLabel {
+
+    fn is_empty(&self) -> bool {
+        self.labels.is_empty()
+    }
+    
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
