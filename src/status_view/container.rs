@@ -37,8 +37,6 @@ pub trait ViewContainer {
 
     fn get_kind(&self) -> ViewKind;
 
-    fn child_count(&self) -> usize;
-
     fn get_children(&self) -> Vec<&dyn ViewContainer>;
 
     fn get_view(&self) -> &View;
@@ -464,10 +462,6 @@ impl ViewContainer for Diff {
         ViewKind::Diff
     }
 
-    fn child_count(&self) -> usize {
-        self.files.len()
-    }
-
     fn get_view(&self) -> &View {
         &self.view
     }
@@ -560,10 +554,6 @@ impl ViewContainer for File {
         ViewKind::File
     }
 
-    fn child_count(&self) -> usize {
-        self.hunks.len()
-    }
-
     fn get_view(&self) -> &View {
         &self.view
     }
@@ -626,11 +616,6 @@ impl ViewContainer for Hunk {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Hunk
     }
-
-    fn child_count(&self) -> usize {
-        self.lines.len()
-    }
-
 
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
         let parts: Vec<&str> = self.header.split("@@").collect();
@@ -711,9 +696,6 @@ impl ViewContainer for Line {
     
     fn get_kind(&self) -> ViewKind {
         ViewKind::Line
-    }
-    fn child_count(&self) -> usize {
-        0
     }
 
     fn get_view(&self) -> &View {
@@ -826,9 +808,7 @@ impl ViewContainer for Label {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
-    fn child_count(&self) -> usize {
-        0
-    }
+
     fn get_view(&self) -> &View {
         &self.view
     }
@@ -851,9 +831,7 @@ impl ViewContainer for Head {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
-    fn child_count(&self) -> usize {
-        0
-    }
+
     fn get_view(&self) -> &View {
         &self.view
     }
@@ -884,9 +862,7 @@ impl ViewContainer for State {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
-    fn child_count(&self) -> usize {
-        0
-    }
+
     fn get_view(&self) -> &View {
         &self.view
     }
@@ -948,10 +924,6 @@ impl ViewContainer for Untracked {
         ViewKind::Untracked
     }
     
-    fn child_count(&self) -> usize {
-        self.files.len()
-    }
-
     // untracked
     fn get_view(&self) -> &View {
         self.view.expand(true);
@@ -1034,9 +1006,6 @@ impl ViewContainer for UntrackedFile {
     
     fn get_kind(&self) -> ViewKind {
         ViewKind::UntrackedFile
-    }
-    fn child_count(&self) -> usize {
-        0
     }
 
     fn get_view(&self) -> &View {
