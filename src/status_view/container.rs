@@ -129,11 +129,6 @@ pub trait ViewContainer {
         let tags = self.tags();
         let is_markup = self.is_markup();
 
-        
-        // let view = self.get_view().render_in_textview(
-        //     buffer, iter, self, is_markup, tags, context,
-        // );
-
         // render_in_textview +++++++++++++++++++++++++++++++++++++++++++
         let line_no = iter.line();
         let view = self.get_view();
@@ -806,9 +801,7 @@ impl ViewContainer for Line {
 }
 
 impl ViewContainer for Label {
-    fn is_markup(&self) -> bool {
-        true
-    }
+    
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
@@ -824,14 +817,12 @@ impl ViewContainer for Label {
     }
 
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
-        buffer.insert(iter, &self.content);
+        buffer.insert_markup(iter, &self.content);
     }
 }
 
 impl ViewContainer for Head {
-    fn is_markup(&self) -> bool {
-        true
-    }
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
@@ -852,17 +843,15 @@ impl ViewContainer for Head {
         } else {
                 buffer.insert(iter, "Upstream: ");
         }
-        buffer.insert(iter, "<span color=\"#4a708b\">");
+        buffer.insert_markup(iter, "<span color=\"#4a708b\">");
         buffer.insert(iter, &self.branch);
-        buffer.insert(iter, "</span> ");
-        buffer.insert(iter, &self.log_message);
+        buffer.insert_markup(iter, "</span> ");
+        buffer.insert_markup(iter, &self.log_message);
     }
 }
 
 impl ViewContainer for State {
-    fn is_markup(&self) -> bool {
-        true
-    }
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
@@ -884,37 +873,37 @@ impl ViewContainer for State {
                 buffer.insert(iter, "Clean");
             },
             RepositoryState::Merge => {
-                buffer.insert(iter, "<span color=\"#ff0000\">Merge</span>");
+                buffer.insert_markup(iter, "<span color=\"#ff0000\">Merge</span>");
             },
             RepositoryState::Revert => {
-                buffer.insert(iter, "<span color=\"#ff0000\">Revert</span>");
+                buffer.insert_markup(iter, "<span color=\"#ff0000\">Revert</span>");
             },
             RepositoryState::RevertSequence => {
-                buffer.insert(iter, "<span color=\"#ff0000\">RevertSequence</span>");
+                buffer.insert_markup(iter, "<span color=\"#ff0000\">RevertSequence</span>");
             }
             RepositoryState::CherryPick => {
-                buffer.insert(iter, "<span color=\"#ff0000\">CherryPick</span>");
+                buffer.insert_markup(iter, "<span color=\"#ff0000\">CherryPick</span>");
             }
             RepositoryState::CherryPickSequence => {
-                buffer.insert(iter, "<span color=\"#ff0000\">CherryPickSequence</span>");
+                buffer.insert_markup(iter, "<span color=\"#ff0000\">CherryPickSequence</span>");
             }
             RepositoryState::Bisect => {
-                buffer.insert(iter, "<span color=\"#ff0000\">Bisect</span>");
+                buffer.insert_markup(iter, "<span color=\"#ff0000\">Bisect</span>");
             },
             RepositoryState::Rebase => {
-                buffer.insert(iter, "<span color=\"#ff0000\">Rebase</span>");
+                buffer.insert_markup(iter, "<span color=\"#ff0000\">Rebase</span>");
             },
             RepositoryState::RebaseInteractive => {
-                buffer.insert(iter, "<span color=\"#ff0000\">RebaseInteractive</span>");
+                buffer.insert_markup(iter, "<span color=\"#ff0000\">RebaseInteractive</span>");
             }
             RepositoryState::RebaseMerge => {
-                buffer.insert(iter, "<span color=\"#ff0000\">RebaseMerge</span>");
+                buffer.insert_markup(iter, "<span color=\"#ff0000\">RebaseMerge</span>");
             }
             RepositoryState::ApplyMailbox => {
-                buffer.insert(iter, "<span color=\"#ff0000\">ApplyMailbox</span>");
+                buffer.insert_markup(iter, "<span color=\"#ff0000\">ApplyMailbox</span>");
             }
             RepositoryState::ApplyMailboxOrRebase => {
-                buffer.insert(iter, "<span color=\"#ff0000\">ApplyMailboxOrRebase</span>");
+                buffer.insert_markup(iter, "<span color=\"#ff0000\">ApplyMailboxOrRebase</span>");
             }
         };
     }
