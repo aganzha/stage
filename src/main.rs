@@ -147,7 +147,7 @@ pub enum Event {
     LockMonitors(bool),
     StoreSettings(String, String),
     OpenEditor,
-    Tags(Option<Oid>)
+    Tags(Option<Oid>),
 }
 
 fn zoom(dir: bool) {

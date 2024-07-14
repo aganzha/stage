@@ -1263,7 +1263,7 @@ impl Status {
     pub fn head_oid(&self) -> crate::Oid {
         self.head.as_ref().unwrap().oid
     }
-    
+
     pub fn debug(
         &mut self,
         txt: &StageView,

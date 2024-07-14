@@ -4,11 +4,11 @@
 
 pub mod branch;
 pub mod commit;
-pub mod tag;
 pub mod git_log;
 pub mod merge;
 pub mod remote;
 pub mod stash;
+pub mod tag;
 pub mod test_merge;
 use crate::branch::{BranchData, BranchName};
 use crate::commit::CommitRepr;
