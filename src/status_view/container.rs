@@ -142,7 +142,7 @@ pub trait ViewContainer {
             }
             ViewState::NotYetRendered => {
                 trace!("..render MATCH insert {:?}", line_no);
-                self.write_content(iter, &buffer);
+                self.write_content(iter, buffer);
                 buffer.insert(iter, "\n");
 
                 view.line_no.replace(line_no);
@@ -914,7 +914,7 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked
-    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
+    fn write_content(&self, _iter: &mut TextIter, _buffer: &TextBuffer) {
     }
 
     // Untracked
