@@ -66,6 +66,59 @@ pub trait ViewContainer {
         }
     }
 
+    fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
+        let current_line = iter.line();
+        let moved = iter.forward_lines(1);
+        if !moved {
+            // happens sometimes when buffer is over
+            buffer.insert(iter, "\n");
+            if iter.line() - 2 == current_line {
+                iter.forward_lines(-1);
+            }
+            trace!(
+                "buffer is over. force 1 line forward. iter now is it line {:?}",
+                iter.line()
+            );
+        }
+        assert!(current_line + 1 == iter.line());
+    }
+
+    fn start_end_iters(&self, buffer: &TextBuffer, line_no: i32) -> (TextIter, TextIter) {
+        let mut start_iter = buffer.iter_at_line(line_no).unwrap();
+        start_iter.set_line_offset(0);
+        let mut end_iter = buffer.iter_at_line(line_no).unwrap();
+        end_iter.forward_to_line_end();
+        (start_iter, end_iter)
+    }
+
+    fn remove_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
+        let view = self.get_view();
+        if view.tag_is_added(tag) {
+            let (start_iter, end_iter) = self.start_end_iters(buffer, view.line_no.get());
+            buffer.remove_tag_by_name(tag.name(), &start_iter, &end_iter);
+            view.tag_removed(tag);
+        }
+    }
+
+    fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
+        let view = self.get_view();
+        if !view.tag_is_added(tag) {
+            let (start_iter, end_iter) = self.start_end_iters(buffer, view.line_no.get());
+            buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
+            view.tag_added(tag);
+        }
+    }
+
+    fn apply_tags(
+        &self,
+        buffer: &TextBuffer,
+        content_tags: &Vec<tags::TxtTag>,
+    ) {
+        for t in content_tags {
+            self.add_tag(buffer, t);
+        }
+    }
+
     // ViewContainer
     fn render(
         &self,
@@ -105,12 +158,12 @@ pub trait ViewContainer {
                 view.line_no.replace(line_no);
                 view.render(true);
                 // if !content.is_empty() {
-                view.apply_tags(buffer, &tags);
+                self.apply_tags(buffer, &tags);
                 //}
             }
             ViewState::TagsModified => {
                 trace!("..render MATCH TagsModified {:?}", line_no);
-                view.apply_tags(buffer, &tags);
+                self.apply_tags(buffer, &tags);
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
                 }
@@ -155,17 +208,17 @@ pub trait ViewContainer {
                 //     buffer.insert(iter, content);
                 // }            
 
-                view.apply_tags(buffer, &tags);
+                self.apply_tags(buffer, &tags);
                 // if !content.is_empty() {
                 //     self.apply_tags(buffer, &content_tags);
                 // }
-                view.force_forward(buffer, iter);
+                self.force_forward(buffer, iter);
             }
             ViewState::RenderedNotInPlace(l) => {
                 // TODO: somehow it is related to transfered!
                 trace!(".. render match not in place {:?}", l);
                 view.line_no.replace(line_no);
-                view.force_forward(buffer, iter);
+                self.force_forward(buffer, iter);
             }
         }
 
@@ -193,8 +246,8 @@ pub trait ViewContainer {
         }
         self.fill_context(context);
         // post render @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    }
-
+    }    
+    
     // ViewContainer
     /// returns if view is changed during cursor move
     fn cursor(
