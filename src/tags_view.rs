@@ -5,13 +5,13 @@
 use async_channel::Sender;
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window, EntryRow, SwitchRow};
-use glib::{Object, clone};
+use glib::{Object, clone, GString};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick,
     Image, Label, ListItem, ListView, Orientation, PositionType,
-    ScrolledWindow, SearchBar, SearchEntry, SignalListItemFactory, ListBox, SelectionMode,
+    ScrolledWindow, SearchBar, SearchEntry, SignalListItemFactory, ListBox, SelectionMode, TextView, WrapMode,
     SingleSelection, Widget, Window as Gtk4Window,
 };
 use std::path::PathBuf;
@@ -50,7 +50,7 @@ mod tag_item {
 
         #[property(get = Self::get_message)]
         pub message: String,
-        
+
         #[property(get = Self::get_commit_message)]
         pub commit_message: String,
 
@@ -92,7 +92,7 @@ mod tag_item {
         pub fn get_commit_message(&self) -> String {
             self.tag.borrow().commit.message.to_string()
         }
-        
+
         pub fn get_dt(&self) -> String {
             self.tag.borrow().commit.commit_dt.to_string()
         }
@@ -217,7 +217,7 @@ impl TagList {
 
                 let tags = gio::spawn_blocking({
                     let search_term = search_term.clone();
-                    let repo_path = repo_path.clone();                    
+                    let repo_path = repo_path.clone();
                     move || tag::get_tag_list(repo_path, start_oid, search_term)
                 })
                     .await
@@ -258,7 +258,7 @@ impl TagList {
                         }
                     }
                     last_added_oid.replace(item.imp().tag.borrow().oid);
-                    tag_list.imp().list.borrow_mut().push(item);                    
+                    tag_list.imp().list.borrow_mut().push(item);
                     added += 1;
                 }
                 debug!("added some tags {:?}", added);
@@ -345,7 +345,7 @@ impl TagList {
         let name = tag_item.imp().tag.borrow().name.clone();
         (name, pos)
     }
-    
+
     pub fn kill_tag(&self,
         repo_path: PathBuf,
         window: &Window,
@@ -384,7 +384,7 @@ impl TagList {
                       target_oid: git2::Oid,
                       window: &Window,
                       sender: Sender<crate::Event>,) {
-        
+
                 glib::spawn_future_local({
                     let tag_list = self.clone();
                     let window = window.clone();
@@ -397,12 +397,41 @@ impl TagList {
                             .title("New tag name:")
                             .css_classes(vec!["input_field"])
                             .build();
+                        let txt = TextView::builder()
+                            .margin_start(12)
+                            .margin_end(12)
+                            .margin_top(12)
+                            .margin_bottom(12)
+                            .wrap_mode(WrapMode::Word)
+                            .build();
+                        let scroll = ScrolledWindow::builder()
+                            .vexpand(true)
+                            .vexpand_set(true)
+                            .hexpand(true)
+                            .visible(false)
+                            .hexpand_set(true)
+                            .min_content_width(480)
+                            .min_content_height(320)
+                            .build();
+
+                        scroll.set_child(Some(&txt));
+
                         let lightweight = SwitchRow::builder()
                             .title("Lightweight")
                             .css_classes(vec!["input_field"])
                             .active(true)
                             .build();
+                        lightweight.connect_active_notify({
+                            let scroll = scroll.clone();
+                            move |sw| {
+                                scroll.set_visible(!sw.is_active());
+                            }
+                        });
                         lb.append(&input);
+                        lb.append(&scroll);
+                        let row = lb.last_child().unwrap();
+                        row.set_css_classes(&["hidden_row"]);
+                        row.set_focusable(false);
                         lb.append(&lightweight);
                         let dialog = confirm_dialog_factory(
                             &window,
@@ -425,8 +454,16 @@ impl TagList {
                             return;
                         }
                         let new_tag_name = format!("{}", input.text());
+                        let buffer = txt.buffer();
+                        let start_iter = buffer.iter_at_offset(0);
+                        let eof_iter = buffer.end_iter();
+                        let tag_message = buffer
+                            .text(&start_iter, &eof_iter, true)
+                            .to_string()
+                            .to_string();
+                        let lightweight = lightweight.is_active();
                         let created_tag = gio::spawn_blocking(move || {
-                            tag::create_tag(repo_path, new_tag_name, target_oid, sender)
+                            tag::create_tag(repo_path, new_tag_name, target_oid, tag_message, lightweight, sender)
                         }).await.unwrap_or_else(|e| {
                             alert(format!("{:?}", e)).present(&window);
                             Ok(None)
@@ -440,7 +477,7 @@ impl TagList {
                             tag_list.add_new_tag(created_tag);
                         }
                     }
-                });            
+                });
     }
 
     pub fn add_new_tag(&self, created_tag: tag::Tag) {
@@ -458,7 +495,7 @@ impl TagList {
             1,
         );
     }
-    
+
     pub fn cherry_pick(
         &self,
         repo_path: PathBuf,
@@ -716,7 +753,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
         bx.append(&label_name);
         bx.append(&label_message);
         bx.append(&label_commit_message);
-        bx.append(&author_label);        
+        bx.append(&author_label);
         bx.append(&label_dt);
 
         let list_item = list_item
@@ -851,7 +888,7 @@ pub fn headerbar_factory(
     hb.set_title_widget(Some(&search));
     hb.pack_start(&title);
 
-    
+
     let cherry_pick_btn = Button::builder()
         .icon_name("emblem-shared-symbolic")
         .can_shrink(true)
@@ -953,7 +990,7 @@ pub fn headerbar_factory(
     hb.pack_end(&kill_btn);
     hb.pack_end(&reset_btn);
     hb.pack_end(&cherry_pick_btn);
-    hb.pack_end(&revert_btn);    
+    hb.pack_end(&revert_btn);
     hb
 }
 
