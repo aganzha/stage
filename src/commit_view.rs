@@ -247,9 +247,7 @@ impl ViewContainer for MultiLineLabel {
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
-    fn child_count(&self) -> usize {
-        self.labels.len()
-    }
+
     fn get_view(&self) -> &View {
         &self.view
     }
