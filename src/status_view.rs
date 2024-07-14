@@ -19,8 +19,8 @@ use git2::RepositoryState;
 use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
-pub mod view_state;
 pub mod tests;
+pub mod view_state;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};

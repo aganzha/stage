@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::status_view::view_state::{RenderFlags, View};
 use crate::status_view::container::ViewKind;
 use crate::status_view::tags;
+use crate::status_view::view_state::{RenderFlags, View};
 
 use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::{Diff, DiffKind, File, Hunk, Line, LineKind};
@@ -294,20 +294,19 @@ pub fn test_expand() {
 
 pub struct TestViewContainer {
     pub view: View,
-    pub content: String
+    pub content: String,
 }
 
 impl TestViewContainer {
     pub fn new(view: View, content: &str) -> Self {
         TestViewContainer {
             view,
-            content: String::from(content)
+            content: String::from(content),
         }
     }
 }
 
 impl ViewContainer for TestViewContainer {
-
     fn is_empty(&self) -> bool {
         false
     }
@@ -328,7 +327,6 @@ impl ViewContainer for TestViewContainer {
     }
 }
 
-
 #[test]
 fn test_render_view() {
     initialize();
@@ -343,13 +341,13 @@ fn test_render_view() {
     let vc1 = TestViewContainer::new(view1, "test1");
     let vc2 = TestViewContainer::new(view2, "test2");
     let vc3 = TestViewContainer::new(view3, "test3");
-    
+
     let mut ctx = StatusRenderContext::new();
 
     vc1.render(&buffer, &mut iter, &mut ctx);
     vc2.render(&buffer, &mut iter, &mut ctx);
     vc3.render(&buffer, &mut iter, &mut ctx);
-    
+
     // view1.render_in_textview(
     //     &buffer,
     //     &mut iter,
@@ -437,7 +435,7 @@ fn test_render_view() {
     assert!(iter.line() == 1);
     // rerender it
     vc1.render(&buffer, &mut iter, &mut ctx);
-    
+
     // view1.render_in_textview(
     //     &buffer,
     //     &mut iter,
@@ -459,7 +457,7 @@ fn test_render_view() {
     //     Vec::new(),
     //     &mut ctx,
     // );
-    
+
     assert!(!vc2.view.is_dirty());
     assert!(iter.line() == 3);
     // -------------------- test squashed
@@ -481,7 +479,7 @@ fn test_render_view() {
     vc3.view.dirty(true);
     vc3.view.transfer(true);
     vc3.render(&buffer, &mut iter, &mut ctx);
-    
+
     // view3.render_in_textview(
     //     &buffer,
     //     &mut iter,
@@ -549,8 +547,11 @@ fn test_expand_line() {
                 let buffer = TextBuffer::new(None);
                 let mut iter = buffer.iter_at_offset(0);
                 vc.write_content(&mut iter, &buffer);
-                let start_line_iter = buffer.iter_at_line(iter.line()).unwrap();
-                assert!(cl.trim() == buffer.text(&start_line_iter, &iter, true));
+                let start_line_iter =
+                    buffer.iter_at_line(iter.line()).unwrap();
+                assert!(
+                    cl.trim() == buffer.text(&start_line_iter, &iter, true)
+                );
             }
         });
     }
@@ -581,7 +582,7 @@ fn test_expand_line() {
     diff.files[0].hunks[1].write_content(&mut iter, &buffer);
     let start_line_iter = buffer.iter_at_offset(0);
     let hunk2_content = buffer.text(&start_line_iter, &iter, true);
-    
+
     // let hunk1_content = diff.files[0].hunks[0].get_content();
     // let hunk2_content = diff.files[0].hunks[1].get_content();
     let mut hunk1_passed = false;
