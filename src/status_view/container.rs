@@ -819,15 +819,17 @@ impl ViewContainer for Head {
     }
 
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
-        if !self.remote {
-            buffer.insert(iter, "Head:     ");
-        } else {
-            buffer.insert(iter, "Upstream: ");
-        }
-        buffer.insert_markup(iter, "<span color=\"#4a708b\">");
-        buffer.insert(iter, &self.branch);
-        buffer.insert_markup(iter, "</span> ");
-        buffer.insert_markup(iter, &self.log_message);
+        buffer.insert_markup(iter,
+                             &format!("{}<span color=\"#4a708b\">{}</span> {}",
+                                      if !self.remote {
+                                          "Head:     "
+                                      } else {
+                                          "Upstream: "
+                                      },
+                                      self.branch,
+                                      self.log_message
+                             )
+        );
     }
 }
 
