@@ -1,4 +1,8 @@
 BUG: empty deleted line is not shown (deleted are show by text coloring, not background
+TODO: changing file permission shows file in unstaged without any signs
+TODO: replace all -> String to -> &str for rendering. is it possible?
+TODO: reflog
+TODO: squash merge
 TODO: spaces!
 TODO: tags!
 TODO: blame - just hit b on filename and introduce Blame section (as conflicted).
