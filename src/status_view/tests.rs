@@ -25,7 +25,7 @@ pub fn initialize() {
     });
 }
 
-impl Hunk {
+impl Hunk<'_> {
     // used in tests only
     pub fn fill_from_header(&mut self) {
         let re =
@@ -52,9 +52,9 @@ impl Hunk {
     }
 }
 
-fn create_line(line_no: u32, name: &str) -> Line {
+fn create_line(line_no: u32, name: &'static str) -> Line<'static> {
     Line {
-        content: name.to_string(),
+        content: name,
         origin: DiffLineType::Context,
         view: View::new(),
         new_line_no: Some(line_no),
@@ -63,19 +63,22 @@ fn create_line(line_no: u32, name: &str) -> Line {
     }
 }
 
-fn create_hunk(name: &str) -> Hunk {
+fn create_hunk(name: &str) -> Hunk<'static> {
     let mut hunk = Hunk::new(DiffKind::Unstaged);
-    hunk.handle_max(name);
+    hunk.handle_max(name.len() as i32);
     hunk.header = name.to_string();
     for i in 0..3 {
-        let content = format!("{} -> line {}", hunk.header, i);
-        hunk.handle_max(&content);
-        hunk.lines.push(create_line(i, &content));
+        let content = format!("{} -> line {}", hunk.header, i);        
+        let le = content.len();
+        hunk.handle_max(le as i32);
+        hunk.buff.push_str(&content);
+        let slice = &hunk.buff[hunk.buff.len() - le ..];
+        hunk.lines.push(create_line(i, slice));
     }
     hunk
 }
 
-fn create_file(name: &str) -> File {
+fn create_file(name: &str) -> File<'static> {
     let mut file = File::new(DiffKind::Unstaged);
     file.path = name.to_string().into();
     for i in 0..3 {
@@ -85,7 +88,7 @@ fn create_file(name: &str) -> File {
     file
 }
 
-fn create_diff() -> Diff {
+fn create_diff() -> Diff<'static> {
     let mut diff = Diff::new(DiffKind::Unstaged);
     for i in 0..3 {
         diff.files.push(create_file(&format!("file{}.rs", i)));

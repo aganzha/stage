@@ -343,7 +343,7 @@ impl CommitList {
         &self,
         repo_path: PathBuf,
         window: &impl IsA<Widget>,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         glib::spawn_future_local({
             let sender = sender.clone();
@@ -381,7 +381,7 @@ impl CommitList {
         &self,
         repo_path: PathBuf,
         window: &impl IsA<Widget>,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         glib::spawn_future_local({
             let sender = sender.clone();
@@ -419,7 +419,7 @@ impl CommitList {
         &self,
         repo_path: PathBuf,
         window: &impl IsA<Widget>,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         let oid = self.get_selected_oid();
         glib::spawn_future_local({
@@ -488,7 +488,7 @@ impl CommitList {
     }
 }
 
-pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
+pub fn item_factory(sender: Sender<crate::Event<'static>>) -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     let focus = Rc::new(RefCell::new(false));
     factory.connect_setup(move |_, list_item| {
@@ -636,7 +636,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
     factory
 }
 
-pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
+pub fn listview_factory(sender: Sender<crate::Event<'static>>) -> ListView {
     let commit_list = CommitList::new();
     let selection_model = SingleSelection::new(Some(commit_list));
 
@@ -686,7 +686,7 @@ pub fn headerbar_factory(
     list_view: &ListView,
     branch_name: String,
     window: &impl IsA<Widget>,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
     repo_path: PathBuf,
 ) -> HeaderBar {
     let entry = SearchEntry::builder()
@@ -816,7 +816,7 @@ pub fn show_log_window(
     app_window: &impl IsA<Gtk4Window>,
     // app_window: &ApplicationWindow,
     branch_name: String,
-    main_sender: Sender<crate::Event>,
+    main_sender: Sender<crate::Event<'static>>,
     start_oid: Option<Oid>,
 ) -> Window {
     // let (sender, receiver) = async_channel::unbounded();

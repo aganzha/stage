@@ -20,7 +20,7 @@ pub fn commit(
     path: Option<PathBuf>,
     amend_message: Option<String>,
     window: &ApplicationWindow,
-    sender: Sender<Event>,
+    sender: Sender<Event<'static>>,
 ) {
     glib::spawn_future_local({
         let window = window.clone();

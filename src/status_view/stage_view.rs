@@ -265,7 +265,7 @@ pub const DARK_CLASS: &str = "dark";
 pub const LIGHT_CLASS: &str = "light";
 
 pub fn factory(
-    sndr: Sender<crate::Event>,
+    sndr: Sender<crate::Event<'static>>,
     name: &str,
     //settings: gio::Settings,
     text_view_width: Rc<RefCell<TextViewWidth>>,

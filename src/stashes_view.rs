@@ -77,7 +77,7 @@ impl OidRow {
 
     pub fn from_stash(
         stash: &stash::StashData,
-        sender: Sender<Event>,
+        sender: Sender<Event<'static>>,
     ) -> Self {
         let row = Self::new();
         row.set_property("title", &stash.title);
@@ -114,7 +114,7 @@ impl OidRow {
         &self,
         path: PathBuf,
         window: &ApplicationWindow,
-        sender: Sender<Event>,
+        sender: Sender<Event<'static>>,
     ) {
         glib::spawn_future_local({
             clone!(@weak self as row,
@@ -157,7 +157,7 @@ impl OidRow {
         &self,
         path: PathBuf,
         window: &ApplicationWindow,
-        sender: Sender<Event>,
+        sender: Sender<Event<'static>>,
     ) {
         // check stash!
         trace!("...........apply stash {:?}", self.imp().stash);
@@ -209,7 +209,7 @@ pub fn add_stash(
     path: PathBuf,
     window: &ApplicationWindow,
     stashes_box: &ListBox,
-    sender: Sender<Event>,
+    sender: Sender<Event<'static>>,
 ) {
     glib::spawn_future_local({
         clone!(@strong window as window,
@@ -279,7 +279,7 @@ pub fn add_stash(
 pub fn adopt_stashes(
     lb: &ListBox,
     stashes: stash::Stashes,
-    sender: Sender<Event>,
+    sender: Sender<Event<'static>>,
     o_row_ind: Option<i32>,
 ) {
     let mut ind = 0;
@@ -310,7 +310,9 @@ pub fn adopt_stashes(
 
 pub fn factory(
     window: &ApplicationWindow, //&impl IsA<Gtk4Window>,
-    status: &Status,
+    path: PathBuf,
+    stashes: &Option<stash::Stashes>,
+    sender: Sender<crate::Event<'static>>,
 ) -> (ToolbarView, impl FnOnce()) {
     let scroll = ScrolledWindow::new();
     scroll.set_css_classes(&[&String::from("nocorners")]);
@@ -321,9 +323,9 @@ pub fn factory(
             String::from("nocorners"),
         ])
         .build();
-    if let Some(data) = &status.stashes {
+    if let Some(data) = stashes {
         for stash in &data.stashes {
-            let row = OidRow::from_stash(stash, status.sender.clone());
+            let row = OidRow::from_stash(stash, sender.clone());
             lb.append(&row);
         }
     }
@@ -349,18 +351,18 @@ pub fn factory(
         .build();
 
     add.connect_clicked({
-        let sender = status.sender.clone();
+        let sender = sender.clone();
         let window = window.clone();
-        let path = status.path.clone().expect("no path");
+        let path = path.clone();
         let lb = lb.clone();
         move |_| {
             add_stash(path.clone(), &window, &lb, sender.clone());
         }
-    });
+    });    
     apply.connect_clicked({
         let window = window.clone();
-        let path = status.path.clone().expect("no path");
-        let sender = status.sender.clone();
+        let path = path.clone();
+        let sender = sender.clone();
         let lb = lb.clone();
         move |_| {
             if let Some(row) = lb.selected_row() {
@@ -372,8 +374,8 @@ pub fn factory(
     });
     kill.connect_clicked({
         let window = window.clone();
-        let path = status.path.clone().expect("no path");
-        let sender = status.sender.clone();
+        let path = path.clone();
+        let sender = sender.clone();
         let lb = lb.clone();
         move |_| {
             if let Some(row) = lb.selected_row() {
@@ -392,10 +394,10 @@ pub fn factory(
 
     let event_controller = EventControllerKey::new();
     event_controller.connect_key_pressed({
-        let sender = status.sender.clone();
+        let sender = sender.clone();
         let lb = lb.clone();
         let window = window.clone();
-        let path = status.path.clone().expect("no path");
+        let path = path.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::Escape, _) => {

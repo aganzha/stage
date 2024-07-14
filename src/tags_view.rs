@@ -350,7 +350,7 @@ impl TagList {
         &self,
         repo_path: PathBuf,
         window: &Window,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         glib::spawn_future_local({
             let tags_list = self.clone();
@@ -394,7 +394,7 @@ impl TagList {
         repo_path: PathBuf,
         target_oid: git2::Oid,
         window: &Window,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         glib::spawn_future_local({
             let tag_list = self.clone();
@@ -519,7 +519,7 @@ impl TagList {
         &self,
         repo_path: PathBuf,
         window: &impl IsA<Widget>,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         glib::spawn_future_local({
             let sender = sender.clone();
@@ -557,7 +557,7 @@ impl TagList {
         &self,
         repo_path: PathBuf,
         window: &impl IsA<Widget>,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         glib::spawn_future_local({
             let sender = sender.clone();
@@ -595,7 +595,7 @@ impl TagList {
         &self,
         repo_path: PathBuf,
         window: &impl IsA<Widget>,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         let oid = self.get_selected_commit_oid();
         glib::spawn_future_local({
@@ -664,7 +664,7 @@ impl TagList {
     }
 }
 
-pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
+pub fn item_factory(sender: Sender<crate::Event<'static>>) -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
     let focus = Rc::new(RefCell::new(false));
     factory.connect_setup(move |_, list_item| {
@@ -840,7 +840,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
 pub fn headerbar_factory(
     list_view: &ListView,
     window: &Window,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
     repo_path: PathBuf,
     target_oid: git2::Oid,
 ) -> HeaderBar {
@@ -1007,7 +1007,7 @@ pub fn headerbar_factory(
     hb
 }
 
-pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
+pub fn listview_factory(sender: Sender<crate::Event<'static>>) -> ListView {
     let tag_list = TagList::new();
     let selection_model = SingleSelection::new(Some(tag_list));
 
@@ -1057,7 +1057,7 @@ pub fn show_tags_window(
     repo_path: PathBuf,
     app_window: &impl IsA<Gtk4Window>,
     target_oid: git2::Oid,
-    main_sender: Sender<crate::Event>,
+    main_sender: Sender<crate::Event<'static>>,
 ) -> Window {
     // let (sender, receiver) = async_channel::unbounded();
 

@@ -41,7 +41,7 @@ impl Stashes {
     }
 }
 
-pub fn list(path: PathBuf, sender: Sender<crate::Event>) -> Stashes {
+pub fn list(path: PathBuf, sender: Sender<crate::Event<'static>>) -> Stashes {
     let mut repo =
         git2::Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
@@ -61,7 +61,7 @@ pub fn stash(
     path: PathBuf,
     stash_message: String,
     stash_staged: bool,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<Option<Stashes>, git2::Error> {
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, false);
     let mut repo = git2::Repository::open(path.clone())?;
@@ -80,7 +80,7 @@ pub fn apply(
     num: usize,
     file_path: Option<PathBuf>,
     _hunk_header: Option<String>,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<(), git2::Error> {
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let mut repo = git2::Repository::open(path.clone())?;
@@ -101,7 +101,7 @@ pub fn apply(
 pub fn drop(
     path: PathBuf,
     stash_data: StashData,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Stashes {
     let mut repo =
         git2::Repository::open(path.clone()).expect("can't open repo");

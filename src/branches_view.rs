@@ -175,7 +175,7 @@ mod branch_list {
 }
 
 impl BranchList {
-    pub fn new(_sender: Sender<crate::Event>) -> Self {
+    pub fn new(_sender: Sender<crate::Event<'static>>) -> Self {
         Object::builder().build()
     }
 
@@ -226,7 +226,7 @@ impl BranchList {
         &self,
         repo_path: PathBuf,
         window: &Window,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window => async move { // , @weak selected_item, @weak current_item
@@ -319,7 +319,7 @@ impl BranchList {
         &self,
         repo_path: PathBuf,
         window: &Window,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         trace!("update remote!");
         let le = self.imp().list.borrow().len();
@@ -341,7 +341,7 @@ impl BranchList {
         &self,
         repo_path: PathBuf,
         window: &Window,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         let current_branch =
             self.get_head_branch().expect("cant get current branch");
@@ -388,7 +388,7 @@ impl BranchList {
         &self,
         repo_path: PathBuf,
         window: &Window,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         let current_branch =
             self.get_head_branch().expect("cant get current branch");
@@ -437,7 +437,7 @@ impl BranchList {
         &self,
         repo_path: PathBuf,
         window: &Window,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window as window => async move {
@@ -515,7 +515,7 @@ impl BranchList {
         &self,
         repo_path: PathBuf,
         window: &Window,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         let selected_branch = self.get_selected_branch();
         let title =
@@ -621,7 +621,7 @@ impl BranchList {
         &self,
         repo_path: PathBuf,
         window: &impl IsA<Widget>,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
     ) {
         glib::spawn_future_local({
             let sender = sender.clone();
@@ -829,7 +829,7 @@ pub fn item_factory() -> SignalListItemFactory {
 
 pub fn listview_factory(
     repo_path: PathBuf,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
     window: &Window,
 ) -> ListView {
     let header_factory = header_factory();
@@ -885,7 +885,7 @@ pub fn headerbar_factory(
     repo_path: PathBuf,
     list_view: &ListView,
     window: &Window,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> HeaderBar {
     let hb = HeaderBar::builder().build();
 
@@ -1108,7 +1108,7 @@ pub fn branches_in_use(
 pub fn show_branches_window(
     repo_path: PathBuf,
     app_window: &ApplicationWindow,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Window {
     let window = Window::builder()
         .application(&app_window.application().unwrap())

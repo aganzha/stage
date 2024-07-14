@@ -17,7 +17,7 @@ use async_channel::Sender;
 pub fn debug(
     app_window: &impl IsA<Gtk4Window>,
     mut stored_theme: String,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) {
     debug!("-------------------> {:?}", stored_theme);
     let window = Window::builder()

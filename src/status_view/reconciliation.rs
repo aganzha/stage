@@ -12,7 +12,7 @@ use std::collections::HashSet;
 
 pub const MAX_LINES: i32 = 50000;
 
-impl Line {
+impl Line<'_> {
     // line
     pub fn enrich_view(
         &mut self,
@@ -40,7 +40,7 @@ impl Line {
     }
 }
 
-impl Hunk {
+impl Hunk<'_> {
     // Hunk
     pub fn transfer_view(&self) -> View {
         let clone = self.view.clone();
@@ -83,7 +83,7 @@ impl Hunk {
     }
 }
 
-impl File {
+impl File<'_> {
     pub fn enrich_view(
         &mut self,
         rendered: &mut File,
@@ -295,7 +295,7 @@ impl File {
     }
 }
 
-impl Diff {
+impl Diff<'_> {
     pub fn enrich_view(
         &mut self,
         rendered: &mut Diff,

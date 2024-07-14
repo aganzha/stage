@@ -129,7 +129,7 @@ pub fn get_branches(path: PathBuf) -> Result<Vec<BranchData>, git2::Error> {
 pub fn checkout_branch(
     path: PathBuf,
     mut branch_data: BranchData,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<Option<BranchData>, git2::Error> {
     info!("checkout branch");
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
@@ -180,7 +180,7 @@ pub fn create_branch(
     new_branch_name: String,
     need_checkout: bool,
     branch_data: BranchData,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<Option<BranchData>, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(branch_data.oid)?;
@@ -200,7 +200,7 @@ pub fn create_branch(
 pub fn kill_branch(
     path: PathBuf,
     branch_data: BranchData,
-    _sender: Sender<crate::Event>,
+    _sender: Sender<crate::Event<'static>>,
 ) -> Result<Option<()>, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let name = &branch_data.name;

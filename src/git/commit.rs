@@ -109,15 +109,15 @@ impl Default for CommitLog {
 }
 
 #[derive(Debug, Clone)]
-pub struct CommitDiff {
+pub struct CommitDiff<'a> {
     pub oid: git2::Oid,
     pub message: String,
     pub commit_dt: DateTime<FixedOffset>,
     pub author: String,
-    pub diff: Diff,
+    pub diff: Diff<'a>,
 }
 
-impl Default for CommitDiff {
+impl Default for CommitDiff<'_> {
     fn default() -> Self {
         Self {
             oid: git2::Oid::zero(),
@@ -129,8 +129,8 @@ impl Default for CommitDiff {
     }
 }
 
-impl CommitDiff {
-    pub fn new(commit: git2::Commit, diff: Diff) -> Self {
+impl CommitDiff<'_> {
+    pub fn new(commit: git2::Commit, diff: Diff<'static>) -> Self {
         Self {
             oid: commit.id(),
             message: CommitRepr::message(&commit),
@@ -148,7 +148,7 @@ impl CommitDiff {
 pub fn get_commit_diff(
     path: PathBuf,
     oid: git2::Oid,
-) -> Result<CommitDiff, git2::Error> {
+) -> Result<CommitDiff<'static>, git2::Error> {
     let repo = git2::Repository::open(path)?;
     let commit = repo.find_commit(oid)?;
     let tree = commit.tree()?;
@@ -170,7 +170,7 @@ pub fn create(
     path: PathBuf,
     message: String,
     amend: bool,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<(), git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let me = repo.signature()?;
@@ -242,7 +242,7 @@ pub fn cherry_pick(
     oid: git2::Oid,
     file_path: Option<PathBuf>,
     _hunk_header: Option<String>,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<(), git2::Error> {
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
 
@@ -268,7 +268,7 @@ pub fn revert(
     oid: git2::Oid,
     file_path: Option<PathBuf>,
     _hunk_header: Option<String>,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<(), git2::Error> {
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;

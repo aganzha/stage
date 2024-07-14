@@ -96,9 +96,8 @@ pub enum RenderSource {
 pub const DUMP_DIR: &str = "stage_dump";
 
 #[derive(Debug, Clone)]
-pub struct Status {
+pub struct Status<'status> {
     pub path: Option<PathBuf>,
-    pub sender: Sender<Event>,
     pub head: Option<Head>,
     pub upstream: Option<Head>,
     pub state: Option<State>,
@@ -109,15 +108,15 @@ pub struct Status {
 
     pub staged_spacer: Label,
     pub staged_label: Label,
-    pub staged: Option<Diff>,
+    pub staged: Option<Diff<'status>>,
 
     pub unstaged_spacer: Label,
     pub unstaged_label: Label,
-    pub unstaged: Option<Diff>,
+    pub unstaged: Option<Diff<'status>>,
 
     pub conflicted_spacer: Label,
     pub conflicted_label: Label,
-    pub conflicted: Option<Diff>,
+    pub conflicted: Option<Diff<'status>>,
 
     pub rendered: bool, // what it is for ????
     pub stashes: Option<stash::Stashes>,
@@ -126,15 +125,13 @@ pub struct Status {
     pub settings: gio::Settings,
 }
 
-impl Status {
+impl Status<'_> {
     pub fn new(
         path: Option<PathBuf>,
         settings: gio::Settings,
-        sender: Sender<Event>,
     ) -> Self {
         Self {
             path,
-            sender,
             head: None,
             upstream: None,
             state: None,
@@ -225,6 +222,7 @@ impl Status {
     pub fn update_path(
         &mut self,
         path: PathBuf,
+        sender: Sender<crate::Event<'static>>,
         monitors: Rc<RefCell<Vec<FileMonitor>>>,
         user_action: bool,
     ) {
@@ -254,7 +252,7 @@ impl Status {
                         .set("paths", paths)
                         .expect("cant set settings");
                 }
-                self.setup_monitors(monitors, PathBuf::from(str_path));
+                self.setup_monitors(monitors, PathBuf::from(str_path), sender);
             }
         }
         self.path.replace(path.clone());
@@ -267,10 +265,11 @@ impl Status {
     pub fn reset_hard(
         &self,
         _ooid: Option<crate::Oid>,
+        sender: Sender<crate::Event<'static>>,
         window: &impl IsA<Widget>,
     ) {
         glib::spawn_future_local({
-            let sender = self.sender.clone();
+            let sender = sender.clone();
             let path = self.path.clone().unwrap();
             let window = window.clone();
             async move {
@@ -301,20 +300,20 @@ impl Status {
         });
     }
 
-    pub fn get_status(&self) {
+    pub fn get_status(&self, sender: Sender<crate::Event<'static>>) {
         gio::spawn_blocking({
             let path = self.path.clone();
-            let sender = self.sender.clone();
+            let sender = sender.clone();
             move || {
                 get_current_repo_status(path, sender);
             }
         });
     }
 
-    pub fn pull(&self, window: &ApplicationWindow, ask_pass: Option<bool>) {
+    pub fn pull(&self, sender: Sender<crate::Event<'static>>, window: &ApplicationWindow, ask_pass: Option<bool>) {
         glib::spawn_future_local({
             let path = self.path.clone().expect("no path");
-            let sender = self.sender.clone();
+            let sender = sender.clone();
             let window = window.clone();
             async move {
                 let mut user_pass: Option<(String, String)> = None;
@@ -367,6 +366,7 @@ impl Status {
 
     pub fn push(
         &self,
+        sender: Sender<crate::Event<'static>>,
         window: &ApplicationWindow,
         remote_dialog: Option<(String, bool, bool)>,
     ) {
@@ -374,7 +374,7 @@ impl Status {
         glib::spawn_future_local({
             let window = window.clone();
             let path = self.path.clone();
-            let sender = self.sender.clone();
+            let sender = sender.clone();
             async move {
                 let lb = ListBox::builder()
                     .selection_mode(SelectionMode::None)
@@ -497,6 +497,7 @@ impl Status {
 
     pub fn commit(
         &self,
+        sender: Sender<crate::Event<'static>>,
         window: &ApplicationWindow, // &impl IsA<Gtk4Window>,
     ) {
         let mut amend_message: Option<String> = None;
@@ -513,7 +514,7 @@ impl Status {
             self.path.clone(),
             amend_message,
             window,
-            self.sender.clone(),
+            sender.clone(),
         );
     }
 
@@ -587,10 +588,10 @@ impl Status {
 
     pub fn update_conflicted(
         &mut self,
-        mut diff: Diff,
+        mut diff: Diff<'static>,
         txt: &StageView,
         window: &ApplicationWindow,
-        sender: Sender<Event>,
+        sender: Sender<Event<'static>>,
         banner: &Banner,
         banner_button: &Widget,
         banner_button_clicked: Rc<RefCell<Option<SignalHandlerId>>>,
@@ -721,7 +722,7 @@ impl Status {
 
     pub fn update_staged(
         &mut self,
-        mut diff: Diff,
+        mut diff: Diff<'static>,
         txt: &StageView,
         context: &mut StatusRenderContext,
     ) {
@@ -739,7 +740,7 @@ impl Status {
 
     pub fn update_unstaged(
         &mut self,
-        mut diff: Diff,
+        mut diff: Diff<'static>,
         txt: &StageView,
         context: &mut StatusRenderContext,
     ) {
@@ -1026,7 +1027,7 @@ impl Status {
         }
     }
 
-    pub fn stage_in_conflict(&self, window: &ApplicationWindow) -> bool {
+    pub fn stage_in_conflict(&self, sender: Sender<crate::Event<'static>>, window: &ApplicationWindow) -> bool {
         // it need to implement method for diff, which will return current Hunk, Line and File and use it in stage.
         // also it must return indicator what of this 3 is current.
         info!("Stage in conflict");
@@ -1040,22 +1041,25 @@ impl Status {
                         if line.view.is_current() {
                             glib::spawn_future_local({
                                 let path = self.path.clone().unwrap();
-                                let sender = self.sender.clone();
+                                let sender = sender.clone();
                                 let file_path = f.path.clone();
-                                let hunk = hunk.clone();
-                                let line = line.clone();
+                                let conflict_offset_inside_hunk = hunk.get_conflict_offset_by_line(&line);
+                                let is_side_of_conflict = line.is_side_of_conflict();
+                                let ours_choosed = line.is_our_side_of_conflict();
+                                let hunk_header = hunk.header.clone();
                                 let window = window.clone();
                                 let interhunk = conflicted.interhunk;
+                                let conflict_count = hunk.conflicts_count;
                                 async move {
-                                    if hunk.conflicts_count > 0
-                                        && line.is_side_of_conflict()
+                                    if conflict_count > 0
+                                        && is_side_of_conflict
                                     {
                                         info!("choose_conflict_side_of_hunk");
                                         gio::spawn_blocking({
                                             move || {
                                                 merge::choose_conflict_side_of_hunk(
-                                                    path, file_path, hunk, line,
-                                                    interhunk, sender,
+                                                    path, file_path, hunk_header, conflict_offset_inside_hunk, ours_choosed,
+                                                    interhunk, sender.clone(),
                                                 )
                                             }
                                         }).await.unwrap_or_else(|e| {
@@ -1099,6 +1103,7 @@ impl Status {
         &mut self,
         _txt: &StageView,
         _line_no: i32,
+        sender: Sender<crate::Event<'static>>,
         op: StageOp,
         window: &ApplicationWindow,
     ) {
@@ -1107,7 +1112,7 @@ impl Status {
                 if file.get_view().is_current() {
                     gio::spawn_blocking({
                         let path = self.path.clone();
-                        let sender = self.sender.clone();
+                        let sender = sender.clone();
                         let file_path = file.path.clone();
                         move || {
                             stage_untracked(
@@ -1122,7 +1127,7 @@ impl Status {
             }
         }
 
-        if self.stage_in_conflict(window) {
+        if self.stage_in_conflict(sender.clone(), window) {
             return;
         }
 
@@ -1152,7 +1157,7 @@ impl Status {
         let (file, hunk) = diff.chosen_file_and_hunk();
         if file.is_none() {
             info!("no file to stage");
-            self.sender
+            sender
                 .send_blocking(Event::Toast(String::from("No file to stage")))
                 .expect("cant send through sender");
             return;
@@ -1167,7 +1172,7 @@ impl Status {
         glib::spawn_future_local({
             let window = window.clone();
             let path = self.path.clone();
-            let sender = self.sender.clone();
+            let sender = sender.clone();
             let file_path = file.unwrap().path.clone();
             let hunk = hunk.map(|h| h.header.clone());
             async move {
@@ -1203,6 +1208,7 @@ impl Status {
     pub fn dump(
         &mut self,
         txt: &StageView,
+        sender: Sender<crate::Event<'static>>,
         context: &mut StatusRenderContext,
     ) {
         let mut path = self.path.clone().unwrap();
@@ -1256,7 +1262,7 @@ impl Status {
             .unwrap();
             file.write_all(staged.dump().as_bytes()).unwrap();
         }
-        self.sender
+        sender
             .send_blocking(Event::Toast(String::from("dumped")))
             .expect("cant send through sender");
     }

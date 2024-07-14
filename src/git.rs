@@ -55,21 +55,21 @@ pub enum LineKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Line {
+pub struct Line <'hunk> {
     pub view: View,
     pub origin: DiffLineType,
-    pub content: String,
+    pub content: &'hunk str,
     pub new_line_no: Option<u32>,
     pub old_line_no: Option<u32>,
     pub kind: LineKind,
 }
 
-impl Default for Line {
+impl Default for Line<'_> {
     fn default() -> Self {
         Line {
             view: View::new(),
             origin: DiffLineType::Addition,
-            content: "".to_string(),
+            content: "",
             new_line_no: None,
             old_line_no: None,
             kind: LineKind::None,
@@ -77,19 +77,35 @@ impl Default for Line {
     }
 }
 
-impl Line {
-    pub fn from_diff_line(l: &DiffLine) -> Self {
-        return Self {
+impl <'hunk>Line<'hunk> {
+    pub fn new(
+        origin: DiffLineType,
+        new_line_no: Option<u32>,
+        old_line_no: Option<u32>,
+        content: &'hunk str
+    ) -> Self {
+        Self {
             view: View::new(),
-            origin: l.origin_value(),
-            new_line_no: l.new_lineno(),
-            old_line_no: l.old_lineno(),
-            content: String::from(str::from_utf8(l.content()).unwrap())
-                .replace("\r\n", "")
-                .replace('\n', ""),
+            origin: origin,
+            new_line_no: new_line_no,
+            old_line_no: old_line_no,
+            content,
             kind: LineKind::None,
-        };
+        }
     }
+    // pub fn from_diff_line(l: &DiffLine) -> Self {
+    //     return Self {
+    //         view: View::new(),
+    //         origin: l.origin_value(),
+    //         new_line_no: l.new_lineno(),
+    //         old_line_no: l.old_lineno(),
+    //         content: String::from(str::from_utf8(l.content()).unwrap())
+    //             .replace("\r\n", "")
+    //             .replace('\n', ""),
+    //         kind: LineKind::None,
+    //     };
+    // }
+
     pub fn is_our_side_of_conflict(&self) -> bool {
         match &self.kind {
             LineKind::Ours(_) => true,
@@ -129,26 +145,28 @@ pub const SPACE: &str = " ";
 pub const NEW_LINE: &str = "\n";
 
 #[derive(Debug, Clone)]
-pub struct Hunk {
+pub struct Hunk<'hunk> {
     pub view: View,
     pub header: String,
+    pub buff: String,
     pub old_start: u32,
     pub new_start: u32,
     pub old_lines: u32,
     pub new_lines: u32,
-    pub lines: Vec<Line>,
+    pub lines: Vec<Line<'hunk>>,
     pub max_line_len: i32,
     pub kind: DiffKind,
     pub conflicts_count: i32,
 }
 
-impl Hunk {
+impl Hunk<'_> {
     pub fn new(kind: DiffKind) -> Self {
         let view = View::new();
         view.expand(true);
         Self {
             view,
             header: String::new(),
+            buff: String::new(),
             lines: Vec::new(),
             old_start: 0,
             new_start: 0,
@@ -166,8 +184,7 @@ impl Hunk {
             .replace('\n', "")
     }
 
-    pub fn handle_max(&mut self, line: &str) {
-        let le = line.len() as i32;
+    pub fn handle_max(&mut self, le: i32) {
         if le > self.max_line_len {
             self.max_line_len = le;
         }
@@ -175,7 +192,7 @@ impl Hunk {
 
     pub fn fill_from_git_hunk(&mut self, dh: &DiffHunk) {
         let header = Self::get_header_from(dh);
-        self.handle_max(&header);
+        self.handle_max(header.len() as i32);
         self.header = header;
         self.old_start = dh.old_start();
         self.old_lines = dh.old_lines();
@@ -294,26 +311,39 @@ impl Hunk {
 
     pub fn push_line(
         &mut self,
-        mut line: Line,
+        diff_line: &DiffLine,
         prev_line_kind: LineKind,
     ) -> LineKind {
-        if self.kind != DiffKind::Conflicted {
-            match line.origin {
-                DiffLineType::FileHeader
-                | DiffLineType::HunkHeader
-                | DiffLineType::Binary => {}
-                _ => {
-                    self.handle_max(&line.content);
-                    self.lines.push(line)
-                }
+        let mut content = str::from_utf8(diff_line.content()).unwrap();
+        if let Some(stripped) = content.strip_suffix("\r\n") {
+            content = stripped;
+        }
+        if let Some(stripped) = content.strip_suffix("\n") {
+            content = stripped;
+        }
+        self.buff.push_str(content);
+        self.handle_max(content.len() as i32);
+        let line_content = &self.buff[self.buff.len() - content.len()..];
+                
+        match diff_line.origin_value() {
+            DiffLineType::FileHeader
+            | DiffLineType::HunkHeader
+            | DiffLineType::Binary => {}
+            _ => {
+                self.lines.push(Line::new(
+                    diff_line.origin_value(),
+                    diff_line.new_lineno(),
+                    diff_line.old_lineno(),
+                    ""// fuck! line_content
+                ))
             }
+        }
+        
+        if self.kind != DiffKind::Conflicted {
             return LineKind::None;
         }
-        trace!(
-            ":::::::::::::::::::::::::::::::: {:?}. prev line kind {:?}",
-            line.content,
-            prev_line_kind
-        );
+        let ind = self.lines.len() - 1;
+        let mut line = &mut self.lines[ind];
         let prefix: String = line.content.chars().take(7).collect();
 
         match &prefix[..] {
@@ -367,19 +397,7 @@ impl Hunk {
                 panic!("whats the case in markers? {:?} {:?}", prev, this)
             }
         }
-        let this_kind = line.kind.clone();
-        match line.origin {
-            DiffLineType::FileHeader
-            | DiffLineType::HunkHeader
-            | DiffLineType::Binary => {}
-            _ => {
-                self.handle_max(&line.content);
-                self.lines.push(line)
-            }
-        }
-        trace!("........return this_kind {:?}", this_kind);
-        trace!("");
-        this_kind
+        line.kind.clone()
     }
 
     /// by given Line inside conflict returns
@@ -399,17 +417,17 @@ impl Hunk {
 }
 
 #[derive(Debug, Clone)]
-pub struct File {
+pub struct File<'file> {
     pub view: View,
     pub path: PathBuf,
     // pub id: Oid,
-    pub hunks: Vec<Hunk>,
+    pub hunks: Vec<Hunk<'file>>,
     pub max_line_len: i32,
     pub kind: DiffKind,
     pub status: Delta,
 }
 
-impl File {
+impl File<'_> {
     pub fn new(kind: DiffKind) -> Self {
         Self {
             view: View::new(),
@@ -439,7 +457,7 @@ impl File {
         }
     }
 
-    pub fn push_hunk(&mut self, h: Hunk) {
+    pub fn push_hunk(&mut self, h: Hunk<'static>) {
         if h.max_line_len > self.max_line_len {
             self.max_line_len = h.max_line_len;
         }
@@ -455,8 +473,8 @@ pub enum DiffKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct Diff {
-    pub files: Vec<File>,
+pub struct Diff<'diff> {
+    pub files: Vec<File<'diff>>,
     pub view: View,
     pub kind: DiffKind,
     pub max_line_len: i32,
@@ -465,7 +483,7 @@ pub struct Diff {
     pub interhunk: Option<u32>,
 }
 
-impl Diff {
+impl Diff<'_> {
     pub fn new(kind: DiffKind) -> Self {
         Self {
             files: Vec::new(),
@@ -476,19 +494,19 @@ impl Diff {
         }
     }
 
-    pub fn push_file(&mut self, f: File) {
+    pub fn push_file(&mut self, f: File<'static>) {
         if f.max_line_len > self.max_line_len {
             self.max_line_len = f.max_line_len;
         }
         self.files.push(f);
     }
 
-    // is it used???
-    pub fn add(&mut self, other: Diff) {
-        for file in other.files {
-            self.files.push(file);
-        }
-    }
+    // // is it used???
+    // pub fn add(&mut self, other: Diff) {
+    //     for file in other.files {
+    //         self.files.push(file);
+    //     }
+    // }
 
     pub fn is_empty(&self) -> bool {
         self.files.is_empty()
@@ -556,7 +574,7 @@ impl Head {
     }
 }
 
-pub fn get_head(path: PathBuf, sender: Sender<crate::Event>) {
+pub fn get_head(path: PathBuf, sender: Sender<crate::Event<'static>>) {
     let repo = Repository::open(path).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
     let ob = head_ref
@@ -576,7 +594,7 @@ pub fn get_head(path: PathBuf, sender: Sender<crate::Event>) {
         .expect("Could not send through channel");
 }
 
-pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) {
+pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event<'static>>) {
     trace!("get upstream");
     let repo = Repository::open(path).expect("can't open repo");
     let head_ref = repo.head().expect("can't get head");
@@ -614,10 +632,10 @@ pub const REVERT_HEAD: &str = "REVERT_HEAD";
 
 pub fn get_current_repo_status(
     current_path: Option<PathBuf>,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) {
     let backtrace = Backtrace::capture();
-    debug!(
+    trace!(
         "----------------calling get current repo status> {:?}",
         backtrace
     );
@@ -751,7 +769,7 @@ pub fn get_current_repo_status(
         .expect("Could not send through channel");
 }
 
-pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Diff {
+pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Diff<'static> {
     // so, when file is in conflict during merge, this means nothing
     // was staged to that file, cause mergeing in such state is PROHIBITED!
 
@@ -868,7 +886,7 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Diff {
     diff
 }
 
-pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
+pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event<'static>>) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut opts = make_diff_options();
 
@@ -982,7 +1000,7 @@ impl ApplyFilter {
     }
 }
 
-pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
+pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff<'static> {
     let mut diff = Diff::new(kind.clone());
     let mut current_file = File::new(kind.clone());
     let mut current_hunk = Hunk::new(kind.clone());
@@ -1053,14 +1071,16 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                     current_hunk.fill_from_git_hunk(&diff_hunk)
                 }
                 prev_line_kind = current_hunk.push_line(
-                    Line::from_diff_line(&diff_line),
+                    //Line::from_diff_line(&diff_line),
+                    &diff_line,
                     prev_line_kind.clone(),
                 );
             } else {
                 // this is file header line.
-                let line = Line::from_diff_line(&diff_line);
+                // str
+                // let line = Line::from_diff_line(&diff_line);
                 prev_line_kind =
-                    current_hunk.push_line(line, prev_line_kind.clone())
+                    current_hunk.push_line(&diff_line, prev_line_kind.clone())
             }
 
             true
@@ -1078,7 +1098,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
 pub fn stage_untracked(
     path: PathBuf,
     file_path: PathBuf,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut index = repo.index().expect("cant get index");
@@ -1101,7 +1121,7 @@ pub fn stage_via_apply(
     file_path: PathBuf,
     hunk_header: Option<String>,
     subject: StageOp,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<(), Error> {
     // TODO! destruct filter to args. put file in pathspec for diff opts
     let repo = Repository::open(path.clone())?;
@@ -1196,7 +1216,7 @@ pub fn stage_via_apply(
 
 pub struct DeferRefresh {
     pub path: PathBuf,
-    pub sender: Sender<crate::Event>,
+    pub sender: Sender<crate::Event<'static>>,
     pub update_status: bool,
     pub unlock_monitors: bool,
 }
@@ -1204,7 +1224,7 @@ pub struct DeferRefresh {
 impl DeferRefresh {
     pub fn new(
         path: PathBuf,
-        sender: Sender<crate::Event>,
+        sender: Sender<crate::Event<'static>>,
         update_status: bool,
         unlock_monitors: bool,
     ) -> Self {
@@ -1241,7 +1261,7 @@ impl Drop for DeferRefresh {
 pub fn reset_hard(
     path: PathBuf,
     ooid: Option<Oid>,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<bool, Error> {
     let repo = Repository::open(path.clone())?;
     let head_ref = repo.head()?;
@@ -1293,7 +1313,7 @@ pub fn track_changes(
     path: PathBuf,
     file_path: PathBuf,
     interhunk: Option<u32>,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) {
     // TODO throttle!
     let repo = Repository::open(path.clone()).expect("can't open repo");
@@ -1334,7 +1354,7 @@ pub fn track_changes(
 
 pub fn checkout_oid(
     path: PathBuf,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
     oid: Oid,
     ref_log_msg: Option<String>,
 ) {
@@ -1370,7 +1390,7 @@ pub fn checkout_oid(
 
 pub fn abort_rebase(
     path: PathBuf,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<(), Error> {
     let _updater = DeferRefresh::new(path.clone(), sender, true, true);
 
@@ -1389,7 +1409,7 @@ pub fn abort_rebase(
 
 pub fn continue_rebase(
     path: PathBuf,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<(), Error> {
     let _updater = DeferRefresh::new(path.clone(), sender, true, true);
 
@@ -1425,7 +1445,7 @@ pub fn rebase(
     path: PathBuf,
     upstream: Oid,
     _onto: Option<Oid>,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<bool, Error> {
     let _defer = DeferRefresh::new(path.clone(), sender, true, true);
 

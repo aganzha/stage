@@ -437,7 +437,7 @@ pub trait ViewContainer {
     }
 }
 
-impl ViewContainer for Diff {
+impl ViewContainer for Diff<'_> {
     fn is_empty(&self) -> bool {
         self.files.is_empty()
     }
@@ -527,7 +527,7 @@ impl ViewContainer for Diff {
     }
 }
 
-impl ViewContainer for File {
+impl ViewContainer for File<'_> {
     fn is_empty(&self) -> bool {
         false
     }
@@ -589,7 +589,7 @@ impl ViewContainer for File {
     }
 }
 
-impl ViewContainer for Hunk {
+impl ViewContainer for Hunk<'_> {
     fn is_empty(&self) -> bool {
         false
     }
@@ -669,7 +669,7 @@ impl ViewContainer for Hunk {
     }
 }
 
-impl ViewContainer for Line {
+impl ViewContainer for Line<'_> {
     fn is_empty(&self) -> bool {
         self.content.is_empty()
     }
@@ -819,16 +819,18 @@ impl ViewContainer for Head {
     }
 
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
-        buffer.insert_markup(iter,
-                             &format!("{}<span color=\"#4a708b\">{}</span> {}",
-                                      if !self.remote {
-                                          "Head:     "
-                                      } else {
-                                          "Upstream: "
-                                      },
-                                      self.branch,
-                                      self.log_message
-                             )
+        buffer.insert_markup(
+            iter,
+            &format!(
+                "{}<span color=\"#4a708b\">{}</span> {}",
+                if !self.remote {
+                    "Head:     "
+                } else {
+                    "Upstream: "
+                },
+                self.branch,
+                self.log_message
+            ),
         );
     }
 }
@@ -1057,7 +1059,7 @@ impl ViewContainer for UntrackedFile {
     }
 }
 
-impl Diff {
+impl Diff<'_> {
     pub fn chosen_file_and_hunk_old(
         &self,
     ) -> (Option<PathBuf>, Option<String>) {

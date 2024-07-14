@@ -61,7 +61,7 @@ pub const ZOOM_TOKEN: &str = "zoom";
 
 pub fn scheme_selector(
     stored_scheme: Scheme,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Box {
     let scheme_selector = Box::builder()
         .orientation(Orientation::Horizontal)
@@ -130,7 +130,7 @@ pub fn scheme_selector(
 
 pub fn zoom(
     // stored_size: Scheme,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Box {
     let bx = Box::builder()
         .orientation(Orientation::Horizontal)
@@ -187,7 +187,7 @@ pub fn zoom(
 
 pub fn burger_menu(
     stored_scheme: Scheme,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> MenuButton {
     let menu_model = gio::Menu::new();
 
@@ -224,7 +224,7 @@ pub fn burger_menu(
 }
 
 pub fn factory(
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
     settings: gio::Settings,
 ) -> (HeaderBar, impl Fn(HbUpdateData)) {
     let stashes_btn = Button::builder()
@@ -242,7 +242,7 @@ pub fn factory(
                 .send_blocking(crate::Event::StashesPanel)
                 .expect("cant send through channel");
         }
-    });
+    });    
     let refresh_btn = Button::builder()
         .label("Refresh")
         .use_underline(true)

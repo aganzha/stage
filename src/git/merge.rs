@@ -22,7 +22,7 @@ pub const STAGE_FLAG: u16 = 0x3000;
 
 pub fn final_commit(
     path: PathBuf,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<(), git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let me = repo.signature()?;
@@ -53,7 +53,7 @@ pub fn final_commit(
 
 pub fn final_merge_commit(
     path: PathBuf,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<(), git2::Error> {
     let mut repo = git2::Repository::open(path.clone())?;
     let me = repo.signature()?;
@@ -119,7 +119,7 @@ pub fn final_merge_commit(
 pub fn branch(
     path: PathBuf,
     branch_data: BranchData,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
     mut defer: Option<DeferRefresh>,
 ) -> Result<Option<BranchData>, git2::Error> {
     info!("merging {:?}", branch_data.name);
@@ -209,7 +209,7 @@ pub fn branch(
 
 pub fn abort(
     path: PathBuf,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<(), git2::Error> {
     info!("git.abort merge");
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
@@ -263,7 +263,7 @@ pub fn abort(
 pub fn choose_conflict_side(
     path: PathBuf,
     ours: bool,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) {
     info!("git.choose side");
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
@@ -567,14 +567,17 @@ where
 pub fn choose_conflict_side_of_hunk(
     path: PathBuf,
     file_path: PathBuf,
-    hunk: Hunk,
-    line: Line,
+    hunk_header: String,
+    conflict_offset_inside_hunk: i32,
+    ours_choosed: bool,
+    // hunk: Hunk,
+    // line: Line,
     interhunk: Option<u32>,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<(), git2::Error> {
     info!(
-        "choose_conflict_side_of_hunk {:?} Line: {:?}",
-        hunk.header, line.content
+        "choose_conflict_side_of_hunk {:?} Ours choosed?: {:?}",
+        hunk_header, ours_choosed
     );
     let repo = git2::Repository::open(path.clone())?;
     let mut index = repo.index()?;
@@ -620,7 +623,7 @@ pub fn choose_conflict_side_of_hunk(
     let mut git_diff =
         repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))?;
 
-    let mut reversed_header = Hunk::reverse_header(&hunk.header);
+    let mut reversed_header = Hunk::reverse_header(&hunk_header);
 
     let mut apply_options = git2::ApplyOptions::new();
 
@@ -631,10 +634,10 @@ pub fn choose_conflict_side_of_hunk(
     let buff = patch.to_buf()?;
     let raw = buff.as_str().unwrap();
 
-    let ours_choosed = line.is_our_side_of_conflict();
+    // let ours_choosed = line.is_our_side_of_conflict();
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
 
-    let conflict_offset_inside_hunk = hunk.get_conflict_offset_by_line(&line);
+    // let conflict_offset_inside_hunk = hunk.get_conflict_offset_by_line(&line);
 
     let mut new_body = choose_conflict_side_of_blob(
         raw,
@@ -714,7 +717,7 @@ pub fn cleanup_last_conflict_for_file(
     path: PathBuf,
     file_path: PathBuf,
     interhunk: Option<u32>,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
 ) -> Result<(), git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let mut index = repo.index()?;

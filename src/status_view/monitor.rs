@@ -13,8 +13,9 @@ use log::{debug, info, trace};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
+use async_channel::Sender;
 
-impl Status {
+impl Status<'_> {
     pub fn lock_monitors(&mut self, lock: bool) {
         self.monitor_global_lock.replace(lock);
     }
@@ -23,9 +24,10 @@ impl Status {
         &mut self,
         monitors: Rc<RefCell<Vec<FileMonitor>>>,
         path: PathBuf,
+        sender: Sender<crate::Event<'static>>
     ) {
         glib::spawn_future_local({
-            let sender = self.sender.clone();
+            let sender = sender.clone();
             let lock = self.monitor_lock.clone();
             let global_lock = self.monitor_global_lock.clone();
             let mut interhunk = None;

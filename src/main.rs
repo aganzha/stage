@@ -107,14 +107,14 @@ fn load_css() {
 }
 
 #[derive(Debug)]
-pub enum Event {
+pub enum Event<'a> {
     Debug,
     Dump,
     OpenRepo(PathBuf),
     CurrentRepo(PathBuf),
-    Conflicted(Diff),
-    Unstaged(Diff),
-    Staged(Diff),
+    Conflicted(Diff<'a>),
+    Unstaged(Diff<'a>),
+    Staged(Diff<'a>),
     Head(Head),
     Upstream(Option<Head>),
     State(State),
@@ -141,7 +141,7 @@ pub enum Event {
     Zoom(bool),
     Untracked(Untracked),
     ResetHard(Option<Oid>),
-    CommitDiff(commit::CommitDiff),
+    CommitDiff(commit::CommitDiff<'a>),
     PushUserPass(String, bool),
     PullUserPass,
     LockMonitors(bool),
@@ -220,7 +220,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
     }
 
     let mut status =
-        Status::new(initial_path, settings.clone(), sender.clone());
+        Status::new(initial_path, settings.clone());
 
     let window = ApplicationWindow::builder()
         .application(app)
@@ -300,7 +300,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
 
     window.set_content(Some(&tb));
 
-    status.get_status();
+    status.get_status(sender.clone());
     window.present();
 
     let window_stack: Rc<RefCell<Vec<Window>>> =
@@ -321,9 +321,9 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     // but the 'dirty' path will be used first
                     // for querying repo status and investigate real one
                     // see next clause
-                    status.update_path(path, monitors.clone(), true);
+                    status.update_path(path, sender.clone(), monitors.clone(), true);
                     txt.grab_focus();
-                    status.get_status();
+                    status.get_status(sender.clone());
                 }
                 Event::RepoOpen => {
                     hb_updater(HbUpdateData::RepoOpen);
@@ -334,7 +334,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 Event::CurrentRepo(path) => {
                     info!("info.path {:?}", path);
                     hb_updater(HbUpdateData::Path(path.clone()));
-                    status.update_path(path, monitors.clone(), false);
+                    status.update_path(path, sender.clone(), monitors.clone(), false);
                 }
                 Event::State(state) => {
                     info!("main. state");
@@ -349,7 +349,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::Dump => {
                     info!("Dump");
-                    status.dump(&txt, &mut ctx);
+                    status.dump(&txt, sender.clone(), &mut ctx);
                 }
                 Event::Debug => {
                     info!("Debug");
@@ -372,7 +372,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         ))
                         .present(&txt);
                     } else {
-                        status.commit(&window);
+                        status.commit(sender.clone(), &window);
                     }
                 }
                 Event::Untracked(untracked) => {
@@ -381,11 +381,11 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::Push => {
                     info!("main.push");
-                    status.push(&window, None);
+                    status.push(sender.clone(), &window, None);
                 }
                 Event::Pull => {
                     info!("main.pull");
-                    status.pull(&window, None);
+                    status.pull(sender.clone(), &window, None);
                 }
                 Event::Branches => {
                     info!("main.braches");
@@ -524,15 +524,15 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::Stage(_offset, line_no) => {
                     info!("Stage");
-                    status.stage(&txt, line_no, StageOp::Stage, &window);
+                    status.stage(&txt, line_no, sender.clone(), StageOp::Stage, &window);
                 }
                 Event::UnStage(_offset, line_no) => {
                     info!("Unstage");
-                    status.stage(&txt, line_no, StageOp::Unstage, &window);
+                    status.stage(&txt, line_no, sender.clone(), StageOp::Unstage, &window);
                 }
                 Event::Kill(_offset, line_no) => {
                     info!("main.kill");
-                    status.stage(&txt, line_no, StageOp::Kill, &window);
+                    status.stage(&txt, line_no, sender.clone(), StageOp::Kill, &window);
                 }
                 Event::Ignore(offset, line_no) => {
                     info!("main.ignore");
@@ -592,7 +592,11 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         txt.grab_focus();
                     } else {
                         let (view, focus) =
-                            stashes_view_factory(&window, &status);
+                            stashes_view_factory(
+                                &window,
+                                status.path.clone().expect("no path"),
+                                &status.stashes.clone(), sender.clone()
+                            );
                         split.set_sidebar(Some(&view));
                         split.set_show_sidebar(true);
                         focus();
@@ -620,23 +624,23 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::ResetHard(ooid) => {
                     info!("main. reset hard");
-                    status.reset_hard(ooid, &window);
+                    status.reset_hard(ooid, sender.clone(), &window);
                 }
                 Event::Refresh => {
                     info!("main. refresh");
-                    status.get_status();
+                    status.get_status(sender.clone());
                 }
                 Event::CommitDiff(_d) => {
                     panic!("got oid diff in another receiver");
                 }
                 Event::PushUserPass(remote, tracking) => {
-                    status.push(&window, Some((remote, tracking, true)))
+                    status.push(sender.clone(), &window, Some((remote, tracking, true)))
                 }
                 Event::PullUserPass => {
                     // does it used? yes.
                     // just pulling via ssh.
                     info!("main. userpass");
-                    status.pull(&window, Some(true))
+                    status.pull(sender.clone(), &window, Some(true))
                 }
                 Event::LockMonitors(lock) => {
                     info!("main. lock monitors {}", lock);

@@ -130,7 +130,7 @@ pub fn set_remote_callbacks(
 
 pub fn update_remote(
     path: PathBuf,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
     user_pass: Option<(String, String)>,
 ) -> Result<(), ()> {
     let _updater = DeferRefresh::new(path.clone(), sender, true, true);
@@ -184,7 +184,7 @@ pub fn push(
     path: PathBuf,
     remote_branch: String,
     tracking_remote: bool,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
     user_pass: Option<(String, String)>,
 ) -> Result<(), RemoteResponse> {
     debug!("remote branch {:?}", remote_branch);
@@ -273,7 +273,7 @@ pub fn push(
 
 pub fn pull(
     path: PathBuf,
-    sender: Sender<crate::Event>,
+    sender: Sender<crate::Event<'static>>,
     user_pass: Option<(String, String)>,
 ) -> Result<(), git2::Error> {
     let defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);

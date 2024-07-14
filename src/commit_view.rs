@@ -50,7 +50,7 @@ where
 pub fn headerbar_factory(
     repo_path: PathBuf,
     window: &impl IsA<Widget>,
-    sender: Sender<Event>,
+    sender: Sender<Event<'static>>,
     oid: Oid,
     stash_num: Option<usize>,
 ) -> HeaderBar {
@@ -261,7 +261,7 @@ impl ViewContainer for MultiLineLabel {
     fn write_content(&self, _iter: &mut TextIter, _buffer: &TextBuffer) {}
 }
 
-impl commit::CommitDiff {
+impl commit::CommitDiff<'_> {
     fn render(
         &mut self,
         txt: &StageView,
@@ -310,7 +310,7 @@ pub fn show_commit_window(
     oid: Oid,
     stash_num: Option<usize>,
     app_window: &impl IsA<Gtk4Window>,
-    main_sender: Sender<Event>, // i need that to trigger revert and cherry-pick.
+    main_sender: Sender<Event<'static>>, // i need that to trigger revert and cherry-pick.
 ) {
     let (sender, receiver) = async_channel::unbounded();
 
