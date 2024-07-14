@@ -2,22 +2,27 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use git2;
-use std::path::{PathBuf};
-use log::{info};
-use async_channel::Sender;
 use crate::git::commit::{CommitLog, CommitRelation};
+use async_channel::Sender;
+use git2;
+use log::info;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct Tag {
     pub oid: git2::Oid,
     pub name: String,
     pub commit: CommitLog,
-    pub message: String
+    pub message: String,
 }
 
 impl Tag {
-    pub fn new(oid: git2::Oid, name: String, commit: CommitLog, message: String) -> Tag {
+    pub fn new(
+        oid: git2::Oid,
+        name: String,
+        commit: CommitLog,
+        message: String,
+    ) -> Tag {
         let mut encoded = String::from("");
         html_escape::encode_safe_to_string(message, &mut encoded);
         let name = name.replace("refs/tags/", "");
@@ -25,11 +30,10 @@ impl Tag {
             oid,
             name,
             commit,
-            message: encoded
+            message: encoded,
         }
     }
 }
-
 
 impl Default for Tag {
     fn default() -> Self {
@@ -37,14 +41,18 @@ impl Default for Tag {
             oid: git2::Oid::zero(),
             name: String::from(""),
             commit: CommitLog::default(),
-            message: String::from("")
+            message: String::from(""),
         }
     }
 }
 
 pub const TAG_PAGE_SIZE: usize = 100;
 
-pub fn get_tag_list(path: PathBuf, start_oid: Option<git2::Oid>, search_term: Option<String>) -> Result<Vec<Tag>, git2::Error> {
+pub fn get_tag_list(
+    path: PathBuf,
+    start_oid: Option<git2::Oid>,
+    search_term: Option<String>,
+) -> Result<Vec<Tag>, git2::Error> {
     info!("get_tag_list {:?} {:?}", start_oid, search_term);
     let repo = git2::Repository::open(path.clone())?;
     let mut result = Vec::new();
@@ -59,7 +67,7 @@ pub fn get_tag_list(path: PathBuf, start_oid: Option<git2::Oid>, search_term: Op
         }
         let mut message = String::from("");
         let commit = {
-            if let Ok(tag) =  repo.find_tag(oid) {
+            if let Ok(tag) = repo.find_tag(oid) {
                 message = String::from(tag.message().unwrap_or(""));
                 let ob = tag.target().unwrap();
                 ob.peel_to_commit().unwrap()
@@ -75,16 +83,11 @@ pub fn get_tag_list(path: PathBuf, start_oid: Option<git2::Oid>, search_term: Op
                 || commit.message().unwrap_or("").contains(look_for)
             {
             } else {
-                return true
+                return true;
             }
         }
         let commit_log = CommitLog::from_log(commit, CommitRelation::None);
-        result.push(Tag::new(
-            oid,
-            tag_name,
-            commit_log,
-            message
-        ));
+        result.push(Tag::new(oid, tag_name, commit_log, message));
         cnt += 1;
         if cnt == TAG_PAGE_SIZE {
             return false;
@@ -95,31 +98,34 @@ pub fn get_tag_list(path: PathBuf, start_oid: Option<git2::Oid>, search_term: Op
     Ok(result)
 }
 
-pub fn create_tag(path: PathBuf, tag_name: String, target_oid: git2::Oid, message: String, lightweight: bool, _sender: Sender<crate::Event>,) -> Result<Option<Tag>, git2::Error> {
+pub fn create_tag(
+    path: PathBuf,
+    tag_name: String,
+    target_oid: git2::Oid,
+    message: String,
+    lightweight: bool,
+    _sender: Sender<crate::Event>,
+) -> Result<Option<Tag>, git2::Error> {
     info!("create_tag {:?}", target_oid);
     let repo = git2::Repository::open(path.clone())?;
-    let target = repo.find_object(target_oid, Some(git2::ObjectType::Commit))?;
+    let target =
+        repo.find_object(target_oid, Some(git2::ObjectType::Commit))?;
     let created_oid = if lightweight {
         repo.tag_lightweight(&tag_name, &target, false)?
     } else {
         let me = repo.signature()?;
         repo.tag(&tag_name, &target, &me, &message, false)?
-    };    
+    };
     let commit = target.peel_to_commit()?;
     let commit_log = CommitLog::from_log(commit, CommitRelation::None);
-    Ok(
-        Some(
-            Tag::new(
-                created_oid,
-                tag_name,
-                commit_log,
-                message
-            )
-        )
-    )
+    Ok(Some(Tag::new(created_oid, tag_name, commit_log, message)))
 }
 
-pub fn kill_tag(path: PathBuf, tag_name: String, _sender: Sender<crate::Event>,) -> Result<Option<()>, git2::Error> {
+pub fn kill_tag(
+    path: PathBuf,
+    tag_name: String,
+    _sender: Sender<crate::Event>,
+) -> Result<Option<()>, git2::Error> {
     info!("kill_tag {:?}", tag_name);
     let repo = git2::Repository::open(path.clone())?;
     repo.tag_delete(&tag_name)?;

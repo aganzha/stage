@@ -3,26 +3,30 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use async_channel::Sender;
+use glib::{clone, Object};
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, ToolbarView, Window, EntryRow, SwitchRow};
-use glib::{Object, clone};
+use libadwaita::{EntryRow, HeaderBar, SwitchRow, ToolbarView, Window};
 
+use core::time::Duration;
+use git2::Oid;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick, Label, ListItem, ListView, Orientation, PositionType,
-    ScrolledWindow, SearchBar, SearchEntry, SignalListItemFactory, ListBox, SelectionMode, TextView, WrapMode,
-    SingleSelection, Widget, Window as Gtk4Window,
+    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick,
+    Label, ListBox, ListItem, ListView, Orientation, PositionType,
+    ScrolledWindow, SearchBar, SearchEntry, SelectionMode,
+    SignalListItemFactory, SingleSelection, TextView, Widget,
+    Window as Gtk4Window, WrapMode,
 };
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::cell::RefCell;
-use git2::Oid;
-use core::time::Duration;
 
-use log::{trace, debug};
+use log::{debug, trace};
 
-use crate::git::{tag, commit};
-use crate::dialogs::{alert, ConfirmDialog, DangerDialog, YES, confirm_dialog_factory};
+use crate::dialogs::{
+    alert, confirm_dialog_factory, ConfirmDialog, DangerDialog, YES,
+};
+use crate::git::{commit, tag};
 
 glib::wrapper! {
     pub struct TagItem(ObjectSubclass<tag_item::TagItem>);
@@ -207,8 +211,7 @@ impl TagList {
                 let mut append_to_existing = false;
                 if list_le > 0 {
                     let item = tag_list.item(list_le - 1).unwrap();
-                    let tag_item =
-                        item.downcast_ref::<TagItem>().unwrap();
+                    let tag_item = item.downcast_ref::<TagItem>().unwrap();
                     let oid = tag_item.imp().tag.borrow().oid;
                     start_oid.replace(oid);
                     append_to_existing = true;
@@ -217,17 +220,19 @@ impl TagList {
                 let tags = gio::spawn_blocking({
                     let search_term = search_term.clone();
                     let repo_path = repo_path.clone();
-                    move || tag::get_tag_list(repo_path, start_oid, search_term)
+                    move || {
+                        tag::get_tag_list(repo_path, start_oid, search_term)
+                    }
                 })
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&widget);
-                        Ok(Vec::new())
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(&widget);
-                        Vec::new()
-                    });
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&widget);
+                    Ok(Vec::new())
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&widget);
+                    Vec::new()
+                });
                 // trace!("tags in response {:?}", tags.len());
                 if tags.is_empty() {
                     return;
@@ -262,11 +267,7 @@ impl TagList {
                 }
                 debug!("added some tags {:?}", added);
                 if added > 0 {
-                    tag_list.items_changed(
-                        0,
-                        0,
-                        added,
-                    );
+                    tag_list.items_changed(0, 0, added);
                 }
                 if search_term.is_some()
                     && last_added_oid.is_some()
@@ -345,10 +346,12 @@ impl TagList {
         (name, pos)
     }
 
-    pub fn kill_tag(&self,
+    pub fn kill_tag(
+        &self,
         repo_path: PathBuf,
         window: &Window,
-        sender: Sender<crate::Event>,) {
+        sender: Sender<crate::Event>,
+    ) {
         glib::spawn_future_local({
             let tags_list = self.clone();
             let window = window.clone();
@@ -357,140 +360,159 @@ impl TagList {
                 let tg_name = tag_name.clone();
                 let result = gio::spawn_blocking(move || {
                     tag::kill_tag(repo_path, tg_name, sender)
-                }).await.unwrap_or_else(|e| {
+                })
+                .await
+                .unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(&window);
                     Ok(None)
-                }).unwrap_or_else(|e| {
+                })
+                .unwrap_or_else(|e| {
                     alert(e).present(&window);
                     None
                 });
                 if result.is_none() {
-                    return
+                    return;
                 }
                 // put borrow in block
-                tags_list.imp().list.borrow_mut().remove(selected_pos as usize);
-                tags_list.imp().original_list.borrow_mut().retain(|tag| {
-                    tag.name != tag_name
-                });
+                tags_list
+                    .imp()
+                    .list
+                    .borrow_mut()
+                    .remove(selected_pos as usize);
+                tags_list
+                    .imp()
+                    .original_list
+                    .borrow_mut()
+                    .retain(|tag| tag.name != tag_name);
                 tags_list.items_changed(selected_pos, 1, 0);
             }
         });
-
     }
 
-    pub fn create_tag(&self,
-                      repo_path: PathBuf,
-                      target_oid: git2::Oid,
-                      window: &Window,
-                      sender: Sender<crate::Event>,) {
+    pub fn create_tag(
+        &self,
+        repo_path: PathBuf,
+        target_oid: git2::Oid,
+        window: &Window,
+        sender: Sender<crate::Event>,
+    ) {
+        glib::spawn_future_local({
+            let tag_list = self.clone();
+            let window = window.clone();
+            async move {
+                let lb = ListBox::builder()
+                    .selection_mode(SelectionMode::None)
+                    .css_classes(vec![String::from("boxed-list")])
+                    .build();
+                let input = EntryRow::builder()
+                    .title("New tag name:")
+                    .css_classes(vec!["input_field"])
+                    .build();
+                let txt = TextView::builder()
+                    .margin_start(12)
+                    .margin_end(12)
+                    .margin_top(12)
+                    .margin_bottom(12)
+                    .wrap_mode(WrapMode::Word)
+                    .build();
+                let scroll = ScrolledWindow::builder()
+                    .vexpand(true)
+                    .vexpand_set(true)
+                    .hexpand(true)
+                    .visible(false)
+                    .hexpand_set(true)
+                    .min_content_width(480)
+                    .min_content_height(320)
+                    .build();
 
-                glib::spawn_future_local({
-                    let tag_list = self.clone();
-                    let window = window.clone();
-                    async move {
-                        let lb = ListBox::builder()
-                            .selection_mode(SelectionMode::None)
-                            .css_classes(vec![String::from("boxed-list")])
-                            .build();
-                        let input = EntryRow::builder()
-                            .title("New tag name:")
-                            .css_classes(vec!["input_field"])
-                            .build();
-                        let txt = TextView::builder()
-                            .margin_start(12)
-                            .margin_end(12)
-                            .margin_top(12)
-                            .margin_bottom(12)
-                            .wrap_mode(WrapMode::Word)
-                            .build();
-                        let scroll = ScrolledWindow::builder()
-                            .vexpand(true)
-                            .vexpand_set(true)
-                            .hexpand(true)
-                            .visible(false)
-                            .hexpand_set(true)
-                            .min_content_width(480)
-                            .min_content_height(320)
-                            .build();
+                scroll.set_child(Some(&txt));
 
-                        scroll.set_child(Some(&txt));
-
-                        let lightweight = SwitchRow::builder()
-                            .title("Lightweight")
-                            .css_classes(vec!["input_field"])
-                            .active(true)
-                            .build();
-                        lightweight.connect_active_notify({
-                            let scroll = scroll.clone();
-                            move |sw| {
-                                scroll.set_visible(!sw.is_active());
-                            }
-                        });
-                        lb.append(&input);
-                        lb.append(&scroll);
-                        let row = lb.last_child().unwrap();
-                        row.set_css_classes(&["hidden_row"]);
-                        row.set_focusable(false);
-                        lb.append(&lightweight);
-                        let dialog = confirm_dialog_factory(
-                            &window,
-                            Some(&lb),
-                            "Create new tag",
-                            "Create"
-                        );
-                        input.connect_apply(clone!(@strong dialog as dialog => move |_entry| {
-                            // someone pressed enter
-                            dialog.response("confirm");
-                            dialog.close();
-                        }));
-                        input.connect_entry_activated(clone!(@strong dialog as dialog => move |_entry| {
-                            // someone pressed enter
-                            dialog.response("confirm");
-                            dialog.close();
-                        }));
-
-                        if "confirm" != dialog.choose_future().await {
-                            return;
-                        }
-                        let new_tag_name = String::from(input.text());
-                        let buffer = txt.buffer();
-                        let start_iter = buffer.iter_at_offset(0);
-                        let eof_iter = buffer.end_iter();
-                        let tag_message = buffer
-                            .text(&start_iter, &eof_iter, true)
-                            .to_string()
-                            .to_string();
-                        let lightweight = lightweight.is_active();
-                        let created_tag = gio::spawn_blocking(move || {
-                            tag::create_tag(repo_path, new_tag_name, target_oid, tag_message, lightweight, sender)
-                        }).await.unwrap_or_else(|e| {
-                            alert(format!("{:?}", e)).present(&window);
-                            Ok(None)
-                        }).unwrap_or_else(|e| {
-                            alert(e).present(&window);
-                            None
-                        });
-                        if let Some(created_tag) = created_tag {
-                            tag_list.add_new_tag(created_tag);
-                        }
+                let lightweight = SwitchRow::builder()
+                    .title("Lightweight")
+                    .css_classes(vec!["input_field"])
+                    .active(true)
+                    .build();
+                lightweight.connect_active_notify({
+                    let scroll = scroll.clone();
+                    move |sw| {
+                        scroll.set_visible(!sw.is_active());
                     }
                 });
+                lb.append(&input);
+                lb.append(&scroll);
+                let row = lb.last_child().unwrap();
+                row.set_css_classes(&["hidden_row"]);
+                row.set_focusable(false);
+                lb.append(&lightweight);
+                let dialog = confirm_dialog_factory(
+                    &window,
+                    Some(&lb),
+                    "Create new tag",
+                    "Create",
+                );
+                input.connect_apply(
+                    clone!(@strong dialog as dialog => move |_entry| {
+                        // someone pressed enter
+                        dialog.response("confirm");
+                        dialog.close();
+                    }),
+                );
+                input.connect_entry_activated(
+                    clone!(@strong dialog as dialog => move |_entry| {
+                        // someone pressed enter
+                        dialog.response("confirm");
+                        dialog.close();
+                    }),
+                );
+
+                if "confirm" != dialog.choose_future().await {
+                    return;
+                }
+                let new_tag_name = String::from(input.text());
+                let buffer = txt.buffer();
+                let start_iter = buffer.iter_at_offset(0);
+                let eof_iter = buffer.end_iter();
+                let tag_message = buffer
+                    .text(&start_iter, &eof_iter, true)
+                    .to_string()
+                    .to_string();
+                let lightweight = lightweight.is_active();
+                let created_tag = gio::spawn_blocking(move || {
+                    tag::create_tag(
+                        repo_path,
+                        new_tag_name,
+                        target_oid,
+                        tag_message,
+                        lightweight,
+                        sender,
+                    )
+                })
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(None)
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                    None
+                });
+                if let Some(created_tag) = created_tag {
+                    tag_list.add_new_tag(created_tag);
+                }
+            }
+        });
     }
 
     pub fn add_new_tag(&self, created_tag: tag::Tag) {
         self.imp()
             .original_list
             .borrow_mut()
-        .insert(0, created_tag.clone());
+            .insert(0, created_tag.clone());
         self.imp()
             .list
             .borrow_mut()
             .insert(0, TagItem::new(created_tag));
-        self.items_changed(
-            0,
-            0,
-            1,
-        );
+        self.items_changed(0, 0, 1);
     }
 
     pub fn cherry_pick(
@@ -509,8 +531,8 @@ impl TagList {
                     "Cherry pick commit?".to_string(),
                     format!("{}", oid),
                 ))
-                    .choose_future(&window)
-                    .await;
+                .choose_future(&window)
+                .await;
                 if response != YES {
                     return;
                 }
@@ -519,14 +541,14 @@ impl TagList {
                     let path = path.clone();
                     move || commit::cherry_pick(path, oid, None, None, sender)
                 })
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
-                        Ok(())
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(&window);
-                    });
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(())
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                });
             }
         });
     }
@@ -547,8 +569,8 @@ impl TagList {
                     "Revert commit?".to_string(),
                     format!("{}", oid),
                 ))
-                    .choose_future(&window)
-                    .await;
+                .choose_future(&window)
+                .await;
                 if response != YES {
                     return;
                 }
@@ -557,14 +579,14 @@ impl TagList {
                     let path = path.clone();
                     move || commit::revert(path, oid, None, None, sender)
                 })
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
-                        Ok(())
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(&window);
-                    });
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(())
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                });
             }
         });
     }
@@ -585,8 +607,8 @@ impl TagList {
                     String::from("Reset"),
                     format!("Hard reset to {}", oid),
                 ))
-                    .choose_future(&window)
-                    .await;
+                .choose_future(&window)
+                .await;
                 if response != YES {
                     return;
                 }
@@ -595,15 +617,15 @@ impl TagList {
                     let path = repo_path.clone();
                     move || crate::reset_hard(path, Some(oid), sender)
                 })
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
-                        Ok(false)
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(&window);
-                        false
-                    });
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(false)
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                    false
+                });
                 if result {
                     loop {
                         // let original = *commit_list.imp().original_list.borrow_mut();
@@ -662,8 +684,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
             move |_gesture, _some, _wx, _wy| {
                 let list_item = list_item.downcast_ref::<ListItem>().unwrap();
                 let tag_item = list_item.item().unwrap();
-                let tag_item =
-                    tag_item.downcast_ref::<TagItem>().unwrap();
+                let tag_item = tag_item.downcast_ref::<TagItem>().unwrap();
                 let oid = tag_item.imp().tag.borrow().commit.oid;
                 sender
                     .send_blocking(crate::Event::ShowOid(oid, None))
@@ -885,7 +906,6 @@ pub fn headerbar_factory(
     hb.set_title_widget(Some(&search));
     hb.pack_start(&title);
 
-
     let cherry_pick_btn = Button::builder()
         .icon_name("emblem-shared-symbolic")
         .can_shrink(true)
@@ -975,11 +995,7 @@ pub fn headerbar_factory(
         let tag_list = tag_list.clone();
         let repo_path = repo_path.clone();
         move |_| {
-            tag_list.kill_tag(
-                repo_path.clone(),
-                &window,
-                sender.clone(),
-            );
+            tag_list.kill_tag(repo_path.clone(), &window, sender.clone());
         }
     });
 
@@ -1083,7 +1099,7 @@ pub fn show_tags_window(
         &window,
         main_sender.clone(),
         repo_path.clone(),
-        target_oid
+        target_oid,
     );
 
     tb.add_top_bar(&hb);
