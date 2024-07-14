@@ -41,6 +41,8 @@ pub trait ViewContainer {
 
     fn get_view(&self) -> &View;
 
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer);
+
     // TODO - return bool and stop iteration when false
     // visitor takes child as first arg and parent as second arg
     fn walk_down(&self, visitor: &dyn Fn(&dyn ViewContainer)) {
@@ -49,8 +51,6 @@ pub trait ViewContainer {
             child.walk_down(visitor);
         }
     }
-
-    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer);
 
     fn tags(&self) -> Vec<tags::TxtTag> {
         Vec::new()

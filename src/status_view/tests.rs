@@ -3,13 +3,14 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::status_view::view_state::{RenderFlags, View};
+use crate::status_view::container::ViewKind;
 use crate::status_view::tags;
 
 use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::{Diff, DiffKind, File, Hunk, Line, LineKind};
 use git2::DiffLineType;
 use gtk4::prelude::*;
-use gtk4::TextBuffer;
+use gtk4::{TextBuffer, TextIter};
 use log::debug;
 use regex::Regex;
 use std::cell::Cell;
@@ -291,6 +292,43 @@ pub fn test_expand() {
     }
 }
 
+pub struct TestViewContainer {
+    pub view: View,
+    pub content: String
+}
+
+impl TestViewContainer {
+    pub fn new(view: View, content: &str) -> Self {
+        TestViewContainer {
+            view,
+            content: String::from(content)
+        }
+    }
+}
+
+impl ViewContainer for TestViewContainer {
+
+    fn is_empty(&self) -> bool {
+        false
+    }
+
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::File
+    }
+
+    fn get_children(&self) -> Vec<&dyn ViewContainer> {
+        Vec::new()
+    }
+
+    fn get_view(&self) -> &View {
+        &self.view
+    }
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
+        buffer.insert(iter, &self.content);
+    }
+}
+
+
 #[test]
 fn test_render_view() {
     initialize();
@@ -302,152 +340,176 @@ fn test_render_view() {
     let view2 = View::new();
     let view3 = View::new();
 
+    let vc1 = TestViewContainer::new(view1, "test1");
+    let vc2 = TestViewContainer::new(view2, "test2");
+    let vc3 = TestViewContainer::new(view3, "test3");
+    
     let mut ctx = StatusRenderContext::new();
 
-    view1.render_in_textview(
-        &buffer,
-        &mut iter,
-        "test1".to_string(),
-        false,
-        Vec::new(),
-        &mut ctx,
-    );
-    view2.render_in_textview(
-        &buffer,
-        &mut iter,
-        "test2".to_string(),
-        false,
-        Vec::new(),
-        &mut ctx,
-    );
-    view3.render_in_textview(
-        &buffer,
-        &mut iter,
-        "test3".to_string(),
-        false,
-        Vec::new(),
-        &mut ctx,
-    );
-    assert!(view1.line_no.get() == 1);
-    assert!(view2.line_no.get() == 2);
-    assert!(view3.line_no.get() == 3);
-    assert!(view1.is_rendered());
-    assert!(view2.is_rendered());
-    assert!(view3.is_rendered());
+    vc1.render(&buffer, &mut iter, &mut ctx);
+    vc2.render(&buffer, &mut iter, &mut ctx);
+    vc3.render(&buffer, &mut iter, &mut ctx);
+    
+    // view1.render_in_textview(
+    //     &buffer,
+    //     &mut iter,
+    //     "test1".to_string(),
+    //     false,
+    //     Vec::new(),
+    //     &mut ctx,
+    // );
+    // view2.render_in_textview(
+    //     &buffer,
+    //     &mut iter,
+    //     "test2".to_string(),
+    //     false,
+    //     Vec::new(),
+    //     &mut ctx,
+    // );
+    // view3.render_in_textview(
+    //     &buffer,
+    //     &mut iter,
+    //     "test3".to_string(),
+    //     false,
+    //     Vec::new(),
+    //     &mut ctx,
+    // );
+    assert!(vc1.view.line_no.get() == 1);
+    assert!(vc2.view.line_no.get() == 2);
+    assert!(vc3.view.line_no.get() == 3);
+    assert!(vc1.view.is_rendered());
+    assert!(vc2.view.is_rendered());
+    assert!(vc3.view.is_rendered());
     assert!(iter.line() == 4);
+
     // ------------------ test rendered in line
     iter = buffer.iter_at_line(1).unwrap();
-    view1.render_in_textview(
-        &buffer,
-        &mut iter,
-        "test1".to_string(),
-        false,
-        Vec::new(),
-        &mut ctx,
-    );
-    view2.render_in_textview(
-        &buffer,
-        &mut iter,
-        "test2".to_string(),
-        false,
-        Vec::new(),
-        &mut ctx,
-    );
-    view3.render_in_textview(
-        &buffer,
-        &mut iter,
-        "test3".to_string(),
-        false,
-        Vec::new(),
-        &mut ctx,
-    );
+    vc1.render(&buffer, &mut iter, &mut ctx);
+    vc2.render(&buffer, &mut iter, &mut ctx);
+    vc3.render(&buffer, &mut iter, &mut ctx);
+
+    // view1.render_in_textview(
+    //     &buffer,
+    //     &mut iter,
+    //     "test1".to_string(),
+    //     false,
+    //     Vec::new(),
+    //     &mut ctx,
+    // );
+    // view2.render_in_textview(
+    //     &buffer,
+    //     &mut iter,
+    //     "test2".to_string(),
+    //     false,
+    //     Vec::new(),
+    //     &mut ctx,
+    // );
+    // view3.render_in_textview(
+    //     &buffer,
+    //     &mut iter,
+    //     "test3".to_string(),
+    //     false,
+    //     Vec::new(),
+    //     &mut ctx,
+    // );
     assert!(iter.line() == 4);
 
     // ------------------ test deleted
     iter = buffer.iter_at_line(1).unwrap();
-    view1.squash(true);
-    view1.render(false);
+    vc1.view.squash(true);
+    vc1.view.render(false);
 
-    view1.render_in_textview(
-        &buffer,
-        &mut iter,
-        "test1".to_string(),
-        false,
-        Vec::new(),
-        &mut ctx,
-    );
-    assert!(!view1.is_rendered());
+    vc1.render(&buffer, &mut iter, &mut ctx);
+
+    // view1.render_in_textview(
+    //     &buffer,
+    //     &mut iter,
+    //     "test1".to_string(),
+    //     false,
+    //     Vec::new(),
+    //     &mut ctx,
+    // );
+
+    assert!(!vc1.view.is_rendered());
     // its no longer squashed. is it ok?
-    assert!(!view1.is_squashed());
+    assert!(!vc1.view.is_squashed());
     // iter was not moved (nothing to delete, view was not rendered)
     assert!(iter.line() == 1);
     // rerender it
-    view1.render_in_textview(
-        &buffer,
-        &mut iter,
-        "test1".to_string(),
-        false,
-        Vec::new(),
-        &mut ctx,
-    );
+    vc1.render(&buffer, &mut iter, &mut ctx);
+    
+    // view1.render_in_textview(
+    //     &buffer,
+    //     &mut iter,
+    //     "test1".to_string(),
+    //     false,
+    //     Vec::new(),
+    //     &mut ctx,
+    // );
     assert!(iter.line() == 2);
 
     // -------------------- test dirty
-    view2.dirty(true);
-    view2.render_in_textview(
-        &buffer,
-        &mut iter,
-        "test2".to_string(),
-        false,
-        Vec::new(),
-        &mut ctx,
-    );
-    assert!(!view2.is_dirty());
+    vc2.view.dirty(true);
+    vc2.render(&buffer, &mut iter, &mut ctx);
+    // view2.render_in_textview(
+    //     &buffer,
+    //     &mut iter,
+    //     "test2".to_string(),
+    //     false,
+    //     Vec::new(),
+    //     &mut ctx,
+    // );
+    
+    assert!(!vc2.view.is_dirty());
     assert!(iter.line() == 3);
     // -------------------- test squashed
-    view3.squash(true);
-    view3.render_in_textview(
-        &buffer,
-        &mut iter,
-        "test3".to_string(),
-        false,
-        Vec::new(),
-        &mut ctx,
-    );
-    assert!(!view3.is_squashed());
+    vc3.view.squash(true);
+    vc3.render(&buffer, &mut iter, &mut ctx);
+    // view3.render_in_textview(
+    //     &buffer,
+    //     &mut iter,
+    //     "test3".to_string(),
+    //     false,
+    //     Vec::new(),
+    //     &mut ctx,
+    // );
+    assert!(!vc3.view.is_squashed());
     // iter remains on same kine, just squashing view in place
     assert!(iter.line() == 3);
     // -------------------- test transfered
-    view3.line_no.replace(0);
-    view3.dirty(true);
-    view3.transfer(true);
-    view3.render_in_textview(
-        &buffer,
-        &mut iter,
-        "test3".to_string(),
-        false,
-        Vec::new(),
-        &mut ctx,
-    );
-    assert!(view3.line_no.get() == 3);
-    assert!(view3.is_rendered());
-    assert!(!view3.is_dirty());
-    assert!(!view3.is_transfered());
+    vc3.view.line_no.replace(0);
+    vc3.view.dirty(true);
+    vc3.view.transfer(true);
+    vc3.render(&buffer, &mut iter, &mut ctx);
+    
+    // view3.render_in_textview(
+    //     &buffer,
+    //     &mut iter,
+    //     "test3".to_string(),
+    //     false,
+    //     Vec::new(),
+    //     &mut ctx,
+    // );
+    assert!(vc3.view.line_no.get() == 3);
+    assert!(vc3.view.is_rendered());
+    assert!(!vc3.view.is_dirty());
+    assert!(!vc3.view.is_transfered());
     assert!(iter.line() == 4);
 
     // --------------------- test not in place
     iter = buffer.iter_at_line(3).unwrap();
-    view3.line_no.replace(0);
-    view3.render_in_textview(
-        &buffer,
-        &mut iter,
-        "test3".to_string(),
-        false,
-        Vec::new(),
-        &mut ctx,
-    );
-    assert!(view3.line_no.get() == 3);
-    assert!(view3.is_rendered());
+    vc3.view.line_no.replace(0);
+    vc3.render(&buffer, &mut iter, &mut ctx);
+    // view3.render_in_textview(
+    //     &buffer,
+    //     &mut iter,
+    //     "test3".to_string(),
+    //     false,
+    //     Vec::new(),
+    //     &mut ctx,
+    // );
+    assert!(vc3.view.line_no.get() == 3);
+    assert!(vc3.view.is_rendered());
     assert!(iter.line() == 4);
 
     // call it here, cause rust creates threads event with --test-threads=1
@@ -483,7 +545,12 @@ fn test_expand_line() {
             if vc.get_view().line_no.get() == i as i32 {
                 // TODO: get_content!
                 // debug!("{:?} - {:?} = {:?}", i, cl, vc.get_content());
-                // assert!(cl.trim() == vc.get_content());
+                // assert!(cl.trim(), vc.get_content());
+                let buffer = TextBuffer::new(None);
+                let mut iter = buffer.iter_at_offset(0);
+                vc.write_content(&mut iter, &buffer);
+                let start_line_iter = buffer.iter_at_line(iter.line()).unwrap();
+                assert!(cl.trim() == buffer.text(&start_line_iter, &iter, true));
             }
         });
     }
@@ -502,18 +569,31 @@ fn test_expand_line() {
     let content_lines = content.split('\n');
     // ensure that hunk1 is collapsed eg hunk2 follows hunk1 (no lines between)
     // TODO: get_content!
+
+    let buffer = TextBuffer::new(None);
+    let mut iter = buffer.iter_at_offset(0);
+    diff.files[0].hunks[0].write_content(&mut iter, &buffer);
+    let start_line_iter = buffer.iter_at_offset(0);
+    let hunk1_content = buffer.text(&start_line_iter, &iter, true);
+
+    let buffer = TextBuffer::new(None);
+    let mut iter = buffer.iter_at_offset(0);
+    diff.files[0].hunks[1].write_content(&mut iter, &buffer);
+    let start_line_iter = buffer.iter_at_offset(0);
+    let hunk2_content = buffer.text(&start_line_iter, &iter, true);
+    
     // let hunk1_content = diff.files[0].hunks[0].get_content();
     // let hunk2_content = diff.files[0].hunks[1].get_content();
-    // let mut hunk1_passed = false;
-    // for (i, cl) in content_lines.enumerate() {
-    //     debug!("{} {}", i, cl);
-    //     if cl == hunk1_content {
-    //         hunk1_passed = true
-    //     } else if hunk1_passed {
-    //         assert!(cl == hunk2_content);
-    //         hunk1_passed = false;
-    //     }
-    // }
+    let mut hunk1_passed = false;
+    for (i, cl) in content_lines.enumerate() {
+        debug!("{} {}", i, cl);
+        if cl == hunk1_content {
+            hunk1_passed = true
+        } else if hunk1_passed {
+            assert!(cl == hunk2_content);
+            hunk1_passed = false;
+        }
+    }
 }
 
 fn test_reconciliation_new() {
