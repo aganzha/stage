@@ -259,7 +259,7 @@ impl ViewContainer for MultiLineLabel {
             .collect()
     }
 
-    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
+    fn write_content(&self, _iter: &mut TextIter, _buffer: &TextBuffer) {
     }    
 }
 
