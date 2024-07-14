@@ -453,7 +453,7 @@ impl TagList {
                         if "confirm" != dialog.choose_future().await {
                             return;
                         }
-                        let new_tag_name = format!("{}", input.text());
+                        let new_tag_name = String::from(input.text());
                         let buffer = txt.buffer();
                         let start_iter = buffer.iter_at_offset(0);
                         let eof_iter = buffer.end_iter();
@@ -472,8 +472,6 @@ impl TagList {
                             None
                         });
                         if let Some(created_tag) = created_tag {
-                            // aganzha what about optional checkout?
-                            debug!("???????????????????? {:?}", created_tag);
                             tag_list.add_new_tag(created_tag);
                         }
                     }
@@ -966,10 +964,10 @@ pub fn headerbar_factory(
         }
     });
     let kill_btn = Button::builder()
-        .icon_name("user-trash-symbolic") // process-stop-symbolic
+        .icon_name("user-trash-symbolic")
         .use_underline(true)
-        .tooltip_text("Delete branch (K)")
-        .sensitive(false)
+        .tooltip_text("Delete tag (K)")
+        .sensitive(true)
         .can_shrink(true)
         .build();
     kill_btn.connect_clicked({
