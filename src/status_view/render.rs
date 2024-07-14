@@ -4,7 +4,6 @@
 
 //use crate::status_view::Tag;
 use crate::status_view::tags;
-use crate::status_view::container::{ViewContainer};
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
@@ -238,267 +237,39 @@ impl View {
             && !self.is_squashed()
     }
 
-    fn does_not_match_width(
-        &self,
-        buffer: &TextBuffer,
-        context: &mut crate::StatusRenderContext,
-    ) -> bool {
-        if let Some(width) = &context.screen_width {
-            let chars = {
-                let w = width.borrow();
-                if w.chars > w.visible_chars {
-                    w.chars
-                } else {
-                    w.visible_chars
-                }
-            };
-            if chars > 0 {
-                let (start, end) = self.start_end_iters(buffer);
-                let len = buffer.slice(&start, &end, true).len() as i32;
-                if chars - 1 > len {
-                    trace!("rendered content is less then screen width");
-                    return true;
-                }
-            }
-        }
+    // fn start_end_iters(&self, buffer: &TextBuffer) -> (TextIter, TextIter) {
+    //     let mut start_iter = buffer.iter_at_line(self.line_no.get()).unwrap();
+    //     start_iter.set_line_offset(0);
+    //     let mut end_iter = buffer.iter_at_line(self.line_no.get()).unwrap();
+    //     end_iter.forward_to_line_end();
+    //     (start_iter, end_iter)
+    // }
 
-        false
-    }
+    // fn remove_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
+    //     if self.tag_is_added(tag) {
+    //         let (start_iter, end_iter) = self.start_end_iters(buffer);
+    //         buffer.remove_tag_by_name(tag.name(), &start_iter, &end_iter);
+    //         self.tag_removed(tag);
+    //     }
+    // }
 
-    // fn _replace_dirty_content(
+    // fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
+    //     if !self.tag_is_added(tag) {
+    //         let (start_iter, end_iter) = self.start_end_iters(buffer);
+    //         buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
+    //         self.tag_added(tag);
+    //     }
+    // }
+
+    // pub fn apply_tags(
     //     &self,
     //     buffer: &TextBuffer,
-    //     iter: &mut TextIter,
-    //     container: &dyn ViewContainer,// CLOSURE HERE. WHICH ACCEPT BUFFER!
-    //     is_markup: bool,
+    //     content_tags: &Vec<tags::TxtTag>,
     // ) {
-    //     let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
-    //     eol_iter.forward_to_line_end();
-
-    //     // if content is empty - eol iter will drop onto next line!
-    //     // no need to delete in this case!
-    //     if iter.line() == eol_iter.line() {
-    //         buffer.remove_all_tags(iter, &eol_iter);
-    //         buffer.delete(iter, &mut eol_iter);
+    //     for t in content_tags {
+    //         self.add_tag(buffer, t);
     //     }
-    //     self.cleanup_tags();
-
-    //     container.write_content(iter, buffer);
-    //     // if is_markup {
-    //     //     buffer.insert_markup(iter, content);
-    //     // } else {
-    //     //     buffer.insert(iter, content);
-    //     // }
     // }
-
-    fn build_up(
-        &self,
-        content: &String,
-        _line_no: i32,
-        context: &mut crate::StatusRenderContext,
-    ) -> String {
-        let line_content = content.to_string();
-
-        if let Some(width) = &context.screen_width {
-            let pixels = width.borrow().pixels;
-            let chars = {
-                let w = width.borrow();
-                if w.chars > w.visible_chars {
-                    w.chars
-                } else {
-                    w.visible_chars
-                }
-            };
-            trace!(
-                "build_up. context width in pixels and chars {:?} {:?}",
-                pixels,
-                chars
-            );
-            if chars > 0 {
-                trace!(
-                    "build_up. line and line length {:?} {:?}",
-                    line_content,
-                    line_content.len()
-                );
-                let chars_count = line_content.chars().count();
-                if chars as usize > chars_count {
-                    let spaces = chars as usize - chars_count;
-                    trace!(
-                        "build up spaces {:?} in {}. len {:?}",
-                        spaces,
-                        line_content,
-                        chars_count
-                    );
-                    return format!("{}{}", line_content, " ".repeat(spaces));
-                }
-            }
-        }
-
-        line_content
-    }
-
-    // View
-    // pub fn _render_in_textview<F>(
-    //     &self,
-    //     buffer: &TextBuffer,
-    //     iter: &mut TextIter,
-    //     container: &dyn ViewContainer,
-    //     is_markup: bool,
-    //     content_tags: Vec<tags::TxtTag>,
-    //     context: &mut crate::StatusRenderContext,
-    // ) -> &Self  {
-    //     // important. self.line_no is assigned only in 2 cases
-    //     // below!!!!
-
-    //     let line_no = iter.line();
-    //     trace!(
-    //         "======= line {:?} render state {:?} which is at line {:?}. content was here",
-    //         line_no,
-    //         self.get_state_for(line_no),
-    //         self.line_no.get(),
-    //         // content,
-    //     );
-    //     match self.get_state_for(line_no) {
-    //         ViewState::RenderedInPlace => {
-    //             trace!("..render MATCH rendered_in_line {:?}", line_no);
-    //             iter.forward_lines(1);
-    //         }
-    //         ViewState::Deleted => {
-    //             // nothing todo. calling render on
-    //             // some whuch will be destroyed
-    //             trace!("..render MATCH !rendered squashed {:?}", line_no);
-    //         }
-    //         ViewState::NotYetRendered => {
-    //             trace!("..render MATCH insert {:?}", line_no);
-    //             // newhighlight
-    //             // let content = self.build_up(&content, line_no, context);
-    //             container.write_content(iter, &buffer);
-    //             buffer.insert(iter, "\n");
-    //             // if is_markup {
-    //             //     buffer.insert_markup(iter, &format!("{}\n", content));
-    //             // } else {
-    //             //     buffer.insert(iter, content);
-    //             //     buffer.insert(iter, "\n");
-    //             // }
-                
-    //             self.line_no.replace(line_no);
-    //             self.render(true);
-    //             // if !content.is_empty() {
-    //                 self.apply_tags(buffer, &content_tags);
-    //             //}
-    //         }
-    //         ViewState::TagsModified => {
-    //             trace!("..render MATCH TagsModified {:?}", line_no);
-    //             // this means only tags are changed.
-    //             // // TODO! kill it
-    //             // if self.does_not_match_width(buffer, context) {
-    //             //     // here is the case: view is rendered before resize event.
-    //             //     // max width is detected by diff max width and then resize
-    //             //     // event is come with larger with
-    //             //     // newhighlight
-    //             //     // let content = self.build_up(&content, line_no, context);
-    //             //     self.replace_dirty_content(
-    //             //         buffer, iter, &content, is_markup,
-    //             //     );
-    //             // }
-    //             self.apply_tags(buffer, &content_tags);
-    //             if !iter.forward_lines(1) {
-    //                 assert!(iter.offset() == buffer.end_iter().offset());
-    //             }
-    //             self.render(true);
-    //         }
-    //         ViewState::MarkedForDeletion => {
-    //             trace!("..render MATCH squashed {:?}", line_no);
-    //             let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
-    //             nel_iter.forward_lines(1);
-    //             buffer.delete(iter, &mut nel_iter);
-    //             self.render(false);
-    //             self.cleanup_tags();
-
-    //             if let Some(ec) = context.erase_counter {
-    //                 context.erase_counter.replace(ec + 1);
-    //             } else {
-    //                 context.erase_counter.replace(1);
-    //             }
-    //             trace!(
-    //                 ">>>>>>>>>>>>>>>>>>>> just erased line. context {:?}",
-    //                 context
-    //             );
-    //         }
-    //         ViewState::UpdatedFromGit(l) => {
-    //             trace!(".. render MATCH UpdatedFromGit {:?}", l);
-    //             self.line_no.replace(line_no);
-    //             self.replace_dirty_content(buffer, iter, container, is_markup);
-    //             self.apply_tags(buffer, &content_tags);
-    //             // if !content.is_empty() {
-    //             //     self.apply_tags(buffer, &content_tags);
-    //             // }
-    //             self.force_forward(buffer, iter);
-    //         }
-    //         ViewState::RenderedNotInPlace(l) => {
-    //             // TODO: somehow it is related to transfered!
-    //             trace!(".. render match not in place {:?}", l);
-    //             self.line_no.replace(line_no);
-    //             self.force_forward(buffer, iter);
-    //         }
-    //     }
-
-    //     self.dirty(false);
-    //     self.squash(false);
-    //     self.transfer(false);
-    //     self
-    // }
-
-    pub fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
-        let current_line = iter.line();
-        let moved = iter.forward_lines(1);
-        if !moved {
-            // happens sometimes when buffer is over
-            buffer.insert(iter, "\n");
-            if iter.line() - 2 == current_line {
-                iter.forward_lines(-1);
-            }
-            trace!(
-                "buffer is over. force 1 line forward. iter now is it line {:?}",
-                iter.line()
-            );
-        }
-        assert!(current_line + 1 == iter.line());
-    }
-
-    fn start_end_iters(&self, buffer: &TextBuffer) -> (TextIter, TextIter) {
-        let mut start_iter = buffer.iter_at_line(self.line_no.get()).unwrap();
-        start_iter.set_line_offset(0);
-        let mut end_iter = buffer.iter_at_line(self.line_no.get()).unwrap();
-        end_iter.forward_to_line_end();
-        (start_iter, end_iter)
-    }
-
-    fn remove_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
-        if self.tag_is_added(tag) {
-            let (start_iter, end_iter) = self.start_end_iters(buffer);
-            buffer.remove_tag_by_name(tag.name(), &start_iter, &end_iter);
-            self.tag_removed(tag);
-        }
-    }
-
-    fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
-        if !self.tag_is_added(tag) {
-            let (start_iter, end_iter) = self.start_end_iters(buffer);
-            buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
-            self.tag_added(tag);
-        }
-    }
-
-    pub fn apply_tags(
-        &self,
-        buffer: &TextBuffer,
-        content_tags: &Vec<tags::TxtTag>,
-    ) {
-        for t in content_tags {
-            self.add_tag(buffer, t);
-        }
-    }
 
     pub fn get_state_for(&self, line_no: i32) -> ViewState {
         if self.is_rendered_in(line_no) {
