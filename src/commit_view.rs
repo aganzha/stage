@@ -7,8 +7,8 @@ use crate::git::{commit, stash};
 use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::{
     container::{ViewContainer, ViewKind},
-    render::View,
     stage_view::StageView,
+    view_state::View,
     Label as TextViewLabel,
 };
 use crate::Event;
@@ -18,8 +18,8 @@ use std::cell::RefCell;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, Widget,
-    Window as Gtk4Window,
+    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow,
+    TextBuffer, TextIter, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -239,12 +239,14 @@ impl MultiLineLabel {
 }
 
 impl ViewContainer for MultiLineLabel {
+    fn is_empty(&self) -> bool {
+        self.labels.is_empty()
+    }
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
-    fn child_count(&self) -> usize {
-        self.labels.len()
-    }
+
     fn get_view(&self) -> &View {
         &self.view
     }
@@ -256,9 +258,7 @@ impl ViewContainer for MultiLineLabel {
             .collect()
     }
 
-    fn get_content(&self) -> String {
-        "".to_string()
-    }
+    fn write_content(&self, _iter: &mut TextIter, _buffer: &TextBuffer) {}
 }
 
 impl commit::CommitDiff {
@@ -501,20 +501,20 @@ pub fn show_commit_window(
                         let (body, file_path, hunk_header) = match diff.diff.chosen_file_and_hunk() {
                             (Some(file), Some(hunk)) => {
                                 (
-                                    format!("File: {}\nApplying single hunks is not yet implemented :(", file.get_content()),
+                                    format!("File: {}\nApplying single hunks is not yet implemented :(", file.path.to_str().unwrap()),
                                     Some(file.path.clone()),
                                     Some(hunk.header.clone())
                                 )
                             }
                             (Some(file), None) => {
                                 (
-                                    format!("File: {}", file.get_content()),
+                                    format!("File: {}", file.path.to_str().unwrap()),
                                     Some(file.path.clone()),
                                     None
                                 )
                             }
                             (None, Some(hunk)) => {
-                                panic!("hunk header without file {:?}", hunk.get_content());
+                                panic!("hunk header without file {:?}", hunk.header);
                             }
                             (None, None) => {
                                 (

@@ -38,7 +38,7 @@ impl CommitRepr for git2::Commit<'_> {
             .unwrap_or("");
         let mut encoded = String::new();
         html_escape::encode_safe_to_string(message, &mut encoded);
-        format!("{} {}", &self.id().to_string()[..7], encoded)
+        encoded
     }
 
     fn message(&self) -> String {
