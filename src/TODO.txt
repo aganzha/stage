@@ -1,3 +1,4 @@
+BUG: when got conflict in pull, it does not monitor conflicted file, so changes to fike are invisible
 BUG: killing unstaged file. it need to reset hard with path. now it is going to staged
 BUG: CRITICAL:
 [INFO  stage] Unstaged
