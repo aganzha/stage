@@ -20,6 +20,9 @@ use branches_view::show_branches_window;
 mod log_view;
 use log_view::show_log_window;
 
+mod tags_view;
+use tags_view::show_tags_window;
+
 mod stashes_view;
 use stashes_view::factory as stashes_view_factory;
 
@@ -144,6 +147,7 @@ pub enum Event {
     LockMonitors(bool),
     StoreSettings(String, String),
     OpenEditor,
+    Tags(Option<Oid>),
 }
 
 fn zoom(dir: bool) {
@@ -395,6 +399,37 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         move |_| {
                             info!(
                                 "popping stack while close branches {:?}",
+                                window_stack.borrow_mut().pop()
+                            );
+                            glib::signal::Propagation::Proceed
+                        }
+                    });
+                    window_stack.borrow_mut().push(w);
+                }
+                Event::Tags(ooid) => {
+                    let oid = ooid.unwrap_or(status.head_oid());
+                    let w = {
+                        if let Some(stack) = window_stack.borrow().last() {
+                            show_tags_window(
+                                status.path.clone().expect("no path"),
+                                stack,
+                                oid,
+                                sender.clone(),
+                            )
+                        } else {
+                            show_tags_window(
+                                status.path.clone().expect("no path"),
+                                &window,
+                                oid,
+                                sender.clone(),
+                            )
+                        }
+                    };
+                    w.connect_close_request({
+                        let window_stack = window_stack.clone();
+                        move |_| {
+                            info!(
+                                "popping stack while close log {:?}",
                                 window_stack.borrow_mut().pop()
                             );
                             glib::signal::Propagation::Proceed

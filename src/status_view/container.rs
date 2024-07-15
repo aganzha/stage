@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::status_view::render::View;
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
+use crate::status_view::view_state::{View, ViewState};
 use crate::status_view::Label;
 use crate::{
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
@@ -13,7 +13,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::{debug, trace};
+use log::trace;
 use std::path::PathBuf;
 
 pub fn make_tag(name: &str) -> tags::TxtTag {
@@ -32,17 +32,15 @@ pub enum ViewKind {
 }
 
 pub trait ViewContainer {
-    fn is_markup(&self) -> bool {
-        false
-    }
+    fn is_empty(&self) -> bool;
 
     fn get_kind(&self) -> ViewKind;
-
-    fn child_count(&self) -> usize;
 
     fn get_children(&self) -> Vec<&dyn ViewContainer>;
 
     fn get_view(&self) -> &View;
+
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer);
 
     // TODO - return bool and stop iteration when false
     // visitor takes child as first arg and parent as second arg
@@ -52,8 +50,6 @@ pub trait ViewContainer {
             child.walk_down(visitor);
         }
     }
-
-    fn get_content(&self) -> String;
 
     fn tags(&self) -> Vec<tags::TxtTag> {
         Vec::new()
@@ -66,6 +62,69 @@ pub trait ViewContainer {
         }
     }
 
+    fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
+        let current_line = iter.line();
+        let moved = iter.forward_lines(1);
+        if !moved {
+            // happens sometimes when buffer is over
+            buffer.insert(iter, "\n");
+            if iter.line() - 2 == current_line {
+                iter.forward_lines(-1);
+            }
+            trace!(
+                "buffer is over. force 1 line forward. iter now is it line {:?}",
+                iter.line()
+            );
+        }
+        assert!(current_line + 1 == iter.line());
+    }
+
+    fn start_end_iters(
+        &self,
+        buffer: &TextBuffer,
+        line_no: i32,
+    ) -> (TextIter, TextIter) {
+        let mut start_iter = buffer.iter_at_line(line_no).unwrap();
+        start_iter.set_line_offset(0);
+        let mut end_iter = buffer.iter_at_line(line_no).unwrap();
+        end_iter.forward_to_line_end();
+        (start_iter, end_iter)
+    }
+
+    fn remove_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
+        let view = self.get_view();
+        if view.tag_is_added(tag) {
+            let (start_iter, end_iter) =
+                self.start_end_iters(buffer, view.line_no.get());
+            buffer.remove_tag_by_name(tag.name(), &start_iter, &end_iter);
+            view.tag_removed(tag);
+        }
+    }
+
+    fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
+        let view = self.get_view();
+        if !view.tag_is_added(tag) {
+            let (start_iter, end_iter) =
+                self.start_end_iters(buffer, view.line_no.get());
+            buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
+            view.tag_added(tag);
+        }
+    }
+
+    fn apply_tags(
+        &self,
+        buffer: &TextBuffer,
+        content_tags: &Vec<tags::TxtTag>,
+    ) {
+        if self.is_empty() {
+            // TAGS BECOME BROKEN ON EMPTY LINES!
+            return;
+        }
+        for t in content_tags {
+            self.add_tag(buffer, t);
+        }
+    }
+
     // ViewContainer
     fn render(
         &self,
@@ -73,12 +132,89 @@ pub trait ViewContainer {
         iter: &mut TextIter,
         context: &mut StatusRenderContext,
     ) {
-        let content = self.get_content();
         let tags = self.tags();
-        let is_markup = self.is_markup();
-        let view = self.get_view().render_in_textview(
-            buffer, iter, content, is_markup, tags, context,
-        );
+
+        // render_in_textview +++++++++++++++++++++++++++++++++++++++++++
+        let line_no = iter.line();
+        let view = self.get_view();
+        match view.get_state_for(line_no) {
+            ViewState::RenderedInPlace => {
+                trace!("..render MATCH rendered_in_line {:?}", line_no);
+                iter.forward_lines(1);
+            }
+            ViewState::Deleted => {
+                trace!("..render MATCH !rendered squashed {:?}", line_no);
+            }
+            ViewState::NotYetRendered => {
+                trace!("..render MATCH insert {:?}", line_no);
+                self.write_content(iter, buffer);
+                buffer.insert(iter, "\n");
+
+                view.line_no.replace(line_no);
+                view.render(true);
+
+                self.apply_tags(buffer, &tags);
+            }
+            ViewState::TagsModified => {
+                trace!("..render MATCH TagsModified {:?}", line_no);
+                self.apply_tags(buffer, &tags);
+                if !iter.forward_lines(1) {
+                    assert!(iter.offset() == buffer.end_iter().offset());
+                }
+                view.render(true);
+            }
+            ViewState::MarkedForDeletion => {
+                trace!("..render MATCH squashed {:?}", line_no);
+                let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+                nel_iter.forward_lines(1);
+                buffer.delete(iter, &mut nel_iter);
+                view.render(false);
+                view.cleanup_tags();
+
+                if let Some(ec) = context.erase_counter {
+                    context.erase_counter.replace(ec + 1);
+                } else {
+                    context.erase_counter.replace(1);
+                }
+                trace!(
+                    ">>>>>>>>>>>>>>>>>>>> just erased line. context {:?}",
+                    context
+                );
+            }
+            ViewState::UpdatedFromGit(l) => {
+                trace!(".. render MATCH UpdatedFromGit {:?}", l);
+                view.line_no.replace(line_no);
+
+                let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
+                eol_iter.forward_to_line_end();
+
+                // if content is empty - eol iter will drop onto next line!
+                // no need to delete in this case!
+                if iter.line() == eol_iter.line() {
+                    buffer.remove_all_tags(iter, &eol_iter);
+                    buffer.delete(iter, &mut eol_iter);
+                }
+                view.cleanup_tags();
+                self.write_content(iter, buffer);
+
+                self.apply_tags(buffer, &tags);
+
+                self.force_forward(buffer, iter);
+            }
+            ViewState::RenderedNotInPlace(l) => {
+                // TODO: somehow it is related to transfered!
+                trace!(".. render match not in place {:?}", l);
+                view.line_no.replace(line_no);
+                self.force_forward(buffer, iter);
+            }
+        }
+
+        view.dirty(false);
+        view.squash(false);
+        view.transfer(false);
+        // render_in_textview +++++++++++++++++++++++++++++++++++++++++++
+
+        // recursive render @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         if view.is_expanded() || view.is_child_dirty() {
             for child in self.get_children() {
                 child.render(buffer, iter, context);
@@ -93,6 +229,7 @@ pub trait ViewContainer {
             context.highlight_cursor = self.get_view().line_no.get();
         }
         self.fill_context(context);
+        // post render @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     }
 
     // ViewContainer
@@ -161,17 +298,8 @@ pub trait ViewContainer {
         view.make_current(current);
 
         if view.is_rendered() {
-            // repaint if highlight is changed
-            // trace!("its me marking dirty, cursor! {} at {}", ((view.is_active() != active_before) || (view.is_current() != current_before)), view.line_no.get());
-
             result = view.is_active() != active_before
                 || view.is_current() != current_before;
-            // newhighlight
-            // view.dirty(
-            //     view.is_active() != active_before
-            //         || view.is_current() != current_before,
-            // );
-            // result = view.is_dirty();
         }
         for child in self.get_children() {
             result = child.cursor(line_no, self_active, context) || result;
@@ -276,7 +404,7 @@ pub trait ViewContainer {
         let initial_line_offset = iter.line_offset();
 
         let view = self.get_view();
-        debug!(
+        trace!(
             "erasing {:?} at line {}",
             self.get_kind(),
             view.line_no.get()
@@ -286,7 +414,7 @@ pub trait ViewContainer {
         // let original_line_no = view.line_no.get();
 
         if let Some(ec) = context.erase_counter {
-            debug!("erase counter {:?}", ec);
+            trace!("erase counter {:?}", ec);
             line_no -= ec;
         }
 
@@ -310,21 +438,19 @@ pub trait ViewContainer {
 }
 
 impl ViewContainer for Diff {
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Diff
+    fn is_empty(&self) -> bool {
+        self.files.is_empty()
     }
 
-    fn child_count(&self) -> usize {
-        self.files.len()
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::Diff
     }
 
     fn get_view(&self) -> &View {
         &self.view
     }
 
-    fn get_content(&self) -> String {
-        String::from("")
-    }
+    fn write_content(&self, _iter: &mut TextIter, _buffer: &TextBuffer) {}
 
     fn get_children(&self) -> Vec<&dyn ViewContainer> {
         self.files
@@ -402,28 +528,23 @@ impl ViewContainer for Diff {
 }
 
 impl ViewContainer for File {
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::File
+    fn is_empty(&self) -> bool {
+        false
     }
 
-    fn child_count(&self) -> usize {
-        self.hunks.len()
+    fn get_kind(&self) -> ViewKind {
+        ViewKind::File
     }
 
     fn get_view(&self) -> &View {
         &self.view
     }
 
-    fn get_content(&self) -> String {
-        format!(
-            "{}{}",
-            if self.status == git2::Delta::Deleted {
-                "- "
-            } else {
-                ""
-            },
-            self.path.to_str().unwrap()
-        )
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
+        if self.status == git2::Delta::Deleted {
+            buffer.insert(iter, "- ");
+        }
+        buffer.insert(iter, self.path.to_str().unwrap());
     }
 
     fn get_children(&self) -> Vec<&dyn ViewContainer> {
@@ -469,25 +590,25 @@ impl ViewContainer for File {
 }
 
 impl ViewContainer for Hunk {
+    fn is_empty(&self) -> bool {
+        false
+    }
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::Hunk
     }
 
-    fn child_count(&self) -> usize {
-        self.lines.len()
-    }
-
-    fn get_content(&self) -> String {
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
         let parts: Vec<&str> = self.header.split("@@").collect();
         let line_no = match self.kind {
             DiffKind::Unstaged | DiffKind::Conflicted => self.old_start,
             DiffKind::Staged => self.new_start,
         };
         let scope = parts.last().unwrap();
+        buffer.insert(iter, "Line ");
+        buffer.insert(iter, &format!("{}", line_no));
         if !scope.is_empty() {
-            format!("Line {:} in{:}", line_no, scope)
-        } else {
-            format!("Line {:?}", line_no)
+            buffer.insert(iter, &format!("in {}", scope));
         }
     }
 
@@ -549,19 +670,20 @@ impl ViewContainer for Hunk {
 }
 
 impl ViewContainer for Line {
+    fn is_empty(&self) -> bool {
+        self.content.is_empty()
+    }
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::Line
-    }
-    fn child_count(&self) -> usize {
-        0
     }
 
     fn get_view(&self) -> &View {
         &self.view
     }
 
-    fn get_content(&self) -> String {
-        self.content.to_string()
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
+        buffer.insert(iter, &self.content);
     }
 
     fn get_children(&self) -> Vec<&dyn ViewContainer> {
@@ -658,15 +780,14 @@ impl ViewContainer for Line {
 }
 
 impl ViewContainer for Label {
-    fn is_markup(&self) -> bool {
-        true
+    fn is_empty(&self) -> bool {
+        self.content.is_empty()
     }
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
-    fn child_count(&self) -> usize {
-        0
-    }
+
     fn get_view(&self) -> &View {
         &self.view
     }
@@ -675,21 +796,20 @@ impl ViewContainer for Label {
         Vec::new()
     }
 
-    fn get_content(&self) -> String {
-        self.content.to_string()
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
+        buffer.insert_markup(iter, &self.content);
     }
 }
 
 impl ViewContainer for Head {
-    fn is_markup(&self) -> bool {
-        true
+    fn is_empty(&self) -> bool {
+        false
     }
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
-    fn child_count(&self) -> usize {
-        0
-    }
+
     fn get_view(&self) -> &View {
         &self.view
     }
@@ -698,30 +818,30 @@ impl ViewContainer for Head {
         Vec::new()
     }
 
-    fn get_content(&self) -> String {
-        format!(
-            "{}<span color=\"#4a708b\">{}</span> {}",
-            if !self.remote {
-                "Head:     "
-            } else {
-                "Upstream: "
-            },
-            &self.branch,
-            self.log_message
-        )
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
+        buffer.insert_markup(iter,
+                             &format!("{}<span color=\"#4a708b\">{}</span> {}",
+                                      if !self.remote {
+                                          "Head:     "
+                                      } else {
+                                          "Upstream: "
+                                      },
+                                      self.branch,
+                                      self.log_message
+                             )
+        );
     }
 }
 
 impl ViewContainer for State {
-    fn is_markup(&self) -> bool {
-        true
+    fn is_empty(&self) -> bool {
+        false
     }
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::Label
     }
-    fn child_count(&self) -> usize {
-        0
-    }
+
     fn get_view(&self) -> &View {
         &self.view
     }
@@ -730,45 +850,89 @@ impl ViewContainer for State {
         Vec::new()
     }
 
-    fn get_content(&self) -> String {
-        let state = match self.state {
-            RepositoryState::Clean => "Clean",
-            RepositoryState::Merge => "<span color=\"#ff0000\">Merge</span>",
-            RepositoryState::Revert => "<span color=\"#ff0000\">Revert</span>",
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
+        buffer.insert(iter, "State:    ");
+        match self.state {
+            RepositoryState::Clean => {
+                buffer.insert(iter, "Clean");
+            }
+            RepositoryState::Merge => {
+                buffer.insert_markup(
+                    iter,
+                    "<span color=\"#ff0000\">Merge</span>",
+                );
+            }
+            RepositoryState::Revert => {
+                buffer.insert_markup(
+                    iter,
+                    "<span color=\"#ff0000\">Revert</span>",
+                );
+            }
             RepositoryState::RevertSequence => {
-                "<span color=\"#ff0000\">RevertSequence</span>"
+                buffer.insert_markup(
+                    iter,
+                    "<span color=\"#ff0000\">RevertSequence</span>",
+                );
             }
             RepositoryState::CherryPick => {
-                "<span color=\"#ff0000\">CherryPick</span>"
+                buffer.insert_markup(
+                    iter,
+                    "<span color=\"#ff0000\">CherryPick</span>",
+                );
             }
             RepositoryState::CherryPickSequence => {
-                "<span color=\"#ff0000\">CherryPickSequence</span>"
+                buffer.insert_markup(
+                    iter,
+                    "<span color=\"#ff0000\">CherryPickSequence</span>",
+                );
             }
-            RepositoryState::Bisect => "<span color=\"#ff0000\">Bisect</span>",
-            RepositoryState::Rebase => "<span color=\"#ff0000\">Rebase</span>",
+            RepositoryState::Bisect => {
+                buffer.insert_markup(
+                    iter,
+                    "<span color=\"#ff0000\">Bisect</span>",
+                );
+            }
+            RepositoryState::Rebase => {
+                buffer.insert_markup(
+                    iter,
+                    "<span color=\"#ff0000\">Rebase</span>",
+                );
+            }
             RepositoryState::RebaseInteractive => {
-                "<span color=\"#ff0000\">RebaseInteractive</span>"
+                buffer.insert_markup(
+                    iter,
+                    "<span color=\"#ff0000\">RebaseInteractive</span>",
+                );
             }
             RepositoryState::RebaseMerge => {
-                "<span color=\"#ff0000\">RebaseMerge</span>"
+                buffer.insert_markup(
+                    iter,
+                    "<span color=\"#ff0000\">RebaseMerge</span>",
+                );
             }
             RepositoryState::ApplyMailbox => {
-                "<span color=\"#ff0000\">ApplyMailbox</span>"
+                buffer.insert_markup(
+                    iter,
+                    "<span color=\"#ff0000\">ApplyMailbox</span>",
+                );
             }
             RepositoryState::ApplyMailboxOrRebase => {
-                "<span color=\"#ff0000\">ApplyMailboxOrRebase</span>"
+                buffer.insert_markup(
+                    iter,
+                    "<span color=\"#ff0000\">ApplyMailboxOrRebase</span>",
+                );
             }
         };
-        format!("State:    {}", state)
     }
 }
 
 impl ViewContainer for Untracked {
+    fn is_empty(&self) -> bool {
+        self.files.is_empty()
+    }
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::Untracked
-    }
-    fn child_count(&self) -> usize {
-        self.files.len()
     }
 
     // untracked
@@ -778,9 +942,7 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked
-    fn get_content(&self) -> String {
-        String::from("")
-    }
+    fn write_content(&self, _iter: &mut TextIter, _buffer: &TextBuffer) {}
 
     // Untracked
     fn get_children(&self) -> Vec<&dyn ViewContainer> {
@@ -847,19 +1009,20 @@ impl ViewContainer for Untracked {
 }
 
 impl ViewContainer for UntrackedFile {
+    fn is_empty(&self) -> bool {
+        false
+    }
+
     fn get_kind(&self) -> ViewKind {
         ViewKind::UntrackedFile
-    }
-    fn child_count(&self) -> usize {
-        0
     }
 
     fn get_view(&self) -> &View {
         &self.view
     }
 
-    fn get_content(&self) -> String {
-        self.path.to_str().unwrap().to_string()
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
+        buffer.insert(iter, self.path.to_str().unwrap());
     }
 
     fn get_children(&self) -> Vec<&dyn ViewContainer> {
@@ -943,25 +1106,26 @@ impl Diff {
     }
 
     pub fn dump(&self) -> String {
-        let mut result = String::new();
-        for file in &self.files {
-            result.push_str(&format!("FILE: {}", file.get_content()));
-            result.push_str("\n\t");
-            result.push_str(&file.view.repr());
-            result.push('\n');
-            for hunk in &file.hunks {
-                result.push_str(&format!("HUNK: {}", hunk.get_content()));
-                result.push_str("\n\t");
-                result.push_str(&hunk.view.repr());
-                result.push('\n');
-                for line in &hunk.lines {
-                    result.push_str(&format!("LINE: {}", line.get_content()));
-                    result.push_str("\n\t");
-                    result.push_str(&line.view.repr());
-                    result.push('\n');
-                }
-            }
-        }
-        result
+        String::from("dump")
+        // let mut result = String::new();
+        // for file in &self.files {
+        //     result.push_str(&format!("FILE: {}", file.get_content()));
+        //     result.push_str("\n\t");
+        //     result.push_str(&file.view.repr());
+        //     result.push('\n');
+        //     for hunk in &file.hunks {
+        //         result.push_str(&format!("HUNK: {}", hunk.get_content()));
+        //         result.push_str("\n\t");
+        //         result.push_str(&hunk.view.repr());
+        //         result.push('\n');
+        //         for line in &hunk.lines {
+        //             result.push_str(&format!("LINE: {}", line.get_content()));
+        //             result.push_str("\n\t");
+        //             result.push_str(&line.view.repr());
+        //             result.push('\n');
+        //         }
+        //     }
+        // }
+        // result
     }
 }
