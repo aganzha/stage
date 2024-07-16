@@ -1,15 +1,6 @@
 BUG: push button is insensitive when no remote. not only on pull! just simple merge!
 BUG: when got conflict in pull, it does not monitor conflicted file, so changes to fike are invisible
 BUG: killing unstaged file. it need to reset hard with path. now it is going to staged
-BUG: CRITICAL:
-[INFO  stage] Unstaged
-thread 'main' panicked at src/status_view/reconciliation.rs:280:25:
-UNKNOWN CASE IN RECONCILIATION @@ -687,7 +705,9 @@ class ServiceWorkPostprocess: @@ -687,7 +704,9 @@ class ServiceWorkPostprocess:
-stack backtrace:
-somehow just added 2 lines
-
-UNKNOWN CASE IN RECONCILIATION @@ -687,37 +694,63 @@ class ServiceWorkPostprocess: @@ -687,37 +695,63 @@ class ServiceWorkPostprocess:
-stack backtrace:
 
 
 TODO: get_content replace with insert_content! and insert everything in buffer directly in container!!!!
