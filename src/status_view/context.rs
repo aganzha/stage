@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::{DiffKind, LineKind};
+use crate::{DiffKind, LineKind, Hunk};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -143,5 +143,8 @@ impl StatusRenderContext {
             diff_kind,
             line_kind: kind.clone(),
         };
+    }
+
+    pub fn under_cursor_hunk(&mut self, _hunk: &Hunk) {
     }
 }
