@@ -125,11 +125,11 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn render(
-        &self,
+    fn render<'a>(
+        &'a self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
 
         // render_in_textview +++++++++++++++++++++++++++++++++++++++++++
@@ -426,7 +426,8 @@ pub trait ViewContainer {
         // GOT BUG HERE DURING STAGING SAME FILES!
         // trace!("line finally {:?}", line_no);
         if let Some(mut iter) = buffer.iter_at_line(line_no) {
-            self.render(buffer, &mut iter, context);
+            // TODO restore
+            // self.render(buffer, &mut iter, context);
         } else {
             // todo - get all the buffer and write it to file completelly
             panic!("no line at the end of erase!!!!!!!!! {}", line_no);
@@ -480,11 +481,11 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn render(
-        &self,
+    fn render<'a>(
+        &'a self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         // why do i need it at all?
         self.view.line_no.replace(iter.line());
@@ -999,11 +1000,11 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked
-    fn render(
-        &self,
+    fn render<'a>(
+        &'a self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         self.view.line_no.replace(iter.line());
         for file in &self.files {
