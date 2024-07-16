@@ -754,10 +754,10 @@ impl Status {
         self.render(txt, RenderSource::GitDiff, context);
     }
 
-    pub fn resize_highlights(
-        &self,
+    pub fn resize_highlights<'a>(
+        &'a self,
         txt: &StageView,
-        ctx: &mut StatusRenderContext,
+        ctx: &mut StatusRenderContext<'a>,
     ) {
         let buffer = txt.buffer();
         let iter = buffer.iter_at_offset(buffer.cursor_position());
@@ -775,12 +775,12 @@ impl Status {
 
     /// cursor does not change structure, but changes highlights
     /// it will collect highlights in context. no need further render
-    pub fn cursor(
-        &self,
+    pub fn cursor<'a>(
+        &'a self,
         txt: &StageView,
         line_no: i32,
         _offset: i32,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) -> bool {
         // this is actually needed for views which are not implemented
         // ViewContainer, and does not affect context!
