@@ -30,7 +30,7 @@ pub struct TextViewWidth {
 }
 
 #[derive(Debug, Clone)]
-pub struct StatusRenderContext {
+pub struct StatusRenderContext<'a> {
     pub erase_counter: Option<i32>,
     /// diff_kind is used by reconcilation
     /// it just passes DiffKind down to hunks
@@ -44,15 +44,16 @@ pub struct StatusRenderContext {
     pub highlight_cursor: i32,
     pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>, // pub cursor_pos: Option<CursorPos>,
+    pub current_hunk: Option<&'a Hunk>
 }
 
-impl Default for StatusRenderContext {
+impl Default for StatusRenderContext<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl StatusRenderContext {
+impl StatusRenderContext<'_> {
     pub fn new() -> Self {
         {
             Self {
@@ -64,6 +65,7 @@ impl StatusRenderContext {
                 highlight_cursor: 0,
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
+                current_hunk: None
             }
         }
     }
