@@ -55,7 +55,10 @@ pub trait ViewContainer {
         Vec::new()
     }
 
-    fn fill_context(&self, ctx: &mut StatusRenderContext) {
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    }
+    
+    fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         let view = self.get_view();
         if view.is_current() {
             ctx.highlight_cursor = view.line_no.get();
@@ -111,9 +114,10 @@ pub trait ViewContainer {
         }
     }
 
-    fn apply_tags(
-        &self,
-        buffer: &TextBuffer
+    fn apply_tags<'a>(
+        &'a self,
+        buffer: &TextBuffer,
+        context: &mut StatusRenderContext<'a>,
     ) {
         if self.is_empty() {
             // TAGS BECOME BROKEN ON EMPTY LINES!
@@ -132,6 +136,8 @@ pub trait ViewContainer {
         context: &mut StatusRenderContext<'a>,
     ) {
 
+        self.prepare_context(context);
+        
         // render_in_textview +++++++++++++++++++++++++++++++++++++++++++
         let line_no = iter.line();
         let view = self.get_view();
@@ -151,11 +157,11 @@ pub trait ViewContainer {
                 view.line_no.replace(line_no);
                 view.render(true);
 
-                self.apply_tags(buffer);
+                self.apply_tags(buffer, context);
             }
             ViewState::TagsModified => {
                 trace!("..render MATCH TagsModified {:?}", line_no);
-                self.apply_tags(buffer);
+                self.apply_tags(buffer, context);
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
                 }
@@ -194,8 +200,7 @@ pub trait ViewContainer {
                 }
                 view.cleanup_tags();
                 self.write_content(iter, buffer);
-
-                self.apply_tags(buffer);
+                self.apply_tags(buffer, context);
 
                 self.force_forward(buffer, iter);
             }
@@ -232,12 +237,13 @@ pub trait ViewContainer {
 
     // ViewContainer
     /// returns if view is changed during cursor move
-    fn cursor(
-        &self,
+    fn cursor<'a>(
+        &'a self,
         line_no: i32,
         parent_active: bool,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) -> bool {
+        self.prepare_context(context);
         let mut result = false;
         let view = self.get_view();
 
@@ -459,11 +465,11 @@ impl ViewContainer for Diff {
     }
 
     // diff
-    fn cursor(
-        &self,
+    fn cursor<'a>(
+        &'a self,
         line_no: i32,
         parent_active: bool,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) -> bool {
         if self.kind == DiffKind::Conflicted && !self.has_conflicts() {
             // when all conflicts are resolved, Conflicted
@@ -629,7 +635,12 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
-    fn fill_context(&self, ctx: &mut StatusRenderContext) {
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+        ctx.current_hunk = Some(self);
+    }
+    
+    // Hunk
+    fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         if self.view.is_current() {
             ctx.highlight_cursor = self.view.line_no.get();
         }
@@ -782,18 +793,32 @@ impl ViewContainer for Line {
         }
     }
 
-    fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {        
-        // default implementation
-        let view = self.get_view();
-        if !view.tag_is_added(tag) {
-            let (start_iter, end_iter) =
-                self.start_end_iters(buffer, view.line_no.get());
-            buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
-            view.tag_added(tag);
+    // fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {        
+    //     // default implementation
+    //     let view = self.get_view();
+    //     if !view.tag_is_added(tag) {
+    //         let (start_iter, end_iter) =
+    //             self.start_end_iters(buffer, view.line_no.get());
+    //         buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
+    //         view.tag_added(tag);
+    //     }
+    //     if self.origin == DiffLineType::Addition {
+    //         // get old version of self.
+    //         // if has spaces - add background tag 
+    //     }
+    // }
+    fn apply_tags<'a>(
+        &'a self,
+        buffer: &TextBuffer,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        if self.is_empty() {
+            // TAGS BECOME BROKEN ON EMPTY LINES!
+            return;
         }
-        if self.origin == DiffLineType::Addition {
-            // get old version of self.
-            // if has spaces - add background tag 
+        for t in &self.tags() {
+            self.add_tag(buffer, t);
+            debug!("ooooooooooooooooooo {:?} {:?} {:?} ==== {:?} ........... {:?}", self.origin, self.kind, self.new_line_no, context.current_hunk.is_some(), self.content);
         }
     }
 }
@@ -1013,11 +1038,11 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked
-    fn cursor(
-        &self,
+    fn cursor<'a>(
+        &'a self,
         line_no: i32,
         parent_active: bool,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) -> bool {
         let mut result = false;
         for file in &self.files {
