@@ -144,6 +144,10 @@ impl File {
         // new header      @@ -1876,7 +1897,8 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):
         // rendered header @@ -1876,7 +1897,7 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):
 
+        // case 4 - cannot reproduced but
+        // got it twice during cutting, pasting and undo everywhere
+        // thread 'main' panicked at src/status_view/reconciliation.rs:280:25:
+        // UNKNOWN CASE IN RECONCILIATION @@ -687,7 +705,9 @@ class ServiceWorkPostprocess: @@ -687,7 +704,9 @@ class ServiceWorkPostprocess:
         let mut in_rendered = 0;
         let mut in_new = 0;
         let mut rendered_delta: i32 = 0;
@@ -276,6 +280,15 @@ impl File {
                         );
 
                         rendered.erase(buffer, context);
+                    } else if new.old_start == rendered.old_start 
+                        && new.old_lines == rendered.old_lines
+                        && new.new_lines == rendered.new_lines {
+                            trace!("case 4");
+                            rendered_delta +=
+                                count_delta(rendered.new_lines, rendered.old_lines);
+                            new.enrich_view(rendered, buffer, context);
+                            in_new += 1;
+                            in_rendered += 1;
                     } else {
                         panic!(
                             "UNKNOWN CASE IN RECONCILIATION {} {}",

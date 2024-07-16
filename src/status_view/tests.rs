@@ -597,6 +597,7 @@ fn test_expand_line() {
     }
 }
 
+
 fn test_reconciliation_new() {
     // initialize();
     let mut context = StatusRenderContext::new();
@@ -868,6 +869,34 @@ fn test_reconciliation_new() {
 
     iter.set_line(0);
     let mut hunk = create_hunk("@@ -1876,7 +1897,7 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):");
+    hunk.fill_from_header();
+    new_file.hunks.push(hunk);
+    iter.set_line(0);
+    new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
+    assert!(rendered_file.hunks[0].view.is_rendered());
+    assert!(new_file.hunks[0].view.is_transfered());
+    for line in &new_file.hunks[0].lines {
+        assert!(line.view.is_transfered());
+    }
+
+    // -------------------- case 4 - cannot reproduced but
+    // got it twice during cutting, pasting and undo everywherew
+    debug!("case 4.1");
+    iter = buffer.iter_at_offset(0);
+    buffer.delete(&mut iter, &mut buffer.end_iter());
+
+    rendered_file.hunks = Vec::new();
+    let mut hunk = create_hunk("@@ -687,7 +705,9 @@ class ServiceWorkPostprocess:");
+    hunk.fill_from_header();
+    rendered_file.hunks.push(hunk);
+    rendered_file.view.expand(true);
+    rendered_file.render(&buffer, &mut iter, &mut context);
+
+    let mut new_file = create_file("File");
+    new_file.hunks = Vec::new();
+
+    iter.set_line(0);
+    let mut hunk = create_hunk("@@ -687,7 +704,9 @@ class ServiceWorkPostprocess:");
     hunk.fill_from_header();
     new_file.hunks.push(hunk);
     iter.set_line(0);
