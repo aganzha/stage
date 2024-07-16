@@ -13,7 +13,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::trace;
+use log::{trace, debug};
 use std::path::PathBuf;
 
 pub fn make_tag(name: &str) -> tags::TxtTag {
@@ -113,14 +113,13 @@ pub trait ViewContainer {
 
     fn apply_tags(
         &self,
-        buffer: &TextBuffer,
-        content_tags: &Vec<tags::TxtTag>,
+        buffer: &TextBuffer
     ) {
         if self.is_empty() {
             // TAGS BECOME BROKEN ON EMPTY LINES!
             return;
         }
-        for t in content_tags {
+        for t in &self.tags() {
             self.add_tag(buffer, t);
         }
     }
@@ -132,7 +131,6 @@ pub trait ViewContainer {
         iter: &mut TextIter,
         context: &mut StatusRenderContext,
     ) {
-        let tags = self.tags();
 
         // render_in_textview +++++++++++++++++++++++++++++++++++++++++++
         let line_no = iter.line();
@@ -153,11 +151,11 @@ pub trait ViewContainer {
                 view.line_no.replace(line_no);
                 view.render(true);
 
-                self.apply_tags(buffer, &tags);
+                self.apply_tags(buffer);
             }
             ViewState::TagsModified => {
                 trace!("..render MATCH TagsModified {:?}", line_no);
-                self.apply_tags(buffer, &tags);
+                self.apply_tags(buffer);
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
                 }
@@ -197,7 +195,7 @@ pub trait ViewContainer {
                 view.cleanup_tags();
                 self.write_content(iter, buffer);
 
-                self.apply_tags(buffer, &tags);
+                self.apply_tags(buffer);
 
                 self.force_forward(buffer, iter);
             }
@@ -667,6 +665,11 @@ impl ViewContainer for Hunk {
     fn is_expandable_by_child(&self) -> bool {
         true
     }
+
+    fn fill_under_cursor(&self, context: &mut StatusRenderContext) {    
+        context.under_cursor_hunk(&self);
+    }
+
 }
 
 impl ViewContainer for Line {
@@ -775,6 +778,21 @@ impl ViewContainer for Line {
                 vec![make_tag(tags::REMOVED)]
             }
             _ => Vec::new(),
+        }
+    }
+
+    fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {        
+        // default implementation
+        let view = self.get_view();
+        if !view.tag_is_added(tag) {
+            let (start_iter, end_iter) =
+                self.start_end_iters(buffer, view.line_no.get());
+            buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
+            view.tag_added(tag);
+        }
+        if self.origin == DiffLineType::Addition {
+            // get old version of self.
+            // if has spaces - add background tag 
         }
     }
 }

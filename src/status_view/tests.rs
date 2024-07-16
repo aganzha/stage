@@ -600,6 +600,7 @@ fn test_expand_line() {
 
 fn test_reconciliation_new() {
     // initialize();
+
     let mut context = StatusRenderContext::new();
     let buffer = TextBuffer::new(None);
     let mut iter = buffer.iter_at_line(0).unwrap();
