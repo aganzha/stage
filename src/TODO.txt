@@ -1,4 +1,3 @@
-BUG: stash file. then delete it. then apply stash. conflict is invisible
 BUG: push button is insensitive when no remote. not only on pull! just simple merge!
 BUG: when got conflict in pull, it does not monitor conflicted file, so changes to fike are invisible
 BUG: killing unstaged file. it need to reset hard with path. now it is going to staged
@@ -174,9 +173,6 @@ more flag to view and during resize event reset those flags to perform buildup?
 TODO: in branch list please show remote status somehow
 BUG: conflict with file deletion. there are no our conflict!
       
-when swicth repo and stashes is open - they still show stashes from previous repo
-
-
 thread '<unnamed>' panicked at src/git.rs:560:32:
 called `Option::unwrap()` on a `None` value
 !!!!!!!(deleted by us)

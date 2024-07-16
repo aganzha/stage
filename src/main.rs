@@ -321,6 +321,9 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     // but the 'dirty' path will be used first
                     // for querying repo status and investigate real one
                     // see next clause
+                    if split.shows_sidebar() {
+                        split.set_show_sidebar(false);
+                    }
                     status.update_path(path, monitors.clone(), true);
                     txt.grab_focus();
                     status.get_status();
