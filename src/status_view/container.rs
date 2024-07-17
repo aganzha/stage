@@ -608,7 +608,7 @@ impl ViewContainer for Hunk {
         buffer.insert(iter, "Line ");
         buffer.insert(iter, &format!("{}", line_no));
         if !scope.is_empty() {
-            buffer.insert(iter, &format!("in {}", scope));
+            buffer.insert(iter, &format!(" in {}", scope));
         }
     }
 
