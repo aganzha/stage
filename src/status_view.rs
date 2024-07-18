@@ -523,7 +523,6 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
-        // refactor.enrich
         if let Some(current_head) = &self.head {
             head.enrich_view(current_head, &txt.buffer(), context);
         }
