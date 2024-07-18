@@ -525,7 +525,7 @@ impl Status {
     ) {
         // refactor.enrich
         if let Some(current_head) = &self.head {
-            head.enrich_view(current_head, context);
+            head.enrich_view(current_head, &txt.buffer(), context);
         }
         self.head.replace(head);
         self.render(txt, RenderSource::Git, context);
@@ -539,7 +539,7 @@ impl Status {
     ) {
         if let Some(rendered) = &mut self.upstream {
             if let Some(new) = &upstream {
-                new.enrich_view(rendered, context);
+                new.enrich_view(rendered, &txt.buffer(), context);
             } else {
                 rendered.erase(&txt.buffer(), context);
             }
@@ -555,7 +555,7 @@ impl Status {
         context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(current_state) = &self.state {
-            state.enrich_view(current_state, context)
+            state.enrich_view(current_state, &txt.buffer(), context)
         }
         self.state.replace(state);
         self.render(txt, RenderSource::Git, context);
@@ -587,7 +587,7 @@ impl Status {
 
     pub fn update_conflicted<'a>(
         &'a mut self,
-        mut diff: Diff,
+        diff: Diff,
         txt: &StageView,
         window: &ApplicationWindow,
         sender: Sender<Event>,
