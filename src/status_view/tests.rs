@@ -108,16 +108,16 @@ pub fn mock_render_view(vc: &dyn ViewContainer, mut line_no: i32) -> i32 {
     line_no
 }
 
-pub fn mock_render(diff: &mut Diff) -> i32 {
+pub fn mock_render(diff: &Diff) -> i32 {
     let mut line_no: i32 = 0;
-    for file in &mut diff.files {
+    for file in &diff.files {
         line_no = mock_render_view(file, line_no);
     }
     line_no
 }
 // tests
-pub fn cursor(diff: &mut Diff, line_no: i32, ctx: &mut StatusRenderContext) {
-    for (_, file) in diff.files.iter_mut().enumerate() {
+pub fn cursor<'a>(diff: &'a Diff, line_no: i32, ctx: &mut StatusRenderContext<'a>) {
+    for (_, file) in diff.files.iter().enumerate() {
         file.cursor(line_no, false, ctx);
     }
     // some views will be rerenderred cause highlight changes
@@ -130,12 +130,12 @@ pub fn test_file_active() {
     mock_render(&mut diff);
     let mut context = StatusRenderContext::new();
     let mut line_no = (&diff.files[0]).view.line_no.get();
-    cursor(&mut diff, line_no, &mut context);
+    cursor(&diff, line_no, &mut context);
     assert!((&diff.files[0]).view.is_current());
     assert!((&diff.files[0]).view.is_active());
 
     (&diff.files[0]).expand(line_no, &mut context);
-    mock_render(&mut diff);
+    mock_render(&diff);
 
     // cursor is on file and file is expanded
     assert!((&diff.files[0]).view.is_current());
@@ -149,7 +149,7 @@ pub fn test_file_active() {
         }
     }
     line_no += 1;
-    cursor(&mut diff, line_no, &mut context);
+    cursor(&diff, line_no, &mut context);
     assert!(!(&diff.files[0]).view.is_active());
     assert!(diff.files[0].hunks[0].view.is_rendered());
     assert!(diff.files[0].hunks[0].view.is_current());
@@ -168,9 +168,9 @@ pub fn test_expand() {
     let mut context = StatusRenderContext::new();
 
     for cursor_line in 0..3 {
-        cursor(&mut diff, cursor_line, &mut context);
+        cursor(&diff, cursor_line, &mut context);
 
-        for (i, file) in diff.files.iter_mut().enumerate() {
+        for (i, file) in diff.files.iter().enumerate() {
             let view = file.get_view();
             if i as i32 == cursor_line {
                 assert!(view.is_active());
@@ -185,16 +185,16 @@ pub fn test_expand() {
     // last line from prev loop
     // the cursor is on it
     let mut cursor_line = 2;
-    for file in &mut diff.files {
+    for file in &diff.files {
         if let Some(_expanded_line) = file.expand(cursor_line, &mut context) {
             assert!(file.get_view().is_child_dirty());
             break;
         }
     }
 
-    mock_render(&mut diff);
+    mock_render(&diff);
 
-    for (i, file) in diff.files.iter_mut().enumerate() {
+    for (i, file) in diff.files.iter().enumerate() {
         let view = file.get_view();
         if i as i32 == cursor_line {
             assert!(view.is_rendered());
@@ -212,7 +212,7 @@ pub fn test_expand() {
             assert!(!view.is_current());
             assert!(!view.is_active());
             assert!(!view.is_expanded());
-            file.walk_down(&|vc: &dyn ViewContainer| {
+            file.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(!view.is_rendered());
             });
@@ -222,16 +222,16 @@ pub fn test_expand() {
     // go 1 line backward
     // end expand it
     cursor_line = 1;
-    cursor(&mut diff, cursor_line, &mut context);
+    cursor(&diff, cursor_line, &mut context);
 
-    for file in &mut diff.files {
+    for file in &diff.files {
         if let Some(_expanded_line) = file.expand(cursor_line, &mut context) {
             break;
         }
     }
 
-    mock_render(&mut diff);
-    for (i, file) in diff.files.iter_mut().enumerate() {
+    mock_render(&diff);
+    for (i, file) in diff.files.iter().enumerate() {
         let view = file.get_view();
         let j = i as i32;
         if j < cursor_line {
@@ -239,7 +239,7 @@ pub fn test_expand() {
             assert!(!view.is_current());
             assert!(!view.is_active());
             assert!(!view.is_expanded());
-            file.walk_down(&|vc: &dyn ViewContainer| {
+            file.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(!view.is_rendered());
             });
@@ -249,7 +249,7 @@ pub fn test_expand() {
             assert!(view.is_current());
             assert!(view.is_active());
             assert!(view.is_expanded());
-            file.walk_down(&|vc: &dyn ViewContainer| {
+            file.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.is_rendered());
                 assert!(view.is_active());
@@ -261,7 +261,7 @@ pub fn test_expand() {
             assert!(!view.is_current());
             assert!(!view.is_active());
             assert!(view.is_expanded());
-            file.walk_down(&|vc: &dyn ViewContainer| {
+            file.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.is_rendered());
                 assert!(!view.is_active());
@@ -272,8 +272,8 @@ pub fn test_expand() {
 
     // go to first hunk of second file
     cursor_line = 2;
-    cursor(&mut diff, cursor_line, &mut context);
-    for file in &mut diff.files {
+    cursor(&diff, cursor_line, &mut context);
+    for file in &diff.files {
         if let Some(_expanded_line) = file.expand(cursor_line, &mut context) {
             for child in file.get_children() {
                 let view = child.get_view();
@@ -327,9 +327,9 @@ impl ViewContainer for TestViewContainer {
     }
 }
 
-#[test]
+
 fn test_render_view() {
-    initialize();
+    // initialize();
     let buffer = TextBuffer::new(None);
     let mut iter = buffer.iter_at_line(0).unwrap();
     buffer.insert(&mut iter, "begin\n");
@@ -513,6 +513,7 @@ fn test_render_view() {
     // call it here, cause rust creates threads event with --test-threads=1
     // and gtk should be called only from main thread
     test_expand_line();
+    test_render_view();
     test_reconciliation_new();
 }
 
@@ -539,7 +540,7 @@ fn test_expand_line() {
         if i == 0 {
             continue;
         }
-        diff.walk_down(&move |vc: &dyn ViewContainer| {
+        diff.walk_down(&mut move |vc: &dyn ViewContainer| {
             if vc.get_view().line_no.get() == i as i32 {
                 // TODO: get_content!
                 // debug!("{:?} - {:?} = {:?}", i, cl, vc.get_content());
@@ -600,6 +601,7 @@ fn test_expand_line() {
 
 fn test_reconciliation_new() {
     // initialize();
+
     let mut context = StatusRenderContext::new();
     let buffer = TextBuffer::new(None);
     let mut iter = buffer.iter_at_line(0).unwrap();
@@ -635,7 +637,7 @@ fn test_reconciliation_new() {
     }
     iter.set_line(0);
 
-    new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
+    new_file.enrich_view(&rendered_file, &buffer, &mut context);
     debug!("iter over rendered hunks");
     for (i, h) in rendered_file.hunks.iter().enumerate() {
         debug!(
@@ -676,19 +678,21 @@ fn test_reconciliation_new() {
 
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
-    rendered_file.hunks = Vec::new();
+    // what it was?????
+    // let mut rendered_file = create_file("File");
+    // rendered_file.hunks = Vec::new();
 
-    for header in [
-        "@@ -11,7 +11,8 @@ const path = require('path');",
-        "@@ -106,9 +107,9 @@ function getDepsList() {",
-        "@@ -128,7 +129,8 @@ function getDepsList() {",
-    ] {
-        let mut hunk = create_hunk(header);
-        hunk.fill_from_header();
-        rendered_file.hunks.push(hunk);
-    }
-    rendered_file.view.expand(true);
-    rendered_file.render(&buffer, &mut iter, &mut context);
+    // for header in [
+    //     "@@ -11,7 +11,8 @@ const path = require('path');",
+    //     "@@ -106,9 +107,9 @@ function getDepsList() {",
+    //     "@@ -128,7 +129,8 @@ function getDepsList() {",
+    // ] {
+    //     let mut hunk = create_hunk(header);
+    //     hunk.fill_from_header();
+    //     rendered_file.hunks.push(hunk);
+    // }
+    // rendered_file.view.expand(true);
+    // rendered_file.render(&buffer, &mut iter, &mut context);
 
     new_file.hunks = Vec::new();
 
@@ -701,6 +705,7 @@ fn test_reconciliation_new() {
         new_file.hunks.push(hunk);
     }
 
+    let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
 
     for header in [
@@ -717,7 +722,7 @@ fn test_reconciliation_new() {
     rendered_file.view.expand(true);
     rendered_file.render(&buffer, &mut iter, &mut context);
 
-    new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
+    new_file.enrich_view(&rendered_file, &buffer, &mut context);
 
     debug!("iter over rendered hunks");
     for (i, h) in rendered_file.hunks.iter().enumerate() {
@@ -761,7 +766,9 @@ fn test_reconciliation_new() {
     iter = buffer.iter_at_offset(0);
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
+    let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
+
     for header in [
         "@@ -107,9 +107,9 @@ function getDepsList() {",
         "@@ -129,7 +129,8 @@ function getDepsList() {",
@@ -787,7 +794,7 @@ fn test_reconciliation_new() {
         new_file.hunks.push(hunk);
     }
     iter.set_line(0);
-    new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
+    new_file.enrich_view(&rendered_file, &buffer, &mut context);
     debug!("iter over rendered hunks");
     for h in &rendered_file.hunks {
         debug!("all hunks are rendered {}", h.view.repr());
@@ -809,7 +816,9 @@ fn test_reconciliation_new() {
     iter = buffer.iter_at_offset(0);
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
+    let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
+
     for header in [
         "@@ -106,9 +106,9 @@ function getDepsList() {",
         "@@ -128,7 +128,8 @@ function getDepsList() {",
@@ -835,7 +844,7 @@ fn test_reconciliation_new() {
         new_file.hunks.push(hunk);
     }
     iter.set_line(0);
-    new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
+    new_file.enrich_view(&rendered_file, &buffer, &mut context);
     debug!("iter over rendered hunks");
     for h in &rendered_file.hunks {
         debug!("all hunks are rendered {}", h.view.repr());
@@ -857,7 +866,9 @@ fn test_reconciliation_new() {
     iter = buffer.iter_at_offset(0);
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
+    let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
+
     let mut hunk = create_hunk("@@ -1876,7 +1897,8 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):");
     hunk.fill_from_header();
     rendered_file.hunks.push(hunk);
@@ -872,7 +883,7 @@ fn test_reconciliation_new() {
     hunk.fill_from_header();
     new_file.hunks.push(hunk);
     iter.set_line(0);
-    new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
+    new_file.enrich_view(&rendered_file, &buffer, &mut context);
     assert!(rendered_file.hunks[0].view.is_rendered());
     assert!(new_file.hunks[0].view.is_transfered());
     for line in &new_file.hunks[0].lines {
@@ -885,7 +896,9 @@ fn test_reconciliation_new() {
     iter = buffer.iter_at_offset(0);
     buffer.delete(&mut iter, &mut buffer.end_iter());
 
+    let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
+
     let mut hunk = create_hunk("@@ -687,7 +705,9 @@ class ServiceWorkPostprocess:");
     hunk.fill_from_header();
     rendered_file.hunks.push(hunk);
@@ -900,7 +913,7 @@ fn test_reconciliation_new() {
     hunk.fill_from_header();
     new_file.hunks.push(hunk);
     iter.set_line(0);
-    new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
+    new_file.enrich_view(&rendered_file, &buffer, &mut context);
     assert!(rendered_file.hunks[0].view.is_rendered());
     assert!(new_file.hunks[0].view.is_transfered());
     for line in &new_file.hunks[0].lines {
