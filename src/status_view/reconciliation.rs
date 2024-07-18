@@ -361,9 +361,9 @@ impl Untracked {
 }
 
 impl State {
-    fn enrich_view(
+    pub fn enrich_view(
         &self,
-        rendered: &Hunk,
+        rendered: &State,
         _buffer: &TextBuffer,
         _context: &mut crate::StatusRenderContext,
     ) {
@@ -374,9 +374,9 @@ impl State {
 }
 
 impl Head {
-    fn enrich_view(
+    pub fn enrich_view(
         &self,
-        rendered: &Hunk,
+        rendered: &Head,
         _buffer: &TextBuffer,
         _context: &mut crate::StatusRenderContext,
     ) {
