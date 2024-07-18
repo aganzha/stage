@@ -262,12 +262,12 @@ impl ViewContainer for MultiLineLabel {
 }
 
 impl commit::CommitDiff {
-    fn render(
-        &mut self,
+    fn render<'a>(
+        &'a mut self,
         txt: &StageView,
-        ctx: &mut StatusRenderContext,
-        labels: &mut [TextViewLabel],
-        obody_label: &mut Option<MultiLineLabel>,
+        ctx: &mut StatusRenderContext<'a>,
+        labels: &'a mut [TextViewLabel],
+        body_label: &'a mut MultiLineLabel,
     ) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
@@ -275,14 +275,14 @@ impl commit::CommitDiff {
         for l in labels {
             l.render(&buffer, &mut iter, ctx)
         }
-        let offset_before_erase = iter.offset();
-        let mut body_label = {
-            if obody_label.is_none() {
-                MultiLineLabel::new(&self.message, ctx)
-            } else {
-                obody_label.take().unwrap()
-            }
-        };
+        let offset_before_erase = iter.offset();        
+        // let mut body_label = {
+        //     if obody_label.is_none() {
+        //         MultiLineLabel::new(&self.message, ctx)
+        //     } else {
+        //         obody_label.take().unwrap()
+        //     }
+        // };
         for l in &mut body_label.labels {
             l.erase(&buffer, ctx);
         }
@@ -301,7 +301,7 @@ impl commit::CommitDiff {
                 .unwrap();
             buffer.place_cursor(&iter);
         }
-        obody_label.replace(body_label);
+        // obody_label.replace(body_label);
     }
 }
 
@@ -424,12 +424,12 @@ pub fn show_commit_window(
                     if !commit_diff.diff.files.is_empty() {
                         commit_diff.diff.files[0].view.make_current(true);
                     }
-                    // let mut body_label = MultiLineLabel::new("", &mut ctx);
+                    body_label.replace(MultiLineLabel::new("", &mut ctx));
                     commit_diff.render(
                         &txt,
                         &mut ctx,
                         &mut labels,
-                        &mut body_label,
+                        body_label.as_mut().unwrap(),
                     );
                     txt.bind_highlights(&ctx);
                     diff.replace(commit_diff);
@@ -481,7 +481,7 @@ pub fn show_commit_window(
                     info!("TextCharVisibleWidth {}", w);
                     ctx.screen_width.replace(text_view_width.clone());
                     if let Some(d) = &mut diff {
-                        d.render(&txt, &mut ctx, &mut labels, &mut body_label);
+                        d.render(&txt, &mut ctx, &mut labels, body_label.as_mut().unwrap());
                     }
                 }
                 Event::Stage(_, _)

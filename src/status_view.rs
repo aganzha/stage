@@ -517,29 +517,28 @@ impl Status {
         );
     }
 
-    pub fn update_head(
-        &mut self,
-        mut head: Head,
+    pub fn update_head<'a>(
+        &'a mut self,
+        head: Head,
         txt: &StageView,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
-        // refactor.enrich
         if let Some(current_head) = &self.head {
-            head.enrich_view(current_head);
+            head.enrich_view(current_head, &txt.buffer(), context);
         }
         self.head.replace(head);
         self.render(txt, RenderSource::Git, context);
     }
 
-    pub fn update_upstream(
-        &mut self,
-        mut upstream: Option<Head>,
+    pub fn update_upstream<'a>(
+        &'a mut self,
+        upstream: Option<Head>,
         txt: &StageView,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(rendered) = &mut self.upstream {
-            if let Some(new) = upstream.as_mut() {
-                new.enrich_view(rendered);
+            if let Some(new) = &upstream {
+                new.enrich_view(rendered, &txt.buffer(), context);
             } else {
                 rendered.erase(&txt.buffer(), context);
             }
@@ -548,24 +547,24 @@ impl Status {
         self.render(txt, RenderSource::Git, context);
     }
 
-    pub fn update_state(
-        &mut self,
-        mut state: State,
+    pub fn update_state<'a>(
+        &'a mut self,
+        state: State,
         txt: &StageView,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(current_state) = &self.state {
-            state.enrich_view(current_state)
+            state.enrich_view(current_state, &txt.buffer(), context)
         }
         self.state.replace(state);
         self.render(txt, RenderSource::Git, context);
     }
 
-    pub fn update_untracked(
-        &mut self,
+    pub fn update_untracked<'a>(
+        &'a mut self,
         mut untracked: Untracked,
         txt: &StageView,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         let mut settings =
             self.settings.get::<HashMap<String, Vec<String>>>("ignored");
@@ -585,16 +584,16 @@ impl Status {
         self.render(txt, RenderSource::Git, context);
     }
 
-    pub fn update_conflicted(
-        &mut self,
-        mut diff: Diff,
+    pub fn update_conflicted<'a>(
+        &'a mut self,
+        diff: Diff,
         txt: &StageView,
         window: &ApplicationWindow,
         sender: Sender<Event>,
         banner: &Banner,
         banner_button: &Widget,
         banner_button_clicked: Rc<RefCell<Option<SignalHandlerId>>>,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         if !diff.is_empty()
             && !diff.has_conflicts()
@@ -719,11 +718,11 @@ impl Status {
         self.render(txt, RenderSource::Git, context);
     }
 
-    pub fn update_staged(
-        &mut self,
-        mut diff: Diff,
+    pub fn update_staged<'a>(
+        &'a mut self,
+        diff: Diff,
         txt: &StageView,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(s) = &mut self.staged {
             // DiffDirection is required here to choose which lines to
@@ -737,11 +736,11 @@ impl Status {
         self.render(txt, RenderSource::GitDiff, context);
     }
 
-    pub fn update_unstaged(
-        &mut self,
-        mut diff: Diff,
+    pub fn update_unstaged<'a>(
+        &'a mut self,
+        diff: Diff,
         txt: &StageView,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         let buffer = &txt.buffer();
 
@@ -754,19 +753,23 @@ impl Status {
         self.render(txt, RenderSource::GitDiff, context);
     }
 
-    pub fn resize_highlights(
-        &self,
+    pub fn resize_highlights<'a>(
+        &'a self,
         txt: &StageView,
-        ctx: &mut StatusRenderContext,
+        ctx: &mut StatusRenderContext<'a>,
     ) {
         let buffer = txt.buffer();
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         self.cursor(txt, iter.line(), iter.offset(), ctx);
+        // TODO restore
         glib::source::timeout_add_local(Duration::from_millis(10), {
             let txt = txt.clone();
-            let ctx = ctx.clone();
+            let mut context = StatusRenderContext::new();
+            context.highlight_cursor = ctx.highlight_cursor;
+            context.highlight_lines = ctx.highlight_lines;
+            context.highlight_hunks = ctx.highlight_hunks.clone();
             move || {
-                txt.bind_highlights(&ctx);
+                txt.bind_highlights(&context);
                 glib::ControlFlow::Break
             }
         });
@@ -774,12 +777,12 @@ impl Status {
 
     /// cursor does not change structure, but changes highlights
     /// it will collect highlights in context. no need further render
-    pub fn cursor(
-        &self,
+    pub fn cursor<'a>(
+        &'a self,
         txt: &StageView,
         line_no: i32,
         _offset: i32,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) -> bool {
         // this is actually needed for views which are not implemented
         // ViewContainer, and does not affect context!
@@ -805,12 +808,12 @@ impl Status {
     }
 
     // Status
-    pub fn expand(
-        &self,
+    pub fn expand<'a>(
+        &'a self,
         txt: &StageView,
         line_no: i32,
         _offset: i32,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(conflicted) = &self.conflicted {
             if let Some(expanded_line) = conflicted.expand(line_no, context) {
@@ -832,11 +835,11 @@ impl Status {
         }
     }
 
-    pub fn render(
-        &self,
+    pub fn render<'a>(
+        &'a self,
         txt: &StageView,
         source: RenderSource,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         let buffer = txt.buffer();
         let initial_line_offset = buffer
@@ -974,12 +977,12 @@ impl Status {
         iter
     }
 
-    pub fn ignore(
-        &mut self,
+    pub fn ignore<'a>(
+        &'a mut self,
         txt: &StageView,
         line_no: i32,
         _offset: i32,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(untracked) = &self.untracked {
             for file in &untracked.files {
@@ -1200,10 +1203,10 @@ impl Status {
         }
         false
     }
-    pub fn dump(
-        &mut self,
+    pub fn dump<'a>(
+        &'a mut self,
         txt: &StageView,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         let mut path = self.path.clone().unwrap();
         path.push(DUMP_DIR);
@@ -1264,10 +1267,10 @@ impl Status {
         self.head.as_ref().unwrap().oid
     }
 
-    pub fn debug(
-        &mut self,
+    pub fn debug<'a>(
+        &'a mut self,
         txt: &StageView,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         let buffer = txt.buffer();
         self.render(txt, RenderSource::Git, context);

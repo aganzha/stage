@@ -15,11 +15,12 @@ pub const MAX_LINES: i32 = 50000;
 impl Line {
     // line
     pub fn enrich_view(
-        &mut self,
+        &self,        
         rendered: &Line,
+        _buffer: &TextBuffer,
         _context: &mut crate::StatusRenderContext,
     ) {
-        self.view = rendered.transfer_view();
+        self.adopt_view(&rendered.view);        
         if self.content != rendered.content || self.origin != rendered.origin {
             trace!("mark dirty while enrich view in line");
             self.view.dirty(true);
@@ -32,44 +33,31 @@ impl Line {
             )
         }
     }
-    // line
-    pub fn transfer_view(&self) -> View {
-        let clone = self.view.clone();
-        clone.transfer(true);
-        clone
-    }
 }
 
 impl Hunk {
-    // Hunk
-    pub fn transfer_view(&self) -> View {
-        let clone = self.view.clone();
-        // hunk headers are changing always
-        // during partial staging
-        trace!("mark dirty 2. HUNK");
-        clone.dirty(true);
-        clone.transfer(true);
-        clone
-    }
-
+   
     // Hunk.
     pub fn enrich_view(
-        &mut self,
-        rendered: &mut Hunk,
+        &self,
+        rendered: &Hunk,
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) {
-        self.view = rendered.transfer_view();
+        self.adopt_view(&rendered.view);
+        if self.header != rendered.header {
+            self.view.dirty(true);
+        }
         if !self.view.is_expanded() {
             return;
         }
         let mut last_rendered = 0;
         self.lines
-            .iter_mut()
-            .zip(rendered.lines.iter_mut())
-            .for_each(&mut |lines: (&mut Line, &mut Line)| {
+            .iter()
+            .zip(rendered.lines.iter())
+            .for_each(|lines: (&Line, &Line)| {
                 trace!("zip on lines {:?} {:?}", context, lines);
-                lines.0.enrich_view(lines.1, context);
+                lines.0.enrich_view(lines.1, buffer, context);
                 last_rendered += 1;
             });
         if rendered.lines.len() > last_rendered {
@@ -85,12 +73,12 @@ impl Hunk {
 
 impl File {
     pub fn enrich_view(
-        &mut self,
-        rendered: &mut File,
+        &self,
+        rendered: &File,
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) {
-        self.view = rendered.transfer_view();
+        self.adopt_view(&rendered.view);
         if !self.view.is_expanded() {
             return;
         }
@@ -177,7 +165,7 @@ impl File {
             if in_new == self.hunks.len() {
                 trace!("new hunks are over!");
                 loop {
-                    let rndrd = &mut rendered.hunks[in_rendered];
+                    let rndrd = &rendered.hunks[in_rendered];
                     rndrd.erase(buffer, context);
                     in_rendered += 1;
                     if in_rendered == rendered.hunks.len() {
@@ -186,8 +174,8 @@ impl File {
                 }
                 break;
             }
-            let rendered = &mut rendered.hunks[in_rendered];
-            let new = &mut self.hunks[in_new];
+            let rendered = &rendered.hunks[in_rendered];
+            let new = &self.hunks[in_new];
             if rendered_delta != 0 {
                 trace!("A.....has rendered delta");
                 // rendered was erased
@@ -300,18 +288,12 @@ impl File {
         }
     }
 
-    // // File
-    pub fn transfer_view(&self) -> View {
-        let clone = self.view.clone();
-        clone.transfer(true);
-        clone
-    }
 }
 
 impl Diff {
     pub fn enrich_view(
-        &mut self,
-        rendered: &mut Diff,
+        &self,
+        rendered: &Diff,
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) {
@@ -323,8 +305,8 @@ impl Diff {
                rendered.files.len(),
         );
         let mut replaces_by_new = HashSet::new();
-        for file in &mut self.files {
-            for of in &mut rendered.files {
+        for file in &self.files {
+            for of in &rendered.files {
                 if file.path == of.path {
                     file.enrich_view(of, buffer, context);
                     replaces_by_new.insert(file.path.clone());
@@ -335,7 +317,7 @@ impl Diff {
         trace!("before erasing files. replaced by new {:?} for total files count: {:?}", replaces_by_new, rendered.files.len());
         rendered
             .files
-            .iter_mut()
+            .iter()
             .filter(|f| !replaces_by_new.contains(&f.path))
             .for_each(|f| {
                 trace!(
@@ -347,41 +329,26 @@ impl Diff {
     }
 }
 
-impl UntrackedFile {
-    pub fn enrich_view(
-        &mut self,
-        rendered: &UntrackedFile,
-        _context: &mut crate::StatusRenderContext,
-    ) {
-        self.view = rendered.transfer_view();
-    }
-
-    pub fn transfer_view(&self) -> View {
-        let clone = self.view.clone();
-        clone.transfer(true);
-        clone
-    }
-}
 
 impl Untracked {
     pub fn enrich_view(
-        &mut self,
-        rendered: &mut Untracked,
+        &self,
+        rendered: &Untracked,
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) {
         let mut replaces_by_new = HashSet::new();
-        for file in &mut self.files {
-            for of in &mut rendered.files {
+        for file in &self.files {
+            for of in &rendered.files {
                 if file.path == of.path {
-                    file.enrich_view(of, context);
+                    file.enrich_view(of, buffer, context);
                     replaces_by_new.insert(file.path.clone());
                 }
             }
         }
         rendered
             .files
-            .iter_mut()
+            .iter()
             .filter(|f| !replaces_by_new.contains(&f.path))
             .for_each(|f| {
                 trace!(
@@ -393,31 +360,28 @@ impl Untracked {
     }
 }
 
-impl Head {
-    // head
-    pub fn enrich_view(&mut self, rendered: &Head) {
-        self.view = rendered.transfer_view();
-    }
-    // head
-    pub fn transfer_view(&self) -> View {
-        let clone = self.view.clone();
-        clone.transfer(true);
-        clone.dirty(true);
-        clone
+impl State {
+    pub fn enrich_view(
+        &self,
+        rendered: &State,
+        _buffer: &TextBuffer,
+        _context: &mut crate::StatusRenderContext,
+    ) {
+        self.adopt_view(&rendered.view);
+        // always dirty if updated!
+        self.view.dirty(true);
     }
 }
 
-impl State {
-    // state
-    pub fn enrich_view(&mut self, rendered: &Self) {
-        self.view = rendered.transfer_view();
-        self.view.squash(self.state == RepositoryState::Clean);
-    }
-    // state
-    pub fn transfer_view(&self) -> View {
-        let clone = self.view.clone();
-        clone.transfer(true);
-        clone.dirty(true);
-        clone
+impl Head {
+    pub fn enrich_view(
+        &self,
+        rendered: &Head,
+        _buffer: &TextBuffer,
+        _context: &mut crate::StatusRenderContext,
+    ) {
+        self.adopt_view(&rendered.view);
+        // always dirty if updated!
+        self.view.dirty(true);
     }
 }

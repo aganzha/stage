@@ -13,7 +13,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::trace;
+use log::{trace, debug};
 use std::path::PathBuf;
 
 pub fn make_tag(name: &str) -> tags::TxtTag {
@@ -42,9 +42,30 @@ pub trait ViewContainer {
 
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer);
 
+    fn get_content(&self) -> String {
+        String::from("unknown")
+    }
+
+    fn adopt_view(&self, other_rendered_view: &View) {
+        let view = self.get_view();
+        view.line_no.replace(other_rendered_view.line_no.get());
+        view.flags.replace(other_rendered_view.flags.get());
+        view.tag_indexes.replace(other_rendered_view.tag_indexes.get());
+        view.transfer(true);
+    }
+
+    fn enrich_view(
+        &self,
+        rendered: &dyn ViewContainer,
+        _buffer: &TextBuffer,
+        _context: &mut crate::StatusRenderContext,
+    ) {
+        self.adopt_view(&rendered.get_view());
+    }
+
     // TODO - return bool and stop iteration when false
     // visitor takes child as first arg and parent as second arg
-    fn walk_down(&self, visitor: &dyn Fn(&dyn ViewContainer)) {
+    fn walk_down(&self, visitor: &mut dyn FnMut(&dyn ViewContainer)) {
         for child in self.get_children() {
             visitor(child);
             child.walk_down(visitor);
@@ -55,7 +76,10 @@ pub trait ViewContainer {
         Vec::new()
     }
 
-    fn fill_context(&self, ctx: &mut StatusRenderContext) {
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    }
+    
+    fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         let view = self.get_view();
         if view.is_current() {
             ctx.highlight_cursor = view.line_no.get();
@@ -111,29 +135,30 @@ pub trait ViewContainer {
         }
     }
 
-    fn apply_tags(
-        &self,
+    fn apply_tags<'a>(
+        &'a self,
         buffer: &TextBuffer,
-        content_tags: &Vec<tags::TxtTag>,
+        context: &mut StatusRenderContext<'a>,
     ) {
         if self.is_empty() {
             // TAGS BECOME BROKEN ON EMPTY LINES!
             return;
         }
-        for t in content_tags {
+        for t in &self.tags() {
             self.add_tag(buffer, t);
         }
     }
 
     // ViewContainer
-    fn render(
-        &self,
+    fn render<'a>(
+        &'a self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
-        let tags = self.tags();
 
+        self.prepare_context(context);
+        
         // render_in_textview +++++++++++++++++++++++++++++++++++++++++++
         let line_no = iter.line();
         let view = self.get_view();
@@ -153,11 +178,11 @@ pub trait ViewContainer {
                 view.line_no.replace(line_no);
                 view.render(true);
 
-                self.apply_tags(buffer, &tags);
+                self.apply_tags(buffer, context);
             }
             ViewState::TagsModified => {
                 trace!("..render MATCH TagsModified {:?}", line_no);
-                self.apply_tags(buffer, &tags);
+                self.apply_tags(buffer, context);
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
                 }
@@ -170,16 +195,6 @@ pub trait ViewContainer {
                 buffer.delete(iter, &mut nel_iter);
                 view.render(false);
                 view.cleanup_tags();
-
-                if let Some(ec) = context.erase_counter {
-                    context.erase_counter.replace(ec + 1);
-                } else {
-                    context.erase_counter.replace(1);
-                }
-                trace!(
-                    ">>>>>>>>>>>>>>>>>>>> just erased line. context {:?}",
-                    context
-                );
             }
             ViewState::UpdatedFromGit(l) => {
                 trace!(".. render MATCH UpdatedFromGit {:?}", l);
@@ -196,8 +211,7 @@ pub trait ViewContainer {
                 }
                 view.cleanup_tags();
                 self.write_content(iter, buffer);
-
-                self.apply_tags(buffer, &tags);
+                self.apply_tags(buffer, context);
 
                 self.force_forward(buffer, iter);
             }
@@ -234,12 +248,13 @@ pub trait ViewContainer {
 
     // ViewContainer
     /// returns if view is changed during cursor move
-    fn cursor(
-        &self,
+    fn cursor<'a>(
+        &'a self,
         line_no: i32,
         parent_active: bool,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) -> bool {
+        self.prepare_context(context);
         let mut result = false;
         let view = self.get_view();
 
@@ -344,7 +359,7 @@ pub trait ViewContainer {
             view.expand(!view.is_expanded());
             view.child_dirty(true);
             let expanded = view.is_expanded();
-            self.walk_down(&|vc: &dyn ViewContainer| {
+            self.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 if expanded {
                     view.squash(false);
@@ -373,9 +388,7 @@ pub trait ViewContainer {
         false
     }
 
-    // ViewContainer
     fn erase(&self, buffer: &TextBuffer, context: &mut StatusRenderContext) {
-        // return;
         // CAUTION. ATTENTION. IMPORTANT
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         // after this operation all prev iters bevome INVALID!
@@ -385,56 +398,48 @@ pub trait ViewContainer {
         // unchaged. means it used to be called just
         // before replacing data in status struct.
         // CAUTION. ATTENTION. IMPORTANT
-        // if 1 view is rendered - it is ok.
-        // next render on Status struct will shift all views.
-        // But when erease multiple view in loop, all rest views
-        // in loop must be shifted manually!
-        // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-        // during render the cursor moves down or become
-        // unchanged in case of erasing (RenderedAndMarkedAsSquashed)
-        // here we have only erase loop. cursor will be always
-        // on same place, means it need to decrement view.line_no
-        // by amount of deleted lines. thats why i need erase_counter.
-        // but how to count, if erasing is recursive? it need to pass
-        // it to render itself! means each render must receives context.
-        // hm. how to avoid it? lets not avoid it. lets try to pass it,
-        // and also put there prev_line length!
+
+        let view = self.get_view();
+        if !view.is_rendered() {
+            return;
+        }
 
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         let initial_line_offset = iter.line_offset();
 
         let view = self.get_view();
-        trace!(
-            "erasing {:?} at line {}",
-            self.get_kind(),
-            view.line_no.get()
+
+        // let mut line_no = view.line_no.get();
+        let line_no = view.line_no.get() - context.erase_counter;        
+        let mut iter = buffer.iter_at_line(line_no).unwrap();
+        let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+        nel_iter.forward_lines(1);
+        debug!(
+            "....erasing {:?} cnt {:?}",
+            self.get_content(),
+            context.erase_counter
         );
-        let mut line_no = view.line_no.get();
-        // trace!("original line_no {:?}", line_no);
-        // let original_line_no = view.line_no.get();
-
-        if let Some(ec) = context.erase_counter {
-            trace!("erase counter {:?}", ec);
-            line_no -= ec;
+        buffer.delete(&mut iter, &mut nel_iter);
+        context.erase_counter += 1;
+        if view.is_expanded() {
+            self.walk_down(&mut |vc: &dyn ViewContainer| {
+                let view = vc.get_view();
+                let line_no = view.line_no.get() - context.erase_counter;
+                let mut iter = buffer.iter_at_line(line_no).unwrap();
+                let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+                nel_iter.forward_lines(1);
+                debug!(
+                    "....erasing {:?} cnt {:?}",
+                    vc.get_content(),
+                    context.erase_counter
+                );
+                buffer.delete(&mut iter, &mut nel_iter);
+                context.erase_counter += 1;
+            });
         }
-
-        view.squash(true);
-        view.child_dirty(true);
-        self.walk_down(&|vc: &dyn ViewContainer| {
-            let view = vc.get_view();
-            view.squash(true);
-            view.child_dirty(true);
-        });
-        // GOT BUG HERE DURING STAGING SAME FILES!
-        // trace!("line finally {:?}", line_no);
-        if let Some(mut iter) = buffer.iter_at_line(line_no) {
-            self.render(buffer, &mut iter, context);
-        } else {
-            // todo - get all the buffer and write it to file completelly
-            panic!("no line at the end of erase!!!!!!!!! {}", line_no);
-        }
+        
         cursor_to_line_offset(buffer, initial_line_offset);
-    }
+    }    
 }
 
 impl ViewContainer for Diff {
@@ -460,11 +465,11 @@ impl ViewContainer for Diff {
     }
 
     // diff
-    fn cursor(
-        &self,
+    fn cursor<'a>(
+        &'a self,
         line_no: i32,
         parent_active: bool,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) -> bool {
         if self.kind == DiffKind::Conflicted && !self.has_conflicts() {
             // when all conflicts are resolved, Conflicted
@@ -482,11 +487,11 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn render(
-        &self,
+    fn render<'a>(
+        &'a self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         // why do i need it at all?
         self.view.line_no.replace(iter.line());
@@ -540,6 +545,11 @@ impl ViewContainer for File {
         &self.view
     }
 
+    fn get_content(&self) -> String {
+        String::from(format!("file: {:?} at line {:?}", self.path, self.view.line_no.get()))
+    }
+    
+    // File
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
         if self.status == git2::Delta::Deleted {
             buffer.insert(iter, "- ");
@@ -598,6 +608,10 @@ impl ViewContainer for Hunk {
         ViewKind::Hunk
     }
 
+    fn get_content(&self) -> String {
+        String::from(format!("hunk: {:?} at line {:?}", self.header, self.view.line_no.get()))
+    }
+    // Hunk
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
         let parts: Vec<&str> = self.header.split("@@").collect();
         let line_no = match self.kind {
@@ -630,7 +644,12 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
-    fn fill_context(&self, ctx: &mut StatusRenderContext) {
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+        ctx.current_hunk = Some(self);
+    }
+    
+    // Hunk
+    fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         if self.view.is_current() {
             ctx.highlight_cursor = self.view.line_no.get();
         }
@@ -667,6 +686,11 @@ impl ViewContainer for Hunk {
     fn is_expandable_by_child(&self) -> bool {
         true
     }
+
+    fn fill_under_cursor(&self, context: &mut StatusRenderContext) {    
+        context.under_cursor_hunk(&self);
+    }
+
 }
 
 impl ViewContainer for Line {
@@ -690,6 +714,10 @@ impl ViewContainer for Line {
         Vec::new()
     }
 
+    fn get_content(&self) -> String {
+        String::from(format!("Line: {:?} at line {:?}", self.content, self.view.line_no.get()))
+    }
+    
     // Line
     fn fill_context(&self, ctx: &mut StatusRenderContext) {
         if self.view.is_current() {
@@ -775,6 +803,34 @@ impl ViewContainer for Line {
                 vec![make_tag(tags::REMOVED)]
             }
             _ => Vec::new(),
+        }
+    }
+
+    // fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {        
+    //     // default implementation
+    //     let view = self.get_view();
+    //     if !view.tag_is_added(tag) {
+    //         let (start_iter, end_iter) =
+    //             self.start_end_iters(buffer, view.line_no.get());
+    //         buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
+    //         view.tag_added(tag);
+    //     }
+    //     if self.origin == DiffLineType::Addition {
+    //         // get old version of self.
+    //         // if has spaces - add background tag 
+    //     }
+    // }
+    fn apply_tags<'a>(
+        &'a self,
+        buffer: &TextBuffer,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        if self.is_empty() {
+            // TAGS BECOME BROKEN ON EMPTY LINES!
+            return;
+        }
+        for t in &self.tags() {
+            self.add_tag(buffer, t);
         }
     }
 }
@@ -981,11 +1037,11 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked
-    fn render(
-        &self,
+    fn render<'a>(
+        &'a self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) {
         self.view.line_no.replace(iter.line());
         for file in &self.files {
@@ -994,11 +1050,11 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked
-    fn cursor(
-        &self,
+    fn cursor<'a>(
+        &'a self,
         line_no: i32,
         parent_active: bool,
-        context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext<'a>,
     ) -> bool {
         let mut result = false;
         for file in &self.files {
