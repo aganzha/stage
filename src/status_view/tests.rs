@@ -212,7 +212,7 @@ pub fn test_expand() {
             assert!(!view.is_current());
             assert!(!view.is_active());
             assert!(!view.is_expanded());
-            file.walk_down(&|vc: &dyn ViewContainer| {
+            file.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(!view.is_rendered());
             });
@@ -239,7 +239,7 @@ pub fn test_expand() {
             assert!(!view.is_current());
             assert!(!view.is_active());
             assert!(!view.is_expanded());
-            file.walk_down(&|vc: &dyn ViewContainer| {
+            file.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(!view.is_rendered());
             });
@@ -249,7 +249,7 @@ pub fn test_expand() {
             assert!(view.is_current());
             assert!(view.is_active());
             assert!(view.is_expanded());
-            file.walk_down(&|vc: &dyn ViewContainer| {
+            file.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.is_rendered());
                 assert!(view.is_active());
@@ -261,7 +261,7 @@ pub fn test_expand() {
             assert!(!view.is_current());
             assert!(!view.is_active());
             assert!(view.is_expanded());
-            file.walk_down(&|vc: &dyn ViewContainer| {
+            file.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 assert!(view.is_rendered());
                 assert!(!view.is_active());
@@ -540,7 +540,7 @@ fn test_expand_line() {
         if i == 0 {
             continue;
         }
-        diff.walk_down(&move |vc: &dyn ViewContainer| {
+        diff.walk_down(&mut move |vc: &dyn ViewContainer| {
             if vc.get_view().line_no.get() == i as i32 {
                 // TODO: get_content!
                 // debug!("{:?} - {:?} = {:?}", i, cl, vc.get_content());
