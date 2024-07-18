@@ -636,7 +636,7 @@ fn test_reconciliation_new() {
     }
     iter.set_line(0);
 
-    new_file.enrich_view(&mut rendered_file, &buffer, &mut context);
+    new_file.enrich_view(&rendered_file, &buffer, &mut context);
     debug!("iter over rendered hunks");
     for (i, h) in rendered_file.hunks.iter().enumerate() {
         debug!(

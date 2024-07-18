@@ -519,13 +519,13 @@ impl Status {
 
     pub fn update_head<'a>(
         &'a mut self,
-        mut head: Head,
+        head: Head,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
         // refactor.enrich
         if let Some(current_head) = &self.head {
-            head.enrich_view(current_head);
+            head.enrich_view(current_head, context);
         }
         self.head.replace(head);
         self.render(txt, RenderSource::Git, context);
@@ -533,13 +533,13 @@ impl Status {
 
     pub fn update_upstream<'a>(
         &'a mut self,
-        mut upstream: Option<Head>,
+        upstream: Option<Head>,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(rendered) = &mut self.upstream {
-            if let Some(new) = upstream.as_mut() {
-                new.enrich_view(rendered);
+            if let Some(new) = &upstream {
+                new.enrich_view(rendered, context);
             } else {
                 rendered.erase(&txt.buffer(), context);
             }
@@ -550,12 +550,12 @@ impl Status {
 
     pub fn update_state<'a>(
         &'a mut self,
-        mut state: State,
+        state: State,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(current_state) = &self.state {
-            state.enrich_view(current_state)
+            state.enrich_view(current_state, context)
         }
         self.state.replace(state);
         self.render(txt, RenderSource::Git, context);

@@ -42,6 +42,23 @@ pub trait ViewContainer {
 
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer);
 
+
+    fn adopt_view(&self, other_rendered_view: &View) {
+        let view = self.get_view();
+        view.line_no.replace(other_rendered_view.line_no.get());
+        view.flags.replace(other_rendered_view.flags.get());
+        view.tag_indexes.replace(other_rendered_view.tag_indexes.get());
+        view.transfer(true);
+    }
+
+    fn enrich_view(
+        &self,
+        rendered: &dyn ViewContainer,
+        _context: &mut crate::StatusRenderContext,
+    ) {
+        self.adopt_view(&rendered.get_view());
+    }
+
     // TODO - return bool and stop iteration when false
     // visitor takes child as first arg and parent as second arg
     fn walk_down(&self, visitor: &dyn Fn(&dyn ViewContainer)) {
