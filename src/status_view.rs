@@ -19,7 +19,7 @@ use git2::RepositoryState;
 use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
-// pub mod tests;
+pub mod tests;
 pub mod view_state;
 
 use std::cell::RefCell;
