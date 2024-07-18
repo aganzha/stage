@@ -31,7 +31,7 @@ pub struct TextViewWidth {
 
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
-    pub erase_counter: Option<i32>,
+    pub erase_counter: i32,
     /// diff_kind is used by reconcilation
     /// it just passes DiffKind down to hunks
     /// and lines
@@ -57,7 +57,7 @@ impl StatusRenderContext<'_> {
     pub fn new() -> Self {
         {
             Self {
-                erase_counter: None,
+                erase_counter: 0,
                 diff_kind: None,
                 max_len: None,
                 under_cursor: UnderCursor::None,

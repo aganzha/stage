@@ -42,6 +42,9 @@ pub trait ViewContainer {
 
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer);
 
+    fn get_content(&self) -> String {
+        String::from("unknown")
+    }
 
     fn adopt_view(&self, other_rendered_view: &View) {
         let view = self.get_view();
@@ -192,16 +195,6 @@ pub trait ViewContainer {
                 buffer.delete(iter, &mut nel_iter);
                 view.render(false);
                 view.cleanup_tags();
-
-                if let Some(ec) = context.erase_counter {
-                    context.erase_counter.replace(ec + 1);
-                } else {
-                    context.erase_counter.replace(1);
-                }
-                trace!(
-                    ">>>>>>>>>>>>>>>>>>>> just erased line. context {:?}",
-                    context
-                );
             }
             ViewState::UpdatedFromGit(l) => {
                 trace!(".. render MATCH UpdatedFromGit {:?}", l);
@@ -415,97 +408,38 @@ pub trait ViewContainer {
         let initial_line_offset = iter.line_offset();
 
         let view = self.get_view();
-        debug!(
-            "erasing {:?} at line {}",
-            self.get_kind(),
-            view.line_no.get()
-        );
-        // let mut line_no = view.line_no.get();
 
-        let mut iter = buffer.iter_at_line(view.line_no.get()).unwrap();
+        // let mut line_no = view.line_no.get();
+        let line_no = view.line_no.get() - context.erase_counter;        
+        let mut iter = buffer.iter_at_line(line_no).unwrap();
         let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
         nel_iter.forward_lines(1);
+        debug!(
+            "....erasing {:?} cnt {:?}",
+            self.get_content(),
+            context.erase_counter
+        );
         buffer.delete(&mut iter, &mut nel_iter);
-
+        context.erase_counter += 1;
         if view.is_expanded() {
-            let mut cnt = 1;
             self.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
-                let line_no = view.line_no.get() - cnt;
+                let line_no = view.line_no.get() - context.erase_counter;
                 let mut iter = buffer.iter_at_line(line_no).unwrap();
                 let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
                 nel_iter.forward_lines(1);
+                debug!(
+                    "....erasing {:?} cnt {:?}",
+                    vc.get_content(),
+                    context.erase_counter
+                );
                 buffer.delete(&mut iter, &mut nel_iter);
-                cnt += 1;
+                context.erase_counter += 1;
             });
         }
         
         cursor_to_line_offset(buffer, initial_line_offset);
-    }
-    
-    // ViewContainer
-    fn erase_old(&self, buffer: &TextBuffer, context: &mut StatusRenderContext) {
-        // return;
-        // CAUTION. ATTENTION. IMPORTANT
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // after this operation all prev iters bevome INVALID!
-        // it need to reobtain them!
-
-        // this ONLY rendering. the data remains
-        // unchaged. means it used to be called just
-        // before replacing data in status struct.
-        // CAUTION. ATTENTION. IMPORTANT
-        // if 1 view is rendered - it is ok.
-        // next render on Status struct will shift all views.
-        // But when erease multiple view in loop, all rest views
-        // in loop must be shifted manually!
-        // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-        // during render the cursor moves down or become
-        // unchanged in case of erasing (RenderedAndMarkedAsSquashed)
-        // here we have only erase loop. cursor will be always
-        // on same place, means it need to decrement view.line_no
-        // by amount of deleted lines. thats why i need erase_counter.
-        // but how to count, if erasing is recursive? it need to pass
-        // it to render itself! means each render must receives context.
-        // hm. how to avoid it? lets not avoid it. lets try to pass it,
-        // and also put there prev_line length!
-
-        let iter = buffer.iter_at_offset(buffer.cursor_position());
-        let initial_line_offset = iter.line_offset();
-
-        let view = self.get_view();
-        trace!(
-            "erasing {:?} at line {}",
-            self.get_kind(),
-            view.line_no.get()
-        );
-        let mut line_no = view.line_no.get();
-        // trace!("original line_no {:?}", line_no);
-        // let original_line_no = view.line_no.get();
-
-        if let Some(ec) = context.erase_counter {
-            trace!("erase counter {:?}", ec);
-            line_no -= ec;
-        }
-
-        view.squash(true);
-        view.child_dirty(true);
-        self.walk_down(&mut |vc: &dyn ViewContainer| {
-            let view = vc.get_view();
-            view.squash(true);
-            view.child_dirty(true);
-        });
-        // GOT BUG HERE DURING STAGING SAME FILES!
-        // trace!("line finally {:?}", line_no);
-        if let Some(mut iter) = buffer.iter_at_line(line_no) {
-            // TODO restore
-            // self.render(buffer, &mut iter, context);
-        } else {
-            // todo - get all the buffer and write it to file completelly
-            panic!("no line at the end of erase!!!!!!!!! {}", line_no);
-        }
-        cursor_to_line_offset(buffer, initial_line_offset);
-    }
+    }    
 }
 
 impl ViewContainer for Diff {
@@ -611,6 +545,10 @@ impl ViewContainer for File {
         &self.view
     }
 
+    fn get_content(&self) -> String {
+        String::from(format!("file: {:?} at line {:?}", self.path, self.view.line_no.get()))
+    }
+    
     // File
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
         if self.status == git2::Delta::Deleted {
@@ -670,6 +608,9 @@ impl ViewContainer for Hunk {
         ViewKind::Hunk
     }
 
+    fn get_content(&self) -> String {
+        String::from(format!("hunk: {:?} at line {:?}", self.header, self.view.line_no.get()))
+    }
     // Hunk
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
         let parts: Vec<&str> = self.header.split("@@").collect();
@@ -773,6 +714,10 @@ impl ViewContainer for Line {
         Vec::new()
     }
 
+    fn get_content(&self) -> String {
+        String::from(format!("Line: {:?} at line {:?}", self.content, self.view.line_no.get()))
+    }
+    
     // Line
     fn fill_context(&self, ctx: &mut StatusRenderContext) {
         if self.view.is_current() {
@@ -886,7 +831,6 @@ impl ViewContainer for Line {
         }
         for t in &self.tags() {
             self.add_tag(buffer, t);
-            debug!("ooooooooooooooooooo {:?} {:?} {:?} ==== {:?} ........... {:?}", self.origin, self.kind, self.new_line_no, context.current_hunk.is_some(), self.content);
         }
     }
 }
