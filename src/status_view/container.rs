@@ -62,7 +62,7 @@ pub trait ViewContainer {
 
     // TODO - return bool and stop iteration when false
     // visitor takes child as first arg and parent as second arg
-    fn walk_down(&self, visitor: &dyn Fn(&dyn ViewContainer)) {
+    fn walk_down(&self, visitor: &mut dyn FnMut(&dyn ViewContainer)) {
         for child in self.get_children() {
             visitor(child);
             child.walk_down(visitor);
@@ -366,7 +366,7 @@ pub trait ViewContainer {
             view.expand(!view.is_expanded());
             view.child_dirty(true);
             let expanded = view.is_expanded();
-            self.walk_down(&|vc: &dyn ViewContainer| {
+            self.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 if expanded {
                     view.squash(false);
@@ -395,8 +395,56 @@ pub trait ViewContainer {
         false
     }
 
-    // ViewContainer
     fn erase(&self, buffer: &TextBuffer, context: &mut StatusRenderContext) {
+        // CAUTION. ATTENTION. IMPORTANT
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // after this operation all prev iters bevome INVALID!
+        // it need to reobtain them!
+
+        // this ONLY rendering. the data remains
+        // unchaged. means it used to be called just
+        // before replacing data in status struct.
+        // CAUTION. ATTENTION. IMPORTANT
+
+        let view = self.get_view();
+        if !view.is_rendered() {
+            return;
+        }
+
+        let iter = buffer.iter_at_offset(buffer.cursor_position());
+        let initial_line_offset = iter.line_offset();
+
+        let view = self.get_view();
+        debug!(
+            "erasing {:?} at line {}",
+            self.get_kind(),
+            view.line_no.get()
+        );
+        // let mut line_no = view.line_no.get();
+
+        let mut iter = buffer.iter_at_line(view.line_no.get()).unwrap();
+        let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+        nel_iter.forward_lines(1);
+        buffer.delete(&mut iter, &mut nel_iter);
+
+        if view.is_expanded() {
+            let mut cnt = 1;
+            self.walk_down(&mut |vc: &dyn ViewContainer| {
+                let view = vc.get_view();
+                let line_no = view.line_no.get() - cnt;
+                let mut iter = buffer.iter_at_line(line_no).unwrap();
+                let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+                nel_iter.forward_lines(1);
+                buffer.delete(&mut iter, &mut nel_iter);
+                cnt += 1;
+            });
+        }
+        
+        cursor_to_line_offset(buffer, initial_line_offset);
+    }
+    
+    // ViewContainer
+    fn erase_old(&self, buffer: &TextBuffer, context: &mut StatusRenderContext) {
         // return;
         // CAUTION. ATTENTION. IMPORTANT
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -442,7 +490,7 @@ pub trait ViewContainer {
 
         view.squash(true);
         view.child_dirty(true);
-        self.walk_down(&|vc: &dyn ViewContainer| {
+        self.walk_down(&mut |vc: &dyn ViewContainer| {
             let view = vc.get_view();
             view.squash(true);
             view.child_dirty(true);
