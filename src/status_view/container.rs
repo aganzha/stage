@@ -54,6 +54,7 @@ pub trait ViewContainer {
     fn enrich_view(
         &self,
         rendered: &dyn ViewContainer,
+        _buffer: &TextBuffer,
         _context: &mut crate::StatusRenderContext,
     ) {
         self.adopt_view(&rendered.get_view());
@@ -562,6 +563,7 @@ impl ViewContainer for File {
         &self.view
     }
 
+    // File
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
         if self.status == git2::Delta::Deleted {
             buffer.insert(iter, "- ");
@@ -620,6 +622,7 @@ impl ViewContainer for Hunk {
         ViewKind::Hunk
     }
 
+    // Hunk
     fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
         let parts: Vec<&str> = self.header.split("@@").collect();
         let line_no = match self.kind {

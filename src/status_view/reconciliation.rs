@@ -15,8 +15,9 @@ pub const MAX_LINES: i32 = 50000;
 impl Line {
     // line
     pub fn enrich_view(
-        &self,
+        &self,        
         rendered: &Line,
+        _buffer: &TextBuffer,
         _context: &mut crate::StatusRenderContext,
     ) {
         self.adopt_view(&rendered.view);        
@@ -35,18 +36,7 @@ impl Line {
 }
 
 impl Hunk {
-    // Hunk
-    // pub fn transfer_view(&self) -> View {
-    //     let clone = self.view.clone();
-    //     // hunk headers are changing always
-    //     // during partial staging
-    // ?????????????????????????????????????????????????????????
-    //     trace!("mark dirty 2. HUNK");
-    //     clone.dirty(true);
-    //     clone.transfer(true);
-    //     clone
-    // }
-
+   
     // Hunk.
     pub fn enrich_view(
         &self,
@@ -55,6 +45,9 @@ impl Hunk {
         context: &mut crate::StatusRenderContext,
     ) {
         self.adopt_view(&rendered.view);
+        if self.header != rendered.header {
+            self.view.dirty(true);
+        }
         if !self.view.is_expanded() {
             return;
         }
@@ -64,7 +57,7 @@ impl Hunk {
             .zip(rendered.lines.iter())
             .for_each(|lines: (&Line, &Line)| {
                 trace!("zip on lines {:?} {:?}", context, lines);
-                lines.0.enrich_view(lines.1, context);
+                lines.0.enrich_view(lines.1, buffer, context);
                 last_rendered += 1;
             });
         if rendered.lines.len() > last_rendered {
@@ -348,7 +341,7 @@ impl Untracked {
         for file in &self.files {
             for of in &rendered.files {
                 if file.path == of.path {
-                    file.enrich_view(of, context);
+                    file.enrich_view(of, buffer, context);
                     replaces_by_new.insert(file.path.clone());
                 }
             }
@@ -364,5 +357,31 @@ impl Untracked {
                 );
                 f.erase(buffer, context)
             });
+    }
+}
+
+impl State {
+    fn enrich_view(
+        &self,
+        rendered: &Hunk,
+        _buffer: &TextBuffer,
+        _context: &mut crate::StatusRenderContext,
+    ) {
+        self.adopt_view(&rendered.view);
+        // always dirty if updated!
+        self.view.dirty(true);
+    }
+}
+
+impl Head {
+    fn enrich_view(
+        &self,
+        rendered: &Hunk,
+        _buffer: &TextBuffer,
+        _context: &mut crate::StatusRenderContext,
+    ) {
+        self.adopt_view(&rendered.view);
+        // always dirty if updated!
+        self.view.dirty(true);
     }
 }
