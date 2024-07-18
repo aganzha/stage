@@ -720,7 +720,7 @@ impl Status {
 
     pub fn update_staged<'a>(
         &'a mut self,
-        mut diff: Diff,
+        diff: Diff,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
@@ -738,7 +738,7 @@ impl Status {
 
     pub fn update_unstaged<'a>(
         &'a mut self,
-        mut diff: Diff,
+        diff: Diff,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
@@ -762,14 +762,17 @@ impl Status {
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         self.cursor(txt, iter.line(), iter.offset(), ctx);
         // TODO restore
-        // glib::source::timeout_add_local(Duration::from_millis(10), {
-        //     let txt = txt.clone();
-        //     let ctx = ctx.clone();
-        //     move || {
-        //         txt.bind_highlights(&ctx);
-        //         glib::ControlFlow::Break
-        //     }
-        // });
+        glib::source::timeout_add_local(Duration::from_millis(10), {
+            let txt = txt.clone();
+            let mut context = StatusRenderContext::new();
+            context.highlight_cursor = ctx.highlight_cursor;
+            context.highlight_lines = ctx.highlight_lines;
+            context.highlight_hunks = ctx.highlight_hunks.clone();
+            move || {
+                txt.bind_highlights(&context);
+                glib::ControlFlow::Break
+            }
+        });
     }
 
     /// cursor does not change structure, but changes highlights
