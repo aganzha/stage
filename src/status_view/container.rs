@@ -421,31 +421,30 @@ pub trait ViewContainer {
         let line_no = view.line_no.get() - context.erase_counter;
         let mut iter = buffer.iter_at_line(line_no).unwrap();
         let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+
         nel_iter.forward_lines(1);
-        // debug!(
-        //     "....erasing {:?} cnt {:?}",
-        //     self.get_content_for_debug(context),
-        //     context.erase_counter
-        // );
-        buffer.delete(&mut iter, &mut nel_iter);
         context.erase_counter += 1;
+        // buffer.delete(&mut iter, &mut nel_iter);
+
         if view.is_expanded() {
             self.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
-                let line_no = view.line_no.get() - context.erase_counter;
-                let mut iter = buffer.iter_at_line(line_no).unwrap();
-                let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+                if !view.is_rendered() {
+                    return
+                }
+                // what about expanded?
+                // does not mater!
+                // if view is not expanded, its child will be not rendered!
+
+                // let line_no = view.line_no.get() - context.erase_counter;
+                // let mut iter = buffer.iter_at_line(line_no).unwrap();
+                // let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
                 nel_iter.forward_lines(1);
-                // debug!(
-                //     "....erasing {:?} cnt {:?}",
-                //     vc.get_content_for_debug(context),
-                //     context.erase_counter
-                // );
-                buffer.delete(&mut iter, &mut nel_iter);
                 context.erase_counter += 1;
+                // buffer.delete(&mut iter, &mut nel_iter);
             });
         }
-
+        buffer.delete(&mut iter, &mut nel_iter);
         cursor_to_line_offset(buffer, initial_line_offset);
     }
 }
@@ -862,21 +861,6 @@ impl ViewContainer for Line {
         }
     }
 
-    // fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
-    //     // default implementation
-    //     let view = self.get_view();
-    //     if !view.tag_is_added(tag) {
-    //         let (start_iter, end_iter) =
-    //             self.start_end_iters(buffer, view.line_no.get());
-    //         buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
-    //         view.tag_added(tag);
-    //     }
-    //     if self.origin == DiffLineType::Addition {
-    //         // get old version of self.
-    //         // if has spaces - add background tag
-    //     }
-    // }
-
     // Line
     fn apply_tags<'a>(
         &'a self,
@@ -922,20 +906,10 @@ impl ViewContainer for Line {
                 );
                 self.view.tag_added(&bg_tag);
                 let me = self.content(context.current_hunk.unwrap());
-                debug!(
-                    "tag_is_added me........: {:?} taaaaaaaaaaaag {:?}",
-                    me,
-                    bg_tag.name()
-                );
                 // do not add tag twice
                 self.view.tag_added(&bg_tag);
             }
-            // let me = self.content(&context.current_hunk.unwrap());
-            // debug!("is_added ? {:?} me: {:?} stripped: {:?}", tag_is_added, content, stripped);
-            // if my_tags.is_added()
-            // let highlight = tags::TxtTag::new(self.view.tag_indexes.get());
         }
-        // let stripped = "123foo1bar123".trim_matches(char::is_numeric);
     }
 }
 
