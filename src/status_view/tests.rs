@@ -60,6 +60,7 @@ fn create_line(line_no: u32, name: &str) -> Line {
         new_line_no: Some(line_no),
         old_line_no: Some(line_no),
         kind: LineKind::None,
+        content_idx: (0, 0)
     }
 }
 
