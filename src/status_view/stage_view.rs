@@ -13,12 +13,12 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, glib, EventControllerKey, EventControllerMotion, EventSequenceState,
-    GestureClick, MovementStep, TextBuffer, TextTag, TextView, TextWindowType,
+    GestureClick, GestureDrag, MovementStep, TextBuffer, TextTag, TextView, TextWindowType,
     Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::StyleManager;
-use log::trace;
+use log::{trace, debug};
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -487,6 +487,12 @@ pub fn factory(
 
     let num_clicks = Rc::new(Cell::new(0));
 
+    let gesture_controller = GestureDrag::new();
+    gesture_controller.connect_drag_begin(|_, _, _| {
+        debug!("iiiiiiiiiiiiiiiiiiii gesture drug");
+    });
+    txt.add_controller(gesture_controller);
+    
     let gesture_controller = GestureClick::new();
     gesture_controller.connect_released({
         let sndr = sndr.clone();
@@ -559,6 +565,7 @@ pub fn factory(
         let sndr = sndr.clone();
         // let latest_char_offset = RefCell::new(0);
         move |view: &StageView, step, count, _selection| {
+            debug!("mooooooooooooooooooooooove!");
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);
@@ -692,6 +699,10 @@ pub fn factory(
 
     txt.set_monospace(true);
     txt.set_editable(false);
+    // txt.connect_extend_selection(|_view, _granularity, _location_iter1, _start_iter1, _end_iter3| {
+    //     debug!("ooooooooooooooooooooo->");
+    //     glib::signal::Propagation::Proceed
+    // });
     // let sett = txt.settings();
     // sett.set_gtk_cursor_blink(true);
     // sett.set_gtk_cursor_blink_time(3000);
