@@ -84,14 +84,14 @@ impl Line {
     }
 
     pub fn from_diff_line(l: &DiffLine, content_from: usize, content_to: usize) -> Self {
-        return Self {
+        Self {
             view: View::new(),
             origin: l.origin_value(),
             new_line_no: l.new_lineno(),
             old_line_no: l.old_lineno(),
             kind: LineKind::None,
             content_idx: (content_from, content_to)
-        };
+        }
     }
     pub fn is_our_side_of_conflict(&self) -> bool {
         match &self.kind {
@@ -111,7 +111,7 @@ impl Line {
         self.is_our_side_of_conflict() || self.is_their_side_of_conflict()
     }
 
-    pub fn repr(&self, title: &str, chars_to_take: usize) -> String {
+    pub fn repr(&self, title: &str, _chars_to_take: usize) -> String {
         format!("{} new_line_no: {:?} old_line_no: {:?} knd: {:?} orgn: {:?}",
                 title,
                 self.new_line_no,
@@ -310,10 +310,10 @@ impl Hunk {
         if let Some(striped) = content.strip_suffix("\r\n") {
             content = striped;
         }
-        if let Some(striped) = content.strip_suffix("\n") {
+        if let Some(striped) = content.strip_suffix('\n') {
             content = striped;
         }
-        let mut line = Line::from_diff_line(&diff_line, self.buf.len(), content.len());
+        let mut line = Line::from_diff_line(diff_line, self.buf.len(), content.len());
         self.buf.push_str(content);
         if self.kind != DiffKind::Conflicted {
             match line.origin {

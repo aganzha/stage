@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::status_view::view_state::View;
+
 use crate::status_view::ViewContainer;
-use crate::{Diff, File, Head, Hunk, Line, State, Untracked, UntrackedFile};
-use git2::RepositoryState;
+use crate::{Diff, File, Head, Hunk, Line, State, Untracked};
+
 use gtk4::TextBuffer;
 use log::trace;
 use std::collections::HashSet;
