@@ -45,7 +45,7 @@ pub struct StatusRenderContext<'a> {
     pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>, // pub cursor_pos: Option<CursorPos>,
     pub current_hunk: Option<&'a Hunk>,
-    pub compared_hunk: Option<&'a Hunk>
+    pub upcoming_hunk: Option<&'a Hunk>
 }
 
 impl Default for StatusRenderContext<'_> {
@@ -67,7 +67,7 @@ impl StatusRenderContext<'_> {
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
                 current_hunk: None,
-                compared_hunk: None
+                upcoming_hunk: None
             }
         }
     }

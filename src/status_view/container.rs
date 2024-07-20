@@ -416,11 +416,11 @@ pub trait ViewContainer {
         let mut iter = buffer.iter_at_line(line_no).unwrap();
         let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
         nel_iter.forward_lines(1);
-        debug!(
-            "....erasing {:?} cnt {:?}",
-            self.get_content_for_debug(context),
-            context.erase_counter
-        );
+        // debug!(
+        //     "....erasing {:?} cnt {:?}",
+        //     self.get_content_for_debug(context),
+        //     context.erase_counter
+        // );
         buffer.delete(&mut iter, &mut nel_iter);
         context.erase_counter += 1;
         if view.is_expanded() {
@@ -430,11 +430,11 @@ pub trait ViewContainer {
                 let mut iter = buffer.iter_at_line(line_no).unwrap();
                 let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
                 nel_iter.forward_lines(1);
-                debug!(
-                    "....erasing {:?} cnt {:?}",
-                    vc.get_content_for_debug(context),
-                    context.erase_counter
-                );
+                // debug!(
+                //     "....erasing {:?} cnt {:?}",
+                //     vc.get_content_for_debug(context),
+                //     context.erase_counter
+                // );
                 buffer.delete(&mut iter, &mut nel_iter);
                 context.erase_counter += 1;
             });

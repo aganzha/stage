@@ -12,32 +12,6 @@ use std::collections::HashSet;
 
 pub const MAX_LINES: i32 = 50000;
 
-impl Line {
-    // line
-    pub fn enrich_view(
-        &self,
-        rendered: &Line,
-        _buffer: &TextBuffer,
-        context: &mut crate::StatusRenderContext,
-    ) {
-        let my_hunk = context.current_hunk.unwrap();
-        let my_content = self.content(my_hunk);
-        let rendered_hunk = context.compared_hunk.unwrap();
-        let rendered_content = rendered.content(rendered_hunk);
-        self.adopt_view(&rendered.view);
-        if my_content != rendered_content || self.origin != rendered.origin {
-            trace!("mark dirty while enrich view in line");
-            self.view.dirty(true);
-            // line.view.replace(View{rendered: true, ..line.view.get()});
-            trace!("*************dirty content in reconciliation: {} <> {} origins: {:?} {:?}",
-                   my_content,
-                   rendered_content,
-                   self.origin,
-                   rendered.origin
-            )
-        }
-    }
-}
 
 impl Hunk {
 
@@ -48,7 +22,7 @@ impl Hunk {
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) {
-        // context.current_hunk.replace(self);
+        // context.current_hunk.replace(rendered);
         // context.compared_hunk.replace(rendered);
         self.adopt_view(&rendered.view);
         if self.header != rendered.header {
@@ -64,9 +38,13 @@ impl Hunk {
             .for_each(|lines: (&Line, &Line)| {
                 trace!("zip on lines {:?} {:?}", context, lines);
                 lines.0.enrich_view(lines.1, buffer, context);
+                if (lines.0.origin != lines.1.origin)
+                    ||
+                    (lines.0.content(self) != lines.1.content(rendered)) {
+                        lines.0.view.dirty(true);
+                    }                
                 last_rendered += 1;
             });
-        context.compared_hunk.take();
         if rendered.lines.len() > last_rendered {
             rendered.lines[last_rendered..rendered.lines.len()]
                 .iter()
@@ -75,7 +53,6 @@ impl Hunk {
                     line.erase(buffer, context);
                 });
         }
-        context.compared_hunk.take();
     }
 }
 
