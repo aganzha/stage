@@ -258,7 +258,13 @@ impl ViewContainer for MultiLineLabel {
             .collect()
     }
 
-    fn write_content(&self, _iter: &mut TextIter, _buffer: &TextBuffer, _context: &mut StatusRenderContext<'_>) {}
+    fn write_content(
+        &self,
+        _iter: &mut TextIter,
+        _buffer: &TextBuffer,
+        _context: &mut StatusRenderContext<'_>,
+    ) {
+    }
 }
 
 impl commit::CommitDiff {
@@ -275,7 +281,7 @@ impl commit::CommitDiff {
         for l in labels {
             l.render(&buffer, &mut iter, ctx)
         }
-        let offset_before_erase = iter.offset();        
+        let offset_before_erase = iter.offset();
         // let mut body_label = {
         //     if obody_label.is_none() {
         //         MultiLineLabel::new(&self.message, ctx)
@@ -481,7 +487,12 @@ pub fn show_commit_window(
                     info!("TextCharVisibleWidth {}", w);
                     ctx.screen_width.replace(text_view_width.clone());
                     if let Some(d) = &mut diff {
-                        d.render(&txt, &mut ctx, &mut labels, body_label.as_mut().unwrap());
+                        d.render(
+                            &txt,
+                            &mut ctx,
+                            &mut labels,
+                            body_label.as_mut().unwrap(),
+                        );
                     }
                 }
                 Event::Stage(_, _)
