@@ -795,6 +795,7 @@ impl ViewContainer for Line {
             LineKind::ConflictMarker(_) => {
                 return vec![make_tag(tags::CONFLICT_MARKER)]
             }
+            // .............................................???? PERHAPS OURS??
             LineKind::Ours(_) => return vec![make_tag(tags::CONFLICT_MARKER)],
             LineKind::Theirs(_) => {
                 // return Vec::new();
@@ -802,6 +803,7 @@ impl ViewContainer for Line {
             }
             _ => {}
         }
+        // TODO! ENHANCED_ADDED!!!!
         match self.origin {
             DiffLineType::Addition => {
                 vec![make_tag(tags::ADDED)]
@@ -827,11 +829,14 @@ impl ViewContainer for Line {
     //         // if has spaces - add background tag
     //     }
     // }
+
+    // Line 
     fn apply_tags<'a>(
         &'a self,
         buffer: &TextBuffer,
         context: &mut StatusRenderContext<'a>,
     ) {
+        // -----------------super-----------------
         if self.is_empty(context) {
             // TAGS BECOME BROKEN ON EMPTY LINES!
             return;
@@ -839,6 +844,48 @@ impl ViewContainer for Line {
         for t in &self.tags() {
             self.add_tag(buffer, t);
         }
+        // ---------------------------------------
+        
+        // highliught spaces
+        let content = self.content(context.current_hunk.unwrap());
+        let stripped = content.trim_end_matches(|c| -> bool {
+            char::is_ascii_whitespace(&c)
+        });
+        if stripped.len() < content.len() &&
+            (
+                self.origin == DiffLineType::Addition
+                    ||
+                    self.origin == DiffLineType::Deletion
+            ) {
+            // if will use here enhanced_added for now, but
+            // spaces must have their separate tag!
+
+                let bg_tag = if self.origin == DiffLineType::Addition {
+                    make_tag(tags::ENHANCED_ADDED)
+                } else {
+                    make_tag(tags::ENHANCED_REMOVED)
+                };
+            
+            // do not add tag twice
+            if !self.view.tag_is_added(&bg_tag) {                
+                let (mut start_iter, end_iter) =
+                    self.start_end_iters(buffer, self.view.line_no.get());
+                start_iter.forward_chars(stripped.len() as i32);
+                buffer.apply_tag_by_name(bg_tag.name(), &start_iter, &end_iter);
+                self.view.tag_added(&bg_tag);
+                let me = self.content(&context.current_hunk.unwrap());
+                debug!("tag_is_added me........: {:?} taaaaaaaaaaaag {:?}", me, bg_tag.name());
+                // do not add tag twice
+                self.view.tag_added(&bg_tag);
+            }
+            // let me = self.content(&context.current_hunk.unwrap());
+            // debug!("is_added ? {:?} me: {:?} stripped: {:?}", tag_is_added, content, stripped);
+            // if my_tags.is_added()
+            // let highlight = tags::TxtTag::new(self.view.tag_indexes.get());
+        }
+        // let stripped = "123foo1bar123".trim_matches(char::is_numeric);
+
+        
     }
 }
 

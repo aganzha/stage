@@ -177,11 +177,17 @@ impl TxtTag {
                 }
             }
             ENHANCED_ADDED => {
+                // just for spaces i will set background
                 if is_dark {
-                    tag.set_foreground(Some("#3fb907"));
+                    tag.set_background(Some("#3fb907"));
                 } else {
-                    tag.set_foreground(Some("#26a269"));
+                    tag.set_background(Some("#26a269"));
                 }
+                // if is_dark {
+                //     tag.set_foreground(Some("#3fb907"));
+                // } else {
+                //     tag.set_foreground(Some("#26a269"));
+                // }
             }
             REMOVED => {
                 if is_dark {
@@ -191,12 +197,17 @@ impl TxtTag {
                 }
             }
             ENHANCED_REMOVED => {
+                // just for spaces i will set background
                 if is_dark {
-                    tag.set_foreground(Some("#cd0e1c"));
-                    // tag.set_foreground(Some("#a51d2d"));
+                    tag.set_background(Some("#cd0e1c"));
                 } else {
-                    tag.set_foreground(Some("#a51d2d"));
+                    tag.set_background(Some("#a51d2d"));
                 }
+                // if is_dark {
+                //     tag.set_foreground(Some("#cd0e1c"));
+                // } else {
+                //     tag.set_foreground(Some("#a51d2d"));
+                // }
             }
             CURSOR => {
                 if is_dark {
