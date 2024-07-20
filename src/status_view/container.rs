@@ -33,7 +33,7 @@ pub enum ViewKind {
 
 pub trait ViewContainer {
 
-    fn is_empty<'a>(&self, context: &mut StatusRenderContext<'a>) -> bool;
+    fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool;
 
     fn get_kind(&self) -> ViewKind;
 
@@ -41,10 +41,10 @@ pub trait ViewContainer {
 
     fn get_view(&self) -> &View;
 
-    fn write_content<'a>(&self, iter: &mut TextIter, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>);
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer, context: &mut StatusRenderContext<'_>);
 
     // method just for debugging
-    fn get_content_for_debug<'a>(&self, context: &mut StatusRenderContext<'a>) -> String {
+    fn get_content_for_debug(&self, _context: &mut StatusRenderContext<'_>) -> String {
         String::from("unknown")
     }
 
@@ -62,7 +62,7 @@ pub trait ViewContainer {
         _buffer: &TextBuffer,
         _context: &mut crate::StatusRenderContext,
     ) {
-        self.adopt_view(&rendered.get_view());
+        self.adopt_view(rendered.get_view());
     }
 
     // TODO - return bool and stop iteration when false
@@ -78,7 +78,7 @@ pub trait ViewContainer {
         Vec::new()
     }
 
-    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn prepare_context<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {
     }
 
     fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
@@ -445,7 +445,7 @@ pub trait ViewContainer {
 }
 
 impl ViewContainer for Diff {
-    fn is_empty<'a>(&self, _context: &mut StatusRenderContext<'a>) -> bool {
+    fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         self.files.is_empty()
     }
 
@@ -458,7 +458,7 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn write_content<'a>(&self, _iter: &mut TextIter, _buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {}
+    fn write_content(&self, _iter: &mut TextIter, _buffer: &TextBuffer, _context: &mut StatusRenderContext<'_>) {}
 
     fn get_children(&self) -> Vec<&dyn ViewContainer> {
         self.files
@@ -536,7 +536,7 @@ impl ViewContainer for Diff {
 }
 
 impl ViewContainer for File {
-    fn is_empty<'a>(&self, _context: &mut StatusRenderContext<'a>) -> bool {
+    fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
 
@@ -548,12 +548,12 @@ impl ViewContainer for File {
         &self.view
     }
 
-    fn get_content_for_debug<'a>(&self, context: &mut StatusRenderContext<'a>) -> String {
-        String::from(format!("file: {:?} at line {:?}", self.path, self.view.line_no.get()))
+    fn get_content_for_debug(&self, _context: &mut StatusRenderContext<'_>) -> String {
+        format!("file: {:?} at line {:?}", self.path, self.view.line_no.get())
     }
 
     // File
-    fn write_content<'a>(&self, iter: &mut TextIter, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer, _context: &mut StatusRenderContext<'_>) {
         if self.status == git2::Delta::Deleted {
             buffer.insert(iter, "- ");
         }
@@ -603,7 +603,7 @@ impl ViewContainer for File {
 }
 
 impl ViewContainer for Hunk {
-    fn is_empty<'a>(&self, context: &mut StatusRenderContext<'a>) -> bool {
+    fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
 
@@ -611,11 +611,11 @@ impl ViewContainer for Hunk {
         ViewKind::Hunk
     }
 
-    fn get_content_for_debug<'a>(&self, context: &mut StatusRenderContext<'a>) -> String {
-        String::from(format!("hunk: {:?} at line {:?}", self.header, self.view.line_no.get()))
+    fn get_content_for_debug(&self, _context: &mut StatusRenderContext<'_>) -> String {
+        format!("hunk: {:?} at line {:?}", self.header, self.view.line_no.get())
     }
     // Hunk
-    fn write_content<'a>(&self, iter: &mut TextIter, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer, _context: &mut StatusRenderContext<'_>) {
         let parts: Vec<&str> = self.header.split("@@").collect();
         let line_no = match self.kind {
             DiffKind::Unstaged | DiffKind::Conflicted => self.old_start,
@@ -691,13 +691,13 @@ impl ViewContainer for Hunk {
     }
 
     fn fill_under_cursor(&self, context: &mut StatusRenderContext) {
-        context.under_cursor_hunk(&self);
+        context.under_cursor_hunk(self);
     }
 
 }
 
 impl ViewContainer for Line {
-    fn is_empty<'a>(&self, context: &mut StatusRenderContext<'a>) -> bool {
+    fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool {
         if let Some(hunk) = context.current_hunk {
             return self.content(hunk).is_empty();
         }
@@ -713,7 +713,7 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn write_content<'a>(&self, iter: &mut TextIter, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer, context: &mut StatusRenderContext<'_>) {
         buffer.insert(iter, self.content(context.current_hunk.unwrap()));
     }
 
@@ -721,8 +721,8 @@ impl ViewContainer for Line {
         Vec::new()
     }
 
-    fn get_content_for_debug<'a>(&self, context: &mut StatusRenderContext<'a>) -> String {
-        String::from(format!("Line: {:?} at line {:?}", self.content(context.current_hunk.unwrap()), self.view.line_no.get()))
+    fn get_content_for_debug(&self, context: &mut StatusRenderContext<'_>) -> String {
+        format!("Line: {:?} at line {:?}", self.content(context.current_hunk.unwrap()), self.view.line_no.get())
     }
 
     // Line
@@ -873,7 +873,7 @@ impl ViewContainer for Line {
                 start_iter.forward_chars(stripped.len() as i32);
                 buffer.apply_tag_by_name(bg_tag.name(), &start_iter, &end_iter);
                 self.view.tag_added(&bg_tag);
-                let me = self.content(&context.current_hunk.unwrap());
+                let me = self.content(context.current_hunk.unwrap());
                 debug!("tag_is_added me........: {:?} taaaaaaaaaaaag {:?}", me, bg_tag.name());
                 // do not add tag twice
                 self.view.tag_added(&bg_tag);
@@ -890,7 +890,7 @@ impl ViewContainer for Line {
 }
 
 impl ViewContainer for Label {
-    fn is_empty<'a>(&self, _context: &mut StatusRenderContext<'a>) -> bool {
+    fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         self.content.is_empty()
     }
 
@@ -906,13 +906,13 @@ impl ViewContainer for Label {
         Vec::new()
     }
 
-    fn write_content<'a>(&self, iter: &mut TextIter, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer, _context: &mut StatusRenderContext<'_>) {
         buffer.insert_markup(iter, &self.content);
     }
 }
 
 impl ViewContainer for Head {
-    fn is_empty<'a>(&self, context: &mut StatusRenderContext<'a>) -> bool {
+    fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
 
@@ -928,7 +928,7 @@ impl ViewContainer for Head {
         Vec::new()
     }
 
-    fn write_content<'a>(&self, iter: &mut TextIter, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer, _context: &mut StatusRenderContext<'_>) {
         buffer.insert_markup(iter,
                              &format!("{}<span color=\"#4a708b\">{}</span> {}",
                                       if !self.remote {
@@ -944,7 +944,7 @@ impl ViewContainer for Head {
 }
 
 impl ViewContainer for State {
-    fn is_empty<'a>(&self, context: &mut StatusRenderContext<'a>) -> bool {
+    fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
 
@@ -960,7 +960,7 @@ impl ViewContainer for State {
         Vec::new()
     }
 
-    fn write_content<'a>(&self, iter: &mut TextIter, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer, _context: &mut StatusRenderContext<'_>) {
         buffer.insert(iter, "State:    ");
         match self.state {
             RepositoryState::Clean => {
@@ -1037,7 +1037,7 @@ impl ViewContainer for State {
 }
 
 impl ViewContainer for Untracked {
-    fn is_empty<'a>(&self, context: &mut StatusRenderContext<'a>) -> bool {
+    fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         self.files.is_empty()
     }
 
@@ -1052,7 +1052,7 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked
-    fn write_content<'a>(&self, _iter: &mut TextIter, _buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {}
+    fn write_content(&self, _iter: &mut TextIter, _buffer: &TextBuffer, _context: &mut StatusRenderContext<'_>) {}
 
     // Untracked
     fn get_children(&self) -> Vec<&dyn ViewContainer> {
@@ -1119,7 +1119,7 @@ impl ViewContainer for Untracked {
 }
 
 impl ViewContainer for UntrackedFile {
-    fn is_empty<'a>(&self, context: &mut StatusRenderContext<'a>) -> bool {
+    fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
 
@@ -1131,7 +1131,7 @@ impl ViewContainer for UntrackedFile {
         &self.view
     }
 
-    fn write_content<'a>(&self, iter: &mut TextIter, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {
+    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer, _context: &mut StatusRenderContext<'_>) {
         buffer.insert(iter, self.path.to_str().unwrap());
     }
 
