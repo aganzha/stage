@@ -1,3 +1,5 @@
+so. gutters are sucks because of scroll. so, it is much easier to remder line numbers an +- signs right in textview
+and then on cursor move with shift modifier and drag_selection just hide them to not copy!
 TODO: important! smart choose cursor position
 BUG: push button is insensitive when no remote. not only on pull! just simple merge!
 BUG: when got conflict in pull, it does not monitor conflicted file, so changes to fike are invisible
