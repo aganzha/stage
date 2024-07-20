@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-
 use crate::status_view::ViewContainer;
 use crate::{Diff, File, Head, Hunk, Line, State, Untracked};
 
@@ -12,9 +11,7 @@ use std::collections::HashSet;
 
 pub const MAX_LINES: i32 = 50000;
 
-
 impl Hunk {
-
     // Hunk.
     pub fn enrich_view(
         &self,
@@ -32,19 +29,18 @@ impl Hunk {
             return;
         }
         let mut last_rendered = 0;
-        self.lines
-            .iter()
-            .zip(rendered.lines.iter())
-            .for_each(|lines: (&Line, &Line)| {
+        self.lines.iter().zip(rendered.lines.iter()).for_each(
+            |lines: (&Line, &Line)| {
                 trace!("zip on lines {:?} {:?}", context, lines);
                 lines.0.enrich_view(lines.1, buffer, context);
                 if (lines.0.origin != lines.1.origin)
-                    ||
-                    (lines.0.content(self) != lines.1.content(rendered)) {
-                        lines.0.view.dirty(true);
-                    }                
+                    || (lines.0.content(self) != lines.1.content(rendered))
+                {
+                    lines.0.view.dirty(true);
+                }
                 last_rendered += 1;
-            });
+            },
+        );
         if rendered.lines.len() > last_rendered {
             rendered.lines[last_rendered..rendered.lines.len()]
                 .iter()
@@ -255,13 +251,16 @@ impl File {
                         rendered.erase(buffer, context);
                     } else if new.old_start == rendered.old_start
                         && new.old_lines == rendered.old_lines
-                        && new.new_lines == rendered.new_lines {
-                            trace!("case 4");
-                            rendered_delta +=
-                                count_delta(rendered.new_lines, rendered.old_lines);
-                            new.enrich_view(rendered, buffer, context);
-                            in_new += 1;
-                            in_rendered += 1;
+                        && new.new_lines == rendered.new_lines
+                    {
+                        trace!("case 4");
+                        rendered_delta += count_delta(
+                            rendered.new_lines,
+                            rendered.old_lines,
+                        );
+                        new.enrich_view(rendered, buffer, context);
+                        in_new += 1;
+                        in_rendered += 1;
                     } else {
                         panic!(
                             "UNKNOWN CASE IN RECONCILIATION {} {}",
@@ -272,7 +271,6 @@ impl File {
             }
         }
     }
-
 }
 
 impl Diff {
@@ -313,7 +311,6 @@ impl Diff {
             });
     }
 }
-
 
 impl Untracked {
     pub fn enrich_view(

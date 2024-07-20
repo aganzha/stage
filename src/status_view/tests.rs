@@ -59,7 +59,7 @@ fn create_line(line_no: u32, from: usize, to: usize) -> Line {
         new_line_no: Some(line_no),
         old_line_no: Some(line_no),
         kind: LineKind::None,
-        content_idx: (from, to)
+        content_idx: (from, to),
     }
 }
 
@@ -68,9 +68,10 @@ fn create_hunk(name: &str) -> Hunk {
     hunk.handle_max(name);
     hunk.header = name.to_string();
     for i in 0..3 {
-        let content = format!("{} -> line {}", hunk.header, i);        
+        let content = format!("{} -> line {}", hunk.header, i);
         hunk.handle_max(&content);
-        hunk.lines.push(create_line(i, hunk.buf.len(), content.len()));
+        hunk.lines
+            .push(create_line(i, hunk.buf.len(), content.len()));
         hunk.buf.push_str(&content);
     }
     hunk
@@ -117,7 +118,11 @@ pub fn mock_render(diff: &Diff) -> i32 {
     line_no
 }
 // tests
-pub fn cursor<'a>(diff: &'a Diff, line_no: i32, ctx: &mut StatusRenderContext<'a>) {
+pub fn cursor<'a>(
+    diff: &'a Diff,
+    line_no: i32,
+    ctx: &mut StatusRenderContext<'a>,
+) {
     for (_, file) in diff.files.iter().enumerate() {
         file.cursor(line_no, false, ctx);
     }
@@ -323,11 +328,15 @@ impl ViewContainer for TestViewContainer {
     fn get_view(&self) -> &View {
         &self.view
     }
-    fn write_content<'a>(&self, iter: &mut TextIter, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {
+    fn write_content<'a>(
+        &self,
+        iter: &mut TextIter,
+        buffer: &TextBuffer,
+        context: &mut StatusRenderContext<'a>,
+    ) {
         buffer.insert(iter, &self.content);
     }
 }
-
 
 fn test_render_view() {
     // initialize();
@@ -556,7 +565,8 @@ fn test_expand_line() {
                     let start_line_iter =
                         buffer.iter_at_line(iter.line()).unwrap();
                     assert!(
-                        cl.trim() == buffer.text(&start_line_iter, &iter, true)
+                        cl.trim()
+                            == buffer.text(&start_line_iter, &iter, true)
                     );
                 }
 
@@ -566,10 +576,10 @@ fn test_expand_line() {
                         let start_line_iter =
                             buffer.iter_at_line(iter.line()).unwrap();
                         assert!(
-                            cl.trim() == buffer.text(&start_line_iter, &iter, true)
+                            cl.trim()
+                                == buffer.text(&start_line_iter, &iter, true)
                         );
                     }
-
                 }
             }
         }
@@ -592,7 +602,7 @@ fn test_expand_line() {
 
     let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no.get();
     // put cursor inside first hunk
-    
+
     if diff.cursor(line_of_line, false, &mut ctx) {
         // if comment out next line the line_of_line will be not sqashed
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
@@ -631,7 +641,6 @@ fn test_expand_line() {
         }
     }
 }
-
 
 fn test_reconciliation_new() {
     // initialize();
@@ -933,7 +942,8 @@ fn test_reconciliation_new() {
     let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
 
-    let mut hunk = create_hunk("@@ -687,7 +705,9 @@ class ServiceWorkPostprocess:");
+    let mut hunk =
+        create_hunk("@@ -687,7 +705,9 @@ class ServiceWorkPostprocess:");
     hunk.fill_from_header();
     rendered_file.hunks.push(hunk);
     rendered_file.view.expand(true);
@@ -943,7 +953,8 @@ fn test_reconciliation_new() {
     new_file.hunks = Vec::new();
 
     iter.set_line(0);
-    let mut hunk = create_hunk("@@ -687,7 +704,9 @@ class ServiceWorkPostprocess:");
+    let mut hunk =
+        create_hunk("@@ -687,7 +704,9 @@ class ServiceWorkPostprocess:");
     hunk.fill_from_header();
     new_file.hunks.push(hunk);
     iter.set_line(0);

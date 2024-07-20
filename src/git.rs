@@ -61,7 +61,7 @@ pub struct Line {
     pub new_line_no: Option<u32>,
     pub old_line_no: Option<u32>,
     pub kind: LineKind,
-    pub content_idx: (usize, usize)
+    pub content_idx: (usize, usize),
 }
 
 impl Default for Line {
@@ -72,7 +72,7 @@ impl Default for Line {
             new_line_no: None,
             old_line_no: None,
             kind: LineKind::None,
-            content_idx: (0, 0)
+            content_idx: (0, 0),
         }
     }
 }
@@ -80,17 +80,21 @@ impl Default for Line {
 impl Line {
     pub fn content<'a>(&'a self, hunk: &'a Hunk) -> &'a str {
         // debug!(".......................... {:?} >>{:?}<<", self.content_idx, hunk.buf);
-        &hunk.buf[self.content_idx.0 .. self.content_idx.0 + self.content_idx.1]
+        &hunk.buf[self.content_idx.0..self.content_idx.0 + self.content_idx.1]
     }
 
-    pub fn from_diff_line(l: &DiffLine, content_from: usize, content_to: usize) -> Self {
+    pub fn from_diff_line(
+        l: &DiffLine,
+        content_from: usize,
+        content_to: usize,
+    ) -> Self {
         Self {
             view: View::new(),
             origin: l.origin_value(),
             new_line_no: l.new_lineno(),
             old_line_no: l.old_lineno(),
             kind: LineKind::None,
-            content_idx: (content_from, content_to)
+            content_idx: (content_from, content_to),
         }
     }
     pub fn is_our_side_of_conflict(&self) -> bool {
@@ -112,12 +116,9 @@ impl Line {
     }
 
     pub fn repr(&self, title: &str, _chars_to_take: usize) -> String {
-        format!("{} new_line_no: {:?} old_line_no: {:?} knd: {:?} orgn: {:?}",
-                title,
-                self.new_line_no,
-                self.old_line_no,
-                self.kind,
-                self.origin
+        format!(
+            "{} new_line_no: {:?} old_line_no: {:?} knd: {:?} orgn: {:?}",
+            title, self.new_line_no, self.old_line_no, self.kind, self.origin
         )
     }
 }
@@ -161,7 +162,7 @@ impl Hunk {
             max_line_len: 0,
             kind,
             conflicts_count: 0,
-            buf: String::new()
+            buf: String::new(),
         }
     }
 
@@ -187,7 +188,7 @@ impl Hunk {
         self.new_start = dh.new_start();
         self.new_lines = dh.new_lines();
         self.buf = String::with_capacity(
-            1 + 3 + self.old_lines as usize + self.new_lines as usize + 3
+            1 + 3 + self.old_lines as usize + self.new_lines as usize + 3,
         );
     }
 
@@ -313,7 +314,8 @@ impl Hunk {
         if let Some(striped) = content.strip_suffix('\n') {
             content = striped;
         }
-        let mut line = Line::from_diff_line(diff_line, self.buf.len(), content.len());
+        let mut line =
+            Line::from_diff_line(diff_line, self.buf.len(), content.len());
         self.buf.push_str(content);
         if self.kind != DiffKind::Conflicted {
             match line.origin {
@@ -1070,10 +1072,8 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                     current_hunk = Hunk::new(kind.clone());
                     current_hunk.fill_from_git_hunk(&diff_hunk)
                 }
-                prev_line_kind = current_hunk.push_line(
-                    &diff_line,
-                    prev_line_kind.clone(),
-                );
+                prev_line_kind =
+                    current_hunk.push_line(&diff_line, prev_line_kind.clone());
             } else {
                 // this is file header line.
                 prev_line_kind =

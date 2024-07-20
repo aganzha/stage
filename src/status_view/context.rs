@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::{DiffKind, LineKind, Hunk};
+use crate::{DiffKind, Hunk, LineKind};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -45,7 +45,7 @@ pub struct StatusRenderContext<'a> {
     pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>, // pub cursor_pos: Option<CursorPos>,
     pub current_hunk: Option<&'a Hunk>,
-    pub upcoming_hunk: Option<&'a Hunk>
+    pub upcoming_hunk: Option<&'a Hunk>,
 }
 
 impl Default for StatusRenderContext<'_> {
@@ -67,7 +67,7 @@ impl StatusRenderContext<'_> {
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
                 current_hunk: None,
-                upcoming_hunk: None
+                upcoming_hunk: None,
             }
         }
     }
@@ -149,6 +149,5 @@ impl StatusRenderContext<'_> {
         };
     }
 
-    pub fn under_cursor_hunk(&mut self, _hunk: &Hunk) {
-    }
+    pub fn under_cursor_hunk(&mut self, _hunk: &Hunk) {}
 }
