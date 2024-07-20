@@ -178,10 +178,11 @@ impl TxtTag {
             }
             ENHANCED_ADDED => {
                 // just for spaces i will set background
+                // to normal colors
                 if is_dark {
-                    tag.set_background(Some("#3fb907"));
+                    tag.set_background(Some("#4a8e09"));
                 } else {
-                    tag.set_background(Some("#26a269"));
+                    tag.set_background(Some("#9bebc6"));
                 }
                 // if is_dark {
                 //     tag.set_foreground(Some("#3fb907"));
@@ -198,10 +199,11 @@ impl TxtTag {
             }
             ENHANCED_REMOVED => {
                 // just for spaces i will set background
+                // to normal colors
                 if is_dark {
-                    tag.set_background(Some("#cd0e1c"));
-                } else {
                     tag.set_background(Some("#a51d2d"));
+                } else {
+                    tag.set_background(Some("#e4999e"));
                 }
                 // if is_dark {
                 //     tag.set_foreground(Some("#cd0e1c"));
