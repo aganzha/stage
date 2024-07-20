@@ -405,7 +405,7 @@ impl Hunk {
     pub fn get_conflict_offset_by_line(&self, line: &Line) -> i32 {
         let mut conflict_offset_inside_hunk: i32 = 0;
         for (i, l) in self.lines.iter().enumerate() {
-            if line.content(self).starts_with(MARKER_OURS) {
+            if l.content(self).starts_with(MARKER_OURS) {
                 conflict_offset_inside_hunk = i as i32;
             }
             if l == line {
