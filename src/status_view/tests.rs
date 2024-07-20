@@ -52,15 +52,14 @@ impl Hunk {
     }
 }
 
-fn create_line(line_no: u32, name: &str) -> Line {
+fn create_line(line_no: u32, from: usize, to: usize) -> Line {
     Line {
-        content: name.to_string(),
         origin: DiffLineType::Context,
         view: View::new(),
         new_line_no: Some(line_no),
         old_line_no: Some(line_no),
         kind: LineKind::None,
-        content_idx: (0, 0)
+        content_idx: (from, to)
     }
 }
 
@@ -69,9 +68,10 @@ fn create_hunk(name: &str) -> Hunk {
     hunk.handle_max(name);
     hunk.header = name.to_string();
     for i in 0..3 {
-        let content = format!("{} -> line {}", hunk.header, i);
+        let content = format!("{} -> line {}", hunk.header, i);        
         hunk.handle_max(&content);
-        hunk.lines.push(create_line(i, &content));
+        hunk.lines.push(create_line(i, hunk.buf.len(), content.len()));
+        hunk.buf.push_str(&content);
     }
     hunk
 }
@@ -308,7 +308,7 @@ impl TestViewContainer {
 }
 
 impl ViewContainer for TestViewContainer {
-    fn is_empty(&self) -> bool {
+    fn is_empty<'a>(&self, context: &mut StatusRenderContext<'a>) -> bool {
         false
     }
 
@@ -323,7 +323,7 @@ impl ViewContainer for TestViewContainer {
     fn get_view(&self) -> &View {
         &self.view
     }
-    fn write_content(&self, iter: &mut TextIter, buffer: &TextBuffer) {
+    fn write_content<'a>(&self, iter: &mut TextIter, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {
         buffer.insert(iter, &self.content);
     }
 }
@@ -541,25 +541,58 @@ fn test_expand_line() {
         if i == 0 {
             continue;
         }
-        diff.walk_down(&mut move |vc: &dyn ViewContainer| {
-            if vc.get_view().line_no.get() == i as i32 {
-                // TODO: get_content!
-                // debug!("{:?} - {:?} = {:?}", i, cl, vc.get_content());
-                // assert!(cl.trim(), vc.get_content());
-                let buffer = TextBuffer::new(None);
-                let mut iter = buffer.iter_at_offset(0);
-                vc.write_content(&mut iter, &buffer);
+        for file in &diff.files {
+            if file.view.line_no.get() == i as i32 {
+                file.write_content(&mut iter, &buffer, &mut ctx);
                 let start_line_iter =
                     buffer.iter_at_line(iter.line()).unwrap();
                 assert!(
                     cl.trim() == buffer.text(&start_line_iter, &iter, true)
                 );
             }
-        });
+            for hunk in &file.hunks {
+                if hunk.view.line_no.get() == i as i32 {
+                    hunk.write_content(&mut iter, &buffer, &mut ctx);
+                    let start_line_iter =
+                        buffer.iter_at_line(iter.line()).unwrap();
+                    assert!(
+                        cl.trim() == buffer.text(&start_line_iter, &iter, true)
+                    );
+                }
+
+                for line in &hunk.lines {
+                    if line.view.line_no.get() == i as i32 {
+                        line.write_content(&mut iter, &buffer, &mut ctx);
+                        let start_line_iter =
+                            buffer.iter_at_line(iter.line()).unwrap();
+                        assert!(
+                            cl.trim() == buffer.text(&start_line_iter, &iter, true)
+                        );
+                    }
+
+                }
+            }
+        }
+        // diff.walk_down(&mut move |vc: &dyn ViewContainer| {
+        //     if vc.get_view().line_no.get() == i as i32 {
+        //         // TODO: get_content!
+        //         // debug!("{:?} - {:?} = {:?}", i, cl, vc.get_content());
+        //         // assert!(cl.trim(), vc.get_content());
+        //         let buffer = TextBuffer::new(None);
+        //         let mut iter = buffer.iter_at_offset(0);
+        //         vc.write_content(&mut iter, &buffer, &mut ctx);
+        //         let start_line_iter =
+        //             buffer.iter_at_line(iter.line()).unwrap();
+        //         assert!(
+        //             cl.trim() == buffer.text(&start_line_iter, &iter, true)
+        //         );
+        //     }
+        // });
     }
 
     let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no.get();
     // put cursor inside first hunk
+    
     if diff.cursor(line_of_line, false, &mut ctx) {
         // if comment out next line the line_of_line will be not sqashed
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
@@ -575,13 +608,13 @@ fn test_expand_line() {
 
     let buffer = TextBuffer::new(None);
     let mut iter = buffer.iter_at_offset(0);
-    diff.files[0].hunks[0].write_content(&mut iter, &buffer);
+    diff.files[0].hunks[0].write_content(&mut iter, &buffer, &mut ctx);
     let start_line_iter = buffer.iter_at_offset(0);
     let hunk1_content = buffer.text(&start_line_iter, &iter, true);
 
     let buffer = TextBuffer::new(None);
     let mut iter = buffer.iter_at_offset(0);
-    diff.files[0].hunks[1].write_content(&mut iter, &buffer);
+    diff.files[0].hunks[1].write_content(&mut iter, &buffer, &mut ctx);
     let start_line_iter = buffer.iter_at_offset(0);
     let hunk2_content = buffer.text(&start_line_iter, &iter, true);
 

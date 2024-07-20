@@ -574,7 +574,7 @@ pub fn choose_conflict_side_of_hunk(
 ) -> Result<(), git2::Error> {
     info!(
         "choose_conflict_side_of_hunk {:?} Line: {:?}",
-        hunk.header, line.content
+        hunk.header, line.content(&hunk)
     );
     let repo = git2::Repository::open(path.clone())?;
     let mut index = repo.index()?;

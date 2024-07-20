@@ -57,10 +57,10 @@ static INIT: Once = Once::new();
 
 #[test]
 pub fn choose_ours_in_first_conflict() {
-    // INIT.call_once(|| {
-    //     env_logger::builder().format_timestamp(None).init();
-    //     // _ = gtk4::init();
-    // });
+    INIT.call_once(|| {
+        env_logger::builder().format_timestamp(None).init();
+        // _ = gtk4::init();
+    });
 
     // this is mock diff, which is the result of obtaining
     // diff via diff_tree_to_workdir with reverse=true
@@ -87,14 +87,17 @@ pub fn choose_ours_in_first_conflict() {
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
     let conflict_offset_inside_hunk =
         hunk.get_conflict_offset_by_line(our_choosen_line);
-
+    println!("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+    println!("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+    println!("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+    debug!("............... {:?} {:?}", our_choosen_line, our_choosen_line.content(&hunk));
     debug!(
         "{:?} offset {:?} ... {}",
         our_choosen_line.old_line_no,
         conflict_offset_inside_hunk,
-        our_choosen_line.content
+        our_choosen_line.content(&hunk)
     );
-
+    println!("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
     let mut new_body = choose_conflict_side_of_blob(
         TEST_BLOB,
         &mut hunk_deltas,
@@ -135,7 +138,7 @@ pub fn choose_ours_in_first_conflict() {
             assert!(line.origin != git2::DiffLineType::Deletion);
         }
 
-        if line.content.starts_with(MARKER_THEIRS) {
+        if line.content(&diff.files[0].hunks[0]).starts_with(MARKER_THEIRS) {
             first_passed = true;
         }
     }
@@ -178,7 +181,7 @@ pub fn choose_theirs_in_second_conflict() {
         "{:?} offset {:?} ... {}",
         their_choosen_line.old_line_no,
         conflict_offset_inside_hunk,
-        their_choosen_line.content
+        their_choosen_line.content(&hunk)
     );
 
     let mut new_body = choose_conflict_side_of_blob(
@@ -210,7 +213,7 @@ pub fn choose_theirs_in_second_conflict() {
     let diff = make_diff(&git_diff, DiffKind::Conflicted);
     let mut first_passed = false;
     for line in &diff.files[0].hunks[0].lines {
-        debug!("!! {:?} {:?} {}", line.origin, line.kind, line.content);
+        debug!("!! {:?} {:?} {}", line.origin, line.kind, line.content(&diff.files[0].hunks[0]));
         if !first_passed {
             // handle first conflict
             assert!(line.origin != git2::DiffLineType::Deletion);
@@ -223,7 +226,7 @@ pub fn choose_theirs_in_second_conflict() {
                 _ => assert!(line.origin != git2::DiffLineType::Deletion),
             }
         }
-        if line.content.starts_with(MARKER_THEIRS) {
+        if line.content(&diff.files[0].hunks[0]).starts_with(MARKER_THEIRS) {
             first_passed = true;
         }
     }

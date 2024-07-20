@@ -239,7 +239,7 @@ impl MultiLineLabel {
 }
 
 impl ViewContainer for MultiLineLabel {
-    fn is_empty(&self) -> bool {
+    fn is_empty<'a>(&self, context: &mut StatusRenderContext<'a>) -> bool {
         self.labels.is_empty()
     }
 
@@ -258,7 +258,7 @@ impl ViewContainer for MultiLineLabel {
             .collect()
     }
 
-    fn write_content(&self, _iter: &mut TextIter, _buffer: &TextBuffer) {}
+    fn write_content<'a>(&self, _iter: &mut TextIter, _buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {}
 }
 
 impl commit::CommitDiff {
