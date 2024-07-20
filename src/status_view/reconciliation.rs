@@ -15,19 +15,23 @@ pub const MAX_LINES: i32 = 50000;
 impl Line {
     // line
     pub fn enrich_view(
-        &self,        
+        &self,
         rendered: &Line,
         _buffer: &TextBuffer,
-        _context: &mut crate::StatusRenderContext,
+        context: &mut crate::StatusRenderContext,
     ) {
-        self.adopt_view(&rendered.view);        
-        if self.content != rendered.content || self.origin != rendered.origin {
+        let my_hunk = context.current_hunk.unwrap();
+        let my_content = self.content(my_hunk);
+        let rendered_hunk = context.compared_hunk.unwrap();
+        let rendered_content = rendered.content(rendered_hunk);
+        self.adopt_view(&rendered.view);
+        if my_content != rendered_content || self.origin != rendered.origin {
             trace!("mark dirty while enrich view in line");
             self.view.dirty(true);
             // line.view.replace(View{rendered: true, ..line.view.get()});
             trace!("*************dirty content in reconciliation: {} <> {} origins: {:?} {:?}",
-                   self.content,
-                   rendered.content,
+                   my_content,
+                   rendered_content,
                    self.origin,
                    rendered.origin
             )
@@ -36,7 +40,7 @@ impl Line {
 }
 
 impl Hunk {
-   
+
     // Hunk.
     pub fn enrich_view(
         &self,
@@ -44,6 +48,8 @@ impl Hunk {
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) {
+        // context.current_hunk.replace(self);
+        // context.compared_hunk.replace(rendered);
         self.adopt_view(&rendered.view);
         if self.header != rendered.header {
             self.view.dirty(true);
@@ -60,6 +66,7 @@ impl Hunk {
                 lines.0.enrich_view(lines.1, buffer, context);
                 last_rendered += 1;
             });
+        context.compared_hunk.take();
         if rendered.lines.len() > last_rendered {
             rendered.lines[last_rendered..rendered.lines.len()]
                 .iter()
@@ -68,6 +75,7 @@ impl Hunk {
                     line.erase(buffer, context);
                 });
         }
+        context.compared_hunk.take();
     }
 }
 
@@ -268,7 +276,7 @@ impl File {
                         );
 
                         rendered.erase(buffer, context);
-                    } else if new.old_start == rendered.old_start 
+                    } else if new.old_start == rendered.old_start
                         && new.old_lines == rendered.old_lines
                         && new.new_lines == rendered.new_lines {
                             trace!("case 4");

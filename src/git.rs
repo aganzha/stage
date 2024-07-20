@@ -58,7 +58,6 @@ pub enum LineKind {
 pub struct Line {
     pub view: View,
     pub origin: DiffLineType,
-    pub content: String,
     pub new_line_no: Option<u32>,
     pub old_line_no: Option<u32>,
     pub kind: LineKind,
@@ -70,7 +69,6 @@ impl Default for Line {
         Line {
             view: View::new(),
             origin: DiffLineType::Addition,
-            content: "".to_string(),
             new_line_no: None,
             old_line_no: None,
             kind: LineKind::None,
@@ -80,15 +78,17 @@ impl Default for Line {
 }
 
 impl Line {
+    pub fn content<'a>(&'a self, hunk: &'a Hunk) -> &'a str {
+        // debug!(".......................... {:?} >>{:?}<<", self.content_idx, hunk.buf);
+        &hunk.buf[self.content_idx.0 .. self.content_idx.0 + self.content_idx.1]
+    }
+
     pub fn from_diff_line(l: &DiffLine, content_from: usize, content_to: usize) -> Self {
         return Self {
             view: View::new(),
             origin: l.origin_value(),
             new_line_no: l.new_lineno(),
             old_line_no: l.old_lineno(),
-            content: String::from(str::from_utf8(l.content()).unwrap())
-                .replace("\r\n", "")
-                .replace('\n', ""),
             kind: LineKind::None,
             content_idx: (content_from, content_to)
         };
@@ -112,13 +112,13 @@ impl Line {
     }
 
     pub fn repr(&self, title: &str, chars_to_take: usize) -> String {
-        format!("{} new_line_no: {:?} old_line_no: {:?} knd: {:?} orgn: {:?} cnt: {}",
+        format!("{} new_line_no: {:?} old_line_no: {:?} knd: {:?} orgn: {:?}",
                 title,
                 self.new_line_no,
                 self.old_line_no,
                 self.kind,
-                self.origin,
-                self.content.trim().chars().take(chars_to_take).collect::<String>())
+                self.origin
+        )
     }
 }
 
@@ -187,7 +187,7 @@ impl Hunk {
         self.new_start = dh.new_start();
         self.new_lines = dh.new_lines();
         self.buf = String::with_capacity(
-            3 + self.old_lines as usize + self.new_lines as usize + 3
+            1 + 3 + self.old_lines as usize + self.new_lines as usize + 3
         );
     }
 
@@ -321,7 +321,7 @@ impl Hunk {
                 | DiffLineType::HunkHeader
                 | DiffLineType::Binary => {}
                 _ => {
-                    self.handle_max(&line.content);
+                    self.handle_max(content);
                     self.lines.push(line)
                 }
             }
@@ -329,10 +329,10 @@ impl Hunk {
         }
         trace!(
             ":::::::::::::::::::::::::::::::: {:?}. prev line kind {:?}",
-            line.content,
+            content,
             prev_line_kind
         );
-        let prefix: String = line.content.chars().take(7).collect();
+        let prefix: String = content.chars().take(7).collect();
 
         match &prefix[..] {
             MARKER_OURS | MARKER_THEIRS | MARKER_VS => {
@@ -391,7 +391,7 @@ impl Hunk {
             | DiffLineType::HunkHeader
             | DiffLineType::Binary => {}
             _ => {
-                self.handle_max(&line.content);
+                self.handle_max(content);
                 self.lines.push(line)
             }
         }
@@ -405,7 +405,7 @@ impl Hunk {
     pub fn get_conflict_offset_by_line(&self, line: &Line) -> i32 {
         let mut conflict_offset_inside_hunk: i32 = 0;
         for (i, l) in self.lines.iter().enumerate() {
-            if l.content.starts_with(MARKER_OURS) {
+            if line.content(self).starts_with(MARKER_OURS) {
                 conflict_offset_inside_hunk = i as i32;
             }
             if l == line {

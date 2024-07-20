@@ -608,8 +608,8 @@ impl Status {
             self.conflicted_label.view.dirty(true);
             self.conflicted_label.view.transfer(true);
         }
-        if let Some(s) = &mut self.conflicted {
-            diff.enrich_view(s, &txt.buffer(), context);
+        if let Some(conflicted) = &mut self.conflicted {
+            diff.enrich_view(conflicted, &txt.buffer(), context);
         }
         if let Some(state) = &self.state {
             if diff.is_empty() {
