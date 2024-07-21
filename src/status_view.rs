@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 pub mod commit;
-pub mod container;
+pub mod render;
 pub mod context;
 pub mod headerbar;
 pub mod monitor;
@@ -13,7 +13,7 @@ use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{abort_rebase, continue_rebase, merge, remote, stash};
 use crate::utils::StrPath;
 
-use container::ViewContainer;
+use render::ViewContainer;
 use core::time::Duration;
 use git2::RepositoryState;
 use stage_view::{cursor_to_line_offset, StageView};

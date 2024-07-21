@@ -6,7 +6,7 @@ use crate::dialogs::{alert, ConfirmDialog, YES};
 use crate::git::{commit, stash};
 use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::{
-    container::{ViewContainer, ViewKind},
+    render::{ViewContainer, ViewKind},
     stage_view::StageView,
     view::View,
     Label as TextViewLabel,
