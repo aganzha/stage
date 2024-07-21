@@ -146,6 +146,7 @@ pub trait ViewContainer {
         }
     }
 
+    // ViewContainer
     fn apply_tags<'a>(
         &'a self,
         buffer: &TextBuffer,
@@ -160,6 +161,13 @@ pub trait ViewContainer {
         }
     }
 
+    fn adjust_tags_on_cursor_change<'a>(
+        &'a self,
+        buffer: &TextBuffer,
+        context: &mut StatusRenderContext<'a>
+    ) {
+    }
+    
     // ViewContainer
     fn render<'a>(
         &'a self,
@@ -260,6 +268,7 @@ pub trait ViewContainer {
     /// returns if view is changed during cursor move
     fn cursor<'a>(
         &'a self,
+        buffer: &TextBuffer,
         line_no: i32,
         parent_active: bool,
         context: &mut StatusRenderContext<'a>,
@@ -327,11 +336,14 @@ pub trait ViewContainer {
                 || view.is_current() != current_before;
         }
         for child in self.get_children() {
-            result = child.cursor(line_no, self_active, context) || result;
+            result = child.cursor(buffer, line_no, self_active, context) || result;
         }
         // result here just means view is changed
         // it does not actually means that view is under cursor
         self.fill_context(context);
+        if result {
+            self.adjust_tags_on_cursor_change(buffer, context);
+        }
         result
     }
 
@@ -483,6 +495,7 @@ impl ViewContainer for Diff {
     // diff
     fn cursor<'a>(
         &'a self,
+        buffer: &TextBuffer,
         line_no: i32,
         parent_active: bool,
         context: &mut StatusRenderContext<'a>,
@@ -497,7 +510,7 @@ impl ViewContainer for Diff {
         }
         let mut result = false;
         for file in &self.files {
-            result = file.cursor(line_no, parent_active, context) || result;
+            result = file.cursor(buffer, line_no, parent_active, context) || result;
         }
         result
     }
@@ -920,17 +933,20 @@ impl ViewContainer for Line {
         //     // TAGS BECOME BROKEN ON EMPTY LINES!
         //     return;
         // }
+        debug!("ENTER APPLY TAGS {:b}", self.view.tag_indexes.get());
         for t in &self.tags(context) {
             self.add_tag(buffer, t);
         }
         // ---------------------------------------
-
+        debug!("APLIED STANDARD TAGS {:b}", self.view.tag_indexes.get());
+        
         // line_no
         let line_no_tag = match self.origin {
             DiffLineType::Addition => make_tag(tags::LINE_NO_ADDED),
             DiffLineType::Deletion => make_tag(tags::LINE_NO_REMOVED),
             _ => make_tag(tags::LINE_NO_CONTEXT)
         };
+        debug!("----------------> {:?} {:b}", line_no_tag.name(), self.view.tag_indexes.get());
         if !self.view.tag_is_added(&line_no_tag) {
             let (start_iter, mut end_iter) =
                 self.start_end_iters(buffer, self.view.line_no.get());
@@ -943,7 +959,8 @@ impl ViewContainer for Line {
             );
             self.view.tag_added(&line_no_tag);
         }
-        
+        debug!("=========== {:?} {:b}", self.view.tag_is_added(&line_no_tag), self.view.tag_indexes.get());
+        debug!("");
         // highlight spaces
         let content = self.content(context.current_hunk.unwrap());
         let stripped = content
@@ -1221,13 +1238,14 @@ impl ViewContainer for Untracked {
     // Untracked (diff)
     fn cursor<'a>(
         &'a self,
+        buffer: &TextBuffer,
         line_no: i32,
         parent_active: bool,
         context: &mut StatusRenderContext<'a>,
     ) -> bool {
         let mut result = false;
         for file in &self.files {
-            result = file.cursor(line_no, parent_active, context) || result;
+            result = file.cursor(buffer, line_no, parent_active, context) || result;
         }
         result
     }

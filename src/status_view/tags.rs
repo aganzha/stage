@@ -63,7 +63,7 @@ pub const TEXT_TAGS: [&str; 18] = [
 ];
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct TagIdx(u16);
+pub struct TagIdx(u32);
 
 impl Default for TagIdx {
     fn default() -> Self {
@@ -75,14 +75,14 @@ impl TagIdx {
     pub fn new() -> Self {
         Self(0)
     }
-    pub fn from(u: u16) -> Self {
+    pub fn from(u: u32) -> Self {
         Self(u)
     }
     /// when tag added to view
     /// view will store index of this tag
     /// from global array as bit mask
     pub fn added(self, tag: &TxtTag) -> Self {
-        let mut bit_mask = 1;
+        let mut bit_mask: u32 = 1;
         for name in TEXT_TAGS {
             if tag.name() == name {
                 break;
@@ -95,7 +95,7 @@ impl TagIdx {
     /// view will remove index of this tag
     /// in global array from bit mask
     pub fn removed(self, tag: &TxtTag) -> Self {
-        let mut bit_mask = 1;
+        let mut bit_mask: u32 = 1;
         for name in TEXT_TAGS {
             if tag.name() == name {
                 break;
@@ -106,7 +106,7 @@ impl TagIdx {
     }
 
     pub fn is_added(&self, tag: &TxtTag) -> bool {
-        let mut bit_mask = 1;
+        let mut bit_mask: u32 = 1;
         for name in TEXT_TAGS {
             if tag.name() == name {
                 break;
@@ -210,19 +210,27 @@ impl TxtTag {
                 }
             }
             LINE_NO_CONTEXT => {
-                // tag.set_scale(0.5);
+                // tag.set_priority(100);
                 if is_dark {
                     tag.set_foreground_rgba(Some(&gdk::RGBA::new(1.0, 1.0, 1.0, 0.2)));
                 } else {
+
                     tag.set_foreground_rgba(Some(&gdk::RGBA::new(0.0, 0.0, 0.0, 0.2)));
+                    // from removed
+                    // tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#c01c2855").unwrap()));
                 }
             }
             CONTEXT => {
-                // tag.set_scale(0.5);
+                // tag.set_priority(1);
+                // for some reason it affects LINE_NO_CONTEXT.
+                // cant find reason...
                 if is_dark {
-                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(1.0, 1.0, 1.0, 0.6)));
+                    // tag.set_foreground_rgba(Some(&gdk::RGBA::new(1.0, 1.0, 1.0, 0.6)));
                 } else {
-                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(0.0, 0.0, 0.0, 0.6)));
+                    // from removed
+                    // tag.set_foreground(Some("#c01c28"));
+                    // tag.set_foreground_rgba(Some(&gdk::RGBA::new(0.0, 0.0, 0.0, 0.6)));
+
                 }
             }
             BOLD => {
