@@ -5,11 +5,11 @@
 use crate::status_view::view::View;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
-use gtk4::{pango, TextTag};
+use gtk4::{pango, gdk, TextTag};
 use libadwaita::prelude::*;
 use libadwaita::StyleManager;
 use log::debug;
-use pango::Style;
+use pango::{Style, ShowFlags};
 
 pub const POINTER: &str = "pointer";
 pub const STAGED: &str = "staged";
@@ -25,11 +25,18 @@ pub const REGION: &str = "region";
 pub const HUNK: &str = "hunk";
 pub const ITALIC: &str = "italic";
 
+pub const SPACES_ADDED: &str = "spacesAdded";
+pub const SPACES_REMOVED: &str = "spacesRemoved";
+pub const LINE_NO_ADDED: &str = "linenoAdded";
+pub const LINE_NO_REMOVED: &str = "linenoRemoved";
+pub const LINE_NO_CONTEXT: &str = "linenoContext";
+pub const CONTEXT: &str = "context";
+
 pub const CONFLICT_MARKER: &str = "conflictmarker";
 pub const OURS: &str = "ours";
 pub const THEIRS: &str = "theirs";
 
-pub const TEXT_TAGS: [&str; 12] = [
+pub const TEXT_TAGS: [&str; 18] = [
     BOLD,
     ADDED,
     ENHANCED_ADDED,
@@ -45,6 +52,14 @@ pub const TEXT_TAGS: [&str; 12] = [
     CONFLICT_MARKER,
     OURS,
     THEIRS,
+
+    SPACES_ADDED,
+    SPACES_REMOVED,
+    LINE_NO_ADDED,
+    LINE_NO_REMOVED,
+    LINE_NO_CONTEXT,
+    CONTEXT
+
 ];
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -166,6 +181,50 @@ impl TxtTag {
 
     pub fn fill_text_tag(&self, tag: &TextTag, is_dark: bool) {
         match &self.0[..] {
+            SPACES_ADDED => {
+                if is_dark {
+                    tag.set_background(Some("#4a8e09"));
+                } else {
+                    tag.set_background(Some("#9bebc6"));
+                }
+            }
+            SPACES_REMOVED => {
+                if is_dark {
+                    tag.set_background(Some("#a51d2d"));
+                } else {
+                    tag.set_background(Some("#e4999e"));
+                }
+            }
+            LINE_NO_ADDED => {
+                if is_dark {
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#4a8e0999").unwrap()));
+                } else {
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#2ec27e55").unwrap()));
+                }
+            }
+            LINE_NO_REMOVED => {
+                if is_dark {
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#a51d2d99").unwrap()));
+                } else {
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#c01c2855").unwrap()));
+                }
+            }
+            LINE_NO_CONTEXT => {
+                // tag.set_scale(0.5);
+                if is_dark {
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(1.0, 1.0, 1.0, 0.2)));
+                } else {
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(0.0, 0.0, 0.0, 0.2)));
+                }
+            }
+            CONTEXT => {
+                // tag.set_scale(0.5);
+                if is_dark {
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(1.0, 1.0, 1.0, 0.6)));
+                } else {
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(0.0, 0.0, 0.0, 0.6)));
+                }
+            }
             BOLD => {
                 tag.set_weight(700);
             }
@@ -177,18 +236,11 @@ impl TxtTag {
                 }
             }
             ENHANCED_ADDED => {
-                // just for spaces i will set background
-                // to normal colors
                 if is_dark {
-                    tag.set_background(Some("#4a8e09"));
+                    tag.set_foreground(Some("#3fb907"));
                 } else {
-                    tag.set_background(Some("#9bebc6"));
+                    tag.set_foreground(Some("#26a269"));
                 }
-                // if is_dark {
-                //     tag.set_foreground(Some("#3fb907"));
-                // } else {
-                //     tag.set_foreground(Some("#26a269"));
-                // }
             }
             REMOVED => {
                 if is_dark {
@@ -198,18 +250,11 @@ impl TxtTag {
                 }
             }
             ENHANCED_REMOVED => {
-                // just for spaces i will set background
-                // to normal colors
                 if is_dark {
-                    tag.set_background(Some("#a51d2d"));
+                    tag.set_foreground(Some("#cd0e1c"));
                 } else {
-                    tag.set_background(Some("#e4999e"));
+                    tag.set_foreground(Some("#a51d2d"));
                 }
-                // if is_dark {
-                //     tag.set_foreground(Some("#cd0e1c"));
-                // } else {
-                //     tag.set_foreground(Some("#a51d2d"));
-                // }
             }
             CURSOR => {
                 if is_dark {

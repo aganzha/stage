@@ -16,6 +16,8 @@ use gtk4::{TextBuffer, TextIter};
 use log::{debug, trace};
 use std::path::PathBuf;
 
+pub const LINE_NO_SPACE: i32 = 6;
+
 pub fn make_tag(name: &str) -> tags::TxtTag {
     tags::TxtTag::from_str(name)
 }
@@ -82,7 +84,7 @@ pub trait ViewContainer {
         }
     }
 
-    fn tags(&self) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
@@ -153,7 +155,7 @@ pub trait ViewContainer {
             // TAGS BECOME BROKEN ON EMPTY LINES!
             return;
         }
-        for t in &self.tags() {
+        for t in &self.tags(context) {
             self.add_tag(buffer, t);
         }
     }
@@ -516,7 +518,7 @@ impl ViewContainer for Diff {
         }
         let start_iter = buffer.iter_at_line(self.view.line_no.get()).unwrap();
         let end_iter = buffer.iter_at_line(iter.line()).unwrap();
-        for tag in self.tags() {
+        for tag in self.tags(context) {
             buffer.apply_tag_by_name(tag.str(), &start_iter, &end_iter);
         }
     }
@@ -535,7 +537,7 @@ impl ViewContainer for Diff {
         result
     }
 
-    fn tags(&self) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         match self.kind {
             DiffKind::Staged => vec![make_tag(tags::STAGED)],
             // TODO! create separate tag for conflicted!
@@ -589,7 +591,7 @@ impl ViewContainer for File {
             .map(|vh| vh as &dyn ViewContainer)
             .collect()
     }
-    fn tags(&self) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         let mut tags = vec![make_tag(tags::BOLD), make_tag(tags::POINTER)];
         if self.status == git2::Delta::Deleted {
             tags.push(make_tag(tags::REMOVED));
@@ -651,14 +653,15 @@ impl ViewContainer for Hunk {
         buffer: &TextBuffer,
         _context: &mut StatusRenderContext<'_>,
     ) {
-        let parts: Vec<&str> = self.header.split("@@").collect();
-        let line_no = match self.kind {
-            DiffKind::Unstaged | DiffKind::Conflicted => self.old_start,
-            DiffKind::Staged => self.new_start,
-        };
+
+        let parts: Vec<&str> = self.header.split("@@").collect(); 
+        // let line_no = match self.kind {
+        //     DiffKind::Unstaged | DiffKind::Conflicted => self.old_start,
+        //     DiffKind::Staged => self.new_start,
+        // };
         let scope = parts.last().unwrap();
         buffer.insert(iter, "Line ");
-        buffer.insert(iter, &format!("{}", line_no));
+        buffer.insert(iter, &format!("{}", self.new_start));// line_ no 
         if !scope.is_empty() {
             buffer.insert(iter, &format!(" in {}", scope));
         }
@@ -717,7 +720,7 @@ impl ViewContainer for Hunk {
         // whole hunk is active
         active
     }
-    fn tags(&self) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
@@ -744,17 +747,6 @@ impl ViewContainer for Line {
 
     fn get_view(&self) -> &View {
         &self.view
-    }
-
-    // Line
-    fn write_content(
-        &self,
-        iter: &mut TextIter,
-        buffer: &TextBuffer,
-        context: &mut StatusRenderContext<'_>,
-    ) {
-        buffer.insert(iter, "   ");
-        buffer.insert(iter, self.content(context.current_hunk.unwrap()));
     }
 
     fn get_children(&self) -> Vec<&dyn ViewContainer> {
@@ -836,14 +828,14 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn tags(&self) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         match self.kind {
             //
             LineKind::ConflictMarker(_) => {
                 return vec![make_tag(tags::CONFLICT_MARKER)]
             }
-            // .............................................???? PERHAPS OURS??
-            LineKind::Ours(_) => return vec![make_tag(tags::CONFLICT_MARKER)],
+            // .............................................???? PERHAPS OURS?? was CONFLICT_MARKER
+            LineKind::Ours(_) => return vec![make_tag(tags::OURS)],
             LineKind::Theirs(_) => {
                 // return Vec::new();
                 return vec![make_tag(tags::THEIRS)];
@@ -851,15 +843,69 @@ impl ViewContainer for Line {
             _ => {}
         }
         // TODO! ENHANCED_ADDED!!!!
+        // context is not enough. because apply_tags is called ONLY
+        // in render. but it need to change tags in cursor!
+        // there is only highlight changes for now!
+        // it need to add apply_tags in cursor!
+        // first cleanup tags and then reapply!
         match self.origin {
             DiffLineType::Addition => {
                 vec![make_tag(tags::ADDED)]
+                // if ctx.current_hunk.unwrap().view.is_active() {
+                //     debug!("eeeeeeeeeeeeenhanced");
+                //     vec![make_tag(tags::ENHANCED_ADDED)]
+                // } else {
+                //     debug!("regular...............");
+                //     vec![make_tag(tags::ADDED)]
+                // }
             }
             DiffLineType::Deletion => {
                 vec![make_tag(tags::REMOVED)]
+                // if ctx.current_hunk.unwrap().view.is_active() {
+                //     vec![make_tag(tags::ENHANCED_REMOVED)]
+                // } else {
+                //     vec![make_tag(tags::REMOVED)]
+                // }
+            }
+            DiffLineType::Context => {
+                vec![make_tag(tags::CONTEXT)]
             }
             _ => Vec::new(),
         }
+    }
+
+        // Line
+    fn write_content(
+        &self,
+        iter: &mut TextIter,
+        buffer: &TextBuffer,
+        context: &mut StatusRenderContext<'_>,
+    ) {
+        
+        let line_no = format!("{}", self.new_line_no.unwrap_or(self.old_line_no.unwrap_or(0)));
+        match line_no.len() {
+            1 => {
+                buffer.insert(iter, "   ");
+                buffer.insert(iter, &line_no);
+            }
+            2 => {
+                buffer.insert(iter, "  ");
+                buffer.insert(iter, &line_no);
+            }
+            3 => {
+                buffer.insert(iter, " ");
+                buffer.insert(iter, &line_no);
+            }
+            4 => {
+                buffer.insert(iter, &line_no);
+            }
+            _ => {
+                buffer.insert(iter, "..");
+                buffer.insert(iter, &line_no[line_no.len() - 2 ..]);
+            }
+        }
+        buffer.insert(iter, "  ");
+        buffer.insert(iter, self.content(context.current_hunk.unwrap()));
     }
 
     // Line
@@ -869,16 +915,36 @@ impl ViewContainer for Line {
         context: &mut StatusRenderContext<'a>,
     ) {
         // -----------------super-----------------
-        if self.is_empty(context) {
-            // TAGS BECOME BROKEN ON EMPTY LINES!
-            return;
-        }
-        for t in &self.tags() {
+        // lines are always have line_no and cant be empty
+        // if self.is_empty(context) {
+        //     // TAGS BECOME BROKEN ON EMPTY LINES!
+        //     return;
+        // }
+        for t in &self.tags(context) {
             self.add_tag(buffer, t);
         }
         // ---------------------------------------
 
-        // highliught spaces
+        // line_no
+        let line_no_tag = match self.origin {
+            DiffLineType::Addition => make_tag(tags::LINE_NO_ADDED),
+            DiffLineType::Deletion => make_tag(tags::LINE_NO_REMOVED),
+            _ => make_tag(tags::LINE_NO_CONTEXT)
+        };
+        if !self.view.tag_is_added(&line_no_tag) {
+            let (start_iter, mut end_iter) =
+                self.start_end_iters(buffer, self.view.line_no.get());
+            end_iter.set_line_offset(0);
+            end_iter.forward_chars(LINE_NO_SPACE);
+            buffer.apply_tag_by_name(
+                line_no_tag.name(),
+                &start_iter,
+                &end_iter,
+            );
+            self.view.tag_added(&line_no_tag);
+        }
+        
+        // highlight spaces
         let content = self.content(context.current_hunk.unwrap());
         let stripped = content
             .trim_end_matches(|c| -> bool { char::is_ascii_whitespace(&c) });
@@ -889,26 +955,24 @@ impl ViewContainer for Line {
             // if will use here enhanced_added for now, but
             // spaces must have their separate tag!
 
-            let bg_tag = if self.origin == DiffLineType::Addition {
-                make_tag(tags::ENHANCED_ADDED)
+            let spaces_tag = if self.origin == DiffLineType::Addition {
+                make_tag(tags::SPACES_ADDED)
             } else {
-                make_tag(tags::ENHANCED_REMOVED)
+                make_tag(tags::SPACES_REMOVED)
             };
 
             // do not add tag twice
-            if !self.view.tag_is_added(&bg_tag) {
+            if !self.view.tag_is_added(&spaces_tag) {
                 let (mut start_iter, end_iter) =
                     self.start_end_iters(buffer, self.view.line_no.get());
-                start_iter.forward_chars(stripped.len() as i32);
+                start_iter.forward_chars(stripped.len() as i32 + LINE_NO_SPACE);
+                
                 buffer.apply_tag_by_name(
-                    bg_tag.name(),
+                    spaces_tag.name(),
                     &start_iter,
                     &end_iter,
                 );
-                self.view.tag_added(&bg_tag);
-                let me = self.content(context.current_hunk.unwrap());
-                // do not add tag twice
-                self.view.tag_added(&bg_tag);
+                self.view.tag_added(&spaces_tag);
             }
         }
     }
@@ -931,6 +995,7 @@ impl ViewContainer for Label {
         Vec::new()
     }
 
+    // Label
     fn write_content(
         &self,
         iter: &mut TextIter,
@@ -958,6 +1023,7 @@ impl ViewContainer for Head {
         Vec::new()
     }
 
+    // Head
     fn write_content(
         &self,
         iter: &mut TextIter,
@@ -997,6 +1063,7 @@ impl ViewContainer for State {
         Vec::new()
     }
 
+    // State
     fn write_content(
         &self,
         iter: &mut TextIter,
@@ -1093,7 +1160,7 @@ impl ViewContainer for Untracked {
         &self.view
     }
 
-    // Untracked
+    // Untracked (diff)
     fn write_content(
         &self,
         _iter: &mut TextIter,
@@ -1102,7 +1169,7 @@ impl ViewContainer for Untracked {
     ) {
     }
 
-    // Untracked
+    // Untracked (diff)
     fn get_children(&self) -> Vec<&dyn ViewContainer> {
         self.files
             .iter()
@@ -1123,7 +1190,7 @@ impl ViewContainer for Untracked {
         None
     }
 
-    // Untracked
+    // Untracked (diff)
     fn is_active_by_parent(
         &self,
         active: bool,
@@ -1134,11 +1201,11 @@ impl ViewContainer for Untracked {
         active
     }
 
-    fn tags(&self) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
-    // Untracked
+    // Untracked (diff)
     fn render<'a>(
         &'a self,
         buffer: &TextBuffer,
@@ -1151,7 +1218,7 @@ impl ViewContainer for Untracked {
         }
     }
 
-    // Untracked
+    // Untracked (diff)
     fn cursor<'a>(
         &'a self,
         line_no: i32,
@@ -1179,6 +1246,7 @@ impl ViewContainer for UntrackedFile {
         &self.view
     }
 
+    // Untracked file
     fn write_content(
         &self,
         iter: &mut TextIter,
@@ -1215,7 +1283,7 @@ impl ViewContainer for UntrackedFile {
         // this line is active
         active
     }
-    fn tags(&self) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 }
