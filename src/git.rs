@@ -42,7 +42,7 @@ pub fn make_diff_options() -> DiffOptions {
     // to something big. actually it must be larger
     // line count between <<<< and =========
 
-    opts.interhunk_lines(3); // try to put 0 here
+    // opts.interhunk_lines(3); // try to put 0 here
     opts
 }
 

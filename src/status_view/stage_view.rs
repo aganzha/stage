@@ -565,7 +565,6 @@ pub fn factory(
         let sndr = sndr.clone();
         // let latest_char_offset = RefCell::new(0);
         move |view: &StageView, step, count, _selection| {
-            debug!("mooooooooooooooooooooooove!");
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);
