@@ -788,19 +788,19 @@ impl Status {
         // ViewContainer, and does not affect context!
         context.highlight_cursor = line_no;
 
-        // context.update_cursor_pos(line_no, offset);
         let mut changed = false;
+        let buffer = txt.buffer();
         if let Some(untracked) = &self.untracked {
-            changed = untracked.cursor(line_no, false, context) || changed;
+            changed = untracked.cursor(&buffer, line_no, false, context) || changed;
         }
         if let Some(conflicted) = &self.conflicted {
-            changed = conflicted.cursor(line_no, false, context) || changed;
+            changed = conflicted.cursor(&buffer, line_no, false, context) || changed;
         }
         if let Some(unstaged) = &self.unstaged {
-            changed = unstaged.cursor(line_no, false, context) || changed;
+            changed = unstaged.cursor(&buffer, line_no, false, context) || changed;
         }
         if let Some(staged) = &self.staged {
-            changed = staged.cursor(line_no, false, context) || changed;
+            changed = staged.cursor(&buffer, line_no, false, context) || changed;
         }
         // NO NEED TO RENDER!
         txt.bind_highlights(context);

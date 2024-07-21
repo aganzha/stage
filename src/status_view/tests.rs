@@ -123,14 +123,14 @@ pub fn cursor<'a>(
     line_no: i32,
     ctx: &mut StatusRenderContext<'a>,
 ) {
+    let buff = TextBuffer::new(None);
     for (_, file) in diff.files.iter().enumerate() {
-        file.cursor(line_no, false, ctx);
+        file.cursor(&buff, line_no, false, ctx);
     }
     // some views will be rerenderred cause highlight changes
     mock_render(diff);
 }
 
-#[test]
 pub fn test_file_active() {
     let mut diff = create_diff();
     mock_render(&mut diff);
@@ -166,7 +166,6 @@ pub fn test_file_active() {
     }
 }
 
-#[test]
 pub fn test_expand() {
     let mut diff = create_diff();
     mock_render(&mut diff);
@@ -522,6 +521,8 @@ fn test_render_view() {
 
     // call it here, cause rust creates threads event with --test-threads=1
     // and gtk should be called only from main thread
+    test_expand();
+    test_file_active();
     test_expand_line();
     test_render_view();
     test_reconciliation_new();
@@ -535,7 +536,7 @@ fn test_expand_line() {
     let mut ctx = StatusRenderContext::new();
     diff.render(&buffer, &mut iter, &mut ctx);
     // if cursor returns true it need to rerender as in Status!
-    if diff.cursor(1, false, &mut ctx) {
+    if diff.cursor(&buffer, 1, false, &mut ctx) {
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
     }
 
@@ -603,7 +604,7 @@ fn test_expand_line() {
     let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no.get();
     // put cursor inside first hunk
 
-    if diff.cursor(line_of_line, false, &mut ctx) {
+    if diff.cursor(&buffer, line_of_line, false, &mut ctx) {
         // if comment out next line the line_of_line will be not sqashed
         diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
     }
@@ -968,23 +969,23 @@ fn test_reconciliation_new() {
 
 #[test]
 fn test_tags() {
-    let tag1 = tags::TxtTag::from_str(tags::TEXT_TAGS[10]);
+    let tag1 = tags::TxtTag::from_str(tags::TEXT_TAGS[17]);
     let tag3 = tags::TxtTag::from_str(tags::TEXT_TAGS[3]);
 
     let mut view = View::new();
     view.tag_added(&tag1);
-    debug!("added at 1 {:b}", view.tag_indexes.get());
-    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b10000000000));
+    debug!("added at 16 {:b}", view.tag_indexes.get());
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b100000000000000000));
     assert!(view.tag_indexes.get().is_added(&tag1));
 
     view.tag_added(&tag3);
     debug!("added at 3 {:b}", view.tag_indexes.get());
-    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b10000001000));
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b100000000000001000));
     assert!(view.tag_indexes.get().is_added(&tag1));
     assert!(view.tag_indexes.get().is_added(&tag3));
 
     view.tag_removed(&tag1);
-    debug!("removed at 1 {:b}", view.tag_indexes.get());
+    debug!("removed at 16 {:b}", view.tag_indexes.get());
     assert!(view.tag_indexes.get() == tags::TagIdx::from(0b00001000));
     assert!(!view.tag_indexes.get().is_added(&tag1));
     assert!(view.tag_indexes.get().is_added(&tag3));

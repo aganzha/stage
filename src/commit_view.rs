@@ -464,8 +464,8 @@ pub fn show_commit_window(
                 Event::Cursor(_offset, line_no) => {
                     ctx.highlight_cursor = line_no;
                     if let Some(d) = &mut diff {
-                        if d.diff.cursor(line_no, false, &mut ctx) {
-                            let buffer = &txt.buffer();
+                        let buffer = &txt.buffer();
+                        if d.diff.cursor(buffer, line_no, false, &mut ctx) {                            
                             let mut iter = buffer
                                 .iter_at_line(
                                     d.diff.files[0].view.line_no.get(),
