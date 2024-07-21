@@ -166,6 +166,8 @@ impl MultiLineLabel {
     ) {
         self.labels = Vec::new();
         let mut acc = String::from("");
+
+        debug!("........................... {}", content);
         // split first by new lines. each new line in commit must go
         // on its own, separate label. BUT!
         // also split long lines to different labels also!
@@ -282,18 +284,12 @@ impl commit::CommitDiff {
             l.render(&buffer, &mut iter, ctx)
         }
         let offset_before_erase = iter.offset();
-        // let mut body_label = {
-        //     if obody_label.is_none() {
-        //         MultiLineLabel::new(&self.message, ctx)
-        //     } else {
-        //         obody_label.take().unwrap()
-        //     }
-        // };
         for l in &mut body_label.labels {
             l.erase(&buffer, ctx);
         }
         iter = buffer.iter_at_offset(offset_before_erase);
-        // body_label.update_content(&self.message, ctx);
+        // ??? why it was commented out?
+        body_label.update_content(&self.message, ctx);
         body_label.render(&buffer, &mut iter, ctx);
 
         self.diff.render(&buffer, &mut iter, ctx);

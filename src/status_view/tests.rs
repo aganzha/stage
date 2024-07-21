@@ -524,7 +524,6 @@ fn test_render_view() {
     test_expand();
     test_file_active();
     test_expand_line();
-    test_render_view();
     test_reconciliation_new();
 }
 
