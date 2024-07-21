@@ -841,6 +841,39 @@ impl ViewContainer for Line {
     }
 
     // Line
+    fn adjust_tags_on_cursor_change<'a>(
+        &'a self,
+        buffer: &TextBuffer,
+        _context: &mut StatusRenderContext<'a>
+    ) {
+        let added = make_tag(tags::ADDED);
+        let removed = make_tag(tags::REMOVED);
+        let enhanced_added = added.enhance();
+        let enhanced_removed = removed.enhance();
+        match self.origin {
+            DiffLineType::Addition => {
+                if self.view.is_active() {
+                    self.remove_tag(buffer, &added);
+                    self.add_tag(buffer, &enhanced_added);
+                } else {
+                    self.remove_tag(buffer, &enhanced_added);
+                    self.add_tag(buffer, &added);
+                }
+            }
+            DiffLineType::Deletion => {
+                if self.view.is_active() {
+                    self.remove_tag(buffer, &removed);
+                    self.add_tag(buffer, &enhanced_removed);
+                } else {
+                    self.remove_tag(buffer, &enhanced_removed);
+                    self.add_tag(buffer, &removed);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Line
     fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         match self.kind {
             //
