@@ -8,7 +8,7 @@ use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::{
     container::{ViewContainer, ViewKind},
     stage_view::StageView,
-    view_state::View,
+    view::View,
     Label as TextViewLabel,
 };
 use crate::Event;

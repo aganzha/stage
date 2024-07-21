@@ -4,7 +4,7 @@
 
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
-use crate::status_view::view_state::{View, ViewState};
+use crate::status_view::view::{View, ViewState};
 use crate::status_view::Label;
 use crate::{
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,

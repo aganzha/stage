@@ -4,7 +4,7 @@
 
 use crate::status_view::container::ViewKind;
 use crate::status_view::tags;
-use crate::status_view::view_state::{RenderFlags, View};
+use crate::status_view::view::{RenderFlags, View};
 
 use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::{Diff, DiffKind, File, Hunk, Line, LineKind};

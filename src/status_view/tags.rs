@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::status_view::view_state::View;
+use crate::status_view::view::View;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
 use gtk4::{pango, TextTag};
