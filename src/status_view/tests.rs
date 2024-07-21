@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::status_view::container::ViewKind;
+use crate::status_view::render::ViewKind;
 use crate::status_view::tags;
 use crate::status_view::view::{RenderFlags, View};
 
