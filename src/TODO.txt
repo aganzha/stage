@@ -1,3 +1,5 @@
+BUG: got unstaged from other repo somehow. perhaps pull come and update status, but there is an another repo already.
+     so, each event, which update status, must came with path! if path changed - do nothing!
 so. gutters are sucks because of scroll. so, it is much easier to remder line numbers an +- signs right in textview
 and then on cursor move with shift modifier and drag_selection just hide them to not copy!
 TODO: important! smart choose cursor position

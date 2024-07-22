@@ -1236,8 +1236,8 @@ impl DeferRefresh {
 
 impl Drop for DeferRefresh {
     fn drop(&mut self) {
-        let backtrace = Backtrace::capture();
-        debug!("droping DeferRefresh ................ {}", backtrace);
+        // let backtrace = Backtrace::capture();
+        // debug!("droping DeferRefresh ................ {}", backtrace);
         if self.update_status {
             gio::spawn_blocking({
                 let path = self.path.clone();
