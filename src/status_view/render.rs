@@ -966,12 +966,10 @@ impl ViewContainer for Line {
         //     // TAGS BECOME BROKEN ON EMPTY LINES!
         //     return;
         // }
-        debug!("ENTER APPLY TAGS {:b}", self.view.tag_indexes.get());
         for t in &self.tags(context) {
             self.add_tag(buffer, t);
         }
         // ---------------------------------------
-        debug!("APLIED STANDARD TAGS {:b}", self.view.tag_indexes.get());
         
         // line_no
         let line_no_tag = match self.origin {
@@ -979,7 +977,7 @@ impl ViewContainer for Line {
             DiffLineType::Deletion => make_tag(tags::LINE_NO_REMOVED),
             _ => make_tag(tags::LINE_NO_CONTEXT)
         };
-        debug!("----------------> {:?} {:b}", line_no_tag.name(), self.view.tag_indexes.get());
+
         if !self.view.tag_is_added(&line_no_tag) {
             let (start_iter, mut end_iter) =
                 self.start_end_iters(buffer, self.view.line_no.get());
@@ -992,19 +990,20 @@ impl ViewContainer for Line {
             );
             self.view.tag_added(&line_no_tag);
         }
-        debug!("=========== {:?} {:b}", self.view.tag_is_added(&line_no_tag), self.view.tag_indexes.get());
-        debug!("");
+
         // highlight spaces
         let content = self.content(context.current_hunk.unwrap());
         let stripped = content
             .trim_end_matches(|c| -> bool { char::is_ascii_whitespace(&c) });
-        if stripped.len() < content.len()
+        let content_len = content.chars().count();
+        let stripped_len = stripped.chars().count();
+
+        if stripped_len < content_len
             && (self.origin == DiffLineType::Addition
                 || self.origin == DiffLineType::Deletion)
         {
             // if will use here enhanced_added for now, but
             // spaces must have their separate tag!
-
             let spaces_tag = if self.origin == DiffLineType::Addition {
                 make_tag(tags::SPACES_ADDED)
             } else {
@@ -1015,8 +1014,8 @@ impl ViewContainer for Line {
             if !self.view.tag_is_added(&spaces_tag) {
                 let (mut start_iter, end_iter) =
                     self.start_end_iters(buffer, self.view.line_no.get());
-                start_iter.forward_chars(stripped.len() as i32 + LINE_NO_SPACE);
-                
+                start_iter.forward_chars(stripped_len as i32 + LINE_NO_SPACE);
+
                 buffer.apply_tag_by_name(
                     spaces_tag.name(),
                     &start_iter,
