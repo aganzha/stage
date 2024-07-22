@@ -489,7 +489,7 @@ pub fn factory(
 
     let gesture_controller = GestureDrag::new();
     gesture_controller.connect_drag_begin(|_, _, _| {
-        debug!("iiiiiiiiiiiiiiiiiiii gesture drug");
+        debug!("whyyyyyyyyyyyyyyyyyyyyyy drag is triggered? gesture drag!");
     });
     txt.add_controller(gesture_controller);
     
