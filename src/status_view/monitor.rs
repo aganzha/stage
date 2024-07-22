@@ -71,7 +71,6 @@ impl Status {
                         let global_lock = global_lock.clone();
                         move |_monitor, file, _other_file, event| {
                             // TODO get from SELF.settings
-                            info!("event in monitor {:?} {:?}", event, file.path());
                             if *global_lock.borrow() {
                                 trace!("no way, global lock on monitor");
                                 return;
