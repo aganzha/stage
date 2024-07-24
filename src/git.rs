@@ -314,6 +314,12 @@ impl Hunk {
         if let Some(striped) = content.strip_suffix('\n') {
             content = striped;
         }
+        if let Some(striped) = content.strip_prefix("\r\n") {
+            content = striped;
+        }
+        if let Some(striped) = content.strip_prefix('\n') {
+            content = striped;
+        }
         let mut line =
             Line::from_diff_line(diff_line, self.buf.len(), content.len());
         self.buf.push_str(content);
