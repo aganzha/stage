@@ -1,3 +1,4 @@
+BUG: after changing repo som how reset hard repo which was previously worked on!!!!
 TODO: put all string modifications (line_no (maybe), striped length etx to separate thread)
 hm. drag is triggered just on clicking. bug, but perhaps it could help detect clicks!
 BUG: got unstaged from other repo somehow. perhaps pull come and update status, but there is an another repo already.
