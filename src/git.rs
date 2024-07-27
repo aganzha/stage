@@ -493,9 +493,12 @@ pub struct Diff {
 
 impl Diff {
     pub fn new(kind: DiffKind) -> Self {
+        let view = View::new();
+        view.expand(true);
+        view.child_dirty(true);        
         Self {
             files: Vec::new(),
-            view: View::new(),
+            view,
             kind,
             max_line_len: 0,
             interhunk: None,

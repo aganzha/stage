@@ -72,6 +72,7 @@ impl State {
     }
 }
 
+
 #[derive(Debug, Clone, Default)]
 pub struct Label {
     pub content: String,
@@ -103,23 +104,24 @@ pub struct Status {
     pub upstream: Option<Head>,
     pub state: Option<State>,
 
+    // TODO! remove labels from Untracked as in diff!
     pub untracked_spacer: Label,
     pub untracked_label: Label,
     pub untracked: Option<Untracked>,
 
-    pub staged_spacer: Label,
-    pub staged_label: Label,
+    // pub staged_spacer: Label,
+    // pub staged_label: Label,
     pub staged: Option<Diff>,
 
-    pub unstaged_spacer: Label,
-    pub unstaged_label: Label,
+    // pub unstaged_spacer: Label,
+    // pub unstaged_label: Label,
     pub unstaged: Option<Diff>,
 
-    pub conflicted_spacer: Label,
-    pub conflicted_label: Label,
+    // pub conflicted_spacer: Label,
+    // pub conflicted_label: Label,
     pub conflicted: Option<Diff>,
 
-    pub rendered: bool, // what it is for ????
+    // pub rendered: bool, // what it is for ????
     pub stashes: Option<stash::Stashes>,
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
@@ -143,22 +145,22 @@ impl Status {
                 "<span weight=\"bold\" color=\"#8b6508\">Untracked files</span>",
             ),
             untracked: None,
-            staged_spacer: Label::from_string(""),
-            staged_label: Label::from_string(
-                "<span weight=\"bold\" color=\"#8b6508\">Staged changes</span>",
-            ),
+            // staged_spacer: Label::from_string(""),
+            // staged_label: Label::from_string(
+            //     "<span weight=\"bold\" color=\"#8b6508\">Staged changes</span>",
+            // ),
             staged: None,
-            unstaged_spacer: Label::from_string(""),
-            unstaged_label: Label::from_string(
-                "<span weight=\"bold\" color=\"#8b6508\">Unstaged changes</span>",
-            ),
+            // unstaged_spacer: Label::from_string(""),
+            // unstaged_label: Label::from_string(
+            //     "<span weight=\"bold\" color=\"#8b6508\">Unstaged changes</span>",
+            // ),
             unstaged: None,
-            conflicted_spacer: Label::from_string(""),
-            conflicted_label: Label::from_string(
-                "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>",
-            ),
+            // conflicted_spacer: Label::from_string(""),
+            // conflicted_label: Label::from_string(
+            //     "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>",
+            // ),
             conflicted: None,
-            rendered: false,
+            // rendered: false,
             stashes: None,
             monitor_global_lock: Rc::new(RefCell::new(false)),
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
@@ -624,6 +626,7 @@ impl Status {
             }
         });
     }
+
     pub fn update_conflicted<'a>(
         &'a mut self,
         diff: Diff,
@@ -635,31 +638,49 @@ impl Status {
         banner_button_clicked: Rc<RefCell<Option<SignalHandlerId>>>,
         context: &mut StatusRenderContext<'a>,
     ) {
-        if !diff.is_empty()
-            && !diff.has_conflicts()
-            && !self.conflicted_label.content.contains("resolved")
-        {
-            self.conflicted_label.content = String::from("<span weight=\"bold\"\
-                                                          color=\"#1c71d8\">Conflicts resolved</span> \
-                                                          stage changes to complete merge");
-            // both dirty and transfer is required.
-            // only dirty means TagsModified state in render
-
-            self.conflicted_label.view.dirty(true);
-            self.conflicted_label.view.transfer(true);
+        if let Some(s) = &mut self.conflicted {
         }
+    }
+
+    pub fn update_conflicted_old<'a>(
+        &'a mut self,
+        diff: Diff,
+        txt: &StageView,
+        window: &ApplicationWindow,
+        sender: Sender<Event>,
+        banner: &Banner,
+        banner_button: &Widget,
+        banner_button_clicked: Rc<RefCell<Option<SignalHandlerId>>>,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        // TODO restore it!
+        // if !diff.is_empty()
+        //     && !diff.has_conflicts()
+        //     && !self.conflicted_label.content.contains("resolved")
+        // {
+        //     self.conflicted_label.content = String::from("<span weight=\"bold\"\
+        //                                                   color=\"#1c71d8\">Conflicts resolved</span> \
+        //                                                   stage changes to complete merge");
+        //     // both dirty and transfer is required.
+        //     // only dirty means TagsModified state in render
+
+        //     self.conflicted_label.view.dirty(true);
+        //     self.conflicted_label.view.transfer(true);
+        // }
         if let Some(conflicted) = &mut self.conflicted {
             diff.enrich_view(conflicted, &txt.buffer(), context);
         }
+        // banner is separate thing. perhaps assign method below to banner?
         if let Some(state) = &self.state {
             if diff.is_empty() {
                 if banner.is_revealed() {
                     banner.set_revealed(false);
+                    // TODO restore it!
                     // restore original label for future conflicts
-                    self.conflicted_label.content = String::from(
-                        "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>",
-                    );
-                    self.conflicted_label.view.dirty(true);
+                    // self.conflicted_label.content = String::from(
+                    //     "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>",
+                    // );
+                    // self.conflicted_label.view.dirty(true);
                 }
 
                 if state.need_final_commit() || state.need_rebase_continue() {
@@ -901,47 +922,47 @@ impl Status {
         }
 
         if let Some(untracked) = &self.untracked {
-            if untracked.files.is_empty() {
-                // hack :( TODO - get rid of it
-                self.untracked_spacer.view.squash(true);
-                self.untracked_label.view.squash(true);
-            }
-            self.untracked_spacer.render(&buffer, &mut iter, context);
-            self.untracked_label.render(&buffer, &mut iter, context);
+            // if untracked.files.is_empty() {
+            //     // hack :( TODO - get rid of it
+            //     self.untracked_spacer.view.squash(true);
+            //     self.untracked_label.view.squash(true);
+            // }
+            // self.untracked_spacer.render(&buffer, &mut iter, context);
+            // self.untracked_label.render(&buffer, &mut iter, context);
             untracked.render(&buffer, &mut iter, context);
         }
 
         if let Some(conflicted) = &self.conflicted {
-            debug!("RENDER. what about ny conflicted? {:?}", conflicted.files.is_empty());
-            if conflicted.files.is_empty() {
-                self.conflicted_spacer.view.squash(true);
-                self.conflicted_label.view.squash(true);
-            }
-            self.conflicted_spacer.render(&buffer, &mut iter, context);
-            self.conflicted_label.render(&buffer, &mut iter, context);
+            // debug!("RENDER. what about ny conflicted? {:?}", conflicted.files.is_empty());
+            // if conflicted.files.is_empty() {
+            //     self.conflicted_spacer.view.squash(true);
+            //     self.conflicted_label.view.squash(true);
+            // }
+            // self.conflicted_spacer.render(&buffer, &mut iter, context);
+            // self.conflicted_label.render(&buffer, &mut iter, context);
             conflicted.render(&buffer, &mut iter, context);
             debug!("just rendered conflicted!!!!!!!!!!!! {:?}", iter.line());
         }
 
         if let Some(unstaged) = &self.unstaged {
-            if unstaged.files.is_empty() {
-                // hack :(
-                self.unstaged_spacer.view.squash(true);
-                self.unstaged_label.view.squash(true);
-            }
-            self.unstaged_spacer.render(&buffer, &mut iter, context);
-            self.unstaged_label.render(&buffer, &mut iter, context);
+            // if unstaged.files.is_empty() {
+            //     // hack :(
+            //     self.unstaged_spacer.view.squash(true);
+            //     self.unstaged_label.view.squash(true);
+            // }
+            // self.unstaged_spacer.render(&buffer, &mut iter, context);
+            // self.unstaged_label.render(&buffer, &mut iter, context);
             unstaged.render(&buffer, &mut iter, context);
         }
 
         if let Some(staged) = &self.staged {
-            if staged.files.is_empty() {
-                // hack :(
-                self.staged_spacer.view.squash(true);
-                self.staged_label.view.squash(true);
-            }
-            self.staged_spacer.render(&buffer, &mut iter, context);
-            self.staged_label.render(&buffer, &mut iter, context);
+            // if staged.files.is_empty() {
+            //     // hack :(
+            //     self.staged_spacer.view.squash(true);
+            //     self.staged_label.view.squash(true);
+            // }
+            // self.staged_spacer.render(&buffer, &mut iter, context);
+            // self.staged_label.render(&buffer, &mut iter, context);
             staged.render(&buffer, &mut iter, context);
         }
 

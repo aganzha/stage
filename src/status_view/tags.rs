@@ -290,8 +290,9 @@ impl TxtTag {
                 tag.set_style(Style::Italic);
             }
             POINTER => {}
-            STAGED => {}
-            UNSTAGED => {}
+            STAGED | UNSTAGED => {
+                tag.set_foreground(Some("#8b6508"));
+            }
             CONFLICT_MARKER => {
                 if is_dark {
                 } else {
