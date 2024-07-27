@@ -22,6 +22,8 @@ pub fn make_tag(name: &str) -> tags::TxtTag {
     tags::TxtTag::from_str(name)
 }
 
+
+// This enum must implement all render methods!
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
     Diff,

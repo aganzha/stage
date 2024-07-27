@@ -1,3 +1,8 @@
+TODO: squash problem - there must be no any squash. put it to enrich! erase there and there will be no flicking!
+File, Hunk, Line, Label, Diff - > this must be 1 enum?
+and implement render and cursor for enum.
+Currently this enum is already there. It is their Kind!!!
+
 BUG: after changing repo som how reset hard repo which was previously worked on!!!!
 TODO: put all string modifications (line_no (maybe), striped length etx to separate thread)
 hm. drag is triggered just on clicking. bug, but perhaps it could help detect clicks!
