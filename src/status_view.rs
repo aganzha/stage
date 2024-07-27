@@ -31,7 +31,7 @@ use std::rc::Rc;
 use crate::status_view::view::View;
 use crate::{
     get_current_repo_status, stage_untracked, stage_via_apply, track_changes, Diff, Event,
-    File as GitFile, Head, StageOp, State, StatusRenderContext, Untracked,    
+    File as GitFile, Head, StageOp, State, StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
 
@@ -245,11 +245,11 @@ impl Status {
             // self.unstaged.take();
             // self.conflicted.take();
             // self.stashes.take();
-            
+
             monitors.borrow_mut().retain(|fm: &FileMonitor| {
                 fm.cancel();
                 false
-            });            
+            });
         } else {
             // investigated path
             assert!(path.ends_with(".git/"));
@@ -604,7 +604,7 @@ impl Status {
             debug!("track changes.................... {:?} {:?}", path, file_path);
             let mut interhunk = None;
             let mut has_conflicted = false;
-            if let Some(diff) = &self.conflicted {                
+            if let Some(diff) = &self.conflicted {
                 if let Some(stored_interhunk) = diff.interhunk {
                     interhunk.replace(stored_interhunk);
                 }
@@ -804,20 +804,63 @@ impl Status {
         diff: Option<Diff>,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
-    ) {        
+    ) {
         if let Some(rendered) = &mut self.unstaged {
             let buffer = &txt.buffer();
             if let Some(new) = &diff {
+                debug!("enrich viewwwwwwwwwwww {:?}", new.files.len());
                 new.enrich_view(rendered, buffer, context);
             } else {
+                debug!("errrrrrrrrrrrase old");
                 rendered.erase(buffer, context);
             }
         }
 
         self.unstaged = diff;
-        if self.staged.is_some() {
+        if self.unstaged.is_some() {
             self.render(txt, RenderSource::GitDiff, context);
         }
+    }
+
+    pub fn update_tracked_file<'a>(
+        &'a mut self,
+        mut diff: Diff,
+        txt: &StageView,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        let file = diff.files.pop().expect("tracked file diff must contain exactly 1 file");
+        assert!(diff.is_empty());
+        if let Some(rendered) = &mut self.unstaged {
+            let buffer = &txt.buffer();
+            // erases everything
+            // diff.enrich_view(rendered, buffer, context);
+
+            let mut ind = 0;
+            let mut insert_ind = 0;
+            for f in &rendered.files {
+                debug!("file before enrich {:?} {:?}", f.view.line_no.get(), f.path);
+            }
+            rendered.files.retain_mut(|f| {
+                ind += 1;
+                if f.path == file.path {
+                    file.enrich_view(f, buffer, context);
+                    insert_ind = ind;
+                    // f.erase(buffer, context);
+                    false
+                } else {
+                    true
+                }
+            });
+            debug!(" ind ?????????????? {:?}", insert_ind);
+            rendered.files.insert(insert_ind - 1, file);
+            for f in &rendered.files {
+                debug!("file after enrich {:?} {:?}", f.view.line_no.get(), f.path);
+            }
+        } else {
+            self.unstaged = Some(diff);
+        }
+        self.render(txt, RenderSource::GitDiff, context);
+
     }
 
     pub fn resize_highlights<'a>(

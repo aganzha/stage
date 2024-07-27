@@ -185,7 +185,7 @@ pub trait ViewContainer {
         let line_no = iter.line();
         let view = self.get_view();
         let state = view.get_state_for(line_no);
-        debug!("............ state in view {} {:?}", line_no, state);
+        debug!("............ state in view {} {:?} {:?}", line_no, state, self.get_kind());
         match state {
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
