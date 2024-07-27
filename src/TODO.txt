@@ -1,3 +1,14 @@
+Hunk has header. file has file name. Diff must have label!
+So, it hasnet separate view! it operates it same way hunnk and file do!
+it has kind! kind is the label!
+How to erase label??? diff has view. it has line_no!
+So, kill labels for diff!!!
+
+
+i;ve tried before to implement upcoming hunk for reconciliation. it was fail.
+now it need to implement enrich_view for label, but i need diff data for it!
+how to pass? perhaps moove label inside diff! and enrich in diff inside!
+
 TODO: squash problem - there must be no any squash. put it to enrich! erase there and there will be no flicking!
 File, Hunk, Line, Label, Diff - > this must be 1 enum?
 and implement render and cursor for enum.

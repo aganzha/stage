@@ -5,6 +5,7 @@
 use crate::status_view::tags;
 use core::fmt::{Binary, Formatter, Result};
 use std::cell::Cell;
+use log::{debug, trace};
 
 #[derive(Debug, Copy, Clone)]
 pub enum ViewState {

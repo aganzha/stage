@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
+use std::{thread, time};
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
 use crate::status_view::view::{View, ViewState};
@@ -86,6 +87,7 @@ pub trait ViewContainer {
         }
     }
 
+    // ViewContainer
     fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         Vec::new()
     }
@@ -197,7 +199,6 @@ pub trait ViewContainer {
 
                 view.line_no.replace(line_no);
                 view.render(true);
-
                 self.apply_tags(buffer, context);
             }
             ViewState::TagsModified => {
@@ -481,10 +482,26 @@ impl ViewContainer for Diff {
     // Diff
     fn write_content(
         &self,
-        _iter: &mut TextIter,
-        _buffer: &TextBuffer,
+        iter: &mut TextIter,
+        buffer: &TextBuffer,
         _context: &mut StatusRenderContext<'_>,
     ) {
+        if !self.is_empty() {
+            // let title = match self.kind {
+            //     DiffKind::Staged => "<span weight=\"bold\" color=\"#8b6508\">Staged changes</span>_",
+            //     DiffKind::Unstaged => "<span weight=\"bold\" color=\"#8b6508\">Unstaged changes</span>_",
+            //     DiffKind::Conflicted => "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>_",
+            // };
+            // buffer.insert_markup(iter, title);
+            buffer.insert(
+                iter,
+                match self.kind {
+                    DiffKind::Staged => "Staged changes",
+                    DiffKind::Unstaged => "Unstaged changes",
+                    DiffKind::Conflicted => "Conflicts",
+                }
+            );            
+        }
     }
 
     fn get_children(&self) -> Vec<&dyn ViewContainer> {
@@ -517,26 +534,36 @@ impl ViewContainer for Diff {
         result
     }
 
-    // Diff
-    fn render<'a>(
-        &'a self,
-        buffer: &TextBuffer,
-        iter: &mut TextIter,
-        context: &mut StatusRenderContext<'a>,
-    ) {
-        // why do i need it at all?
-        self.view.line_no.replace(iter.line());
-        context.update_screen_line_width(self.max_line_len);
+    // // Diff
+    // fn render<'a>(
+    //     &'a self,
+    //     buffer: &TextBuffer,
+    //     iter: &mut TextIter,
+    //     context: &mut StatusRenderContext<'a>,
+    // ) {
+    //     if !self.is_empty() {
+    //         debug!(" i am not empty, diiiiiiiiiiiff");
+    //         ViewContainer::render(
+    //             self,
+    //             buffer,
+    //             iter,
+    //             context
+    //         );
+    //     }
+    //     // why do i need it at all?
+    //     self.view.line_no.replace(iter.line());
+    //     context.update_screen_line_width(self.max_line_len);
 
-        for file in &self.files {
-            file.render(buffer, iter, context);
-        }
-        let start_iter = buffer.iter_at_line(self.view.line_no.get()).unwrap();
-        let end_iter = buffer.iter_at_line(iter.line()).unwrap();
-        for tag in self.tags(context) {
-            buffer.apply_tag_by_name(tag.str(), &start_iter, &end_iter);
-        }
-    }
+    //     for file in &self.files {
+    //         file.render(buffer, iter, context);
+    //     }
+    //     let start_iter = buffer.iter_at_line(self.view.line_no.get()).unwrap();
+    //     let end_iter = buffer.iter_at_line(iter.line()).unwrap();
+    //     for tag in self.tags(context) {
+    //         buffer.apply_tag_by_name(tag.str(), &start_iter, &end_iter);
+    //     }
+    // }
+    
     // Diff
     fn expand(
         &self,
@@ -554,10 +581,10 @@ impl ViewContainer for Diff {
 
     fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         match self.kind {
-            DiffKind::Staged => vec![make_tag(tags::STAGED)],
+            DiffKind::Staged => vec![make_tag(tags::BOLD), make_tag(tags::STAGED)],
             // TODO! create separate tag for conflicted!
             DiffKind::Unstaged | DiffKind::Conflicted => {
-                vec![make_tag(tags::UNSTAGED)]
+                vec![make_tag(tags::BOLD), make_tag(tags::UNSTAGED)]
             }
         }
     }
@@ -606,6 +633,7 @@ impl ViewContainer for File {
             .map(|vh| vh as &dyn ViewContainer)
             .collect()
     }
+    // File
     fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         let mut tags = vec![make_tag(tags::BOLD), make_tag(tags::POINTER)];
         if self.status == git2::Delta::Deleted {
@@ -735,6 +763,7 @@ impl ViewContainer for Hunk {
         // whole hunk is active
         active
     }
+    // File
     fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         Vec::new()
     }
@@ -1252,6 +1281,7 @@ impl ViewContainer for Untracked {
         active
     }
 
+    // Untracked (diff)
     fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         Vec::new()
     }
@@ -1325,7 +1355,7 @@ impl ViewContainer for UntrackedFile {
         None
     }
 
-    // untracked
+    // Untracked (File)
     fn is_active_by_parent(
         &self,
         active: bool,
@@ -1335,6 +1365,7 @@ impl ViewContainer for UntrackedFile {
         // this line is active
         active
     }
+    // Untracked (File)
     fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         Vec::new()
     }

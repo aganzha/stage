@@ -280,8 +280,12 @@ impl Diff {
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) {
+        self.adopt_view(&rendered.view);
         context.diff_kind.replace(self.kind.clone());
-
+        if self.is_empty() {
+            rendered.erase(buffer, context);
+        }
+        
         trace!("---------------enrich {:?} view in diff. my files {:?}, rendered files {:?}",
                &self.kind,
                self.files.len(),
@@ -367,3 +371,13 @@ impl Head {
         self.view.dirty(true);
     }
 }
+
+// impl Label {
+//     pub fn enrich_view(
+//         &self,
+//         rendered: &Label,
+//         _buffer: &TextBuffer,
+//         _context: &mut crate::StatusRenderContext,
+//     ) {
+//     }
+// }

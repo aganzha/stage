@@ -531,6 +531,11 @@ pub fn factory(
                                         )).expect("Could not send through channel");
                                     },
                                     2 => {
+                                        debug!(
+                                            "DOOOOOOOUBLE CLICK has staged and unstaged tags? {:?} {:?}",
+                                            iter.has_tag(&staged),
+                                            iter.has_tag(&unstaged)
+                                        );
                                         if iter.has_tag(&staged) {
                                             sndr.send_blocking(crate::Event::UnStage(
                                                 iter.offset(),
