@@ -291,6 +291,7 @@ impl TxtTag {
             }
             POINTER => {}
             STAGED | UNSTAGED => {
+                tag.set_pixels_above_lines(20);
                 tag.set_foreground(Some("#8b6508"));
             }
             CONFLICT_MARKER => {
