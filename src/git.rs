@@ -803,11 +803,14 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Diff {
         .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
         .expect("cant get diff");
 
-    let diff = make_diff(&git_diff, DiffKind::Conflicted);
+    let mut diff = make_diff(&git_diff, DiffKind::Conflicted);
     // if intehunk in unknown it need to check missing hunks
     // (either ours or theirs could go to separate hunk)
     // and recreate diff to accomodate both ours and theirs in single hunk
-    if interhunk.is_none() {
+    if let Some(interhunk) = interhunk {
+        diff.interhunk.replace(interhunk);
+    }
+    else {
         // this vec store tuples with last line_no of prev hunk
         // and first line_no of next hunk
         let mut hunks_to_join = Vec::new();
