@@ -642,11 +642,11 @@ pub fn get_current_repo_status(
     current_path: Option<PathBuf>,
     sender: Sender<crate::Event>,
 ) {
-    let backtrace = Backtrace::capture();
-    debug!(
-        "----------------calling get current repo status> {:?}",
-        backtrace
-    );
+    // let backtrace = Backtrace::capture();
+    // debug!(
+    //     "----------------calling get current repo status> {:?}",
+    //     backtrace
+    // );
     // path could came from command args or from choosing path
     // by user
     let path = {

@@ -11,7 +11,7 @@ use crate::git::{
 use async_channel::Sender;
 use git2;
 use gtk4::gio;
-use log::{info, trace};
+use log::{info, trace, debug};
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -260,115 +260,6 @@ pub fn abort(
     Ok(())
 }
 
-pub fn choose_conflict_side(
-    path: PathBuf,
-    ours: bool,
-    sender: Sender<crate::Event>,
-) {
-    info!("git.choose side");
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
-    let mut index = repo.index().expect("cant get index");
-    let conflicts = index.conflicts().expect("no conflicts");
-    let mut entries: Vec<git2::IndexEntry> = Vec::new();
-    for conflict in conflicts.flatten() {
-        if ours {
-            if let Some(our) = conflict.our {
-                entries.push(our);
-            }
-        } else if let Some(their) = conflict.their {
-            entries.push(their);
-        }
-    }
-    if entries.is_empty() {
-        panic!("nothing to resolve in choose_conflict_side");
-    }
-
-    let mut diff_opts = make_diff_options();
-    diff_opts.reverse(true);
-
-    for entry in &mut entries {
-        let pth =
-            String::from_utf8(entry.path.clone()).expect("cant get path");
-        diff_opts.pathspec(pth.clone());
-        index
-            .remove_path(Path::new(&pth))
-            .expect("cant remove path");
-        entry.flags &= !STAGE_FLAG;
-        index.add(entry).expect("cant add to index");
-    }
-    index.write().expect("cant write index");
-    let git_diff = repo
-        .diff_index_to_workdir(Some(&index), Some(&mut diff_opts))
-        .expect("cant get diff");
-
-    let mut apply_opts = git2::ApplyOptions::new();
-
-    let mut conflicted_headers = HashSet::new();
-    let diff = make_diff(&git_diff, DiffKind::Conflicted);
-
-    for f in diff.files {
-        for h in f.hunks {
-            if h.conflicts_count > 0 {
-                conflicted_headers.insert(h.header);
-            }
-        }
-    }
-
-    apply_opts.hunk_callback(move |odh| -> bool {
-        if let Some(dh) = odh {
-            let header = Hunk::get_header_from(&dh);
-            let matched = conflicted_headers.contains(&header);
-            trace!("header in callback  {:?} ??= {:?}", header, matched);
-            return matched;
-        }
-        false
-    });
-
-    sender
-        .send_blocking(crate::Event::LockMonitors(true))
-        .expect("Could not send through channel");
-
-    let result = repo.apply(
-        &git_diff,
-        git2::ApplyLocation::WorkDir,
-        Some(&mut apply_opts),
-    );
-
-    sender
-        .send_blocking(crate::Event::LockMonitors(false))
-        .expect("Could not send through channel");
-
-    if result.is_err() {
-        panic!("{:?}", result);
-    }
-    // if their side is choosen, it need to stage all conflicted paths
-    // because resolved conflicts will go to staged area, but other changes
-    // will be on other side of stage (will be +- same hunks on both sides)
-    for entry in &entries {
-        let pth =
-            String::from_utf8(entry.path.clone()).expect("cant get path");
-        index.add_path(Path::new(&pth)).expect("cant add path");
-    }
-    index.write().expect("cant write index");
-    get_current_repo_status(Some(path), sender);
-}
-
-// trait PathHolder {
-//     fn get_path(&self) -> PathBuf;
-// }
-
-// impl PathHolder for git2::IndexConflict {
-//     fn get_path(&self) -> PathBuf {
-//         PathBuf::from(
-//             from_utf8(match (&self.our, &self.their) {
-//                 (Some(o), _) => &o.path[..],
-//                 (_, Some(t)) => &t.path[..],
-//                 _ => panic!("no path"),
-//             })
-//             .unwrap(),
-//         )
-//     }
-// }
 
 pub fn choose_conflict_side_of_blob<'a, F>(
     raw: &'a str,
@@ -572,16 +463,16 @@ pub fn choose_conflict_side_of_hunk(
     interhunk: Option<u32>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
-    info!(
-        "choose_conflict_side_of_hunk {:?} Line: {:?}",
+    debug!(
+        "choose_conflict_side_of_hunk {:?} Line: {:?} Interhunk: {:?}",
         hunk.header,
-        line.content(&hunk)
+        line.content(&hunk),
+        interhunk
     );
     let repo = git2::Repository::open(path.clone())?;
     let mut index = repo.index()?;
     let conflicts = index.conflicts()?;
 
-    // let chosen_path = PathBuf::from(&file_path);
 
     let mut entries: Vec<git2::IndexEntry> = Vec::new();
     let mut conflict_paths: HashSet<PathBuf> = HashSet::new();
@@ -609,8 +500,25 @@ pub fn choose_conflict_side_of_hunk(
     // op will be super slow!
     index.write()?;
 
-    let ob = repo.revparse_single("HEAD^{tree}")?;
-    let current_tree = repo.find_tree(ob.id())?;
+    let restore_index = move |file_path: &PathBuf| {
+        // remove from index again to restore conflict
+        // and also to clear from other side tree
+        index.remove_path(Path::new(file_path)).expect("cant remove path");
+        for entry in entries {
+            index.add(&entry).expect("cant restore entry");
+        }
+        index.write().expect("cant restore index");
+    };
+
+    let current_tree = match repo.revparse_single("HEAD^{tree}")
+        .and_then(|ob| repo.find_tree(ob.id())) {
+            Ok(tree) => tree,
+            Err(error) => {
+                restore_index(&file_path);
+                return Err(error);
+            }
+        };
+
 
     let mut opts = make_diff_options();
     let mut opts = opts.pathspec(&file_path).reverse(true);
@@ -618,18 +526,35 @@ pub fn choose_conflict_side_of_hunk(
         opts.interhunk_lines(ih);
     }
 
-    let mut git_diff =
-        repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))?;
+    let git_diff = match repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts)) {
+        Ok(gd) => gd,
+        Err(error) => {
+            restore_index(&file_path);
+            return Err(error);
+        }
+    };
 
     let mut reversed_header = Hunk::reverse_header(&hunk.header);
 
     let mut apply_options = git2::ApplyOptions::new();
 
-    let file_path_clone = file_path.clone();
+    // let file_path_clone = file_path.clone();
 
-    let mut patch = git2::Patch::from_diff(&git_diff, 0)?.unwrap();
+    let mut patch = match git2::Patch::from_diff(&git_diff, 0) {
+        Ok(patch) => patch.unwrap(),
+        Err(error) => {
+            restore_index(&file_path);
+            return Err(error);
+        }
+    };
 
-    let buff = patch.to_buf()?;
+    let buff = match patch.to_buf() {
+        Ok(buff) => buff,
+        Err(error) => {
+            restore_index(&file_path);
+            return Err(error);
+        }
+    };
     let raw = buff.as_str().unwrap();
 
     let ours_choosed = line.is_our_side_of_conflict();
@@ -660,7 +585,13 @@ pub fn choose_conflict_side_of_hunk(
         prev_delta = delta;
     }
 
-    git_diff = git2::Diff::from_buffer(new_body.as_bytes())?;
+    let git_diff = match git2::Diff::from_buffer(new_body.as_bytes()) {
+        Ok(gd) => gd,
+        Err(error) => {
+            restore_index(&file_path);
+            return Err(error);
+        }
+    };
 
     apply_options.hunk_callback(|odh| -> bool {
         if let Some(dh) = odh {
@@ -693,21 +624,12 @@ pub fn choose_conflict_side_of_hunk(
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("Could not send through channel");
 
-    // remove from index again to restore conflict
-    // and also to clear from other side tree
-    index.remove_path(Path::new(&file_path.clone()))?;
-    for entry in entries {
-        index.add(&entry)?;
-    }
-
-    // if not write index here
-    // op will be super slow!
-    index.write()?;
+    restore_index(&file_path);
 
     if let Some(error) = apply_error {
         return Err(error);
     }
-    cleanup_last_conflict_for_file(path, file_path_clone, interhunk, sender)?;
+    cleanup_last_conflict_for_file(path, file_path.clone(), interhunk, sender)?;
     Ok(())
 }
 
