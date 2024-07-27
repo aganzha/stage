@@ -832,30 +832,19 @@ impl Status {
         assert!(diff.is_empty());
         if let Some(rendered) = &mut self.unstaged {
             let buffer = &txt.buffer();
-            // erases everything
-            // diff.enrich_view(rendered, buffer, context);
-
             let mut ind = 0;
             let mut insert_ind = 0;
-            for f in &rendered.files {
-                debug!("file before enrich {:?} {:?}", f.view.line_no.get(), f.path);
-            }
             rendered.files.retain_mut(|f| {
                 ind += 1;
                 if f.path == file.path {
                     file.enrich_view(f, buffer, context);
                     insert_ind = ind;
-                    // f.erase(buffer, context);
                     false
                 } else {
                     true
                 }
             });
-            debug!(" ind ?????????????? {:?}", insert_ind);
-            rendered.files.insert(insert_ind - 1, file);
-            for f in &rendered.files {
-                debug!("file after enrich {:?} {:?}", f.view.line_no.get(), f.path);
-            }
+            rendered.files.insert(if insert_ind != 0 {insert_ind - 1} else { 0 }, file);
         } else {
             self.unstaged = Some(diff);
         }
@@ -1238,6 +1227,7 @@ impl Status {
         }
 
         if self.stage_in_conflict(window) {
+            debug!("no way");
             return;
         }
 
