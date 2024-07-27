@@ -114,7 +114,7 @@ pub enum Event {
     CurrentRepo(PathBuf),
     Conflicted(Diff),
     Unstaged(Option<Diff>),
-    Staged(Diff),
+    Staged(Option<Diff>),
     Head(Head),
     Upstream(Option<Head>),
     State(State),
@@ -513,10 +513,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         &mut ctx,
                     );
                 }
-                Event::Staged(d) => {
+                Event::Staged(diff) => {
                     info!("Staged");
-                    hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
-                    status.update_staged(d, &txt, &mut ctx);
+                    hb_updater(HbUpdateData::Staged(diff.is_some()));
+                    status.update_staged(diff, &txt, &mut ctx);
                 }
                 Event::Unstaged(d) => {
                     info!("Unstaged");
