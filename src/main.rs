@@ -148,6 +148,7 @@ pub enum Event {
     StoreSettings(String, String),
     OpenEditor,
     Tags(Option<Oid>),
+    TrackChanges(PathBuf),
 }
 
 fn zoom(dir: bool) {
@@ -408,6 +409,10 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         }
                     });
                     window_stack.borrow_mut().push(w);
+                }
+                Event::TrackChanges(file_path) => {
+                    info!("track file changes {:?}", &file_path);
+                    status.track_changes(file_path, sender.clone());
                 }
                 Event::Tags(ooid) => {
                     let oid = ooid.unwrap_or(status.head_oid());
