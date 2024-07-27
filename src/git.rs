@@ -1349,15 +1349,24 @@ pub fn track_changes(
             // TODO. so. here ir need to collect dif only for 1 file.
             // why all? but there way not, ti update just 1 file!
             // but it is easy, really (just use existent diff and update only 1 file in it!)
+
+            let mut opts = make_diff_options();
+            // nope! full diff is required!
+            // remaining files must be enriched!
+            opts.pathspec(entry_path);
+            // TODO! update just 1 file!!!!!!!!!!!!!!!!!!
+            // make separate event for unstaged file!!!!!
+            // it will be faster then
             let git_diff = repo
                 .diff_index_to_workdir(
                     Some(&index),
-                    Some(&mut make_diff_options()),
+                    Some(&mut opts),
                 )
                 .expect("cant' get diff index to workdir");
             let diff = make_diff(&git_diff, DiffKind::Unstaged);
-            sender
-                .send_blocking(crate::Event::Unstaged(if diff.is_empty() {None} else {Some(diff)}))
+            assert!(!diff.is_empty());
+            sender                
+                .send_blocking(crate::Event::TrackedFile(diff))
                 .expect("Could not send through channel");
             break;
         }
