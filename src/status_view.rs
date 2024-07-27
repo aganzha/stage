@@ -799,17 +799,21 @@ impl Status {
 
     pub fn update_unstaged<'a>(
         &'a mut self,
-        diff: Diff,
+        diff: Option<Diff>,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
         let buffer = &txt.buffer();
 
-        if let Some(u) = &mut self.unstaged {
-            diff.enrich_view(u, buffer, context);
+        if let Some(rendered) = &mut self.unstaged {
+            if let Some(new) = &diff {
+                new.enrich_view(rendered, buffer, context);
+            } else {
+                rendered.erase(&txt.buffer(), context);
+            }
         }
 
-        self.unstaged.replace(diff);
+        self.unstaged = diff;
 
         self.render(txt, RenderSource::GitDiff, context);
     }

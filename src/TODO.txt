@@ -1,3 +1,6 @@
+The problem with diff is - it is empty and it is rendered!
+it need to send NONE from git !!!!!!!!!!!!!!!!!!!!
+
 Hunk has header. file has file name. Diff must have label!
 So, it hasnet separate view! it operates it same way hunnk and file do!
 it has kind! kind is the label!
