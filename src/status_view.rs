@@ -30,8 +30,8 @@ use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, stage_untracked, stage_via_apply, Diff, Event,
-    File as GitFile, Head, StageOp, State, StatusRenderContext, Untracked,
+    get_current_repo_status, stage_untracked, stage_via_apply, track_changes, Diff, Event,
+    File as GitFile, Head, StageOp, State, StatusRenderContext, Untracked,    
 };
 use async_channel::Sender;
 
@@ -234,10 +234,20 @@ impl Status {
         // but the 'dirty' path will be used first
         // for querying repo status and investigate real one
         if user_action {
+            // cleanup everything here. all diffs will be updated in get_status
+            // IT DOES NOT WORK. garbage remains in stage
+            // self.head.take();
+            // self.upstream.take();
+            // self.state.take();
+            // self.staged.take();
+            // self.unstaged.take();
+            // self.conflicted.take();
+            // self.stashes.take();
+            
             monitors.borrow_mut().retain(|fm: &FileMonitor| {
                 fm.cancel();
                 false
-            });
+            });            
         } else {
             // investigated path
             assert!(path.ends_with(".git/"));
@@ -584,6 +594,36 @@ impl Status {
         self.render(txt, RenderSource::Git, context);
     }
 
+    pub fn track_changes(&self, file_path: PathBuf, sender: Sender<Event>,) {
+        gio::spawn_blocking({
+            let path = self.path.clone().unwrap();
+            let sender =
+                sender.clone();
+            debug!(".................... {:?} {:?}", path, file_path);
+            let mut interhunk = None;
+            let mut has_conflicted = false;
+            if let Some(diff) = &self.conflicted {                
+                if let Some(stored_interhunk) = diff.interhunk {
+                    interhunk.replace(stored_interhunk);
+                }
+                for file in &diff.files {
+                    if file.path == file_path {
+                        has_conflicted = true;
+                    }
+                }
+            }
+            debug!("call track changes in status_view {:?}", interhunk);
+            move || {
+                track_changes(
+                    path,
+                    file_path,
+                    interhunk,
+                    has_conflicted,
+                    sender,
+                )
+            }
+        });
+    }
     pub fn update_conflicted<'a>(
         &'a mut self,
         diff: Diff,

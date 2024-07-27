@@ -784,17 +784,20 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Diff {
     // what is important here: all conflicts hunks must accomodate
     // both side: ours and theirs. if those come separated everything
     // will be broken!
+    debug!(".........got_conflicted_v1 {:?}", path);
     let repo = Repository::open(path).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
+    debug!("conflicts ===================> {:?}", index.has_conflicts());
     let mut opts = make_diff_options();
     // 6 - for 3 context lines in eacj hunk?
     opts.interhunk_lines(interhunk.unwrap_or(10));
 
-    for conflict in conflicts {
+    for conflict in conflicts {        
         let conflict = conflict.unwrap();
         let our = conflict.our.unwrap();
         let our_path = String::from_utf8(our.path).unwrap();
+        debug!("paaaaaaaaaaaaaaaaaaath in conflict {:?}", our_path);
         opts.pathspec(our_path);
     }
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
@@ -889,9 +892,8 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Diff {
             let git_diff = repo
                 .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
                 .expect("cant get diff");
-            let mut diff = make_diff(&git_diff, DiffKind::Conflicted);
+            diff = make_diff(&git_diff, DiffKind::Conflicted);
             diff.interhunk.replace(interhunk);
-            return diff;
         }
     }
     diff
@@ -1319,19 +1321,22 @@ pub fn track_changes(
     path: PathBuf,
     file_path: PathBuf,
     interhunk: Option<u32>,
+    mut has_conflicted: bool,
     sender: Sender<crate::Event>,
 ) {
-    // TODO throttle!
+    debug!("track changes!!!!!!!!!!!!! {:?}", has_conflicted);
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let file_path = file_path
         .into_os_string()
         .into_string()
         .expect("wrong path");
+    // conflicts could be resolved right in this file change
+    // but it need to update conflicted anyways
     for entry in index.iter() {
         let entry_path = format!("{}", String::from_utf8_lossy(&entry.path));
-        if file_path.ends_with(&entry_path) {
-            debug!("got modified file {:?}", file_path);
+        if file_path == entry_path {
+            trace!("----------------got modified file {:?} {:?}", file_path, interhunk);
             // TODO. so. here ir need to collect dif only for 1 file.
             // why all? but there way not, ti update just 1 file!
             // but it is easy, really (just use existent diff and update only 1 file in it!)
@@ -1348,13 +1353,30 @@ pub fn track_changes(
             break;
         }
     }
-    if index.has_conflicts() {
+    
+    if !has_conflicted && index.has_conflicts() {
+        debug!("1...... ");
+        let conflicts = index.conflicts().expect("cant get conflicts");
+        for conflict in conflicts.flatten() {
+            debug!("2...... ");
+            if let Some(our) = conflict.our {
+                let conflict_path = String::from_utf8(our.path.clone()).unwrap();
+                debug!("3......  {:?} <> {:?} = {:?}", file_path, conflict_path, file_path == conflict_path);
+                if file_path == String::from_utf8(our.path).unwrap() {
+                    has_conflicted = true;
+                }
+            }
+        }
+    }
+    debug!("aaaaaaaaaaaaaaaaaaaaaand track conflicted or not ? {:?}", has_conflicted);
+    if has_conflicted {
         // same here - update just 1 file, please
         debug!("track changes in conflicted path");
         let diff = get_conflicted_v1(path, interhunk);
         sender
             .send_blocking(crate::Event::Conflicted(diff))
             .expect("Could not send through channel");
+        return;
     }
 }
 

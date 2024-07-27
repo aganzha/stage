@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::{get_directories, track_changes, Status};
+use crate::{get_directories, Status, Event};
 use core::time::Duration;
 use gio::{
     Cancellable, File, FileMonitor, FileMonitorEvent, FileMonitorFlags,
@@ -28,12 +28,6 @@ impl Status {
             let sender = self.sender.clone();
             let lock = self.monitor_lock.clone();
             let global_lock = self.monitor_global_lock.clone();
-            let mut interhunk = None;
-            if let Some(diff) = &self.conflicted {
-                if let Some(stored_interhunk) = diff.interhunk {
-                    interhunk.replace(stored_interhunk);
-                }
-            }
             async move {
                 let mut directories = gio::spawn_blocking({
                     let path = path.clone();
@@ -80,53 +74,37 @@ impl Status {
                             match event {
                                 FileMonitorEvent::Changed | FileMonitorEvent::Created | FileMonitorEvent::Deleted => {
                                     // ChangesDoneHint is not fired for small changes :(
-                                    let file_path =
+                                    let fp =
                                         file.path().expect("no file path");
-                                    let str_file_path = file_path
-                                        .clone()
-                                        .into_os_string()
-                                        .into_string()
-                                        .expect("no file path");
+                                    let mut str_file_path = fp.to_str().expect("wrong path");
+                                    str_file_path = str_file_path.strip_prefix(
+                                        &path
+                                            .to_str()
+                                            .unwrap()
+                                            .replace("./git/", "")
+                                    ).expect("wrong path in strip");
+                                    debug!("file path in monitor! {:?}", str_file_path);
                                     for pat in patterns_to_exclude {
                                         if str_file_path.contains(pat) {
                                             return;
                                         }
                                     }
+                                    let file_path: PathBuf = str_file_path.into();
                                     if lock.borrow().contains(&file_path) {
-                                        trace!("NO WAY: monitor locked");
+                                        debug!("NO WAY: monitor locked");
                                         return;
                                     }
                                     lock.borrow_mut().insert(file_path.clone());
-                                    trace!("set monitor lock for file {:?}", &file_path);
+                                    debug!("set monitor lock for file {:?}", &file_path);
                                     glib::source::timeout_add_local(
                                         Duration::from_millis(300),
                                         {
                                             let lock = lock.clone();
-                                            let path = path.clone();
                                             let sender = sender.clone();
-                                            let file_path = file_path.clone();
                                             move || {
-                                                debug!(".......... THROTTLED {:?}", file_path);
-                                                gio::spawn_blocking({
-                                                    let path = path.clone();
-                                                    let sender =
-                                                        sender.clone();
-                                                    let file_path =
-                                                        file_path.clone();
-                                                    lock.borrow_mut().remove(&file_path);
-                                                    trace!(
-                                                        "release monitor lock for file {:?}",
-                                                        file_path
-                                                    );
-                                                    move || {
-                                                        track_changes(
-                                                            path,
-                                                            file_path,
-                                                            interhunk,
-                                                            sender,
-                                                        )
-                                                    }
-                                                });
+                                                lock.borrow_mut().remove(&file_path);
+                                                sender.send_blocking(Event::TrackChanges(file_path.clone()))
+                                                    .expect("cant send through channel");
                                                 glib::ControlFlow::Break
                                             }
                                         },
