@@ -281,10 +281,7 @@ impl Diff {
         context: &mut crate::StatusRenderContext,
     ) {
         self.adopt_view(&rendered.view);
-        context.diff_kind.replace(self.kind.clone());
-        if self.is_empty() {
-            rendered.erase(buffer, context);
-        }
+        context.diff_kind.replace(self.kind.clone());        
         
         trace!("---------------enrich {:?} view in diff. my files {:?}, rendered files {:?}",
                &self.kind,

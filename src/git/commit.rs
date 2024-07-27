@@ -211,11 +211,12 @@ pub fn create(
         Some(&mut make_diff_options()),
     )?;
 
+    let diff = make_diff(
+        &git_diff,
+        DiffKind::Staged,
+    );
     sender
-        .send_blocking(crate::Event::Staged(make_diff(
-            &git_diff,
-            DiffKind::Staged,
-        )))
+        .send_blocking(crate::Event::Staged(if diff.is_empty() { None } else { Some(diff) }))
         .expect("Could not send through channel");
 
     // get_unstaged

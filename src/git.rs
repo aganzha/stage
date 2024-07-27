@@ -725,7 +725,7 @@ pub fn get_current_repo_status(
                 .expect("can't get diff tree to index");
             let diff = make_diff(&git_diff, DiffKind::Staged);
             sender
-                .send_blocking(crate::Event::Staged(diff))
+                .send_blocking(crate::Event::Staged(if diff.is_empty() { None } else { Some(diff) } ))
                 .expect("Could not send through channel");
         }
     });

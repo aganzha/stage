@@ -781,20 +781,22 @@ impl Status {
 
     pub fn update_staged<'a>(
         &'a mut self,
-        diff: Diff,
+        diff: Option<Diff>,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
-        if let Some(s) = &mut self.staged {
-            // DiffDirection is required here to choose which lines to
-            // compare - new_ or old_
-            // perhaps need to move to git.rs during sending event
-            // to main (during update)
-            diff.enrich_view(s, &txt.buffer(), context);
+        if let Some(rendered) = &mut self.staged {
+            let buffer = &txt.buffer();
+            if let Some(new) = &diff {
+                new.enrich_view(rendered, buffer, context);
+            } else {
+                rendered.erase(buffer, context);
+            }
         }
-        self.staged.replace(diff);
-
-        self.render(txt, RenderSource::GitDiff, context);
+        self.staged = diff;
+        if self.staged.is_some() {
+            self.render(txt, RenderSource::GitDiff, context);
+        }
     }
 
     pub fn update_unstaged<'a>(
@@ -802,20 +804,20 @@ impl Status {
         diff: Option<Diff>,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
-    ) {
-        let buffer = &txt.buffer();
-
+    ) {        
         if let Some(rendered) = &mut self.unstaged {
+            let buffer = &txt.buffer();
             if let Some(new) = &diff {
                 new.enrich_view(rendered, buffer, context);
             } else {
-                rendered.erase(&txt.buffer(), context);
+                rendered.erase(buffer, context);
             }
         }
 
         self.unstaged = diff;
-
-        self.render(txt, RenderSource::GitDiff, context);
+        if self.staged.is_some() {
+            self.render(txt, RenderSource::GitDiff, context);
+        }
     }
 
     pub fn resize_highlights<'a>(
