@@ -665,6 +665,7 @@ pub fn get_current_repo_status(
         .send_blocking(crate::Event::CurrentRepo(path.clone()))
         .expect("Could not send through channel");
 
+    // get state
     gio::spawn_blocking({
         let sender = sender.clone();
         let path = path.clone();
@@ -776,7 +777,7 @@ pub fn get_current_repo_status(
         .expect("cant' get diff index to workdir");
     let diff = make_diff(&git_diff, DiffKind::Unstaged);
     sender
-        .send_blocking(crate::Event::Unstaged(diff))
+        .send_blocking(crate::Event::Unstaged(if diff.is_empty() {None} else {Some(diff)} ))
         .expect("Could not send through channel");
 }
 
@@ -1356,7 +1357,7 @@ pub fn track_changes(
                 .expect("cant' get diff index to workdir");
             let diff = make_diff(&git_diff, DiffKind::Unstaged);
             sender
-                .send_blocking(crate::Event::Unstaged(diff))
+                .send_blocking(crate::Event::Unstaged(if diff.is_empty() {None} else {Some(diff)}))
                 .expect("Could not send through channel");
             break;
         }

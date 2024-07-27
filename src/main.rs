@@ -113,7 +113,7 @@ pub enum Event {
     OpenRepo(PathBuf),
     CurrentRepo(PathBuf),
     Conflicted(Diff),
-    Unstaged(Diff),
+    Unstaged(Option<Diff>),
     Staged(Diff),
     Head(Head),
     Upstream(Option<Head>),
