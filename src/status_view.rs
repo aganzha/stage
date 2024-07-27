@@ -599,7 +599,7 @@ impl Status {
             let path = self.path.clone().unwrap();
             let sender =
                 sender.clone();
-            debug!(".................... {:?} {:?}", path, file_path);
+            debug!("track changes.................... {:?} {:?}", path, file_path);
             let mut interhunk = None;
             let mut has_conflicted = false;
             if let Some(diff) = &self.conflicted {                
@@ -612,7 +612,7 @@ impl Status {
                     }
                 }
             }
-            debug!("call track changes in status_view {:?}", interhunk);
+            debug!("call track changes in status_view {:?} {:?}", has_conflicted, interhunk);
             move || {
                 track_changes(
                     path,
@@ -912,6 +912,7 @@ impl Status {
         }
 
         if let Some(conflicted) = &self.conflicted {
+            debug!("RENDER. what about ny conflicted? {:?}", conflicted.files.is_empty());
             if conflicted.files.is_empty() {
                 self.conflicted_spacer.view.squash(true);
                 self.conflicted_label.view.squash(true);
@@ -919,6 +920,7 @@ impl Status {
             self.conflicted_spacer.render(&buffer, &mut iter, context);
             self.conflicted_label.render(&buffer, &mut iter, context);
             conflicted.render(&buffer, &mut iter, context);
+            debug!("just rendered conflicted!!!!!!!!!!!! {:?}", iter.line());
         }
 
         if let Some(unstaged) = &self.unstaged {
@@ -959,7 +961,7 @@ impl Status {
         }
 
         txt.bind_highlights(context);
-
+        debug!("END OF RENDER. !!!!!!!!!!!! {:?}", iter.line());
         // match source {
         //     RenderSource::Cursor(_) => {
         //         // avoid loops on cursor renders
