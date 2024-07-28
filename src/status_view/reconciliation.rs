@@ -368,13 +368,3 @@ impl Head {
         self.view.dirty(true);
     }
 }
-
-// impl Label {
-//     pub fn enrich_view(
-//         &self,
-//         rendered: &Label,
-//         _buffer: &TextBuffer,
-//         _context: &mut crate::StatusRenderContext,
-//     ) {
-//     }
-// }

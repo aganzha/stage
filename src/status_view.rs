@@ -13,7 +13,7 @@ use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{abort_rebase, continue_rebase, merge, remote, stash};
 use crate::utils::StrPath;
 
-use render::ViewContainer;
+use render::{ViewContainer}; // MayBeViewContainer o
 use core::time::Duration;
 use git2::RepositoryState;
 use stage_view::{cursor_to_line_offset, StageView};
@@ -805,13 +805,29 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
+        let buffer = &txt.buffer();
+        // works. looks ugly
+        // if let Some(rendered) = &mut self.unstaged {
+        //     rendered.adopt_other(
+        //         diff.as_ref().map(|x| x as &dyn ViewContainer),
+        //         buffer,
+        //         context
+        //     );
+        // }
+
+        // works. looks ugly
+        // diff.as_ref().map(|d| d as &dyn ViewContainer).enrich_view(
+        //         self.unstaged.as_ref().map(|d| d as &dyn ViewContainer),
+        //         buffer,
+        //         context
+        //     );
+
+        // original
         if let Some(rendered) = &mut self.unstaged {
             let buffer = &txt.buffer();
             if let Some(new) = &diff {
-                debug!("enrich viewwwwwwwwwwww {:?}", new.files.len());
                 new.enrich_view(rendered, buffer, context);
             } else {
-                debug!("errrrrrrrrrrrase old");
                 rendered.erase(buffer, context);
             }
         }
@@ -836,14 +852,13 @@ impl Status {
             let buffer = &txt.buffer();
             let mut ind = 0;
             let mut insert_ind = 0;
-            debug!("rendered files before {:?}", rendered.files.len());
             rendered.files.retain_mut(|f| {
                 ind += 1;
                 if f.path == file_path {
-                    debug!("got youuuuuuuuuuuuuuuuuu!");
+                    insert_ind = ind;
+                    // updated_file.enrich_view(f, buffer, context);
                     if let Some(file) = &updated_file {
                         file.enrich_view(f, buffer, context);
-                        insert_ind = ind;
                     } else {
                         f.erase(buffer, context);
                     }

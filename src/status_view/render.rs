@@ -60,6 +60,17 @@ pub trait ViewContainer {
         String::from("unknown")
     }
 
+    // fn adopt_other<'a>(&self,
+    //                    other: Option<&dyn ViewContainer>,
+    //                    buffer: &TextBuffer,
+    //                    context: &mut StatusRenderContext<'a>) where Self: Sized {
+    //     if let Some(new) = other {
+    //         new.enrich_view(self, buffer, context);
+    //     } else {
+    //         self.erase(buffer, context);
+    //     }
+    // }
+
     fn adopt_view(&self, other_rendered_view: &View) {
         let view = self.get_view();
         view.line_no.replace(other_rendered_view.line_no.get());
@@ -171,7 +182,7 @@ pub trait ViewContainer {
         context: &mut StatusRenderContext<'a>
     ) {
     }
-    
+
     // ViewContainer
     fn render<'a>(
         &'a self,
@@ -502,7 +513,7 @@ impl ViewContainer for Diff {
                     DiffKind::Unstaged => "Unstaged changes",
                     DiffKind::Conflicted => "Conflicts",
                 }
-            );            
+            );
         }
     }
 
@@ -565,7 +576,7 @@ impl ViewContainer for Diff {
     //         buffer.apply_tag_by_name(tag.str(), &start_iter, &end_iter);
     //     }
     // }
-    
+
     // Diff
     fn expand(
         &self,
@@ -699,14 +710,14 @@ impl ViewContainer for Hunk {
         _context: &mut StatusRenderContext<'_>,
     ) {
 
-        let parts: Vec<&str> = self.header.split("@@").collect(); 
+        let parts: Vec<&str> = self.header.split("@@").collect();
         // let line_no = match self.kind {
         //     DiffKind::Unstaged | DiffKind::Conflicted => self.old_start,
         //     DiffKind::Staged => self.new_start,
         // };
         let scope = parts.last().unwrap();
         buffer.insert(iter, "Line ");
-        buffer.insert(iter, &format!("{}", self.new_start));// line_ no 
+        buffer.insert(iter, &format!("{}", self.new_start));// line_ no
         if !scope.is_empty() {
             buffer.insert(iter, &format!(" in {}", scope));
         }
@@ -960,7 +971,7 @@ impl ViewContainer for Line {
         buffer: &TextBuffer,
         context: &mut StatusRenderContext<'_>,
     ) {
-        
+
         let line_no = format!("{}", self.new_line_no.unwrap_or(self.old_line_no.unwrap_or(0)));
         match line_no.len() {
             1 => {
@@ -1003,7 +1014,7 @@ impl ViewContainer for Line {
             self.add_tag(buffer, t);
         }
         // ---------------------------------------
-        
+
         // line_no
         let line_no_tag = match self.origin {
             DiffLineType::Addition => make_tag(tags::LINE_NO_ADDED),
@@ -1445,3 +1456,29 @@ impl Diff {
         // result
     }
 }
+
+// pub trait MayBeViewContainer {
+//     fn enrich_view(
+//         &self,
+//         rendered: Option<&dyn ViewContainer>,
+//         buffer: &TextBuffer,
+//         context: &mut crate::StatusRenderContext,
+//     );
+// }
+
+// impl MayBeViewContainer for Option<&dyn ViewContainer> {
+//     fn enrich_view(
+//         &self,
+//         rendered: Option<&dyn ViewContainer>,
+//         buffer: &TextBuffer,
+//         context: &mut crate::StatusRenderContext,
+//     ){
+//         if let Some(rendered) = rendered {
+//             if let Some(new) = &self {
+//                 new.enrich_view(rendered, buffer, context);
+//             } else {
+//                 rendered.erase(buffer, context);
+//             }
+//         }
+//     }
+// }
