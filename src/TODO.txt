@@ -1,3 +1,8 @@
+BUG: when edit conflicted and resolving everything manually, then commit banner shown.
+when unda changes in editor, conflicted restored, but commit still shown!
+
+update_tracked_file got diff, while update_staged got Option<Diff> thats stupido!
+
 The problem with diff is - it is empty and it is rendered!
 it need to send NONE from git !!!!!!!!!!!!!!!!!!!!
 
