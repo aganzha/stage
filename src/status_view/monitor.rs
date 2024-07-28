@@ -9,7 +9,7 @@ use gio::{
 };
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
-use log::{debug, info, trace};
+use log::{debug, trace};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;

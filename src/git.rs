@@ -28,7 +28,7 @@ use git2::{
 use log::{debug, trace, info};
 use regex::Regex;
 //use std::time::SystemTime;
-use std::backtrace::Backtrace;
+
 use std::path::PathBuf;
 use std::{collections::HashSet, env, str};
 
@@ -1336,7 +1336,7 @@ pub fn track_changes(
     path: PathBuf,
     file_path: PathBuf,
     interhunk: Option<u32>,
-    mut has_conflicted: bool,
+    has_conflicted: bool,
     sender: Sender<crate::Event>,
 ) {
     info!("track changes {:?} {:?}", file_path, has_conflicted);

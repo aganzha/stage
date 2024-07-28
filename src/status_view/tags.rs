@@ -9,7 +9,7 @@ use gtk4::{pango, gdk, TextTag};
 use libadwaita::prelude::*;
 use libadwaita::StyleManager;
 use log::debug;
-use pango::{Style, ShowFlags};
+use pango::{Style};
 
 pub const POINTER: &str = "pointer";
 pub const STAGED: &str = "staged";

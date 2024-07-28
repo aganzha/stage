@@ -2,19 +2,19 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use std::{thread, time};
+
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
 use crate::status_view::view::{View, ViewState};
 use crate::status_view::Label;
 use crate::{
     Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
-    StatusRenderContext, UnderCursor, Untracked, UntrackedFile,
+    StatusRenderContext, Untracked, UntrackedFile,
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::{debug, trace};
+use log::{trace};
 use std::path::PathBuf;
 
 pub const LINE_NO_SPACE: i32 = 6;
@@ -180,8 +180,8 @@ pub trait ViewContainer {
 
     fn adjust_tags_on_cursor_change<'a>(
         &'a self,
-        buffer: &TextBuffer,
-        context: &mut StatusRenderContext<'a>
+        _buffer: &TextBuffer,
+        _context: &mut StatusRenderContext<'a>
     ) {
     }
 
@@ -542,7 +542,7 @@ impl ViewContainer for Diff {
         result
     }
 
-    fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         match self.kind {
             DiffKind::Staged => vec![make_tag(tags::BOLD), make_tag(tags::STAGED)],
             // TODO! create separate tag for conflicted!
@@ -601,7 +601,7 @@ impl ViewContainer for File {
             .collect()
     }
     // File
-    fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         let mut tags = vec![make_tag(tags::BOLD), make_tag(tags::POINTER)];
         if self.status == git2::Delta::Deleted {
             tags.push(make_tag(tags::REMOVED));
@@ -730,7 +730,7 @@ impl ViewContainer for Hunk {
         active
     }
     // Hunk
-    fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
@@ -877,7 +877,7 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         match self.kind {
             //
             LineKind::ConflictMarker(_) => {
@@ -1254,7 +1254,7 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked (diff)
-    fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
@@ -1338,7 +1338,7 @@ impl ViewContainer for UntrackedFile {
         active
     }
     // Untracked (File)
-    fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 }
