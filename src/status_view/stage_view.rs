@@ -46,7 +46,7 @@ mod stage_view {
     use gtk4::subclass::prelude::*;
 
     use log::{trace, debug};
-    
+
     // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
     const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.137, 0.216, 0.310, 1.0);
@@ -70,6 +70,7 @@ mod stage_view {
     #[derive(Default)]
     pub struct StageView {
         pub cursor: Cell<i32>,
+        pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
 
@@ -170,7 +171,21 @@ mod stage_view {
                 // highlight cursor ---------------------------------
                 let cursor_line = self.cursor.get();
                 iter.set_line(cursor_line);
-                let (y_from, y_to) = self.obj().line_yrange(&iter);
+                let (mut y_from, mut y_to) = self.obj().line_yrange(&iter);
+                
+                if self.double_height_line.get() {
+                    // hack for diff labels
+                    y_to = y_to / 2;
+                    y_from += y_to;
+                } else {
+                    // huck for broken highlight
+                    // during different switches
+                    let known = self.known_line_height.get();
+                    if known > 0 && y_to > known {
+                        y_to = known;
+                    }
+                }
+                
                 debug!("-------------------> {:?} {:?}", y_from, y_to);
                 snapshot.append_color(
                     if self.is_dark.get() {
@@ -218,6 +233,10 @@ impl StageView {
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
         // here it need to pass pixels above line!
         self.imp().cursor.replace(context.cursor);
+        // Diff labels have top margin with height of line.
+        // it does not need to highlight them, only highlight
+        // diff label itself
+        self.imp().double_height_line.replace(context.cursor_diff.is_some());
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
         } else {
@@ -496,7 +515,7 @@ pub fn factory(
         debug!("whyyyyyyyyyyyyyyyyyyyyyy drag is triggered? gesture drag!");
     });
     txt.add_controller(gesture_controller);
-    
+
     let gesture_controller = GestureClick::new();
     gesture_controller.connect_released({
         let sndr = sndr.clone();

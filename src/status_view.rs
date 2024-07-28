@@ -846,7 +846,6 @@ impl Status {
         context: &mut StatusRenderContext<'a>,
     ) {        
         if let Some(rendered) = &mut self.unstaged {
-            debug!("traaaaaaaaaaaaacked diff {:?}", diff);
             // diff could be empty, when user delete all changes from file
             let updated_file = diff.files.into_iter().filter(|f| f.path == file_path).next();
             let buffer = &txt.buffer();
@@ -856,7 +855,6 @@ impl Status {
                 ind += 1;
                 if f.path == file_path {
                     insert_ind = ind;
-                    // updated_file.enrich_view(f, buffer, context);
                     if let Some(file) = &updated_file {
                         file.enrich_view(f, buffer, context);
                     } else {
