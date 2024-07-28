@@ -1343,46 +1343,60 @@ pub fn track_changes(
         .expect("wrong path");
     // conflicts could be resolved right in this file change
     // but it need to update conflicted anyways
-    for entry in index.iter() {
-        let entry_path = format!("{}", String::from_utf8_lossy(&entry.path));
-        if file_path == entry_path {
-            let mut opts = make_diff_options();
-            opts.pathspec(entry_path);
-            let git_diff = repo
-                .diff_index_to_workdir(
-                    Some(&index),
-                    Some(&mut opts),
-                )
-                .expect("cant' get diff index to workdir");
-            let diff = make_diff(&git_diff, DiffKind::Unstaged);
-            // cases 1 - user added content to file
-            //       2 - content deleted in file and file become empty!
+    let mut kind = DiffKind::Unstaged;
+    let mut opts = make_diff_options();
+    let mut found = false;
+    if index.has_conflicts() {
+        let conflicts = index.conflicts().expect("cant get conflicts");
+        for conflict in conflicts.flatten() {
+            if let Some(our) = conflict.our {
+                let conflict_path = String::from_utf8(our.path.clone()).unwrap();
+                if file_path == conflict_path {
+                    found = true;
+                    kind = DiffKind::Conflicted;
+                    if let Some(interhunk) = interhunk {
+                        opts.interhunk_lines(interhunk);
+                    }
+                    break
+                }
+            }
+        }
+    }
+    if !found {
+        for entry in index.iter() {
+            let entry_path = format!("{}", String::from_utf8_lossy(&entry.path));
+            if file_path == entry_path {
+                opts.pathspec(entry_path);
+                found = true;
+                break;
+            }
+        }
+    }
+    if found {
+        let git_diff = repo
+            .diff_index_to_workdir(
+                Some(&index),
+                Some(&mut opts),
+            )
+            .expect("cant' get diff index to workdir");
+        let diff = make_diff(&git_diff, kind.clone());
+        // cases 1 - user added content to file
+        //       2 - content deleted in file and file become empty!
+        if diff.is_empty() {
+            let event = if kind == DiffKind::Conflicted {
+                crate::Event::Conflicted(None, None)
+            } else {
+                crate::Event::Unstaged(None)
+            };
+            sender
+                .send_blocking(event)
+                .expect("Could not send through channel");
+        } else {
             sender
                 .send_blocking(crate::Event::TrackedFile(file_path.into(), diff))
                 .expect("Could not send through channel");
-            break;
         }
     }
-    // TODO restore it!
-    // if !has_conflicted && index.has_conflicts() {
-    //     let conflicts = index.conflicts().expect("cant get conflicts");
-    //     for conflict in conflicts.flatten() {
-    //         if let Some(our) = conflict.our {
-    //             let conflict_path = String::from_utf8(our.path.clone()).unwrap();
-    //             if file_path == String::from_utf8(our.path).unwrap() {
-    //                 has_conflicted = true;
-    //             }
-    //         }
-    //     }
-    // }
-    // debug!("aaaaaaaaaaaaaaaaaaaaaand track conflicted or not ? {:?}", has_conflicted);
-    // if has_conflicted {
-    //     // same here - update just 1 file, please
-    //     let diff = get_conflicted_v1(path, interhunk);
-    //     sender
-    //         .send_blocking(crate::Event::Conflicted(diff))
-    //         .expect("Could not send through channel");
-    // }
 }
 
 pub fn checkout_oid(

@@ -836,6 +836,7 @@ impl ViewContainer for Line {
                         _ => {}
                     }
                 }
+                return false;
             }
         }
 
