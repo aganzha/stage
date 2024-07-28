@@ -5,11 +5,11 @@
 use crate::status_view::view::View;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
-use gtk4::{pango, gdk, TextTag};
+use gtk4::{gdk, pango, TextTag};
 use libadwaita::prelude::*;
 use libadwaita::StyleManager;
 use log::debug;
-use pango::{Style};
+use pango::Style;
 
 pub const POINTER: &str = "pointer";
 pub const STAGED: &str = "staged";
@@ -52,14 +52,12 @@ pub const TEXT_TAGS: [&str; 18] = [
     CONFLICT_MARKER,
     OURS,
     THEIRS,
-
     SPACES_ADDED,
     SPACES_REMOVED,
     LINE_NO_ADDED,
     LINE_NO_REMOVED,
     LINE_NO_CONTEXT,
-    CONTEXT
-
+    CONTEXT,
 ];
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -197,25 +195,36 @@ impl TxtTag {
             }
             LINE_NO_ADDED => {
                 if is_dark {
-                    tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#4a8e0999").unwrap()));
+                    tag.set_foreground_rgba(Some(
+                        &gdk::RGBA::parse("#4a8e0999").unwrap(),
+                    ));
                 } else {
-                    tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#2ec27e55").unwrap()));
+                    tag.set_foreground_rgba(Some(
+                        &gdk::RGBA::parse("#2ec27e55").unwrap(),
+                    ));
                 }
             }
             LINE_NO_REMOVED => {
                 if is_dark {
-                    tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#a51d2d99").unwrap()));
+                    tag.set_foreground_rgba(Some(
+                        &gdk::RGBA::parse("#a51d2d99").unwrap(),
+                    ));
                 } else {
-                    tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#c01c2855").unwrap()));
+                    tag.set_foreground_rgba(Some(
+                        &gdk::RGBA::parse("#c01c2855").unwrap(),
+                    ));
                 }
             }
             LINE_NO_CONTEXT => {
                 // tag.set_priority(100);
                 if is_dark {
-                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(1.0, 1.0, 1.0, 0.2)));
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(
+                        1.0, 1.0, 1.0, 0.2,
+                    )));
                 } else {
-
-                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(0.0, 0.0, 0.0, 0.2)));
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(
+                        0.0, 0.0, 0.0, 0.2,
+                    )));
                     // from removed
                     // tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#c01c2855").unwrap()));
                 }
@@ -230,7 +239,6 @@ impl TxtTag {
                     // from removed
                     // tag.set_foreground(Some("#c01c28"));
                     // tag.set_foreground_rgba(Some(&gdk::RGBA::new(0.0, 0.0, 0.0, 0.6)));
-
                 }
             }
             BOLD => {

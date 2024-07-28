@@ -505,7 +505,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     // hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
                     // if let Some(state) = ostate {
                     //     status.update_state(state, &txt, &mut ctx);
-                    // }                    
+                    // }
                     status.update_conflicted(
                         odiff,
                         ostate,
@@ -529,7 +529,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 }
                 Event::TrackedFile(file_path, diff) => {
                     info!("Unstaged");
-                    status.update_tracked_file(file_path, diff, &txt, &mut ctx);
+                    status
+                        .update_tracked_file(file_path, diff, &txt, &mut ctx);
                 }
                 Event::Expand(offset, line_no) => {
                     info!("Expand");

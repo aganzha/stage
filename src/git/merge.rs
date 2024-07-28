@@ -4,14 +4,14 @@
 
 use crate::git::{
     branch::BranchName, get_conflicted_v1, get_current_repo_status,
-    make_diff_options, BranchData, DeferRefresh, Head, Hunk, Line,
-    State, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS,
-    NEW_LINE, SPACE,
+    make_diff_options, BranchData, DeferRefresh, Head, Hunk, Line, State,
+    MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE,
+    SPACE,
 };
 use async_channel::Sender;
 use git2;
 use gtk4::gio;
-use log::{info, trace, debug};
+use log::{debug, info, trace};
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -258,15 +258,14 @@ pub fn abort(
 
     // cleanup conflicted
     sender
-        .send_blocking(crate::Event::Conflicted(None, Some(State::new(
-            repo.state(),
-            "".to_string(),
-        ))))
+        .send_blocking(crate::Event::Conflicted(
+            None,
+            Some(State::new(repo.state(), "".to_string())),
+        ))
         .expect("Could not send through channel");
 
     Ok(())
 }
-
 
 pub fn choose_conflict_side_of_blob<'a, F>(
     raw: &'a str,
@@ -480,7 +479,6 @@ pub fn choose_conflict_side_of_hunk(
     let mut index = repo.index()?;
     let conflicts = index.conflicts()?;
 
-
     let mut entries: Vec<git2::IndexEntry> = Vec::new();
     let mut conflict_paths: HashSet<PathBuf> = HashSet::new();
     for conflict in conflicts.flatten() {
@@ -510,22 +508,25 @@ pub fn choose_conflict_side_of_hunk(
     let restore_index = move |file_path: &PathBuf| {
         // remove from index again to restore conflict
         // and also to clear from other side tree
-        index.remove_path(Path::new(file_path)).expect("cant remove path");
+        index
+            .remove_path(Path::new(file_path))
+            .expect("cant remove path");
         for entry in entries {
             index.add(&entry).expect("cant restore entry");
         }
         index.write().expect("cant restore index");
     };
 
-    let current_tree = match repo.revparse_single("HEAD^{tree}")
-        .and_then(|ob| repo.find_tree(ob.id())) {
-            Ok(tree) => tree,
-            Err(error) => {
-                restore_index(&file_path);
-                return Err(error);
-            }
-        };
-
+    let current_tree = match repo
+        .revparse_single("HEAD^{tree}")
+        .and_then(|ob| repo.find_tree(ob.id()))
+    {
+        Ok(tree) => tree,
+        Err(error) => {
+            restore_index(&file_path);
+            return Err(error);
+        }
+    };
 
     let mut opts = make_diff_options();
     let mut opts = opts.pathspec(&file_path).reverse(true);
@@ -533,7 +534,9 @@ pub fn choose_conflict_side_of_hunk(
         opts.interhunk_lines(ih);
     }
 
-    let git_diff = match repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts)) {
+    let git_diff = match repo
+        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
+    {
         Ok(gd) => gd,
         Err(error) => {
             restore_index(&file_path);
@@ -636,7 +639,12 @@ pub fn choose_conflict_side_of_hunk(
     if let Some(error) = apply_error {
         return Err(error);
     }
-    cleanup_last_conflict_for_file(path, file_path.clone(), interhunk, sender)?;
+    cleanup_last_conflict_for_file(
+        path,
+        file_path.clone(),
+        interhunk,
+        sender,
+    )?;
     Ok(())
 }
 
@@ -682,10 +690,10 @@ pub fn cleanup_last_conflict_for_file(
         return Ok(());
     }
     sender
-        .send_blocking(crate::Event::Conflicted(diff, Some(State::new(
-            repo.state(),
-            "".to_string(),
-        ))))
+        .send_blocking(crate::Event::Conflicted(
+            diff,
+            Some(State::new(repo.state(), "".to_string())),
+        ))
         .expect("Could not send through channel");
     Ok(())
 }

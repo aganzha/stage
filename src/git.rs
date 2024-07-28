@@ -25,7 +25,7 @@ use git2::{
     RepositoryState, ResetType,
 };
 
-use log::{debug, trace, info};
+use log::{debug, info, trace};
 use regex::Regex;
 //use std::time::SystemTime;
 
@@ -738,7 +738,11 @@ pub fn get_current_repo_status(
                 .expect("can't get diff tree to index");
             let diff = make_diff(&git_diff, DiffKind::Staged);
             sender
-                .send_blocking(crate::Event::Staged(if diff.is_empty() { None } else { Some(diff) } ))
+                .send_blocking(crate::Event::Staged(if diff.is_empty() {
+                    None
+                } else {
+                    Some(diff)
+                }))
                 .expect("Could not send through channel");
         }
     });
@@ -789,11 +793,18 @@ pub fn get_current_repo_status(
         .expect("cant' get diff index to workdir");
     let diff = make_diff(&git_diff, DiffKind::Unstaged);
     sender
-        .send_blocking(crate::Event::Unstaged(if diff.is_empty() {None} else {Some(diff)} ))
+        .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
+            None
+        } else {
+            Some(diff)
+        }))
         .expect("Could not send through channel");
 }
 
-pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Option<Diff> {
+pub fn get_conflicted_v1(
+    path: PathBuf,
+    interhunk: Option<u32>,
+) -> Option<Diff> {
     // thought
     // TODO! file path options!
     // it is called now from track_changes, so it need to update only 1 file!
@@ -809,7 +820,10 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Option<Diff> 
     let repo = Repository::open(path).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
-    debug!("does index has conflicts in conflicted_v1? ===================> {:?}", index.has_conflicts());
+    debug!(
+        "does index has conflicts in conflicted_v1? ===================> {:?}",
+        index.has_conflicts()
+    );
     let mut opts = make_diff_options();
     // 6 - for 3 context lines in eacj hunk?
     opts.interhunk_lines(interhunk.unwrap_or(10));
@@ -841,8 +855,7 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Option<Diff> 
     // and recreate diff to accomodate both ours and theirs in single hunk
     if let Some(interhunk) = interhunk {
         diff.interhunk.replace(interhunk);
-    }
-    else {
+    } else {
         // this vec store tuples with last line_no of prev hunk
         // and first line_no of next hunk
         let mut hunks_to_join = Vec::new();
@@ -1160,7 +1173,6 @@ pub fn stage_via_apply(
     subject: StageOp,
     sender: Sender<crate::Event>,
 ) -> Result<(), Error> {
-
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = Repository::open(path.clone())?;
 
@@ -1355,19 +1367,24 @@ pub fn track_changes(
         let conflicts = index.conflicts().expect("cant get conflicts");
         for conflict in conflicts.flatten() {
             if let Some(our) = conflict.our {
-                let conflict_path = String::from_utf8(our.path.clone()).unwrap();
+                let conflict_path =
+                    String::from_utf8(our.path.clone()).unwrap();
                 if file_path == conflict_path {
                     let diff = get_conflicted_v1(path, interhunk);
                     let state = repo.state();
                     if let Some(diff) = diff {
                         // track concflict file
-                        let event = crate::Event::TrackedFile(file_path.into(), diff);
+                        let event =
+                            crate::Event::TrackedFile(file_path.into(), diff);
                         sender
                             .send_blocking(event)
                             .expect("Could not send through channel");
                     } else {
                         // cleanup conflicts
-                        let event = crate::Event::Conflicted(None, Some(State::new(state, "".to_string())));
+                        let event = crate::Event::Conflicted(
+                            None,
+                            Some(State::new(state, "".to_string())),
+                        );
                         sender
                             .send_blocking(event)
                             .expect("Could not send through channel");
@@ -1378,25 +1395,28 @@ pub fn track_changes(
         }
     } else {
         for entry in index.iter() {
-            let entry_path = format!("{}", String::from_utf8_lossy(&entry.path));
+            let entry_path =
+                format!("{}", String::from_utf8_lossy(&entry.path));
             if file_path == entry_path {
                 let mut opts = make_diff_options();
                 opts.pathspec(&entry_path);
                 let git_diff = repo
-                    .diff_index_to_workdir(
-                        Some(&index),
-                        Some(&mut opts),
-                    )
+                    .diff_index_to_workdir(Some(&index), Some(&mut opts))
                     .expect("cant' get diff index to workdir");
                 let diff = make_diff(&git_diff, DiffKind::Unstaged);
                 if diff.is_empty() {
-                    sender.send_blocking(crate::Event::Unstaged(None))
+                    sender
+                        .send_blocking(crate::Event::Unstaged(None))
                         .expect("Could not send through channel");
                 } else {
-                    sender.send_blocking(crate::Event::TrackedFile(entry_path.into(), diff))
+                    sender
+                        .send_blocking(crate::Event::TrackedFile(
+                            entry_path.into(),
+                            diff,
+                        ))
                         .expect("Could not send through channel");
                 }
-                
+
                 return;
             }
         }
@@ -1412,46 +1432,46 @@ pub fn track_changes(
     // }
 
     // if found {
-        // let diff = if kind == DiffKind::Conflicted {
-        //     get_conflicted_v1(path, interhunk)
-        // } else {
-        //     // todo: put get_unstaged in separate file
-        //     // and return options from it!
-        //     let git_diff = repo
-        //     .diff_index_to_workdir(
-        //         Some(&index),
-        //         Some(&mut opts),
-        //     )
-        //     .expect("cant' get diff index to workdir");
-        //     let diff = make_diff(&git_diff, kind.clone());
-        //     if diff.is_empty() {
-        //         sender.send_blocking(crate::Event::TrackedFile(file_path.into(), None))
-        //             .expect("Could not send through channel");
-        //     } else {
-        //         sender.send_blocking(crate::Event::TrackedFile(file_path.into(), Some(diff)))
-        //             .expect("Could not send through channel");
-        //     }
-        // };
-        
-        // sender.send_blocking(crate::Event::TrackedFile(file_path.into(), diff))
-        //     .expect("Could not send through channel");
-        // cases 1 - user added content to file
-        //       2 - content deleted in file and file become empty!
-        // it could be conflicted or unstaged diff.
-        // if diff.is_empty() {
-        //     let event = if kind == DiffKind::Conflicted {
-        //         crate::Event::Conflicted(None, None)
-        //     } else {
-        //         crate::Event::Unstaged(None)
-        //     };
-        //     sender
-        //         .send_blocking(event)
-        //         .expect("Could not send through channel");
-        // } else {
-        //     sender
-        //         .send_blocking(crate::Event::TrackedFile(file_path.into(), diff))
-        //         .expect("Could not send through channel");
-        // }
+    // let diff = if kind == DiffKind::Conflicted {
+    //     get_conflicted_v1(path, interhunk)
+    // } else {
+    //     // todo: put get_unstaged in separate file
+    //     // and return options from it!
+    //     let git_diff = repo
+    //     .diff_index_to_workdir(
+    //         Some(&index),
+    //         Some(&mut opts),
+    //     )
+    //     .expect("cant' get diff index to workdir");
+    //     let diff = make_diff(&git_diff, kind.clone());
+    //     if diff.is_empty() {
+    //         sender.send_blocking(crate::Event::TrackedFile(file_path.into(), None))
+    //             .expect("Could not send through channel");
+    //     } else {
+    //         sender.send_blocking(crate::Event::TrackedFile(file_path.into(), Some(diff)))
+    //             .expect("Could not send through channel");
+    //     }
+    // };
+
+    // sender.send_blocking(crate::Event::TrackedFile(file_path.into(), diff))
+    //     .expect("Could not send through channel");
+    // cases 1 - user added content to file
+    //       2 - content deleted in file and file become empty!
+    // it could be conflicted or unstaged diff.
+    // if diff.is_empty() {
+    //     let event = if kind == DiffKind::Conflicted {
+    //         crate::Event::Conflicted(None, None)
+    //     } else {
+    //         crate::Event::Unstaged(None)
+    //     };
+    //     sender
+    //         .send_blocking(event)
+    //         .expect("Could not send through channel");
+    // } else {
+    //     sender
+    //         .send_blocking(crate::Event::TrackedFile(file_path.into(), diff))
+    //         .expect("Could not send through channel");
+    // }
     // }
 }
 

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::{DiffKind, Hunk, Diff, File, Line, LineKind};
+use crate::{Diff, DiffKind, File, Hunk, Line, LineKind};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -53,7 +53,6 @@ pub struct StatusRenderContext<'a> {
     pub current_file: Option<&'a File>,
     pub current_hunk: Option<&'a Hunk>,
     pub current_line: Option<&'a Line>,
-
 }
 
 impl Default for StatusRenderContext<'_> {
@@ -86,7 +85,6 @@ impl StatusRenderContext<'_> {
                 // it is useless. current_x is sliding variable during render
                 // and there is nothing to render after line
                 current_line: None,
-                
             }
         }
     }

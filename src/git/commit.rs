@@ -211,12 +211,13 @@ pub fn create(
         Some(&mut make_diff_options()),
     )?;
 
-    let diff = make_diff(
-        &git_diff,
-        DiffKind::Staged,
-    );
+    let diff = make_diff(&git_diff, DiffKind::Staged);
     sender
-        .send_blocking(crate::Event::Staged(if diff.is_empty() { None } else { Some(diff) }))
+        .send_blocking(crate::Event::Staged(if diff.is_empty() {
+            None
+        } else {
+            Some(diff)
+        }))
         .expect("Could not send through channel");
 
     // get_unstaged
@@ -230,13 +231,11 @@ pub fn create(
                 .expect("cant' get diff index to workdir");
             let diff = make_diff(&git_diff, DiffKind::Unstaged);
             sender
-                .send_blocking(crate::Event::Unstaged(
-                    if diff.is_empty() {
-                        None
-                    } else {
-                        Some(diff)
-                    }
-                ))
+                .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
+                    None
+                } else {
+                    Some(diff)
+                }))
                 .expect("Could not send through channel");
         }
     });
