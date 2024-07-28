@@ -188,7 +188,6 @@ pub fn branch(
         }
     }
 
-    // let state = repo.state();
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
     let ob = head_ref.peel(git2::ObjectType::Commit)?;
@@ -256,6 +255,14 @@ pub fn abort(
         .expect("Could not send through channel");
 
     repo.reset(&ob, git2::ResetType::Hard, Some(&mut checkout_builder))?;
+
+    // cleanup conflicted
+    sender
+        .send_blocking(crate::Event::Conflicted(None, Some(State::new(
+            repo.state(),
+            "".to_string(),
+        ))))
+        .expect("Could not send through channel");
 
     Ok(())
 }
@@ -647,11 +654,7 @@ pub fn cleanup_last_conflict_for_file(
     // 2 - only this file is resolved, but have other conflicts - update all
     // 3 - conflicts are remaining in all files - just update conflicted
     let mut update_status = true;
-    if diff.is_empty() {
-        index.remove_path(Path::new(&file_path))?;
-        index.add_path(Path::new(&file_path))?;
-        index.write()?;
-    } else {
+    if let Some(diff) = get_conflicted_v1(path.clone(), interhunk) {
         for file in &diff.files {
             if file.hunks.iter().any(|h| h.conflicts_count > 0) {
                 if file.path == file_path {
@@ -664,6 +667,11 @@ pub fn cleanup_last_conflict_for_file(
                 index.write()?;
             }
         }
+    } else {
+        debug!("cleanup_last_conflict_for_file. no mor conflicts! restore file in index!");
+        index.remove_path(Path::new(&file_path))?;
+        index.add_path(Path::new(&file_path))?;
+        index.write()?;
     }
     if update_status {
         gio::spawn_blocking({
@@ -674,7 +682,10 @@ pub fn cleanup_last_conflict_for_file(
         return Ok(());
     }
     sender
-        .send_blocking(crate::Event::Conflicted(diff))
+        .send_blocking(crate::Event::Conflicted(diff, Some(State::new(
+            repo.state(),
+            "".to_string(),
+        ))))
         .expect("Could not send through channel");
     Ok(())
 }

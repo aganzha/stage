@@ -503,12 +503,6 @@ impl ViewContainer for Diff {
         _context: &mut StatusRenderContext<'_>,
     ) {
         if !self.is_empty() {
-            // let title = match self.kind {
-            //     DiffKind::Staged => "<span weight=\"bold\" color=\"#8b6508\">Staged changes</span>_",
-            //     DiffKind::Unstaged => "<span weight=\"bold\" color=\"#8b6508\">Unstaged changes</span>_",
-            //     DiffKind::Conflicted => "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>_",
-            // };
-            // buffer.insert_markup(iter, title);
             buffer.insert(
                 iter,
                 match self.kind {
@@ -676,15 +670,10 @@ impl ViewContainer for Hunk {
         buffer: &TextBuffer,
         _context: &mut StatusRenderContext<'_>,
     ) {
-
         let parts: Vec<&str> = self.header.split("@@").collect();
-        // let line_no = match self.kind {
-        //     DiffKind::Unstaged | DiffKind::Conflicted => self.old_start,
-        //     DiffKind::Staged => self.new_start,
-        // };
         let scope = parts.last().unwrap();
         buffer.insert(iter, "Line ");
-        buffer.insert(iter, &format!("{}", self.new_start));// line_ no
+        buffer.insert(iter, &format!("{}", self.new_start));
         if !scope.is_empty() {
             buffer.insert(iter, &format!(" in {}", scope));
         }

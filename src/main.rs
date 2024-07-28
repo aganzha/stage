@@ -112,7 +112,7 @@ pub enum Event {
     Dump,
     OpenRepo(PathBuf),
     CurrentRepo(PathBuf),
-    Conflicted(Diff),
+    Conflicted(Option<Diff>, Option<State>),
     Unstaged(Option<Diff>),
     TrackedFile(PathBuf, Diff),
     Staged(Option<Diff>),
@@ -500,11 +500,15 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     }
                     status.update_upstream(h, &txt, &mut ctx);
                 }
-                Event::Conflicted(d) => {
+                Event::Conflicted(odiff, ostate) => {
                     info!("Conflicted");
                     // hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
+                    // if let Some(state) = ostate {
+                    //     status.update_state(state, &txt, &mut ctx);
+                    // }                              
                     status.update_conflicted(
-                        d,
+                        odiff,
+                        ostate,
                         &txt,
                         &window,
                         sender.clone(),

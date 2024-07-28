@@ -185,8 +185,6 @@ mod stage_view {
                         y_to = known;
                     }
                 }
-                
-                debug!("-------------------> {:?} {:?}", y_from, y_to);
                 snapshot.append_color(
                     if self.is_dark.get() {
                         &DARK_CURSOR
