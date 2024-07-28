@@ -824,27 +824,38 @@ impl Status {
 
     pub fn update_tracked_file<'a>(
         &'a mut self,
-        mut diff: Diff,
+        file_path: PathBuf,
+        diff: Diff,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {        
         if let Some(rendered) = &mut self.unstaged {
-            let file = diff.files.pop().expect("tracked file diff must contain exactly 1 file");
-            assert!(diff.is_empty());
+            debug!("traaaaaaaaaaaaacked diff {:?}", diff);
+            // diff could be empty, when user delete all changes from file
+            let updated_file = diff.files.into_iter().filter(|f| f.path == file_path).next();
             let buffer = &txt.buffer();
             let mut ind = 0;
             let mut insert_ind = 0;
+            debug!("rendered files before {:?}", rendered.files.len());
             rendered.files.retain_mut(|f| {
                 ind += 1;
-                if f.path == file.path {
-                    file.enrich_view(f, buffer, context);
-                    insert_ind = ind;
+                if f.path == file_path {
+                    debug!("got youuuuuuuuuuuuuuuuuu!");
+                    if let Some(file) = &updated_file {
+                        file.enrich_view(f, buffer, context);
+                        insert_ind = ind;
+                    } else {
+                        f.erase(buffer, context);
+                    }
                     false
                 } else {
                     true
                 }
             });
-            rendered.files.insert(if insert_ind != 0 {insert_ind - 1} else { 0 }, file);
+            debug!("rendered files after {:?}", rendered.files.len());
+            if let Some(file) = updated_file {
+                rendered.files.insert(if insert_ind != 0 {insert_ind - 1} else { 0 }, file);
+            }
         } else {
             self.unstaged = Some(diff);
             debug!(" freash untracked render!");
@@ -861,7 +872,6 @@ impl Status {
         let buffer = txt.buffer();
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         self.cursor(txt, iter.line(), iter.offset(), ctx);
-        // TODO restore
         glib::source::timeout_add_local(Duration::from_millis(10), {
             let txt = txt.clone();
             let mut context = StatusRenderContext::new();

@@ -1141,7 +1141,8 @@ pub fn stage_via_apply(
     subject: StageOp,
     sender: Sender<crate::Event>,
 ) -> Result<(), Error> {
-    // TODO! destruct filter to args. put file in pathspec for diff opts
+
+    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = Repository::open(path.clone())?;
 
     let mut opts = make_diff_options();
@@ -1212,23 +1213,8 @@ pub fn stage_via_apply(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 
-    let apply_error = repo
-        .apply(&git_diff, apply_location, Some(&mut options))
-        .err();
+    repo.apply(&git_diff, apply_location, Some(&mut options))?;
 
-    sender
-        .send_blocking(crate::Event::LockMonitors(false))
-        .expect("Could not send through channel");
-
-    gio::spawn_blocking({
-        move || {
-            get_current_repo_status(Some(path), sender);
-        }
-    });
-
-    if let Some(error) = apply_error {
-        return Err(error);
-    }
     Ok(())
 }
 
@@ -1346,17 +1332,8 @@ pub fn track_changes(
     for entry in index.iter() {
         let entry_path = format!("{}", String::from_utf8_lossy(&entry.path));
         if file_path == entry_path {
-            // TODO. so. here ir need to collect dif only for 1 file.
-            // why all? but there way not, ti update just 1 file!
-            // but it is easy, really (just use existent diff and update only 1 file in it!)
-
             let mut opts = make_diff_options();
-            // nope! full diff is required!
-            // remaining files must be enriched!
             opts.pathspec(entry_path);
-            // TODO! update just 1 file!!!!!!!!!!!!!!!!!!
-            // make separate event for unstaged file!!!!!
-            // it will be faster then
             let git_diff = repo
                 .diff_index_to_workdir(
                     Some(&index),
@@ -1364,36 +1341,34 @@ pub fn track_changes(
                 )
                 .expect("cant' get diff index to workdir");
             let diff = make_diff(&git_diff, DiffKind::Unstaged);
-            assert!(!diff.is_empty());
+            // cases 1 - user added content to file
+            //       2 - content deleted in file and file become empty!
             sender                
-                .send_blocking(crate::Event::TrackedFile(diff))
+                .send_blocking(crate::Event::TrackedFile(file_path.into(), diff))
                 .expect("Could not send through channel");
             break;
         }
     }
-    
-    if !has_conflicted && index.has_conflicts() {
-        debug!("1...... ");
-        let conflicts = index.conflicts().expect("cant get conflicts");
-        for conflict in conflicts.flatten() {
-            debug!("2...... ");
-            if let Some(our) = conflict.our {
-                let conflict_path = String::from_utf8(our.path.clone()).unwrap();
-                debug!("3......  {:?} <> {:?} = {:?}", file_path, conflict_path, file_path == conflict_path);
-                if file_path == String::from_utf8(our.path).unwrap() {
-                    has_conflicted = true;
-                }
-            }
-        }
-    }
-    debug!("aaaaaaaaaaaaaaaaaaaaaand track conflicted or not ? {:?}", has_conflicted);
-    if has_conflicted {
-        // same here - update just 1 file, please
-        let diff = get_conflicted_v1(path, interhunk);
-        sender
-            .send_blocking(crate::Event::Conflicted(diff))
-            .expect("Could not send through channel");
-    }
+    // TODO restore it!
+    // if !has_conflicted && index.has_conflicts() {
+    //     let conflicts = index.conflicts().expect("cant get conflicts");
+    //     for conflict in conflicts.flatten() {
+    //         if let Some(our) = conflict.our {
+    //             let conflict_path = String::from_utf8(our.path.clone()).unwrap();
+    //             if file_path == String::from_utf8(our.path).unwrap() {
+    //                 has_conflicted = true;
+    //             }
+    //         }
+    //     }
+    // }
+    // debug!("aaaaaaaaaaaaaaaaaaaaaand track conflicted or not ? {:?}", has_conflicted);
+    // if has_conflicted {
+    //     // same here - update just 1 file, please
+    //     let diff = get_conflicted_v1(path, interhunk);
+    //     sender
+    //         .send_blocking(crate::Event::Conflicted(diff))
+    //         .expect("Could not send through channel");
+    // }
 }
 
 pub fn checkout_oid(
