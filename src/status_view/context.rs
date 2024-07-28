@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::{DiffKind, Hunk, Diff, LineKind};
+use crate::{DiffKind, Hunk, Diff, File, Line, LineKind};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -38,14 +38,22 @@ pub struct StatusRenderContext<'a> {
     pub diff_kind: Option<DiffKind>,
     // TODO! kill it!
     pub max_len: Option<i32>,
-    pub under_cursor: UnderCursor,
     // TODO! kill it!
     pub screen_width: Option<Rc<RefCell<TextViewWidth>>>,
     pub cursor: i32,
     pub highlight_lines: Option<(i32, i32)>,
-    pub highlight_hunks: Vec<i32>, // pub cursor_pos: Option<CursorPos>,
+    pub highlight_hunks: Vec<i32>,
+
+    pub cursor_diff: Option<&'a Diff>,
+    pub cursor_file: Option<&'a File>,
+    pub cursor_hunk: Option<&'a Hunk>,
+    pub cursor_line: Option<&'a Line>,
+
     pub current_diff: Option<&'a Diff>,
+    pub current_file: Option<&'a File>,
     pub current_hunk: Option<&'a Hunk>,
+    pub current_line: Option<&'a Line>,
+
 }
 
 impl Default for StatusRenderContext<'_> {
@@ -61,20 +69,27 @@ impl StatusRenderContext<'_> {
                 erase_counter: 0,
                 diff_kind: None,
                 max_len: None,
-                under_cursor: UnderCursor::None,
+                // under_cursor: UnderCursor::None,
                 screen_width: None,
                 cursor: 0,
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
+
+                cursor_diff: None,
+                cursor_file: None,
+                cursor_hunk: None,
+                cursor_line: None,
+
                 current_diff: None,
+                current_file: None,
                 current_hunk: None,
+                // it is useless. current_x is sliding variable during render
+                // and there is nothing to render after line
+                current_line: None,
+                
             }
         }
     }
-
-    // pub fn update_cursor_pos(&mut self, line_no: i32, offset: i32) {
-    //     self.cursor_pos.replace(CursorPos { line_no, offset });
-    // }
 
     pub fn collect_hunk_highlights(&mut self, line_no: i32) {
         self.highlight_hunks.push(line_no);
@@ -108,45 +123,6 @@ impl StatusRenderContext<'_> {
                 sw.borrow_mut().chars = max_line_len;
             }
         }
-    }
-
-    pub fn under_cursor_diff(&mut self, kind: &DiffKind) {
-        match &self.under_cursor {
-            UnderCursor::None => LineKind::None,
-            UnderCursor::Some {
-                diff_kind: _,
-                line_kind: LineKind::None,
-            } => LineKind::None,
-            UnderCursor::Some {
-                diff_kind: _,
-                line_kind: _,
-            } => {
-                // diff kind is set on top of cursor, when line_kind
-                // is empty
-                // but if line_kind is not empty - do not change diff_kind!
-                return;
-            }
-        };
-        self.under_cursor = UnderCursor::Some {
-            diff_kind: kind.clone(),
-            line_kind: LineKind::None,
-        };
-    }
-
-    pub fn under_cursor_line(&mut self, kind: &LineKind) {
-        let diff_kind = match &self.under_cursor {
-            UnderCursor::Some {
-                diff_kind: dk,
-                line_kind: _,
-            } => dk.clone(),
-            UnderCursor::None => {
-                panic!("diff kind must be set already");
-            }
-        };
-        self.under_cursor = UnderCursor::Some {
-            diff_kind,
-            line_kind: kind.clone(),
-        };
     }
 
     pub fn under_cursor_hunk(&mut self, _hunk: &Hunk) {}

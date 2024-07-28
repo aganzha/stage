@@ -105,6 +105,8 @@ pub trait ViewContainer {
 
     fn prepare_context<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
 
+    fn fill_under_cursor<'a>(&'a self, _context: &mut StatusRenderContext<'a>) {}
+
     fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         let view = self.get_view();
         if view.is_current() {
@@ -275,7 +277,7 @@ pub trait ViewContainer {
         // bit the line is changed!
         if self.get_view().is_current() {
             context.cursor = self.get_view().line_no.get();
-        }        
+        }
         self.fill_context(context);
         // post render @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     }
@@ -365,8 +367,6 @@ pub trait ViewContainer {
         }
         result
     }
-
-    fn fill_under_cursor(&self, _context: &mut StatusRenderContext) {}
 
     // base
     fn is_active_by_child(
@@ -527,58 +527,11 @@ impl ViewContainer for Diff {
             .collect()
     }
 
-    // diff
-    fn cursor<'a>(
-        &'a self,
-        buffer: &TextBuffer,
-        line_no: i32,
-        parent_active: bool,
-        context: &mut StatusRenderContext<'a>,
-    ) -> bool {
-        if self.kind == DiffKind::Conflicted && !self.has_conflicts() {
-            // when all conflicts are resolved, Conflicted
-            // highlights must behave just like Unstaged
-            // (highlight normally instead of ours/theirs
-            context.under_cursor_diff(&DiffKind::Unstaged);
-        } else {
-            context.under_cursor_diff(&self.kind);
-        }
-        let mut result = false;
-        for file in &self.files {
-            result = file.cursor(buffer, line_no, parent_active, context) || result;
-        }
-        result
+    // Diff
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+        ctx.current_diff = Some(self);
     }
 
-    // // Diff
-    // fn render<'a>(
-    //     &'a self,
-    //     buffer: &TextBuffer,
-    //     iter: &mut TextIter,
-    //     context: &mut StatusRenderContext<'a>,
-    // ) {
-    //     if !self.is_empty() {
-    //         debug!(" i am not empty, diiiiiiiiiiiff");
-    //         ViewContainer::render(
-    //             self,
-    //             buffer,
-    //             iter,
-    //             context
-    //         );
-    //     }
-    //     // why do i need it at all?
-    //     self.view.line_no.replace(iter.line());
-    //     context.update_screen_line_width(self.max_line_len);
-
-    //     for file in &self.files {
-    //         file.render(buffer, iter, context);
-    //     }
-    //     let start_iter = buffer.iter_at_line(self.view.line_no.get()).unwrap();
-    //     let end_iter = buffer.iter_at_line(iter.line()).unwrap();
-    //     for tag in self.tags(context) {
-    //         buffer.apply_tag_by_name(tag.str(), &start_iter, &end_iter);
-    //     }
-    // }
 
     // Diff
     fn expand(
@@ -603,6 +556,10 @@ impl ViewContainer for Diff {
                 vec![make_tag(tags::BOLD), make_tag(tags::UNSTAGED)]
             }
         }
+    }
+    // Diff
+    fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+        context.cursor_diff = Some(self);
     }
 }
 
@@ -659,7 +616,7 @@ impl ViewContainer for File {
     }
 
     // file
-    fn fill_context(&self, context: &mut StatusRenderContext) {        
+    fn fill_context(&self, context: &mut StatusRenderContext) {
         // does not used
         if let Some(len) = context.max_len {
             if len < self.max_line_len {
@@ -680,6 +637,16 @@ impl ViewContainer for File {
         _context: &mut StatusRenderContext,
     ) -> bool {
         false
+    }
+
+    // File
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+        ctx.current_file = Some(self);
+    }
+
+    // File
+    fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+        context.cursor_file = Some(self);
     }
 }
 
@@ -746,7 +713,7 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
-    fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {       
+    fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         if self.view.is_rendered() {
             ctx.collect_hunk_highlights(self.view.line_no.get());
         }
@@ -773,7 +740,7 @@ impl ViewContainer for Hunk {
         // whole hunk is active
         active
     }
-    // File
+    // Hunk
     fn tags<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         Vec::new()
     }
@@ -782,8 +749,9 @@ impl ViewContainer for Hunk {
         true
     }
 
-    fn fill_under_cursor(&self, context: &mut StatusRenderContext) {
-        context.under_cursor_hunk(self);
+    // Hunk
+    fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+        context.cursor_hunk = Some(self);
     }
 }
 
@@ -819,7 +787,7 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn fill_context(&self, ctx: &mut StatusRenderContext) {        
+    fn fill_context(&self, ctx: &mut StatusRenderContext) {
         if self.view.is_rendered() && self.view.is_active() {
             ctx.collect_line_highlights(self.view.line_no.get());
         }
@@ -839,8 +807,15 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn fill_under_cursor(&self, context: &mut StatusRenderContext) {
-        context.under_cursor_line(&self.kind);
+    // it is useless. current_x is sliding variable during render
+    // and there is nothing to render after line
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+        ctx.current_line = Some(self);
+    }
+
+    // Line
+    fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+        context.cursor_line = Some(self);
     }
 
     // Line
@@ -853,26 +828,26 @@ impl ViewContainer for Line {
         // this line is active
         // Except conflicted lines
 
-        match context.under_cursor {
-            UnderCursor::Some {
-                diff_kind: DiffKind::Conflicted,
-                line_kind: LineKind::Ours(i),
-            } => {
-                return active && self.kind == LineKind::Ours(i);
+        // conflicted lines become active by choosing
+        // ours/theirs
+        // they use under cursor for it.
+        if !self.view.is_rendered() {
+            return false;
+        }
+        if let Some(diff) = context.current_diff {
+            if diff.kind == DiffKind::Conflicted {
+                if let Some(line) = context.cursor_line {
+                    match &line.kind {
+                        LineKind::Ours(i) => {
+                            return active && self.kind == LineKind::Ours(*i);
+                        }
+                        LineKind::Theirs(i) => {
+                            return active && self.kind == LineKind::Theirs(*i);
+                        }
+                        _ => {}
+                    }
+                }
             }
-            UnderCursor::Some {
-                diff_kind: DiffKind::Conflicted,
-                line_kind: LineKind::Theirs(i),
-            } => {
-                return active && self.kind == LineKind::Theirs(i);
-            }
-            UnderCursor::Some {
-                diff_kind: DiffKind::Conflicted,
-                line_kind: _,
-            } => {
-                return false;
-            }
-            _ => {}
         }
 
         active
