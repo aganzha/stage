@@ -3,19 +3,19 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 pub mod commit;
-pub mod render;
 pub mod context;
 pub mod headerbar;
 pub mod monitor;
+pub mod render;
 pub mod stage_view;
 pub mod tags;
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{abort_rebase, continue_rebase, merge, remote, stash};
 use crate::utils::StrPath;
 
-use render::{ViewContainer}; // MayBeViewContainer o
 use core::time::Duration;
 use git2::RepositoryState;
+use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
@@ -30,8 +30,9 @@ use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, stage_untracked, stage_via_apply, track_changes, Diff, DiffKind, Event,
-    File as GitFile, Head, StageOp, State, StatusRenderContext, Untracked,
+    get_current_repo_status, stage_untracked, stage_via_apply, track_changes,
+    Diff, DiffKind, Event, File as GitFile, Head, StageOp, State,
+    StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
 
@@ -71,7 +72,6 @@ impl State {
         }
     }
 }
-
 
 #[derive(Debug, Clone, Default)]
 pub struct Label {
@@ -596,12 +596,14 @@ impl Status {
         self.render(txt, RenderSource::Git, context);
     }
 
-    pub fn track_changes(&self, file_path: PathBuf, sender: Sender<Event>,) {
+    pub fn track_changes(&self, file_path: PathBuf, sender: Sender<Event>) {
         gio::spawn_blocking({
             let path = self.path.clone().unwrap();
-            let sender =
-                sender.clone();
-            debug!("track changes.................... {:?} {:?}", path, file_path);
+            let sender = sender.clone();
+            debug!(
+                "track changes.................... {:?} {:?}",
+                path, file_path
+            );
             let mut interhunk = None;
             let mut has_conflicted = false;
             if let Some(diff) = &self.conflicted {
@@ -614,7 +616,10 @@ impl Status {
                     }
                 }
             }
-            debug!("call track changes in status_view {:?} {:?}", has_conflicted, interhunk);
+            debug!(
+                "call track changes in status_view {:?} {:?}",
+                has_conflicted, interhunk
+            );
             move || {
                 track_changes(
                     path,
@@ -626,7 +631,6 @@ impl Status {
             }
         });
     }
-
 
     pub fn update_conflicted<'a>(
         &'a mut self,
@@ -858,8 +862,12 @@ impl Status {
         };
         if let Some(rendered) = mine {
             // diff could be empty, when user delete all changes from file
-            let updated_file = diff.files.into_iter().find(|f| f.path == file_path);
-            debug!("--------------- updated file {:?} ----------", updated_file);
+            let updated_file =
+                diff.files.into_iter().find(|f| f.path == file_path);
+            debug!(
+                "--------------- updated file {:?} ----------",
+                updated_file
+            );
             let buffer = &txt.buffer();
             let mut ind = 0;
             let mut insert_ind = 0;
@@ -880,16 +888,22 @@ impl Status {
                     true
                 }
             });
-            debug!("files aafteeeeeeeeeeeeeeeeerrr {:} {:?}", &rendered.files.len(), insert_ind);
+            debug!(
+                "files aafteeeeeeeeeeeeeeeeerrr {:} {:?}",
+                &rendered.files.len(),
+                insert_ind
+            );
             if let Some(file) = updated_file {
-                rendered.files.insert(if insert_ind != 0 {insert_ind - 1} else { 0 }, file);
+                rendered.files.insert(
+                    if insert_ind != 0 { insert_ind - 1 } else { 0 },
+                    file,
+                );
                 debug!("just inserted new file...........");
             }
         } else {
             self.unstaged = Some(diff);
         }
         self.render(txt, RenderSource::GitDiff, context);
-
     }
 
     pub fn resize_highlights<'a>(
@@ -930,16 +944,20 @@ impl Status {
         let mut changed = false;
         let buffer = txt.buffer();
         if let Some(untracked) = &self.untracked {
-            changed = untracked.cursor(&buffer, line_no, false, context) || changed;
+            changed =
+                untracked.cursor(&buffer, line_no, false, context) || changed;
         }
         if let Some(conflicted) = &self.conflicted {
-            changed = conflicted.cursor(&buffer, line_no, false, context) || changed;
+            changed =
+                conflicted.cursor(&buffer, line_no, false, context) || changed;
         }
         if let Some(unstaged) = &self.unstaged {
-            changed = unstaged.cursor(&buffer, line_no, false, context) || changed;
+            changed =
+                unstaged.cursor(&buffer, line_no, false, context) || changed;
         }
         if let Some(staged) = &self.staged {
-            changed = staged.cursor(&buffer, line_no, false, context) || changed;
+            changed =
+                staged.cursor(&buffer, line_no, false, context) || changed;
         }
         // NO NEED TO RENDER!
         txt.bind_highlights(context);
@@ -1397,7 +1415,7 @@ impl Status {
         let iter = buffer.iter_at_offset(pos);
         let (y, height) = txt.line_yrange(&iter);
         debug!("+++++++++++++++++++++++++ y {:?} height {:?}", y, height);
-               
+
         // self.render(txt, RenderSource::Git, context);
         // let (line_from, line_to) = context.highlight_lines.unwrap();
         // let mut iter = buffer.iter_at_line(line_from).unwrap();

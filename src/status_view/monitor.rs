@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::{get_directories, Status, Event};
+use crate::{get_directories, Event, Status};
 use core::time::Duration;
 use gio::{
     Cancellable, File, FileMonitor, FileMonitorEvent, FileMonitorFlags,

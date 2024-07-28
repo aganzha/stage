@@ -974,12 +974,16 @@ fn test_tags() {
     let mut view = View::new();
     view.tag_added(&tag1);
     debug!("added at 16 {:b}", view.tag_indexes.get());
-    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b100000000000000000));
+    assert!(
+        view.tag_indexes.get() == tags::TagIdx::from(0b100000000000000000)
+    );
     assert!(view.tag_indexes.get().is_added(&tag1));
 
     view.tag_added(&tag3);
     debug!("added at 3 {:b}", view.tag_indexes.get());
-    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b100000000000001000));
+    assert!(
+        view.tag_indexes.get() == tags::TagIdx::from(0b100000000000001000)
+    );
     assert!(view.tag_indexes.get().is_added(&tag1));
     assert!(view.tag_indexes.get().is_added(&tag3));
 

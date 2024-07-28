@@ -461,7 +461,7 @@ pub fn show_commit_window(
                     ctx.cursor = line_no;
                     if let Some(d) = &mut diff {
                         let buffer = &txt.buffer();
-                        if d.diff.cursor(buffer, line_no, false, &mut ctx) {                            
+                        if d.diff.cursor(buffer, line_no, false, &mut ctx) {
                             let mut iter = buffer
                                 .iter_at_line(
                                     d.diff.files[0].view.line_no.get(),

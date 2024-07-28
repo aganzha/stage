@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
 use crate::status_view::view::{View, ViewState};
@@ -14,7 +13,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::{trace};
+use log::trace;
 use std::path::PathBuf;
 
 pub const LINE_NO_SPACE: i32 = 6;
@@ -22,7 +21,6 @@ pub const LINE_NO_SPACE: i32 = 6;
 pub fn make_tag(name: &str) -> tags::TxtTag {
     tags::TxtTag::from_str(name)
 }
-
 
 // This enum must implement all render methods!
 #[derive(Debug, Clone, PartialEq)]
@@ -99,13 +97,20 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(
+        &'a self,
+        _ctx: &mut StatusRenderContext<'a>,
+    ) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
     fn prepare_context<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
 
-    fn fill_under_cursor<'a>(&'a self, _context: &mut StatusRenderContext<'a>) {}
+    fn fill_under_cursor<'a>(
+        &'a self,
+        _context: &mut StatusRenderContext<'a>,
+    ) {
+    }
 
     fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         let view = self.get_view();
@@ -181,7 +186,7 @@ pub trait ViewContainer {
     fn adjust_tags_on_cursor_change<'a>(
         &'a self,
         _buffer: &TextBuffer,
-        _context: &mut StatusRenderContext<'a>
+        _context: &mut StatusRenderContext<'a>,
     ) {
     }
 
@@ -198,7 +203,12 @@ pub trait ViewContainer {
         let line_no = iter.line();
         let view = self.get_view();
         let state = view.get_state_for(line_no);
-        trace!("............ state in view {} {:?} {:?}", line_no, state, self.get_kind());
+        trace!(
+            "............ state in view {} {:?} {:?}",
+            line_no,
+            state,
+            self.get_kind()
+        );
         match state {
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
@@ -354,7 +364,8 @@ pub trait ViewContainer {
                 || view.is_current() != current_before;
         }
         for child in self.get_children() {
-            result = child.cursor(buffer, line_no, self_active, context) || result;
+            result =
+                child.cursor(buffer, line_no, self_active, context) || result;
         }
         // result here just means view is changed
         // it does not actually means that view is under cursor
@@ -463,7 +474,7 @@ pub trait ViewContainer {
             self.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
                 if !view.is_rendered() {
-                    return
+                    return;
                 }
                 // what about expanded?
                 // does not mater!
@@ -509,7 +520,7 @@ impl ViewContainer for Diff {
                     DiffKind::Staged => "Staged changes",
                     DiffKind::Unstaged => "Unstaged changes",
                     DiffKind::Conflicted => "Conflicts",
-                }
+                },
             );
         }
     }
@@ -526,7 +537,6 @@ impl ViewContainer for Diff {
         ctx.current_diff = Some(self);
     }
 
-
     // Diff
     fn expand(
         &self,
@@ -542,9 +552,14 @@ impl ViewContainer for Diff {
         result
     }
 
-    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(
+        &'a self,
+        _ctx: &mut StatusRenderContext<'a>,
+    ) -> Vec<tags::TxtTag> {
         match self.kind {
-            DiffKind::Staged => vec![make_tag(tags::BOLD), make_tag(tags::STAGED)],
+            DiffKind::Staged => {
+                vec![make_tag(tags::BOLD), make_tag(tags::STAGED)]
+            }
             // TODO! create separate tag for conflicted!
             DiffKind::Unstaged | DiffKind::Conflicted => {
                 vec![make_tag(tags::BOLD), make_tag(tags::UNSTAGED)]
@@ -601,7 +616,10 @@ impl ViewContainer for File {
             .collect()
     }
     // File
-    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(
+        &'a self,
+        _ctx: &mut StatusRenderContext<'a>,
+    ) -> Vec<tags::TxtTag> {
         let mut tags = vec![make_tag(tags::BOLD), make_tag(tags::POINTER)];
         if self.status == git2::Delta::Deleted {
             tags.push(make_tag(tags::REMOVED));
@@ -730,7 +748,10 @@ impl ViewContainer for Hunk {
         active
     }
     // Hunk
-    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(
+        &'a self,
+        _ctx: &mut StatusRenderContext<'a>,
+    ) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
@@ -831,7 +852,8 @@ impl ViewContainer for Line {
                             return active && self.kind == LineKind::Ours(*i);
                         }
                         LineKind::Theirs(i) => {
-                            return active && self.kind == LineKind::Theirs(*i);
+                            return active
+                                && self.kind == LineKind::Theirs(*i);
                         }
                         _ => {}
                     }
@@ -847,7 +869,7 @@ impl ViewContainer for Line {
     fn adjust_tags_on_cursor_change<'a>(
         &'a self,
         buffer: &TextBuffer,
-        _context: &mut StatusRenderContext<'a>
+        _context: &mut StatusRenderContext<'a>,
     ) {
         let added = make_tag(tags::ADDED);
         let removed = make_tag(tags::REMOVED);
@@ -877,7 +899,10 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(
+        &'a self,
+        _ctx: &mut StatusRenderContext<'a>,
+    ) -> Vec<tags::TxtTag> {
         match self.kind {
             //
             LineKind::ConflictMarker(_) => {
@@ -923,15 +948,17 @@ impl ViewContainer for Line {
         }
     }
 
-        // Line
+    // Line
     fn write_content(
         &self,
         iter: &mut TextIter,
         buffer: &TextBuffer,
         context: &mut StatusRenderContext<'_>,
     ) {
-
-        let line_no = format!("{}", self.new_line_no.unwrap_or(self.old_line_no.unwrap_or(0)));
+        let line_no = format!(
+            "{}",
+            self.new_line_no.unwrap_or(self.old_line_no.unwrap_or(0))
+        );
         match line_no.len() {
             1 => {
                 buffer.insert(iter, "   ");
@@ -950,7 +977,7 @@ impl ViewContainer for Line {
             }
             _ => {
                 buffer.insert(iter, "..");
-                buffer.insert(iter, &line_no[line_no.len() - 2 ..]);
+                buffer.insert(iter, &line_no[line_no.len() - 2..]);
             }
         }
         buffer.insert(iter, "  ");
@@ -978,7 +1005,7 @@ impl ViewContainer for Line {
         let line_no_tag = match self.origin {
             DiffLineType::Addition => make_tag(tags::LINE_NO_ADDED),
             DiffLineType::Deletion => make_tag(tags::LINE_NO_REMOVED),
-            _ => make_tag(tags::LINE_NO_CONTEXT)
+            _ => make_tag(tags::LINE_NO_CONTEXT),
         };
 
         if !self.view.tag_is_added(&line_no_tag) {
@@ -1254,7 +1281,10 @@ impl ViewContainer for Untracked {
     }
 
     // Untracked (diff)
-    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(
+        &'a self,
+        _ctx: &mut StatusRenderContext<'a>,
+    ) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 
@@ -1281,7 +1311,8 @@ impl ViewContainer for Untracked {
     ) -> bool {
         let mut result = false;
         for file in &self.files {
-            result = file.cursor(buffer, line_no, parent_active, context) || result;
+            result =
+                file.cursor(buffer, line_no, parent_active, context) || result;
         }
         result
     }
@@ -1338,7 +1369,10 @@ impl ViewContainer for UntrackedFile {
         active
     }
     // Untracked (File)
-    fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
+    fn tags<'a>(
+        &'a self,
+        _ctx: &mut StatusRenderContext<'a>,
+    ) -> Vec<tags::TxtTag> {
         Vec::new()
     }
 }
