@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::git::{
-    branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff,
-    make_diff_options, BranchData, DeferRefresh, DiffKind, Head, Hunk, Line,
+    branch::BranchName, get_conflicted_v1, get_current_repo_status,
+    make_diff_options, BranchData, DeferRefresh, Head, Hunk, Line,
     State, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS,
     NEW_LINE, SPACE,
 };

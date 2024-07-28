@@ -45,7 +45,7 @@ mod stage_view {
 
     use gtk4::subclass::prelude::*;
 
-    use log::{trace, debug};
+    
 
     // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
@@ -175,7 +175,7 @@ mod stage_view {
                 
                 if self.double_height_line.get() {
                     // hack for diff labels
-                    y_to = y_to / 2;
+                    y_to /= 2;
                     y_from += y_to;
                 } else {
                     // huck for broken highlight

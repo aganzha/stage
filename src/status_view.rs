@@ -807,7 +807,7 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
-        let buffer = &txt.buffer();
+        let _buffer = &txt.buffer();
         // works. looks ugly
         // if let Some(rendered) = &mut self.unstaged {
         //     rendered.adopt_other(
@@ -858,7 +858,7 @@ impl Status {
         };
         if let Some(rendered) = mine {
             // diff could be empty, when user delete all changes from file
-            let updated_file = diff.files.into_iter().filter(|f| f.path == file_path).next();
+            let updated_file = diff.files.into_iter().find(|f| f.path == file_path);
             debug!("--------------- updated file {:?} ----------", updated_file);
             let buffer = &txt.buffer();
             let mut ind = 0;
@@ -1390,7 +1390,7 @@ impl Status {
     pub fn debug<'a>(
         &'a mut self,
         txt: &StageView,
-        context: &mut StatusRenderContext<'a>,
+        _context: &mut StatusRenderContext<'a>,
     ) {
         let buffer = txt.buffer();
         let pos = buffer.cursor_position();
