@@ -30,7 +30,7 @@ use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, stage_untracked, stage_via_apply, track_changes, Diff, Event,
+    get_current_repo_status, stage_untracked, stage_via_apply, track_changes, Diff, DiffKind, Event,
     File as GitFile, Head, StageOp, State, StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
@@ -846,8 +846,13 @@ impl Status {
         diff: Diff,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
-    ) {        
-        if let Some(rendered) = &mut self.unstaged {
+    ) {
+        let mine = if diff.kind == DiffKind::Conflicted {
+            &mut self.conflicted
+        } else {
+            &mut self.unstaged
+        };
+        if let Some(rendered) = mine {
             // diff could be empty, when user delete all changes from file
             let updated_file = diff.files.into_iter().filter(|f| f.path == file_path).next();
             let buffer = &txt.buffer();
@@ -997,7 +1002,6 @@ impl Status {
 
         if let Some(conflicted) = &self.conflicted {
             conflicted.render(&buffer, &mut iter, context);
-            debug!("just rendered conflicted!!!!!!!!!!!! {:?}", conflicted.files.len());
         }
 
         if let Some(unstaged) = &self.unstaged {
