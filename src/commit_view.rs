@@ -458,7 +458,7 @@ pub fn show_commit_window(
                     }
                 }
                 Event::Cursor(_offset, line_no) => {
-                    ctx.highlight_cursor = line_no;
+                    ctx.cursor = line_no;
                     if let Some(d) = &mut diff {
                         let buffer = &txt.buffer();
                         if d.diff.cursor(buffer, line_no, false, &mut ctx) {                            

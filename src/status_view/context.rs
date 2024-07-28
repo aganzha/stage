@@ -41,7 +41,7 @@ pub struct StatusRenderContext<'a> {
     pub under_cursor: UnderCursor,
     // TODO! kill it!
     pub screen_width: Option<Rc<RefCell<TextViewWidth>>>,
-    pub highlight_cursor: i32,
+    pub cursor: i32,
     pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>, // pub cursor_pos: Option<CursorPos>,
     pub current_diff: Option<&'a Diff>,
@@ -63,7 +63,7 @@ impl StatusRenderContext<'_> {
                 max_len: None,
                 under_cursor: UnderCursor::None,
                 screen_width: None,
-                highlight_cursor: 0,
+                cursor: 0,
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
                 current_diff: None,
