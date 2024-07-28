@@ -890,7 +890,7 @@ impl Status {
         glib::source::timeout_add_local(Duration::from_millis(10), {
             let txt = txt.clone();
             let mut context = StatusRenderContext::new();
-            context.highlight_cursor = ctx.highlight_cursor;
+            context.cursor = ctx.cursor;
             context.highlight_lines = ctx.highlight_lines;
             context.highlight_hunks = ctx.highlight_hunks.clone();
             move || {
@@ -911,7 +911,8 @@ impl Status {
     ) -> bool {
         // this is actually needed for views which are not implemented
         // ViewContainer, and does not affect context!
-        context.highlight_cursor = line_no;
+        // do i still have such views????
+        context.cursor = line_no;
 
         let mut changed = false;
         let buffer = txt.buffer();
@@ -1401,23 +1402,28 @@ impl Status {
         context: &mut StatusRenderContext<'a>,
     ) {
         let buffer = txt.buffer();
-        self.render(txt, RenderSource::Git, context);
-        let (line_from, line_to) = context.highlight_lines.unwrap();
-        let mut iter = buffer.iter_at_line(line_from).unwrap();
-        let y_from = txt.line_yrange(&iter).0;
-        iter.set_line(line_to);
+        let pos = buffer.cursor_position();
+        let iter = buffer.iter_at_offset(pos);
         let (y, height) = txt.line_yrange(&iter);
-        debug!("+++++++++++++++++++++++++ line_from {:?} line_to {:?} y_from {:?} y {:?} height {:?}",
-               line_from, line_to, y_from, y, height
-        );
-        let me = buffer.cursor_position();
-        let iter = buffer.iter_at_offset(me);
-        let (y, height) = txt.line_yrange(&iter);
-        debug!(
-            "and thats me on line {:?} y {:?} height {:?}",
-            iter.line(),
-            y,
-            height
-        );
+        debug!("+++++++++++++++++++++++++ y {:?} height {:?}", y, height);
+               
+        // self.render(txt, RenderSource::Git, context);
+        // let (line_from, line_to) = context.highlight_lines.unwrap();
+        // let mut iter = buffer.iter_at_line(line_from).unwrap();
+        // let y_from = txt.line_yrange(&iter).0;
+        // iter.set_line(line_to);
+        // let (y, height) = txt.line_yrange(&iter);
+        // debug!("+++++++++++++++++++++++++ line_from {:?} line_to {:?} y_from {:?} y {:?} height {:?}",
+        //        line_from, line_to, y_from, y, height
+        // );
+        // let me = buffer.cursor_position();
+        // let iter = buffer.iter_at_offset(me);
+        // let (y, height) = txt.line_yrange(&iter);
+        // debug!(
+        //     "and thats me on line {:?} y {:?} height {:?}",
+        //     iter.line(),
+        //     y,
+        //     height
+        // );
     }
 }

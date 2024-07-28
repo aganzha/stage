@@ -108,7 +108,7 @@ pub trait ViewContainer {
     fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         let view = self.get_view();
         if view.is_current() {
-            ctx.highlight_cursor = view.line_no.get();
+            ctx.cursor = view.line_no.get();
         }
     }
 
@@ -274,8 +274,8 @@ pub trait ViewContainer {
         // shifted. e.g. view is still current
         // bit the line is changed!
         if self.get_view().is_current() {
-            context.highlight_cursor = self.get_view().line_no.get();
-        }
+            context.cursor = self.get_view().line_no.get();
+        }        
         self.fill_context(context);
         // post render @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     }
@@ -356,6 +356,9 @@ pub trait ViewContainer {
         }
         // result here just means view is changed
         // it does not actually means that view is under cursor
+        if view.is_current() {
+            context.cursor = view.line_no.get();
+        }
         self.fill_context(context);
         if result {
             self.adjust_tags_on_cursor_change(buffer, context);
@@ -534,7 +537,7 @@ impl ViewContainer for Diff {
     ) -> bool {
         if self.kind == DiffKind::Conflicted && !self.has_conflicts() {
             // when all conflicts are resolved, Conflicted
-            // highlights must behave just line Unstaged
+            // highlights must behave just like Unstaged
             // (highlight normally instead of ours/theirs
             context.under_cursor_diff(&DiffKind::Unstaged);
         } else {
@@ -656,10 +659,7 @@ impl ViewContainer for File {
     }
 
     // file
-    fn fill_context(&self, context: &mut StatusRenderContext) {
-        if self.view.is_current() {
-            context.highlight_cursor = self.view.line_no.get();
-        }
+    fn fill_context(&self, context: &mut StatusRenderContext) {        
         // does not used
         if let Some(len) = context.max_len {
             if len < self.max_line_len {
@@ -746,10 +746,7 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
-    fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        if self.view.is_current() {
-            ctx.highlight_cursor = self.view.line_no.get();
-        }
+    fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {       
         if self.view.is_rendered() {
             ctx.collect_hunk_highlights(self.view.line_no.get());
         }
@@ -822,10 +819,7 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn fill_context(&self, ctx: &mut StatusRenderContext) {
-        if self.view.is_current() {
-            ctx.highlight_cursor = self.view.line_no.get();
-        }
+    fn fill_context(&self, ctx: &mut StatusRenderContext) {        
         if self.view.is_rendered() && self.view.is_active() {
             ctx.collect_line_highlights(self.view.line_no.get());
         }

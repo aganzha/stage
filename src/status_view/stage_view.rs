@@ -45,6 +45,8 @@ mod stage_view {
 
     use gtk4::subclass::prelude::*;
 
+    use log::{trace, debug};
+    
     // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
     const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.137, 0.216, 0.310, 1.0);
@@ -169,6 +171,7 @@ mod stage_view {
                 let cursor_line = self.cursor.get();
                 iter.set_line(cursor_line);
                 let (y_from, y_to) = self.obj().line_yrange(&iter);
+                debug!("-------------------> {:?} {:?}", y_from, y_to);
                 snapshot.append_color(
                     if self.is_dark.get() {
                         &DARK_CURSOR
@@ -213,7 +216,8 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-        self.imp().cursor.replace(context.highlight_cursor);
+        // here it need to pass pixels above line!
+        self.imp().cursor.replace(context.cursor);
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
         } else {
