@@ -114,7 +114,7 @@ pub enum Event {
     CurrentRepo(PathBuf),
     Conflicted(Diff),
     Unstaged(Option<Diff>),
-    TrackedFile(Diff),
+    TrackedFile(PathBuf, Diff),
     Staged(Option<Diff>),
     Head(Head),
     Upstream(Option<Head>),
@@ -514,18 +514,18 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         &mut ctx,
                     );
                 }
-                Event::Staged(diff) => {
+                Event::Staged(odiff) => {
                     info!("Staged");
-                    hb_updater(HbUpdateData::Staged(diff.is_some()));
-                    status.update_staged(diff, &txt, &mut ctx);
+                    hb_updater(HbUpdateData::Staged(odiff.is_some()));
+                    status.update_staged(odiff, &txt, &mut ctx);
                 }
-                Event::Unstaged(d) => {
+                Event::Unstaged(odiff) => {
                     info!("Unstaged");
-                    status.update_unstaged(d, &txt, &mut ctx);
+                    status.update_unstaged(odiff, &txt, &mut ctx);
                 }
-                Event::TrackedFile(d) => {
+                Event::TrackedFile(file_path, diff) => {
                     info!("Unstaged");
-                    status.update_tracked_file(d, &txt, &mut ctx);
+                    status.update_tracked_file(file_path, diff, &txt, &mut ctx);
                 }
                 Event::Expand(offset, line_no) => {
                     info!("Expand");
