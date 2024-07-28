@@ -383,7 +383,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                 Event::Untracked(untracked) => {
                     info!("main. untracked");
                     status.update_untracked(untracked, &txt, &mut ctx);
-                }                
+                }
                 Event::Push => {
                     info!("main.push");
                     status.push(&window, None);
@@ -505,7 +505,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     // hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
                     // if let Some(state) = ostate {
                     //     status.update_state(state, &txt, &mut ctx);
-                    // }                              
+                    // }                    
                     status.update_conflicted(
                         odiff,
                         ostate,

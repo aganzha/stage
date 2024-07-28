@@ -847,6 +847,10 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
+        // this method does not update diff label.
+        // it works only on file level!
+        // to update diff label fire Unstaged, or Conflicted
+        // with None!
         let mine = if diff.kind == DiffKind::Conflicted {
             &mut self.conflicted
         } else {
@@ -855,16 +859,20 @@ impl Status {
         if let Some(rendered) = mine {
             // diff could be empty, when user delete all changes from file
             let updated_file = diff.files.into_iter().filter(|f| f.path == file_path).next();
+            debug!("--------------- updated file {:?} ----------", updated_file);
             let buffer = &txt.buffer();
             let mut ind = 0;
             let mut insert_ind = 0;
+            debug!("files befoooooooooooooooore {:}", &rendered.files.len());
             rendered.files.retain_mut(|f| {
                 ind += 1;
                 if f.path == file_path {
                     insert_ind = ind;
                     if let Some(file) = &updated_file {
+                        debug!("enriiiiiiiiiiiiiiiiiiiiiiiich");
                         file.enrich_view(f, buffer, context);
                     } else {
+                        debug!("ERASE!!!!!!!!!");
                         f.erase(buffer, context);
                     }
                     false
@@ -872,8 +880,10 @@ impl Status {
                     true
                 }
             });
+            debug!("files aafteeeeeeeeeeeeeeeeerrr {:} {:?}", &rendered.files.len(), insert_ind);
             if let Some(file) = updated_file {
                 rendered.files.insert(if insert_ind != 0 {insert_ind - 1} else { 0 }, file);
+                debug!("just inserted new file...........");
             }
         } else {
             self.unstaged = Some(diff);
