@@ -495,7 +495,7 @@ impl Diff {
     pub fn new(kind: DiffKind) -> Self {
         let view = View::new();
         view.expand(true);
-        view.child_dirty(true);        
+        view.child_dirty(true);
         Self {
             files: Vec::new(),
             view,
@@ -672,27 +672,40 @@ pub fn get_current_repo_status(
         let state = repo.state();
         move || {
             let mut subject = String::from("");
+            let mut require_conflicted = false;
             match state {
-                RepositoryState::Merge => {}
+                RepositoryState::Merge => {
+                    require_conflicted = true;
+                }
                 RepositoryState::CherryPick => {
-                    let mut pth = path;
+                    let mut pth = path.clone();
                     pth.push(CHERRY_PICK_HEAD);
                     subject = std::fs::read_to_string(pth)
                         .expect("Should have been able to read the file")
                         .replace('\n', "");
+                    require_conflicted = true;
                 }
                 RepositoryState::Revert => {
-                    let mut pth = path;
+                    let mut pth = path.clone();
                     pth.push(REVERT_HEAD);
                     subject = std::fs::read_to_string(pth)
                         .expect("Should have been able to read the file")
                         .replace('\n', "");
+                    require_conflicted = true;
                 }
                 _ => {}
             }
-            sender
-                .send_blocking(crate::Event::State(State::new(state, subject)))
-                .expect("Could not send through channel");
+            let state = State::new(state, subject);
+            if require_conflicted {
+                let diff = get_conflicted_v1(path, None);
+                sender
+                    .send_blocking(crate::Event::Conflicted(diff, Some(state)))
+                    .expect("Could not send through channel");
+            } else {
+                sender
+                    .send_blocking(crate::Event::State(state))
+                    .expect("Could not send through channel");
+            }
         }
     });
 
@@ -749,28 +762,27 @@ pub fn get_current_repo_status(
         }
     });
 
-    let index = repo.index().expect("cant get index");
-    if index.has_conflicts() {
-        // https://github.com/libgit2/libgit2/issues/6232
-        // this one is for staging killed hunk
-        // https://github.com/libgit2/libgit2/issues/6643
-        gio::spawn_blocking({
-            let sender = sender.clone();
-            let path = path.clone();
-            move || {
-                let diff = get_conflicted_v1(path, None);
-                sender
-                    .send_blocking(crate::Event::Conflicted(diff))
-                    .expect("Could not send through channel");
-            }
-        });
-    } else {
-        sender
-            .send_blocking(crate::Event::Conflicted(Diff::new(
-                DiffKind::Conflicted,
-            )))
-            .expect("Could not send through channel");
-    }
+    // https://github.com/libgit2/libgit2/issues/6232
+    // this one is for staging killed hunk
+    // https://github.com/libgit2/libgit2/issues/6643
+
+    // let index = repo.index().expect("cant get index");
+    // if index.has_conflicts() {
+    //     // https://github.com/libgit2/libgit2/issues/6232
+    //     // this one is for staging killed hunk
+    //     // https://github.com/libgit2/libgit2/issues/6643
+    //     gio::spawn_blocking({
+    //         let sender = sender.clone();
+    //         let path = path.clone();
+    //         move || {
+    //             let diff = get_conflicted_v1(path, None);
+    //             sender
+    //                 .send_blocking(crate::Event::Conflicted(diff))
+    //                 .expect("Could not send through channel");
+    //         }
+    //     });
+    // }
+
     // get_unstaged
     let git_diff = repo
         .diff_index_to_workdir(None, Some(&mut make_diff_options()))
@@ -781,9 +793,9 @@ pub fn get_current_repo_status(
         .expect("Could not send through channel");
 }
 
-pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Diff {
+pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Option<Diff> {
     // so, when file is in conflict during merge, this means nothing
-    // was staged to that file, cause mergeing in such state is PROHIBITED!
+    // was staged to that file, cause merging in such state is PROHIBITED!
 
     // what is important here: all conflicts hunks must accomodate
     // both side: ours and theirs. if those come separated everything
@@ -798,17 +810,16 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Diff {
     opts.interhunk_lines(interhunk.unwrap_or(10));
 
     let mut has_conflict_paths = false;
-    for conflict in conflicts {        
+    for conflict in conflicts {
         let conflict = conflict.unwrap();
         let our = conflict.our.unwrap();
         let our_path = String::from_utf8(our.path).unwrap();
-        debug!("paaaaaaaaaaaaaaaaaaath in conflict loop {:?}", our_path);
         has_conflict_paths = true;
         opts.pathspec(our_path);
     }
     if !has_conflict_paths {
-        debug!("exit get_conflicted_v1 cause no conflicts. return empty diff");
-        return Diff::new(DiffKind::Conflicted);
+        debug!("BUT INDEX HAS CONFLICTS! exit get_conflicted_v1 cause no conflicts. return empty diff");
+        return None;
     }
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
@@ -817,6 +828,9 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Diff {
         .expect("cant get diff");
 
     let mut diff = make_diff(&git_diff, DiffKind::Conflicted);
+    if diff.is_empty() {
+        return None;
+    }
     // if intehunk in unknown it need to check missing hunks
     // (either ours or theirs could go to separate hunk)
     // and recreate diff to accomodate both ours and theirs in single hunk
@@ -906,7 +920,7 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Diff {
             diff.interhunk.replace(interhunk);
         }
     }
-    diff
+    Some(diff)
 }
 
 pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
@@ -1343,7 +1357,7 @@ pub fn track_changes(
             let diff = make_diff(&git_diff, DiffKind::Unstaged);
             // cases 1 - user added content to file
             //       2 - content deleted in file and file become empty!
-            sender                
+            sender
                 .send_blocking(crate::Event::TrackedFile(file_path.into(), diff))
                 .expect("Could not send through channel");
             break;

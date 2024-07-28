@@ -627,9 +627,11 @@ impl Status {
         });
     }
 
+
     pub fn update_conflicted<'a>(
         &'a mut self,
-        diff: Diff,
+        diff: Option<Diff>,
+        state: Option<State>,
         txt: &StageView,
         window: &ApplicationWindow,
         sender: Sender<Event>,
@@ -638,21 +640,12 @@ impl Status {
         banner_button_clicked: Rc<RefCell<Option<SignalHandlerId>>>,
         context: &mut StatusRenderContext<'a>,
     ) {
-        if let Some(s) = &mut self.conflicted {
+        if let Some(state) = state {
+            if let Some(current_state) = &self.state {
+                state.enrich_view(current_state, &txt.buffer(), context)
+            }
+            self.state.replace(state);
         }
-    }
-
-    pub fn update_conflicted_old<'a>(
-        &'a mut self,
-        diff: Diff,
-        txt: &StageView,
-        window: &ApplicationWindow,
-        sender: Sender<Event>,
-        banner: &Banner,
-        banner_button: &Widget,
-        banner_button_clicked: Rc<RefCell<Option<SignalHandlerId>>>,
-        context: &mut StatusRenderContext<'a>,
-    ) {
         // TODO restore it!
         // if !diff.is_empty()
         //     && !diff.has_conflicts()
@@ -667,12 +660,17 @@ impl Status {
         //     self.conflicted_label.view.dirty(true);
         //     self.conflicted_label.view.transfer(true);
         // }
-        if let Some(conflicted) = &mut self.conflicted {
-            diff.enrich_view(conflicted, &txt.buffer(), context);
+        if let Some(rendered) = &mut self.conflicted {
+            let buffer = &txt.buffer();
+            if let Some(new) = &diff {
+                new.enrich_view(rendered, buffer, context);
+            } else {
+                rendered.erase(buffer, context);
+            }
         }
         // banner is separate thing. perhaps assign method below to banner?
         if let Some(state) = &self.state {
-            if diff.is_empty() {
+            if diff.is_none() {
                 if banner.is_revealed() {
                     banner.set_revealed(false);
                     // TODO restore it!
@@ -682,7 +680,7 @@ impl Status {
                     // );
                     // self.conflicted_label.view.dirty(true);
                 }
-
+                debug!("wtf????????????????????? {:?}", self.state);
                 if state.need_final_commit() || state.need_rebase_continue() {
                     banner.set_title(&state.title_for_proceed_banner());
                     banner.set_css_classes(&["success"]);
@@ -700,11 +698,13 @@ impl Status {
                         let sender = sender.clone();
                         let path = self.path.clone();
                         let window = window.clone();
+                        let banner = banner.clone();
                         let state = state.state;
                         move |_| {
                             let sender = sender.clone();
                             let path = path.clone();
                             let window = window.clone();
+                            banner.set_revealed(false);
                             glib::spawn_future_local({
                                 async move {
                                     gio::spawn_blocking({
@@ -755,7 +755,9 @@ impl Status {
                     let sender = sender.clone();
                     let path = self.path.clone();
                     let state = self.state.clone().unwrap().state;
+                    let banner = banner.clone();
                     move |_| {
+                        banner.set_revealed(false);
                         gio::spawn_blocking({
                             let sender = sender.clone();
                             let path = path.clone();
@@ -775,7 +777,7 @@ impl Status {
                 banner_button_clicked.replace(Some(new_handler_id));
             }
         }
-        self.conflicted.replace(diff);
+        self.conflicted = diff;
         self.render(txt, RenderSource::Git, context);
     }
 
@@ -865,13 +867,11 @@ impl Status {
                     true
                 }
             });
-            debug!("rendered files after {:?}", rendered.files.len());
             if let Some(file) = updated_file {
                 rendered.files.insert(if insert_ind != 0 {insert_ind - 1} else { 0 }, file);
             }
         } else {
             self.unstaged = Some(diff);
-            debug!(" freash untracked render!");
         }
         self.render(txt, RenderSource::GitDiff, context);
 
@@ -996,36 +996,15 @@ impl Status {
         }
 
         if let Some(conflicted) = &self.conflicted {
-            // debug!("RENDER. what about ny conflicted? {:?}", conflicted.files.is_empty());
-            // if conflicted.files.is_empty() {
-            //     self.conflicted_spacer.view.squash(true);
-            //     self.conflicted_label.view.squash(true);
-            // }
-            // self.conflicted_spacer.render(&buffer, &mut iter, context);
-            // self.conflicted_label.render(&buffer, &mut iter, context);
             conflicted.render(&buffer, &mut iter, context);
-            debug!("just rendered conflicted!!!!!!!!!!!! {:?}", iter.line());
+            debug!("just rendered conflicted!!!!!!!!!!!! {:?}", conflicted.files.len());
         }
 
         if let Some(unstaged) = &self.unstaged {
-            // if unstaged.files.is_empty() {
-            //     // hack :(
-            //     self.unstaged_spacer.view.squash(true);
-            //     self.unstaged_label.view.squash(true);
-            // }
-            // self.unstaged_spacer.render(&buffer, &mut iter, context);
-            // self.unstaged_label.render(&buffer, &mut iter, context);
             unstaged.render(&buffer, &mut iter, context);
         }
 
         if let Some(staged) = &self.staged {
-            // if staged.files.is_empty() {
-            //     // hack :(
-            //     self.staged_spacer.view.squash(true);
-            //     self.staged_label.view.squash(true);
-            // }
-            // self.staged_spacer.render(&buffer, &mut iter, context);
-            // self.staged_label.render(&buffer, &mut iter, context);
             staged.render(&buffer, &mut iter, context);
         }
 
@@ -1045,7 +1024,7 @@ impl Status {
         }
 
         txt.bind_highlights(context);
-        debug!("END OF RENDER. !!!!!!!!!!!! {:?}", iter.line());
+
         // match source {
         //     RenderSource::Cursor(_) => {
         //         // avoid loops on cursor renders
