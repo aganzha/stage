@@ -1,3 +1,4 @@
+BUG: just create new branch and pull 
 BUG: when edit conflicted and resolving everything manually, then commit banner shown.
 when unda changes in editor, conflicted restored, but commit still shown!
 
