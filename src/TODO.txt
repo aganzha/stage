@@ -1,4 +1,8 @@
 BUG: just create new branch and pull 
+BUG: CRITICAL: apply stash for statefull tests. then copy couple of files.
+files are tracked, but their content differs. There are content of othe files!
+So, it is about sorting really! file insertion must be sorted!
+
 BUG: when edit conflicted and resolving everything manually, then commit banner shown.
 when unda changes in editor, conflicted restored, but commit still shown!
 
