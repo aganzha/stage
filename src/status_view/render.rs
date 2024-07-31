@@ -451,6 +451,7 @@ pub trait ViewContainer {
         // before replacing data in status struct.
         // CAUTION. ATTENTION. IMPORTANT
 
+        // ALL ERASE AND RENDER PROCESSES MUST STRICLTY GO FROM TOP TO BOTTOM!
         let view = self.get_view();
         if !view.is_rendered() {
             return;

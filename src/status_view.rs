@@ -31,7 +31,7 @@ use std::rc::Rc;
 use crate::status_view::view::View;
 use crate::{
     get_current_repo_status, stage_untracked, stage_via_apply, track_changes,
-    Diff, DiffKind, Event, File as GitFile, Head, StageOp, State,
+    Diff, File, DiffKind, Event, File as GitFile, Head, StageOp, State,
     StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
@@ -851,17 +851,18 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
-        // this method does not update diff label.
-        // it works only on file level!
-        // to update diff label fire Unstaged, or Conflicted
-        // with None!
         let mine = if diff.kind == DiffKind::Conflicted {
             &mut self.conflicted
         } else {
             &mut self.unstaged
         };
         if let Some(rendered) = mine {
-            // diff could be empty, when user delete all changes from file
+            // so. it need to find file in rendered.
+            // if it is there - enrich new one by it and replace
+            // if it is not there - insert
+            // if it is there and new is empty - erase it
+            // if no mo files in diff - erase diff
+
             let updated_file =
                 diff.files.into_iter().find(|f| f.path == file_path);
             debug!(
@@ -900,8 +901,23 @@ impl Status {
                 );
                 debug!("just inserted new file...........");
             }
+            // if there is no files (user undo changes)
+            // kill all diff entirelly
+            if rendered.files.is_empty() {
+                debug!("erraaaaaaaaaaaasing myself!");
+                rendered.erase(buffer, context);
+                if diff.kind == DiffKind::Conflicted {
+                    self.conflicted = None;
+                } else {
+                    self.unstaged = None;
+                }
+            }
         } else {
-            self.unstaged = Some(diff);
+            if diff.kind == DiffKind::Conflicted {
+                self.conflicted = Some(diff);
+            } else {
+                self.unstaged = Some(diff);
+            }
         }
         self.render(txt, RenderSource::GitDiff, context);
     }
