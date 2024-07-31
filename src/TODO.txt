@@ -1,3 +1,11 @@
+BUG: switched to stage. merge. got conflict, fixed manually but monitor does not
+fixed it
+[INFO  stage] track file changes "src/TODO.txt"
+[DEBUG stage::status_view] track changes.................... "/home/local/REGION/au.ganzha/stage/stage/.git/" "src/TODO.txt"
+[DEBUG stage::status_view] call track changes in status_view true None
+[INFO  stage::git] track changes "src/TODO.txt" true
+[INFO  stage] Unstaged
+
 BUG: just create new branch and pull 
 BUG: CRITICAL: apply stash for statefull tests. then copy couple of files.
 files are tracked, but their content differs. There are content of othe files!
