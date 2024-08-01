@@ -865,10 +865,10 @@ impl Status {
 
             let updated_file =
                 diff.files.into_iter().find(|f| f.path == file_path);
-            debug!(
-                "--------------- updated file {:?} ----------",
-                updated_file
-            );
+            // debug!(
+            //     "--------------- updated file {:?} ----------",
+            //     updated_file
+            // );
             let buffer = &txt.buffer();
             let mut ind = 0;
             let mut insert_ind = 0;
