@@ -7,10 +7,9 @@ use crate::git::remote::RemoteResponse;
 use libadwaita::prelude::*;
 use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance};
 
-// use glib::Sender;
-// use std::sync::mpsc::Sender;
+use log::{info};
 
-use gtk4::{ScrolledWindow, TextView, Widget, Window as Gtk4Window};
+use gtk4::{ScrolledWindow, Box, Label, Orientation, TextView, Widget, Window as Gtk4Window};
 
 pub fn confirm_dialog_factory(
     window: &impl IsA<Gtk4Window>,
@@ -107,11 +106,19 @@ impl AlertConversation for RemoteResponse {
                 .vexpand_set(true)
                 .hexpand(true)
                 .hexpand_set(true)
-                .min_content_width(800)
-                .min_content_height(600)
+                // .min_content_width(800)
+                // .min_content_height(600)
                 .build();
             scroll.set_child(Some(&txt));
-            return Some(scroll.into());
+            let bx = Box::builder()
+                .hexpand(true)
+                .vexpand(true)
+                .vexpand_set(true)
+                .hexpand_set(true)
+                .orientation(Orientation::Vertical)
+                .build();
+            bx.append(&scroll);
+            return Some(bx.into());
         }
         None
     }
@@ -153,16 +160,26 @@ where
     AC: AlertConversation,
 {
     let (heading, message) = conversation.heading_and_message();
-    let mut dialog = AlertDialog::builder()
+    // let body_label = Label::builder()
+    //     .label(message)
+    //     .build();
+    let dialog = AlertDialog::builder()
         .heading_use_markup(true)
         .heading(heading)
         .width_request(640)
         .body_use_markup(true)
         .body(message);
-    if let Some(body) = conversation.extra_child() {
-        dialog = dialog.extra_child(&body);
-    }
     let dialog = dialog.build();
+    if let Some(body) = conversation.extra_child() {
+        dialog.set_height_request(480);
+        dialog.set_extra_child(Some(&body));
+        let parent = body.parent().unwrap();
+        let childs = parent.observe_children();
+        let body_label = childs.item(1).unwrap();
+        let body_label = body_label.downcast_ref::<Label>().unwrap();
+        body_label.set_vexpand(false);
+    }
+
     let mut default_response: Option<&str> = None;
     for (id, label, appearance) in conversation.get_response() {
         dialog.add_response(id, label);

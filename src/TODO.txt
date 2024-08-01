@@ -1,3 +1,4 @@
+BUG: 1. Staged wrong file instead. Thats about order 2. commit view is boken. shows Staged changes and doesn not expand files
 BUG: switched to stage. merge. got conflict, fixed manually but monitor does not
 fixed it
 [INFO  stage] track file changes "src/TODO.txt"
