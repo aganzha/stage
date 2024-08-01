@@ -22,7 +22,7 @@ use git2::{
     ApplyLocation, ApplyOptions, Branch, Commit, Delta, Diff as GitDiff,
     DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
     DiffOptions, Error, ObjectType, Oid, RebaseOptions, Repository,
-    RepositoryState, ResetType,
+    RepositoryState, ResetType, StatusOptions
 };
 
 use log::{debug, info, trace};
@@ -1358,6 +1358,19 @@ pub fn track_changes(
         .into_os_string()
         .into_string()
         .expect("wrong path");
+    // lets do it from statuses!
+    let mut status_opts = StatusOptions::new();
+    status_opts.include_unmodified(false);
+    debug!("looooooooooooooooooooooooop");
+    for status_entry in &repo.statuses(Some(&mut status_opts)).expect("cant get statuses") {
+        let path = status_entry.path().expect("no path");
+        if path.starts_with("www") || path.starts_with("client") || path.starts_with("tests") ||
+            path.starts_with("documentation") || path.starts_with("scripts") {
+            } else {                
+                debug!("1........................ {:?} {:?}", path, status_entry.status());
+            }        
+    }
+    
     // conflicts could be resolved right in this file change
     // but it need to update conflicted anyways
     // let mut kind = DiffKind::Unstaged;
@@ -1396,7 +1409,7 @@ pub fn track_changes(
     } else {
         for entry in index.iter() {
             let entry_path =
-                format!("{}", String::from_utf8_lossy(&entry.path));
+                format!("{}", String::from_utf8_lossy(&entry.path));                        
             if file_path == entry_path {
                 let mut opts = make_diff_options();
                 opts.pathspec(&entry_path);
