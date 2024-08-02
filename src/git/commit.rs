@@ -162,7 +162,7 @@ pub fn get_commit_diff(
     )?;
     Ok(CommitDiff::new(
         commit,
-        make_diff(&git_diff, DiffKind::Staged),
+        make_diff(&git_diff, DiffKind::Commit),// was Staged
     ))
 }
 

@@ -279,7 +279,7 @@ impl commit::CommitDiff {
     ) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
-        let labels_len = labels.len();
+
         for l in labels {
             l.render(&buffer, &mut iter, ctx)
         }
@@ -292,18 +292,17 @@ impl commit::CommitDiff {
         body_label.update_content(&self.message, ctx);
         body_label.render(&buffer, &mut iter, ctx);
 
+        if !self.diff.files.is_empty() {
+            self.diff.files[0].view.make_current(true);
+        }
+
         self.diff.render(&buffer, &mut iter, ctx);
 
         if !self.diff.files.is_empty() {
             let buffer = txt.buffer();
-            let iter = buffer
-                .iter_at_line(
-                    (labels_len + body_label.labels.len() + 1) as i32,
-                )
-                .unwrap();
+            let iter = buffer.iter_at_line(self.diff.files[0].view.line_no.get()).unwrap();
             buffer.place_cursor(&iter);
         }
-        // obody_label.replace(body_label);
     }
 }
 
@@ -423,9 +422,6 @@ pub fn show_commit_window(
                         commit_diff.commit_dt
                     );
 
-                    if !commit_diff.diff.files.is_empty() {
-                        commit_diff.diff.files[0].view.make_current(true);
-                    }
                     body_label.replace(MultiLineLabel::new("", &mut ctx));
                     commit_diff.render(
                         &txt,
@@ -435,6 +431,7 @@ pub fn show_commit_window(
                     );
                     txt.bind_highlights(&ctx);
                     diff.replace(commit_diff);
+
                 }
                 Event::Expand(_offset, line_no) => {
                     info!("Expand {}", line_no);
@@ -449,8 +446,13 @@ pub fn show_commit_window(
                         }
                         let buffer = &txt.buffer();
                         let mut iter = buffer
-                            .iter_at_line(d.diff.files[0].view.line_no.get())
+                            .iter_at_line(
+                                d.diff.view.line_no.get(),
+                            )
                             .unwrap();
+                        // let mut iter = buffer
+                        //     .iter_at_line(d.diff.files[0].view.line_no.get())
+                        //     .unwrap();
                         if need_render {
                             d.diff.render(buffer, &mut iter, &mut ctx);
                             txt.bind_highlights(&ctx);
@@ -464,7 +466,7 @@ pub fn show_commit_window(
                         if d.diff.cursor(buffer, line_no, false, &mut ctx) {
                             let mut iter = buffer
                                 .iter_at_line(
-                                    d.diff.files[0].view.line_no.get(),
+                                    d.diff.view.line_no.get(),
                                 )
                                 .unwrap();
                             // will render diff whithout rendering
