@@ -521,6 +521,7 @@ impl ViewContainer for Diff {
                     DiffKind::Staged => "Staged changes",
                     DiffKind::Unstaged => "Unstaged changes",
                     DiffKind::Conflicted => "Conflicts",
+                    DiffKind::Commit => "Commit content"
                 },
             );
         }
@@ -558,7 +559,7 @@ impl ViewContainer for Diff {
         _ctx: &mut StatusRenderContext<'a>,
     ) -> Vec<tags::TxtTag> {
         match self.kind {
-            DiffKind::Staged => {
+            DiffKind::Staged | DiffKind::Commit => {
                 vec![make_tag(tags::BOLD), make_tag(tags::STAGED)]
             }
             // TODO! create separate tag for conflicted!

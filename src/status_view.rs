@@ -871,12 +871,12 @@ impl Status {
             // );
             let buffer = &txt.buffer();
             let mut ind = 0;
-            let mut insert_ind = 0;
+            let mut insert_ind: Option<usize> = None;
             debug!("files befoooooooooooooooore {:}", &rendered.files.len());
             rendered.files.retain_mut(|f| {
                 ind += 1;
                 if f.path == file_path {
-                    insert_ind = ind;
+                    insert_ind = Some(ind);
                     if let Some(file) = &updated_file {
                         debug!("enriiiiiiiiiiiiiiiiiiiiiiiich");
                         file.enrich_view(f, buffer, context);
@@ -895,10 +895,24 @@ impl Status {
                 insert_ind
             );
             if let Some(file) = updated_file {
-                rendered.files.insert(
-                    if insert_ind != 0 { insert_ind - 1 } else { 0 },
-                    file,
-                );
+                if let Some(ind) = insert_ind {
+                    rendered.files.insert(ind, file);
+                } else {
+                    // insert alphabetically
+                    let mut ind = 0;
+                    for rendered_file in &rendered.files {
+                        debug!("oooooooooooooooooo {:?} {:?} {:?}", file.path, rendered_file.path, file.path < rendered_file.path);
+                        if file.path < rendered_file.path {
+                            break
+                        }
+                        ind += 1
+                    }
+                    rendered.files.insert(ind, file);
+                }
+                // rendered.files.insert(
+                //     if insert_ind != 0 { insert_ind - 1 } else { 0 },
+                //     file,
+                // );
                 debug!("just inserted new file...........");
             }
             // if there is no files (user undo changes)
