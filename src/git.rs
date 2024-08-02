@@ -478,6 +478,7 @@ pub enum DiffKind {
     Staged,
     Unstaged,
     Conflicted,
+    Commit
 }
 
 #[derive(Debug, Clone)]
@@ -1080,6 +1081,9 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                     }
                     DiffKind::Conflicted => {
                         todo!("delta added in conflicted {:?}", diff_delta)
+                    }
+                    DiffKind::Commit => {
+                        todo!("delta added in commit {:?}", diff_delta)
                     }
                 },
                 _ => {
