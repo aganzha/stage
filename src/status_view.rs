@@ -896,7 +896,7 @@ impl Status {
             );
             if let Some(file) = updated_file {
                 if let Some(ind) = insert_ind {
-                    rendered.files.insert(ind, file);
+                    rendered.files.insert(ind - 1, file);
                 } else {
                     // insert alphabetically
                     let mut ind = 0;
