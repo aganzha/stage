@@ -302,9 +302,9 @@ pub fn factory(
     txt.set_margin_bottom(12);
     txt.set_is_dark(is_dark, true);
     if is_dark {
-        txt.set_css_classes(&[&DARK_CLASS]);
+        txt.set_css_classes(&[DARK_CLASS]);
     } else {
-        txt.set_css_classes(&[&LIGHT_CLASS]);
+        txt.set_css_classes(&[LIGHT_CLASS]);
     }
 
     let buffer = txt.buffer();

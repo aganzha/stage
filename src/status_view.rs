@@ -31,7 +31,7 @@ use std::rc::Rc;
 use crate::status_view::view::View;
 use crate::{
     get_current_repo_status, stage_untracked, stage_via_apply, track_changes,
-    Diff, File, DiffKind, Event, File as GitFile, Head, StageOp, State,
+    Diff, DiffKind, Event, File as GitFile, Head, StageOp, State,
     StatusRenderContext, Untracked,
 };
 use async_channel::Sender;
@@ -851,6 +851,12 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
+        // this method is called only if there is something to
+        // update in unstaged/conflicted and they will remain after!
+        // if tracked file is returning to original state
+        // and it must be removed from unstaged/conflicted and this is
+        // ONLY file in unstaged/conflicted, then another event will raise and diff
+        // will be removed completelly
         let mine = if diff.kind == DiffKind::Conflicted {
             &mut self.conflicted
         } else {
@@ -861,7 +867,6 @@ impl Status {
             // if it is there - enrich new one by it and replace
             // if it is not there - insert
             // if it is there and new is empty - erase it
-            // if no mo files in diff - erase diff
 
             let updated_file =
                 diff.files.into_iter().find(|f| f.path == file_path);
@@ -872,16 +877,19 @@ impl Status {
             let buffer = &txt.buffer();
             let mut ind = 0;
             let mut insert_ind: Option<usize> = None;
-            debug!("files befoooooooooooooooore {:}", &rendered.files.len());
+            debug!(
+                "track 1 file. rendered files are {:}",
+                &rendered.files.len()
+            );
             rendered.files.retain_mut(|f| {
                 ind += 1;
                 if f.path == file_path {
                     insert_ind = Some(ind);
                     if let Some(file) = &updated_file {
-                        debug!("enriiiiiiiiiiiiiiiiiiiiiiiich");
+                        debug!("enriiiiiiiiiiiiiiiiiiiiiiiich rendered file");
                         file.enrich_view(f, buffer, context);
                     } else {
-                        debug!("ERASE!!!!!!!!!");
+                        debug!("ERASE rendered file!!!!!!!!!");
                         f.erase(buffer, context);
                     }
                     false
@@ -890,7 +898,7 @@ impl Status {
                 }
             });
             debug!(
-                "files aafteeeeeeeeeeeeeeeeerrr {:} {:?}",
+                "----------thats rendered files after enriching{:} {:?}",
                 &rendered.files.len(),
                 insert_ind
             );
@@ -901,37 +909,20 @@ impl Status {
                     // insert alphabetically
                     let mut ind = 0;
                     for rendered_file in &rendered.files {
-                        debug!("oooooooooooooooooo {:?} {:?} {:?}", file.path, rendered_file.path, file.path < rendered_file.path);
+                        debug!("________compare files while insert alphabetically {:?} {:?} {:?}", file.path, rendered_file.path, file.path < rendered_file.path);
                         if file.path < rendered_file.path {
-                            break
+                            break;
                         }
                         ind += 1
                     }
                     rendered.files.insert(ind, file);
                 }
-                // rendered.files.insert(
-                //     if insert_ind != 0 { insert_ind - 1 } else { 0 },
-                //     file,
-                // );
                 debug!("just inserted new file...........");
             }
-            // if there is no files (user undo changes)
-            // kill all diff entirelly
-            if rendered.files.is_empty() {
-                debug!("erraaaaaaaaaaaasing myself!");
-                rendered.erase(buffer, context);
-                if diff.kind == DiffKind::Conflicted {
-                    self.conflicted = None;
-                } else {
-                    self.unstaged = None;
-                }
-            }
+        } else if diff.kind == DiffKind::Conflicted {
+            self.conflicted = Some(diff);
         } else {
-            if diff.kind == DiffKind::Conflicted {
-                self.conflicted = Some(diff);
-            } else {
-                self.unstaged = Some(diff);
-            }
+            self.unstaged = Some(diff);
         }
         self.render(txt, RenderSource::GitDiff, context);
     }
@@ -949,7 +940,7 @@ impl Status {
             let mut context = StatusRenderContext::new();
             context.cursor = ctx.cursor;
             context.highlight_lines = ctx.highlight_lines;
-            context.highlight_hunks = ctx.highlight_hunks.clone();
+            context.highlight_hunks.clone_from(&ctx.highlight_hunks);
             move || {
                 txt.bind_highlights(&context);
                 glib::ControlFlow::Break

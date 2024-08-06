@@ -521,7 +521,7 @@ impl ViewContainer for Diff {
                     DiffKind::Staged => "Staged changes",
                     DiffKind::Unstaged => "Unstaged changes",
                     DiffKind::Conflicted => "Conflicts",
-                    DiffKind::Commit => "Commit content"
+                    DiffKind::Commit => "Commit content",
                 },
             );
         }

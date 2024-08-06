@@ -7,7 +7,7 @@ mod external;
 
 mod status_view;
 use status_view::{
-    context::{StatusRenderContext, TextViewWidth, UnderCursor},
+    context::{StatusRenderContext, TextViewWidth},
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
     stage_view::factory as stage_factory,

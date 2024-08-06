@@ -7,9 +7,10 @@ use crate::git::remote::RemoteResponse;
 use libadwaita::prelude::*;
 use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance};
 
-use log::{info};
-
-use gtk4::{ScrolledWindow, Box, Label, Orientation, TextView, Widget, Window as Gtk4Window};
+use gtk4::{
+    Box, Label, Orientation, ScrolledWindow, TextView, Widget,
+    Window as Gtk4Window,
+};
 
 pub fn confirm_dialog_factory(
     window: &impl IsA<Gtk4Window>,

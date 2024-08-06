@@ -300,7 +300,9 @@ impl commit::CommitDiff {
 
         if !self.diff.files.is_empty() {
             let buffer = txt.buffer();
-            let iter = buffer.iter_at_line(self.diff.files[0].view.line_no.get()).unwrap();
+            let iter = buffer
+                .iter_at_line(self.diff.files[0].view.line_no.get())
+                .unwrap();
             buffer.place_cursor(&iter);
         }
     }
@@ -431,7 +433,6 @@ pub fn show_commit_window(
                     );
                     txt.bind_highlights(&ctx);
                     diff.replace(commit_diff);
-
                 }
                 Event::Expand(_offset, line_no) => {
                     info!("Expand {}", line_no);
@@ -446,9 +447,7 @@ pub fn show_commit_window(
                         }
                         let buffer = &txt.buffer();
                         let mut iter = buffer
-                            .iter_at_line(
-                                d.diff.view.line_no.get(),
-                            )
+                            .iter_at_line(d.diff.view.line_no.get())
                             .unwrap();
                         // let mut iter = buffer
                         //     .iter_at_line(d.diff.files[0].view.line_no.get())
@@ -465,9 +464,7 @@ pub fn show_commit_window(
                         let buffer = &txt.buffer();
                         if d.diff.cursor(buffer, line_no, false, &mut ctx) {
                             let mut iter = buffer
-                                .iter_at_line(
-                                    d.diff.view.line_no.get(),
-                                )
+                                .iter_at_line(d.diff.view.line_no.get())
                                 .unwrap();
                             // will render diff whithout rendering
                             // preceeding elements!
