@@ -22,7 +22,7 @@ use git2::{
     ApplyLocation, ApplyOptions, Branch, Commit, Delta, Diff as GitDiff,
     DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
     DiffOptions, Error, ObjectType, Oid, RebaseOptions, Repository,
-    RepositoryState, ResetType, StatusOptions
+    RepositoryState, ResetType, Status, StatusOptions,
 };
 
 use log::{debug, info, trace};
@@ -478,7 +478,7 @@ pub enum DiffKind {
     Staged,
     Unstaged,
     Conflicted,
-    Commit
+    Commit,
 }
 
 #[derive(Debug, Clone)]
@@ -1365,16 +1365,39 @@ pub fn track_changes(
     // lets do it from statuses!
     let mut status_opts = StatusOptions::new();
     status_opts.include_unmodified(false);
-    debug!("looooooooooooooooooooooooop");
-    for status_entry in &repo.statuses(Some(&mut status_opts)).expect("cant get statuses") {
+    let mut is_tracked = false;
+    let mut has_others = false;
+    for status_entry in &repo
+        .statuses(Some(&mut status_opts))
+        .expect("cant get statuses")
+    {
         let path = status_entry.path().expect("no path");
-        if path.starts_with("www") || path.starts_with("client") || path.starts_with("tests") ||
-            path.starts_with("documentation") || path.starts_with("scripts") {
-            } else {                
-                debug!("1........................ {:?} {:?}", path, status_entry.status());
-            }        
+        debug!(
+            ".................. {:?} {:?} for {:?}",
+            status_entry.status(),
+            path,
+            file_path
+        );
+        if status_entry.status() == Status::WT_MODIFIED {
+            if path == file_path {
+                is_tracked = true;
+            } else {
+                has_others = true;
+            }
+        }
     }
-    
+    if !is_tracked {
+        // perhaps file was reset to initial state, but its still need
+        // to remove it from unstaged
+        for entry in index.iter() {
+            let entry_path =
+                format!("{}", String::from_utf8_lossy(&entry.path));
+            if file_path == entry_path {
+                is_tracked = true;
+                break;
+            }
+        }
+    }
     // conflicts could be resolved right in this file change
     // but it need to update conflicted anyways
     // let mut kind = DiffKind::Unstaged;
@@ -1410,41 +1433,24 @@ pub fn track_changes(
                 }
             }
         }
-    } else {
-        for entry in index.iter() {
-            let entry_path =
-                format!("{}", String::from_utf8_lossy(&entry.path));                        
-            if file_path == entry_path {
-                let mut opts = make_diff_options();
-                opts.pathspec(&entry_path);
-                let git_diff = repo
-                    .diff_index_to_workdir(Some(&index), Some(&mut opts))
-                    .expect("cant' get diff index to workdir");
-                let diff = make_diff(&git_diff, DiffKind::Unstaged);
-                sender
-                    .send_blocking(crate::Event::TrackedFile(
-                        entry_path.into(),
-                        diff,
-                    ))
-                    .expect("Could not send through channel");
-                // sending empty diff is required to erase it completelly
-                // BUT. when track changes we are dealing just with 1 file!
-                // no need to send None, cause there are other unstaged files!
-                // if diff.is_empty() {
-                //     sender
-                //         .send_blocking(crate::Event::Unstaged(None))
-                //         .expect("Could not send through channel");
-                // } else {
-                //     sender
-                //         .send_blocking(crate::Event::TrackedFile(
-                //             entry_path.into(),
-                //             diff,
-                //         ))
-                //         .expect("Could not send through channel");
-                // }
-
-                return;
-            }
+    } else if is_tracked {
+        let mut opts = make_diff_options();
+        opts.pathspec(&file_path);
+        let git_diff = repo
+            .diff_index_to_workdir(Some(&index), Some(&mut opts))
+            .expect("cant' get diff index to workdir");
+        let diff = make_diff(&git_diff, DiffKind::Unstaged);
+        if diff.is_empty() && !has_others {
+            sender
+                .send_blocking(crate::Event::Unstaged(None))
+                .expect("Could not send through channel");
+        } else {
+            sender
+                .send_blocking(crate::Event::TrackedFile(
+                    file_path.into(),
+                    diff,
+                ))
+                .expect("Could not send through channel");
         }
     }
 }
