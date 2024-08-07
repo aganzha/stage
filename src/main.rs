@@ -40,8 +40,7 @@ mod git;
 use git::{
     branch, commit, get_current_repo_status, get_directories, reset_hard,
     stage_untracked, stage_via_apply, stash::Stashes, track_changes, Diff,
-    DiffKind, File, Head, Hunk, Line, LineKind, StageOp, State, Untracked,
-    UntrackedFile,
+    DiffKind, File, Head, Hunk, Line, LineKind, StageOp, State,
 };
 use git2::Oid;
 mod dialogs;
@@ -140,7 +139,7 @@ pub enum Event {
     Stashes(Stashes),
     Refresh,
     Zoom(bool),
-    Untracked(Untracked),
+    Untracked(Diff),
     ResetHard(Option<Oid>),
     CommitDiff(commit::CommitDiff),
     PushUserPass(String, bool),

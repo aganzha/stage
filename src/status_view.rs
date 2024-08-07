@@ -30,9 +30,18 @@ use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, stage_untracked, stage_via_apply, track_changes,
-    Diff, DiffKind, Event, File as GitFile, Head, StageOp, State,
-    StatusRenderContext, Untracked,
+    get_current_repo_status,
+    stage_untracked,
+    stage_via_apply,
+    track_changes,
+    Diff,
+    DiffKind,
+    Event,
+    File as GitFile,
+    Head,
+    StageOp,
+    State,
+    StatusRenderContext, //, Untracked,
 };
 use async_channel::Sender;
 
@@ -105,23 +114,15 @@ pub struct Status {
     pub state: Option<State>,
 
     // TODO! remove labels from Untracked as in diff!
-    pub untracked_spacer: Label,
-    pub untracked_label: Label,
-    pub untracked: Option<Untracked>,
+    // pub untracked_spacer: Label,
+    // pub untracked_label: Label,
+    pub untracked: Option<Diff>,
 
-    // pub staged_spacer: Label,
-    // pub staged_label: Label,
     pub staged: Option<Diff>,
-
-    // pub unstaged_spacer: Label,
-    // pub unstaged_label: Label,
     pub unstaged: Option<Diff>,
 
-    // pub conflicted_spacer: Label,
-    // pub conflicted_label: Label,
     pub conflicted: Option<Diff>,
 
-    // pub rendered: bool, // what it is for ????
     pub stashes: Option<stash::Stashes>,
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
@@ -140,10 +141,10 @@ impl Status {
             head: None,
             upstream: None,
             state: None,
-            untracked_spacer: Label::from_string(""),
-            untracked_label: Label::from_string(
-                "<span weight=\"bold\" color=\"#8b6508\">Untracked files</span>",
-            ),
+            // untracked_spacer: Label::from_string(""),
+            // untracked_label: Label::from_string(
+            //     "<span weight=\"bold\" color=\"#8b6508\">Untracked files</span>",
+            // ),
             untracked: None,
             // staged_spacer: Label::from_string(""),
             // staged_label: Label::from_string(
@@ -164,7 +165,7 @@ impl Status {
             stashes: None,
             monitor_global_lock: Rc::new(RefCell::new(false)),
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
-            settings
+            settings,
         }
     }
 
@@ -574,7 +575,7 @@ impl Status {
 
     pub fn update_untracked<'a>(
         &'a mut self,
-        mut untracked: Untracked,
+        mut untracked: Diff,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {

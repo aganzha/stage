@@ -7,13 +7,20 @@ use crate::status_view::tags;
 use crate::status_view::view::{View, ViewState};
 use crate::status_view::Label;
 use crate::{
-    Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
-    StatusRenderContext, Untracked, UntrackedFile,
+    Diff,
+    DiffKind,
+    File,
+    Head,
+    Hunk,
+    Line,
+    LineKind,
+    State,
+    StatusRenderContext, //, Untracked, UntrackedFile,
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::trace;
+use log::{debug, trace};
 use std::path::PathBuf;
 
 pub const LINE_NO_SPACE: i32 = 6;
@@ -514,10 +521,12 @@ impl ViewContainer for Diff {
         buffer: &TextBuffer,
         _context: &mut StatusRenderContext<'_>,
     ) {
+        debug!("------------> {:?} {:?}", self.is_empty(), self.kind);
         if !self.is_empty() {
             buffer.insert(
                 iter,
                 match self.kind {
+                    DiffKind::Untracked => "Untracked files",
                     DiffKind::Staged => "Staged changes",
                     DiffKind::Unstaged => "Unstaged changes",
                     DiffKind::Conflicted => "Conflicts",
@@ -545,6 +554,9 @@ impl ViewContainer for Diff {
         line_no: i32,
         context: &mut StatusRenderContext,
     ) -> Option<i32> {
+        if self.kind == DiffKind::Untracked {
+            return None;
+        }
         let mut result: Option<i32> = None;
         for file in &self.files {
             if let Some(line) = file.expand(line_no, context) {
@@ -563,7 +575,9 @@ impl ViewContainer for Diff {
                 vec![make_tag(tags::BOLD), make_tag(tags::STAGED)]
             }
             // TODO! create separate tag for conflicted!
-            DiffKind::Unstaged | DiffKind::Conflicted => {
+            DiffKind::Unstaged
+            | DiffKind::Conflicted
+            | DiffKind::Untracked => {
                 vec![make_tag(tags::BOLD), make_tag(tags::UNSTAGED)]
             }
         }
@@ -622,6 +636,9 @@ impl ViewContainer for File {
         &'a self,
         _ctx: &mut StatusRenderContext<'a>,
     ) -> Vec<tags::TxtTag> {
+        if self.kind == DiffKind::Untracked {
+            return vec![make_tag(tags::POINTER)];
+        }
         let mut tags = vec![make_tag(tags::BOLD), make_tag(tags::POINTER)];
         if self.status == git2::Delta::Deleted {
             tags.push(make_tag(tags::REMOVED));
@@ -1226,158 +1243,158 @@ impl ViewContainer for State {
     }
 }
 
-impl ViewContainer for Untracked {
-    fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
-        self.files.is_empty()
-    }
+// impl ViewContainer for Untracked {
+//     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
+//         self.files.is_empty()
+//     }
 
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Untracked
-    }
+//     fn get_kind(&self) -> ViewKind {
+//         ViewKind::Untracked
+//     }
 
-    // untracked
-    fn get_view(&self) -> &View {
-        self.view.expand(true);
-        &self.view
-    }
+//     // untracked
+//     fn get_view(&self) -> &View {
+//         self.view.expand(true);
+//         &self.view
+//     }
 
-    // Untracked (diff)
-    fn write_content(
-        &self,
-        _iter: &mut TextIter,
-        _buffer: &TextBuffer,
-        _context: &mut StatusRenderContext<'_>,
-    ) {
-    }
+//     // Untracked (diff)
+//     fn write_content(
+//         &self,
+//         _iter: &mut TextIter,
+//         _buffer: &TextBuffer,
+//         _context: &mut StatusRenderContext<'_>,
+//     ) {
+//     }
 
-    // Untracked (diff)
-    fn get_children(&self) -> Vec<&dyn ViewContainer> {
-        self.files
-            .iter()
-            .map(|vh| vh as &dyn ViewContainer)
-            .collect()
-    }
+//     // Untracked (diff)
+//     fn get_children(&self) -> Vec<&dyn ViewContainer> {
+//         self.files
+//             .iter()
+//             .map(|vh| vh as &dyn ViewContainer)
+//             .collect()
+//     }
 
-    // Untracked (diff)
-    fn expand(
-        &self,
-        line_no: i32,
-        _context: &mut StatusRenderContext,
-    ) -> Option<i32> {
-        // here we want to expand hunk
-        if self.get_view().line_no.get() == line_no {
-            return Some(line_no);
-        }
-        None
-    }
+//     // Untracked (diff)
+//     fn expand(
+//         &self,
+//         line_no: i32,
+//         _context: &mut StatusRenderContext,
+//     ) -> Option<i32> {
+//         // here we want to expand hunk
+//         if self.get_view().line_no.get() == line_no {
+//             return Some(line_no);
+//         }
+//         None
+//     }
 
-    // Untracked (diff)
-    fn is_active_by_parent(
-        &self,
-        active: bool,
-        _context: &mut StatusRenderContext,
-    ) -> bool {
-        // if HUNK is active (cursor on some line in it or on it)
-        // this line is active
-        active
-    }
+//     // Untracked (diff)
+//     fn is_active_by_parent(
+//         &self,
+//         active: bool,
+//         _context: &mut StatusRenderContext,
+//     ) -> bool {
+//         // if HUNK is active (cursor on some line in it or on it)
+//         // this line is active
+//         active
+//     }
 
-    // Untracked (diff)
-    fn tags<'a>(
-        &'a self,
-        _ctx: &mut StatusRenderContext<'a>,
-    ) -> Vec<tags::TxtTag> {
-        Vec::new()
-    }
+//     // Untracked (diff)
+//     fn tags<'a>(
+//         &'a self,
+//         _ctx: &mut StatusRenderContext<'a>,
+//     ) -> Vec<tags::TxtTag> {
+//         Vec::new()
+//     }
 
-    // Untracked (diff)
-    fn render<'a>(
-        &'a self,
-        buffer: &TextBuffer,
-        iter: &mut TextIter,
-        context: &mut StatusRenderContext<'a>,
-    ) {
-        self.view.line_no.replace(iter.line());
-        for file in &self.files {
-            file.render(buffer, iter, context);
-        }
-    }
+//     // Untracked (diff)
+//     fn render<'a>(
+//         &'a self,
+//         buffer: &TextBuffer,
+//         iter: &mut TextIter,
+//         context: &mut StatusRenderContext<'a>,
+//     ) {
+//         self.view.line_no.replace(iter.line());
+//         for file in &self.files {
+//             file.render(buffer, iter, context);
+//         }
+//     }
 
-    // Untracked (diff)
-    fn cursor<'a>(
-        &'a self,
-        buffer: &TextBuffer,
-        line_no: i32,
-        parent_active: bool,
-        context: &mut StatusRenderContext<'a>,
-    ) -> bool {
-        let mut result = false;
-        for file in &self.files {
-            result =
-                file.cursor(buffer, line_no, parent_active, context) || result;
-        }
-        result
-    }
-}
+//     // Untracked (diff)
+//     fn cursor<'a>(
+//         &'a self,
+//         buffer: &TextBuffer,
+//         line_no: i32,
+//         parent_active: bool,
+//         context: &mut StatusRenderContext<'a>,
+//     ) -> bool {
+//         let mut result = false;
+//         for file in &self.files {
+//             result =
+//                 file.cursor(buffer, line_no, parent_active, context) || result;
+//         }
+//         result
+//     }
+// }
 
-impl ViewContainer for UntrackedFile {
-    fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
-        false
-    }
+// impl ViewContainer for UntrackedFile {
+//     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
+//         false
+//     }
 
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::UntrackedFile
-    }
+//     fn get_kind(&self) -> ViewKind {
+//         ViewKind::UntrackedFile
+//     }
 
-    fn get_view(&self) -> &View {
-        &self.view
-    }
+//     fn get_view(&self) -> &View {
+//         &self.view
+//     }
 
-    // Untracked file
-    fn write_content(
-        &self,
-        iter: &mut TextIter,
-        buffer: &TextBuffer,
-        _context: &mut StatusRenderContext<'_>,
-    ) {
-        buffer.insert(iter, self.path.to_str().unwrap());
-    }
+//     // Untracked file
+//     fn write_content(
+//         &self,
+//         iter: &mut TextIter,
+//         buffer: &TextBuffer,
+//         _context: &mut StatusRenderContext<'_>,
+//     ) {
+//         buffer.insert(iter, self.path.to_str().unwrap());
+//     }
 
-    fn get_children(&self) -> Vec<&dyn ViewContainer> {
-        Vec::new()
-    }
+//     fn get_children(&self) -> Vec<&dyn ViewContainer> {
+//         Vec::new()
+//     }
 
-    // untracked file
-    fn expand(
-        &self,
-        line_no: i32,
-        _context: &mut StatusRenderContext,
-    ) -> Option<i32> {
-        // here we want to expand hunk
-        if self.get_view().line_no.get() == line_no {
-            return Some(line_no);
-        }
-        None
-    }
+//     // untracked file
+//     fn expand(
+//         &self,
+//         line_no: i32,
+//         _context: &mut StatusRenderContext,
+//     ) -> Option<i32> {
+//         // here we want to expand hunk
+//         if self.get_view().line_no.get() == line_no {
+//             return Some(line_no);
+//         }
+//         None
+//     }
 
-    // Untracked (File)
-    fn is_active_by_parent(
-        &self,
-        active: bool,
-        _context: &mut StatusRenderContext,
-    ) -> bool {
-        // if HUNK is active (cursor on some line in it or on it)
-        // this line is active
-        active
-    }
-    // Untracked (File)
-    fn tags<'a>(
-        &'a self,
-        _ctx: &mut StatusRenderContext<'a>,
-    ) -> Vec<tags::TxtTag> {
-        Vec::new()
-    }
-}
+//     // Untracked (File)
+//     fn is_active_by_parent(
+//         &self,
+//         active: bool,
+//         _context: &mut StatusRenderContext,
+//     ) -> bool {
+//         // if HUNK is active (cursor on some line in it or on it)
+//         // this line is active
+//         active
+//     }
+//     // Untracked (File)
+//     fn tags<'a>(
+//         &'a self,
+//         _ctx: &mut StatusRenderContext<'a>,
+//     ) -> Vec<tags::TxtTag> {
+//         Vec::new()
+//     }
+// }
 
 impl Diff {
     pub fn chosen_file_and_hunk_old(
