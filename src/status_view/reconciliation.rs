@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::status_view::ViewContainer;
-use crate::{Diff, File, Head, Hunk, Line, State, Untracked};
+use crate::{Diff, File, Head, Hunk, Line, State};
 
 use gtk4::TextBuffer;
 use log::trace;
@@ -313,35 +313,35 @@ impl Diff {
     }
 }
 
-impl Untracked {
-    pub fn enrich_view(
-        &self,
-        rendered: &Untracked,
-        buffer: &TextBuffer,
-        context: &mut crate::StatusRenderContext,
-    ) {
-        let mut replaces_by_new = HashSet::new();
-        for file in &self.files {
-            for of in &rendered.files {
-                if file.path == of.path {
-                    file.enrich_view(of, buffer, context);
-                    replaces_by_new.insert(file.path.clone());
-                }
-            }
-        }
-        rendered
-            .files
-            .iter()
-            .filter(|f| !replaces_by_new.contains(&f.path))
-            .for_each(|f| {
-                trace!(
-                    "context on final lines of diff render view {:?}",
-                    context
-                );
-                f.erase(buffer, context)
-            });
-    }
-}
+// impl Untracked {
+//     pub fn enrich_view(
+//         &self,
+//         rendered: &Untracked,
+//         buffer: &TextBuffer,
+//         context: &mut crate::StatusRenderContext,
+//     ) {
+//         let mut replaces_by_new = HashSet::new();
+//         for file in &self.files {
+//             for of in &rendered.files {
+//                 if file.path == of.path {
+//                     file.enrich_view(of, buffer, context);
+//                     replaces_by_new.insert(file.path.clone());
+//                 }
+//             }
+//         }
+//         rendered
+//             .files
+//             .iter()
+//             .filter(|f| !replaces_by_new.contains(&f.path))
+//             .for_each(|f| {
+//                 trace!(
+//                     "context on final lines of diff render view {:?}",
+//                     context
+//                 );
+//                 f.erase(buffer, context)
+//             });
+//     }
+// }
 
 impl State {
     pub fn enrich_view(

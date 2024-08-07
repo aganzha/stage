@@ -478,6 +478,7 @@ pub enum DiffKind {
     Staged,
     Unstaged,
     Conflicted,
+    Untracked,
     Commit,
 }
 
@@ -954,13 +955,15 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
     let git_diff = repo
         .diff_tree_to_workdir_with_index(Some(&current_tree), Some(opts))
         .expect("can't get diff");
-    let mut untracked = Untracked::new();
+    let mut untracked = Diff::new(DiffKind::Untracked);
 
     let _ = git_diff.foreach(
         &mut |delta: DiffDelta, _num| {
             if delta.status() == Delta::Untracked {
                 let path: PathBuf = delta.new_file().path().unwrap().into();
-                untracked.push_file(path);
+                let mut file = File::new(DiffKind::Untracked);
+                file.path = path;
+                untracked.push_file(file);
             }
             true
         },
@@ -1084,6 +1087,9 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                     }
                     DiffKind::Commit => {
                         todo!("delta added in commit {:?}", diff_delta)
+                    }
+                    DiffKind::Untracked => {
+                        panic!("untracked is not used with git diffs")
                     }
                 },
                 _ => {
