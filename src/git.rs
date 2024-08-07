@@ -971,10 +971,15 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
         None,
         None,
     );
-
-    sender
-        .send_blocking(crate::Event::Untracked(untracked))
-        .expect("Could not send through channel");
+    if untracked.is_empty() {
+        sender
+            .send_blocking(crate::Event::Untracked(None))
+            .expect("Could not send through channel");
+    } else {
+        sender
+            .send_blocking(crate::Event::Untracked(Some(untracked)))
+            .expect("Could not send through channel");
+    }
 }
 
 #[derive(Debug, Clone)]
