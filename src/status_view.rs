@@ -575,7 +575,7 @@ impl Status {
 
     pub fn update_untracked<'a>(
         &'a mut self,
-        mut untracked: Diff,
+        mut untracked: Option<Diff>,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
@@ -584,17 +584,33 @@ impl Status {
 
         let repo_path = self.path.clone().unwrap();
         let str_path = repo_path.as_str();
+        let mut has_files = true;
         if let Some(ignored) = settings.get_mut(str_path) {
-            untracked.files.retain(|f| {
-                let str_path = f.path.as_str();
-                !ignored.contains(&str_path.to_string())
-            });
+            if let Some(new) = &mut untracked {
+                new.files.retain(|f| {
+                    let str_path = f.path.as_str();
+                    !ignored.contains(&str_path.to_string())
+                });
+                has_files = !new.files.is_empty();
+            }
         }
-        if let Some(u) = &mut self.untracked {
-            untracked.enrich_view(u, &txt.buffer(), context);
+        if !has_files {
+            untracked = None;
         }
-        self.untracked.replace(untracked);
-        self.render(txt, RenderSource::Git, context);
+        if let Some(rendered) = &mut self.untracked {
+            let buffer = &txt.buffer();
+            if let Some(new) = &untracked {
+                new.enrich_view(rendered, buffer, context);
+            } else {
+                rendered.erase(buffer, context);
+            }
+        }
+        self.untracked = untracked;
+        if self.untracked.is_some() {
+            // why is so?  || true erase is broken?
+            // some artifacts related to line height after erasing untracked!
+            self.render(txt, RenderSource::GitDiff, context);
+        }
     }
 
     pub fn track_changes(&self, file_path: PathBuf, sender: Sender<Event>) {
@@ -1178,7 +1194,7 @@ impl Status {
                         .set("ignored", settings)
                         .expect("cant set settings");
                     self.update_untracked(
-                        self.untracked.clone().unwrap(),
+                        self.untracked.clone(),
                         txt,
                         context,
                     );

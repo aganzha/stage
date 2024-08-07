@@ -210,7 +210,7 @@ pub trait ViewContainer {
         let line_no = iter.line();
         let view = self.get_view();
         let state = view.get_state_for(line_no);
-        trace!(
+        debug!(
             "............ state in view {} {:?} {:?}",
             line_no,
             state,

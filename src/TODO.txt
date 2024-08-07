@@ -1,3 +1,6 @@
+BUG: erasing untracked while switch repos broke line heiights. see the very bottom of update untracked.
+perhaps because its coming last and erasing content on top!
+
 BUG: copy link to error with addiotional text (multiline) and paste into single line commit message. commit button does not work
 untill full message is expanded
 BUG: 1. Staged wrong file instead. Thats about order 2. commit view is boken. shows Staged changes and doesn not expand files
