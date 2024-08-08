@@ -1301,7 +1301,6 @@ impl Status {
         }
 
         if self.stage_in_conflict(window) {
-            debug!("no way");
             return;
         }
 

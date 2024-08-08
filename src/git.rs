@@ -674,6 +674,7 @@ pub fn get_current_repo_status(
         let state = repo.state();
         move || {
             let mut subject = String::from("");
+            // ???
             let mut require_conflicted = false;
             match state {
                 RepositoryState::Merge => {
@@ -698,6 +699,7 @@ pub fn get_current_repo_status(
                 _ => {}
             }
             let state = State::new(state, subject);
+            // why it is here?
             if require_conflicted {
                 let diff = get_conflicted_v1(path, None);
                 sender
@@ -772,22 +774,25 @@ pub fn get_current_repo_status(
     // this one is for staging killed hunk
     // https://github.com/libgit2/libgit2/issues/6643
 
-    // let index = repo.index().expect("cant get index");
-    // if index.has_conflicts() {
-    //     // https://github.com/libgit2/libgit2/issues/6232
-    //     // this one is for staging killed hunk
-    //     // https://github.com/libgit2/libgit2/issues/6643
-    //     gio::spawn_blocking({
-    //         let sender = sender.clone();
-    //         let path = path.clone();
-    //         move || {
-    //             let diff = get_conflicted_v1(path, None);
-    //             sender
-    //                 .send_blocking(crate::Event::Conflicted(diff))
-    //                 .expect("Could not send through channel");
-    //         }
-    //     });
-    // }
+    let index = repo.index().expect("cant get index");
+    debug!("~~~~~~~~~~~~~~~~~~~ {:?}", index.has_conflicts());
+    if index.has_conflicts() {
+        // https://github.com/libgit2/libgit2/issues/6232
+        // this one is for staging killed hunk
+        // https://github.com/libgit2/libgit2/issues/6643
+        gio::spawn_blocking({
+            let sender = sender.clone();
+            let path = path.clone();
+            let state = repo.state();
+            move || {
+                let diff = get_conflicted_v1(path, None);
+                // why do i need state?
+                sender
+                    .send_blocking(crate::Event::Conflicted(diff, Some(State::new(state, "".to_string()))))
+                    .expect("Could not send through channel");
+            }
+        });
+    }
 
     // get_unstaged
     let git_diff = repo
@@ -864,7 +869,7 @@ pub fn get_conflicted_v1(
         let mut missing_theirs = 0;
         for file in &diff.files {
             for hunk in &file.hunks {
-                debug!("hunk in conflicted {}", hunk.header);
+                trace!("hunk in conflicted {}", hunk.header);
                 let (ours, theirs, _separator) =
                     hunk.lines.iter().fold((0, 0, 0), |acc, line| match &line
                         .kind
@@ -916,7 +921,7 @@ pub fn get_conflicted_v1(
                     // if hunk is ok, reset missing theirs, which, possibly
                     // came from manual conflict resolution
                     if missing_theirs > 0 {
-                        debug!(
+                        trace!(
                             "reset missing theirs in conflict {:?}",
                             missing_theirs
                         );
@@ -925,6 +930,7 @@ pub fn get_conflicted_v1(
                 }
             }
         }
+        debug!("hunks to join during get_conflicted {:?}", hunks_to_join.len());
         if !hunks_to_join.is_empty() {
             let interhunk = hunks_to_join.iter().fold(0, |acc, from_to| {
                 if acc < from_to.1 - from_to.0 {

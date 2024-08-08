@@ -267,14 +267,16 @@ pub fn abort(
     Ok(())
 }
 
-pub fn choose_conflict_side_of_blob<'a, F>(
+pub fn choose_conflict_side_of_blob<'a>(
     raw: &'a str,
     hunk_deltas: &mut Vec<(&'a str, i32)>,
-    predicate: F,
+    choosed_line_offset: i32,
+    choosed_hunk_header: &'a str,
+    // predicate: F,
     ours_choosed: bool,
 ) -> String
-where
-    F: Fn(i32, &str) -> bool,
+// where
+//    F: Fn(i32, &str) -> bool,
 {
     let mut acc = Vec::new();
 
@@ -288,14 +290,21 @@ where
             line_offset_inside_hunk += 1;
             let mut this_is_current_conflict = false;
 
-            if predicate(
-                line_offset_inside_hunk,
-                hunk_deltas.last().unwrap().0,
-            ) {
-                this_is_current_conflict = true;
-            }
+            let last_hunk_header = hunk_deltas.last().unwrap().0;
+            if last_hunk_header == choosed_hunk_header
+                && line_offset_inside_hunk == choosed_line_offset {
+                    this_is_current_conflict = true;
+                }
+            // if predicate(
+            //     line_offset_inside_hunk,
+            //     hunk_deltas.last().unwrap().0,
+            // ) {
+            //     this_is_current_conflict = true;
+            // }
+            debug!("======== current conflict? {:?}  last delta = {:?}", this_is_current_conflict, hunk_deltas.last().unwrap().0);
             if this_is_current_conflict {
                 // this marker will be deleted
+                debug!("keeep minus!");
                 acc.push(line);
                 acc.push(NEW_LINE);
             } else {
@@ -311,6 +320,7 @@ where
                     "......remain marker ours when not found {:?}",
                     hunk_deltas
                 );
+                debug!("kill it!");
             }
             // go deeper inside OURS
             'ours: while let Some(line) = lines.next() {
@@ -544,7 +554,7 @@ pub fn choose_conflict_side_of_hunk(
         }
     };
 
-    let mut reversed_header = Hunk::reverse_header(&hunk.header);
+    // let mut reversed_header = Hunk::reverse_header(&hunk.header);
 
     let mut apply_options = git2::ApplyOptions::new();
 
@@ -566,7 +576,10 @@ pub fn choose_conflict_side_of_hunk(
         }
     };
     let raw = buff.as_str().unwrap();
-
+    debug!("OLD body BEFORE patch ___________________");
+    for line in raw.lines() {
+        debug!("{}", line);
+    }
     let ours_choosed = line.is_our_side_of_conflict();
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
 
@@ -575,16 +588,24 @@ pub fn choose_conflict_side_of_hunk(
     let mut new_body = choose_conflict_side_of_blob(
         raw,
         &mut hunk_deltas,
-        |line_offset_inside_hunk, hunk_header| {
-            line_offset_inside_hunk == conflict_offset_inside_hunk
-                && hunk_header == reversed_header
-        },
+        conflict_offset_inside_hunk,
+        &Hunk::reverse_header(&hunk.header),
+        // |line_offset_inside_hunk, hunk_header| {
+        //     line_offset_inside_hunk == conflict_offset_inside_hunk
+        //         && hunk_header == reversed_header
+        // },
         ours_choosed,
     );
-
+    debug!("new body for patch ___________________");
+    for line in new_body.lines() {
+        debug!("{}", line);
+    }
+    
     // so. not only new lines are changed. new_start are changed also!!!!!!
     // it need to add delta of prev hunk int new start of next hunk!!!!!!!!
     let mut prev_delta = 0;
+
+    let mut reversed_header = Hunk::reverse_header(&hunk.header);
     for (hh, delta) in hunk_deltas {
         let new_header =
             Hunk::shift_new_start_and_lines(hh, prev_delta, delta);
