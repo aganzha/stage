@@ -1,3 +1,28 @@
+thread 'main' panicked at src/status_view/render.rs:474:53:
+called `Option::unwrap()` on a `None` value
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/9b00956e56009bab2aa15d7bff10916599e3d6d6/library/std/src/panicking.rs:645:5
+   1: core::panicking::panic_fmt
+             at /rustc/9b00956e56009bab2aa15d7bff10916599e3d6d6/library/core/src/panicking.rs:72:14
+   2: core::panicking::panic
+             at /rustc/9b00956e56009bab2aa15d7bff10916599e3d6d6/library/core/src/panicking.rs:145:5
+   3: core::option::unwrap_failed
+             at /rustc/9b00956e56009bab2aa15d7bff10916599e3d6d6/library/core/src/option.rs:1985:5
+   4: core::option::Option<T>::unwrap
+             at /rustc/9b00956e56009bab2aa15d7bff10916599e3d6d6/library/core/src/option.rs:933:21
+   5: stage::status_view::render::ViewContainer::erase
+             at /mnt/stage/src/status_view/render.rs:474:24
+
+BUG: when stage multiple opened files, after staginh last file all files are in staged, but hunk highlight is visible (though all hunks are collapsed in staged)
+BUG: compilation got massive update in monitor. is it ok?
+perhaps monioring must check index first and do not fire events? or this is just logging...
+
+BUG: when switched from repo with conflicts to another repo - conflicts are not erased.
+it need to send empty conflicts diff or better None
+
+BUG: conflict resolution is broken. apply debug_orm and choose very first hunk. ther problem is - there are 2 conflicts inside 1 hunk!
+
 BUG: erasing untracked while switch repos broke line heiights. see the very bottom of update untracked.
 perhaps because its coming last and erasing content on top!
 
