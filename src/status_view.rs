@@ -598,7 +598,9 @@ impl Status {
             untracked = None;
         }
         debug!("update untracked! {:?}", untracked.is_some());
+        let mut render_required = false;
         if let Some(rendered) = &mut self.untracked {
+            render_required = true;
             let buffer = &txt.buffer();
             if let Some(new) = &untracked {
                 new.enrich_view(rendered, buffer, context);
@@ -608,14 +610,8 @@ impl Status {
             }
         }
         self.untracked = untracked;
-        if self.untracked.is_some() {
-            // why is so?  || true erase is broken?
-            // some artifacts related to line height after erasing untracked!
+        if self.untracked.is_some() || render_required {
             self.render(txt, RenderSource::GitDiff, context);
-        }
-        else {
-            debug!("no render in untraaaaaaaacked");
-            // self.render(txt, RenderSource::GitDiff, context);
         }
     }
 
@@ -814,7 +810,9 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
+        let mut render_required = false;
         if let Some(rendered) = &mut self.staged {
+            render_required = true;
             let buffer = &txt.buffer();
             if let Some(new) = &diff {
                 new.enrich_view(rendered, buffer, context);
@@ -823,7 +821,7 @@ impl Status {
             }
         }
         self.staged = diff;
-        if self.staged.is_some() {
+        if self.staged.is_some() || render_required {
             self.render(txt, RenderSource::GitDiff, context);
         }
     }
@@ -852,7 +850,9 @@ impl Status {
         //     );
 
         // original
+        let mut render_required = false;
         if let Some(rendered) = &mut self.unstaged {
+            render_required = true;
             let buffer = &txt.buffer();
             if let Some(new) = &diff {
                 new.enrich_view(rendered, buffer, context);
@@ -862,7 +862,7 @@ impl Status {
         }
 
         self.unstaged = diff;
-        if self.unstaged.is_some() {
+        if self.unstaged.is_some() || render_required {
             self.render(txt, RenderSource::GitDiff, context);
         }
     }
@@ -1451,13 +1451,14 @@ impl Status {
     pub fn debug<'a>(
         &'a mut self,
         txt: &StageView,
-        _context: &mut StatusRenderContext<'a>,
+        context: &mut StatusRenderContext<'a>,
     ) {
-        let buffer = txt.buffer();
-        let pos = buffer.cursor_position();
-        let iter = buffer.iter_at_offset(pos);
-        let (y, height) = txt.line_yrange(&iter);
-        debug!("+++++++++++++++++++++++++ y {:?} height {:?}", y, height);
+        self.render(txt, RenderSource::GitDiff, context);
+        // let buffer = txt.buffer();
+        // let pos = buffer.cursor_position();
+        // let iter = buffer.iter_at_offset(pos);
+        // let (y, height) = txt.line_yrange(&iter);
+        // debug!("+++++++++++++++++++++++++ y {:?} height {:?}", y, height);
 
         // self.render(txt, RenderSource::Git, context);
         // let (line_from, line_to) = context.highlight_lines.unwrap();
