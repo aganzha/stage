@@ -113,6 +113,19 @@ impl TagIdx {
         }
         self.0 & bit_mask != 0
     }
+
+    pub fn added_tags(&self) -> Vec<TxtTag> {
+        let mut bit_mask: u32 = 1;
+        let mut result = Vec::new();
+        for name in TEXT_TAGS {
+            if self.0 & bit_mask != 0 {
+                result.push(TxtTag::from_str(name));
+            }
+            bit_mask <<= 1;
+        }
+        debug!(".............my added tags! {:?}", result);
+        result
+    }
 }
 
 impl Binary for TagIdx {
@@ -135,6 +148,9 @@ impl View {
     }
     pub fn cleanup_tags(&self) {
         self.tag_indexes.replace(TagIdx::new());
+    }
+    pub fn added_tags(&self) -> Vec<TxtTag> {
+        self.tag_indexes.get().added_tags()
     }
 }
 

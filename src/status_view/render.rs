@@ -22,6 +22,7 @@ use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
 use log::{debug, trace};
 use std::path::PathBuf;
+use std::collections::HashSet;
 
 pub const LINE_NO_SPACE: i32 = 6;
 
@@ -32,7 +33,7 @@ pub fn make_tag(name: &str) -> tags::TxtTag {
 // This enum must implement all render methods!
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewKind {
-    Diff,
+    Diff(DiffKind),
     File,
     Hunk,
     Line,
@@ -467,8 +468,13 @@ pub trait ViewContainer {
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         let initial_line_offset = iter.line_offset();
 
+        let mut applied_tags = HashSet::new();
+            
         let view = self.get_view();
-
+        for tag in view.added_tags() {
+            applied_tags.insert(tag.name().to_string());
+        }
+        
         // let mut line_no = view.line_no.get();
         let line_no = view.line_no.get() - context.erase_counter;
         let mut iter = buffer.iter_at_line(line_no).unwrap();
@@ -481,6 +487,9 @@ pub trait ViewContainer {
         if view.is_expanded() {
             self.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
+                for tag in view.added_tags() {
+                    applied_tags.insert(tag.name().to_string());
+                }
                 if !view.is_rendered() {
                     return;
                 }
@@ -496,6 +505,10 @@ pub trait ViewContainer {
                 // buffer.delete(&mut iter, &mut nel_iter);
             });
         }
+        for tag in applied_tags {
+            debug!("RRRRRREMOVE TAG {:?}", tag);
+            buffer.remove_tag_by_name(&tag, &mut iter, &mut nel_iter);
+        }
         buffer.delete(&mut iter, &mut nel_iter);
         cursor_to_line_offset(buffer, initial_line_offset);
     }
@@ -507,7 +520,7 @@ impl ViewContainer for Diff {
     }
 
     fn get_kind(&self) -> ViewKind {
-        ViewKind::Diff
+        ViewKind::Diff(self.kind.clone())
     }
 
     fn get_view(&self) -> &View {

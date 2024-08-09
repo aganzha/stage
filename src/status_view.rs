@@ -597,11 +597,13 @@ impl Status {
         if !has_files {
             untracked = None;
         }
+        debug!("update untracked! {:?}", untracked.is_some());
         if let Some(rendered) = &mut self.untracked {
             let buffer = &txt.buffer();
             if let Some(new) = &untracked {
                 new.enrich_view(rendered, buffer, context);
             } else {
+                debug!("eeeeeeeerrrrrrrrrase untracked!");
                 rendered.erase(buffer, context);
             }
         }
@@ -610,6 +612,10 @@ impl Status {
             // why is so?  || true erase is broken?
             // some artifacts related to line height after erasing untracked!
             self.render(txt, RenderSource::GitDiff, context);
+        }
+        else {
+            debug!("no render in untraaaaaaaacked");
+            // self.render(txt, RenderSource::GitDiff, context);
         }
     }
 
