@@ -775,7 +775,7 @@ pub fn get_current_repo_status(
     // https://github.com/libgit2/libgit2/issues/6643
 
     let index = repo.index().expect("cant get index");
-    debug!("~~~~~~~~~~~~~~~~~~~ {:?}", index.has_conflicts());
+
     if index.has_conflicts() {
         // https://github.com/libgit2/libgit2/issues/6232
         // this one is for staging killed hunk
@@ -792,6 +792,12 @@ pub fn get_current_repo_status(
                     .expect("Could not send through channel");
             }
         });
+    } else {
+        // cleanup conflicts while switching repo
+        let state = repo.state();
+        sender
+            .send_blocking(crate::Event::Conflicted(None, Some(State::new(state, "".to_string()))))
+            .expect("Could not send through channel");
     }
 
     // get_unstaged

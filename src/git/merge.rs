@@ -554,12 +554,6 @@ pub fn choose_conflict_side_of_hunk(
         }
     };
 
-    // let mut reversed_header = Hunk::reverse_header(&hunk.header);
-
-    let mut apply_options = git2::ApplyOptions::new();
-
-    // let file_path_clone = file_path.clone();
-
     let mut patch = match git2::Patch::from_diff(&git_diff, 0) {
         Ok(patch) => patch.unwrap(),
         Err(error) => {
@@ -585,11 +579,13 @@ pub fn choose_conflict_side_of_hunk(
 
     let conflict_offset_inside_hunk = hunk.get_conflict_offset_by_line(&line);
 
+    let reversed_header = Hunk::reverse_header(&hunk.header);
+
     let mut new_body = choose_conflict_side_of_blob(
         raw,
         &mut hunk_deltas,
         conflict_offset_inside_hunk,
-        &Hunk::reverse_header(&hunk.header),
+        &reversed_header,
         // |line_offset_inside_hunk, hunk_header| {
         //     line_offset_inside_hunk == conflict_offset_inside_hunk
         //         && hunk_header == reversed_header
@@ -605,13 +601,15 @@ pub fn choose_conflict_side_of_hunk(
     // it need to add delta of prev hunk int new start of next hunk!!!!!!!!
     let mut prev_delta = 0;
 
-    let mut reversed_header = Hunk::reverse_header(&hunk.header);
+    
+    let mut updated_reversed_header = String::from("");
+    
     for (hh, delta) in hunk_deltas {
         let new_header =
             Hunk::shift_new_start_and_lines(hh, prev_delta, delta);
         new_body = new_body.replace(hh, &new_header);
         if hh == reversed_header {
-            reversed_header = new_header;
+            updated_reversed_header = new_header;
         }
         prev_delta = delta;
     }
@@ -623,11 +621,13 @@ pub fn choose_conflict_side_of_hunk(
             return Err(error);
         }
     };
-
+    
+    let mut apply_options = git2::ApplyOptions::new();
+    
     apply_options.hunk_callback(|odh| -> bool {
         if let Some(dh) = odh {
             let header = Hunk::get_header_from(&dh);
-            return header == reversed_header;
+            return header == updated_reversed_header;
         }
         false
     });
@@ -651,6 +651,7 @@ pub fn choose_conflict_side_of_hunk(
         )
         .err();
 
+    
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("Could not send through channel");
@@ -659,7 +660,8 @@ pub fn choose_conflict_side_of_hunk(
 
     if let Some(error) = apply_error {
         return Err(error);
-    }
+    }    
+    
     cleanup_last_conflict_for_file(
         path,
         file_path.clone(),
