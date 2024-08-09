@@ -1,5 +1,6 @@
 TODO: so. when call update_x.. on status view finally render was called if there is something to render.
-BUT, some wird artifacts with line height exists. tags?????
+BUT, some wird artifacts with line height exists. tags????? nopes. does not helped.
+the views become rendered not in place after erasing and all are fucked up.
 
 thread 'main' panicked at src/status_view/render.rs:474:53:
 called `Option::unwrap()` on a `None` value
