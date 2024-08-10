@@ -420,8 +420,10 @@ pub fn choose_conflict_side_of_blob<'a>(
                             if this_is_current_conflict {
                                 if ours_choosed {
                                     // theirs will be deleted
-                                    debug!("......push THEIRS AS IS cause OURS choosed {:?}", line);
-                                    acc.push(line);
+                                    // #1.theirs
+                                    debug!("......kill THEIRS (force -) cause OURS choosed {:?}", line);
+                                    acc.push(MINUS);
+                                    acc.push(&line[1..]);
                                     acc.push(NEW_LINE);
                                 } else {
                                     // do not delete theirs!
@@ -439,6 +441,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                                 }
                             } else {
                                 // do not delete for now
+                                // #2.theirs
                                 acc.push(SPACE);
                                 acc.push(&line[1..]);
                                 acc.push(NEW_LINE);
@@ -456,11 +459,12 @@ pub fn choose_conflict_side_of_blob<'a>(
                         if ours_choosed {
                             // remain our lines
                             debug!(
-                                "......choose ours. push line as is cause OUR chosed {:?}",
+                                "111111111111......choose ours. push line as is cause OUR chosed {:?}",
                                 line
                             );
-                            acc.push(line);
-                            acc.push("\n");
+                            acc.push(SPACE);
+                            acc.push(&line[1..]);
+                            acc.push(NEW_LINE);
                         } else {
                             // delete our lines!
                             acc.push(MINUS);
@@ -477,13 +481,14 @@ pub fn choose_conflict_side_of_blob<'a>(
                     } else {
                         // remain our lines
                         debug!(
-                            "......REMAIN ours AS IS cause this is not current conflict {:?}",
+                            "......REMAIN ours (should be as is but force kill -) cause this is not current conflict {:?}",
                             line
                         );
                         // here got the bug, when absolutelly 2 equal lines and git choses ours
                         // instead of theirs. theirs have -, but it will be killed, but it is also
                         // need to kill - in ours!
-                        acc.push(line);
+                        acc.push(SPACE);
+                        acc.push(&line[1..]);
                         acc.push(NEW_LINE);
                     }
                 }
