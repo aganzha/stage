@@ -90,10 +90,12 @@ pub fn choose_ours_in_first_conflict() {
     let mut new_body = choose_conflict_side_of_blob(
         TEST_BLOB,
         &mut hunk_deltas,
-        |line_offset_inside_hunk, hunk_header| {
-            line_offset_inside_hunk == conflict_offset_inside_hunk
-                && hunk_header == hunk.header
-        },
+        conflict_offset_inside_hunk,
+        &hunk.header,
+        // |line_offset_inside_hunk, hunk_header| {
+        //     line_offset_inside_hunk == conflict_offset_inside_hunk
+        //         && hunk_header == hunk.header
+        // },
         ours_choosed,
     );
     // now first conflict must be resolved to OURS
@@ -179,10 +181,12 @@ pub fn choose_theirs_in_second_conflict() {
     let mut new_body = choose_conflict_side_of_blob(
         TEST_BLOB,
         &mut hunk_deltas,
-        |line_offset_inside_hunk, hunk_header| {
-            line_offset_inside_hunk == conflict_offset_inside_hunk
-                && hunk_header == hunk.header
-        },
+        conflict_offset_inside_hunk,
+        &hunk.header,
+        // |line_offset_inside_hunk, hunk_header| {
+        //     line_offset_inside_hunk == conflict_offset_inside_hunk
+        //         && hunk_header == hunk.header
+        // },
         ours_choosed,
     );
 

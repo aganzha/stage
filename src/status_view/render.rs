@@ -211,7 +211,7 @@ pub trait ViewContainer {
         let line_no = iter.line();
         let view = self.get_view();
         let state = view.get_state_for(line_no);
-        debug!(
+        trace!(
             "............ state in view {} {:?} {:?}",
             line_no,
             state,
@@ -506,7 +506,6 @@ pub trait ViewContainer {
             });
         }
         for tag in applied_tags {
-            debug!("RRRRRREMOVE TAG {:?}", tag);
             buffer.remove_tag_by_name(&tag, &mut iter, &mut nel_iter);
         }
         buffer.delete(&mut iter, &mut nel_iter);
