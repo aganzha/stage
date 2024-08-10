@@ -123,7 +123,6 @@ impl TagIdx {
             }
             bit_mask <<= 1;
         }
-        debug!(".............my added tags! {:?}", result);
         result
     }
 }

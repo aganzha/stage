@@ -295,6 +295,11 @@ pub fn choose_conflict_side_of_blob<'a>(
                 && line_offset_inside_hunk == choosed_line_offset {
                     this_is_current_conflict = true;
                 }
+            // TODO! do not need to handle all hunks here!
+            // it is possible to keep them as is!!!!!!!!!!!!!!!
+
+            // only it could be usefull - when 'choose ours/theirs' in all of conflicts            
+            
             // if predicate(
             //     line_offset_inside_hunk,
             //     hunk_deltas.last().unwrap().0,
@@ -304,7 +309,7 @@ pub fn choose_conflict_side_of_blob<'a>(
             debug!("======== current conflict? {:?}  last delta = {:?}", this_is_current_conflict, hunk_deltas.last().unwrap().0);
             if this_is_current_conflict {
                 // this marker will be deleted
-                debug!("keeep minus!");
+                debug!("current conflict. will delete OUR marker by keeping -");
                 acc.push(line);
                 acc.push(NEW_LINE);
             } else {
@@ -316,11 +321,10 @@ pub fn choose_conflict_side_of_blob<'a>(
                 let hd = hunk_deltas.last().unwrap();
                 let le = hunk_deltas.len();
                 hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
-                trace!(
-                    "......remain marker ours when not found {:?}",
-                    hunk_deltas
+                debug!(
+                    "......remain marker ours (delete -) when not current conflict {:?}",
+                    line
                 );
-                debug!("kill it!");
             }
             // go deeper inside OURS
             'ours: while let Some(line) = lines.next() {
@@ -335,13 +339,12 @@ pub fn choose_conflict_side_of_blob<'a>(
                         acc.push(SPACE);
                         acc.push(&line[1..]);
                         acc.push(NEW_LINE);
-                        // delta += 1;
                         let hd = hunk_deltas.last().unwrap();
                         let le = hunk_deltas.len();
                         hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
-                        trace!(
-                            "......remain marker vs when not found {:?}",
-                            hunk_deltas
+                        debug!(
+                            "......remain marker vs when not current conflict {:?}",
+                            line
                         );
                     }
                     // go deeper inside THEIRS
@@ -363,7 +366,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                                 let hd = hunk_deltas.last().unwrap();
                                 let le = hunk_deltas.len();
                                 hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
-                                trace!("......remain marker theirs when not found {:?}", hunk_deltas);
+                                debug!("......remain marker theirs (kill -) when not current conflict {:?}", line);
                             }
                             // conflict is over
                             // go out to next conflict
@@ -375,6 +378,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                             if this_is_current_conflict {
                                 if ours_choosed {
                                     // theirs will be deleted
+                                    debug!("......push THEIRS AS IS cause OURS choosed {:?}", line);
                                     acc.push(line);
                                     acc.push(NEW_LINE);
                                 } else {
@@ -386,9 +390,9 @@ pub fn choose_conflict_side_of_blob<'a>(
                                     let hd = hunk_deltas.last().unwrap();
                                     let le = hunk_deltas.len();
                                     hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
-                                    trace!(
-                                        "......remain theirs in found {:?}",
-                                        hunk_deltas
+                                    debug!(
+                                        "......remain theirs (kill -) cause theirs choosed {:?}",
+                                        line
                                     );
                                 }
                             } else {
@@ -399,7 +403,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                                 let hd = hunk_deltas.last().unwrap();
                                 let le = hunk_deltas.len();
                                 hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
-                                trace!("......remain theirs when not in found {:?}", hunk_deltas);
+                                debug!("......remain theirs (kill -) when not current conflict {:?}", line);
                             }
                         }
                     }
@@ -409,6 +413,10 @@ pub fn choose_conflict_side_of_blob<'a>(
                     if this_is_current_conflict {
                         if ours_choosed {
                             // remain our lines
+                            debug!(
+                                "......choose ours. push line as is cause OUR chosed {:?}",
+                                line
+                            );
                             acc.push(line);
                             acc.push("\n");
                         } else {
@@ -419,13 +427,17 @@ pub fn choose_conflict_side_of_blob<'a>(
                             let hd = hunk_deltas.last().unwrap();
                             let le = hunk_deltas.len();
                             hunk_deltas[le - 1] = (hd.0, hd.1 - 1);
-                            trace!(
-                                "......delete ours in found {:?}",
-                                hunk_deltas
+                            debug!(
+                                "......delete ours (FORCE -) cause THEIR chosed {:?}",
+                                line
                             );
                         }
                     } else {
                         // remain our lines
+                        debug!(
+                            "......REMAIN ours AS IS cause this is not current conflict {:?}",
+                            line
+                        );
                         acc.push(line);
                         acc.push(NEW_LINE);
                     }
@@ -435,14 +447,14 @@ pub fn choose_conflict_side_of_blob<'a>(
             // line not belonging to conflict
             if !line.is_empty() && line[1..].contains(MARKER_HUNK) {
                 hunk_deltas.push((line, 0));
-                trace!(
+                debug!(
                     "----------->reset offset for hunk {:?} {:?}",
                     line_offset_inside_hunk,
                     line
                 );
                 line_offset_inside_hunk = -1;
             } else {
-                trace!(
+                debug!(
                     "increment offset for line {:?} {:?}",
                     line_offset_inside_hunk,
                     line
@@ -456,6 +468,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                 // conflicts markers, but their choosen lines
                 // will be marked for deletion (there are no such lines
                 // in tree and the diff is reversed
+                debug!("fix previously resolved DUBBY conflict ??????????????? {:?}", line);
                 acc.push(SPACE);
                 acc.push(&line[1..]);
                 acc.push(NEW_LINE);
@@ -613,7 +626,8 @@ pub fn choose_conflict_side_of_hunk(
         }
         prev_delta = delta;
     }
-
+    debug!("reverse headers! {:?} vssssssssssssss      {:?}", reversed_header, updated_reversed_header);
+    
     let git_diff = match git2::Diff::from_buffer(new_body.as_bytes()) {
         Ok(gd) => gd,
         Err(error) => {
@@ -621,6 +635,7 @@ pub fn choose_conflict_side_of_hunk(
             return Err(error);
         }
     };
+    debug!("CREEEEEEEEEEEEEATED DIFF!");
     
     let mut apply_options = git2::ApplyOptions::new();
     
