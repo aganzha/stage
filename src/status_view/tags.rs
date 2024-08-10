@@ -321,10 +321,8 @@ impl TxtTag {
             CONFLICT_MARKER => {
                 tag.set_foreground(Some("#ff0000"));
             }
-            OURS => {
-            }
-            THEIRS => {
-            }
+            OURS => {}
+            THEIRS => {}
             unknown => {
                 debug!("unknown tag {}", unknown);
             }

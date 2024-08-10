@@ -273,8 +273,7 @@ pub fn choose_conflict_side_of_blob<'a>(
     choosed_line_offset: i32,
     choosed_hunk_header: &'a str,
     ours_choosed: bool,
-) -> String
-{
+) -> String {
     // so. we have full file blobs, perhaps with lots
     // of conflicts.
     // the diff itself will not show +
@@ -303,7 +302,7 @@ pub fn choose_conflict_side_of_blob<'a>(
     //   theirs
     // - >>>>> stashed
     // for some reason. why????
-    
+
     // so. there are 2 bugs in such case.
     // 1. when choose something in another hunk/conflict,
     // in this 'equal' hunks markers are killed, ours are
@@ -319,7 +318,7 @@ pub fn choose_conflict_side_of_blob<'a>(
     // from original!
     // looks like that because updated_reverse_header add 5 lines!
     // why? why lines were added? thats delta, somehow.
-    
+
     let mut acc = Vec::new();
 
     let mut lines = raw.lines();
@@ -334,24 +333,31 @@ pub fn choose_conflict_side_of_blob<'a>(
 
             let last_hunk_header = hunk_deltas.last().unwrap().0;
             if last_hunk_header == choosed_hunk_header
-                && line_offset_inside_hunk == choosed_line_offset {
-                    this_is_current_conflict = true;
-                }
+                && line_offset_inside_hunk == choosed_line_offset
+            {
+                this_is_current_conflict = true;
+            }
             // TODO! do not need to handle all hunks here!
             // it is possible to keep them as is!!!!!!!!!!!!!!!
 
-            // only it could be usefull - when 'choose ours/theirs' in all of conflicts            
-            
+            // only it could be usefull - when 'choose ours/theirs' in all of conflicts
+
             // if predicate(
             //     line_offset_inside_hunk,
             //     hunk_deltas.last().unwrap().0,
             // ) {
             //     this_is_current_conflict = true;
             // }
-            debug!("======== current conflict? {:?}  last delta = {:?}", this_is_current_conflict, hunk_deltas.last().unwrap().0);
+            trace!(
+                "======== current conflict? {:?}  last delta = {:?}",
+                this_is_current_conflict,
+                hunk_deltas.last().unwrap().0
+            );
             if this_is_current_conflict {
                 // this marker will be deleted
-                debug!("current conflict. will delete OUR marker by keeping -");
+                trace!(
+                    "current conflict. will delete OUR marker by keeping -"
+                );
                 acc.push(line);
                 acc.push(NEW_LINE);
             } else {
@@ -363,7 +369,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                 let hd = hunk_deltas.last().unwrap();
                 let le = hunk_deltas.len();
                 hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
-                debug!(
+                trace!(
                     "......remain marker ours (delete -) when not current conflict {:?}",
                     line
                 );
@@ -384,7 +390,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                         let hd = hunk_deltas.last().unwrap();
                         let le = hunk_deltas.len();
                         hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
-                        debug!(
+                        trace!(
                             "......remain marker vs when not current conflict {:?}",
                             line
                         );
@@ -408,7 +414,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                                 let hd = hunk_deltas.last().unwrap();
                                 let le = hunk_deltas.len();
                                 hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
-                                debug!("......remain marker theirs (kill -) when not current conflict {:?}", line);
+                                trace!("......remain marker theirs (kill -) when not current conflict {:?}", line);
                             }
                             // conflict is over
                             // go out to next conflict
@@ -421,7 +427,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                                 if ours_choosed {
                                     // theirs will be deleted
                                     // #1.theirs
-                                    debug!("......kill THEIRS (force -) cause OURS choosed {:?}", line);
+                                    trace!("......kill THEIRS (force -) cause OURS choosed {:?}", line);
                                     acc.push(MINUS);
                                     acc.push(&line[1..]);
                                     acc.push(NEW_LINE);
@@ -434,7 +440,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                                     let hd = hunk_deltas.last().unwrap();
                                     let le = hunk_deltas.len();
                                     hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
-                                    debug!(
+                                    trace!(
                                         "......remain theirs (kill -) cause theirs choosed {:?}",
                                         line
                                     );
@@ -448,7 +454,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                                 let hd = hunk_deltas.last().unwrap();
                                 let le = hunk_deltas.len();
                                 hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
-                                debug!("......remain theirs (kill -) when not current conflict {:?}", line);
+                                trace!("......remain theirs (kill -) when not current conflict {:?}", line);
                             }
                         }
                     }
@@ -458,7 +464,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                     if this_is_current_conflict {
                         if ours_choosed {
                             // remain our lines
-                            debug!(
+                            trace!(
                                 "111111111111......choose ours. push line as is cause OUR chosed {:?}",
                                 line
                             );
@@ -473,14 +479,14 @@ pub fn choose_conflict_side_of_blob<'a>(
                             let hd = hunk_deltas.last().unwrap();
                             let le = hunk_deltas.len();
                             hunk_deltas[le - 1] = (hd.0, hd.1 - 1);
-                            debug!(
+                            trace!(
                                 "......delete ours (FORCE -) cause THEIR chosed {:?}",
                                 line
                             );
                         }
                     } else {
                         // remain our lines
-                        debug!(
+                        trace!(
                             "......REMAIN ours (should be as is but force kill -) cause this is not current conflict {:?}",
                             line
                         );
@@ -497,14 +503,14 @@ pub fn choose_conflict_side_of_blob<'a>(
             // line not belonging to conflict
             if !line.is_empty() && line[1..].contains(MARKER_HUNK) {
                 hunk_deltas.push((line, 0));
-                debug!(
+                trace!(
                     "----------->reset offset for hunk {:?} {:?}",
                     line_offset_inside_hunk,
                     line
                 );
                 line_offset_inside_hunk = -1;
             } else {
-                debug!(
+                trace!(
                     "increment offset for line {:?} {:?}",
                     line_offset_inside_hunk,
                     line
@@ -518,7 +524,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                 // conflicts markers, but their choosen lines
                 // will be marked for deletion (there are no such lines
                 // in tree and the diff is reversed
-                debug!("fix previously resolved DUBBY conflict ??????????????? {:?}", line);
+                trace!("fix previously resolved DUBBY conflict ??????????????? {:?}", line);
                 acc.push(SPACE);
                 acc.push(&line[1..]);
                 acc.push(NEW_LINE);
@@ -542,7 +548,7 @@ pub fn choose_conflict_side_of_hunk(
     interhunk: Option<u32>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
-    debug!(
+    trace!(
         "choose_conflict_side_of_hunk {:?} Line: {:?} Interhunk: {:?}",
         hunk.header,
         line.content(&hunk),
@@ -633,9 +639,9 @@ pub fn choose_conflict_side_of_hunk(
         }
     };
     let raw = buff.as_str().unwrap();
-    debug!("OLD body BEFORE patch ___________________");
+    trace!("OLD body BEFORE patch ___________________");
     for line in raw.lines() {
-        debug!("{}", line);
+        trace!("{}", line);
     }
     let ours_choosed = line.is_our_side_of_conflict();
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
@@ -651,30 +657,33 @@ pub fn choose_conflict_side_of_hunk(
         &reversed_header,
         ours_choosed,
     );
-    debug!("new body for patch ___________________");
-    for line in new_body.lines() {
-        debug!("{}", line);
-    }
-    
+    // trace!("new body for patch ___________________");
+    // for line in new_body.lines() {
+    //     trace!("{}", line);
+    // }
+
     // so. not only new lines are changed. new_start are changed also!!!!!!
     // it need to add delta of prev hunk int new start of next hunk!!!!!!!!
     let mut prev_delta = 0;
 
-    
     let mut updated_reversed_header = String::from("");
-    
+
     for (hh, delta) in hunk_deltas {
         let new_header =
             Hunk::shift_new_start_and_lines(hh, prev_delta, delta);
-        debug!("adjusting delta >> prev delta {:?}, delta {:?} hh {:?} new_header {:?}", prev_delta, delta, hh, new_header);
+        trace!("adjusting delta >> prev delta {:?}, delta {:?} hh {:?} new_header {:?}", prev_delta, delta, hh, new_header);
         new_body = new_body.replace(hh, &new_header);
         if hh == reversed_header {
             updated_reversed_header = new_header;
         }
         prev_delta += delta;
     }
-    debug!("reverse headers! {:?} vssssssssssssss      {:?}", reversed_header, updated_reversed_header);
-    
+    trace!(
+        "reverse headers! {:?} vssssssssssssss      {:?}",
+        reversed_header,
+        updated_reversed_header
+    );
+
     let git_diff = match git2::Diff::from_buffer(new_body.as_bytes()) {
         Ok(gd) => gd,
         Err(error) => {
@@ -682,10 +691,10 @@ pub fn choose_conflict_side_of_hunk(
             return Err(error);
         }
     };
-    debug!("CREEEEEEEEEEEEEATED DIFF!");
-    
+    trace!("CREEEEEEEEEEEEEATED DIFF!");
+
     let mut apply_options = git2::ApplyOptions::new();
-    
+
     apply_options.hunk_callback(|odh| -> bool {
         if let Some(dh) = odh {
             let header = Hunk::get_header_from(&dh);
@@ -713,7 +722,6 @@ pub fn choose_conflict_side_of_hunk(
         )
         .err();
 
-    
     sender
         .send_blocking(crate::Event::LockMonitors(false))
         .expect("Could not send through channel");
@@ -722,8 +730,8 @@ pub fn choose_conflict_side_of_hunk(
 
     if let Some(error) = apply_error {
         return Err(error);
-    }    
-    
+    }
+
     cleanup_last_conflict_for_file(
         path,
         file_path.clone(),
@@ -761,7 +769,7 @@ pub fn cleanup_last_conflict_for_file(
             }
         }
     } else {
-        debug!("cleanup_last_conflict_for_file. no mor conflicts! restore file in index!");
+        trace!("cleanup_last_conflict_for_file. no mor conflicts! restore file in index!");
         index.remove_path(Path::new(&file_path))?;
         index.add_path(Path::new(&file_path))?;
         index.write()?;

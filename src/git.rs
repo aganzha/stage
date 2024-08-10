@@ -788,7 +788,10 @@ pub fn get_current_repo_status(
                 let diff = get_conflicted_v1(path, None);
                 // why do i need state?
                 sender
-                    .send_blocking(crate::Event::Conflicted(diff, Some(State::new(state, "".to_string()))))
+                    .send_blocking(crate::Event::Conflicted(
+                        diff,
+                        Some(State::new(state, "".to_string())),
+                    ))
                     .expect("Could not send through channel");
             }
         });
@@ -796,7 +799,10 @@ pub fn get_current_repo_status(
         // cleanup conflicts while switching repo
         let state = repo.state();
         sender
-            .send_blocking(crate::Event::Conflicted(None, Some(State::new(state, "".to_string()))))
+            .send_blocking(crate::Event::Conflicted(
+                None,
+                Some(State::new(state, "".to_string())),
+            ))
             .expect("Could not send through channel");
     }
 
@@ -936,7 +942,10 @@ pub fn get_conflicted_v1(
                 }
             }
         }
-        debug!("hunks to join during get_conflicted {:?}", hunks_to_join.len());
+        debug!(
+            "hunks to join during get_conflicted {:?}",
+            hunks_to_join.len()
+        );
         if !hunks_to_join.is_empty() {
             let interhunk = hunks_to_join.iter().fold(0, |acc, from_to| {
                 if acc < from_to.1 - from_to.0 {
