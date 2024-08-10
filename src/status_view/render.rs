@@ -21,8 +21,8 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
 use log::{debug, trace};
-use std::path::PathBuf;
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 pub const LINE_NO_SPACE: i32 = 6;
 
@@ -469,12 +469,12 @@ pub trait ViewContainer {
         let initial_line_offset = iter.line_offset();
 
         let mut applied_tags = HashSet::new();
-            
+
         let view = self.get_view();
         for tag in view.added_tags() {
             applied_tags.insert(tag.name().to_string());
         }
-        
+
         // let mut line_no = view.line_no.get();
         let line_no = view.line_no.get() - context.erase_counter;
         let mut iter = buffer.iter_at_line(line_no).unwrap();
@@ -944,10 +944,11 @@ impl ViewContainer for Line {
                     DiffLineType::Addition => {
                         return vec![make_tag(tags::ADDED)]
                     }
-                    DiffLineType::Deletion => { //  |  DiffLineType::Context
+                    DiffLineType::Deletion => {
+                        //  |  DiffLineType::Context
                         // this is a hack. in Ours lines got Context origin
                         // while Theirs got Addition
-                        return vec![make_tag(tags::REMOVED)]
+                        return vec![make_tag(tags::REMOVED)];
                     }
                     _ => {}
                 }
