@@ -938,11 +938,19 @@ impl ViewContainer for Line {
             LineKind::ConflictMarker(_) => {
                 return vec![make_tag(tags::CONFLICT_MARKER)]
             }
-            // .............................................???? PERHAPS OURS?? was CONFLICT_MARKER
-            LineKind::Ours(_) => return vec![make_tag(tags::OURS)],
-            LineKind::Theirs(_) => {
-                // return Vec::new();
-                return vec![make_tag(tags::THEIRS)];
+            // no need to mark theirs/ours. use regular colors downwhere
+            LineKind::Ours(_) | LineKind::Theirs(_) => {
+                match self.origin {
+                    DiffLineType::Addition => {
+                        return vec![make_tag(tags::ADDED)]
+                    }
+                    DiffLineType::Deletion => { //  |  DiffLineType::Context
+                        // this is a hack. in Ours lines got Context origin
+                        // while Theirs got Addition
+                        return vec![make_tag(tags::REMOVED)]
+                    }
+                    _ => {}
+                }
             }
             _ => {}
         }

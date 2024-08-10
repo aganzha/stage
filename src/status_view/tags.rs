@@ -319,22 +319,11 @@ impl TxtTag {
                 tag.set_foreground(Some("#8b6508"));
             }
             CONFLICT_MARKER => {
-                if is_dark {
-                } else {
-                    tag.set_foreground(Some("#ff0000"));
-                }
+                tag.set_foreground(Some("#ff0000"));
             }
             OURS => {
-                if is_dark {
-                } else {
-                    tag.set_foreground(Some("#2ec27e"));
-                }
             }
             THEIRS => {
-                if is_dark {
-                } else {
-                    tag.set_foreground(Some("#2ec27e"));
-                }
             }
             unknown => {
                 debug!("unknown tag {}", unknown);

@@ -1231,7 +1231,7 @@ impl Status {
                                 let window = window.clone();
                                 let interhunk = conflicted.interhunk;
                                 async move {
-                                    if hunk.conflicts_count > 0
+                                    if hunk.conflict_markers_count > 0
                                         && line.is_side_of_conflict()
                                     {
                                         info!("choose_conflict_side_of_hunk");

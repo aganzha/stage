@@ -272,12 +272,54 @@ pub fn choose_conflict_side_of_blob<'a>(
     hunk_deltas: &mut Vec<(&'a str, i32)>,
     choosed_line_offset: i32,
     choosed_hunk_header: &'a str,
-    // predicate: F,
     ours_choosed: bool,
 ) -> String
-// where
-//    F: Fn(i32, &str) -> bool,
 {
+    // so. we have full file blobs, perhaps with lots
+    // of conflicts.
+    // the diff itself will not show +
+    // it will have only minus, cause the purpose of diff
+    // is to erase all to the moment before applying
+    // and return to original tree.
+    // so, when i have
+    // <<< upstream
+    // ====
+    // >>>> stashed
+    // all stashed must go to -, right?
+    // wrong! git diff could choose other side to +
+    // simple git diff (without reverse) should
+    // show
+    // - <<< upstream
+    //  ours
+    // - ======
+    // - theirs
+    // - >>>>> stashed
+
+    // BUT! it could show
+
+    // - <<< upstream
+    // - ours
+    // - ======
+    //   theirs
+    // - >>>>> stashed
+    // for some reason. why????
+    
+    // so. there are 2 bugs in such case.
+    // 1. when choose something in another hunk/conflict,
+    // in this 'equal' hunks markers are killed, ours are
+    // remain as is with - and theirs remain as is:
+    // <<< upstream
+    // - ours
+    // ======
+    //   theirs
+    // >>>>> stashed
+    // to fix, it need to force clean ours side
+    // 2. when choose exact this wrong ours in this conflict
+    // patch does not apply, for some reason. though it is not changed
+    // from original!
+    // looks like that because updated_reverse_header add 5 lines!
+    // why? why lines were added? thats delta, somehow.
+    
     let mut acc = Vec::new();
 
     let mut lines = raw.lines();
@@ -438,6 +480,9 @@ pub fn choose_conflict_side_of_blob<'a>(
                             "......REMAIN ours AS IS cause this is not current conflict {:?}",
                             line
                         );
+                        // here got the bug, when absolutelly 2 equal lines and git choses ours
+                        // instead of theirs. theirs have -, but it will be killed, but it is also
+                        // need to kill - in ours!
                         acc.push(line);
                         acc.push(NEW_LINE);
                     }
@@ -599,10 +644,6 @@ pub fn choose_conflict_side_of_hunk(
         &mut hunk_deltas,
         conflict_offset_inside_hunk,
         &reversed_header,
-        // |line_offset_inside_hunk, hunk_header| {
-        //     line_offset_inside_hunk == conflict_offset_inside_hunk
-        //         && hunk_header == reversed_header
-        // },
         ours_choosed,
     );
     debug!("new body for patch ___________________");
@@ -620,11 +661,12 @@ pub fn choose_conflict_side_of_hunk(
     for (hh, delta) in hunk_deltas {
         let new_header =
             Hunk::shift_new_start_and_lines(hh, prev_delta, delta);
+        debug!("adjusting delta >> prev delta {:?}, delta {:?} hh {:?} new_header {:?}", prev_delta, delta, hh, new_header);
         new_body = new_body.replace(hh, &new_header);
         if hh == reversed_header {
             updated_reversed_header = new_header;
         }
-        prev_delta = delta;
+        prev_delta += delta;
     }
     debug!("reverse headers! {:?} vssssssssssssss      {:?}", reversed_header, updated_reversed_header);
     
@@ -702,7 +744,7 @@ pub fn cleanup_last_conflict_for_file(
     let mut update_status = true;
     if let Some(diff) = get_conflicted_v1(path.clone(), interhunk) {
         for file in &diff.files {
-            if file.hunks.iter().any(|h| h.conflicts_count > 0) {
+            if file.hunks.iter().any(|h| h.conflict_markers_count > 0) {
                 if file.path == file_path {
                     update_status = false;
                 }

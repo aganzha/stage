@@ -143,7 +143,7 @@ pub struct Hunk {
     pub lines: Vec<Line>,
     pub max_line_len: i32,
     pub kind: DiffKind,
-    pub conflicts_count: i32,
+    pub conflict_markers_count: i32,
     pub buf: String,
 }
 
@@ -161,7 +161,7 @@ impl Hunk {
             new_lines: 0,
             max_line_len: 0,
             kind,
-            conflicts_count: 0,
+            conflict_markers_count: 0,
             buf: String::new(),
         }
     }
@@ -344,7 +344,7 @@ impl Hunk {
 
         match &prefix[..] {
             MARKER_OURS | MARKER_THEIRS | MARKER_VS => {
-                self.conflicts_count += 1;
+                self.conflict_markers_count += 1;
                 line.kind = LineKind::ConflictMarker(prefix);
             }
             _ => {}
@@ -362,21 +362,21 @@ impl Hunk {
                     "sec match. ours after ours MARKER ??????????? {:?}",
                     marker_ours
                 );
-                line.kind = LineKind::Ours(self.conflicts_count)
+                line.kind = LineKind::Ours(self.conflict_markers_count)
             }
             (LineKind::Ours(_), LineKind::None) => {
                 trace!("sec match. ours after ours LINE");
-                line.kind = LineKind::Ours(self.conflicts_count)
+                line.kind = LineKind::Ours(self.conflict_markers_count)
             }
             (LineKind::ConflictMarker(marker), LineKind::None)
                 if marker == marker_vs =>
             {
                 trace!("sec match. theirs after vs MARKER");
-                line.kind = LineKind::Theirs(self.conflicts_count)
+                line.kind = LineKind::Theirs(self.conflict_markers_count)
             }
             (LineKind::Theirs(_), LineKind::None) => {
                 trace!("sec match. theirs after theirs LINE");
-                line.kind = LineKind::Theirs(self.conflicts_count)
+                line.kind = LineKind::Theirs(self.conflict_markers_count)
             }
             (LineKind::None, LineKind::None) => {
                 trace!("sec match. contenxt????")
@@ -529,7 +529,7 @@ impl Diff {
         self.files
             .iter()
             .flat_map(|f| &f.hunks)
-            .any(|h| h.conflicts_count > 0)
+            .any(|h| h.conflict_markers_count > 0)
     }
 }
 
