@@ -625,6 +625,7 @@ pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) {
             .peel(ObjectType::Commit)
             .expect("can't get commit from ref!");
         let commit = ob.peel_to_commit().expect("can't get commit from ob!");
+        debug!("upstream branch name.................. {:?}", upstream.branch_name());
         let mut new_upstream = Head::new(&upstream.branch_name(), &commit);
         new_upstream.remote = true;
         sender
