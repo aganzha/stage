@@ -187,19 +187,19 @@ pub fn push(
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
 ) -> Result<(), RemoteResponse> {
+    // "origin/untracked_diff" "aganzha/untracked_diff" ????? why?
     debug!("remote branch {:?}", remote_branch);
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
+    //  Some("refs/heads/untracked_diff")
     let head_ref = repo.head().expect("can't get head");
-    debug!("push.head ref name {:?}", head_ref.name());
     assert!(head_ref.is_branch());
-    let refspec = format!(
-        "{}:refs/heads/{}",
-        head_ref.name().unwrap(),
-        remote_branch.replace("origin/", "")
-    );
+    let head_ref_name = head_ref.name().expect("can't get head");
+
+    let refspec = format!("{}:refs/heads/{}", head_ref_name, remote_branch);
     trace!("push. refspec {}", refspec);
     let mut branch = git2::Branch::wrap(head_ref);
     let mut remote = repo
+        // .find_remote("aganzha") // TODO here is hardcode
         .find_remote("origin") // TODO here is hardcode
         .expect("no remote");
 

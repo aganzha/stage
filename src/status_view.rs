@@ -500,12 +500,13 @@ impl Status {
 
     pub fn choose_remote(&self) -> String {
         if let Some(upstream) = &self.upstream {
+            debug!("???????????????? {:?}", upstream.branch);
             return upstream.branch.clone();
         }
         if let Some(head) = &self.head {
-            return format!("origin/{}", &head.branch);
+            return format!("{}", &head.branch);
         }
-        String::from("origin/master")
+        String::from("master")
     }
 
     pub fn commit(
@@ -703,7 +704,6 @@ impl Status {
                     // );
                     // self.conflicted_label.view.dirty(true);
                 }
-                debug!("wtf????????????????????? {:?}", self.state);
                 if state.need_final_commit() || state.need_rebase_continue() {
                     banner.set_title(&state.title_for_proceed_banner());
                     banner.set_css_classes(&["success"]);
