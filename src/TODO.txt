@@ -1,3 +1,11 @@
+BUG: wtf in conflicts merging _1 to spare? must be 1 hunk!
+
+BUG: [DEBUG stage::status_view] update untracked! false
+thread 'main' panicked at src/branches_view.rs:299:35:
+called `Option::unwrap()` on a `None` value
+stack backtrace:
+
+BUG: cant kill hunk, when hunk is only No new line at end of file
 TODO: so. when call update_x.. on status view finally render was called if there is something to render.
 BUT, some wird artifacts with line height exists. tags????? nopes. does not helped.
 the views become rendered not in place after erasing and all are fucked up.

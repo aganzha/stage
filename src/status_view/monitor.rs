@@ -83,7 +83,7 @@ impl Status {
                                             .unwrap()
                                             .replace("./git/", "")
                                     ).expect("wrong path in strip");
-                                    debug!("file path in monitor! {:?}", str_file_path);
+                                    trace!("file path in monitor! {:?}", str_file_path);
                                     for pat in patterns_to_exclude {
                                         if str_file_path.contains(pat) {
                                             return;
@@ -91,11 +91,11 @@ impl Status {
                                     }
                                     let file_path: PathBuf = str_file_path.into();
                                     if lock.borrow().contains(&file_path) {
-                                        debug!("NO WAY: monitor locked");
+                                        trace!("NO WAY: monitor locked");
                                         return;
                                     }
                                     lock.borrow_mut().insert(file_path.clone());
-                                    debug!("set monitor lock for file {:?}", &file_path);
+                                    trace!("set monitor lock for file {:?}", &file_path);
                                     glib::source::timeout_add_local(
                                         Duration::from_millis(300),
                                         {

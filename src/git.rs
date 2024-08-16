@@ -625,7 +625,10 @@ pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) {
             .peel(ObjectType::Commit)
             .expect("can't get commit from ref!");
         let commit = ob.peel_to_commit().expect("can't get commit from ob!");
-        debug!("upstream branch name.................. {:?}", upstream.branch_name());
+        debug!(
+            "upstream branch name.................. {:?}",
+            upstream.branch_name()
+        );
         let mut new_upstream = Head::new(&upstream.branch_name(), &commit);
         new_upstream.remote = true;
         sender
@@ -1388,7 +1391,10 @@ pub fn track_changes(
     has_conflicted: bool,
     sender: Sender<crate::Event>,
 ) {
-    info!("track changes {:?} {:?}", file_path, has_conflicted);
+    debug!(
+        "................track changes {:?} has conflicted? {:?}",
+        file_path, has_conflicted
+    );
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let file_path = file_path
@@ -1399,23 +1405,17 @@ pub fn track_changes(
     let mut status_opts = StatusOptions::new();
     status_opts.include_unmodified(false);
     let mut is_tracked = false;
-    let mut has_others = false;
+    let mut has_other_modified = false;
     for status_entry in &repo
         .statuses(Some(&mut status_opts))
         .expect("cant get statuses")
     {
         let path = status_entry.path().expect("no path");
-        debug!(
-            ".................. {:?} {:?} for {:?}",
-            status_entry.status(),
-            path,
-            file_path
-        );
         if status_entry.status() == Status::WT_MODIFIED {
             if path == file_path {
                 is_tracked = true;
             } else {
-                has_others = true;
+                has_other_modified = true;
             }
         }
     }
@@ -1431,11 +1431,12 @@ pub fn track_changes(
             }
         }
     }
-    // conflicts could be resolved right in this file change
-    // but it need to update conflicted anyways
-    // let mut kind = DiffKind::Unstaged;
-    // let mut opts = make_diff_options();
-    // let mut found = false;
+    if has_conflicted {
+        assert!(is_tracked);
+    }
+    // conflicts could be resolved right in this file change manually
+    // but it need to update conflicted anyways if we had them!
+    // see else below!
     if index.has_conflicts() {
         let conflicts = index.conflicts().expect("cant get conflicts");
         for conflict in conflicts.flatten() {
@@ -1443,41 +1444,49 @@ pub fn track_changes(
                 let conflict_path =
                     String::from_utf8(our.path.clone()).unwrap();
                 if file_path == conflict_path {
-                    let diff = get_conflicted_v1(path, interhunk);
-                    let state = repo.state();
-                    if let Some(diff) = diff {
-                        // track concflict file
-                        let event =
-                            crate::Event::TrackedFile(file_path.into(), diff);
-                        sender
-                            .send_blocking(event)
-                            .expect("Could not send through channel");
-                    } else {
-                        // cleanup conflicts
-                        let event = crate::Event::Conflicted(
-                            None,
-                            Some(State::new(state, "".to_string())),
-                        );
-                        sender
-                            .send_blocking(event)
-                            .expect("Could not send through channel");
-                    }
+                    // unwrap is forced here, cause this diff could not
+                    // be empty
+                    let diff = get_conflicted_v1(path, interhunk).unwrap();
+                    let event =
+                        crate::Event::TrackedFile(file_path.into(), diff);
+                    sender
+                        .send_blocking(event)
+                        .expect("Could not send through channel");
                     return;
                 }
             }
         }
-    } else if is_tracked {
+    }
+    if is_tracked {
+        if has_conflicted {
+            // this means file was in conflicted but now it is fixed manually!
+            // it is no longer in index conflicts.
+            // it must be in staged or unstaged then
+            get_current_repo_status(Some(path), sender);
+            return;
+        }
         let mut opts = make_diff_options();
         opts.pathspec(&file_path);
         let git_diff = repo
             .diff_index_to_workdir(Some(&index), Some(&mut opts))
             .expect("cant' get diff index to workdir");
         let diff = make_diff(&git_diff, DiffKind::Unstaged);
-        if diff.is_empty() && !has_others {
+        if diff.is_empty() && !has_other_modified {
+            debug!(
+                "***********diff is empty AND no other files? {:?} {:?}",
+                diff.is_empty(),
+                !has_other_modified
+            );
             sender
                 .send_blocking(crate::Event::Unstaged(None))
                 .expect("Could not send through channel");
         } else {
+            // hm it is possible that diff is empty and has othe files?
+            debug!(
+                "***********diff is empty OR has other files {:?} {:?}",
+                diff.is_empty(),
+                has_other_modified
+            );
             sender
                 .send_blocking(crate::Event::TrackedFile(
                     file_path.into(),
