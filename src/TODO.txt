@@ -1,3 +1,14 @@
+BUG: open just crteated repo (created via cargo) - panics
+thread '<unnamed>' panicked at src/git.rs:592:32:
+can't get head: Error { code: -9, klass: 4, message: "reference 'refs/heads/master' not found" }
+stack backtrace:
+thread '<unnamed>' panicked at src/git.rs:977:50:
+fail revparse: Error { code: -3, klass: 4, message: "revspec 'HEAD' not found" }
+thread '<unnamed>' panicked at src/git.rs:737:53:
+fail revparse: Error { code: -3, klass: 4, message: "revspec 'HEAD' not found" }
+
+
+
 BUG: wtf in conflicts merging _1 to spare? must be 1 hunk!
 
 BUG: [DEBUG stage::status_view] update untracked! false
