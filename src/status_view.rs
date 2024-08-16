@@ -504,7 +504,7 @@ impl Status {
             return upstream.branch.clone();
         }
         if let Some(head) = &self.head {
-            return format!("{}", &head.branch);
+            return (&head.branch).to_string();
         }
         String::from("master")
     }
