@@ -637,7 +637,7 @@ impl Status {
                 }
             }
             debug!(
-                "call track changes in status_view {:?} {:?}",
+                "************call track changes in status_view has_conflicted? {:?} interhunk {:?}",
                 has_conflicted, interhunk
             );
             move || {
