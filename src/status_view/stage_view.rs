@@ -508,11 +508,11 @@ pub fn factory(
 
     let num_clicks = Rc::new(Cell::new(0));
 
-    let gesture_controller = GestureDrag::new();
-    gesture_controller.connect_drag_begin(|_, _, _| {
-        debug!("whyyyyyyyyyyyyyyyyyyyyyy drag is triggered? gesture drag!");
-    });
-    txt.add_controller(gesture_controller);
+    // let gesture_controller = GestureDrag::new();
+    // gesture_controller.connect_drag_begin(|_, _, _| {
+    //     debug!("whyyyyyyyyyyyyyyyyyyyyyy drag is triggered? gesture drag!");
+    // });
+    // txt.add_controller(gesture_controller);
 
     let gesture_controller = GestureClick::new();
     gesture_controller.connect_released({
@@ -521,67 +521,64 @@ pub fn factory(
         let pointer = pointer.clone();
         move |gesture, n_clicks, wx, wy| {
             gesture.set_state(EventSequenceState::Claimed);
-            let (x, y) = txt.window_to_buffer_coords(
-                TextWindowType::Text,
-                wx as i32,
-                wy as i32,
-            );
-            if let Some(iter) = txt.iter_at_location(x, y) {
-                let pos = iter.offset();
-                let has_pointer = iter.has_tag(&pointer);
-                sndr.send_blocking(crate::Event::Cursor(
-                    iter.offset(),
-                    iter.line(),
-                )).expect("Could not send through channel");
-                if has_pointer {
-                    num_clicks.replace(n_clicks);
-                    glib::source::timeout_add_local(Duration::from_millis(200), {
-                        let num_clicks = num_clicks.clone();
-                        let staged = staged.clone();
-                        let unstaged = unstaged.clone();
-                        let sndr = sndr.clone();
-                        let txt = txt.clone();
-                        move || {
-                            if num_clicks.get() == n_clicks {
-                                let iter = txt.buffer().iter_at_offset(pos);
-                                match n_clicks {
-                                    1 => {
-                                        sndr.send_blocking(crate::Event::Expand(
+
+            let iter = txt.buffer().iter_at_offset(txt.buffer().cursor_position());
+            
+            let pos = iter.offset();
+            let has_pointer = iter.has_tag(&pointer);
+            sndr.send_blocking(crate::Event::Cursor(
+                iter.offset(),
+                iter.line(),
+            )).expect("Could not send through channel");
+            if has_pointer {
+                num_clicks.replace(n_clicks);
+                glib::source::timeout_add_local(Duration::from_millis(200), {
+                    let num_clicks = num_clicks.clone();
+                    let staged = staged.clone();
+                    let unstaged = unstaged.clone();
+                    let sndr = sndr.clone();
+                    let txt = txt.clone();
+                    move || {
+                        if num_clicks.get() == n_clicks {
+                            let iter = txt.buffer().iter_at_offset(pos);
+                            match n_clicks {
+                                1 => {
+                                    sndr.send_blocking(crate::Event::Expand(
+                                        iter.offset(),
+                                        iter.line(),
+                                    )).expect("Could not send through channel");
+                                },
+                                2 => {
+                                    debug!(
+                                        "DOOOOOOOUBLE CLICK has staged and unstaged tags? {:?} {:?}",
+                                        iter.has_tag(&staged),
+                                        iter.has_tag(&unstaged)
+                                    );
+                                    if iter.has_tag(&staged) {
+                                        sndr.send_blocking(crate::Event::UnStage(
                                             iter.offset(),
                                             iter.line(),
                                         )).expect("Could not send through channel");
-                                    },
-                                    2 => {
-                                        debug!(
-                                            "DOOOOOOOUBLE CLICK has staged and unstaged tags? {:?} {:?}",
-                                            iter.has_tag(&staged),
-                                            iter.has_tag(&unstaged)
-                                        );
-                                        if iter.has_tag(&staged) {
-                                            sndr.send_blocking(crate::Event::UnStage(
-                                                iter.offset(),
-                                                iter.line(),
-                                            )).expect("Could not send through channel");
-                                        }
-                                        if iter.has_tag(&unstaged) {
-                                            sndr.send_blocking(crate::Event::Stage(
-                                                iter.offset(),
-                                                iter.line(),
-                                            )).expect("Could not send through channel");
-                                        }
-
-                                    },
-                                    _ => {
                                     }
-                                }
-                                trace!("PERFORM REAL CLICK {:?}", n_clicks);
-                            }
-                            ControlFlow::Break
-                        }
-                    });
+                                    if iter.has_tag(&unstaged) {
+                                        sndr.send_blocking(crate::Event::Stage(
+                                            iter.offset(),
+                                            iter.line(),
+                                        )).expect("Could not send through channel");
+                                    }
 
-                }
+                                },
+                                _ => {
+                                }
+                            }
+                            trace!("PERFORM REAL CLICK {:?}", n_clicks);
+                        }
+                        ControlFlow::Break
+                    }
+                });
+
             }
+            // }
         }
     });
 
