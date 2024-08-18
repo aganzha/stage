@@ -516,7 +516,6 @@ pub fn factory(
     txt.add_controller(key_controller);
 
     let num_clicks = Rc::new(Cell::new(0));
-
     let gesture_controller = GestureDrag::new();
     gesture_controller.connect_drag_update({
         let txt = txt.clone();
@@ -640,6 +639,7 @@ pub fn factory(
     });
 
     txt.add_tick_callback({
+        let sndr = sndr.clone();
         move |view, _clock| {
             let width = view.width();
             let stored_width = text_view_width.borrow().pixels;
@@ -731,6 +731,20 @@ pub fn factory(
         }
     });
     txt.add_controller(motion_controller);
+
+    txt.connect_copy_clipboard({
+        let sndr = sndr.clone();
+        move |view| {
+            let buffer = view.buffer();
+            if let Some((start_iter, end_iter)) = buffer.selection_bounds() {
+                sndr.send_blocking(crate::Event::CopyToClipboard(
+                    start_iter.offset(),
+                    end_iter.offset(),
+                ))
+                .expect("could not sent through channel");
+            }
+        }
+    });
 
     txt.set_monospace(true);
     txt.set_editable(false);
