@@ -20,7 +20,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::{trace};
+use log::trace;
 use std::collections::HashSet;
 use std::path::PathBuf;
 

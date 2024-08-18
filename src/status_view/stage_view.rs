@@ -68,6 +68,7 @@ mod stage_view {
     #[derive(Default)]
     pub struct StageView {
         pub cursor: Cell<i32>,
+        pub show_cursor: Cell<bool>,
         pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
@@ -184,10 +185,14 @@ mod stage_view {
                     }
                 }
                 snapshot.append_color(
-                    if self.is_dark.get() {
-                        &DARK_CURSOR
+                    if self.show_cursor.get() {
+                        if self.is_dark.get() {
+                            &DARK_CURSOR
+                        } else {
+                            &LIGHT_CURSOR
+                        }
                     } else {
-                        &LIGHT_CURSOR
+                        bg_fill
                     },
                     &graphene::Rect::new(
                         0.0,
@@ -224,6 +229,10 @@ impl StageView {
         let is_dark = manager.is_dark();
         self.imp().is_dark.replace(is_dark);
         self.imp().is_dark_set.replace(true);
+    }
+
+    pub fn set_cursor_highlight(&self, value: bool) {
+        self.imp().show_cursor.replace(value);
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
@@ -508,28 +517,31 @@ pub fn factory(
 
     let num_clicks = Rc::new(Cell::new(0));
 
-    // let gesture_controller = GestureDrag::new();
-    // gesture_controller.connect_drag_begin(|_, _, _| {
-    //     debug!("whyyyyyyyyyyyyyyyyyyyyyy drag is triggered? gesture drag!");
-    // });
-    // txt.add_controller(gesture_controller);
+    let gesture_controller = GestureDrag::new();
+    gesture_controller.connect_drag_update({
+        let txt = txt.clone();
+        move |_, _, _| {
+            txt.set_cursor_highlight(false);
+        }
+    });
+    txt.add_controller(gesture_controller);
 
     let gesture_controller = GestureClick::new();
     gesture_controller.connect_released({
         let sndr = sndr.clone();
         let txt = txt.clone();
         let pointer = pointer.clone();
-        move |gesture, n_clicks, wx, wy| {
+        move |gesture, n_clicks, _wx, _wy| {
             gesture.set_state(EventSequenceState::Claimed);
-
-            let iter = txt.buffer().iter_at_offset(txt.buffer().cursor_position());
-            
-            let pos = iter.offset();
-            let has_pointer = iter.has_tag(&pointer);
+            txt.set_cursor_highlight(true);
+            let pos = txt.buffer().cursor_position();
+            let iter = txt.buffer().iter_at_offset(pos);
             sndr.send_blocking(crate::Event::Cursor(
                 iter.offset(),
                 iter.line(),
             )).expect("Could not send through channel");
+
+            let has_pointer = iter.has_tag(&pointer);
             if has_pointer {
                 num_clicks.replace(n_clicks);
                 glib::source::timeout_add_local(Duration::from_millis(200), {
@@ -588,6 +600,7 @@ pub fn factory(
         let sndr = sndr.clone();
         // let latest_char_offset = RefCell::new(0);
         move |view: &StageView, step, count, _selection| {
+            view.set_cursor_highlight(true);
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);
