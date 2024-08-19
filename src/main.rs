@@ -40,7 +40,7 @@ mod git;
 use git::{
     branch, commit, get_current_repo_status, get_directories, reset_hard,
     stage_untracked, stage_via_apply, stash::Stashes, track_changes, Diff,
-    DiffKind, File, Head, Hunk, Line, LineKind, StageOp, State,
+    DiffKind, File, Head, Hunk, Line, LineKind, State,
 };
 use git2::Oid;
 mod dialogs;
@@ -105,6 +105,13 @@ fn load_css() {
     );
 }
 
+#[derive(Debug, Clone)]
+pub enum StageOp {
+    Stage(i32),
+    Unstage(i32),
+    Kill(i32),
+}
+
 #[derive(Debug)]
 pub enum Event {
     Debug,
@@ -124,9 +131,10 @@ pub enum Event {
     Expand(i32, i32),
     Cursor(i32, i32),
     CopyToClipboard(i32, i32),
-    Stage(i32, i32),
-    UnStage(i32, i32),
-    Kill(i32, i32),
+    Stage(StageOp),
+    // Stage(i32, i32),
+    // UnStage(i32, i32),
+    // Kill(i32, i32),
     Ignore(i32, i32),
     Commit,
     Push,
@@ -549,18 +557,22 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                         &mut ctx,
                     );
                 }
-                Event::Stage(_offset, line_no) => {
-                    info!("Stage");
-                    status.stage(&txt, line_no, StageOp::Stage, &window);
+                Event::Stage(stage_op) => {
+                    info!("Stage {:?}", stage_op);
+                    status.stage(stage_op, &window);
                 }
-                Event::UnStage(_offset, line_no) => {
-                    info!("Unstage");
-                    status.stage(&txt, line_no, StageOp::Unstage, &window);
-                }
-                Event::Kill(_offset, line_no) => {
-                    info!("main.kill");
-                    status.stage(&txt, line_no, StageOp::Kill, &window);
-                }
+                // Event::Stage(stage_op) => {
+                //     info!("Stage");
+                //     status.stage(&txt, stage_op, &window);
+                // }
+                // Event::UnStage(stage_op) => {
+                //     info!("Unstage");
+                //     status.stage(&txt, stage_op, &window);
+                // }
+                // Event::Kill(stage_op) => {
+                //     info!("main.kill");
+                //     status.stage(&txt, stage_op, &window);
+                // }
                 Event::Ignore(offset, line_no) => {
                     info!("main.ignore");
                     status.ignore(&txt, line_no, offset, &mut ctx);

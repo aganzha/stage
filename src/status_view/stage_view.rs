@@ -400,24 +400,21 @@ pub fn factory(
                 ) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Stage(
-                        iter.offset(),
-                        iter.line(),
+                        crate::StageOp::Stage(iter.line()),
                     ))
                     .expect("Could not send through channel");
                 }
                 (gdk::Key::u, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::UnStage(
-                        iter.offset(),
-                        iter.line(),
+                    sndr.send_blocking(crate::Event::Stage(
+                        crate::StageOp::Unstage(iter.line()),
                     ))
                     .expect("Could not send through channel");
                 }
                 (gdk::Key::k, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::Kill(
-                        iter.offset(),
-                        iter.line(),
+                    sndr.send_blocking(crate::Event::Stage(
+                        crate::StageOp::Kill(iter.line()),
                     ))
                     .expect("Could not send through channel");
                 }
@@ -566,15 +563,13 @@ pub fn factory(
                                         iter.has_tag(&unstaged)
                                     );
                                     if iter.has_tag(&staged) {
-                                        sndr.send_blocking(crate::Event::UnStage(
-                                            iter.offset(),
-                                            iter.line(),
+                                        sndr.send_blocking(crate::Event::Stage(
+                                            crate::StageOp::Unstage(iter.line())                                            
                                         )).expect("Could not send through channel");
                                     }
                                     if iter.has_tag(&unstaged) {
-                                        sndr.send_blocking(crate::Event::Stage(
-                                            iter.offset(),
-                                            iter.line(),
+                                        sndr.send_blocking(crate::Event::Stage(                                            
+                                            crate::StageOp::Stage(iter.line()),
                                         )).expect("Could not send through channel");
                                     }
 

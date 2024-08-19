@@ -118,7 +118,7 @@ pub struct Status {
     pub staged: Option<Diff>,
     pub unstaged: Option<Diff>,
     pub conflicted: Option<Diff>,
-
+    
     pub stashes: Option<stash::Stashes>,
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
@@ -1110,6 +1110,7 @@ impl Status {
         // ViewKind already has DiffKind in it, but only for diff!
         // lets put it in every view!
         // ViewKind is never used!!!!!
+        // I have already StageOp!
     }
     
     pub fn smart_cursor_position(&self, buffer: &TextBuffer) -> TextIter {
@@ -1272,8 +1273,6 @@ impl Status {
 
     pub fn stage(
         &mut self,
-        _txt: &StageView,
-        _line_no: i32,
         op: StageOp,
         window: &ApplicationWindow,
     ) {
@@ -1303,12 +1302,12 @@ impl Status {
 
         // just a check
         match op {
-            StageOp::Stage | StageOp::Kill => {
+            StageOp::Stage(_) | StageOp::Kill(_) => {
                 if self.unstaged.is_none() {
                     return;
                 }
             }
-            StageOp::Unstage => {
+            StageOp::Unstage(_) => {
                 if self.staged.is_none() {
                     return;
                 }
@@ -1317,10 +1316,10 @@ impl Status {
 
         let diff = {
             match op {
-                StageOp::Stage | StageOp::Kill => {
+                StageOp::Stage(_) | StageOp::Kill(_) => {
                     self.unstaged.as_mut().unwrap()
                 }
-                StageOp::Unstage => self.staged.as_mut().unwrap(),
+                StageOp::Unstage(_) => self.staged.as_mut().unwrap(),
             }
         };
 

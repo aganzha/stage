@@ -8,19 +8,18 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
-pub enum UnderCursor {
-    None,
-    Some {
-        diff_kind: DiffKind,
-        line_kind: LineKind,
-    },
+pub enum UserOpLine {
+    Diff(i32),
+    File(i32),
+    Hunk(i32),
+    Line(i32)
+}
+#[derive(Debug, Clone)]
+pub struct UserOp {
+    diff_kind: DiffKind,
+    line: UserOpLine
 }
 
-#[derive(Debug, Clone)]
-pub struct CursorPos {
-    pub line_no: i32,
-    pub offset: i32,
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct TextViewWidth {
@@ -122,6 +121,4 @@ impl StatusRenderContext<'_> {
             }
         }
     }
-
-    pub fn under_cursor_hunk(&mut self, _hunk: &Hunk) {}
 }
