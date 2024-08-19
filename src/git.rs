@@ -1065,7 +1065,6 @@ impl Untracked {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct ApplyFilter {
     pub file_id: String,
@@ -1214,7 +1213,9 @@ pub fn stage_via_apply(
     opts.pathspec(file_path.clone());
 
     let git_diff = match subject {
-        crate::StageOp::Stage(_) => repo.diff_index_to_workdir(None, Some(&mut opts))?,
+        crate::StageOp::Stage(_) => {
+            repo.diff_index_to_workdir(None, Some(&mut opts))?
+        }
         crate::StageOp::Unstage(_) => {
             opts.reverse(true);
             let ob =
@@ -1270,7 +1271,9 @@ pub fn stage_via_apply(
         todo!("diff without delta");
     });
     let apply_location = match subject {
-        crate::StageOp::Stage(_) | crate::StageOp::Unstage(_) => ApplyLocation::Index,
+        crate::StageOp::Stage(_) | crate::StageOp::Unstage(_) => {
+            ApplyLocation::Index
+        }
         crate::StageOp::Kill(_) => ApplyLocation::WorkDir,
     };
 

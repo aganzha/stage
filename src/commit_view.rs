@@ -6,9 +6,7 @@ use crate::dialogs::{alert, ConfirmDialog, YES};
 use crate::git::{commit, stash};
 use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::{
-    render::{ViewContainer},
-    stage_view::StageView,
-    view::View,
+    render::ViewContainer, stage_view::StageView, view::View,
     Label as TextViewLabel,
 };
 use crate::Event;
@@ -486,8 +484,7 @@ pub fn show_commit_window(
                         );
                     }
                 }
-                Event::Stage(_)
-                | Event::RepoPopup => {
+                Event::Stage(_) | Event::RepoPopup => {
                     info!("Stage/Unstage ot r pressed");
                     if let Some(diff) = &diff {
                         let title = if stash_num.is_some() {
