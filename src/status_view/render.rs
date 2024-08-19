@@ -106,10 +106,11 @@ pub trait ViewContainer {
     ) {
     }
 
+     // viewcontainer
     fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         let view = self.get_view();
         if view.is_current() {
-            ctx.cursor = view.line_no.get();
+            ctx.cursor = view.line_no.get(); // viewcontainer
         }
     }
 
@@ -275,7 +276,7 @@ pub trait ViewContainer {
         // shifted. e.g. view is still current
         // bit the line is changed!
         if self.get_view().is_current() {
-            context.cursor = self.get_view().line_no.get();
+            context.cursor = self.get_view().line_no.get();// render
         }
         self.fill_context(context);
         // post render @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -338,7 +339,7 @@ pub trait ViewContainer {
         // result here just means view is changed
         // it does not actually means that view is under cursor
         if view.is_current() {
-            context.cursor = view.line_no.get();
+            context.cursor = view.line_no.get(); // cursor
         }
         self.fill_context(context);
         if result {

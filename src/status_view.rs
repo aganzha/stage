@@ -917,7 +917,7 @@ impl Status {
         glib::source::timeout_add_local(Duration::from_millis(10), {
             let txt = txt.clone();
             let mut context = StatusRenderContext::new();
-            context.cursor = ctx.cursor;
+            context.cursor = ctx.cursor;// resize highlights
             context.highlight_lines = ctx.highlight_lines;
             context.highlight_hunks.clone_from(&ctx.highlight_hunks);
             move || {
@@ -927,15 +927,6 @@ impl Status {
         });
     }
 
-    pub fn hide_cursor_highlight<'a>(
-        &'a self,
-        txt: &StageView,
-        line_no: i32,
-        _offset: i32,
-        context: &mut StatusRenderContext<'a>,
-    ) {
-        context.cursor = line_no;
-    }
 
     /// cursor does not change structure, but changes highlights
     /// it will collect highlights in context. no need further render
@@ -949,7 +940,7 @@ impl Status {
         // this is actually needed for views which are not implemented
         // ViewContainer, and does not affect context!
         // do i still have such views????
-        context.cursor = line_no;
+        context.cursor = line_no;// cursor
 
         let mut changed = false;
         let buffer = txt.buffer();
@@ -1047,20 +1038,30 @@ impl Status {
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
         // lets try to live without it!
-        // if source == RenderSource::GitDiff || source == RenderSource::Git {
-        //     // it need to put cursor in place here,
-        //     // EVEN WITHOUT SMART CHOOSE
-        //     // cause cursor could be, for example, in unstaged hunk
-        //     // during staging. after staging, the content behind the cursor
-        //     // is changed (hunk is erased and new hunk come to its place),
-        //     // and it need to highlight new content on the same cursor
-        //     // position
-        //     let iter = self.smart_cursor_position(&buffer);
-        //     buffer.place_cursor(&iter);
-        //     self.cursor(txt, iter.line(), iter.offset(), context);
-        // }
+        if source == RenderSource::GitDiff || source == RenderSource::Git {
+            // it need to put cursor in place here,
+            // EVEN WITHOUT SMART CHOOSE
+            // cause cursor could be, for example, in unstaged hunk
+            // during staging. after staging, the content behind the cursor
+            // is changed (hunk is erased and new hunk come to its place),
+            // and it need to highlight new content on the same cursor
+            // position
 
-        txt.bind_highlights(context);
+            // should be just buffer.iter_at_offset(buffer.cursor_position());
+            // let iter = self.smart_cursor_position(&buffer);
+            // buffer.place_cursor(&iter);
+            // self.cursor(txt, iter.line(), iter.offset(), context);
+        }
+        // so. render just happened BUT - context.cursor is empty
+        // because context is created on each loop
+        // and there were no any user actions.
+        // views were moved/erased and NONE of them is current now!
+        // btw! fn cursor does not call render.
+        // so, it is render must call cursor then!
+        let iter = buffer.iter_at_offset(buffer.cursor_position());
+        self.cursor(txt, iter.line(), iter.offset(), context);
+        debug!("cooooooooooooontext {:?}", context.cursor);
+        // txt.bind_highlights(context);
     }
 
     pub fn choose_cursor_position<'a>(
@@ -1513,29 +1514,5 @@ impl Status {
         context: &mut StatusRenderContext<'a>,
     ) {
         self.render(txt, RenderSource::GitDiff, context);
-        // let buffer = txt.buffer();
-        // let pos = buffer.cursor_position();
-        // let iter = buffer.iter_at_offset(pos);
-        // let (y, height) = txt.line_yrange(&iter);
-        // debug!("+++++++++++++++++++++++++ y {:?} height {:?}", y, height);
-
-        // self.render(txt, RenderSource::Git, context);
-        // let (line_from, line_to) = context.highlight_lines.unwrap();
-        // let mut iter = buffer.iter_at_line(line_from).unwrap();
-        // let y_from = txt.line_yrange(&iter).0;
-        // iter.set_line(line_to);
-        // let (y, height) = txt.line_yrange(&iter);
-        // debug!("+++++++++++++++++++++++++ line_from {:?} line_to {:?} y_from {:?} y {:?} height {:?}",
-        //        line_from, line_to, y_from, y, height
-        // );
-        // let me = buffer.cursor_position();
-        // let iter = buffer.iter_at_offset(me);
-        // let (y, height) = txt.line_yrange(&iter);
-        // debug!(
-        //     "and thats me on line {:?} y {:?} height {:?}",
-        //     iter.line(),
-        //     y,
-        //     height
-        // );
     }
 }
