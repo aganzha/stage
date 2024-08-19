@@ -1,3 +1,4 @@
+BUG: pulling from origin contained new commits - nothing happens. merge remote branch works, but upstream was not updated
 TODO: stage via apply could see context now, for its filter!
 TODO: full render on
 [INFO  stage] main. state
