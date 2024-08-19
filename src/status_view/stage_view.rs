@@ -68,6 +68,7 @@ mod stage_view {
     #[derive(Default)]
     pub struct StageView {
         pub cursor: Cell<i32>,
+        pub show_cursor: Cell<bool>,
         pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
@@ -184,10 +185,14 @@ mod stage_view {
                     }
                 }
                 snapshot.append_color(
-                    if self.is_dark.get() {
-                        &DARK_CURSOR
+                    if self.show_cursor.get() {
+                        if self.is_dark.get() {
+                            &DARK_CURSOR
+                        } else {
+                            &LIGHT_CURSOR
+                        }
                     } else {
-                        &LIGHT_CURSOR
+                        bg_fill
                     },
                     &graphene::Rect::new(
                         0.0,
@@ -224,6 +229,10 @@ impl StageView {
         let is_dark = manager.is_dark();
         self.imp().is_dark.replace(is_dark);
         self.imp().is_dark_set.replace(true);
+    }
+
+    pub fn set_cursor_highlight(&self, value: bool) {
+        self.imp().show_cursor.replace(value);
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
@@ -507,10 +516,12 @@ pub fn factory(
     txt.add_controller(key_controller);
 
     let num_clicks = Rc::new(Cell::new(0));
-
     let gesture_controller = GestureDrag::new();
-    gesture_controller.connect_drag_begin(|_, _, _| {
-        debug!("whyyyyyyyyyyyyyyyyyyyyyy drag is triggered? gesture drag!");
+    gesture_controller.connect_drag_update({
+        let txt = txt.clone();
+        move |_, _, _| {
+            txt.set_cursor_highlight(false);
+        }
     });
     txt.add_controller(gesture_controller);
 
@@ -519,69 +530,66 @@ pub fn factory(
         let sndr = sndr.clone();
         let txt = txt.clone();
         let pointer = pointer.clone();
-        move |gesture, n_clicks, wx, wy| {
+        move |gesture, n_clicks, _wx, _wy| {
             gesture.set_state(EventSequenceState::Claimed);
-            let (x, y) = txt.window_to_buffer_coords(
-                TextWindowType::Text,
-                wx as i32,
-                wy as i32,
-            );
-            if let Some(iter) = txt.iter_at_location(x, y) {
-                let pos = iter.offset();
-                let has_pointer = iter.has_tag(&pointer);
-                sndr.send_blocking(crate::Event::Cursor(
-                    iter.offset(),
-                    iter.line(),
-                )).expect("Could not send through channel");
-                if has_pointer {
-                    num_clicks.replace(n_clicks);
-                    glib::source::timeout_add_local(Duration::from_millis(200), {
-                        let num_clicks = num_clicks.clone();
-                        let staged = staged.clone();
-                        let unstaged = unstaged.clone();
-                        let sndr = sndr.clone();
-                        let txt = txt.clone();
-                        move || {
-                            if num_clicks.get() == n_clicks {
-                                let iter = txt.buffer().iter_at_offset(pos);
-                                match n_clicks {
-                                    1 => {
-                                        sndr.send_blocking(crate::Event::Expand(
+            txt.set_cursor_highlight(true);
+            let pos = txt.buffer().cursor_position();
+            let iter = txt.buffer().iter_at_offset(pos);
+            sndr.send_blocking(crate::Event::Cursor(
+                iter.offset(),
+                iter.line(),
+            )).expect("Could not send through channel");
+
+            let has_pointer = iter.has_tag(&pointer);
+            if has_pointer {
+                num_clicks.replace(n_clicks);
+                glib::source::timeout_add_local(Duration::from_millis(200), {
+                    let num_clicks = num_clicks.clone();
+                    let staged = staged.clone();
+                    let unstaged = unstaged.clone();
+                    let sndr = sndr.clone();
+                    let txt = txt.clone();
+                    move || {
+                        if num_clicks.get() == n_clicks {
+                            let iter = txt.buffer().iter_at_offset(pos);
+                            match n_clicks {
+                                1 => {
+                                    sndr.send_blocking(crate::Event::Expand(
+                                        iter.offset(),
+                                        iter.line(),
+                                    )).expect("Could not send through channel");
+                                },
+                                2 => {
+                                    debug!(
+                                        "DOOOOOOOUBLE CLICK has staged and unstaged tags? {:?} {:?}",
+                                        iter.has_tag(&staged),
+                                        iter.has_tag(&unstaged)
+                                    );
+                                    if iter.has_tag(&staged) {
+                                        sndr.send_blocking(crate::Event::UnStage(
                                             iter.offset(),
                                             iter.line(),
                                         )).expect("Could not send through channel");
-                                    },
-                                    2 => {
-                                        debug!(
-                                            "DOOOOOOOUBLE CLICK has staged and unstaged tags? {:?} {:?}",
-                                            iter.has_tag(&staged),
-                                            iter.has_tag(&unstaged)
-                                        );
-                                        if iter.has_tag(&staged) {
-                                            sndr.send_blocking(crate::Event::UnStage(
-                                                iter.offset(),
-                                                iter.line(),
-                                            )).expect("Could not send through channel");
-                                        }
-                                        if iter.has_tag(&unstaged) {
-                                            sndr.send_blocking(crate::Event::Stage(
-                                                iter.offset(),
-                                                iter.line(),
-                                            )).expect("Could not send through channel");
-                                        }
-
-                                    },
-                                    _ => {
                                     }
-                                }
-                                trace!("PERFORM REAL CLICK {:?}", n_clicks);
-                            }
-                            ControlFlow::Break
-                        }
-                    });
+                                    if iter.has_tag(&unstaged) {
+                                        sndr.send_blocking(crate::Event::Stage(
+                                            iter.offset(),
+                                            iter.line(),
+                                        )).expect("Could not send through channel");
+                                    }
 
-                }
+                                },
+                                _ => {
+                                }
+                            }
+                            trace!("PERFORM REAL CLICK {:?}", n_clicks);
+                        }
+                        ControlFlow::Break
+                    }
+                });
+
             }
+            // }
         }
     });
 
@@ -591,6 +599,7 @@ pub fn factory(
         let sndr = sndr.clone();
         // let latest_char_offset = RefCell::new(0);
         move |view: &StageView, step, count, _selection| {
+            view.set_cursor_highlight(true);
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);
@@ -630,6 +639,7 @@ pub fn factory(
     });
 
     txt.add_tick_callback({
+        let sndr = sndr.clone();
         move |view, _clock| {
             let width = view.width();
             let stored_width = text_view_width.borrow().pixels;
@@ -721,6 +731,20 @@ pub fn factory(
         }
     });
     txt.add_controller(motion_controller);
+
+    txt.connect_copy_clipboard({
+        let sndr = sndr.clone();
+        move |view| {
+            let buffer = view.buffer();
+            if let Some((start_iter, end_iter)) = buffer.selection_bounds() {
+                sndr.send_blocking(crate::Event::CopyToClipboard(
+                    start_iter.offset(),
+                    end_iter.offset(),
+                ))
+                .expect("could not sent through channel");
+            }
+        }
+    });
 
     txt.set_monospace(true);
     txt.set_editable(false);
