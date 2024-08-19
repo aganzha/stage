@@ -680,6 +680,8 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     }
                 }
             };
+            // no way. it need to choose in each place...
+            // status.choose_cursor_position(&txt, &mut ctx);
         }
     });
 }
