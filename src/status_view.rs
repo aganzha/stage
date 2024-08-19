@@ -105,6 +105,7 @@ pub enum RenderSource {
 
 pub const DUMP_DIR: &str = "stage_dump";
 
+
 #[derive(Debug, Clone)]
 pub struct Status {
     pub path: Option<PathBuf>,
@@ -114,11 +115,11 @@ pub struct Status {
     pub state: Option<State>,
 
     pub untracked: Option<Diff>,
-
     pub staged: Option<Diff>,
     pub unstaged: Option<Diff>,
-
     pub conflicted: Option<Diff>,
+
+    // pub current_op: Option<(DiffKind, ViewKind)>,
 
     pub stashes: Option<stash::Stashes>,
     pub monitor_global_lock: Rc<RefCell<bool>>,
@@ -138,27 +139,12 @@ impl Status {
             head: None,
             upstream: None,
             state: None,
-            // untracked_spacer: Label::from_string(""),
-            // untracked_label: Label::from_string(
-            //     "<span weight=\"bold\" color=\"#8b6508\">Untracked files</span>",
-            // ),
+
             untracked: None,
-            // staged_spacer: Label::from_string(""),
-            // staged_label: Label::from_string(
-            //     "<span weight=\"bold\" color=\"#8b6508\">Staged changes</span>",
-            // ),
             staged: None,
-            // unstaged_spacer: Label::from_string(""),
-            // unstaged_label: Label::from_string(
-            //     "<span weight=\"bold\" color=\"#8b6508\">Unstaged changes</span>",
-            // ),
             unstaged: None,
-            // conflicted_spacer: Label::from_string(""),
-            // conflicted_label: Label::from_string(
-            //     "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>",
-            // ),
             conflicted: None,
-            // rendered: false,
+
             stashes: None,
             monitor_global_lock: Rc::new(RefCell::new(false)),
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
@@ -830,23 +816,7 @@ impl Status {
         context: &mut StatusRenderContext<'a>,
     ) {
         let _buffer = &txt.buffer();
-        // works. looks ugly
-        // if let Some(rendered) = &mut self.unstaged {
-        //     rendered.adopt_other(
-        //         diff.as_ref().map(|x| x as &dyn ViewContainer),
-        //         buffer,
-        //         context
-        //     );
-        // }
 
-        // works. looks ugly
-        // diff.as_ref().map(|d| d as &dyn ViewContainer).enrich_view(
-        //         self.unstaged.as_ref().map(|d| d as &dyn ViewContainer),
-        //         buffer,
-        //         context
-        //     );
-
-        // original
         let mut render_required = false;
         if let Some(rendered) = &mut self.unstaged {
             render_required = true;
@@ -890,10 +860,6 @@ impl Status {
 
             let updated_file =
                 diff.files.into_iter().find(|f| f.path == file_path);
-            // debug!(
-            //     "--------------- updated file {:?} ----------",
-            //     updated_file
-            // );
             let buffer = &txt.buffer();
             let mut ind = 0;
             let mut insert_ind: Option<usize> = None;
@@ -917,11 +883,7 @@ impl Status {
                     true
                 }
             });
-            debug!(
-                "----------thats rendered files after enriching{:} {:?}",
-                &rendered.files.len(),
-                insert_ind
-            );
+
             if let Some(file) = updated_file {
                 if let Some(ind) = insert_ind {
                     rendered.files.insert(ind - 1, file);
@@ -1069,13 +1031,6 @@ impl Status {
         }
 
         if let Some(untracked) = &self.untracked {
-            // if untracked.files.is_empty() {
-            //     // hack :( TODO - get rid of it
-            //     self.untracked_spacer.view.squash(true);
-            //     self.untracked_label.view.squash(true);
-            // }
-            // self.untracked_spacer.render(&buffer, &mut iter, context);
-            // self.untracked_label.render(&buffer, &mut iter, context);
             untracked.render(&buffer, &mut iter, context);
         }
 
@@ -1091,42 +1046,74 @@ impl Status {
             staged.render(&buffer, &mut iter, context);
         }
 
+        // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
-        if source == RenderSource::GitDiff || source == RenderSource::Git {
-            // it need to put cursor in place here,
-            // EVEN WITHOUT SMART CHOOSE
-            // cause cursor could be, for example, in unstaged hunk
-            // during staging. after staging, the content behind the cursor
-            // is changed (hunk is erased and new hunk come to its place),
-            // and it need to highlight new content on the same cursor
-            // position
-            let iter = self.smart_cursor_position(&buffer);
-            buffer.place_cursor(&iter);
-            self.cursor(txt, iter.line(), iter.offset(), context);
-        }
-
+        // lets try to live without it!
+        // if source == RenderSource::GitDiff || source == RenderSource::Git {
+        //     // it need to put cursor in place here,
+        //     // EVEN WITHOUT SMART CHOOSE
+        //     // cause cursor could be, for example, in unstaged hunk
+        //     // during staging. after staging, the content behind the cursor
+        //     // is changed (hunk is erased and new hunk come to its place),
+        //     // and it need to highlight new content on the same cursor
+        //     // position
+        //     let iter = self.smart_cursor_position(&buffer);
+        //     buffer.place_cursor(&iter);
+        //     self.cursor(txt, iter.line(), iter.offset(), context);
+        // }
+        
         txt.bind_highlights(context);
 
-        // match source {
-        //     RenderSource::Cursor(_) => {
-        //         // avoid loops on cursor renders
-        //         trace!("avoid cursor position on cursor");
-        //     }
-        //     RenderSource::Expand(line_no) => {
-        //         self.choose_cursor_position(
-        //             txt,
-        //             &buffer,
-        //             Some(line_no),
-        //             context,
-        //         );
-        //     }
-        //     RenderSource::Git => {
-        //         self.choose_cursor_position(txt, &buffer, None, context);
-        //     }
-        // };
     }
 
+    pub fn choose_cursor_position<'a>(
+        &'a self,
+        txt: &StageView,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        debug!("...................choose cursor position");
+        // so. lets see just 2 cases: staging-unstaging
+        // user staged --------------------------
+
+        // staged diff -> do nothing (stay same and staged will come)
+        
+        // staged file and has another below -> do nothing (will stay on another)
+        // staged file and has no more files -> go to staged diff
+        // staged file and has no more files below, but 1 above -> go to file above
+
+        // staged hunk and has another below -> do nothing (will stay on another hunk)
+        // staged hunk and has no more hunks -> go to unstaged diff
+        // staged hunk and has no more hunks below, but 1 above -> go to hunk above
+
+        // user unstaged --------------------------------
+        // unstaged diff -> go to staged diff
+        
+        // ustaged file and has another below -> do nothing (will stay on another)
+        // unstaged file and has no more files -> go to unstaged diff
+        // ustaged file and has no more files below, but 1 above -> go file above
+
+        // unstaged hunk and has another below -> do nothing (stay on hunk)
+        // staged hunk and has no more hunks -> go to unstaged diff
+        // staged hunk and has no more hunks below, but 1 above -> go to hunk above.
+
+        // during staging-unstaging op it need to remember 'op'.
+        // then after op completed, choose proper direction.
+        // for remember 'DiffKind' could be used AND view.kind could be used.
+
+        // i have a common method: stage which is used for staging/unstaging/killling
+        // thats the enter point.
+        // Lets introduce Op - current user operation.
+        // DiffKind, direction and ViewKind. Hot to impress direction?
+        // it does not needed. Any op always removes something from Diff.
+        // but unstaged could be moved either to staged or killed!
+        // never mind. even if kill staged, it need to go to unstaged, anyways.
+        // so, just DiffKind and ViewKind!
+        // ViewKind already has DiffKind in it, but only for diff!
+        // lets put it in every view!
+        // ViewKind is never used!!!!!
+    }
+    
     pub fn smart_cursor_position(&self, buffer: &TextBuffer) -> TextIter {
         // its buggy. it need to now what happens right now!
         // it need to introduce what_it_was at the end of render
@@ -1137,7 +1124,7 @@ impl Status {
         // - render (rendersource::Git)
         // - smart_choose_pos before cursor
         // - cursor to highlight whats behind
-        // - smart_choose_pos AFTER cursor
+        // - smart_choose_pos AFTER cursor ???? why after? why second chose????
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         let last_line = buffer.end_iter().line();
         if iter.line() == last_line {
@@ -1285,7 +1272,6 @@ impl Status {
         false
     }
 
-    // regular commit
     pub fn stage(
         &mut self,
         _txt: &StageView,
