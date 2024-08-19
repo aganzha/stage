@@ -486,8 +486,7 @@ pub fn show_commit_window(
                         );
                     }
                 }
-                Event::Stage(_, _)
-                | Event::UnStage(_, _)
+                Event::Stage(_)
                 | Event::RepoPopup => {
                     info!("Stage/Unstage ot r pressed");
                     if let Some(diff) = &diff {
@@ -495,7 +494,7 @@ pub fn show_commit_window(
                             "Apply stash"
                         } else {
                             match event {
-                                Event::Stage(_, _) => "Cherry pick",
+                                Event::Stage(_) => "Cherry pick",
                                 _ => "Revert",
                             }
                         };
@@ -537,7 +536,7 @@ pub fn show_commit_window(
                                 ),
                                 window,
                                 move || match event {
-                                    Event::Stage(_, _) => {
+                                    Event::Stage(_) => {
                                         if let Some(stash_num) = stash_num {
                                             stash::apply(
                                                 path,
