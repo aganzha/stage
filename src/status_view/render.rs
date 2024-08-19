@@ -30,7 +30,6 @@ pub fn make_tag(name: &str) -> tags::TxtTag {
     tags::TxtTag::from_str(name)
 }
 
-
 pub trait ViewContainer {
     fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool;
 
@@ -198,11 +197,7 @@ pub trait ViewContainer {
         let line_no = iter.line();
         let view = self.get_view();
         let state = view.get_state_for(line_no);
-        trace!(
-            "............ state in view {} {:?}",
-            line_no,
-            state,
-        );
+        trace!("............ state in view {} {:?}", line_no, state,);
         match state {
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
@@ -1065,6 +1060,9 @@ impl ViewContainer for Line {
         content_map: &mut HashMap<i32, (String, i32)>,
         context: &mut StatusRenderContext<'_>,
     ) {
+        if !self.view.is_rendered() {
+            return;
+        }
         let line_no = self.view.line_no.get();
         if line_no >= from && line_no <= to {
             let content =
@@ -1078,7 +1076,6 @@ impl ViewContainer for Label {
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         self.content.is_empty()
     }
-
 
     fn get_view(&self) -> &View {
         &self.view
@@ -1103,7 +1100,6 @@ impl ViewContainer for Head {
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
-
 
     fn get_view(&self) -> &View {
         &self.view

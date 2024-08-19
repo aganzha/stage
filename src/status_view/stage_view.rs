@@ -563,14 +563,18 @@ pub fn factory(
                                         iter.has_tag(&unstaged)
                                     );
                                     if iter.has_tag(&staged) {
-                                        sndr.send_blocking(crate::Event::Stage(
-                                            crate::StageOp::Unstage(iter.line())                                            
-                                        )).expect("Could not send through channel");
+                                        sndr.send_blocking(
+                                            crate::Event::Stage(
+                                                crate::StageOp::Unstage(iter.line())
+                                            )
+                                        ).expect("Could not send through channel");
                                     }
                                     if iter.has_tag(&unstaged) {
-                                        sndr.send_blocking(crate::Event::Stage(                                            
-                                            crate::StageOp::Stage(iter.line()),
-                                        )).expect("Could not send through channel");
+                                        sndr.send_blocking(
+                                            crate::Event::Stage(
+                                                crate::StageOp::Stage(iter.line()),
+                                            )
+                                        ).expect("Could not send through channel");
                                     }
 
                                 },

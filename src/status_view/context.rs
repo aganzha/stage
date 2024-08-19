@@ -12,14 +12,13 @@ pub enum UserOpLine {
     Diff(i32),
     File(i32),
     Hunk(i32),
-    Line(i32)
+    Line(i32),
 }
 #[derive(Debug, Clone)]
 pub struct UserOp {
     diff_kind: DiffKind,
-    line: UserOpLine
+    line: UserOpLine,
 }
-
 
 #[derive(Debug, Clone, Default)]
 pub struct TextViewWidth {

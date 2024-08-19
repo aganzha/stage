@@ -105,7 +105,6 @@ pub enum RenderSource {
 
 pub const DUMP_DIR: &str = "stage_dump";
 
-
 #[derive(Debug, Clone)]
 pub struct Status {
     pub path: Option<PathBuf>,
@@ -118,7 +117,7 @@ pub struct Status {
     pub staged: Option<Diff>,
     pub unstaged: Option<Diff>,
     pub conflicted: Option<Diff>,
-    
+
     pub stashes: Option<stash::Stashes>,
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
@@ -1060,9 +1059,8 @@ impl Status {
         //     buffer.place_cursor(&iter);
         //     self.cursor(txt, iter.line(), iter.offset(), context);
         // }
-        
-        txt.bind_highlights(context);
 
+        txt.bind_highlights(context);
     }
 
     pub fn choose_cursor_position<'a>(
@@ -1075,7 +1073,7 @@ impl Status {
         // user staged --------------------------
 
         // staged diff -> do nothing (stay same and staged will come)
-        
+
         // staged file and has another below -> do nothing (will stay on another)
         // staged file and has no more files -> go to staged diff
         // staged file and has no more files below, but 1 above -> go to file above
@@ -1086,7 +1084,7 @@ impl Status {
 
         // user unstaged --------------------------------
         // unstaged diff -> go to staged diff
-        
+
         // ustaged file and has another below -> do nothing (will stay on another)
         // unstaged file and has no more files -> go to unstaged diff
         // ustaged file and has no more files below, but 1 above -> go file above
@@ -1112,7 +1110,7 @@ impl Status {
         // ViewKind is never used!!!!!
         // I have already StageOp!
     }
-    
+
     pub fn smart_cursor_position(&self, buffer: &TextBuffer) -> TextIter {
         // its buggy. it need to now what happens right now!
         // it need to introduce what_it_was at the end of render
@@ -1271,11 +1269,7 @@ impl Status {
         false
     }
 
-    pub fn stage(
-        &mut self,
-        op: StageOp,
-        window: &ApplicationWindow,
-    ) {
+    pub fn stage(&mut self, op: StageOp, window: &ApplicationWindow) {
         if let Some(untracked) = &self.untracked {
             for file in &untracked.files {
                 if file.get_view().is_current() {
@@ -1470,10 +1464,12 @@ impl Status {
             glib::spawn_future_local({
                 async move {
                     let mut new_content = String::new();
+                    let mut replace_content = false;
                     if let Ok(Some(content)) =
                         clipboard.read_text_future().await
                     {
                         for (i, line) in content.split("\n").enumerate() {
+                            replace_content = true;
                             let ind = i as i32 + line_from;
                             if let Some((clean_line, clean_offset)) =
                                 clean_content.get(&ind)
@@ -1503,7 +1499,9 @@ impl Status {
                             new_content.push('\n');
                         }
                     }
-                    clipboard.set_text(&new_content);
+                    if replace_content {
+                        clipboard.set_text(&new_content);
+                    }
                 }
             });
         };
