@@ -1,3 +1,10 @@
+TODO: stage via apply could see context now, for its filter!
+TODO: full render on
+[INFO  stage] main. state
+[INFO  stage] Conflicted
+[INFO  stage] main. head
+[INFO  stage] main. upstream
+
 BUG: staged conflicted file with no our parts. just
 <<<<<<<<<<
 ===========

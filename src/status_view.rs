@@ -1058,10 +1058,26 @@ impl Status {
         // views were moved/erased and NONE of them is current now!
         // btw! fn cursor does not call render.
         // so, it is render must call cursor then!
+        // but if above could be usefull, btw.
+        // so
+        // 1. in fn stage look at context instead of manual search
+        // 2. in fn stage - remember in status the op and 'current' ids
+        // 3. based on op in prev current_ids in STATUS
+        // look for same here, based on whats got updated:
+        // staged/unstaged. there are multiple events: Staged, Unstaged.
+        // on which of them is to react?
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         self.cursor(txt, iter.line(), iter.offset(), context);
-        debug!("cooooooooooooontext {:?}", context.cursor);
-        // txt.bind_highlights(context);
+        debug!("+++++++++++ {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} ",
+               context.cursor_diff.is_some(),
+               context.cursor_file.is_some(),
+               context.cursor_hunk.is_some(),
+               context.cursor_line.is_some(),
+               context.current_diff.is_some(),
+               context.current_file.is_some(),
+               context.current_hunk.is_some(),
+               context.current_line.is_some(),
+        );
     }
 
     pub fn choose_cursor_position<'a>(
@@ -1369,6 +1385,7 @@ impl Status {
         }
         false
     }
+
     pub fn dump<'a>(
         &'a mut self,
         txt: &StageView,
