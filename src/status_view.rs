@@ -119,8 +119,6 @@ pub struct Status {
     pub unstaged: Option<Diff>,
     pub conflicted: Option<Diff>,
 
-    // pub current_op: Option<(DiffKind, ViewKind)>,
-
     pub stashes: Option<stash::Stashes>,
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,

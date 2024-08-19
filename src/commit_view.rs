@@ -6,7 +6,7 @@ use crate::dialogs::{alert, ConfirmDialog, YES};
 use crate::git::{commit, stash};
 use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 use crate::status_view::{
-    render::{ViewContainer, ViewKind},
+    render::{ViewContainer},
     stage_view::StageView,
     view::View,
     Label as TextViewLabel,
@@ -243,10 +243,6 @@ impl MultiLineLabel {
 impl ViewContainer for MultiLineLabel {
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         self.labels.is_empty()
-    }
-
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Label
     }
 
     fn get_view(&self) -> &View {

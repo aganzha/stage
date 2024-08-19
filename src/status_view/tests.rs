@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::status_view::render::ViewKind;
 use crate::status_view::tags;
 use crate::status_view::view::{RenderFlags, View};
 
@@ -314,10 +313,6 @@ impl TestViewContainer {
 impl ViewContainer for TestViewContainer {
     fn is_empty<'a>(&self, context: &mut StatusRenderContext<'a>) -> bool {
         false
-    }
-
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::File
     }
 
     fn get_children(&self) -> Vec<&dyn ViewContainer> {

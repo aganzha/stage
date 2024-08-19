@@ -30,20 +30,9 @@ pub fn make_tag(name: &str) -> tags::TxtTag {
     tags::TxtTag::from_str(name)
 }
 
-// This enum must implement all render methods!
-#[derive(Debug, Clone, PartialEq)]
-pub enum ViewKind {
-    Diff(DiffKind),
-    File,
-    Hunk,
-    Line,
-    Label
-}
 
 pub trait ViewContainer {
     fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool;
-
-    fn get_kind(&self) -> ViewKind;
 
     fn get_children(&self) -> Vec<&dyn ViewContainer>;
 
@@ -210,10 +199,9 @@ pub trait ViewContainer {
         let view = self.get_view();
         let state = view.get_state_for(line_no);
         trace!(
-            "............ state in view {} {:?} {:?}",
+            "............ state in view {} {:?}",
             line_no,
             state,
-            self.get_kind()
         );
         match state {
             ViewState::RenderedInPlace => {
@@ -509,10 +497,6 @@ impl ViewContainer for Diff {
         self.files.is_empty()
     }
 
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Diff(self.kind.clone())
-    }
-
     fn get_view(&self) -> &View {
         &self.view
     }
@@ -593,10 +577,6 @@ impl ViewContainer for Diff {
 impl ViewContainer for File {
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
-    }
-
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::File
     }
 
     fn get_view(&self) -> &View {
@@ -686,10 +666,6 @@ impl ViewContainer for File {
 impl ViewContainer for Hunk {
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
-    }
-
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Hunk
     }
 
     fn get_content_for_debug(
@@ -792,10 +768,6 @@ impl ViewContainer for Line {
             return self.content(hunk).is_empty();
         }
         false
-    }
-
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Line
     }
 
     fn get_view(&self) -> &View {
@@ -1107,9 +1079,6 @@ impl ViewContainer for Label {
         self.content.is_empty()
     }
 
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Label
-    }
 
     fn get_view(&self) -> &View {
         &self.view
@@ -1135,9 +1104,6 @@ impl ViewContainer for Head {
         false
     }
 
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Label
-    }
 
     fn get_view(&self) -> &View {
         &self.view
@@ -1173,10 +1139,6 @@ impl ViewContainer for Head {
 impl ViewContainer for State {
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
-    }
-
-    fn get_kind(&self) -> ViewKind {
-        ViewKind::Label
     }
 
     fn get_view(&self) -> &View {
