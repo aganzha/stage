@@ -42,15 +42,25 @@ pub struct StatusRenderContext<'a> {
     pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>,
 
+    // rename to current as view: active-current etc!
     pub cursor_diff: Option<&'a Diff>,
     pub cursor_file: Option<&'a File>,
     pub cursor_hunk: Option<&'a Hunk>,
     pub cursor_line: Option<&'a Line>,
 
-    pub current_diff: Option<&'a Diff>,
-    pub current_file: Option<&'a File>,
-    pub current_hunk: Option<&'a Hunk>,
-    pub current_line: Option<&'a Line>,
+    pub active_diff: Option<&'a Diff>,
+    pub active_file: Option<&'a File>,
+    pub active_hunk: Option<&'a Hunk>,
+    // its stupid, cause its not unique!
+    pub active_line: Option<&'a Line>,
+
+    // this is sliding values during render.
+    // at the end of render they will
+    // show last visited structures!
+    pub sliding_diff: Option<&'a Diff>,
+    pub sliding_file: Option<&'a File>,
+    pub sliding_hunk: Option<&'a Hunk>,
+    pub sliding_line: Option<&'a Line>,
 }
 
 impl Default for StatusRenderContext<'_> {
@@ -77,12 +87,17 @@ impl StatusRenderContext<'_> {
                 cursor_hunk: None,
                 cursor_line: None,
 
-                current_diff: None,
-                current_file: None,
-                current_hunk: None,
-                // it is useless. current_x is sliding variable during render
+                active_diff: None,
+                active_file: None,
+                active_hunk: None,
+                active_line: None,
+
+                sliding_diff: None,
+                sliding_file: None,
+                sliding_hunk: None,
+                // it is useless. sliding_x is sliding variable during render
                 // and there is nothing to render after line
-                current_line: None,
+                sliding_line: None,
             }
         }
     }
