@@ -106,6 +106,13 @@ pub enum RenderSource {
 pub const DUMP_DIR: &str = "stage_dump";
 
 #[derive(Debug, Clone)]
+pub struct LastOp {
+    op: StageOp,
+    file_path: Option<PathBuf>,
+    hunk_header: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Status {
     pub path: Option<PathBuf>,
     pub sender: Sender<Event>,
@@ -122,6 +129,7 @@ pub struct Status {
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
     pub settings: gio::Settings,
+    pub last_op: Option<LastOp>,
 }
 
 impl Status {
@@ -146,6 +154,7 @@ impl Status {
             monitor_global_lock: Rc::new(RefCell::new(false)),
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
             settings,
+            last_op: None,
         }
     }
 
@@ -917,7 +926,7 @@ impl Status {
         glib::source::timeout_add_local(Duration::from_millis(10), {
             let txt = txt.clone();
             let mut context = StatusRenderContext::new();
-            context.cursor = ctx.cursor;// resize highlights
+            context.cursor = ctx.cursor; // resize highlights
             context.highlight_lines = ctx.highlight_lines;
             context.highlight_hunks.clone_from(&ctx.highlight_hunks);
             move || {
@@ -926,7 +935,6 @@ impl Status {
             }
         });
     }
-
 
     /// cursor does not change structure, but changes highlights
     /// it will collect highlights in context. no need further render
@@ -940,7 +948,7 @@ impl Status {
         // this is actually needed for views which are not implemented
         // ViewContainer, and does not affect context!
         // do i still have such views????
-        context.cursor = line_no;// cursor
+        context.cursor = line_no; // cursor
 
         let mut changed = false;
         let buffer = txt.buffer();
@@ -1066,26 +1074,60 @@ impl Status {
         // look for same here, based on whats got updated:
         // staged/unstaged. there are multiple events: Staged, Unstaged.
         // on which of them is to react?
-        let iter = buffer.iter_at_offset(buffer.cursor_position());
+        let iter = self.choose_cursor_position(&buffer, context);
         self.cursor(txt, iter.line(), iter.offset(), context);
-        debug!("+++++++++++ {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} ",
-               context.cursor_diff.is_some(),
-               context.cursor_file.is_some(),
-               context.cursor_hunk.is_some(),
-               context.cursor_line.is_some(),
-               context.current_diff.is_some(),
-               context.current_file.is_some(),
-               context.current_hunk.is_some(),
-               context.current_line.is_some(),
-        );
     }
 
     pub fn choose_cursor_position<'a>(
+        //
         &'a self,
-        txt: &StageView,
+        buffer: &TextBuffer,
         context: &mut StatusRenderContext<'a>,
-    ) {
-        debug!("...................choose cursor position");
+    ) -> TextIter {
+        debug!(
+            "...................choose cursor position {:?}",
+            self.last_op
+        );
+        let mut iter = buffer.iter_at_offset(buffer.cursor_position());
+        if let Some(last_op) = &self.last_op {
+            match last_op.op {
+                StageOp::Stage(line_no) => {
+                    // if i am still in staging diff - be here.
+                    // if let Some(diff) = self.// fuck, i need whole diff by
+                    // cursor_line!
+                    // what can i do? store it in the context...
+                    // for current line store its current diff!
+                    // how diff could be active! i;ve using it
+                    // for highlight! it need to set active diff
+                    // from file or hunk then!
+                    if let Some(diff) = context.active_diff {
+                        if diff.kind == DiffKind::Unstaged {
+                            debug!(
+                                "i am still in unstaged after staging. all ok"
+                            );
+                            return iter;
+                        }
+                    } else {
+                        debug!("ooooooooops. i am nowhere after staging");
+                        if let Some(diff) = &self.unstaged {
+                            debug!("but i still have unstaged. lets go to last hunk or line? then");
+                            debug!("it is better line, cause it could be visually closer!");
+                            debug!("u need last line!");
+                            let last_line = diff.last_visible_line();
+                            iter.set_line(last_line);
+                        }
+                    }
+                    debug!(
+                        "...........................> {:?} {:?}",
+                        line_no,
+                        iter.line()
+                    );
+                    // context is here, right in the full filled context!
+                }
+                _ => {}
+            }
+        }
+        iter
         // so. lets see just 2 cases: staging-unstaging
         // user staged --------------------------
 
@@ -1355,6 +1397,11 @@ impl Status {
             let sender = self.sender.clone();
             let file_path = file.unwrap().path.clone();
             let hunk = hunk.map(|h| h.header.clone());
+            self.last_op.replace(LastOp {
+                op: op.clone(),
+                file_path: Some(file_path.clone()),
+                hunk_header: hunk.clone(),
+            });
             async move {
                 gio::spawn_blocking({
                     move || {
