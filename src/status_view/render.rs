@@ -1335,6 +1335,7 @@ impl Diff {
             // cursor is already within
             return None;
         }
+        debug!("last lineeeeeeeeeeeeeeeeeee! {:?}", last_line);
         return Some(last_line);
     }
 
