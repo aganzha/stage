@@ -530,7 +530,7 @@ impl Status {
             head.enrich_view(current_head, &txt.buffer(), context);
         }
         self.head.replace(head);
-        self.render(txt, RenderSource::Git, context);
+        self.render(txt, None, context);
     }
 
     pub fn update_upstream<'a>(
@@ -547,7 +547,7 @@ impl Status {
             }
         }
         self.upstream = upstream;
-        self.render(txt, RenderSource::Git, context);
+        self.render(txt, None, context);
     }
 
     pub fn update_state<'a>(
@@ -560,7 +560,7 @@ impl Status {
             state.enrich_view(current_state, &txt.buffer(), context)
         }
         self.state.replace(state);
-        self.render(txt, RenderSource::Git, context);
+        self.render(txt, None, context);
     }
 
     pub fn update_untracked<'a>(
@@ -601,7 +601,7 @@ impl Status {
         }
         self.untracked = untracked;
         if self.untracked.is_some() || render_required {
-            self.render(txt, RenderSource::GitDiff, context);
+            self.render(txt, None, context);
         }
     }
 
@@ -790,7 +790,7 @@ impl Status {
             }
         }
         self.conflicted = diff;
-        self.render(txt, RenderSource::Git, context);
+        self.render(txt, None, context);
     }
 
     pub fn update_staged<'a>(
@@ -811,7 +811,7 @@ impl Status {
         }
         self.staged = diff;
         if self.staged.is_some() || render_required {
-            self.render(txt, RenderSource::GitDiff, context);
+            self.render(txt, None, context);
         }
     }
 
@@ -835,9 +835,29 @@ impl Status {
         }
 
         self.unstaged = diff;
-        if self.unstaged.is_some() || render_required {
-            self.render(txt, RenderSource::GitDiff, context);
+
+        
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cleanup StageOp here!
+        let mut op: Option<LastOp> = None;
+        if self.unstaged.is_some() {
+            if let Some(last_op) = &self.last_op {
+                match last_op.op {
+                    StageOp::Stage(_) => {
+                        op = self.last_op.take();
+                        // op.replace(stage);
+                    },
+                    _ =>{}
+                }
+            }
         }
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cleanup StageOp here!
+
+        
+        if self.unstaged.is_some() || render_required {
+            self.render(txt, op, context);
+        }
+        // if self.unstaged.is_some() {
+        // }
     }
 
     pub fn update_tracked_file<'a>(
@@ -912,7 +932,7 @@ impl Status {
         } else {
             self.unstaged = Some(diff);
         }
-        self.render(txt, RenderSource::GitDiff, context);
+        self.render(txt, None, context);
     }
 
     pub fn resize_highlights<'a>(
@@ -983,20 +1003,20 @@ impl Status {
     ) {
         if let Some(conflicted) = &self.conflicted {
             if let Some(expanded_line) = conflicted.expand(line_no, context) {
-                self.render(txt, RenderSource::Expand(expanded_line), context);
+                self.render(txt, None, context);
                 return;
             }
         }
 
         if let Some(unstaged) = &self.unstaged {
             if let Some(expanded_line) = unstaged.expand(line_no, context) {
-                self.render(txt, RenderSource::Expand(expanded_line), context);
+                self.render(txt, None, context);
                 return;
             }
         }
         if let Some(staged) = &self.staged {
             if let Some(expanded_line) = staged.expand(line_no, context) {
-                self.render(txt, RenderSource::Expand(expanded_line), context);
+                self.render(txt, None, context);
             }
         }
     }
@@ -1004,7 +1024,7 @@ impl Status {
     pub fn render<'a>(
         &'a self,
         txt: &StageView,
-        source: RenderSource,
+        last_op: Option<LastOp>,
         context: &mut StatusRenderContext<'a>,
     ) {
         let buffer = txt.buffer();
@@ -1045,36 +1065,9 @@ impl Status {
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
-        // lets try to live without it!
-        if source == RenderSource::GitDiff || source == RenderSource::Git {
-            // it need to put cursor in place here,
-            // EVEN WITHOUT SMART CHOOSE
-            // cause cursor could be, for example, in unstaged hunk
-            // during staging. after staging, the content behind the cursor
-            // is changed (hunk is erased and new hunk come to its place),
-            // and it need to highlight new content on the same cursor
-            // position
-
-            // should be just buffer.iter_at_offset(buffer.cursor_position());
-            // let iter = self.smart_cursor_position(&buffer);
-            // buffer.place_cursor(&iter);
-            // self.cursor(txt, iter.line(), iter.offset(), context);
-        }
-        // so. render just happened BUT - context.cursor is empty
-        // because context is created on each loop
-        // and there were no any user actions.
-        // views were moved/erased and NONE of them is current now!
-        // btw! fn cursor does not call render.
-        // so, it is render must call cursor then!
-        // but if above could be usefull, btw.
-        // so
-        // 1. in fn stage look at context instead of manual search
-        // 2. in fn stage - remember in status the op and 'current' ids
-        // 3. based on op in prev current_ids in STATUS
-        // look for same here, based on whats got updated:
-        // staged/unstaged. there are multiple events: Staged, Unstaged.
-        // on which of them is to react?
-        let iter = self.choose_cursor_position(&buffer, context);
+        let iter = self.choose_cursor_position(&buffer, last_op);
+        debug!("__________ chused position {:?}", iter.line());
+        buffer.place_cursor(&iter);
         self.cursor(txt, iter.line(), iter.offset(), context);
     }
 
@@ -1082,7 +1075,8 @@ impl Status {
         //
         &'a self,
         buffer: &TextBuffer,
-        context: &mut StatusRenderContext<'a>,
+        last_op: Option<LastOp>
+        // context: &mut StatusRenderContext<'a>,
     ) -> TextIter {
         debug!(
             "...................choose cursor position {:?}",
@@ -1090,7 +1084,7 @@ impl Status {
         );
         let this_pos = buffer.cursor_position();
         let mut iter = buffer.iter_at_offset(this_pos);
-        if let Some(last_op) = &self.last_op {
+        if let Some(last_op) = &last_op {
             match last_op.op {
                 StageOp::Stage(line_no) => {
                     // if i am still in staging diff - be here.
@@ -1114,10 +1108,10 @@ impl Status {
                     // i can use everything EXCEPT active_.. fields
                     // FUUUUUUUUUUUUUUUUUUUUUUUUUCK
                     if let Some(unstaged) = &self.unstaged {
-                        
-                        
+
+
                         if let Some(line_to_go) = unstaged.nearest_line_to_go(iter.line()) {
-                            debug!("i am missied in unstaged, but have line to go!!!!!!");
+                            debug!("i am missied in unstaged, but have line to go!!!!!! {line_to_go}");
                             debug!("here it need to cleanup op to stop smart choosing line!");
                             iter.set_line(line_to_go);
                         } else {
@@ -1130,7 +1124,7 @@ impl Status {
                         //     // i am still
                         //     debug!("i have no view in unstaged !!!!!!!!!!!");
                         //     debug!(" but unstaged is alive! it must be upper!");
-                            
+
                         //     // let (nearest_top, nearest_bottom) = unstaged.nearest(iter.line(), context);
                         //     // debug!("????????????????? nearest_top {:?} nearest_bottom {:?}", nearest_top, nearest_bottom);
                         //     // if let Some(nearest_bottom) = nearest_bottom {
@@ -1142,13 +1136,13 @@ impl Status {
                         //     debug!("hey! i am still here in unstaged!")
                         // }
 
-                        
+
                     } else {
                         debug!("i have no unstaged. lets may be go to staged then? {:?}", self.staged.is_some());
                         debug!("how do i know, that it need to clean the op?");
                         debug!("it need to clean the op in operation itself! after the render!!!!!");
                     }
-                    
+
                     // if let Some(diff) = context.active_diff {
                     //     if diff.kind == DiffKind::Unstaged {
                     //         debug!(
@@ -1172,7 +1166,7 @@ impl Status {
                     //             iter.set_line(nearest_bottom);
                     //         } else {
                     //             iter.set_line(nearest_top.unwrap());
-                    //         }                            
+                    //         }
                     //     }
                     // }
                     // debug!(
@@ -1516,7 +1510,7 @@ impl Status {
         let pos = buffer.cursor_position();
         let iter = buffer.iter_at_offset(pos);
         self.cursor(txt, iter.line(), iter.offset(), context);
-        self.render(txt, RenderSource::Git, context);
+        self.render(txt, None, context);
 
         let iter = buffer.iter_at_offset(0);
         let end_iter = buffer.end_iter();
@@ -1635,6 +1629,6 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
-        self.render(txt, RenderSource::GitDiff, context);
+        self.render(txt, None, context);
     }
 }
