@@ -20,7 +20,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::trace;
+use log::{trace, debug};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
@@ -189,7 +189,6 @@ pub trait ViewContainer {
     ) {
         self.prepare_context(context);
 
-        // render_in_textview +++++++++++++++++++++++++++++++++++++++++++
         let line_no = iter.line();
         let view = self.get_view();
         let state = view.get_state_for(line_no);
@@ -257,9 +256,7 @@ pub trait ViewContainer {
         view.dirty(false);
         view.squash(false);
         view.transfer(false);
-        // render_in_textview +++++++++++++++++++++++++++++++++++++++++++
 
-        // recursive render @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         if view.is_expanded() || view.is_child_dirty() {
             for child in self.get_children() {
                 child.render(buffer, iter, context);
@@ -274,7 +271,7 @@ pub trait ViewContainer {
             context.cursor = self.get_view().line_no.get(); // render
         }
         self.fill_context(context);
-        // post render @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
     }
 
     // ViewContainer
@@ -1320,4 +1317,52 @@ impl Diff {
         // }
         // result
     }
+
+    pub fn nearest_line_to_go(&self, cursor_line_no: i32) -> Option<i32> {
+
+        if !self.view.is_rendered() {
+            return None;
+        }
+        let my_line = self.view.line_no.get();
+        debug!("................nearest_line_to_go_1. my line {:?} cursor line {:?}", my_line, cursor_line_no);
+        if my_line >= cursor_line_no {
+            return Some(my_line);
+        }
+        let last_line = self.last_visible_line();
+        debug!("................nearest_line_to_go_2. my line {:?} cursor line {:?}", my_line, cursor_line_no);
+        if last_line >= cursor_line_no {
+            // no need to move anywhere
+            // cursor is already within
+            return None;
+        }
+        return Some(last_line);
+    }
+
+    pub fn has_view_on(&self, line_no: i32) -> bool {
+
+        if !self.view.is_rendered() {
+            return false;
+        }
+        let my_line = self.view.line_no.get();
+        debug!("................has view on. my line {:?} cursor line {:?}", my_line, line_no);
+        if my_line > line_no {
+            return false;
+        }
+        if my_line == line_no {
+            return true;
+        }
+        debug!("~~~~~~~~~~~last visible_line {:?}", self.last_visible_line());
+        self.last_visible_line() >= line_no
+    }
+
+    // pub fn nearest(&self, line_no: i32, context: &StatusRenderContext) ->(Option<i32>, Option<i32>) {
+    //     if let Some(file) = context.active_file {
+    //         debug!("----------------> file {:?} at line {:?} and cursor is {:?}", file.path, file.view.line_no.get(), line_no);
+    //     }
+    //     if let Some(hunk) = context.active_hunk {
+    //         debug!("----------------> hunk {:?} at line {:?} and cursor is {:?}", hunk.header, hunk.view.line_no.get(), line_no);
+    //     }
+    //     // _, hack to view what is in context!
+    //     (None, Some(line_no))
+    // }
 }
