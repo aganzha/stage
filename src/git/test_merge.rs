@@ -4,7 +4,7 @@
 
 use crate::git::merge::choose_conflict_side_of_blob;
 use crate::git::{
-    make_diff, DiffKind, Hunk, LineKind, MARKER_OURS, MARKER_THEIRS,
+    make_diff, DiffKind, Hunk, LineKind, MARKER_OURS, MARKER_THEIRS, HunkLineNo
 };
 use git2;
 use log::debug;
@@ -76,7 +76,7 @@ pub fn choose_ours_in_first_conflict() {
     let mut our_choosen_line = &hunk.lines[0];
     for l in &hunk.lines {
         if let Some(line_no) = l.old_line_no {
-            if line_no == 104 {
+            if line_no == HunkLineNo::new(104) {
                 our_choosen_line = l;
                 break;
             }
@@ -159,7 +159,7 @@ pub fn choose_theirs_in_second_conflict() {
     let mut their_choosen_line = &hunk.lines[0];
     for l in &hunk.lines {
         if let Some(line_no) = l.old_line_no {
-            if line_no == 130 {
+            if line_no == HunkLineNo::new(130) {
                 their_choosen_line = l;
                 break;
             }

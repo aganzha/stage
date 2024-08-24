@@ -29,11 +29,11 @@ use log::{debug, info, trace};
 use regex::Regex;
 //use std::time::SystemTime;
 use std::fmt;
-use std::str::FromStr;
-use std::ops::{Sub, Add};
+use std::num::ParseIntError;
+use std::ops::{Add, Sub};
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::{collections::HashSet, env, str};
-use std::num::{ParseIntError};
 
 pub fn make_diff_options() -> DiffOptions {
     let mut opts = DiffOptions::new();
@@ -67,7 +67,7 @@ impl FromStr for HunkLineNo {
     type Err = ParseIntError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        u32::from_str(s).map(|num| HunkLineNo(num))
+        u32::from_str(s).map(HunkLineNo)
     }
 }
 impl fmt::Display for HunkLineNo {
@@ -89,7 +89,6 @@ impl Add for HunkLineNo {
         Self(self.0 + other.0)
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LineKind {
@@ -136,8 +135,8 @@ impl Line {
         Self {
             view: View::new(),
             origin: l.origin_value(),
-            new_line_no: l.new_lineno().map(|num| HunkLineNo(num)),
-            old_line_no: l.old_lineno().map(|num| HunkLineNo(num)),
+            new_line_no: l.new_lineno().map(HunkLineNo),
+            old_line_no: l.old_lineno().map(HunkLineNo),
             kind: LineKind::None,
             content_idx: (content_from, content_to),
         }
@@ -172,11 +171,12 @@ pub const MARKER_OURS: &str = "<<<<<<<";
 pub const MARKER_VS: &str = "=======";
 pub const MARKER_THEIRS: &str = ">>>>>>>";
 pub const MARKER_HUNK: &str = "@@";
+pub const MARKER_DIFF_B: &str = "---"; // --- b/client/ServiceWork/Order/document/_models/WorksNomModel.ts
+pub const MARKER_DIFF_A: &str = "+++"; // +++ a/client/ServiceWork/Order/document/_models/WorksNomModel.ts
 pub const PLUS: &str = "+";
 pub const MINUS: &str = "-";
 pub const SPACE: &str = " ";
 pub const NEW_LINE: &str = "\n";
-
 
 #[derive(Debug, Clone)]
 pub struct Hunk {
@@ -956,12 +956,11 @@ pub fn get_conflicted_v1(
             for hunk in &file.hunks {
                 debug!("hunk in conflicted {}", hunk.header);
                 for line in &hunk.lines {
-                    debug!("{}", line.content(&hunk));
+                    debug!("{}", line.content(hunk));
                 }
                 debug!("..");
-                let (first_marker, last_marker) = hunk.lines.iter().fold(
-                    (None, None),
-                    |acc, line| {
+                let (first_marker, last_marker) =
+                    hunk.lines.iter().fold((None, None), |acc, line| {
                         match (acc.0, acc.1, &line.kind) {
                             (None, _, LineKind::ConflictMarker(m)) => {
                                 (Some(m), Some(m))
@@ -969,10 +968,9 @@ pub fn get_conflicted_v1(
                             (Some(_), _, LineKind::ConflictMarker(m)) => {
                                 (acc.0, Some(m))
                             }
-                            _ => acc
+                            _ => acc,
                         }
-                    }
-                );
+                    });
                 match (first_marker, last_marker) {
                     (None, _) => {
                         // hunk without conflicts?
@@ -984,14 +982,19 @@ pub fn get_conflicted_v1(
                     (Some(m), _) if m == MARKER_THEIRS || m == MARKER_VS => {
                         // hunk is not started with ours
                         // store prev hunk last line and this hunk start to join em
-                        hunks_to_join.push((prev_conflict_line.unwrap(), hunk.old_start));
+                        hunks_to_join.push((
+                            prev_conflict_line.unwrap(),
+                            hunk.old_start,
+                        ));
                         prev_conflict_line = None;
                     }
                     (_, Some(m)) if m != MARKER_THEIRS => {
                         // hunk is not ended with theirs
                         // store prev hunk last line and this hunk start to join em
                         assert!(prev_conflict_line.is_none());
-                        prev_conflict_line.replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
+                        prev_conflict_line.replace(HunkLineNo::new(
+                            hunk.old_start.as_u32() + hunk.old_lines,
+                        ));
                     }
                     (Some(start), Some(end)) => {
                         assert!(start == MARKER_OURS);
@@ -1136,10 +1139,7 @@ pub fn get_conflicted_v1(
                 // }
             }
         }
-        debug!(
-            "hunks to join during get_conflicted {:?}",
-            hunks_to_join
-        );
+        debug!("hunks to join during get_conflicted {:?}", hunks_to_join);
         if !hunks_to_join.is_empty() {
             let interhunk = hunks_to_join.iter().fold(HunkLineNo::new(0), |acc, from_to| {
                 debug!("~~~~~~~~~ missing theirs contains start of hunks which need to join!");
