@@ -40,7 +40,7 @@ mod git;
 use git::{
     branch, commit, get_current_repo_status, get_directories, reset_hard,
     stage_untracked, stage_via_apply, stash::Stashes, track_changes, Diff,
-    DiffKind, File, Head, Hunk, Line, LineKind, State,
+    DiffKind, File, Head, Hunk, HunkLineNo, Line, LineKind, State,
 };
 use git2::Oid;
 mod dialogs;

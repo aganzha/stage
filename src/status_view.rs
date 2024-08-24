@@ -10,7 +10,7 @@ pub mod render;
 pub mod stage_view;
 pub mod tags;
 use crate::dialogs::{alert, DangerDialog, YES};
-use crate::git::{abort_rebase, continue_rebase, merge, remote, stash};
+use crate::git::{abort_rebase, continue_rebase, merge, remote, stash, HunkLineNo};
 use crate::utils::StrPath;
 
 use core::time::Duration;
@@ -182,12 +182,13 @@ impl Status {
                 return Some((self.to_abs_path(&file.path), 0, 0));
             }
             let hunk = file.hunks.iter().find(|h| h.view.is_active()).unwrap();
+            // TODO move Line old_line_no and new_line_no
             let mut line_no = hunk.new_start;
             let mut col_no = 0;
             if !hunk.view.is_current() {
                 let line =
                     hunk.lines.iter().find(|l| l.view.is_current()).unwrap();
-                line_no = line.new_line_no.or(line.old_line_no).unwrap_or(0);
+                line_no = line.new_line_no.or(line.old_line_no).unwrap_or(HunkLineNo::new(0));
                 let pos = txt.buffer().cursor_position();
                 let iter = txt.buffer().iter_at_offset(pos);
                 col_no = iter.line_offset();
@@ -195,7 +196,7 @@ impl Status {
             let mut base = self.path.clone().unwrap();
             base.pop();
             base.push(&file.path);
-            return Some((base, line_no as i32, col_no));
+            return Some((base, line_no.as_i32(), col_no));
         }
         None
     }
