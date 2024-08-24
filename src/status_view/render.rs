@@ -12,7 +12,6 @@ use crate::{
     File,
     Head,
     Hunk,
-    HunkLineNo,
     Line,
     LineKind,
     State,
@@ -21,7 +20,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
-use log::{trace, debug};
+use log::{debug, trace};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
@@ -272,7 +271,6 @@ pub trait ViewContainer {
             context.cursor = self.get_view().line_no.get(); // render
         }
         self.fill_context(context);
-
     }
 
     // ViewContainer
@@ -1322,7 +1320,6 @@ impl Diff {
     }
 
     pub fn nearest_line_to_go(&self, cursor_line_no: i32) -> Option<i32> {
-
         if !self.view.is_rendered() {
             return None;
         }
@@ -1339,23 +1336,28 @@ impl Diff {
             return None;
         }
         debug!("last lineeeeeeeeeeeeeeeeeee! {:?}", last_line);
-        return Some(last_line);
+        Some(last_line)
     }
 
     pub fn has_view_on(&self, line_no: i32) -> bool {
-
         if !self.view.is_rendered() {
             return false;
         }
         let my_line = self.view.line_no.get();
-        debug!("................has view on. my line {:?} cursor line {:?}", my_line, line_no);
+        debug!(
+            "................has view on. my line {:?} cursor line {:?}",
+            my_line, line_no
+        );
         if my_line > line_no {
             return false;
         }
         if my_line == line_no {
             return true;
         }
-        debug!("~~~~~~~~~~~last visible_line {:?}", self.last_visible_line());
+        debug!(
+            "~~~~~~~~~~~last visible_line {:?}",
+            self.last_visible_line()
+        );
         self.last_visible_line() >= line_no
     }
 

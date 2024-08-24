@@ -5,8 +5,8 @@
 use crate::git::{
     branch::BranchName, get_conflicted_v1, get_current_repo_status,
     make_diff_options, BranchData, DeferRefresh, Head, Hunk, Line, State,
-    MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE,
-    SPACE,
+    MARKER_DIFF_A, MARKER_DIFF_B, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS,
+    MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
 };
 use async_channel::Sender;
 use git2;
@@ -274,51 +274,10 @@ pub fn choose_conflict_side_of_blob<'a>(
     choosed_hunk_header: &'a str,
     ours_choosed: bool,
 ) -> String {
-    // so. we have full file blobs, perhaps with lots
-    // of conflicts.
-    // the diff itself will not show +
-    // it will have only minus, cause the purpose of diff
-    // is to erase all to the moment before applying
-    // and return to original tree.
-    // so, when i have
-    // <<< upstream
-    // ====
-    // >>>> stashed
-    // all stashed must go to -, right?
-    // wrong! git diff could choose other side to +
-    // simple git diff (without reverse) should
-    // show
-    // - <<< upstream
-    //  ours
-    // - ======
-    // - theirs
-    // - >>>>> stashed
-
-    // BUT! it could show
-
-    // - <<< upstream
-    // - ours
-    // - ======
-    //   theirs
-    // - >>>>> stashed
-    // for some reason. why????
-
-    // so. there are 2 bugs in such case.
-    // 1. when choose something in another hunk/conflict,
-    // in this 'equal' hunks markers are killed, ours are
-    // remain as is with - and theirs remain as is:
-    // <<< upstream
-    // - ours
-    // ======
-    //   theirs
-    // >>>>> stashed
-    // to fix, it need to force clean ours side
-    // 2. when choose exact this wrong ours in this conflict
-    // patch does not apply, for some reason. though it is not changed
-    // from original!
-    // looks like that because updated_reverse_header add 5 lines!
-    // why? why lines were added? thats delta, somehow.
-
+    // this will create patch, which !INSIDE CONFLICT!
+    // will try to restore to original tree those
+    // killing all markers. choosen side would be
+    // cleanup up from -. another side will be killed with -
     let mut acc = Vec::new();
 
     let mut lines = raw.lines();
@@ -517,20 +476,46 @@ pub fn choose_conflict_side_of_blob<'a>(
                 );
                 line_offset_inside_hunk += 1;
             }
-            if !hunk_deltas.is_empty() && line.starts_with(MINUS) {
-                // when 1 hunk have multiple conflicts
-                // perhaps here will be conflicts resolved
-                // in previous turn. They already stripped off
-                // conflicts markers, but their choosen lines
-                // will be marked for deletion (there are no such lines
-                // in tree and the diff is reversed
-                trace!("fix previously resolved DUBBY conflict ??????????????? {:?}", line);
+            // BUT! there is also changes outside of conflict!
+            // those must be applied in reverse!
+            // example. Here is their side chosen:
+            // + line1
+            // + line2
+            // -<<<<<
+            // - our line
+            // - ===========
+            // their line
+            // ->>>>>>>>
+            // first 2 lines have a + sign outside of conflict
+            // they needed to restore to old tree. But i do not
+            // need old tree. I need new one! So all ops(signs)
+            // OUTSIDE conflict should be killed!!!
+            // old logic below. new logic above. ---------------
+            if line.starts_with(MINUS) && !line.starts_with(MARKER_DIFF_B) {
+                debug!("whats the case? see nots below");
+                debug!("???????? {:?} {:?}", hunk_deltas, line);
                 acc.push(SPACE);
                 acc.push(&line[1..]);
                 acc.push(NEW_LINE);
                 let hd = hunk_deltas.last().unwrap();
                 let le = hunk_deltas.len();
                 hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
+                // ?????????????????????
+                // see necxt clause. looks like its more important
+                // when 1 hunk have multiple conflicts
+                // perhaps here will be conflicts resolved
+                // in previous turn. They already stripped off
+                // conflicts markers, but their choosen lines
+                // will be marked for deletion (there are no such lines
+                // in tree and the diff is reversed
+            } else if line.starts_with(PLUS)
+                && !line.starts_with(MARKER_DIFF_A)
+            {
+                debug!("it is trying to restore old lines with +");
+                debug!("do not do that! do not push line at all!");
+                let hd = hunk_deltas.last().unwrap();
+                let le = hunk_deltas.len();
+                hunk_deltas[le - 1] = (hd.0, hd.1 - 1);
             } else {
                 acc.push(line);
                 acc.push(NEW_LINE);

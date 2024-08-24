@@ -10,7 +10,9 @@ pub mod render;
 pub mod stage_view;
 pub mod tags;
 use crate::dialogs::{alert, DangerDialog, YES};
-use crate::git::{abort_rebase, continue_rebase, merge, remote, stash, HunkLineNo};
+use crate::git::{
+    abort_rebase, continue_rebase, merge, remote, stash, HunkLineNo,
+};
 use crate::utils::StrPath;
 
 use core::time::Duration;
@@ -188,7 +190,10 @@ impl Status {
             if !hunk.view.is_current() {
                 let line =
                     hunk.lines.iter().find(|l| l.view.is_current()).unwrap();
-                line_no = line.new_line_no.or(line.old_line_no).unwrap_or(HunkLineNo::new(0));
+                line_no = line
+                    .new_line_no
+                    .or(line.old_line_no)
+                    .unwrap_or(HunkLineNo::new(0));
                 let pos = txt.buffer().cursor_position();
                 let iter = txt.buffer().iter_at_offset(pos);
                 col_no = iter.line_offset();
@@ -822,12 +827,9 @@ impl Status {
         let mut op: Option<LastOp> = None;
         if self.unstaged.is_some() {
             if let Some(last_op) = &self.last_op {
-                match last_op.op {
-                    StageOp::Stage(_) => {
-                        op = self.last_op.take();
-                        // op.replace(stage);
-                    }
-                    _ => {}
+                if let StageOp::Stage(_) = last_op.op {
+                    op = self.last_op.take();
+                    // op.replace(stage);
                 }
             }
         }
@@ -1051,9 +1053,9 @@ impl Status {
         self.cursor(txt, iter.line(), iter.offset(), context);
     }
 
-    pub fn choose_cursor_position<'a>(
+    pub fn choose_cursor_position(
         //
-        &'a self,
+        &self,
         buffer: &TextBuffer,
         last_op: Option<LastOp>, // context: &mut StatusRenderContext<'a>,
     ) -> TextIter {
@@ -1064,98 +1066,95 @@ impl Status {
         let this_pos = buffer.cursor_position();
         let mut iter = buffer.iter_at_offset(this_pos);
         if let Some(last_op) = &last_op {
-            match last_op.op {
-                StageOp::Stage(line_no) => {
-                    // if i am still in staging diff - be here.
-                    // if let Some(diff) = self.// fuck, i need whole diff by
-                    // cursor_line!
-                    // what can i do? store it in the context...
-                    // for current line store its current diff!
-                    // how diff could be active! i;ve using it
-                    // for highlight! it need to set active diff
-                    // from file or hunk then!
+            if let StageOp::Stage(line_no) = last_op.op {
+                // if i am still in staging diff - be here.
+                // if let Some(diff) = self.// fuck, i need whole diff by
+                // cursor_line!
+                // what can i do? store it in the context...
+                // for current line store its current diff!
+                // how diff could be active! i;ve using it
+                // for highlight! it need to set active diff
+                // from file or hunk then!
 
-                    // FUUUUUUUUUUUUUUUUUUUUUUUUUCK
-                    // there is no active diff, cause cursor is
-                    // called AFTER this function!
-                    // and previous active diffs are cleanud up
-                    // cause context is new every time!
-                    // i must not relate to active links here!
-                    // those are only for stage_via_apply!
-                    // so. what can i get here.
-                    // i have self.views rendered!
-                    // i can use everything EXCEPT active_.. fields
-                    // FUUUUUUUUUUUUUUUUUUUUUUUUUCK
-                    if let Some(unstaged) = &self.unstaged {
-                        if let Some(line_to_go) =
-                            unstaged.nearest_line_to_go(iter.line())
-                        {
-                            debug!("i am missied in unstaged, but have line to go!!!!!! {line_to_go}");
-                            debug!("here it need to cleanup op to stop smart choosing line!");
-                            iter.set_line(line_to_go);
-                        } else {
-                            debug!("i am either in unstaged, or there are no place to go in unstaged!");
-                            debug!(
-                                "how do i know, that it need to clean the op?"
-                            );
-                            debug!("it need to clean the op in operation itself! after the render!!!!!");
-                        }
-                        // // this works! but lets just return last nearest line!
-                        // if !unstaged.has_view_on(iter.line()) {
-                        //     // i am still
-                        //     debug!("i have no view in unstaged !!!!!!!!!!!");
-                        //     debug!(" but unstaged is alive! it must be upper!");
-
-                        //     // let (nearest_top, nearest_bottom) = unstaged.nearest(iter.line(), context);
-                        //     // debug!("????????????????? nearest_top {:?} nearest_bottom {:?}", nearest_top, nearest_bottom);
-                        //     // if let Some(nearest_bottom) = nearest_bottom {
-                        //     //     iter.set_line(nearest_bottom);
-                        //     // } else {
-                        //     //     iter.set_line(nearest_top.unwrap());
-                        //     // }
-                        // } else {
-                        //     debug!("hey! i am still here in unstaged!")
-                        // }
+                // FUUUUUUUUUUUUUUUUUUUUUUUUUCK
+                // there is no active diff, cause cursor is
+                // called AFTER this function!
+                // and previous active diffs are cleanud up
+                // cause context is new every time!
+                // i must not relate to active links here!
+                // those are only for stage_via_apply!
+                // so. what can i get here.
+                // i have self.views rendered!
+                // i can use everything EXCEPT active_.. fields
+                // FUUUUUUUUUUUUUUUUUUUUUUUUUCK
+                if let Some(unstaged) = &self.unstaged {
+                    if let Some(line_to_go) =
+                        unstaged.nearest_line_to_go(iter.line())
+                    {
+                        debug!("i am missied in unstaged, but have line to go!!!!!! {line_to_go}");
+                        debug!("here it need to cleanup op to stop smart choosing line!");
+                        iter.set_line(line_to_go);
                     } else {
-                        debug!("i have no unstaged. lets may be go to staged then? {:?}", self.staged.is_some());
-                        debug!("how do i know, that it need to clean the op?");
+                        debug!("i am either in unstaged, or there are no place to go in unstaged!");
+                        debug!(
+                            "how do i know, that it need to clean the op?"
+                        );
                         debug!("it need to clean the op in operation itself! after the render!!!!!");
                     }
+                    // // this works! but lets just return last nearest line!
+                    // if !unstaged.has_view_on(iter.line()) {
+                    //     // i am still
+                    //     debug!("i have no view in unstaged !!!!!!!!!!!");
+                    //     debug!(" but unstaged is alive! it must be upper!");
 
-                    // if let Some(diff) = context.active_diff {
-                    //     if diff.kind == DiffKind::Unstaged {
-                    //         debug!(
-                    //             "~~~~~~~~~~~~~~~~~~~~~~~~~~~~i am still in unstaged after staging. all ok"
-                    //         );
-                    //         return iter;
-                    //     }
+                    //     // let (nearest_top, nearest_bottom) = unstaged.nearest(iter.line(), context);
+                    //     // debug!("????????????????? nearest_top {:?} nearest_bottom {:?}", nearest_top, nearest_bottom);
+                    //     // if let Some(nearest_bottom) = nearest_bottom {
+                    //     //     iter.set_line(nearest_bottom);
+                    //     // } else {
+                    //     //     iter.set_line(nearest_top.unwrap());
+                    //     // }
                     // } else {
-                    //     debug!("ooooooooops. i am nowhere after staging");
-                    //     if let Some(diff) = &self.unstaged {
-                    //         debug!("but i still have unstaged. lets go to last hunk or line? then");
-                    //         debug!("it is better line, cause it could be visually closer!");
-                    //         debug!("u need last line!");
-                    //         // let last_line = diff.last_visible_line();
-                    //         // hey!
-                    //         debug!("if i have hunk below - go below, but first actual line");
-                    //         debug!("if i have something above - go above last line");
-                    //         let (nearest_top, nearest_bottom) = diff.nearest(iter.line(), context);
-                    //         debug!("????????????????? nearest_top {:?} nearest_bottom {:?} iter line {:?}", nearest_top, nearest_bottom, iter.line());
-                    //         if let Some(nearest_bottom) = nearest_bottom {
-                    //             iter.set_line(nearest_bottom);
-                    //         } else {
-                    //             iter.set_line(nearest_top.unwrap());
-                    //         }
-                    //     }
+                    //     debug!("hey! i am still here in unstaged!")
                     // }
-                    // debug!(
-                    //     "...........................> {:?} {:?}",
-                    //     line_no,
-                    //     iter.line()
-                    // );
-                    // context is here, right in the full filled context!
+                } else {
+                    debug!("i have no unstaged. lets may be go to staged then? {:?}", self.staged.is_some());
+                    debug!("how do i know, that it need to clean the op?");
+                    debug!("it need to clean the op in operation itself! after the render!!!!!");
                 }
-                _ => {}
+
+                // if let Some(diff) = context.active_diff {
+                //     if diff.kind == DiffKind::Unstaged {
+                //         debug!(
+                //             "~~~~~~~~~~~~~~~~~~~~~~~~~~~~i am still in unstaged after staging. all ok"
+                //         );
+                //         return iter;
+                //     }
+                // } else {
+                //     debug!("ooooooooops. i am nowhere after staging");
+                //     if let Some(diff) = &self.unstaged {
+                //         debug!("but i still have unstaged. lets go to last hunk or line? then");
+                //         debug!("it is better line, cause it could be visually closer!");
+                //         debug!("u need last line!");
+                //         // let last_line = diff.last_visible_line();
+                //         // hey!
+                //         debug!("if i have hunk below - go below, but first actual line");
+                //         debug!("if i have something above - go above last line");
+                //         let (nearest_top, nearest_bottom) = diff.nearest(iter.line(), context);
+                //         debug!("????????????????? nearest_top {:?} nearest_bottom {:?} iter line {:?}", nearest_top, nearest_bottom, iter.line());
+                //         if let Some(nearest_bottom) = nearest_bottom {
+                //             iter.set_line(nearest_bottom);
+                //         } else {
+                //             iter.set_line(nearest_top.unwrap());
+                //         }
+                //     }
+                // }
+                // debug!(
+                //     "...........................> {:?} {:?}",
+                //     line_no,
+                //     iter.line()
+                // );
+                // context is here, right in the full filled context!
             }
         }
         iter
