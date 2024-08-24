@@ -28,9 +28,12 @@ use git2::{
 use log::{debug, info, trace};
 use regex::Regex;
 //use std::time::SystemTime;
-
+use std::fmt;
+use std::str::FromStr;
+use std::ops::{Sub, Add};
 use std::path::PathBuf;
 use std::{collections::HashSet, env, str};
+use std::num::{ParseIntError};
 
 pub fn make_diff_options() -> DiffOptions {
     let mut opts = DiffOptions::new();
@@ -46,6 +49,48 @@ pub fn make_diff_options() -> DiffOptions {
     opts
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct HunkLineNo(u32);
+
+impl HunkLineNo {
+    pub fn new(num: u32) -> Self {
+        Self(num)
+    }
+    pub fn as_u32(&self) -> u32 {
+        self.0
+    }
+    pub fn as_i32(&self) -> i32 {
+        self.0 as i32
+    }
+}
+impl FromStr for HunkLineNo {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        u32::from_str(s).map(|num| HunkLineNo(num))
+    }
+}
+impl fmt::Display for HunkLineNo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl Sub for HunkLineNo {
+    type Output = Self;
+    fn sub(self, other: Self) -> Self::Output {
+        Self(self.0 - other.0)
+    }
+}
+
+impl Add for HunkLineNo {
+    type Output = Self;
+    fn add(self, other: Self) -> Self::Output {
+        Self(self.0 + other.0)
+    }
+}
+
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum LineKind {
     None,
@@ -58,8 +103,8 @@ pub enum LineKind {
 pub struct Line {
     pub view: View,
     pub origin: DiffLineType,
-    pub new_line_no: Option<u32>,
-    pub old_line_no: Option<u32>,
+    pub new_line_no: Option<HunkLineNo>,
+    pub old_line_no: Option<HunkLineNo>,
     pub kind: LineKind,
     pub content_idx: (usize, usize),
 }
@@ -91,8 +136,8 @@ impl Line {
         Self {
             view: View::new(),
             origin: l.origin_value(),
-            new_line_no: l.new_lineno(),
-            old_line_no: l.old_lineno(),
+            new_line_no: l.new_lineno().map(|num| HunkLineNo(num)),
+            old_line_no: l.old_lineno().map(|num| HunkLineNo(num)),
             kind: LineKind::None,
             content_idx: (content_from, content_to),
         }
@@ -132,12 +177,13 @@ pub const MINUS: &str = "-";
 pub const SPACE: &str = " ";
 pub const NEW_LINE: &str = "\n";
 
+
 #[derive(Debug, Clone)]
 pub struct Hunk {
     pub view: View,
     pub header: String,
-    pub old_start: u32,
-    pub new_start: u32,
+    pub old_start: HunkLineNo,
+    pub new_start: HunkLineNo,
     pub old_lines: u32,
     pub new_lines: u32,
     pub lines: Vec<Line>,
@@ -155,8 +201,8 @@ impl Hunk {
             view,
             header: String::new(),
             lines: Vec::new(),
-            old_start: 0,
-            new_start: 0,
+            old_start: HunkLineNo(0),
+            new_start: HunkLineNo(0),
             old_lines: 0,
             new_lines: 0,
             max_line_len: 0,
@@ -183,9 +229,9 @@ impl Hunk {
         let header = Self::get_header_from(dh);
         self.handle_max(&header);
         self.header = header;
-        self.old_start = dh.old_start();
+        self.old_start = HunkLineNo(dh.old_start());
         self.old_lines = dh.old_lines();
-        self.new_start = dh.new_start();
+        self.new_start = HunkLineNo(dh.new_start());
         self.new_lines = dh.new_lines();
         self.buf = String::with_capacity(
             1 + 3 + self.old_lines as usize + self.new_lines as usize + 3,
@@ -868,9 +914,12 @@ pub fn get_conflicted_v1(
         index.has_conflicts()
     );
     let mut opts = make_diff_options();
-    // 6 - for 3 context lines in eacj hunk?
-    opts.interhunk_lines(interhunk.unwrap_or(10));
-
+    // 6 - for 3 context lines in eacj hunk?    
+    // opts.interhunk_lines(interhunk.unwrap_or(10));
+    if let Some(interhunk) = interhunk {
+        opts.interhunk_lines(interhunk);
+    }
+    
     let mut has_conflict_paths = false;
     for conflict in conflicts {
         let conflict = conflict.unwrap();
@@ -905,8 +954,12 @@ pub fn get_conflicted_v1(
         let mut missing_theirs = 0;
         for file in &diff.files {
             for hunk in &file.hunks {
-                trace!("hunk in conflicted {}", hunk.header);
-                let (ours, theirs, _separator) =
+                debug!("hunk in conflicted {}", hunk.header);
+                for line in &hunk.lines {
+                    debug!("{}", line.content(&hunk));
+                }
+                debug!("..");
+                let (ours, theirs, separator) =
                     hunk.lines.iter().fold((0, 0, 0), |acc, line| match &line
                         .kind
                     {
@@ -925,8 +978,14 @@ pub fn get_conflicted_v1(
                 // into one. possible 2 variants
                 // ours vs - theirs
                 // ours - vs theirs
+                debug!("------ours theirs separator {ours} {theirs} {separator:?}");
                 if ours > theirs {
                     // store last line of hunk without theirs
+                    debug!("got missing_theirs!--- {:?} {:?} {:?}", hunk.new_start, hunk.lines.len(), hunk.header);
+                    // this is stupid! it sums new hunk start, which is true line_no in physycal file
+                    // with hunk lines len, which does not relate to physical lines at all!
+                    // it must be separated types which does not allow summ!
+                    // in fact they are! but i32 and usize, but this is happenstance
                     missing_theirs = hunk.new_start + hunk.lines.len() as u32;
                 } else if theirs > ours {
                     // hunk with theirs, but without ours
@@ -951,6 +1010,7 @@ pub fn get_conflicted_v1(
                     // assert!(missing_theirs > 0);
                     // hunks_to_join.push((missing_theirs, hunk.new_start));
                     if missing_theirs > 0 {
+                        debug!("got hunks to join!!!!!!!! {:?} {:?} {:?}", missing_theirs, hunk.new_start, hunk.header);
                         hunks_to_join.push((missing_theirs, hunk.new_start));
                     }
                 } else {
@@ -968,10 +1028,11 @@ pub fn get_conflicted_v1(
         }
         debug!(
             "hunks to join during get_conflicted {:?}",
-            hunks_to_join.len()
+            hunks_to_join
         );
         if !hunks_to_join.is_empty() {
             let interhunk = hunks_to_join.iter().fold(0, |acc, from_to| {
+                debug!("~~~~~~~~~~~~~~~~~~~~~~~ acc and from_to {acc:?} {from_to:?}");
                 if acc < from_to.1 - from_to.0 {
                     return from_to.1 - from_to.0;
                 }
