@@ -11,7 +11,7 @@ use crate::git::{
 use async_channel::Sender;
 use git2;
 use gtk4::gio;
-use log::{info, trace};
+use log::{debug, info, trace};
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -548,7 +548,7 @@ pub fn choose_conflict_side_of_hunk(
     interhunk: Option<u32>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
-    trace!(
+    debug!(
         "choose_conflict_side_of_hunk {:?} Line: {:?} Interhunk: {:?}",
         hunk.header,
         line.content(&hunk),
@@ -639,9 +639,9 @@ pub fn choose_conflict_side_of_hunk(
         }
     };
     let raw = buff.as_str().unwrap();
-    trace!("OLD body BEFORE patch ___________________");
+    debug!("OLD body BEFORE patch ___________________");
     for line in raw.lines() {
-        trace!("{}", line);
+        debug!("{}", line);
     }
     let ours_choosed = line.is_our_side_of_conflict();
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
@@ -657,10 +657,10 @@ pub fn choose_conflict_side_of_hunk(
         &reversed_header,
         ours_choosed,
     );
-    // trace!("new body for patch ___________________");
-    // for line in new_body.lines() {
-    //     trace!("{}", line);
-    // }
+    debug!("new body for patch ___________________");
+    for line in new_body.lines() {
+        debug!("{}", line);
+    }
 
     // so. not only new lines are changed. new_start are changed also!!!!!!
     // it need to add delta of prev hunk int new start of next hunk!!!!!!!!

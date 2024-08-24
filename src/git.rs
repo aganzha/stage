@@ -675,8 +675,10 @@ pub fn get_current_repo_status(
     gio::spawn_blocking({
         let sender = sender.clone();
         let path = path.clone();
-        let state = repo.state();
         move || {
+            let repo =
+                Repository::open(path.clone()).expect("can't open repo");
+            let state = repo.state();
             let mut subject = String::from("");
             // ???
             let mut require_conflicted = false;
@@ -703,8 +705,26 @@ pub fn get_current_repo_status(
                 _ => {}
             }
             let state = State::new(state, subject);
-            // why it is here?
+            // during conflicts in merge there are 2 cases:
+            // 1. no conflicts, cause they were resolved
+            // 2. still have conflicts.
+            // in case 2 the get_conflicted_v1 will be called
+            // LATER downwhere. but in case 1. we have to force update
+            // conflicted (to erase it during resolution)
             if require_conflicted {
+                let index = repo.index().expect("cant get index");
+                if index.has_conflicts() {
+                    // case 2. Conflicted will be fired
+                    // in another clause
+                    debug!("i am getting state here. conflicted will be running later");
+                    require_conflicted = false;
+                }
+            }
+            if require_conflicted {
+                // case 1. all conflicts are resolved, but state
+                // is still merging. Fire Conflicted here to show the banner
+                // TODO! move banner logic to state!, not conflicted!
+                // get rid of banner in update conflicted!
                 let diff = get_conflicted_v1(path, None);
                 sender
                     .send_blocking(crate::Event::Conflicted(diff, Some(state)))
@@ -965,6 +985,7 @@ pub fn get_conflicted_v1(
             diff.interhunk.replace(interhunk);
         }
     }
+    debug!("-------interhunk in conflicted_v1 {:?}", diff.interhunk);
     Some(diff)
 }
 

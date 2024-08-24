@@ -659,20 +659,7 @@ impl Status {
             }
             self.state.replace(state);
         }
-        // TODO restore it!
-        // if !diff.is_empty()
-        //     && !diff.has_conflicts()
-        //     && !self.conflicted_label.content.contains("resolved")
-        // {
-        //     self.conflicted_label.content = String::from("<span weight=\"bold\"\
-        //                                                   color=\"#1c71d8\">Conflicts resolved</span> \
-        //                                                   stage changes to complete merge");
-        //     // both dirty and transfer is required.
-        //     // only dirty means TagsModified state in render
 
-        //     self.conflicted_label.view.dirty(true);
-        //     self.conflicted_label.view.transfer(true);
-        // }
         if let Some(rendered) = &mut self.conflicted {
             let buffer = &txt.buffer();
             if let Some(new) = &diff {
@@ -686,12 +673,6 @@ impl Status {
             if diff.is_none() {
                 if banner.is_revealed() {
                     banner.set_revealed(false);
-                    // TODO restore it!
-                    // restore original label for future conflicts
-                    // self.conflicted_label.content = String::from(
-                    //     "<span weight=\"bold\" color=\"#ff0000\">Conflicts</span>",
-                    // );
-                    // self.conflicted_label.view.dirty(true);
                 }
                 if state.need_final_commit() || state.need_rebase_continue() {
                     banner.set_title(&state.title_for_proceed_banner());
@@ -836,7 +817,6 @@ impl Status {
 
         self.unstaged = diff;
 
-        
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cleanup StageOp here!
         let mut op: Option<LastOp> = None;
         if self.unstaged.is_some() {
@@ -845,14 +825,13 @@ impl Status {
                     StageOp::Stage(_) => {
                         op = self.last_op.take();
                         // op.replace(stage);
-                    },
-                    _ =>{}
+                    }
+                    _ => {}
                 }
             }
         }
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cleanup StageOp here!
 
-        
         if self.unstaged.is_some() || render_required {
             self.render(txt, op, context);
         }
@@ -1075,8 +1054,7 @@ impl Status {
         //
         &'a self,
         buffer: &TextBuffer,
-        last_op: Option<LastOp>
-        // context: &mut StatusRenderContext<'a>,
+        last_op: Option<LastOp>, // context: &mut StatusRenderContext<'a>,
     ) -> TextIter {
         debug!(
             "...................choose cursor position {:?}",
@@ -1108,15 +1086,17 @@ impl Status {
                     // i can use everything EXCEPT active_.. fields
                     // FUUUUUUUUUUUUUUUUUUUUUUUUUCK
                     if let Some(unstaged) = &self.unstaged {
-
-
-                        if let Some(line_to_go) = unstaged.nearest_line_to_go(iter.line()) {
+                        if let Some(line_to_go) =
+                            unstaged.nearest_line_to_go(iter.line())
+                        {
                             debug!("i am missied in unstaged, but have line to go!!!!!! {line_to_go}");
                             debug!("here it need to cleanup op to stop smart choosing line!");
                             iter.set_line(line_to_go);
                         } else {
                             debug!("i am either in unstaged, or there are no place to go in unstaged!");
-                            debug!("how do i know, that it need to clean the op?");
+                            debug!(
+                                "how do i know, that it need to clean the op?"
+                            );
                             debug!("it need to clean the op in operation itself! after the render!!!!!");
                         }
                         // // this works! but lets just return last nearest line!
@@ -1135,8 +1115,6 @@ impl Status {
                         // } else {
                         //     debug!("hey! i am still here in unstaged!")
                         // }
-
-
                     } else {
                         debug!("i have no unstaged. lets may be go to staged then? {:?}", self.staged.is_some());
                         debug!("how do i know, that it need to clean the op?");
@@ -1318,6 +1296,7 @@ impl Status {
         info!("Stage in conflict");
         if let Some(conflicted) = &self.conflicted {
             // also someone can press stage on label!
+            debug!("!!!!!!!!!!!!!!!!!!!!!!!!!!! {:?}", conflicted.interhunk);
             for f in &conflicted.files {
                 // also someone can press stage on file!
                 for hunk in &f.hunks {
