@@ -4,7 +4,8 @@
 
 use crate::git::merge::choose_conflict_side_of_blob;
 use crate::git::{
-    make_diff, DiffKind, Hunk, LineKind, MARKER_OURS, MARKER_THEIRS, HunkLineNo
+    make_diff, DiffKind, Hunk, HunkLineNo, LineKind, MARKER_OURS,
+    MARKER_THEIRS,
 };
 use git2;
 use log::debug;

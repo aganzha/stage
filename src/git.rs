@@ -793,6 +793,20 @@ pub fn get_current_repo_status(
         }
     });
 
+    // get branches
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        let path = path.clone();
+        move || {
+            let branches =
+                branch::get_branches(path).expect("cant get branches");
+            sender
+                .send_blocking(crate::Event::Branches(branches))
+                .expect("Could not send through channel");
+        }
+    });
+
+    // get staged
     gio::spawn_blocking({
         // get_staged
         let sender = sender.clone();

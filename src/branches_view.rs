@@ -194,10 +194,15 @@ impl BranchList {
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
     }
 
-    pub fn get_branches(&self, repo_path: PathBuf, window: &Window) {
+    pub fn get_branches(
+        &self,
+        repo_path: PathBuf,
+        branches: Option<Vec<branch::BranchData>>,
+        window: &Window,
+    ) {
         glib::spawn_future_local({
             clone!(@weak self as branch_list, @weak window => async move {
-                let branches: Vec<branch::BranchData> = gio::spawn_blocking(move || {
+                let branches = branches.unwrap_or(gio::spawn_blocking(move || {
                     branch::get_branches(repo_path)
                 }).await.unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(&window);
@@ -205,7 +210,7 @@ impl BranchList {
                 }).unwrap_or_else(|e| {
                     alert(e).present(&window);
                     Vec::new()
-                });
+                }));
                 if branches.is_empty() {
                     return;
                 }
@@ -332,7 +337,7 @@ impl BranchList {
                 let _ = gio::spawn_blocking(move || {
                     remote::update_remote(repo_path, sender, None)
                 }).await;
-                branch_list.get_branches(path, &window);
+                branch_list.get_branches(path, None, &window);
             })
         });
     }
@@ -829,6 +834,7 @@ pub fn item_factory() -> SignalListItemFactory {
 
 pub fn listview_factory(
     repo_path: PathBuf,
+    branches: Option<Vec<branch::BranchData>>,
     sender: Sender<crate::Event>,
     window: &Window,
 ) -> ListView {
@@ -875,7 +881,7 @@ pub fn listview_factory(
         }
     });
 
-    branch_list.get_branches(repo_path.clone(), window);
+    branch_list.get_branches(repo_path.clone(), branches, window);
 
     list_view.add_css_class("stage");
     list_view
@@ -1107,6 +1113,7 @@ pub fn branches_in_use(
 
 pub fn show_branches_window(
     repo_path: PathBuf,
+    branches: Option<Vec<branch::BranchData>>,
     app_window: &ApplicationWindow,
     sender: Sender<crate::Event>,
 ) -> Window {
@@ -1121,7 +1128,7 @@ pub fn show_branches_window(
     let scroll = ScrolledWindow::new();
 
     let list_view =
-        listview_factory(repo_path.clone(), sender.clone(), &window);
+        listview_factory(repo_path.clone(), branches, sender.clone(), &window);
 
     let hb = headerbar_factory(
         repo_path.clone(),
