@@ -6,7 +6,7 @@ use crate::status_view::tags;
 use crate::status_view::view::{RenderFlags, View};
 
 use crate::status_view::{StatusRenderContext, ViewContainer};
-use crate::{Diff, DiffKind, File, Hunk, Line, LineKind, HunkLineNo};
+use crate::{Diff, DiffKind, File, Hunk, HunkLineNo, Line, LineKind};
 use git2::DiffLineType;
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};

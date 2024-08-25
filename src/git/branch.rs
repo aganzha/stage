@@ -200,8 +200,9 @@ pub fn create_branch(
 pub fn kill_branch(
     path: PathBuf,
     branch_data: BranchData,
-    _sender: Sender<crate::Event>,
+    sender: Sender<crate::Event>,
 ) -> Result<Option<()>, git2::Error> {
+    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
     let name = &branch_data.name;
     let kind = branch_data.branch_type;

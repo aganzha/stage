@@ -11,7 +11,8 @@ pub mod stage_view;
 pub mod tags;
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{
-    abort_rebase, continue_rebase, merge, remote, stash, HunkLineNo,
+    abort_rebase, branch::BranchData, continue_rebase, merge, remote, stash,
+    HunkLineNo,
 };
 use crate::utils::StrPath;
 
@@ -128,6 +129,8 @@ pub struct Status {
     pub conflicted: Option<Diff>,
 
     pub stashes: Option<stash::Stashes>,
+    pub branches: Option<Vec<BranchData>>,
+
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
     pub settings: gio::Settings,
@@ -153,6 +156,7 @@ impl Status {
             conflicted: None,
 
             stashes: None,
+            branches: None,
             monitor_global_lock: Rc::new(RefCell::new(false)),
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
             settings,
@@ -270,6 +274,9 @@ impl Status {
 
     pub fn update_stashes(&mut self, stashes: stash::Stashes) {
         self.stashes.replace(stashes);
+    }
+    pub fn update_branches(&mut self, branches: Vec<BranchData>) {
+        self.branches.replace(branches);
     }
 
     pub fn reset_hard(
@@ -1096,9 +1103,7 @@ impl Status {
                         iter.set_line(line_to_go);
                     } else {
                         debug!("i am either in unstaged, or there are no place to go in unstaged!");
-                        debug!(
-                            "how do i know, that it need to clean the op?"
-                        );
+                        debug!("how do i know, that it need to clean the op?");
                         debug!("it need to clean the op in operation itself! after the render!!!!!");
                     }
                     // // this works! but lets just return last nearest line!

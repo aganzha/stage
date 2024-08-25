@@ -139,7 +139,8 @@ pub enum Event {
     Commit,
     Push,
     Pull,
-    Branches,
+    ShowBranches,
+    Branches(Vec<branch::BranchData>),
     Log(Option<Oid>, Option<String>),
     ShowOid(Oid, Option<usize>),
     TextViewResize(i32),
@@ -400,10 +401,15 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     info!("main.pull");
                     status.pull(&window, None);
                 }
-                Event::Branches => {
+                Event::Branches(branches) => {
+                    info!("main. branches");
+                    status.update_branches(branches);
+                }
+                Event::ShowBranches => {
                     info!("main.braches");
                     let w = show_branches_window(
                         status.path.clone().expect("no path"),
+                        status.branches.take(),
                         &window,
                         sender.clone(),
                     );
