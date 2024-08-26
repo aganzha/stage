@@ -17,7 +17,7 @@ use crate::git::{
 use crate::utils::StrPath;
 
 use core::time::Duration;
-use git2::RepositoryState;
+use git2::{RepositoryState, BranchType};
 use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -519,10 +519,10 @@ impl Status {
         if let Some(head) = &self.head {
             if let Some(upstream) = &self.upstream {
                 if head.oid != upstream.oid {
-                    amend_message.replace(head.commit_body.clone());
+                    amend_message.replace(head.raw_message.clone());
                 }
             } else {
-                amend_message.replace(head.commit_body.clone());
+                amend_message.replace(head.raw_message.clone());
             }
         }
         commit::commit(
@@ -542,6 +542,13 @@ impl Status {
         if let Some(current_head) = &self.head {
             head.enrich_view(current_head, &txt.buffer(), context);
         }
+        if let Some(branches) = &mut self.branches {
+            for branch in branches {
+                if branch.is_head && branch.name == head.branch && branch.branch_type == BranchType::Local {
+                    branch.adopt_head(&head);
+                }
+            }
+        }
         self.head.replace(head);
         self.render(txt, None, context);
     }
@@ -557,6 +564,15 @@ impl Status {
                 new.enrich_view(rendered, &txt.buffer(), context);
             } else {
                 rendered.erase(&txt.buffer(), context);
+            }
+        }
+        if let Some(upstream) = &self.upstream {
+            if let Some(branches) = &mut self.branches {
+                for branch in branches {
+                    if branch.name == upstream.branch && branch.branch_type == BranchType::Remote {
+                        branch.adopt_head(&upstream);
+                    }
+                }
             }
         }
         self.upstream = upstream;

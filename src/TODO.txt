@@ -6,7 +6,7 @@ BUG: i have prepopulated branches now. when doing commit, those branches do not 
        pub struct Head {
            pub oid: Oid,
            pub log_message: String,
-           pub commit_body: String,
+           pub raw_message: String,
            pub branch: String,
            pub view: View,
            pub remote: bool,
@@ -17,7 +17,7 @@ BUG: i have prepopulated branches now. when doing commit, those branches do not 
            pub refname: String,
            pub branch_type: git2::BranchType,
            pub oid: git2::Oid,
-           pub commit_string: String,
+           pub log_message: String,
            pub is_head: bool,
            pub upstream_name: Option<String>,
            pub commit_dt: DateTime<FixedOffset>,
@@ -28,6 +28,7 @@ BUG: i have prepopulated branches now. when doing commit, those branches do not 
        but separate types like HunkLineNo!
      - Vec<BranchData> must be struct like Stashes and contain
        methods for updating current branch
+     Head must be enough, cause it affects all - cherry-pick, merge, commit, reset etc
 
        
 BUG: pulling from origin contained new commits - nothing happens. merge remote branch works, but upstream was not updated
