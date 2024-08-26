@@ -17,7 +17,7 @@ use crate::git::{
 use crate::utils::StrPath;
 
 use core::time::Duration;
-use git2::{RepositoryState, BranchType};
+use git2::{BranchType, RepositoryState};
 use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -544,7 +544,10 @@ impl Status {
         }
         if let Some(branches) = &mut self.branches {
             for branch in branches {
-                if branch.is_head && branch.name == head.branch && branch.branch_type == BranchType::Local {
+                if branch.is_head
+                    && branch.name == head.branch
+                    && branch.branch_type == BranchType::Local
+                {
                     branch.adopt_head(&head);
                 }
             }
@@ -569,7 +572,9 @@ impl Status {
         if let Some(upstream) = &self.upstream {
             if let Some(branches) = &mut self.branches {
                 for branch in branches {
-                    if branch.name == upstream.branch && branch.branch_type == BranchType::Remote {
+                    if branch.name == upstream.branch
+                        && branch.branch_type == BranchType::Remote
+                    {
                         branch.adopt_head(&upstream);
                     }
                 }

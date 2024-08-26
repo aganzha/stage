@@ -17,6 +17,7 @@ use crate::status_view::view::View;
 
 use async_channel::Sender;
 
+use chrono::{DateTime, FixedOffset};
 use git2::build::CheckoutBuilder;
 use git2::{
     ApplyLocation, ApplyOptions, Branch, Commit, Delta, Diff as GitDiff,
@@ -24,7 +25,6 @@ use git2::{
     DiffOptions, Error, ObjectType, Oid, RebaseOptions, Repository,
     RepositoryState, ResetType, Status, StatusOptions,
 };
-use chrono::{DateTime, FixedOffset};
 use log::{debug, info, trace};
 use regex::Regex;
 //use std::time::SystemTime;
@@ -630,7 +630,7 @@ impl Head {
             raw_message: commit.raw_message(),
             view: View::new(),
             remote: false,
-            commit_dt: commit.dt()
+            commit_dt: commit.dt(),
         }
     }
 }
