@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::commit::CommitRepr;
-use crate::git::{remote::set_remote_callbacks, DeferRefresh};
+use crate::git::{remote::set_remote_callbacks, DeferRefresh, Head};
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset};
 use git2;
@@ -28,7 +28,7 @@ pub struct BranchData {
     pub refname: String,
     pub branch_type: git2::BranchType,
     pub oid: git2::Oid,
-    pub commit_string: String,
+    pub log_message: String,
     pub is_head: bool,
     pub upstream_name: Option<String>,
     pub commit_dt: DateTime<FixedOffset>,
@@ -41,7 +41,7 @@ impl Default for BranchData {
             refname: String::from(""),
             branch_type: git2::BranchType::Local,
             oid: git2::Oid::zero(),
-            commit_string: String::from(""),
+            log_message: String::from(""),
             is_head: false,
             upstream_name: None,
             commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
@@ -64,7 +64,7 @@ impl BranchData {
         let refname = bref.name().unwrap().to_string();
         let ob = bref.peel(git2::ObjectType::Commit)?;
         let commit = ob.peel_to_commit()?;
-        let commit_string = commit.log_message();
+        let log_message = commit.log_message();
         let commit_dt = commit.dt();
         if let Some(oid) = branch.get().target() {
             Ok(Some(BranchData {
@@ -72,7 +72,7 @@ impl BranchData {
                 refname,
                 branch_type,
                 oid,
-                commit_string,
+                log_message,
                 is_head,
                 upstream_name,
                 commit_dt,
@@ -87,6 +87,11 @@ impl BranchData {
     }
     pub fn remote_name(&self) -> String {
         format!("origin/{}", self.name.replace("origin/", ""))
+    }
+    pub fn adopt_head(&mut self, head: &Head) {
+        self.oid = head.oid;
+        self.log_message = head.log_message.clone();
+        self.commit_dt = head.commit_dt;
     }
 }
 

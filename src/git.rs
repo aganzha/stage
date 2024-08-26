@@ -24,7 +24,7 @@ use git2::{
     DiffOptions, Error, ObjectType, Oid, RebaseOptions, Repository,
     RepositoryState, ResetType, Status, StatusOptions,
 };
-
+use chrono::{DateTime, FixedOffset};
 use log::{debug, info, trace};
 use regex::Regex;
 //use std::time::SystemTime;
@@ -614,10 +614,11 @@ impl State {
 pub struct Head {
     pub oid: Oid,
     pub log_message: String,
-    pub commit_body: String,
+    pub raw_message: String,
     pub branch: String,
     pub view: View,
     pub remote: bool,
+    pub commit_dt: DateTime<FixedOffset>,
 }
 
 impl Head {
@@ -626,9 +627,10 @@ impl Head {
             oid: commit.id(),
             branch: head_title.to_string(),
             log_message: commit.log_message(),
-            commit_body: commit.raw_message(),
+            raw_message: commit.raw_message(),
             view: View::new(),
             remote: false,
+            commit_dt: commit.dt()
         }
     }
 }

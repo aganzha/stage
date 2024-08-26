@@ -91,7 +91,7 @@ impl BranchItem {
                 "title",
                 format!("<span color=\"#4a708b\">{}</span>", &branch.name),
             )
-            .property("last-commit", &branch.commit_string)
+            .property("last-commit", &branch.log_message)
             .property("dt", branch.commit_dt.to_string())
             .property("initial-focus", false)
             .build();
