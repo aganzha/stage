@@ -1,3 +1,5 @@
+BUG: old branches shown after switching repo
+BUG: double click is broken
 BUG: i have prepopulated branches now. when doing commit, those branches do not know about it.
      things to do:
      - when doing commit get_head is called with Head event.
