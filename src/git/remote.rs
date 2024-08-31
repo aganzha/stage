@@ -19,6 +19,23 @@ pub struct RemoteResponse {
     pub error: Option<String>,
 }
 
+impl From<git2::Error> for RemoteResponse {
+    fn from(err: git2::Error) -> RemoteResponse {
+        RemoteResponse {
+            body: None,
+            error: Some(err.message().to_string()),
+        }
+    }
+}
+
+impl From<String> for RemoteResponse {
+    fn from(message: String) -> RemoteResponse {
+        RemoteResponse {
+            body: None,
+            error: Some(message),
+        }
+    }
+}
 pub fn set_remote_callbacks(
     callbacks: &mut git2::RemoteCallbacks,
     user_pass: &Option<(String, String)>,
@@ -180,6 +197,8 @@ pub fn update_remote(
     Ok(())
 }
 
+pub const REMOTE: &str = "origin";
+
 pub fn push(
     path: PathBuf,
     remote_branch: String,
@@ -187,21 +206,18 @@ pub fn push(
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
 ) -> Result<(), RemoteResponse> {
-    // "origin/untracked_diff" "aganzha/untracked_diff" ????? why?
     debug!("remote branch {:?}", remote_branch);
-    let repo = git2::Repository::open(path.clone()).expect("can't open repo");
-    //  Some("refs/heads/untracked_diff")
-    let head_ref = repo.head().expect("can't get head");
+    let repo = git2::Repository::open(path.clone())?;
+
+    let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
-    let head_ref_name = head_ref.name().expect("can't get head");
+    let head_ref_name =
+        head_ref.name().ok_or("head ref has no name".to_string())?;
 
     let refspec = format!("{}:refs/heads/{}", head_ref_name, remote_branch);
     trace!("push. refspec {}", refspec);
     let mut branch = git2::Branch::wrap(head_ref);
-    let mut remote = repo
-        // .find_remote("aganzha") // TODO here is hardcode
-        .find_remote("origin") // TODO here is hardcode
-        .expect("no remote");
+    let mut remote = repo.find_remote(REMOTE)?; // TODO here is hardcode
 
     let mut opts = git2::PushOptions::new();
     let mut callbacks = git2::RemoteCallbacks::new();
@@ -216,7 +232,10 @@ pub fn push(
             );
             if tracking_remote {
                 branch
-                    .set_upstream(Some(&remote_branch))
+                    .set_upstream(Some(&format!(
+                        "{}/{}",
+                        REMOTE, &remote_branch
+                    )))
                     .expect("cant set upstream");
             }
             sender
