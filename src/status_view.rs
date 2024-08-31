@@ -1076,7 +1076,7 @@ impl Status {
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
         let iter = self.choose_cursor_position(&buffer, last_op);
-        debug!("__________ chused position {:?}", iter.line());
+        trace!("__________ chused position {:?}", iter.line());
         buffer.place_cursor(&iter);
         self.cursor(txt, iter.line(), iter.offset(), context);
     }
@@ -1087,7 +1087,7 @@ impl Status {
         buffer: &TextBuffer,
         last_op: Option<LastOp>, // context: &mut StatusRenderContext<'a>,
     ) -> TextIter {
-        debug!(
+        trace!(
             "...................choose cursor position {:?}",
             self.last_op
         );
