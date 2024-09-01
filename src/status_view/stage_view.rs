@@ -517,6 +517,7 @@ pub fn factory(
     gesture_controller.connect_drag_update({
         let txt = txt.clone();
         move |_, _, _| {
+            debug!("its byggy!. it kills active highlight!");
             txt.set_cursor_highlight(false);
         }
     });
@@ -536,9 +537,8 @@ pub fn factory(
                 iter.offset(),
                 iter.line(),
             )).expect("Could not send through channel");
-
-            let has_pointer = iter.has_tag(&pointer);
-            if has_pointer {
+            debug!("cliiiiiiiiiiiiiiiiiiick {:?} {:?} {:?} {:?}", n_clicks, iter.has_tag(&staged), iter.has_tag(&unstaged), iter.has_tag(&pointer));
+            if iter.has_tag(&staged) || iter.has_tag(&unstaged) || iter.has_tag(&pointer) {
                 num_clicks.replace(n_clicks);
                 glib::source::timeout_add_local(Duration::from_millis(200), {
                     let num_clicks = num_clicks.clone();
@@ -549,6 +549,7 @@ pub fn factory(
                     move || {
                         if num_clicks.get() == n_clicks {
                             let iter = txt.buffer().iter_at_offset(pos);
+                            debug!("clicks after 200 msec {:?}", n_clicks);
                             match n_clicks {
                                 1 => {
                                     sndr.send_blocking(crate::Event::Expand(
@@ -581,7 +582,7 @@ pub fn factory(
                                 _ => {
                                 }
                             }
-                            trace!("PERFORM REAL CLICK {:?}", n_clicks);
+                            debug!("PERFORM REAL CLICK {:?}", n_clicks);
                         }
                         ControlFlow::Break
                     }

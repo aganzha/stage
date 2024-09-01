@@ -15,6 +15,8 @@ pub const POINTER: &str = "pointer";
 pub const STAGED: &str = "staged";
 pub const UNSTAGED: &str = "unstaged";
 
+pub const DIFF: &str = "diff";
+
 pub const BOLD: &str = "bold";
 pub const ADDED: &str = "added";
 pub const ENHANCED_ADDED: &str = "enhancedAdded";
@@ -36,7 +38,7 @@ pub const CONFLICT_MARKER: &str = "conflictmarker";
 pub const OURS: &str = "ours";
 pub const THEIRS: &str = "theirs";
 
-pub const TEXT_TAGS: [&str; 18] = [
+pub const TEXT_TAGS: [&str; 19] = [
     BOLD,
     ADDED,
     ENHANCED_ADDED,
@@ -45,6 +47,7 @@ pub const TEXT_TAGS: [&str; 18] = [
     // CURSOR,
     // REGION,
     // HUNK,
+    DIFF,
     ITALIC,
     POINTER,
     STAGED,
@@ -313,8 +316,10 @@ impl TxtTag {
                 tag.set_style(Style::Italic);
             }
             POINTER => {}
-            STAGED | UNSTAGED => {
+            STAGED | UNSTAGED => {}
+            DIFF => {
                 // TODO! get it from line_yrange!
+                tag.set_weight(700);
                 tag.set_pixels_above_lines(32);
                 tag.set_foreground(Some("#8b6508"));
             }

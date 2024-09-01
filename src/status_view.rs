@@ -917,7 +917,6 @@ impl Status {
                 if f.path == file_path {
                     insert_ind = Some(ind);
                     if let Some(file) = &updated_file {
-                        debug!("enriiiiiiiiiiiiiiiiiiiiiiiich rendered file");
                         file.enrich_view(f, buffer, context);
                     } else {
                         debug!("ERASE rendered file!!!!!!!!!");

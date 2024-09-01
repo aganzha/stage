@@ -1,3 +1,4 @@
+check
 BUG: CRITICAL: when intriduce changes in line whicj is in hunk header kill does not work! stash: broken_kill
      how to fix: it need to steps comparing hunk header: fully, and then search for same line in other hunk!
      put it on hunkheader. hunkheader must be separated type!
