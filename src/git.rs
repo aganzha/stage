@@ -636,7 +636,7 @@ impl Head {
         }
     }
     pub fn set_branch(&mut self, branch: BranchData) {
-        self.title = branch.name.clone();
+        self.title = branch.name.to_string();
         self.branch.replace(branch);
     }
 }

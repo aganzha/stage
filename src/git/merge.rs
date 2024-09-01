@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::git::{
-    branch::BranchName, get_conflicted_v1, get_current_repo_status, get_head,
+    branch::NamedBranch, get_conflicted_v1, get_current_repo_status, get_head,
     make_diff_options, BranchData, DeferRefresh, Head, Hunk, Line, State,
     MARKER_DIFF_A, MARKER_DIFF_B, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS,
     MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
@@ -90,8 +90,8 @@ pub fn final_merge_commit(
     let my_branch = git2::Branch::wrap(head_ref);
     let message = format!(
         "merge branch {} into {}",
-        their_branch.branch_name(),
-        my_branch.branch_name()
+        their_branch.branch_name().to_str(),
+        my_branch.branch_name().to_str()
     );
 
     let tree_oid = repo.index()?.write_tree()?;
