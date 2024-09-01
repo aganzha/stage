@@ -578,14 +578,15 @@ impl Status {
         if let Some(branches) = &mut self.branches {
             if let Some(upstream) = &mut upstream {
                 if let Some(head_branch) = upstream.branch.take() {
-                    if let Some(ind) = branches.iter().position(|b| b.is_head)
-                    {
-                        debug!(
-                            "replace by index {:?} {:?}",
-                            ind, head_branch.name
-                        );
-                        branches[ind] = head_branch;
-                    }
+                    todo!("replace proper remote branch, not head!")
+                    // if let Some(ind) = branches.iter().position(|b| b.is_head)
+                    // {
+                    //     debug!(
+                    //         "replace by index {:?} {:?}",
+                    //         ind, head_branch.name
+                    //     );
+                    //     branches[ind] = head_branch;
+                    // }
                 }
             }
         }
