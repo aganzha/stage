@@ -52,17 +52,6 @@ pub trait ViewContainer {
         String::from("unknown")
     }
 
-    // fn adopt_other<'a>(&self,
-    //                    other: Option<&dyn ViewContainer>,
-    //                    buffer: &TextBuffer,
-    //                    context: &mut StatusRenderContext<'a>) where Self: Sized {
-    //     if let Some(new) = other {
-    //         new.enrich_view(self, buffer, context);
-    //     } else {
-    //         self.erase(buffer, context);
-    //     }
-    // }
-
     fn adopt_view(&self, other_rendered_view: &View) {
         let view = self.get_view();
         view.line_no.replace(other_rendered_view.line_no.get());
@@ -98,7 +87,14 @@ pub trait ViewContainer {
         Vec::new()
     }
 
-    fn prepare_context<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
+    // ViewContainer
+    fn before_render<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
+    fn after_render<'a>(
+        &'a self,
+        _buffer: &TextBuffer,
+        _ctx: &mut StatusRenderContext<'a>,
+    ) {
+    }
 
     fn fill_under_cursor<'a>(
         &'a self,
@@ -107,7 +103,8 @@ pub trait ViewContainer {
     }
 
     // viewcontainer
-    fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {}
+    fn before_cursor<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
+    fn after_cursor<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
 
     fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
         let current_line = iter.line();
@@ -187,7 +184,7 @@ pub trait ViewContainer {
         iter: &mut TextIter,
         context: &mut StatusRenderContext<'a>,
     ) {
-        self.prepare_context(context);
+        self.before_render(context);
 
         let line_no = iter.line();
         let view = self.get_view();
@@ -270,7 +267,7 @@ pub trait ViewContainer {
         if self.get_view().is_current() {
             context.cursor = self.get_view().line_no.get(); // render
         }
-        self.fill_context(context);
+        self.after_render(buffer, context);
     }
 
     // ViewContainer
@@ -282,7 +279,7 @@ pub trait ViewContainer {
         parent_active: bool,
         context: &mut StatusRenderContext<'a>,
     ) -> bool {
-        self.prepare_context(context);
+        self.before_cursor(context);
         let mut result = false;
         let view = self.get_view();
 
@@ -332,7 +329,8 @@ pub trait ViewContainer {
         if view.is_current() {
             context.cursor = view.line_no.get(); // cursor
         }
-        self.fill_context(context);
+        // calling it on cursor??? hmmmm...
+        self.after_cursor(context);
         if result {
             self.adjust_tags_on_cursor_change(buffer, context);
         }
@@ -473,7 +471,7 @@ pub trait ViewContainer {
         context: &mut StatusRenderContext<'a>,
     ) {
         for child in self.get_children() {
-            child.prepare_context(context);
+            child.before_render(context);
             child.collect_clean_content(from, to, content, context)
         }
     }
@@ -486,6 +484,19 @@ impl ViewContainer for Diff {
 
     fn get_view(&self) -> &View {
         &self.view
+    }
+
+    fn get_content_for_debug(
+        &self,
+        _context: &mut StatusRenderContext<'_>,
+    ) -> String {
+        match self.kind {
+            DiffKind::Untracked => "Untracked files".to_string(),
+            DiffKind::Staged => "Staged changes".to_string(),
+            DiffKind::Unstaged => "Unstaged changes".to_string(),
+            DiffKind::Conflicted => "Conflicts".to_string(),
+            DiffKind::Commit => "Commit content".to_string(),
+        }
     }
 
     // Diff
@@ -517,8 +528,64 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         ctx.sliding_diff = Some(self);
+    }
+
+    // Diff
+    fn after_render<'a>(
+        &'a self,
+        buffer: &TextBuffer,
+        ctx: &mut StatusRenderContext<'a>,
+    ) {
+        let start_line = self.view.line_no.get();
+        let mut end_line = start_line;
+        if let Some(file) = ctx.sliding_file {
+            if file.view.is_rendered() {
+                end_line = file.view.line_no.get();
+            }
+        }
+        if let Some(hunk) = ctx.sliding_hunk {
+            if hunk.view.is_rendered() {
+                end_line = hunk.view.line_no.get()
+            }
+        }
+        if let Some(line) = ctx.sliding_line {
+            if line.view.is_rendered() {
+                end_line = line.view.line_no.get();
+            }
+        }
+        match self.kind {
+            DiffKind::Unstaged => {
+                let tag = make_tag(tags::STAGED);
+                let start_iter = buffer.iter_at_line(start_line).unwrap();
+                let mut end_iter = buffer.iter_at_line(end_line).unwrap();
+                end_iter.forward_to_line_end();
+                debug!(
+                    "~~~~~~~~~~~~~~~~apply staged tag {:?} {:?}",
+                    start_iter.line(),
+                    end_iter.line()
+                );
+                self.remove_tag(buffer, &tag);
+                buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
+                self.view.tag_added(&tag);
+            }
+            DiffKind::Staged => {
+                let tag = make_tag(tags::UNSTAGED);
+                self.remove_tag(buffer, &tag);
+                let start_iter = buffer.iter_at_line(start_line).unwrap();
+                let mut end_iter = buffer.iter_at_line(end_line).unwrap();
+                end_iter.forward_to_line_end();
+                debug!(
+                    "!!!!!!!!!!!!!!!apply UNstaged tag {:?} {:?}",
+                    start_iter.line(),
+                    end_iter.line()
+                );
+                buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
+                self.view.tag_added(&tag);
+            }
+            _ => {}
+        }
     }
 
     // Diff
@@ -539,21 +606,23 @@ impl ViewContainer for Diff {
         result
     }
 
+    // Diff
     fn tags<'a>(
         &'a self,
         _ctx: &mut StatusRenderContext<'a>,
     ) -> Vec<tags::TxtTag> {
-        match self.kind {
-            DiffKind::Staged | DiffKind::Commit => {
-                vec![make_tag(tags::BOLD), make_tag(tags::STAGED)]
-            }
-            // TODO! create separate tag for conflicted!
-            DiffKind::Unstaged
-            | DiffKind::Conflicted
-            | DiffKind::Untracked => {
-                vec![make_tag(tags::BOLD), make_tag(tags::UNSTAGED)]
-            }
-        }
+        vec![make_tag(tags::DIFF)]
+        // match self.kind {
+        //     DiffKind::Staged | DiffKind::Commit => {
+        //         vec![make_tag(tags::BOLD), make_tag(tags::STAGED)]
+        //     }
+        //     // TODO! create separate tag for conflicted!
+        //     DiffKind::Unstaged
+        //     | DiffKind::Conflicted
+        //     | DiffKind::Untracked => {
+        //         vec![make_tag(tags::BOLD), make_tag(tags::UNSTAGED)]
+        //     }
+        // }
     }
     // Diff
     fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
@@ -617,7 +686,11 @@ impl ViewContainer for File {
     }
 
     // file
-    fn fill_context<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+    fn after_render<'a>(
+        &'a self,
+        _buffer: &TextBuffer,
+        context: &mut StatusRenderContext<'a>,
+    ) {
         // does not used
         if let Some(len) = context.max_len {
             if len < self.max_line_len {
@@ -641,7 +714,7 @@ impl ViewContainer for File {
     }
 
     // File
-    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         ctx.sliding_file = Some(self);
     }
 
@@ -702,12 +775,12 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
-    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         ctx.sliding_hunk = Some(self);
     }
 
     // Hunk
-    fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn after_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         if self.view.is_rendered() {
             ctx.collect_hunk_highlights(self.view.line_no.get());
         }
@@ -783,7 +856,7 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn fill_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn after_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         if self.view.is_rendered() && self.view.is_active() {
             ctx.collect_line_highlights(self.view.line_no.get());
         }
@@ -805,7 +878,7 @@ impl ViewContainer for Line {
     // Line
     // it is useless. sliding_x is sliding variable during render
     // and there is nothing to render after line
-    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         ctx.sliding_line = Some(self);
     }
 
@@ -1125,15 +1198,17 @@ impl ViewContainer for Head {
         } else {
             "Detached head".to_string()
         };
+        let short = self.oid.to_string()[..7].to_string();
         buffer.insert_markup(
             iter,
             &format!(
-                "{}<span color=\"#4a708b\">{}</span> {}",
+                "{} <span color=\"#1C71D8\">{}</span> <span color=\"#4a708b\">{}</span> {}",
                 if !self.is_upstream {
                     "Head:     "
                 } else {
                     "Upstream: "
                 },
+                short,
                 title,
                 self.log_message
             ),
