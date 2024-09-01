@@ -476,7 +476,7 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                             show_log_window(
                                 status.path.clone().expect("no path"),
                                 &window,
-                                status.branch_name(),
+                                status.head_name(),
                                 sender.clone(),
                                 ooid,
                             )

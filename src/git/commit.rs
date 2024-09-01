@@ -41,6 +41,7 @@ impl CommitRepr for git2::Commit<'_> {
         encoded
     }
 
+    // TODO rename to encoded message!
     fn message(&self) -> String {
         let mut message = self.body().unwrap_or("");
         if message.is_empty() {

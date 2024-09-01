@@ -11,8 +11,8 @@ pub mod stage_view;
 pub mod tags;
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{
-    abort_rebase, branch::BranchData, continue_rebase, merge, remote, stash,
-    HunkLineNo,
+    abort_rebase, branch::BranchData, continue_rebase, get_head, merge,
+    remote, stash, HunkLineNo,
 };
 use crate::utils::StrPath;
 
@@ -217,11 +217,11 @@ impl Status {
         base
     }
 
-    pub fn branch_name(&self) -> String {
+    pub fn head_name(&self) -> String {
         if let Some(head) = &self.head {
-            return head.branch.to_string();
+            return head.title.clone();
         }
-        "".to_string()
+        "Detached head".to_string()
     }
 
     pub fn update_path(
@@ -501,12 +501,13 @@ impl Status {
     }
 
     pub fn choose_remote(&self) -> String {
+        panic!("stop doing that!");
         if let Some(upstream) = &self.upstream {
-            debug!("???????????????? {:?}", upstream.branch);
-            return upstream.branch.clone();
+            debug!("chose remote >>>>>>>>>>>> {:?}", upstream.title);
+            return upstream.title;
         }
         if let Some(head) = &self.head {
-            return head.branch.to_string();
+            return head.title;
         }
         String::from("master")
     }
@@ -535,7 +536,7 @@ impl Status {
 
     pub fn update_head<'a>(
         &'a mut self,
-        head: Head,
+        mut head: Head,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
@@ -543,12 +544,13 @@ impl Status {
             head.enrich_view(current_head, &txt.buffer(), context);
         }
         if let Some(branches) = &mut self.branches {
-            for branch in branches {
-                if branch.is_head
-                    && branch.name == head.branch
-                    && branch.branch_type == BranchType::Local
-                {
-                    branch.adopt_head(&head);
+            if let Some(head_branch) = head.branch.take() {
+                if let Some(ind) = branches.iter().position(|b| b.is_head) {
+                    debug!(
+                        "replace by index {:?} {:?}",
+                        ind, head_branch.name
+                    );
+                    branches[ind] = head_branch;
                 }
             }
         }
@@ -558,7 +560,7 @@ impl Status {
 
     pub fn update_upstream<'a>(
         &'a mut self,
-        upstream: Option<Head>,
+        mut upstream: Option<Head>,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
@@ -569,13 +571,16 @@ impl Status {
                 rendered.erase(&txt.buffer(), context);
             }
         }
-        if let Some(upstream) = &self.upstream {
-            if let Some(branches) = &mut self.branches {
-                for branch in branches {
-                    if branch.name == upstream.branch
-                        && branch.branch_type == BranchType::Remote
+        if let Some(branches) = &mut self.branches {
+            if let Some(upstream) = &mut upstream {
+                if let Some(head_branch) = upstream.branch.take() {
+                    if let Some(ind) = branches.iter().position(|b| b.is_head)
                     {
-                        branch.adopt_head(&upstream);
+                        debug!(
+                            "replace by index {:?} {:?}",
+                            ind, head_branch.name
+                        );
+                        branches[ind] = head_branch;
                     }
                 }
             }
@@ -1634,6 +1639,12 @@ impl Status {
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
-        self.render(txt, None, context);
+        gio::spawn_blocking({
+            let sender = self.sender.clone();
+            let path = self.path.clone().unwrap();
+            move || {
+                get_head(path, sender);
+            }
+        });
     }
 }

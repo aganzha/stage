@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::git::{
-    branch::BranchName, get_conflicted_v1, get_current_repo_status,
+    branch::BranchName, get_conflicted_v1, get_current_repo_status, get_head,
     make_diff_options, BranchData, DeferRefresh, Head, Hunk, Line, State,
     MARKER_DIFF_A, MARKER_DIFF_B, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS,
     MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
@@ -123,6 +123,7 @@ pub fn branch(
     mut defer: Option<DeferRefresh>,
 ) -> Result<Option<BranchData>, git2::Error> {
     info!("merging {:?}", branch_data.name);
+    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
     let annotated_commit = repo.find_annotated_commit(branch_data.oid)?;
 
@@ -178,7 +179,7 @@ pub fn branch(
                 }
                 return Ok(None);
             }
-            final_merge_commit(path, sender.clone())?;
+            final_merge_commit(path.clone(), sender.clone())?;
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);
@@ -190,19 +191,7 @@ pub fn branch(
 
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
-    let ob = head_ref.peel(git2::ObjectType::Commit)?;
-    let commit = ob.peel_to_commit()?;
     let branch = git2::Branch::wrap(head_ref);
-    let new_head = Head::new(&branch.branch_name(), &commit);
-    sender
-        .send_blocking(crate::Event::State(State::new(
-            repo.state(),
-            branch.branch_name(),
-        )))
-        .expect("Could not send through channel");
-    sender
-        .send_blocking(crate::Event::Head(new_head))
-        .expect("Could not send through channel");
     BranchData::from_branch(branch, git2::BranchType::Local)
 }
 

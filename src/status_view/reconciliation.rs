@@ -12,7 +12,7 @@ use std::collections::HashSet;
 pub const MAX_LINES: i32 = 50000;
 
 impl Hunk {
-    // Hunk.
+    // Hunk
     pub fn enrich_view(
         &self,
         rendered: &Hunk,
@@ -53,6 +53,7 @@ impl Hunk {
 }
 
 impl File {
+    // File
     pub fn enrich_view(
         &self,
         rendered: &File,
@@ -274,6 +275,7 @@ impl File {
 }
 
 impl Diff {
+    // Diff
     pub fn enrich_view(
         &self,
         rendered: &Diff,
@@ -313,37 +315,8 @@ impl Diff {
     }
 }
 
-// impl Untracked {
-//     pub fn enrich_view(
-//         &self,
-//         rendered: &Untracked,
-//         buffer: &TextBuffer,
-//         context: &mut crate::StatusRenderContext,
-//     ) {
-//         let mut replaces_by_new = HashSet::new();
-//         for file in &self.files {
-//             for of in &rendered.files {
-//                 if file.path == of.path {
-//                     file.enrich_view(of, buffer, context);
-//                     replaces_by_new.insert(file.path.clone());
-//                 }
-//             }
-//         }
-//         rendered
-//             .files
-//             .iter()
-//             .filter(|f| !replaces_by_new.contains(&f.path))
-//             .for_each(|f| {
-//                 trace!(
-//                     "context on final lines of diff render view {:?}",
-//                     context
-//                 );
-//                 f.erase(buffer, context)
-//             });
-//     }
-// }
-
 impl State {
+    // State
     pub fn enrich_view(
         &self,
         rendered: &State,
@@ -357,6 +330,7 @@ impl State {
 }
 
 impl Head {
+    // Head
     pub fn enrich_view(
         &self,
         rendered: &Head,
