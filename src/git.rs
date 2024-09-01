@@ -613,7 +613,7 @@ impl State {
 #[derive(Debug, Clone)]
 pub struct Head {
     pub oid: Oid,
-    pub title: String,
+    pub branch_name: Option<BranchName>,
     pub is_upstream: bool,
     pub log_message: String,
     pub raw_message: String,
@@ -627,7 +627,7 @@ impl Head {
         Self {
             oid: commit.id(),
             is_upstream,
-            title: "Detached head".to_string(),
+            branch_name: None,
             log_message: commit.log_message(),
             raw_message: commit.raw_message(),
             view: View::new(),
@@ -636,7 +636,7 @@ impl Head {
         }
     }
     pub fn set_branch(&mut self, branch: BranchData) {
-        self.title = branch.name.to_string();
+        self.branch_name = Some(branch.name.clone());
         self.branch.replace(branch);
     }
 }
