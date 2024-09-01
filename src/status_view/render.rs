@@ -1124,12 +1124,12 @@ impl ViewContainer for Head {
             iter,
             &format!(
                 "{}<span color=\"#4a708b\">{}</span> {}",
-                if !self.remote {
+                if !self.is_upstream {
                     "Head:     "
                 } else {
                     "Upstream: "
                 },
-                self.branch,
+                self.title,
                 self.log_message
             ),
         );

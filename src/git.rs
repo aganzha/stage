@@ -613,72 +613,83 @@ impl State {
 #[derive(Debug, Clone)]
 pub struct Head {
     pub oid: Oid,
+    pub title: String,
+    pub is_upstream: bool,
     pub log_message: String,
     pub raw_message: String,
-    pub branch: String,
     pub view: View,
-    pub remote: bool,
     pub commit_dt: DateTime<FixedOffset>,
+    pub branch: Option<BranchData>,
 }
 
 impl Head {
-    pub fn new(head_title: &str, commit: &Commit) -> Self {
+    pub fn new(commit: &Commit, is_upstream: bool) -> Self {
         Self {
             oid: commit.id(),
-            branch: head_title.to_string(),
+            is_upstream,
+            title: "Detached head".to_string(),
             log_message: commit.log_message(),
             raw_message: commit.raw_message(),
             view: View::new(),
-            remote: false,
             commit_dt: commit.dt(),
+            branch: None,
         }
+    }
+    pub fn set_branch(&mut self, branch: BranchData) {
+        self.title = branch.name.clone();
+        self.branch.replace(branch);
     }
 }
 
-pub fn get_head(path: PathBuf, sender: Sender<crate::Event>) {
-    let repo = Repository::open(path).expect("can't open repo");
-    let head_ref = repo.head().expect("can't get head");
-    let ob = head_ref
-        .peel(ObjectType::Commit)
-        .expect("can't get commit from ref!");
-    let commit = ob.peel_to_commit().expect("can't get commit from ob!");
-
-    let head_title = if head_ref.is_branch() {
-        Branch::wrap(head_ref).branch_name()
-    } else {
-        "Detached head".to_string()
-    };
-
-    let new_head = Head::new(&head_title, &commit);
+pub fn get_head(
+    path: PathBuf,
+    sender: Sender<crate::Event>,
+) -> Result<(), Error> {
+    let repo = Repository::open(path)?;
+    let head_ref = repo.head()?;
+    let ob = head_ref.peel(ObjectType::Commit)?;
+    let commit = ob.peel_to_commit()?;
+    let mut head = Head::new(&commit, false);
+    if head_ref.is_branch() {
+        if let Some(branch_data) = BranchData::from_branch(
+            Branch::wrap(head_ref),
+            git2::BranchType::Local,
+        )? {
+            head.set_branch(branch_data);
+        }
+    }
     sender
-        .send_blocking(crate::Event::Head(new_head))
+        .send_blocking(crate::Event::Head(head))
         .expect("Could not send through channel");
+    Ok(())
 }
 
-pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) {
+pub fn get_upstream(
+    path: PathBuf,
+    sender: Sender<crate::Event>,
+) -> Result<(), Error> {
     trace!("get upstream");
-    let repo = Repository::open(path).expect("can't open repo");
-    let head_ref = repo.head().expect("can't get head");
+    let repo = Repository::open(path)?;
+    let head_ref = repo.head()?;
     if !head_ref.is_branch() {
         sender
             .send_blocking(crate::Event::Upstream(None))
             .expect("Could not send through channel");
-        return;
+        return Ok(());
     }
     assert!(head_ref.is_branch());
     let branch = Branch::wrap(head_ref);
     if let Ok(upstream) = branch.upstream() {
         let upstream_ref = upstream.get();
-        let ob = upstream_ref
-            .peel(ObjectType::Commit)
-            .expect("can't get commit from ref!");
-        let commit = ob.peel_to_commit().expect("can't get commit from ob!");
-        debug!(
-            "upstream branch name.................. {:?}",
-            upstream.branch_name()
-        );
-        let mut new_upstream = Head::new(&upstream.branch_name(), &commit);
-        new_upstream.remote = true;
+        let ob = upstream_ref.peel(ObjectType::Commit)?;
+        let commit = ob.peel_to_commit()?;
+        let mut new_upstream = Head::new(&commit, true);
+        if let Some(branch_data) =
+            BranchData::from_branch(upstream, git2::BranchType::Remote)?
+        {
+            new_upstream.set_branch(branch_data);
+        }
+
         sender
             .send_blocking(crate::Event::Upstream(Some(new_upstream)))
             .expect("Could not send through channel");
@@ -690,6 +701,7 @@ pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) {
         //       origin. There will be no upstream then. It need to lookup
         //       pushRemote in config and check refs/remotes/<origin>/")
     };
+    Ok(())
 }
 
 pub const CHERRY_PICK_HEAD: &str = "CHERRY_PICK_HEAD";
