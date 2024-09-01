@@ -556,8 +556,13 @@ impl ViewContainer for Diff {
             }
         }
         match self.kind {
-            DiffKind::Unstaged => {
-                let tag = make_tag(tags::STAGED);
+            DiffKind::Unstaged | DiffKind::Staged => {
+                let tag = if self.kind == DiffKind::Staged {
+                    make_tag(tags::STAGED)
+                } else {
+                    make_tag(tags::UNSTAGED)
+                };
+
                 let start_iter = buffer.iter_at_line(start_line).unwrap();
                 let mut end_iter = buffer.iter_at_line(end_line).unwrap();
                 end_iter.forward_to_line_end();
@@ -567,20 +572,6 @@ impl ViewContainer for Diff {
                     end_iter.line()
                 );
                 self.remove_tag(buffer, &tag);
-                buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
-                self.view.tag_added(&tag);
-            }
-            DiffKind::Staged => {
-                let tag = make_tag(tags::UNSTAGED);
-                self.remove_tag(buffer, &tag);
-                let start_iter = buffer.iter_at_line(start_line).unwrap();
-                let mut end_iter = buffer.iter_at_line(end_line).unwrap();
-                end_iter.forward_to_line_end();
-                debug!(
-                    "!!!!!!!!!!!!!!!apply UNstaged tag {:?} {:?}",
-                    start_iter.line(),
-                    end_iter.line()
-                );
                 buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
                 self.view.tag_added(&tag);
             }

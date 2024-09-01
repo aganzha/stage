@@ -1327,10 +1327,8 @@ impl Status {
     pub fn stage_in_conflict(&self, window: &ApplicationWindow) -> bool {
         // it need to implement method for diff, which will return current Hunk, Line and File and use it in stage.
         // also it must return indicator what of this 3 is current.
-        info!("Stage in conflict");
         if let Some(conflicted) = &self.conflicted {
             // also someone can press stage on label!
-            debug!("!!!!!!!!!!!!!!!!!!!!!!!!!!! {:?}", conflicted.interhunk);
             for f in &conflicted.files {
                 // also someone can press stage on file!
                 for hunk in &f.hunks {
@@ -1415,6 +1413,7 @@ impl Status {
         }
 
         if self.stage_in_conflict(window) {
+            info!(".................this is stage in conflict");
             return;
         }
 
