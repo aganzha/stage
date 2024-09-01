@@ -1120,6 +1120,11 @@ impl ViewContainer for Head {
         buffer: &TextBuffer,
         _context: &mut StatusRenderContext<'_>,
     ) {
+        let title = if let Some(branch_name) = &self.branch_name {
+            branch_name.to_string()
+        } else {
+            "Detached head".to_string()
+        };
         buffer.insert_markup(
             iter,
             &format!(
@@ -1129,7 +1134,7 @@ impl ViewContainer for Head {
                 } else {
                     "Upstream: "
                 },
-                self.title,
+                title,
                 self.log_message
             ),
         );

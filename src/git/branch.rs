@@ -50,7 +50,6 @@ pub struct BranchData {
     pub oid: git2::Oid,
     pub log_message: String,
     pub is_head: bool,
-    pub upstream_name: Option<BranchName>,
     pub commit_dt: DateTime<FixedOffset>,
 }
 
@@ -63,7 +62,6 @@ impl Default for BranchData {
             oid: git2::Oid::zero(),
             log_message: String::from(""),
             is_head: false,
-            upstream_name: None,
             commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
         }
     }
@@ -75,10 +73,6 @@ impl BranchData {
         branch_type: git2::BranchType,
     ) -> Result<Option<Self>, git2::Error> {
         let name = branch.branch_name();
-        let mut upstream_name: Option<BranchName> = None;
-        if let Ok(upstream) = branch.upstream() {
-            upstream_name = Some(upstream.branch_name());
-        }
         let is_head = branch.is_head();
         let bref = branch.get();
         let refname = bref.name().unwrap().to_string();
@@ -94,7 +88,6 @@ impl BranchData {
                 oid,
                 log_message,
                 is_head,
-                upstream_name,
                 commit_dt,
             }))
         } else {

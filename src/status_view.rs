@@ -219,7 +219,9 @@ impl Status {
 
     pub fn head_name(&self) -> String {
         if let Some(head) = &self.head {
-            return head.title.clone();
+            if let Some(branch_name) = &head.branch_name {
+                return branch_name.to_string();
+            }
         }
         "Detached head".to_string()
     }
@@ -501,15 +503,17 @@ impl Status {
     }
 
     pub fn choose_remote(&self) -> String {
-        panic!("stop doing that!");
         if let Some(upstream) = &self.upstream {
-            debug!("chose remote >>>>>>>>>>>> {:?}", upstream.title);
-            return upstream.title;
+            if let Some(branch_name) = &upstream.branch_name {
+                return branch_name.local_name();
+            }
         }
         if let Some(head) = &self.head {
-            return head.title;
+            if let Some(branch_name) = &head.branch_name {
+                return branch_name.to_string();
+            }
         }
-        String::from("master")
+        "".to_string()
     }
 
     pub fn commit(
