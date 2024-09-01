@@ -12,32 +12,52 @@ use log::info;
 use std::cmp::Ordering;
 use std::path::PathBuf;
 
-pub trait BranchName {
-    fn branch_name(&self) -> String;
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct BranchName(String);
+
+impl BranchName {
+    pub fn to_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn to_string(&self) -> String {
+        self.0.clone()
+    }
+
+    pub fn local_name(&self) -> String {
+        self.0.replace("origin/", "")
+    }
+    pub fn remote_name(&self) -> String {
+        format!("origin/{}", self.0.replace("origin/", ""))
+    }
 }
 
-impl BranchName for git2::Branch<'_> {
-    fn branch_name(&self) -> String {
-        self.name().unwrap().unwrap().to_string()
+pub trait NamedBranch {
+    fn branch_name(&self) -> BranchName;
+}
+
+impl NamedBranch for git2::Branch<'_> {
+    fn branch_name(&self) -> BranchName {
+        BranchName(self.name().unwrap().unwrap().to_string())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct BranchData {
-    pub name: String,
+    pub name: BranchName,
     pub refname: String,
     pub branch_type: git2::BranchType,
     pub oid: git2::Oid,
     pub log_message: String,
     pub is_head: bool,
-    pub upstream_name: Option<String>,
+    pub upstream_name: Option<BranchName>,
     pub commit_dt: DateTime<FixedOffset>,
 }
 
 impl Default for BranchData {
     fn default() -> Self {
         BranchData {
-            name: String::from(""),
+            name: BranchName("".to_string()),
             refname: String::from(""),
             branch_type: git2::BranchType::Local,
             oid: git2::Oid::zero(),
@@ -55,7 +75,7 @@ impl BranchData {
         branch_type: git2::BranchType,
     ) -> Result<Option<Self>, git2::Error> {
         let name = branch.branch_name();
-        let mut upstream_name: Option<String> = None;
+        let mut upstream_name: Option<BranchName> = None;
         if let Ok(upstream) = branch.upstream() {
             upstream_name = Some(upstream.branch_name());
         }
@@ -80,18 +100,6 @@ impl BranchData {
         } else {
             Ok(None)
         }
-    }
-
-    pub fn local_name(&self) -> String {
-        self.name.replace("origin/", "")
-    }
-    pub fn remote_name(&self) -> String {
-        format!("origin/{}", self.name.replace("origin/", ""))
-    }
-    pub fn adopt_head(&mut self, head: &Head) {
-        self.oid = head.oid;
-        self.log_message = head.log_message.clone();
-        self.commit_dt = head.commit_dt;
     }
 }
 
@@ -158,15 +166,15 @@ pub fn checkout_branch(
         git2::BranchType::Local => {}
         git2::BranchType::Remote => {
             let created =
-                repo.branch(&branch_data.local_name(), &commit, false);
+                repo.branch(&branch_data.name.local_name(), &commit, false);
             let mut branch = match created {
                 Ok(branch) => branch,
                 Err(_) => repo.find_branch(
-                    &branch_data.local_name(),
+                    &branch_data.name.local_name(),
                     git2::BranchType::Local,
                 )?,
             };
-            branch.set_upstream(Some(&branch_data.remote_name()))?;
+            branch.set_upstream(Some(&branch_data.name.remote_name()))?;
             if let Some(new_branch_data) =
                 BranchData::from_branch(branch, git2::BranchType::Local)?
             {
@@ -211,7 +219,7 @@ pub fn kill_branch(
     let repo = git2::Repository::open(path.clone())?;
     let name = &branch_data.name;
     let kind = branch_data.branch_type;
-    let mut branch = repo.find_branch(name, kind)?;
+    let mut branch = repo.find_branch(name.to_str(), kind)?;
     if kind == git2::BranchType::Remote {
         gio::spawn_blocking({
             let path = path.clone();
@@ -227,8 +235,7 @@ pub fn kill_branch(
                 set_remote_callbacks(&mut callbacks, &None);
                 opts.remote_callbacks(callbacks);
 
-                let refspec =
-                    format!(":refs/heads/{}", name.replace("origin/", ""),);
+                let refspec = format!(":refs/heads/{}", name.local_name());
                 remote
                     .push(&[refspec], Some(&mut opts))
                     .expect("cant push to remote");

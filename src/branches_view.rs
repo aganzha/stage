@@ -89,7 +89,10 @@ impl BranchItem {
         let ob = Object::builder::<BranchItem>()
             .property(
                 "title",
-                format!("<span color=\"#4a708b\">{}</span>", &branch.name),
+                format!(
+                    "<span color=\"#4a708b\">{}</span>",
+                    &branch.name.to_str()
+                ),
             )
             .property("last-commit", &branch.log_message)
             .property("dt", branch.commit_dt.to_string())
@@ -187,7 +190,7 @@ impl BranchList {
                 .original_list
                 .borrow()
                 .iter()
-                .filter(|bd| bd.name.contains(&term))
+                .filter(|bd| bd.name.to_str().contains(&term))
                 .map(BranchItem::new)
                 .collect(),
         );
@@ -356,7 +359,8 @@ impl BranchList {
         }
         let title = format!(
             "rebase branch {} onto {}",
-            current_branch.name, selected_branch.name
+            current_branch.name.to_str(),
+            selected_branch.name.to_str()
         );
 
         glib::spawn_future_local({
@@ -403,7 +407,8 @@ impl BranchList {
         }
         let title = format!(
             "merge branch {} into {}",
-            selected_branch.name, current_branch.name
+            selected_branch.name.to_str(),
+            current_branch.name.to_str()
         );
 
         glib::spawn_future_local({
@@ -523,8 +528,10 @@ impl BranchList {
         sender: Sender<crate::Event>,
     ) {
         let selected_branch = self.get_selected_branch();
-        let title =
-            format!("create new branch starting at {}", selected_branch.name);
+        let title = format!(
+            "create new branch starting at {}",
+            selected_branch.name.to_str()
+        );
 
         glib::spawn_future_local({
             clone!(@weak self as branch_list,
@@ -1064,7 +1071,7 @@ pub fn headerbar_factory(
         let (_current_branch, selected_branch) =
             branches_in_use(&list_view);
         let oid = selected_branch.oid;
-        sender.send_blocking(crate::Event::Log(Some(oid), Some(selected_branch.name)))
+        sender.send_blocking(crate::Event::Log(Some(oid), Some(selected_branch.name.to_string())))
             .expect("cant send through channel");
         }
     ));
@@ -1198,7 +1205,7 @@ pub fn show_branches_window(
                     sender
                         .send_blocking(crate::Event::Log(
                             Some(oid),
-                            Some(selected_branch.name),
+                            Some(selected_branch.name.to_string()),
                         ))
                         .expect("cant send through sender");
                 }
