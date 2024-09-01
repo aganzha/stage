@@ -669,7 +669,11 @@ impl ViewContainer for File {
         if self.kind == DiffKind::Untracked {
             return vec![make_tag(tags::POINTER)];
         }
-        let mut tags = vec![make_tag(tags::BOLD), make_tag(tags::POINTER)];
+        let mut tags = vec![
+            make_tag(tags::FILE),
+            make_tag(tags::BOLD),
+            make_tag(tags::POINTER),
+        ];
         if self.status == git2::Delta::Deleted {
             tags.push(make_tag(tags::REMOVED));
         }
@@ -803,7 +807,7 @@ impl ViewContainer for Hunk {
         &'a self,
         _ctx: &mut StatusRenderContext<'a>,
     ) -> Vec<tags::TxtTag> {
-        Vec::new()
+        vec![make_tag(tags::HUNK), make_tag(tags::POINTER)]
     }
 
     fn is_expandable_by_child(&self) -> bool {

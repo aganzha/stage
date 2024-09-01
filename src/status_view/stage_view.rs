@@ -321,7 +321,8 @@ pub fn factory(
     let mut pointer: Option<TextTag> = None;
     let mut staged: Option<TextTag> = None;
     let mut unstaged: Option<TextTag> = None;
-
+    let mut file: Option<TextTag> = None;
+    let mut hunk: Option<TextTag> = None;
     //let scheme = Scheme::new(settings.get::<String>(SCHEME_TOKEN));
 
     for tag_name in tags::TEXT_TAGS {
@@ -336,6 +337,12 @@ pub fn factory(
             }
             tags::UNSTAGED => {
                 unstaged.replace(text_tag);
+            }
+            tags::FILE => {
+                file.replace(text_tag);
+            }
+            tags::HUNK => {
+                hunk.replace(text_tag);
             }
             _ => {}
         };
@@ -374,6 +381,8 @@ pub fn factory(
     let pointer = pointer.unwrap();
     let staged = staged.unwrap();
     let unstaged = unstaged.unwrap();
+    let file = file.unwrap();
+    let hunk = hunk.unwrap();
 
     let key_controller = EventControllerKey::new();
     key_controller.connect_key_pressed({
@@ -527,7 +536,6 @@ pub fn factory(
     gesture_controller.connect_released({
         let sndr = sndr.clone();
         let txt = txt.clone();
-        let pointer = pointer.clone();
         move |gesture, n_clicks, _wx, _wy| {
             gesture.set_state(EventSequenceState::Claimed);
             txt.set_cursor_highlight(true);
@@ -536,84 +544,28 @@ pub fn factory(
             sndr.send_blocking(crate::Event::Cursor(
                 iter.offset(),
                 iter.line(),
-            )).expect("Could not send through channel");
-            debug!("cliiiiiiiiiiiiiiiiiiick {:?} {:?} {:?} {:?}", n_clicks, iter.has_tag(&staged), iter.has_tag(&unstaged), iter.has_tag(&pointer));
-            if iter.has_tag(&staged) || iter.has_tag(&unstaged) { // iter.has_tag(&pointer) TODO! Event::Pointer
-                if n_clicks == 1 {
-                    debug!(".............. single click");
-                    // sndr.send_blocking(crate::Event::Expand(
-                    //     iter.offset(),
-                    //     iter.line(),
-                    // )).expect("Could not send through channel");
-                }
-                if n_clicks == 2 {
-                    debug!("~~~~~~~~~~~~~~~~~~~~~~ DOUBLE click");
-                    if iter.has_tag(&staged) {
-                        sndr.send_blocking(
-                            crate::Event::Stage(
-                                crate::StageOp::Unstage(iter.line())
-                            )
-                        ).expect("Could not send through channel");
-                    }
-                    if iter.has_tag(&unstaged) {
-                        sndr.send_blocking(
-                            crate::Event::Stage(
-                                crate::StageOp::Stage(iter.line()),
-                            )
-                        ).expect("Could not send through channel");
-                    }
-                }
-                // num_clicks.replace(n_clicks);
-                // glib::source::timeout_add_local(Duration::from_millis(200), {
-                //     let num_clicks = num_clicks.clone();
-                //     let staged = staged.clone();
-                //     let unstaged = unstaged.clone();
-                //     let sndr = sndr.clone();
-                //     let txt = txt.clone();
-                //     move || {
-                //         if num_clicks.get() == n_clicks {
-                //             let iter = txt.buffer().iter_at_offset(pos);
-                //             debug!("clicks after 200 msec {:?}", n_clicks);
-                //             match n_clicks {
-                //                 1 => {
-                //                     sndr.send_blocking(crate::Event::Expand(
-                //                         iter.offset(),
-                //                         iter.line(),
-                //                     )).expect("Could not send through channel");
-                //                 },
-                //                 2 => {
-                //                     debug!(
-                //                         "DOOOOOOOUBLE CLICK has staged and unstaged tags? {:?} {:?}",
-                //                         iter.has_tag(&staged),
-                //                         iter.has_tag(&unstaged)
-                //                     );
-                //                     if iter.has_tag(&staged) {
-                //                         sndr.send_blocking(
-                //                             crate::Event::Stage(
-                //                                 crate::StageOp::Unstage(iter.line())
-                //                             )
-                //                         ).expect("Could not send through channel");
-                //                     }
-                //                     if iter.has_tag(&unstaged) {
-                //                         sndr.send_blocking(
-                //                             crate::Event::Stage(
-                //                                 crate::StageOp::Stage(iter.line()),
-                //                             )
-                //                         ).expect("Could not send through channel");
-                //                     }
+            ))
+            .expect("Could not send through channel");
 
-                //                 },
-                //                 _ => {
-                //                 }
-                //             }
-                //             debug!("PERFORM REAL CLICK {:?}", n_clicks);
-                //         }
-                //         ControlFlow::Break
-                //     }
-                // });
-
+            if n_clicks == 1 && (iter.has_tag(&file) || iter.has_tag(&hunk)) {
+                sndr.send_blocking(crate::Event::Expand(
+                    iter.offset(),
+                    iter.line(),
+                ))
+                .expect("Could not send through channel");
             }
-            // }
+            if n_clicks == 2 && iter.has_tag(&staged) {
+                sndr.send_blocking(crate::Event::Stage(
+                    crate::StageOp::Unstage(iter.line()),
+                ))
+                .expect("Could not send through channel");
+            }
+            if n_clicks == 2 && iter.has_tag(&unstaged) {
+                sndr.send_blocking(crate::Event::Stage(
+                    crate::StageOp::Stage(iter.line()),
+                ))
+                .expect("Could not send through channel");
+            }
         }
     });
 
