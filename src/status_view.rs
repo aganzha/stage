@@ -988,6 +988,17 @@ impl Status {
         // this is actually needed for views which are not implemented
         // ViewContainer, and does not affect context!
         // do i still have such views????
+
+        // thought: so, diff also implements
+        // view container, so yes. no need to do that
+        // (will be done in view container, BUT!)
+        // why it is even possible to do this here???
+        // it must be hidden in such a place, where ONLY
+        // ViewContainer is needed to setup cursor!
+        // context must receive ViewContainer as
+        // argument and use its line_no to store cursor!
+        // it is used only once in resize_highlights for copy!
+        // SO, get rid of context.cursor!
         context.cursor = line_no; // cursor
 
         let mut changed = false;
@@ -1009,6 +1020,14 @@ impl Status {
                 staged.cursor(&buffer, line_no, false, context) || changed;
         }
         // NO NEED TO RENDER!
+        // no need to bind highlights here!
+        // expand can go without cursor and hihjlight
+        // is required there!
+        // put highlight completelly in render!
+        // ... or put highlights in expand!!!!!!!
+        // but who triggers them in status view????
+
+        // this is called once in status_view and 3 times in commit view!!!
         txt.bind_highlights(context);
         changed
     }
@@ -1088,6 +1107,13 @@ impl Status {
         let iter = self.choose_cursor_position(&buffer, last_op);
         trace!("__________ chused position {:?}", iter.line());
         buffer.place_cursor(&iter);
+        // hey. here is a cursor kust in the end of render.
+        // do i need after_render at all?
+        // only diff is using after render, cause it sets its own tags.
+        // file is only using it for max_width (no longer used).
+
+        // so, the pyramid:
+        // expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
     }
 

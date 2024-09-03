@@ -567,18 +567,6 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
                     info!("Stage {:?}", stage_op);
                     status.stage(stage_op, &window);
                 }
-                // Event::Stage(stage_op) => {
-                //     info!("Stage");
-                //     status.stage(&txt, stage_op, &window);
-                // }
-                // Event::UnStage(stage_op) => {
-                //     info!("Unstage");
-                //     status.stage(&txt, stage_op, &window);
-                // }
-                // Event::Kill(stage_op) => {
-                //     info!("main.kill");
-                //     status.stage(&txt, stage_op, &window);
-                // }
                 Event::Ignore(offset, line_no) => {
                     info!("main.ignore");
                     status.ignore(&txt, line_no, offset, &mut ctx);

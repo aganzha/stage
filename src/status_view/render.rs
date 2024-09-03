@@ -89,12 +89,6 @@ pub trait ViewContainer {
 
     // ViewContainer
     fn before_render<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
-    fn after_render<'a>(
-        &'a self,
-        _buffer: &TextBuffer,
-        _ctx: &mut StatusRenderContext<'a>,
-    ) {
-    }
 
     fn fill_under_cursor<'a>(
         &'a self,
@@ -104,7 +98,7 @@ pub trait ViewContainer {
 
     // viewcontainer
     fn before_cursor<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
-    fn after_cursor<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
+    fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, _ctx: &mut StatusRenderContext<'a>) {}
 
     fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
         let current_line = iter.line();
@@ -267,7 +261,6 @@ pub trait ViewContainer {
         if self.get_view().is_current() {
             context.cursor = self.get_view().line_no.get(); // render
         }
-        self.after_render(buffer, context);
     }
 
     // ViewContainer
@@ -330,7 +323,7 @@ pub trait ViewContainer {
             context.cursor = view.line_no.get(); // cursor
         }
         // calling it on cursor??? hmmmm...
-        self.after_cursor(context);
+        self.after_cursor(buffer, context);
         if result {
             self.adjust_tags_on_cursor_change(buffer, context);
         }
@@ -533,13 +526,14 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn after_render<'a>(
+    fn after_cursor<'a>(
         &'a self,
         buffer: &TextBuffer,
         ctx: &mut StatusRenderContext<'a>,
     ) {
         let start_line = self.view.line_no.get();
         let mut end_line = start_line;
+        // TODO! rename sliding to just last!
         if let Some(file) = ctx.sliding_file {
             if file.view.is_rendered() {
                 end_line = file.view.line_no.get();
@@ -681,7 +675,7 @@ impl ViewContainer for File {
     }
 
     // file
-    fn after_render<'a>(
+    fn after_cursor<'a>(
         &'a self,
         _buffer: &TextBuffer,
         context: &mut StatusRenderContext<'a>,
@@ -775,8 +769,15 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
-    fn after_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
         if self.view.is_rendered() {
+            // debug!("who is collecting hunks? me????????");
+            // let backtrace = std::backtrace::Backtrace::capture();
+            // debug!(
+            //     "----------------calling get current repo status> {:?}",
+            //     backtrace
+            // );
+            
             ctx.collect_hunk_highlights(self.view.line_no.get());
         }
     }
@@ -851,8 +852,10 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn after_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
         if self.view.is_rendered() && self.view.is_active() {
+            // hm. collecting lines for highlight.
+            // but where am i collecting active_lines?
             ctx.collect_line_highlights(self.view.line_no.get());
         }
     }
