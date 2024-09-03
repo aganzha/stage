@@ -1,4 +1,11 @@
-check
+TODO: so, the refactor is:
+  - it does not need to fill context  highlight lines (via collect_hunk_highlights)
+    in after render. because active_lines is filled already in under_cursor!
+  - same for hunk highliughts
+  
+so, after_cursor could be eliminated in the favour of under_cursor.
+just introduce first_active_line and second_active_line to store range of lines!
+  
 BUG: CRITICAL: when intriduce changes in line whicj is in hunk header kill does not work! stash: broken_kill
      how to fix: it need to steps comparing hunk header: fully, and then search for same line in other hunk!
      put it on hunkheader. hunkheader must be separated type!
