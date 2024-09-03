@@ -98,7 +98,12 @@ pub trait ViewContainer {
 
     // viewcontainer
     fn before_cursor<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
-    fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, _ctx: &mut StatusRenderContext<'a>) {}
+    fn after_cursor<'a>(
+        &'a self,
+        _buffer: &TextBuffer,
+        _ctx: &mut StatusRenderContext<'a>,
+    ) {
+    }
 
     fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
         let current_line = iter.line();
@@ -769,7 +774,11 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
-    fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
+    fn after_cursor<'a>(
+        &'a self,
+        _buffer: &TextBuffer,
+        ctx: &mut StatusRenderContext<'a>,
+    ) {
         if self.view.is_rendered() {
             // debug!("who is collecting hunks? me????????");
             // let backtrace = std::backtrace::Backtrace::capture();
@@ -777,7 +786,7 @@ impl ViewContainer for Hunk {
             //     "----------------calling get current repo status> {:?}",
             //     backtrace
             // );
-            
+
             ctx.collect_hunk_highlights(self.view.line_no.get());
         }
     }
@@ -852,7 +861,11 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
+    fn after_cursor<'a>(
+        &'a self,
+        _buffer: &TextBuffer,
+        ctx: &mut StatusRenderContext<'a>,
+    ) {
         if self.view.is_rendered() && self.view.is_active() {
             // hm. collecting lines for highlight.
             // but where am i collecting active_lines?
