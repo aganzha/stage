@@ -100,12 +100,15 @@ mod stage_view {
                 } else {
                     &LIGHT_BG_FILL
                 };
-                println!("graphene visible rect..........................> {:?}", &graphene::Rect::new(
+                println!(
+                    "graphene visible rect..........................> {:?}",
+                    &graphene::Rect::new(
                         rect.x() as f32,
                         rect.y() as f32,
                         rect.width() as f32,
                         rect.height() as f32,
-                ));
+                    )
+                );
                 snapshot.append_color(
                     bg_fill,
                     &graphene::Rect::new(
@@ -155,7 +158,10 @@ mod stage_view {
                 }
 
                 // highlight hunks -----------------------------------
-                println!("highlight hunks!!!!!! {:?}", self.hunks.borrow().len());
+                println!(
+                    "highlight hunks!!!!!! {:?}",
+                    self.hunks.borrow().len()
+                );
                 for line in self.hunks.borrow().iter() {
                     iter.set_line(*line);
                     let (y_from, y_to) = self.obj().line_yrange(&iter);
