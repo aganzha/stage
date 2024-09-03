@@ -311,11 +311,11 @@ impl TxtTag {
                 }
             }
             HUNK => {
-                if is_dark {
-                    tag.set_background(Some("#383838"));
-                } else {
-                    tag.set_background(Some("#deddda"));
-                }
+                // if is_dark {
+                //     tag.set_background(Some("#383838"));
+                // } else {
+                //     tag.set_background(Some("#deddda"));
+                // }
             }
             ITALIC => {
                 tag.set_style(Style::Italic);
