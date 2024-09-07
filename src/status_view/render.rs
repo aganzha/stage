@@ -565,11 +565,11 @@ impl ViewContainer for Diff {
                 let start_iter = buffer.iter_at_line(start_line).unwrap();
                 let mut end_iter = buffer.iter_at_line(end_line).unwrap();
                 end_iter.forward_to_line_end();
-                debug!(
-                    "~~~~~~~~~~~~~~~~apply staged tag {:?} {:?}",
-                    start_iter.line(),
-                    end_iter.line()
-                );
+                // debug!(
+                //     "~~~~~~~~~~~~~~~~apply staged tag {:?} {:?}",
+                //     start_iter.line(),
+                //     end_iter.line()
+                // );
                 self.remove_tag(buffer, &tag);
                 buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
                 self.view.tag_added(&tag);

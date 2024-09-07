@@ -9,7 +9,7 @@ use gio::{
 };
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
-use log::trace;
+use log::{trace, debug};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -95,7 +95,7 @@ impl Status {
                                         return;
                                     }
                                     lock.borrow_mut().insert(file_path.clone());
-                                    trace!("set monitor lock for file {:?}", &file_path);
+                                    debug!("set monitor lock for file {:?}", &file_path);
                                     glib::source::timeout_add_local(
                                         Duration::from_millis(300),
                                         {
@@ -103,6 +103,7 @@ impl Status {
                                             let sender = sender.clone();
                                             move || {
                                                 lock.borrow_mut().remove(&file_path);
+                                                debug!("------------->go track changes {:?}", &file_path);
                                                 sender.send_blocking(Event::TrackChanges(file_path.clone()))
                                                     .expect("cant send through channel");
                                                 glib::ControlFlow::Break

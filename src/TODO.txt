@@ -1,3 +1,5 @@
+THOUGHT: scroll and highlight: highlight is called always on scroll. without changing stucture.
+         skipping highlights when structure is not changed lead to blinks during scroll!
 TODO: so, the refactor is:
   - it does not need to fill context  highlight lines (via collect_hunk_highlights)
     in after render. because active_lines is filled already in under_cursor!
