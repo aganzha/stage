@@ -1610,9 +1610,7 @@ pub fn track_changes(
     has_conflicted: bool,
     sender: Sender<crate::Event>,
 ) {
-    debug!(
-        "................so. what about getting array here",
-    );
+    debug!("................so. what about getting array here",);
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let file_path = file_path
@@ -1661,7 +1659,10 @@ pub fn track_changes(
         }
     }
     // *******untill here array is ok.
-    debug!("oooooooooooooooooo--- is_tracked? {:?} {:?}", is_tracked, file_path);
+    debug!(
+        "oooooooooooooooooo--- is_tracked? {:?} {:?}",
+        is_tracked, file_path
+    );
     if has_conflicted {
         assert!(is_tracked);
     }
@@ -1705,7 +1706,8 @@ pub fn track_changes(
         // to get rid of has_other_modified, perhaps just call
         // for full unstaged diff???
         // in another thread :)
-        if diff.is_empty() { //  && !has_other_modified 
+        if diff.is_empty() {
+            //  && !has_other_modified
             let git_diff = repo
                 .diff_index_to_workdir(None, Some(&mut make_diff_options()))
                 .expect("cant' get diff index to workdir");

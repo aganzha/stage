@@ -9,7 +9,7 @@ use gio::{
 };
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
-use log::{trace, debug};
+use log::{debug, trace};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -95,17 +95,34 @@ impl Status {
                                         return;
                                     }
                                     lock.borrow_mut().insert(file_path.clone());
-                                    debug!("set monitor lock for file {:?}", &file_path);
+                                    let current_lock_len = lock.borrow().len();
+                                    trace!("set monitor lock for file {:?}", &file_path);
                                     glib::source::timeout_add_local(
                                         Duration::from_millis(300),
                                         {
                                             let lock = lock.clone();
                                             let sender = sender.clone();
+                                            let path = path.clone();
                                             move || {
+                                                let future_lock_len = lock.borrow().len();
+                                                if future_lock_len != current_lock_len {
+                                                    trace!("files are collecting.... NO WAY!!!!");
+                                                    return glib::ControlFlow::Break;
+                                                }
                                                 lock.borrow_mut().remove(&file_path);
-                                                debug!("------------->go track changes {:?}", &file_path);
-                                                sender.send_blocking(Event::TrackChanges(file_path.clone()))
-                                                    .expect("cant send through channel");
+                                                if future_lock_len > 1 {
+                                                    // if multiple files are changed during 300 msec
+                                                    // period - just refresh whole status
+                                                    gio::spawn_blocking({
+                                                        let path = path.clone();
+                                                        let sender = sender.clone();
+                                                        move || crate::get_current_repo_status(Some(path), sender)
+                                                    });
+                                                } else {
+                                                    // track just 1 file!
+                                                    sender.send_blocking(Event::TrackChanges(file_path.clone()))
+                                                        .expect("cant send through channel");
+                                                }
                                                 glib::ControlFlow::Break
                                             }
                                         },
