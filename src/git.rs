@@ -1611,8 +1611,7 @@ pub fn track_changes(
     sender: Sender<crate::Event>,
 ) {
     debug!(
-        "................track changes {:?} has conflicted? {:?}",
-        file_path, has_conflicted
+        "................so. what about getting array here",
     );
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let index = repo.index().expect("cant get index");
@@ -1623,33 +1622,46 @@ pub fn track_changes(
     // lets do it from statuses!
     let mut status_opts = StatusOptions::new();
     status_opts.include_unmodified(false);
+    // let mut is_tracked = false;
+
+    // this is required for case, when file is tracked, and
+    // it is rendered in Unstaged, but its content was reset to tree version.
+    // in such case it need to cleanup Unstaged alltogether!
+    // let mut has_other_modified = false;
+    // for status_entry in &repo
+    //     .statuses(Some(&mut status_opts))
+    //     .expect("cant get statuses")
+    // {
+    //     let path = status_entry.path().expect("no path");
+    //     if status_entry.status() == Status::WT_MODIFIED {
+    //         if path == file_path {
+    //             is_tracked = true;
+    //         } else {
+    //             has_other_modified = true;
+    //         }
+    //     }
+    // }
+    // if !is_tracked {
+    //     // perhaps file was reset to initial state, but its still need
+    //     // to remove it from unstaged
+    //     for entry in index.iter() {
+    //         let entry_path =
+    //             format!("{}", String::from_utf8_lossy(&entry.path));
+    //         if file_path == entry_path {
+    //             is_tracked = true;
+    //             break;
+    //         }
+    //     }
+    // }
     let mut is_tracked = false;
-    let mut has_other_modified = false;
-    for status_entry in &repo
-        .statuses(Some(&mut status_opts))
-        .expect("cant get statuses")
-    {
-        let path = status_entry.path().expect("no path");
-        if status_entry.status() == Status::WT_MODIFIED {
-            if path == file_path {
-                is_tracked = true;
-            } else {
-                has_other_modified = true;
-            }
+    for entry in index.iter() {
+        if file_path == String::from_utf8_lossy(&entry.path) {
+            is_tracked = true;
+            break;
         }
     }
-    if !is_tracked {
-        // perhaps file was reset to initial state, but its still need
-        // to remove it from unstaged
-        for entry in index.iter() {
-            let entry_path =
-                format!("{}", String::from_utf8_lossy(&entry.path));
-            if file_path == entry_path {
-                is_tracked = true;
-                break;
-            }
-        }
-    }
+    // *******untill here array is ok.
+    debug!("oooooooooooooooooo--- is_tracked? {:?} {:?}", is_tracked, file_path);
     if has_conflicted {
         assert!(is_tracked);
     }
@@ -1679,7 +1691,7 @@ pub fn track_changes(
     if is_tracked {
         if has_conflicted {
             // this means file was in conflicted but now it is fixed manually!
-            // it is no longer in index conflicts.
+            // PERHAPS it is no longer in index conflicts.
             // it must be in staged or unstaged then
             get_current_repo_status(Some(path), sender);
             return;
@@ -1690,22 +1702,39 @@ pub fn track_changes(
             .diff_index_to_workdir(Some(&index), Some(&mut opts))
             .expect("cant' get diff index to workdir");
         let diff = make_diff(&git_diff, DiffKind::Unstaged);
-        if diff.is_empty() && !has_other_modified {
-            debug!(
-                "***********diff is empty AND no other files? {:?} {:?}",
-                diff.is_empty(),
-                !has_other_modified
-            );
+        // to get rid of has_other_modified, perhaps just call
+        // for full unstaged diff???
+        // in another thread :)
+        if diff.is_empty() { //  && !has_other_modified 
+            let git_diff = repo
+                .diff_index_to_workdir(None, Some(&mut make_diff_options()))
+                .expect("cant' get diff index to workdir");
+            let diff = make_diff(&git_diff, DiffKind::Unstaged);
             sender
-                .send_blocking(crate::Event::Unstaged(None))
+                .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
+                    None
+                } else {
+                    Some(diff)
+                }))
                 .expect("Could not send through channel");
+            // debug!(
+            //     "***********diff is empty AND no other files? {:?} {:?}",
+            //     diff.is_empty(),
+            //     !has_other_modified
+            // );
+            // sender
+            //     .send_blocking(crate::Event::Unstaged(None))
+            //     .expect("Could not send through channel");
         } else {
-            // hm it is possible that diff is empty and has othe files?
-            debug!(
-                "***********diff is empty OR has other files {:?} {:?}",
-                diff.is_empty(),
-                has_other_modified
-            );
+            // // hm it is possible that diff is empty and has othe files?
+            // debug!(
+            //     "***********diff is empty OR has other files {:?} {:?}",
+            //     diff.is_empty(),
+            //     has_other_modified
+            // );
+            // here is the problem. sending 1 file in event.
+            // perhaps it does not even need to enhance this method
+            // with handling array of files.
             sender
                 .send_blocking(crate::Event::TrackedFile(
                     file_path.into(),
@@ -1713,6 +1742,8 @@ pub fn track_changes(
                 ))
                 .expect("Could not send through channel");
         }
+    } else {
+        debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> it is not tracked");
     }
 }
 
