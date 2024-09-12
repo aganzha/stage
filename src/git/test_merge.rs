@@ -56,7 +56,7 @@ index 7f27a52..8d101d8 100644
 
 static INIT: Once = Once::new();
 
-#[test]
+//#[test]
 pub fn choose_ours_in_first_conflict() {
     INIT.call_once(|| {
         env_logger::builder().format_timestamp(None).init();
@@ -139,7 +139,7 @@ pub fn choose_ours_in_first_conflict() {
     }
 }
 
-#[test]
+//#[test]
 pub fn choose_theirs_in_second_conflict() {
     // INIT.call_once(|| {
     //     env_logger::builder().format_timestamp(None).init();

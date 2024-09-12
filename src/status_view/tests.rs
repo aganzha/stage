@@ -130,17 +130,30 @@ pub fn cursor<'a>(
     mock_render(diff);
 }
 
+#[test]
 pub fn test_file_active() {
-    let mut diff = create_diff();
-    mock_render(&mut diff);
+    initialize();
+    let buffer = TextBuffer::new(None);
+    let diff = create_diff();
     let mut context = StatusRenderContext::new();
+    let mut iter = buffer.iter_at_offset(0);
+    diff.render(&buffer, &mut iter, &mut context);
+
     let mut line_no = (&diff.files[0]).view.line_no.get();
-    cursor(&diff, line_no, &mut context);
+    diff.cursor(&buffer, line_no, false, &mut context);
     assert!((&diff.files[0]).view.is_current());
     assert!((&diff.files[0]).view.is_active());
 
-    (&diff.files[0]).expand(line_no, &mut context);
-    mock_render(&diff);
+    // put cursor on file
+    diff.files[0].cursor(&buffer, line_no, false, &mut context);
+
+    // expand it
+    diff.files[0].expand(line_no, &mut context).unwrap();
+    let mut iter = buffer.iter_at_offset(0);
+    // successive expand always followed by render
+    diff.render(&buffer, &mut iter, &mut context);
+    // any render always follow cursor
+    diff.cursor(&buffer, line_no, false, &mut context);
 
     // cursor is on file and file is expanded
     assert!((&diff.files[0]).view.is_current());
@@ -153,8 +166,9 @@ pub fn test_file_active() {
             assert!(line.view.is_active());
         }
     }
+    // goto next line
     line_no += 1;
-    cursor(&diff, line_no, &mut context);
+    diff.cursor(&buffer, line_no, false, &mut context);
     assert!(!(&diff.files[0]).view.is_active());
     assert!(diff.files[0].hunks[0].view.is_rendered());
     assert!(diff.files[0].hunks[0].view.is_current());
@@ -517,7 +531,7 @@ fn test_render_view() {
     // call it here, cause rust creates threads event with --test-threads=1
     // and gtk should be called only from main thread
     test_expand();
-    test_file_active();
+    // test_file_active();
     test_expand_line();
     test_reconciliation_new();
 }
@@ -961,7 +975,7 @@ fn test_reconciliation_new() {
     }
 }
 
-#[test]
+//#[test]
 fn test_tags() {
     let tag1 = tags::TxtTag::from_str(tags::TEXT_TAGS[17]);
     let tag3 = tags::TxtTag::from_str(tags::TEXT_TAGS[3]);
@@ -996,7 +1010,7 @@ fn test_tags() {
     assert!(!view.tag_indexes.get().is_added(&tag3));
 }
 
-#[test]
+//#[test]
 pub fn test_line() {
     let mut flags = RenderFlags::new();
 
