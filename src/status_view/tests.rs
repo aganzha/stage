@@ -975,7 +975,7 @@ fn test_reconciliation_new() {
     }
 }
 
-//#[test]
+#[test]
 fn test_tags() {
     let tag1 = tags::TxtTag::from_str(tags::TEXT_TAGS[17]);
     let tag3 = tags::TxtTag::from_str(tags::TEXT_TAGS[3]);
@@ -1010,8 +1010,9 @@ fn test_tags() {
     assert!(!view.tag_indexes.get().is_added(&tag3));
 }
 
-//#[test]
-pub fn test_line() {
+#[test]
+pub fn test_flags() {
+    initialize();
     let mut flags = RenderFlags::new();
 
     flags = flags.expand(true);
