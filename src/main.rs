@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-mod debug;
 mod external;
-
 mod status_view;
 use status_view::{
     context::{StatusRenderContext, TextViewWidth},
@@ -29,8 +27,6 @@ use stashes_view::factory as stashes_view_factory;
 mod commit_view;
 use commit_view::show_commit_window;
 
-mod utils;
-
 use core::time::Duration;
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
@@ -46,6 +42,7 @@ use git2::Oid;
 mod dialogs;
 use dialogs::{alert, confirm_dialog_factory};
 
+mod tests;
 use gdk::Display;
 use glib::{clone, ControlFlow};
 use libadwaita::prelude::*;

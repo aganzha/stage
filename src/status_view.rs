@@ -14,7 +14,6 @@ use crate::git::{
     abort_rebase, branch::BranchData, continue_rebase, get_head, merge,
     remote, stash, HunkLineNo,
 };
-use crate::utils::StrPath;
 
 use core::time::Duration;
 use git2::{BranchType, RepositoryState};
@@ -618,12 +617,12 @@ impl Status {
             self.settings.get::<HashMap<String, Vec<String>>>("ignored");
 
         let repo_path = self.path.clone().unwrap();
-        let str_path = repo_path.as_str();
+        let str_path = repo_path.to_str().unwrap();
         let mut has_files = true;
         if let Some(ignored) = settings.get_mut(str_path) {
             if let Some(new) = &mut untracked {
                 new.files.retain(|f| {
-                    let str_path = f.path.as_str();
+                    let str_path = f.path.to_str().unwrap();
                     !ignored.contains(&str_path.to_string())
                 });
                 has_files = !new.files.is_empty();
