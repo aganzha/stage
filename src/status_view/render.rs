@@ -37,6 +37,7 @@ pub trait ViewContainer {
 
     fn get_view(&self) -> &View;
 
+    // ViewContainer
     fn write_content(
         &self,
         iter: &mut TextIter,

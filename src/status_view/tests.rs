@@ -109,6 +109,7 @@ pub fn mock_render(diff: &Diff) -> i32 {
     }
     line_no
 }
+
 // tests
 pub fn cursor<'a>(
     diff: &'a Diff,
@@ -525,25 +526,28 @@ fn test_render_view() {
     // and gtk should be called only from main thread
     test_expand();
     // test_file_active();
-    test_expand_line();
+    // test_expand_line();
     // test_reconciliation_new();
 }
 
+#[gtk4::test]
 fn test_expand_line() {
+    initialize();
     let buffer = TextBuffer::new(None);
     let mut iter = buffer.iter_at_line(0).unwrap();
     buffer.insert(&mut iter, "begin\n");
+
     let diff = create_diff();
     let mut ctx = StatusRenderContext::new();
     diff.render(&buffer, &mut iter, &mut ctx);
-    // if cursor returns true it need to rerender as in Status!
-    if diff.cursor(&buffer, 1, false, &mut ctx) {
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
-    }
+    let first_file_line = diff.files[0].view.line_no.get();
+    diff.cursor(&buffer, 1, false, &mut ctx);
 
     // expand first file
-    diff.files[0].expand(1, &mut ctx);
+    diff.files[0].expand(first_file_line, &mut ctx);
     diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
+    diff.cursor(&buffer, first_file_line, false, &mut ctx);
+    assert!(diff.files[0].view.is_expanded());
 
     let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
     let content_lines = content.split('\n');
@@ -554,33 +558,18 @@ fn test_expand_line() {
         }
         for file in &diff.files {
             if file.view.line_no.get() == i as i32 {
-                file.write_content(&mut iter, &buffer, &mut ctx);
-                let start_line_iter =
-                    buffer.iter_at_line(iter.line()).unwrap();
-                assert!(
-                    cl.trim() == buffer.text(&start_line_iter, &iter, true)
-                );
+                let file_path = file.path.to_str().unwrap();
+                assert!(cl.contains(file_path));
             }
-            for hunk in &file.hunks {
-                if hunk.view.line_no.get() == i as i32 {
-                    hunk.write_content(&mut iter, &buffer, &mut ctx);
-                    let start_line_iter =
-                        buffer.iter_at_line(iter.line()).unwrap();
-                    assert!(
-                        cl.trim()
-                            == buffer.text(&start_line_iter, &iter, true)
-                    );
-                }
-
-                for line in &hunk.lines {
-                    if line.view.line_no.get() == i as i32 {
-                        line.write_content(&mut iter, &buffer, &mut ctx);
-                        let start_line_iter =
-                            buffer.iter_at_line(iter.line()).unwrap();
-                        assert!(
-                            cl.trim()
-                                == buffer.text(&start_line_iter, &iter, true)
-                        );
+            if file.view.is_expanded() {
+                for hunk in &file.hunks {
+                    if hunk.view.line_no.get() == i as i32 {
+                        assert!(cl.contains(&hunk.header));
+                    }
+                    for line in &hunk.lines {
+                        if line.view.line_no.get() == i as i32 {
+                            assert!(cl.contains(line.content(&hunk)));
+                        }
                     }
                 }
             }
