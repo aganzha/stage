@@ -4,6 +4,7 @@
 
 use crate::status_view::tags;
 use crate::status_view::view::{RenderFlags, View};
+use crate::tests::initialize;
 
 use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::{Diff, DiffKind, File, Hunk, HunkLineNo, Line, LineKind};
@@ -14,15 +15,7 @@ use log::debug;
 use regex::Regex;
 use std::cell::Cell;
 use std::sync::Once;
-
-static INIT: Once = Once::new();
-
-pub fn initialize() {
-    INIT.call_once(|| {
-        env_logger::builder().format_timestamp(None).init();
-        debug!("----------------> {:?}", gtk4::init());
-    });
-}
+use std::thread;
 
 impl Hunk {
     // used in tests only
@@ -130,7 +123,7 @@ pub fn cursor<'a>(
     mock_render(diff);
 }
 
-//#[test]
+#[gtk4::test]
 pub fn test_file_active() {
     initialize();
     let buffer = TextBuffer::new(None);
@@ -651,7 +644,7 @@ fn test_expand_line() {
     }
 }
 
-#[test]
+#[gtk4::test]
 fn test_reconciliation_new() {
     initialize();
 
@@ -694,7 +687,7 @@ fn test_reconciliation_new() {
     debug!("iter over rendered hunks");
 
     // not actual. rendered as criteria is wrong. must be some flag
-    // for erased views then?    
+    // for erased views then?
     // for (i, h) in rendered_file.hunks.iter().enumerate() {
     //     debug!(
     //         "first hunk is squashed, others are rendered {}",
@@ -721,7 +714,7 @@ fn test_reconciliation_new() {
     //         }
     //     }
     // }
-    
+
     debug!("iter over new hunks");
     for h in &new_file.hunks {
         assert!(h.view.is_transfered());

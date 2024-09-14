@@ -7,6 +7,7 @@ use crate::git::{
     make_diff, DiffKind, Hunk, HunkLineNo, LineKind, MARKER_OURS,
     MARKER_THEIRS,
 };
+use crate::tests::initialize;
 use git2;
 use log::debug;
 use std::sync::Once;
@@ -54,12 +55,13 @@ index 7f27a52..8d101d8 100644
 ->>>>>>> 996751f... fix similar events
 ";
 
-#[test]
+#[gtk4::test]
 pub fn choose_ours_in_first_conflict() {
     // this is mock diff, which is the result of obtaining
     // diff via diff_tree_to_workdir with reverse=true
     // means we want to kill all workdir changes to get
     // our tree restored as before merge
+    initialize();
     let mut git_diff = git2::Diff::from_buffer(TEST_BLOB.as_bytes())
         .expect("cant create diff");
     let diff = make_diff(&git_diff, DiffKind::Conflicted);
@@ -132,12 +134,13 @@ pub fn choose_ours_in_first_conflict() {
     }
 }
 
-#[test]
+#[gtk4::test]
 pub fn choose_theirs_in_second_conflict() {
     // this is mock diff, which is the result of obtaining
     // diff via diff_tree_to_workdir with reverse=true
     // means we want to kill all workdir changes to get
     // our tree restored as before merge
+    initialize();
     let mut git_diff = git2::Diff::from_buffer(TEST_BLOB.as_bytes())
         .expect("cant create diff");
     let diff = make_diff(&git_diff, DiffKind::Conflicted);
