@@ -97,8 +97,6 @@ pub trait ViewContainer {
     ) {
     }
 
-    // viewcontainer
-    fn before_cursor<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
     fn after_cursor<'a>(
         &'a self,
         _buffer: &TextBuffer,
@@ -278,7 +276,6 @@ pub trait ViewContainer {
         parent_active: bool,
         context: &mut StatusRenderContext<'a>,
     ) -> bool {
-        self.before_cursor(context);
         let mut result = false;
         let view = self.get_view();
 

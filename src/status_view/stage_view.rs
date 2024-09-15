@@ -476,7 +476,7 @@ pub fn factory(
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::o, gdk::ModifierType::CONTROL_MASK) => {
-                    sndr.send_blocking(crate::Event::RepoOpen)
+                    sndr.send_blocking(crate::Event::OpenFileDialog)
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::r, _) => {
