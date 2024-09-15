@@ -95,6 +95,7 @@ impl Status {
                                         return;
                                     }
                                     lock.borrow_mut().insert(file_path.clone());
+                                    debug!("_________inserted file into lock {:?} to {:?}", file_path, lock);
                                     let current_lock_len = lock.borrow().len();
                                     trace!("set monitor lock for file {:?}", &file_path);
                                     glib::source::timeout_add_local(
@@ -106,10 +107,17 @@ impl Status {
                                             move || {
                                                 let future_lock_len = lock.borrow().len();
                                                 if future_lock_len != current_lock_len {
-                                                    trace!("files are collecting.... NO WAY!!!!");
+                                                    debug!(
+                                                        "^^^^^^^^something added to lock!.... NO WAY!!!! {:?}",
+                                                        &lock
+                                                    );
                                                     return glib::ControlFlow::Break;
                                                 }
                                                 lock.borrow_mut().remove(&file_path);
+                                                debug!("........ removed file from lock {:?} from {:?}",
+                                                       file_path,
+                                                       lock
+                                                );
                                                 if future_lock_len > 1 {
                                                     // if multiple files are changed during 300 msec
                                                     // period - just refresh whole status
