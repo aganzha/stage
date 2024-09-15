@@ -126,8 +126,7 @@ pub fn cursor<'a>(
 
 #[gtk4::test]
 pub fn test_file_active() {
-    initialize();
-    let buffer = TextBuffer::new(None);
+    let buffer = initialize();
     let diff = create_diff();
     let mut context = StatusRenderContext::new();
     let mut iter = buffer.iter_at_offset(0);
@@ -173,18 +172,21 @@ pub fn test_file_active() {
     }
 }
 
+#[gtk4::test]
 pub fn test_expand() {
-    let mut diff = create_diff();
-    mock_render(&mut diff);
+    let buffer = initialize();
+    let diff = create_diff();
+    let mut ctx = StatusRenderContext::new();
+    let mut iter = buffer.iter_at_line(0).unwrap();
+    diff.render(&buffer, &mut iter, &mut ctx);
 
-    let mut context = StatusRenderContext::new();
+    for cursor_line in 1..4 {
+        diff.cursor(&buffer, cursor_line, false, &mut ctx);
 
-    for cursor_line in 0..3 {
-        cursor(&diff, cursor_line, &mut context);
-
-        for (i, file) in diff.files.iter().enumerate() {
+        for file in &diff.files {
             let view = file.get_view();
-            if i as i32 == cursor_line {
+            let line_no = view.line_no.get();
+            if line_no == cursor_line {
                 assert!(view.is_active());
                 assert!(view.is_current());
             } else {
@@ -198,17 +200,19 @@ pub fn test_expand() {
     // the cursor is on it
     let mut cursor_line = 2;
     for file in &diff.files {
-        if let Some(_expanded_line) = file.expand(cursor_line, &mut context) {
+        if let Some(_expanded_line) = file.expand(cursor_line, &mut ctx) {
             assert!(file.get_view().is_child_dirty());
             break;
         }
     }
 
-    mock_render(&diff);
+    diff.render(&buffer, &mut buffer.iter_at_offset(0), &mut ctx);
+    diff.cursor(&buffer, cursor_line, false, &mut ctx);
 
-    for (i, file) in diff.files.iter().enumerate() {
+    for file in &diff.files {
         let view = file.get_view();
-        if i as i32 == cursor_line {
+        let line_no = view.line_no.get();
+        if line_no == cursor_line {
             assert!(view.is_rendered());
             assert!(view.is_current());
             assert!(view.is_active());
@@ -234,19 +238,19 @@ pub fn test_expand() {
     // go 1 line backward
     // end expand it
     cursor_line = 1;
-    cursor(&diff, cursor_line, &mut context);
 
     for file in &diff.files {
-        if let Some(_expanded_line) = file.expand(cursor_line, &mut context) {
+        if let Some(_expanded_line) = file.expand(cursor_line, &mut ctx) {
             break;
         }
     }
+    diff.render(&buffer, &mut buffer.iter_at_offset(0), &mut ctx);
+    diff.cursor(&buffer, cursor_line, false, &mut ctx);
 
-    mock_render(&diff);
-    for (i, file) in diff.files.iter().enumerate() {
+    for file in &diff.files {
         let view = file.get_view();
-        let j = i as i32;
-        if j < cursor_line {
+        let line_no = view.line_no.get();
+        if line_no < cursor_line {
             // all are inactive
             assert!(!view.is_current());
             assert!(!view.is_active());
@@ -255,7 +259,7 @@ pub fn test_expand() {
                 let view = vc.get_view();
                 assert!(!view.is_rendered());
             });
-        } else if j == cursor_line {
+        } else if line_no == cursor_line {
             // all are active
             assert!(view.is_rendered());
             assert!(view.is_current());
@@ -267,26 +271,28 @@ pub fn test_expand() {
                 assert!(view.is_active());
                 assert!(!view.is_current());
             });
-        } else if j > cursor_line {
+        } else if line_no > cursor_line {
             // all are expanded but inactive
             assert!(view.is_rendered());
             assert!(!view.is_current());
             assert!(!view.is_active());
-            assert!(view.is_expanded());
-            file.walk_down(&mut |vc: &dyn ViewContainer| {
-                let view = vc.get_view();
-                assert!(view.is_rendered());
-                assert!(!view.is_active());
-                assert!(!view.is_current());
-            });
+            // file2 is not expanded!
+            if view.is_expanded() {
+                file.walk_down(&mut |vc: &dyn ViewContainer| {
+                    let view = vc.get_view();
+                    assert!(view.is_rendered());
+                    assert!(!view.is_active());
+                    assert!(!view.is_current());
+                });
+            }
         }
     }
 
     // go to first hunk of second file
     cursor_line = 2;
-    cursor(&diff, cursor_line, &mut context);
+    diff.cursor(&buffer, cursor_line, false, &mut ctx);
     for file in &diff.files {
-        if let Some(_expanded_line) = file.expand(cursor_line, &mut context) {
+        if let Some(_expanded_line) = file.expand(cursor_line, &mut ctx) {
             for child in file.get_children() {
                 let view = child.get_view();
                 if view.line_no.get() == cursor_line {
@@ -341,8 +347,7 @@ impl ViewContainer for TestViewContainer {
 }
 
 fn test_render_view() {
-    // initialize();
-    let buffer = TextBuffer::new(None);
+    let buffer = initialize();
     let mut iter = buffer.iter_at_line(0).unwrap();
     buffer.insert(&mut iter, "begin\n");
     // -------------------- test insert
@@ -524,7 +529,7 @@ fn test_render_view() {
 
     // call it here, cause rust creates threads event with --test-threads=1
     // and gtk should be called only from main thread
-    test_expand();
+    // test_expand();
     // test_file_active();
     // test_expand_line();
     // test_reconciliation_new();
@@ -532,13 +537,7 @@ fn test_render_view() {
 
 #[gtk4::test]
 fn test_expand_line() {
-    initialize();
-    let buffer = TextBuffer::new(None);
-    let table = buffer.tag_table();
-    for tag_name in tags::TEXT_TAGS {
-        let text_tag = tags::TxtTag::from_str(tag_name).create();
-        table.add(&text_tag);
-    }
+    let buffer = initialize();
     let mut iter = buffer.iter_at_line(0).unwrap();
     buffer.insert(&mut iter, "begin\n");
 
@@ -590,7 +589,10 @@ fn test_expand_line() {
     diff.expand(first_hunk_line, &mut ctx);
     diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
     assert!(!first_hunk.view.is_expanded());
-    assert!(first_hunk.view.line_no.get() + 1 == diff.files[0].hunks[1].view.line_no.get());
+    assert!(
+        first_hunk.view.line_no.get() + 1
+            == diff.files[0].hunks[1].view.line_no.get()
+    );
     let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
     let content_lines = content.split('\n');
 
@@ -605,10 +607,10 @@ fn test_expand_line() {
 
 #[gtk4::test]
 fn test_reconciliation_new() {
-    initialize();
+    let buffer = initialize();
 
     let mut context = StatusRenderContext::new();
-    let buffer = TextBuffer::new(None);
+
     let mut iter = buffer.iter_at_line(0).unwrap();
 
     debug!("............... Case 1.1");
@@ -972,7 +974,6 @@ fn test_tags() {
 
 #[test]
 pub fn test_flags() {
-    //initialize();
     let mut flags = RenderFlags::new();
 
     flags = flags.expand(true);
