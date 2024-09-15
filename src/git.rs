@@ -1610,7 +1610,6 @@ pub fn track_changes(
     has_conflicted: bool,
     sender: Sender<crate::Event>,
 ) {
-    debug!("................so. what about getting array here",);
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let file_path = file_path
@@ -1658,11 +1657,6 @@ pub fn track_changes(
             break;
         }
     }
-    // *******untill here array is ok.
-    debug!(
-        "oooooooooooooooooo--- is_tracked? {:?} {:?}",
-        is_tracked, file_path
-    );
     if has_conflicted {
         assert!(is_tracked);
     }
@@ -1744,8 +1738,6 @@ pub fn track_changes(
                 ))
                 .expect("Could not send through channel");
         }
-    } else {
-        debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> it is not tracked");
     }
 }
 
