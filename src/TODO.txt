@@ -16,7 +16,7 @@ just introduce first_active_line and second_active_line to store range of lines!
 BUG: CRITICAL: when intriduce changes in line whicj is in hunk header kill does not work! stash: broken_kill
      how to fix: it need to steps comparing hunk header: fully, and then search for same line in other hunk!
      put it on hunkheader. hunkheader must be separated type!
-BUG: old branches shown after switching repo
+
 BUG: double click is broken
 BUG: i have prepopulated branches now. when doing commit, those branches do not know about it.
      things to do:

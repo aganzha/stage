@@ -245,7 +245,9 @@ impl Status {
             // self.staged.take();
             // self.unstaged.take();
             // self.conflicted.take();
-            // self.stashes.take();
+
+            self.stashes.take();
+            self.branches.take();
 
             monitors.borrow_mut().retain(|fm: &FileMonitor| {
                 fm.cancel();
