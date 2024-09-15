@@ -87,43 +87,6 @@ fn create_diff() -> Diff {
     diff
 }
 
-pub fn mock_render_view(vc: &dyn ViewContainer, mut line_no: i32) -> i32 {
-    let view = vc.get_view();
-    view.line_no.replace(line_no);
-    view.render(true);
-    view.dirty(false);
-    line_no += 1;
-    if view.is_expanded() || view.is_child_dirty() {
-        for child in vc.get_children() {
-            line_no = mock_render_view(child, line_no)
-        }
-        vc.get_view().child_dirty(false);
-    }
-    line_no
-}
-
-pub fn mock_render(diff: &Diff) -> i32 {
-    let mut line_no: i32 = 0;
-    for file in &diff.files {
-        line_no = mock_render_view(file, line_no);
-    }
-    line_no
-}
-
-// tests
-pub fn cursor<'a>(
-    diff: &'a Diff,
-    line_no: i32,
-    ctx: &mut StatusRenderContext<'a>,
-) {
-    let buff = TextBuffer::new(None);
-    for (_, file) in diff.files.iter().enumerate() {
-        file.cursor(&buff, line_no, false, ctx);
-    }
-    // some views will be rerenderred cause highlight changes
-    mock_render(diff);
-}
-
 #[gtk4::test]
 pub fn test_file_active() {
     let buffer = initialize();
@@ -346,6 +309,7 @@ impl ViewContainer for TestViewContainer {
     }
 }
 
+#[gtk4::test]
 fn test_render_view() {
     let buffer = initialize();
     let mut iter = buffer.iter_at_line(0).unwrap();
@@ -526,13 +490,6 @@ fn test_render_view() {
     assert!(vc3.view.line_no.get() == 3);
     assert!(vc3.view.is_rendered());
     assert!(iter.line() == 4);
-
-    // call it here, cause rust creates threads event with --test-threads=1
-    // and gtk should be called only from main thread
-    // test_expand();
-    // test_file_active();
-    // test_expand_line();
-    // test_reconciliation_new();
 }
 
 #[gtk4::test]
