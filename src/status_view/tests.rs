@@ -534,6 +534,11 @@ fn test_render_view() {
 fn test_expand_line() {
     initialize();
     let buffer = TextBuffer::new(None);
+    let table = buffer.tag_table();
+    for tag_name in tags::TEXT_TAGS {
+        let text_tag = tags::TxtTag::from_str(tag_name).create();
+        table.add(&text_tag);
+    }
     let mut iter = buffer.iter_at_line(0).unwrap();
     buffer.insert(&mut iter, "begin\n");
 
@@ -544,7 +549,7 @@ fn test_expand_line() {
     diff.cursor(&buffer, 1, false, &mut ctx);
 
     // expand first file
-    diff.files[0].expand(first_file_line, &mut ctx);
+    diff.expand(first_file_line, &mut ctx);
     diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
     diff.cursor(&buffer, first_file_line, false, &mut ctx);
     assert!(diff.files[0].view.is_expanded());
@@ -553,6 +558,7 @@ fn test_expand_line() {
     let content_lines = content.split('\n');
 
     for (i, cl) in content_lines.enumerate() {
+        debug!("______________{:?} {:?}", i, cl);
         if i == 0 {
             continue;
         }
@@ -574,62 +580,26 @@ fn test_expand_line() {
                 }
             }
         }
-        // diff.walk_down(&mut move |vc: &dyn ViewContainer| {
-        //     if vc.get_view().line_no.get() == i as i32 {
-        //         // TODO: get_content!
-        //         // debug!("{:?} - {:?} = {:?}", i, cl, vc.get_content());
-        //         // assert!(cl.trim(), vc.get_content());
-        //         let buffer = TextBuffer::new(None);
-        //         let mut iter = buffer.iter_at_offset(0);
-        //         vc.write_content(&mut iter, &buffer, &mut ctx);
-        //         let start_line_iter =
-        //             buffer.iter_at_line(iter.line()).unwrap();
-        //         assert!(
-        //             cl.trim() == buffer.text(&start_line_iter, &iter, true)
-        //         );
-        //     }
-        // });
     }
 
-    let line_of_line = diff.files[0].hunks[0].lines[1].view.line_no.get();
     // put cursor inside first hunk
-
-    if diff.cursor(&buffer, line_of_line, false, &mut ctx) {
-        // if comment out next line the line_of_line will be not sqashed
-        diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
-    }
+    let first_hunk = &diff.files[0].hunks[0];
+    let first_hunk_line = first_hunk.view.line_no.get();
+    diff.cursor(&buffer, first_hunk_line, false, &mut ctx);
     // expand on line inside first hunk
-    diff.files[0].expand(line_of_line, &mut ctx);
+    diff.expand(first_hunk_line, &mut ctx);
     diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
-
+    assert!(!first_hunk.view.is_expanded());
+    assert!(first_hunk.view.line_no.get() + 1 == diff.files[0].hunks[1].view.line_no.get());
     let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
     let content_lines = content.split('\n');
-    // ensure that hunk1 is collapsed eg hunk2 follows hunk1 (no lines between)
-    // TODO: get_content!
 
-    let buffer = TextBuffer::new(None);
-    let mut iter = buffer.iter_at_offset(0);
-    diff.files[0].hunks[0].write_content(&mut iter, &buffer, &mut ctx);
-    let start_line_iter = buffer.iter_at_offset(0);
-    let hunk1_content = buffer.text(&start_line_iter, &iter, true);
-
-    let buffer = TextBuffer::new(None);
-    let mut iter = buffer.iter_at_offset(0);
-    diff.files[0].hunks[1].write_content(&mut iter, &buffer, &mut ctx);
-    let start_line_iter = buffer.iter_at_offset(0);
-    let hunk2_content = buffer.text(&start_line_iter, &iter, true);
-
-    // let hunk1_content = diff.files[0].hunks[0].get_content();
-    // let hunk2_content = diff.files[0].hunks[1].get_content();
-    let mut hunk1_passed = false;
     for (i, cl) in content_lines.enumerate() {
-        debug!("{} {}", i, cl);
-        if cl == hunk1_content {
-            hunk1_passed = true
-        } else if hunk1_passed {
-            assert!(cl == hunk2_content);
-            hunk1_passed = false;
+        for line in &first_hunk.lines {
+            assert!(!line.view.is_rendered());
+            assert!(!cl.contains(line.content(first_hunk)));
         }
+        debug!("................{:?} {:?}", i, cl);
     }
 }
 
