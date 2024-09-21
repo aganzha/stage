@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
+use std::time::{SystemTime};
+
 use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 
 use crate::status_view::tags;
@@ -546,6 +548,7 @@ pub fn factory(
     txt.add_controller(gesture_controller);
 
     let gesture_controller = GestureClick::new();
+    let click_lock: Rc<RefCell<Option<bool>>> = Rc::new(RefCell::new(None));
     gesture_controller.connect_released({
         let sndr = sndr.clone();
         let txt = txt.clone();
@@ -559,21 +562,36 @@ pub fn factory(
                 iter.line(),
             ))
             .expect("Could not send through channel");
-
+            trace!("click!.......................... n_click {:?} {:?}", n_clicks, click_lock);
             if n_clicks == 1 && (iter.has_tag(&file) || iter.has_tag(&hunk)) {
-                sndr.send_blocking(crate::Event::Expand(
-                    iter.offset(),
-                    iter.line(),
-                ))
-                .expect("Could not send through channel");
+                click_lock.borrow_mut().replace(true);
+                glib::source::timeout_add_local(Duration::from_millis(200), {
+                    let sndr = sndr.clone();
+                    let click_lock = click_lock.clone();
+                    move || {
+                        if click_lock.borrow().is_none() {
+                            trace!("double click handled..............");
+                            return glib::ControlFlow::Break;
+                        }
+                        click_lock.borrow_mut().take();
+                        sndr.send_blocking(crate::Event::Expand(
+                            iter.offset(),
+                            iter.line(),
+                        ))
+                            .expect("Could not send through channel");
+                        glib::ControlFlow::Break
+                    }
+                });
             }
             if n_clicks == 2 && iter.has_tag(&staged) {
+                click_lock.borrow_mut().take();
                 sndr.send_blocking(crate::Event::Stage(
                     crate::StageOp::Unstage(iter.line()),
                 ))
                 .expect("Could not send through channel");
             }
             if n_clicks == 2 && iter.has_tag(&unstaged) {
+                click_lock.borrow_mut().take();
                 sndr.send_blocking(crate::Event::Stage(
                     crate::StageOp::Stage(iter.line()),
                 ))
