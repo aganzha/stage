@@ -444,10 +444,6 @@ pub fn show_commit_window(
                         let mut iter = buffer
                             .iter_at_line(d.diff.view.line_no.get())
                             .unwrap();
-                        debug!(
-                            "do it need to render in commit view???????? {:?}",
-                            need_render
-                        );
                         if need_render {
                             d.diff.render(buffer, &mut iter, &mut ctx);
                             // it should be called after cursor in ViewContainer
