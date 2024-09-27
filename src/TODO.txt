@@ -1,3 +1,4 @@
+TODO: commit view must show parent commit!
 TODO: SMART POSITION: after expand, of course it need to stay on position which will allow expansion of the same region!
 TODO: cherry-pick without commit!
 THOUGHT: why cherry-pick always create commit. is it required?
