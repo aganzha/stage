@@ -29,8 +29,20 @@
       "build-commands": [
          "cargo fetch --manifest-path Cargo.toml --verbose",
          "cargo build --release --verbose",
-         "install -Dm755 ./target/debug/stage -t /app/bin/",
-         "install -Dm744 ./target/debug/gschemas.compiled -t /app/bin/"
+         "install -Dm755 ./target/release/stage -t /app/bin/",
+         "install -Dm744 ./target/release/gschemas.compiled -t /app/bin/",
+         "install -Dm644 com.github.aganzha.stage.metainfo.xml -t /app/share/metainfo",
+         "install -Dm644 com.github.aganzha.stage.desktop -t /app/share/applications",
+         "install -Dm644 ./icons/16x16/com.github.aganzha.stage.png -t /app/share/icons/hicolor/16x16/apps",
+         "install -Dm644 ./icons/32x32/com.github.aganzha.stage.png -t /app/share/icons/hicolor/32x32/apps",
+         "install -Dm644 ./icons/48x48/com.github.aganzha.stage.png -t /app/share/icons/hicolor/48x48/apps",
+         "install -Dm644 ./icons/64x64/com.github.aganzha.stage.png -t /app/share/icons/hicolor/64x64/apps",
+         "install -Dm644 ./icons/128x128/com.github.aganzha.stage.png -t /app/share/icons/hicolor/128x128/apps",
+         "install -Dm644 ./icons/256x256/com.github.aganzha.stage.png -t /app/share/icons/hicolor/256x256/apps",
+         "install -Dm644 ./icons/512x512/com.github.aganzha.stage.png -t /app/share/icons/hicolor/512x512/apps",
+         "install -Dm644 ./icons/com.github.aganzha.stage.svg -t /app/share/icons/hicolor/scalable/apps",
+         "install -Dm644 ./icons/com.github.aganzha.stage.Devel.svg -t /app/share/icons/hicolor/scalable/apps",
+         "install -Dm644 ./icons/com.github.aganzha.stage-symbolic.svg -t /app/share/icons/hicolor/symbolic/apps"
       ],
       "sources": [{
          "type": "dir",
