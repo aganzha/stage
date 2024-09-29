@@ -270,7 +270,8 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         .hexpand(true)
         .hexpand_set(true)
         .build();
-    scroll.set_child(Some(&txt));
+
+    //scroll.set_child(Some(&txt));
 
     let bx = Box::builder()
         .hexpand(true)
@@ -308,6 +309,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     window.set_content(Some(&tb));
 
+    let mut stage_set = false;
     status.get_status();
     window.present();
 
@@ -342,7 +344,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     hb_updater(HbUpdateData::RepoPopup);
                 }
                 Event::CurrentRepo(path) => {
-                    info!("info.path {:?}", path);
+                    info!("info.CurrentRepo {:?}", path);
+                    if !stage_set {
+                        scroll.set_child(Some(&txt));
+                        txt.grab_focus();
+                        stage_set = true;
+                    }
                     hb_updater(HbUpdateData::Path(path.clone()));
                     status.update_path(path, monitors.clone(), false);
                 }
