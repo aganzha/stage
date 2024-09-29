@@ -4,7 +4,7 @@
 
 use crate::dialogs::{alert, ConfirmDialog, YES};
 use crate::git::{commit, stash};
-use crate::status_view::context::{StatusRenderContext, TextViewWidth};
+use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View,
     Label as TextViewLabel,
@@ -12,7 +12,6 @@ use crate::status_view::{
 use crate::Event;
 use async_channel::Sender;
 use git2::Oid;
-use std::cell::RefCell;
 
 use gtk4::prelude::*;
 use gtk4::{
@@ -24,7 +23,6 @@ use libadwaita::{HeaderBar, ToolbarView, Window};
 use log::{debug, info, trace};
 
 use std::path::PathBuf;
-use std::rc::Rc;
 
 async fn git_oid_op<F>(dialog: ConfirmDialog, window: impl IsA<Widget>, op: F)
 where
@@ -147,21 +145,17 @@ pub struct MultiLineLabel {
 }
 
 impl MultiLineLabel {
-    pub fn new(content: &str, context: &mut StatusRenderContext) -> Self {
+    pub fn new(content: &str, visible_chars: i32) -> Self {
         let mut mll = MultiLineLabel {
             content: content.to_string(),
             labels: Vec::new(),
             view: View::new(),
         };
-        mll.update_content(content, context);
+        mll.update_content(content, visible_chars);
         mll
     }
 
-    pub fn update_content(
-        &mut self,
-        content: &str,
-        context: &mut StatusRenderContext,
-    ) {
+    pub fn update_content(&mut self, content: &str, visible_chars: i32) {
         self.labels = Vec::new();
         let mut acc = String::from("");
 
@@ -176,60 +170,40 @@ impl MultiLineLabel {
             let mut split = line.split(' ');
             let mut mx = 0;
 
-            if let Some(width) = &context.screen_width {
-                let pixels = width.borrow().pixels;
-                let mut chars = width.borrow().chars;
-                let visible_chars = width.borrow().visible_chars;
-                if visible_chars > 0 && visible_chars < chars {
-                    chars = visible_chars;
+            let chars = visible_chars;
+            'words: loop {
+                mx += 1;
+                if mx > 20 {
+                    break 'words;
                 }
-                let visible_chars = width.borrow().visible_chars;
-                trace!(
-                    "..........looop words acc {} chars {} visible_chars {}",
-                    pixels,
-                    chars,
-                    visible_chars
-                );
-                'words: loop {
-                    mx += 1;
-                    if mx > 20 {
-                        break 'words;
-                    }
-                    while acc.len() < chars as usize {
-                        if let Some(word) = split.next() {
-                            trace!("got word > {} <", word);
-                            if acc.len() + word.len() > chars as usize {
-                                self.labels.push(TextViewLabel::from_string(
-                                    &acc.replace('\n', ""),
-                                ));
-                                trace!(
-                                    "init new acc after width end {:?}",
-                                    acc
-                                );
-                                acc = String::from(word);
-                            } else {
-                                trace!("just push word {:?}", word);
-                                acc.push_str(word);
-                                acc.push(' ');
-                            }
-                        } else {
-                            trace!(
-                                "words are over! push last label! {:?}",
-                                acc
-                            );
+                while acc.len() < chars as usize {
+                    if let Some(word) = split.next() {
+                        trace!("got word > {} <", word);
+                        if acc.len() + word.len() > chars as usize {
                             self.labels.push(TextViewLabel::from_string(
                                 &acc.replace('\n', ""),
                             ));
-                            acc = String::from("");
-                            break 'words;
+                            trace!("init new acc after width end {:?}", acc);
+                            acc = String::from(word);
+                        } else {
+                            trace!("just push word {:?}", word);
+                            acc.push_str(word);
+                            acc.push(' ');
                         }
+                    } else {
+                        trace!("words are over! push last label! {:?}", acc);
+                        self.labels.push(TextViewLabel::from_string(
+                            &acc.replace('\n', ""),
+                        ));
+                        acc = String::from("");
+                        break 'words;
                     }
-                    trace!("reach line end. push label! {:?}", acc);
-                    self.labels.push(TextViewLabel::from_string(
-                        &acc.replace('\n', ""),
-                    ));
-                    acc = String::from("");
                 }
+                trace!("reach line end. push label! {:?}", acc);
+                self.labels
+                    .push(TextViewLabel::from_string(&acc.replace('\n', "")));
+                acc = String::from("");
+                // }
             }
         }
         // space for following diff
@@ -283,7 +257,7 @@ impl commit::CommitDiff {
         }
         iter = buffer.iter_at_offset(offset_before_erase);
         // ??? why it was commented out?
-        body_label.update_content(&self.message, ctx);
+        body_label.update_content(&self.message, txt.calc_max_char_width());
         body_label.render(&buffer, &mut iter, ctx);
 
         if !self.diff.files.is_empty() {
@@ -330,13 +304,7 @@ pub fn show_commit_window(
         stash_num,
     );
 
-    let text_view_width =
-        Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
-    let txt = crate::stage_factory(
-        sender.clone(),
-        "commit_view",
-        text_view_width.clone(),
-    );
+    let txt = crate::stage_factory(sender.clone(), "commit_view");
 
     scroll.set_child(Some(&txt));
 
@@ -401,14 +369,10 @@ pub fn show_commit_window(
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             let mut ctx = crate::StatusRenderContext::new();
-            ctx.screen_width.replace(text_view_width.clone());
             match event {
                 Event::CommitDiff(mut commit_diff) => {
                     info!("CommitDiff");
-                    // update it before render to get some width in chars
-                    ctx.update_screen_line_width(
-                        commit_diff.diff.max_line_len,
-                    );
+
                     labels[1].content = format!(
                         "Author: <span color=\"#4a708b\">{}</span>",
                         commit_diff.author
@@ -418,7 +382,10 @@ pub fn show_commit_window(
                         commit_diff.commit_dt
                     );
 
-                    body_label.replace(MultiLineLabel::new("", &mut ctx));
+                    body_label.replace(MultiLineLabel::new(
+                        "",
+                        txt.calc_max_char_width(),
+                    ));
                     commit_diff.render(
                         &txt,
                         &mut ctx,
@@ -473,11 +440,9 @@ pub fn show_commit_window(
                 }
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {} {:?}", w, ctx);
-                    ctx.screen_width.replace(text_view_width.clone());
                 }
                 Event::TextCharVisibleWidth(w) => {
                     info!("TextCharVisibleWidth {}", w);
-                    ctx.screen_width.replace(text_view_width.clone());
                     if let Some(d) = &mut diff {
                         d.render(
                             &txt,
