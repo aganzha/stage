@@ -710,7 +710,7 @@ pub const REVERT_HEAD: &str = "REVERT_HEAD";
 pub fn get_current_repo_status(
     current_path: Option<PathBuf>,
     sender: Sender<crate::Event>,
-) {
+) -> Result<(), Error> {
     // let backtrace = Backtrace::capture();
     // debug!(
     //     "----------------calling get current repo status> {:?}",
@@ -722,10 +722,12 @@ pub fn get_current_repo_status(
         if let Some(path) = current_path {
             path
         } else {
-            env::current_exe().expect("cant't get exe path")
+            // todo! cwd!
+            //env::current_exe().expect("cant't get exe path")
+            "/home/aganzha".into()
         }
     };
-    let repo = Repository::discover(path.clone()).expect("can't open repo");
+    let repo = Repository::discover(path.clone())?;
     let path = PathBuf::from(repo.path());
     sender
         .send_blocking(crate::Event::CurrentRepo(path.clone()))
@@ -872,7 +874,7 @@ pub fn get_current_repo_status(
     // this one is for staging killed hunk
     // https://github.com/libgit2/libgit2/issues/6643
 
-    let index = repo.index().expect("cant get index");
+    let index = repo.index()?;
 
     if index.has_conflicts() {
         // https://github.com/libgit2/libgit2/issues/6232
@@ -905,9 +907,8 @@ pub fn get_current_repo_status(
     }
 
     // get_unstaged
-    let git_diff = repo
-        .diff_index_to_workdir(None, Some(&mut make_diff_options()))
-        .expect("cant' get diff index to workdir");
+    let git_diff =
+        repo.diff_index_to_workdir(None, Some(&mut make_diff_options()))?;
     let diff = make_diff(&git_diff, DiffKind::Unstaged);
     sender
         .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
@@ -916,6 +917,7 @@ pub fn get_current_repo_status(
             Some(diff)
         }))
         .expect("Could not send through channel");
+    Ok(())
 }
 
 pub fn get_conflicted_v1(
