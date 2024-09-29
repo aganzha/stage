@@ -53,10 +53,15 @@ use chrono::{offset::Utc, DateTime};
 use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
-use gtk4::{gio, glib, ListBox, SelectionMode, TextBuffer, TextIter, Widget};
+use gtk4::{
+    gio, glib, Align, Box, Button, FileDialog, Image, Label as GTKLabel,
+    ListBox, Orientation, SelectionMode, TextBuffer, TextIter, Widget,
+    Window as GTKWindow,
+};
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, Banner, EntryRow, PasswordEntryRow, SwitchRow,
+    ApplicationWindow, Banner, ButtonContent, EntryRow, PasswordEntryRow,
+    StatusPage, SwitchRow,
 };
 use log::{debug, info, trace};
 
@@ -327,6 +332,65 @@ impl Status {
                 get_current_repo_status(path, sender);
             }
         });
+    }
+
+    pub fn get_empty_view(&self) -> impl IsA<Widget> {
+        let button_content = ButtonContent::builder()
+            .icon_name("document-open-symbolic")
+            .label("Open")
+            .use_underline(true)
+            .valign(Align::Baseline)
+            .build();
+        let button = Button::builder()
+            .child(&button_content)
+            .halign(Align::Center)
+            .has_frame(true)
+            .css_classes(vec!["suggested-action", "pill"])
+            .hexpand(false)
+            .build();
+        button.connect_clicked({
+            let sender = self.sender.clone();
+            move |_| {
+                let dialog = FileDialog::new();
+                dialog.select_folder(
+                    None::<&GTKWindow>,
+                    None::<&gio::Cancellable>,
+                    {
+                        let sender = sender.clone();
+                        move |result| {
+                            if let Ok(file) = result {
+                                if let Some(path) = file.path() {
+                                    sender
+                                        .send_blocking(crate::Event::OpenRepo(
+                                            path,
+                                        ))
+                                        .expect(
+                                            "Could not send through channel",
+                                        );
+                                }
+                            }
+                        }
+                    },
+                );
+            }
+        });
+        StatusPage::builder()
+            .icon_name("com.github.aganzha.stage") //document-open-symbolic
+            .title("Open repository")
+            .child(&button)
+            .build()
+        // let bx = Box::builder()
+        //     .hexpand(true)
+        //     .vexpand(true)
+        //     .vexpand_set(true)
+        //     .hexpand_set(true)
+        //     .valign(Align::Center)
+        //     .orientation(Orientation::Vertical)
+        //     .build();
+        // let image = Image::builder().icon_name("document-open-symbolic").build();
+        // bx.append(&image);
+        // bx.append(&GTKLabel::new(Some("Open repository")));
+        // bx
     }
 
     pub fn pull(&self, window: &ApplicationWindow, ask_pass: Option<bool>) {

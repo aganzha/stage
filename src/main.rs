@@ -53,7 +53,7 @@ use libadwaita::{
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
-    CssProvider, Orientation, ScrolledWindow, Settings,
+    CssProvider, Label, Orientation, ScrolledWindow, Settings,
     STYLE_PROVIDER_PRIORITY_USER,
 };
 
@@ -271,7 +271,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         .hexpand_set(true)
         .build();
 
-    //scroll.set_child(Some(&txt));
+    scroll.set_child(Some(&status.get_empty_view()));
 
     let bx = Box::builder()
         .hexpand(true)
