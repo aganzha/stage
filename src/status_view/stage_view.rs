@@ -4,7 +4,7 @@
 
 use std::time::SystemTime;
 
-use crate::status_view::context::{StatusRenderContext, TextViewWidth};
+use crate::status_view::context::StatusRenderContext;
 
 use crate::status_view::tags;
 use async_channel::Sender;
@@ -269,15 +269,8 @@ impl StageView {
             self.imp().hunks.borrow_mut().push(*h);
         }
     }
-}
 
-// TODO - kill it all
-pub trait CharView {
-    fn calc_max_char_width(&self) -> i32;
-}
-
-impl CharView for TextView {
-    fn calc_max_char_width(&self) -> i32 {
+    pub fn calc_max_char_width(&self) -> i32 {
         let buffer = self.buffer();
         let mut iter = buffer.iter_at_offset(0);
         let x_before = self.cursor_locations(Some(&iter)).0.x();
@@ -291,30 +284,45 @@ impl CharView for TextView {
     }
 }
 
-impl CharView for StageView {
-    fn calc_max_char_width(&self) -> i32 {
-        let buffer = self.buffer();
-        let mut iter = buffer.iter_at_offset(0);
-        let x_before = self.cursor_locations(Some(&iter)).0.x();
-        let forwarded = iter.forward_char();
-        if !forwarded {
-            buffer.insert(&mut iter, " ");
-        };
-        let x_after = self.cursor_locations(Some(&iter)).0.x();
+// // TODO - kill it all
+// pub trait CharView {
+//     fn calc_max_char_width(&self) -> i32;
+// }
 
-        self.width() / (x_after - x_before)
-    }
-}
+// impl CharView for TextView {
+//     fn calc_max_char_width(&self) -> i32 {
+//         let buffer = self.buffer();
+//         let mut iter = buffer.iter_at_offset(0);
+//         let x_before = self.cursor_locations(Some(&iter)).0.x();
+//         let forwarded = iter.forward_char();
+//         if !forwarded {
+//             buffer.insert(&mut iter, " ");
+//         };
+//         let x_after = self.cursor_locations(Some(&iter)).0.x();
+
+//         self.width() / (x_after - x_before)
+//     }
+// }
+
+// impl CharView for StageView {
+//     fn calc_max_char_width(&self) -> i32 {
+//         let buffer = self.buffer();
+//         let mut iter = buffer.iter_at_offset(0);
+//         let x_before = self.cursor_locations(Some(&iter)).0.x();
+//         let forwarded = iter.forward_char();
+//         if !forwarded {
+//             buffer.insert(&mut iter, " ");
+//         };
+//         let x_after = self.cursor_locations(Some(&iter)).0.x();
+
+//         self.width() / (x_after - x_before)
+//     }
+// }
 
 pub const DARK_CLASS: &str = "dark";
 pub const LIGHT_CLASS: &str = "light";
 
-pub fn factory(
-    sndr: Sender<crate::Event>,
-    name: &str,
-    //settings: gio::Settings,
-    text_view_width: Rc<RefCell<TextViewWidth>>,
-) -> StageView {
+pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
@@ -646,76 +654,6 @@ pub fn factory(
               //     let mut cnt = latest_char_offset.borrow_mut();
               //     *cnt = 0;
               // }
-        }
-    });
-
-    txt.add_tick_callback({
-        let sndr = sndr.clone();
-        move |view, _clock| {
-            let width = view.width();
-            let stored_width = text_view_width.borrow().pixels;
-            if width > 0 && width != stored_width {
-                // resizing window. handle both cases: initial render and further resizing
-                text_view_width.borrow_mut().pixels = width;
-                if stored_width == 0 {
-                    // initial render
-                    let visible_char_width = view.calc_max_char_width();
-                    text_view_width.borrow_mut().visible_chars =
-                        visible_char_width;
-                    sndr.send_blocking(crate::Event::TextCharVisibleWidth(
-                        visible_char_width,
-                    ))
-                    .expect("could not sent through channel");
-                    if visible_char_width > text_view_width.borrow().chars {
-                        trace!(
-                            "text_view_width is changed! {:?} {:?}",
-                            text_view_width,
-                            visible_char_width
-                        );
-                        text_view_width.borrow_mut().chars =
-                            visible_char_width;
-                        sndr.send_blocking(crate::Event::TextViewResize(
-                            visible_char_width,
-                        ))
-                        .expect("could not sent through channel");
-                    }
-                } else {
-                    // resizing window by user action
-                    // do need to calc char width every time (perhaps changing window by dragging)
-                    // only do it once after 30 mills of LAST resize signal
-                    // 30 - magic number. 20 is not enough.
-                    glib::source::timeout_add_local(
-                        Duration::from_millis(30),
-                        {
-                            let text_view_width = text_view_width.clone();
-                            let view = view.clone();
-                            let sndr = sndr.clone();
-                            move || {
-                                if width == text_view_width.borrow().pixels {
-                                    let visible_char_width =
-                                        view.calc_max_char_width();
-                                    if visible_char_width
-                                        > text_view_width.borrow().chars
-                                    {
-                                        text_view_width.borrow_mut().chars =
-                                            visible_char_width;
-                                        sndr.send_blocking(
-                                            crate::Event::TextViewResize(
-                                                visible_char_width,
-                                            ),
-                                        )
-                                        .expect(
-                                            "could not sent through channel",
-                                        );
-                                    }
-                                }
-                                ControlFlow::Break
-                            }
-                        },
-                    );
-                }
-            }
-            ControlFlow::Continue
         }
     });
 

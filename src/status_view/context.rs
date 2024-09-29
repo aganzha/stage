@@ -20,13 +20,6 @@ use std::rc::Rc;
 //     line: UserOpLine,
 // }
 
-#[derive(Debug, Clone, Default)]
-pub struct TextViewWidth {
-    pub pixels: i32,
-    pub chars: i32, // count of chars in max line on screen
-    pub visible_chars: i32, // count of visible chars on screen. now used only in commit view for line wrapping.
-}
-
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
     pub erase_counter: i32,
@@ -37,7 +30,6 @@ pub struct StatusRenderContext<'a> {
     // TODO! kill it!
     pub max_len: Option<i32>,
     // TODO! kill it!
-    pub screen_width: Option<Rc<RefCell<TextViewWidth>>>,
     pub cursor: i32,
     pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>,
@@ -76,8 +68,6 @@ impl StatusRenderContext<'_> {
                 erase_counter: 0,
                 diff_kind: None,
                 max_len: None,
-                // under_cursor: UnderCursor::None,
-                screen_width: None,
                 cursor: 0,
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
@@ -124,14 +114,6 @@ impl StatusRenderContext<'_> {
                     self.highlight_lines,
                     line_no
                 )
-            }
-        }
-    }
-
-    pub fn update_screen_line_width(&mut self, max_line_len: i32) {
-        if let Some(sw) = &self.screen_width {
-            if sw.borrow().chars < max_line_len {
-                sw.borrow_mut().chars = max_line_len;
             }
         }
     }

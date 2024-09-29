@@ -5,7 +5,7 @@
 mod external;
 mod status_view;
 use status_view::{
-    context::{StatusRenderContext, TextViewWidth},
+    context::StatusRenderContext,
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
     stage_view::factory as stage_factory,
@@ -261,11 +261,8 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone()); // TODO! remove/
 
-    let text_view_width =
-        Rc::new(RefCell::<TextViewWidth>::new(TextViewWidth::default()));
     // what about changing color_scheme from gnome settings?
-    let txt =
-        stage_factory(sender.clone(), "status_view", text_view_width.clone());
+    let txt = stage_factory(sender.clone(), "status_view");
 
     let scroll = ScrolledWindow::builder()
         .vexpand(true)
@@ -321,7 +318,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         while let Ok(event) = receiver.recv().await {
             // context is updated on every render
             let mut ctx = StatusRenderContext::new();
-            ctx.screen_width.replace(text_view_width.clone());
 
             match event {
                 Event::OpenRepo(path) => {
@@ -573,11 +569,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {}", w);
-                    ctx.screen_width.replace(text_view_width.clone());
                 }
                 Event::TextCharVisibleWidth(w) => {
                     info!("TextCharVisibleWidth {}", w);
-                    ctx.screen_width.replace(text_view_width.clone());
                 }
                 Event::Toast(title) => {
                     info!("Toast {:?}", toast_lock);
