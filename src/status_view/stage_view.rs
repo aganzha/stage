@@ -199,6 +199,7 @@ mod stage_view {
                         y_to = known;
                     }
                 }
+
                 snapshot.append_color(
                     if self.show_cursor.get() {
                         if self.is_dark.get() {
@@ -207,6 +208,7 @@ mod stage_view {
                             &LIGHT_CURSOR
                         }
                     } else {
+                        println!("FUUUUUUUUUUUUCK!");
                         bg_fill
                     },
                     &graphene::Rect::new(
@@ -233,7 +235,9 @@ impl Default for StageView {
 
 impl StageView {
     pub fn new() -> Self {
-        glib::Object::builder().build()
+        let me: Self = glib::Object::builder().build();
+        me.set_cursor_highlight(true);
+        me
     }
 
     pub fn set_is_dark(&self, _is_dark: bool, force: bool) {

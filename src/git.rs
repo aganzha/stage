@@ -1323,7 +1323,9 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                 Delta::Modified | Delta::Conflicted => diff_delta.new_file(),
                 Delta::Deleted => diff_delta.old_file(),
                 Delta::Added => match diff.kind {
-                    DiffKind::Staged | DiffKind::Commit => diff_delta.new_file(),
+                    DiffKind::Staged | DiffKind::Commit => {
+                        diff_delta.new_file()
+                    }
                     DiffKind::Unstaged => {
                         todo!("delta added in unstaged {:?}", diff_delta)
                     }
