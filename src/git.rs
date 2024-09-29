@@ -1323,16 +1323,16 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                 Delta::Modified | Delta::Conflicted => diff_delta.new_file(),
                 Delta::Deleted => diff_delta.old_file(),
                 Delta::Added => match diff.kind {
-                    DiffKind::Staged => diff_delta.new_file(),
+                    DiffKind::Staged | DiffKind::Commit => diff_delta.new_file(),
                     DiffKind::Unstaged => {
                         todo!("delta added in unstaged {:?}", diff_delta)
                     }
                     DiffKind::Conflicted => {
                         todo!("delta added in conflicted {:?}", diff_delta)
                     }
-                    DiffKind::Commit => {
-                        todo!("delta added in commit {:?}", diff_delta)
-                    }
+                    // DiffKind::Commit => {
+                    //     todo!("delta added in commit {:?}", diff_delta)
+                    // }
                     DiffKind::Untracked => {
                         panic!("untracked is not used with git diffs")
                     }
