@@ -268,11 +268,13 @@ impl commit::CommitDiff {
 
         if !self.diff.files.is_empty() {
             let buffer = txt.buffer();
-            let iter = buffer
+            iter = buffer
                 .iter_at_line(self.diff.files[0].view.line_no.get())
                 .unwrap();
             buffer.place_cursor(&iter);
         }
+        self.diff.cursor(&txt.buffer(), iter.line(), true, ctx);
+        txt.bind_highlights(ctx);
     }
 }
 
