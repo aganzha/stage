@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use std::time::{SystemTime};
+use std::time::SystemTime;
 
 use crate::status_view::context::{StatusRenderContext, TextViewWidth};
 
@@ -562,7 +562,11 @@ pub fn factory(
                 iter.line(),
             ))
             .expect("Could not send through channel");
-            trace!("click!.......................... n_click {:?} {:?}", n_clicks, click_lock);
+            trace!(
+                "click!.......................... n_click {:?} {:?}",
+                n_clicks,
+                click_lock
+            );
             if n_clicks == 1 && (iter.has_tag(&file) || iter.has_tag(&hunk)) {
                 click_lock.borrow_mut().replace(true);
                 glib::source::timeout_add_local(Duration::from_millis(200), {
@@ -578,7 +582,7 @@ pub fn factory(
                             iter.offset(),
                             iter.line(),
                         ))
-                            .expect("Could not send through channel");
+                        .expect("Could not send through channel");
                         glib::ControlFlow::Break
                     }
                 });

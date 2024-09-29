@@ -1,3 +1,4 @@
+INFO: settings are stored in /home/aganzha/.var/app/com.github.aganzha.stage/config/glib-2.0/settings/keyfile
 TODO: commit view must show parent commit!
 TODO: SMART POSITION: after expand, of course it need to stay on position which will allow expansion of the same region!
 TODO: cherry-pick without commit!

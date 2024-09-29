@@ -63,23 +63,37 @@ use regex::Regex;
 const APP_ID: &str = "com.github.aganzha.stage";
 
 fn main() -> glib::ExitCode {
-    let app: Application;
-    if let Some(_path) = std::env::args().nth(1) {
-        app = Application::builder()
-            .application_id(APP_ID)
-            .flags(gio::ApplicationFlags::HANDLES_OPEN)
-            .build();
-        app.connect_startup(|_| load_css());
-        app.connect_open(run_with_args);
-    } else {
-        app = Application::builder()
-            .application_id(APP_ID)
-            .flags(gio::ApplicationFlags::HANDLES_OPEN)
-            .build();
-        app.connect_startup(|_| load_css());
-        app.connect_activate(run_without_args);
-    }
+    let app = Application::builder()
+        .application_id(APP_ID)
+        .flags(gio::ApplicationFlags::HANDLES_OPEN)
+        .build();
+    app.connect_startup(|_| load_css());
 
+    let initial_path: Rc<RefCell<Option<PathBuf>>> =
+        Rc::new(RefCell::new(None));
+
+    app.connect_open({
+        let initial_path = initial_path.clone();
+        move |opened_app: &Application, files: &[gio::File], _: &str| {
+            if files.len() > 0 {
+                if let Some(path) = files[0].path() {
+                    initial_path.replace(Some(path));
+                }
+            }
+            opened_app.activate();
+        }
+    });
+    app.connect_activate({
+        let initial_path = initial_path.clone();
+        move |running_app| {
+            let windows = running_app.windows();
+            if windows.len() == 0 {
+                run_app(running_app, &initial_path.borrow());
+            } else {
+                windows[0].present();
+            }
+        }
+    });
     app.run()
 }
 
@@ -181,21 +195,6 @@ fn zoom(dir: bool) {
     };
 }
 
-fn run_with_args(app: &Application, files: &[gio::File], _blah: &str) {
-    let le = files.len();
-    if le > 0 {
-        if let Some(path) = files[0].path() {
-            run_app(app, Some(path));
-            return;
-        }
-    }
-    run_app(app, None)
-}
-
-fn run_without_args(app: &Application) {
-    run_app(app, None)
-}
-
 pub fn get_settings() -> gio::Settings {
     let mut exe_path = std::env::current_exe().expect("cant get exe path");
     exe_path.pop();
@@ -207,7 +206,7 @@ pub fn get_settings() -> gio::Settings {
     gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None)
 }
 
-fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
+fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     env_logger::builder().format_timestamp(None).init();
 
     let (sender, receiver) = async_channel::unbounded();
@@ -215,20 +214,24 @@ fn run_app(app: &Application, mut initial_path: Option<PathBuf>) {
 
     let settings = get_settings();
 
-    if initial_path.is_none() {
-        let last_path = settings.get::<String>("lastpath");
-        if !last_path.is_empty() {
-            initial_path.replace(last_path.into());
-        }
-    }
     let scheme = settings.get::<String>(SCHEME_TOKEN);
     if !scheme.is_empty() {
         StyleManager::default()
             .set_color_scheme(Scheme::new(scheme).scheme_name());
     }
 
-    let mut status =
-        Status::new(initial_path, settings.clone(), sender.clone());
+    let mut status = Status::new(
+        initial_path.clone().or_else(|| {
+            let last_path = settings.get::<String>("lastpath");
+            if !last_path.is_empty() {
+                Some(last_path.into())
+            } else {
+                None
+            }
+        }),
+        settings.clone(),
+        sender.clone(),
+    );
 
     let window = ApplicationWindow::builder()
         .application(app)
