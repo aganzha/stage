@@ -208,7 +208,6 @@ mod stage_view {
                             &LIGHT_CURSOR
                         }
                     } else {
-                        println!("FUUUUUUUUUUUUCK!");
                         bg_fill
                     },
                     &graphene::Rect::new(
