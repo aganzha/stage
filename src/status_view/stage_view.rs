@@ -23,12 +23,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 glib::wrapper! {
-    pub struct StageView(ObjectSubclass<stage_view::StageView>)
+    pub struct StageView(ObjectSubclass<stage_view_internal::StageView>)
         @extends TextView, Widget,
         @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
 }
 
-mod stage_view {
+mod stage_view_internal {
 
     use gtk4::prelude::*;
     use gtk4::{gdk, glib, graphene, Snapshot, TextView, TextViewLayer};
@@ -40,7 +40,7 @@ mod stage_view {
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
     const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.137, 0.216, 0.310, 1.0);
 
-    const DARK_BF_FILL: gdk::RGBA = gdk::RGBA::new(0.0, 0.0, 0.0, 1.0);
+    const DARK_BF_FILL: gdk::RGBA = gdk::RGBA::new(0.139, 0.139, 0.139, 1.0);
     const LIGHT_BG_FILL: gdk::RGBA = gdk::RGBA::new(1.0, 1.0, 1.0, 1.0);
     // color #f6f5f4/494949 - 246/255 245/255 244/255
     // f3f3f3 - 243/255

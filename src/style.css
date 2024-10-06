@@ -5,6 +5,11 @@
  */
 
 
+
+#status_view.dark {
+    color: @light_4;
+}
+
 .nocorners {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
@@ -39,7 +44,7 @@ scheme_selector button.dark {
   background-color: #202020;
 }
 
-scheme_selector button image {    
+scheme_selector button image {
     max-width: 0;
     max-height: 0;
 }
@@ -60,5 +65,5 @@ scheme_selector button:checked image {
 }
 
 button.no_bg {
-	background: rgba(255,255,255,0);
+    background: rgba(255,255,255,0);
 }
