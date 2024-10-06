@@ -9,8 +9,6 @@ use gtk4::TextBuffer;
 use log::trace;
 use std::collections::HashSet;
 
-pub const MAX_LINES: i32 = 50000;
-
 impl Hunk {
     // Hunk
     pub fn enrich_view(

@@ -65,7 +65,7 @@ pub fn get_tag_list(
                 }
             }
         }
-        let mut message = String::from("");
+        let message: String;
         let commit = {
             if let Ok(tag) = repo.find_tag(oid) {
                 message = String::from(tag.message().unwrap_or(""));
@@ -93,7 +93,7 @@ pub fn get_tag_list(
             return false;
         }
         true
-    });
+    })?;
     info!("returning result {:?}", cnt);
     Ok(result)
 }

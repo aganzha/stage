@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::commit::CommitRepr;
-use crate::git::{remote::set_remote_callbacks, DeferRefresh, Head};
+use crate::git::{remote::set_remote_callbacks, DeferRefresh};
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset};
 use git2;
@@ -11,6 +11,7 @@ use gtk4::gio;
 use log::info;
 use std::cmp::Ordering;
 use std::path::PathBuf;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct BranchName(String);
@@ -20,9 +21,9 @@ impl BranchName {
         &self.0
     }
 
-    pub fn to_string(&self) -> String {
-        self.0.clone()
-    }
+    // pub fn to_string(&self) -> String {
+    //     self.0.clone()
+    // }
 
     pub fn local_name(&self) -> String {
         self.0.replace("origin/", "")
@@ -31,6 +32,13 @@ impl BranchName {
         format!("origin/{}", self.0.replace("origin/", ""))
     }
 }
+
+impl fmt::Display for BranchName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 
 pub trait NamedBranch {
     fn branch_name(&self) -> BranchName;

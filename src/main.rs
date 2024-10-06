@@ -53,7 +53,7 @@ use libadwaita::{
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
-    CssProvider, Label, Orientation, ScrolledWindow, Settings,
+    CssProvider, Orientation, ScrolledWindow, Settings,
     STYLE_PROVIDER_PRIORITY_USER,
 };
 
@@ -75,7 +75,7 @@ fn main() -> glib::ExitCode {
     app.connect_open({
         let initial_path = initial_path.clone();
         move |opened_app: &Application, files: &[gio::File], _: &str| {
-            if files.len() > 0 {
+            if !files.is_empty() {
                 if let Some(path) = files[0].path() {
                     initial_path.replace(Some(path));
                 }
@@ -87,7 +87,7 @@ fn main() -> glib::ExitCode {
         let initial_path = initial_path.clone();
         move |running_app| {
             let windows = running_app.windows();
-            if windows.len() == 0 {
+            if windows.is_empty() {
                 run_app(running_app, &initial_path.borrow());
             } else {
                 windows[0].present();

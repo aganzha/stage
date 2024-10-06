@@ -23,7 +23,7 @@ use git2::{
     ApplyLocation, ApplyOptions, Branch, Commit, Delta, Diff as GitDiff,
     DiffDelta, DiffFile, DiffFormat, DiffHunk, DiffLine, DiffLineType,
     DiffOptions, Error, ObjectType, Oid, RebaseOptions, Repository,
-    RepositoryState, ResetType, Status, StatusOptions,
+    RepositoryState, ResetType, StatusOptions,
 };
 use log::{debug, info, trace};
 use regex::Regex;
@@ -33,7 +33,7 @@ use std::num::ParseIntError;
 use std::ops::{Add, Sub};
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::{collections::HashSet, env, str};
+use std::{collections::HashSet, str};
 
 pub fn make_diff_options() -> DiffOptions {
     let mut opts = DiffOptions::new();
@@ -595,18 +595,13 @@ impl State {
         }
     }
     pub fn need_final_commit(&self) -> bool {
-        match self.state {
+        matches!(self.state,
             RepositoryState::Merge
             | RepositoryState::CherryPick
-            | RepositoryState::Revert => true,
-            _ => false,
-        }
+            | RepositoryState::Revert)
     }
     pub fn need_rebase_continue(&self) -> bool {
-        match self.state {
-            RepositoryState::RebaseMerge => true,
-            _ => false,
-        }
+        matches!(self.state, RepositoryState::RebaseMerge)
     }
 }
 
@@ -804,8 +799,8 @@ pub fn get_current_repo_status(
         let sender = sender.clone();
         let path = path.clone();
         move || {
-            get_head(path.clone(), sender.clone());
-            get_upstream(path, sender);
+            get_head(path.clone(), sender.clone()).expect("cant get head");
+            get_upstream(path, sender).expect("cant get upstream");
         }
     });
 
@@ -1231,80 +1226,6 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct UntrackedFile {
-    pub path: PathBuf,
-    pub view: View,
-}
-
-impl Default for UntrackedFile {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl UntrackedFile {
-    pub fn new() -> Self {
-        Self {
-            path: PathBuf::new(),
-            view: View::new(),
-        }
-    }
-    pub fn from_path(path: PathBuf) -> Self {
-        Self {
-            path,
-            view: View::new(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Untracked {
-    pub files: Vec<UntrackedFile>,
-    pub view: View,
-    pub max_line_len: i32,
-}
-
-impl Default for Untracked {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Untracked {
-    pub fn new() -> Self {
-        Self {
-            files: Vec::new(),
-            view: View::new(),
-            max_line_len: 0,
-        }
-    }
-    pub fn push_file(&mut self, path: PathBuf) {
-        let le = path.as_os_str().len();
-        if le as i32 > self.max_line_len {
-            self.max_line_len = le as i32;
-        }
-        let file = UntrackedFile::from_path(path);
-        self.files.push(file);
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ApplyFilter {
-    pub file_id: String,
-    pub hunk_id: Option<String>,
-    pub subject: crate::StageOp,
-}
-
-impl ApplyFilter {
-    pub fn new(subject: crate::StageOp) -> Self {
-        Self {
-            file_id: String::from(""),
-            hunk_id: None,
-            subject,
-        }
-    }
-}
 
 pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let mut diff = Diff::new(kind.clone());
@@ -1422,7 +1343,7 @@ pub fn stage_untracked(
         panic!("unknown path {:?}", pth);
     }
     index.write().expect("cant write index");
-    get_current_repo_status(Some(path), sender);
+    get_current_repo_status(Some(path), sender).expect("cant get status");
 }
 
 pub fn stage_via_apply(
@@ -1544,7 +1465,7 @@ impl Drop for DeferRefresh {
                 let path = self.path.clone();
                 let sender = self.sender.clone();
                 move || {
-                    get_current_repo_status(Some(path), sender);
+                    get_current_repo_status(Some(path), sender).expect("cant get status");
                 }
             });
         }
@@ -1585,7 +1506,7 @@ pub fn reset_hard(
     }
     gio::spawn_blocking({
         move || {
-            get_current_repo_status(Some(path), sender);
+            get_current_repo_status(Some(path), sender).expect("cant get status");
         }
     });
     Ok(true)
@@ -1692,7 +1613,7 @@ pub fn track_changes(
             // this means file was in conflicted but now it is fixed manually!
             // PERHAPS it is no longer in index conflicts.
             // it must be in staged or unstaged then
-            get_current_repo_status(Some(path), sender);
+            get_current_repo_status(Some(path), sender).expect("cant get status");
             return;
         }
         let mut opts = make_diff_options();
@@ -1745,41 +1666,41 @@ pub fn track_changes(
     }
 }
 
-pub fn checkout_oid(
-    path: PathBuf,
-    sender: Sender<crate::Event>,
-    oid: Oid,
-    ref_log_msg: Option<String>,
-) {
-    // DANGEROUS! see in status_view!
-    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
-    let repo = Repository::open(path.clone()).expect("can't open repo");
-    let commit = repo.find_commit(oid).expect("can't find commit");
-    let head_ref = repo.head().expect("can't get head");
-    assert!(head_ref.is_branch());
-    let branch = Branch::wrap(head_ref);
-    let log_message = match ref_log_msg {
-        None => {
-            format!("HEAD -> {}, {}", branch.name().unwrap().unwrap(), oid)
-        }
-        Some(msg) => msg,
-    };
-    let mut builder = CheckoutBuilder::new();
-    let builder = builder.safe().allow_conflicts(true);
+// pub fn checkout_oid(
+//     path: PathBuf,
+//     sender: Sender<crate::Event>,
+//     oid: Oid,
+//     ref_log_msg: Option<String>,
+// ) {
+//     // DANGEROUS! see in status_view!
+//     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+//     let repo = Repository::open(path.clone()).expect("can't open repo");
+//     let commit = repo.find_commit(oid).expect("can't find commit");
+//     let head_ref = repo.head().expect("can't get head");
+//     assert!(head_ref.is_branch());
+//     let branch = Branch::wrap(head_ref);
+//     let log_message = match ref_log_msg {
+//         None => {
+//             format!("HEAD -> {}, {}", branch.name().unwrap().unwrap(), oid)
+//         }
+//         Some(msg) => msg,
+//     };
+//     let mut builder = CheckoutBuilder::new();
+//     let builder = builder.safe().allow_conflicts(true);
 
-    sender
-        .send_blocking(crate::Event::LockMonitors(true))
-        .expect("can send through channel");
-    let result = repo.checkout_tree(commit.as_object(), Some(builder));
+//     sender
+//         .send_blocking(crate::Event::LockMonitors(true))
+//         .expect("can send through channel");
+//     let result = repo.checkout_tree(commit.as_object(), Some(builder));
 
-    if result.is_err() {
-        panic!("{:?}", result);
-    }
-    let mut head_ref = repo.head().expect("can't get head");
-    head_ref
-        .set_target(oid, &log_message)
-        .expect("cant set target");
-}
+//     if result.is_err() {
+//         panic!("{:?}", result);
+//     }
+//     let mut head_ref = repo.head().expect("can't get head");
+//     head_ref
+//         .set_target(oid, &log_message)
+//         .expect("cant set target");
+// }
 
 pub fn abort_rebase(
     path: PathBuf,
@@ -1830,7 +1751,6 @@ pub fn continue_rebase(
             break;
         }
     }
-    debug!("CONTINUE exit rebase loooooopppppppppppppppppp");
     Ok(())
 }
 
@@ -1871,11 +1791,5 @@ pub fn rebase(
             break;
         }
     }
-    debug!("exit rebase loooooopppppppppppppppppp");
     Ok(true)
-}
-
-pub fn debug(path: PathBuf) {
-    let repo = Repository::open(path.clone()).expect("cant open repo");
-    repo.cleanup_state().expect("cant cleanup state");
 }

@@ -6,7 +6,6 @@ use crate::status_view::view::View;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
 use gtk4::{gdk, pango, TextTag};
-use libadwaita::prelude::*;
 use libadwaita::StyleManager;
 use log::debug;
 use pango::Style;

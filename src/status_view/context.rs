@@ -4,8 +4,6 @@
 
 use crate::{Diff, DiffKind, File, Hunk, Line};
 
-use std::cell::RefCell;
-use std::rc::Rc;
 
 // #[derive(Debug, Clone)]
 // pub enum UserOpLine {

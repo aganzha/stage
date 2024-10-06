@@ -240,7 +240,7 @@ pub fn create(
                 .expect("Could not send through channel");
         }
     });
-    get_head(path, sender);
+    get_head(path, sender).expect("cant get head");
     Ok(())
 }
 

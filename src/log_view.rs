@@ -47,11 +47,11 @@ mod commit_item {
         #[property(get = Self::get_oid)]
         pub oid: String,
 
-        #[property(get = Self::get_from)]
-        pub from: String,
+        #[property(get = Self::get_source)]
+        pub source: String,
 
-        #[property(get = Self::get_from_tooltip)]
-        pub from_tooltip: String,
+        #[property(get = Self::get_source_tooltip)]
+        pub source_tooltip: String,
 
         #[property(get = Self::get_message)]
         pub message: String,
@@ -75,7 +75,7 @@ mod commit_item {
                 self.commit.borrow().oid
             )
         }
-        pub fn get_from(&self) -> String {
+        pub fn get_source(&self) -> String {
             match self.commit.borrow().from {
                 commit::CommitRelation::None => "".to_string(),
                 commit::CommitRelation::Left(_) => {
@@ -86,7 +86,7 @@ mod commit_item {
                 }
             }
         }
-        pub fn get_from_tooltip(&self) -> String {
+        pub fn get_source_tooltip(&self) -> String {
             match &self.commit.borrow().from {
                 commit::CommitRelation::None => "".to_string(),
                 commit::CommitRelation::Left(m) => m.to_string(),
@@ -518,7 +518,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
         });
         oid_label.add_controller(gesture_controller);
 
-        let from = Image::new();
+        let source = Image::new();
 
         let author_label = Label::builder()
             .label("")
@@ -556,7 +556,6 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
 
         let bx = Box::builder()
             .orientation(Orientation::Horizontal)
-            // .css_classes(vec![String::from("branch_row")])
             .margin_top(2)
             .margin_bottom(2)
             .margin_start(2)
@@ -567,7 +566,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
             .build();
 
         bx.append(&oid_label);
-        bx.append(&from);
+        bx.append(&source);
         bx.append(&author_label);
         bx.append(&label_commit);
         bx.append(&label_dt);
@@ -586,13 +585,13 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
             "label",
             Widget::NONE,
         );
-        item.chain_property::<CommitItem>("from").bind(
-            &from,
+        item.chain_property::<CommitItem>("source").bind(
+            &source,
             "icon-name",
             Widget::NONE,
         );
-        item.chain_property::<CommitItem>("from_tooltip").bind(
-            &from,
+        item.chain_property::<CommitItem>("source_tooltip").bind(
+            &source,
             "tooltip-text",
             Widget::NONE,
         );

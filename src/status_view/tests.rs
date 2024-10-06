@@ -13,9 +13,7 @@ use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
 use log::debug;
 use regex::Regex;
-use std::cell::Cell;
-use std::sync::Once;
-use std::thread;
+
 
 impl Hunk {
     // used in tests only
@@ -288,7 +286,7 @@ impl TestViewContainer {
 }
 
 impl ViewContainer for TestViewContainer {
-    fn is_empty<'a>(&self, context: &mut StatusRenderContext<'a>) -> bool {
+    fn is_empty(&self, context: &mut StatusRenderContext) -> bool {
         false
     }
 
@@ -299,11 +297,11 @@ impl ViewContainer for TestViewContainer {
     fn get_view(&self) -> &View {
         &self.view
     }
-    fn write_content<'a>(
+    fn write_content(
         &self,
         iter: &mut TextIter,
         buffer: &TextBuffer,
-        context: &mut StatusRenderContext<'a>,
+        context: &mut StatusRenderContext,
     ) {
         buffer.insert(iter, &self.content);
     }

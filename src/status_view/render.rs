@@ -452,7 +452,7 @@ pub trait ViewContainer {
             });
         }
         for tag in applied_tags {
-            buffer.remove_tag_by_name(&tag, &mut iter, &mut nel_iter);
+            buffer.remove_tag_by_name(&tag, &iter, &nel_iter);
         }
         buffer.delete(&mut iter, &mut nel_iter);
         cursor_to_line_offset(buffer, initial_line_offset);
@@ -1386,26 +1386,6 @@ impl Diff {
 
     pub fn dump(&self) -> String {
         String::from("dump")
-        // let mut result = String::new();
-        // for file in &self.files {
-        //     result.push_str(&format!("FILE: {}", file.get_content_for_debug()));
-        //     result.push_str("\n\t");
-        //     result.push_str(&file.view.repr());
-        //     result.push('\n');
-        //     for hunk in &file.hunks {
-        //         result.push_str(&format!("HUNK: {}", hunk.get_content_for_debug()));
-        //         result.push_str("\n\t");
-        //         result.push_str(&hunk.view.repr());
-        //         result.push('\n');
-        //         for line in &hunk.lines {
-        //             result.push_str(&format!("LINE: {}", line.get_content_for_debug()));
-        //             result.push_str("\n\t");
-        //             result.push_str(&line.view.repr());
-        //             result.push('\n');
-        //         }
-        //     }
-        // }
-        // result
     }
 
     pub fn nearest_line_to_go(&self, cursor_line_no: i32) -> Option<i32> {
