@@ -88,7 +88,7 @@ pub fn commit(
                     entry.set_visible(false);
                     scroll.set_visible(true);
                     txt.grab_focus();
-                    txt.buffer().place_cursor(&mut iter);
+                    txt.buffer().place_cursor(&iter);
                 }
             });
 

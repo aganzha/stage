@@ -241,7 +241,7 @@ pub fn push(
             sender
                 .send_blocking(crate::Event::Toast(String::from(updated_ref)))
                 .expect("cant send through channel");
-            get_upstream(path.clone(), sender.clone());
+            get_upstream(path.clone(), sender.clone()).expect("cant update tips");
             // todo what is this?
             true
         }
@@ -317,8 +317,7 @@ pub fn pull(
             sender
                 .send_blocking(crate::Event::Toast(String::from(updated_ref)))
                 .expect("cant send through channel");
-            get_upstream(path.clone(), sender.clone());
-            // todo what is this?
+            get_upstream(path.clone(), sender.clone()).expect("cant update tips");
             true
         }
     });

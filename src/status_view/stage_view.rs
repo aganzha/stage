@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use std::time::SystemTime;
 
 use crate::status_view::context::StatusRenderContext;
 
@@ -10,7 +9,6 @@ use crate::status_view::tags;
 use async_channel::Sender;
 use core::time::Duration;
 
-use glib::ControlFlow;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
@@ -18,11 +16,10 @@ use gtk4::{
     GestureClick, GestureDrag, MovementStep, TextBuffer, TextTag, TextView,
     TextWindowType, Widget,
 };
-use libadwaita::prelude::*;
 use libadwaita::StyleManager;
 use log::{debug, trace};
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 glib::wrapper! {
@@ -34,15 +31,7 @@ glib::wrapper! {
 mod stage_view {
 
     use gtk4::prelude::*;
-    use gtk4::{
-        gdk,
-        glib,
-        graphene,
-        //MovementStep//, DeleteType, TextIter, TextExtendSelection,
-        Snapshot,
-        TextView,
-        TextViewLayer,
-    };
+    use gtk4::{gdk, glib, graphene, Snapshot, TextView, TextViewLayer};
     use std::cell::{Cell, RefCell};
 
     use gtk4::subclass::prelude::*;
@@ -102,15 +91,6 @@ mod stage_view {
                 } else {
                     &LIGHT_BG_FILL
                 };
-                // println!(
-                //     "graphene visible rect..........................> {:?}",
-                //     &graphene::Rect::new(
-                //         rect.x() as f32,
-                //         rect.y() as f32,
-                //         rect.width() as f32,
-                //         rect.height() as f32,
-                //     )
-                // );
                 snapshot.append_color(
                     bg_fill,
                     &graphene::Rect::new(
@@ -160,10 +140,6 @@ mod stage_view {
                 }
 
                 // highlight hunks -----------------------------------
-                // println!(
-                //     "highlight hunks!!!!!! {:?}",
-                //     self.hunks.borrow().len()
-                // );
                 for line in self.hunks.borrow().iter() {
                     iter.set_line(*line);
                     let (y_from, y_to) = self.obj().line_yrange(&iter);
@@ -218,8 +194,6 @@ mod stage_view {
                     ),
                 );
             }
-            // is it required?
-            // self.parent_snapshot_layer(layer, snapshot)
         }
     }
     impl ObjectImpl for StageView {}
@@ -286,41 +260,6 @@ impl StageView {
         self.width() / (x_after - x_before)
     }
 }
-
-// // TODO - kill it all
-// pub trait CharView {
-//     fn calc_max_char_width(&self) -> i32;
-// }
-
-// impl CharView for TextView {
-//     fn calc_max_char_width(&self) -> i32 {
-//         let buffer = self.buffer();
-//         let mut iter = buffer.iter_at_offset(0);
-//         let x_before = self.cursor_locations(Some(&iter)).0.x();
-//         let forwarded = iter.forward_char();
-//         if !forwarded {
-//             buffer.insert(&mut iter, " ");
-//         };
-//         let x_after = self.cursor_locations(Some(&iter)).0.x();
-
-//         self.width() / (x_after - x_before)
-//     }
-// }
-
-// impl CharView for StageView {
-//     fn calc_max_char_width(&self) -> i32 {
-//         let buffer = self.buffer();
-//         let mut iter = buffer.iter_at_offset(0);
-//         let x_before = self.cursor_locations(Some(&iter)).0.x();
-//         let forwarded = iter.forward_char();
-//         if !forwarded {
-//             buffer.insert(&mut iter, " ");
-//         };
-//         let x_after = self.cursor_locations(Some(&iter)).0.x();
-
-//         self.width() / (x_after - x_before)
-//     }
-// }
 
 pub const DARK_CLASS: &str = "dark";
 pub const LIGHT_CLASS: &str = "light";
@@ -414,7 +353,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     key_controller.connect_key_pressed({
         let buffer = buffer.clone();
         let sndr = sndr.clone();
-        // let txt = txt.clone();
+
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::Tab, _) => {
@@ -653,10 +592,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     current_line,
                 ))
                 .expect("Could not send through channel");
-            } //  else {
-              //     let mut cnt = latest_char_offset.borrow_mut();
-              //     *cnt = 0;
-              // }
+            }
         }
     });
 
@@ -700,14 +636,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
     txt.set_monospace(true);
     txt.set_editable(false);
-    // txt.connect_extend_selection(|_view, _granularity, _location_iter1, _start_iter1, _end_iter3| {
-    //     debug!("ooooooooooooooooooooo->");
-    //     glib::signal::Propagation::Proceed
-    // });
-    // let sett = txt.settings();
-    // sett.set_gtk_cursor_blink(true);
-    // sett.set_gtk_cursor_blink_time(3000);
-    // sett.set_gtk_cursor_aspect_ratio(0.05);
     txt
 }
 

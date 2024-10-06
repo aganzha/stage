@@ -16,7 +16,7 @@ use crate::git::{
 };
 
 use core::time::Duration;
-use git2::{BranchType, RepositoryState};
+use git2::RepositoryState;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -54,8 +54,8 @@ use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Align, Box, Button, FileDialog, Image, Label as GTKLabel,
-    ListBox, Orientation, SelectionMode, TextBuffer, TextIter, Widget,
+    gio, glib, Align, Button, FileDialog,
+    ListBox, SelectionMode, TextBuffer, TextIter, Widget,
     Window as GTKWindow,
 };
 use libadwaita::prelude::*;
@@ -169,15 +169,13 @@ impl Status {
     }
 
     pub fn file_at_cursor(&self) -> Option<&GitFile> {
-        for diff in [&self.staged, &self.unstaged, &self.conflicted] {
-            if let Some(diff) = diff {
-                let maybe_file = diff.files.iter().find(|f| {
-                    f.view.is_current()
-                        || f.hunks.iter().any(|h| h.view.is_active())
-                });
-                if maybe_file.is_some() {
-                    return maybe_file;
-                }
+        for diff in [&self.staged, &self.unstaged, &self.conflicted].into_iter().flatten() {
+            let maybe_file = diff.files.iter().find(|f| {
+                f.view.is_current()
+                    || f.hunks.iter().any(|h| h.view.is_active())
+            });
+            if maybe_file.is_some() {
+                return maybe_file;
             }
         }
         None
@@ -329,7 +327,7 @@ impl Status {
             let path = self.path.clone();
             let sender = self.sender.clone();
             move || {
-                get_current_repo_status(path, sender);
+                get_current_repo_status(path, sender).expect("cant get status");
             }
         });
     }
@@ -705,7 +703,6 @@ impl Status {
             if let Some(new) = &untracked {
                 new.enrich_view(rendered, buffer, context);
             } else {
-                debug!("eeeeeeeerrrrrrrrrase untracked!");
                 rendered.erase(buffer, context);
             }
         }
@@ -1102,20 +1099,20 @@ impl Status {
         context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(conflicted) = &self.conflicted {
-            if let Some(expanded_line) = conflicted.expand(line_no, context) {
+            if conflicted.expand(line_no, context).is_some() {
                 self.render(txt, None, context);
                 return;
             }
         }
 
         if let Some(unstaged) = &self.unstaged {
-            if let Some(expanded_line) = unstaged.expand(line_no, context) {
+            if unstaged.expand(line_no, context).is_some() {
                 self.render(txt, None, context);
                 return;
             }
         }
         if let Some(staged) = &self.staged {
-            if let Some(expanded_line) = staged.expand(line_no, context) {
+            if staged.expand(line_no, context).is_some() {
                 self.render(txt, None, context);
             }
         }
@@ -1191,7 +1188,7 @@ impl Status {
         let this_pos = buffer.cursor_position();
         let mut iter = buffer.iter_at_offset(this_pos);
         if let Some(last_op) = &last_op {
-            if let StageOp::Stage(line_no) = last_op.op {
+            if let StageOp::Stage(_line_no) = last_op.op {
                 // if i am still in staging diff - be here.
                 // if let Some(diff) = self.// fuck, i need whole diff by
                 // cursor_line!
@@ -1337,14 +1334,12 @@ impl Status {
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         let last_line = buffer.end_iter().line();
         if iter.line() == last_line {
-            for diff in [&self.conflicted, &self.unstaged, &self.staged] {
-                if let Some(diff) = diff {
-                    if !diff.files.is_empty() {
-                        return buffer
-                            .iter_at_line(diff.files[0].view.line_no.get())
-                            .unwrap();
-                    }
-                }
+            for diff in [&self.conflicted, &self.unstaged, &self.staged].into_iter().flatten() {
+                if !diff.files.is_empty() {
+                    return buffer
+                        .iter_at_line(diff.files[0].view.line_no.get())
+                        .unwrap();
+                }                
             }
             if iter.line() == last_line {
                 if let Some(untracked) = &self.untracked {
@@ -1596,9 +1591,10 @@ impl Status {
         let create_result = std::fs::create_dir(&path);
         match create_result {
             Ok(_) => {}
-            Err(err) => if err.kind() == ErrorKind::AlreadyExists {},
             Err(err) => {
-                panic!("Error {}", err);
+                if err.kind() != ErrorKind::AlreadyExists {
+                    panic!("Error {}", err);
+                }
             }
         }
         let datetime: DateTime<Utc> = std::time::SystemTime::now().into();
@@ -1667,15 +1663,13 @@ impl Status {
         let line_to = end_iter.line();
         let line_to_offset = end_iter.line_offset();
         let mut clean_content: HashMap<i32, (String, i32)> = HashMap::new();
-        for diff in [&self.conflicted, &self.unstaged, &self.staged] {
-            if let Some(diff) = diff {
+        for diff in [&self.conflicted, &self.unstaged, &self.staged].into_iter().flatten() {
                 diff.collect_clean_content(
                     line_from,
                     line_to,
                     &mut clean_content,
                     context,
                 );
-            }
         }
         if !clean_content.is_empty() {
             let clipboard = txt.clipboard();
@@ -1727,14 +1721,14 @@ impl Status {
 
     pub fn debug<'a>(
         &'a mut self,
-        txt: &StageView,
-        context: &mut StatusRenderContext<'a>,
+        _txt: &StageView,
+        _context: &mut StatusRenderContext<'a>,
     ) {
         gio::spawn_blocking({
             let sender = self.sender.clone();
             let path = self.path.clone().unwrap();
             move || {
-                get_head(path, sender);
+                get_head(path, sender).expect("cant get head");
             }
         });
     }

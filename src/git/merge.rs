@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::git::{
-    branch::NamedBranch, get_conflicted_v1, get_current_repo_status, get_head,
-    make_diff_options, BranchData, DeferRefresh, Head, Hunk, Line, State,
+    branch::NamedBranch, get_conflicted_v1, get_current_repo_status,
+    make_diff_options, BranchData, DeferRefresh, Hunk, Line, State,
     MARKER_DIFF_A, MARKER_DIFF_B, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS,
     MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
 };
@@ -18,7 +18,7 @@ use std::{
     str::from_utf8,
 };
 
-pub const STAGE_FLAG: u16 = 0x3000;
+//pub const STAGE_FLAG: u16 = 0x3000;
 
 pub fn final_commit(
     path: PathBuf,
@@ -45,7 +45,7 @@ pub fn final_commit(
     repo.cleanup_state()?;
     gio::spawn_blocking({
         move || {
-            get_current_repo_status(Some(path), sender);
+            get_current_repo_status(Some(path), sender).expect("cant get status");
         }
     });
     Ok(())
@@ -110,7 +110,7 @@ pub fn final_merge_commit(
     repo.cleanup_state()?;
     gio::spawn_blocking({
         move || {
-            get_current_repo_status(Some(path), sender);
+            get_current_repo_status(Some(path), sender).expect("cant get status");
         }
     });
     Ok(())
@@ -751,7 +751,7 @@ pub fn cleanup_last_conflict_for_file(
     if update_status {
         gio::spawn_blocking({
             move || {
-                get_current_repo_status(Some(path), sender);
+                get_current_repo_status(Some(path), sender).expect("cant get status");
             }
         });
         return Ok(());

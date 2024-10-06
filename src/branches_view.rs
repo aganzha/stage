@@ -377,17 +377,15 @@ impl BranchList {
                 if "confirm" != result {
                     return;
                 }
-                let result = gio::spawn_blocking(move || {
+                gio::spawn_blocking(move || {
                     rebase(repo_path, branch_data.oid, None, sender)
                 }).await.unwrap_or_else(|e| {
-                    debug!("--------------------> {:?}", e.type_id());
                     alert(format!("{:?}", e)).present(&window);
                     Ok(false)
                 }).unwrap_or_else(|e| {
                     alert(e).present(&window);
                     false
                 });
-                debug!("rrrrrrrrrrrrrrrrrrrr {:?}", result);
                 window.close();
             })
         });
@@ -1217,7 +1215,7 @@ pub fn show_branches_window(
                         sender.clone(),
                     );
                 }
-                (gdk::Key::r, _) => {
+                (gdk::Key::u, _) => {
                     let branch_list = get_branch_list(&list_view);
                     branch_list.update_remote(
                         repo_path.clone(),
