@@ -17,7 +17,7 @@ use gtk4::{
     SingleSelection, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, ToolbarView, Window};
+use libadwaita::{HeaderBar, ToolbarView, Window, StyleManager};
 use log::trace;
 use std::cell::RefCell;
 
@@ -635,6 +635,9 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
     factory
 }
 
+pub const DARK_CLASS: &str = "dark";
+pub const LIGHT_CLASS: &str = "light";
+
 pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
     let commit_list = CommitList::new();
     let selection_model = SingleSelection::new(Some(commit_list));
@@ -646,6 +649,12 @@ pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
     let _ = bind.bidirectional().build();
 
     let factory = item_factory(sender.clone());
+    let mut classes = glib::collections::strv::StrV::new();
+    classes.extend_from_slice(if StyleManager::default().is_dark() {
+        &[DARK_CLASS]
+    } else {
+        &[LIGHT_CLASS]
+    });
     let list_view = ListView::builder()
         .model(&selection_model)
         .factory(&factory)
@@ -654,6 +663,7 @@ pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
         .margin_top(12)
         .margin_bottom(12)
         .show_separators(true)
+        .css_classes(classes)
         .build();
     list_view.connect_activate({
         let sender = sender.clone();

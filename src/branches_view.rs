@@ -19,6 +19,7 @@ use gtk4::{
 use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
+    StyleManager
 };
 use log::{debug, info, trace};
 use std::path::PathBuf;
@@ -837,6 +838,9 @@ pub fn item_factory() -> SignalListItemFactory {
     factory
 }
 
+pub const DARK_CLASS: &str = "dark";
+pub const LIGHT_CLASS: &str = "light";
+
 pub fn listview_factory(
     repo_path: PathBuf,
     branches: Option<Vec<branch::BranchData>>,
@@ -858,7 +862,13 @@ pub fn listview_factory(
     let _ = bind.bidirectional().build();
 
     let branch_list = model.downcast_ref::<BranchList>().unwrap();
-
+    
+    let mut classes = glib::collections::strv::StrV::new();
+    classes.extend_from_slice(if StyleManager::default().is_dark() {
+        &[DARK_CLASS]
+    } else {
+        &[LIGHT_CLASS]
+    });
     let list_view = ListView::builder()
         .model(&selection_model)
         .factory(&factory)
@@ -868,7 +878,9 @@ pub fn listview_factory(
         .margin_top(12)
         .margin_bottom(12)
         .show_separators(true)
-        .build();
+        .css_classes(
+            classes
+        ).build();
 
     list_view.connect_activate({
         let repo_path = repo_path.clone();

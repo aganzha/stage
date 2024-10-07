@@ -6,7 +6,7 @@
 
 
 
-#status_view.dark {
+#status_view.dark, #commit_view.dark {
     color: @light_4;
 }
 
