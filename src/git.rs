@@ -187,7 +187,6 @@ pub struct Hunk {
     pub old_lines: u32,
     pub new_lines: u32,
     pub lines: Vec<Line>,
-    pub max_line_len: i32,
     pub kind: DiffKind,
     pub conflict_markers_count: i32,
     pub buf: String,
@@ -205,7 +204,6 @@ impl Hunk {
             new_start: HunkLineNo(0),
             old_lines: 0,
             new_lines: 0,
-            max_line_len: 0,
             kind,
             conflict_markers_count: 0,
             buf: String::new(),
@@ -218,16 +216,8 @@ impl Hunk {
             .replace('\n', "")
     }
 
-    pub fn handle_max(&mut self, line: &str) {
-        let le = line.len() as i32;
-        if le > self.max_line_len {
-            self.max_line_len = le;
-        }
-    }
-
     pub fn fill_from_git_hunk(&mut self, dh: &DiffHunk) {
         let header = Self::get_header_from(dh);
-        self.handle_max(&header);
         self.header = header;
         self.old_start = HunkLineNo(dh.old_start());
         self.old_lines = dh.old_lines();
@@ -375,7 +365,6 @@ impl Hunk {
                 | DiffLineType::HunkHeader
                 | DiffLineType::Binary => {}
                 _ => {
-                    self.handle_max(content);
                     self.lines.push(line)
                 }
             }
@@ -445,7 +434,6 @@ impl Hunk {
             | DiffLineType::HunkHeader
             | DiffLineType::Binary => {}
             _ => {
-                self.handle_max(content);
                 self.lines.push(line)
             }
         }
@@ -474,9 +462,7 @@ impl Hunk {
 pub struct File {
     pub view: View,
     pub path: PathBuf,
-    // pub id: Oid,
     pub hunks: Vec<Hunk>,
-    pub max_line_len: i32,
     pub kind: DiffKind,
     pub status: Delta,
 }
@@ -488,7 +474,6 @@ impl File {
             path: PathBuf::new(),
             // id: Oid::zero(),
             hunks: Vec::new(),
-            max_line_len: 0,
             kind,
             status: Delta::Unmodified,
         }
@@ -505,16 +490,12 @@ impl File {
             path,
             // id: f.id(),
             hunks: Vec::new(),
-            max_line_len: len as i32,
             kind,
             status,
         }
     }
 
     pub fn push_hunk(&mut self, h: Hunk) {
-        if h.max_line_len > self.max_line_len {
-            self.max_line_len = h.max_line_len;
-        }
         self.hunks.push(h);
     }
 }
@@ -533,7 +514,6 @@ pub struct Diff {
     pub files: Vec<File>,
     pub view: View,
     pub kind: DiffKind,
-    pub max_line_len: i32,
     /// option for diff if it differs
     /// from the common obtained by make_diff_options
     pub interhunk: Option<u32>,
@@ -548,15 +528,11 @@ impl Diff {
             files: Vec::new(),
             view,
             kind,
-            max_line_len: 0,
             interhunk: None,
         }
     }
 
     pub fn push_file(&mut self, f: File) {
-        if f.max_line_len > self.max_line_len {
-            self.max_line_len = f.max_line_len;
-        }
         self.files.push(f);
     }
 

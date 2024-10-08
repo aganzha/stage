@@ -7,12 +7,6 @@ THOUGHT: why cherry-pick always create commit. is it required?
 BUG: when copy branch in very firts line and upstream event is arrived the cursor moved to line 2. it need to rerstore cursor position
 BUG: copy folder to repo. reset hard. then copy subfolder in same path to repo - no monitor evenmt
 BUG: updating branches (refresh button) - it is not analogue of git remote update. it does not fetch branches from local repo (cloned clocally)
-THOUGHT: scroll and highlight: highlight is called always on scroll. without changing stucture.
-         skipping highlights when structure is not changed lead to blinks during scroll!
-TODO: so, the refactor is:
-  - it does not need to fill context  highlight lines (via collect_hunk_highlights)
-    in after render. because active_lines is filled already in under_cursor!
-  - same for hunk highliughts
   
 so, after_cursor could be eliminated in the favour of under_cursor.
 just introduce first_active_line and second_active_line to store range of lines!

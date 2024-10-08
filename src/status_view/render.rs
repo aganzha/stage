@@ -235,7 +235,7 @@ pub trait ViewContainer {
                     buffer.delete(iter, &mut eol_iter);
                 }
                 view.cleanup_tags();
-                self.write_content(iter, buffer, context);
+                self.write_content(iter, buffer, context);                
                 self.apply_tags(buffer, context);
 
                 self.force_forward(buffer, iter);
@@ -563,11 +563,6 @@ impl ViewContainer for Diff {
                 let start_iter = buffer.iter_at_line(start_line).unwrap();
                 let mut end_iter = buffer.iter_at_line(end_line).unwrap();
                 end_iter.forward_to_line_end();
-                // debug!(
-                //     "~~~~~~~~~~~~~~~~apply staged tag {:?} {:?}",
-                //     start_iter.line(),
-                //     end_iter.line()
-                // );
                 self.remove_tag(buffer, &tag);
                 buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
                 self.view.tag_added(&tag);
@@ -681,16 +676,8 @@ impl ViewContainer for File {
     fn after_cursor<'a>(
         &'a self,
         _buffer: &TextBuffer,
-        context: &mut StatusRenderContext<'a>,
+        _context: &mut StatusRenderContext<'a>,
     ) {
-        // does not used
-        if let Some(len) = context.max_len {
-            if len < self.max_line_len {
-                context.max_len.replace(self.max_line_len);
-            }
-        } else {
-            context.max_len.replace(self.max_line_len);
-        }
     }
 
     /// if something in file is active

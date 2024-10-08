@@ -119,7 +119,7 @@ mod stage_view_internal {
                             &LIGHT_LINES
                         },
                         &graphene::Rect::new(
-                            0.0,
+                            rect.x() as f32,
                             y_from as f32,
                             rect.width() as f32,
                             y_to as f32,
@@ -150,7 +150,7 @@ mod stage_view_internal {
                             &LIGHT_HUNKS
                         },
                         &graphene::Rect::new(
-                            0.0,
+                            rect.x() as f32,
                             y_from as f32,
                             rect.width() as f32,
                             y_to as f32,
@@ -187,7 +187,7 @@ mod stage_view_internal {
                         bg_fill
                     },
                     &graphene::Rect::new(
-                        0.0,
+                        rect.x() as f32,
                         y_from as f32,
                         rect.width() as f32,
                         y_to as f32,

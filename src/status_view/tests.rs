@@ -55,11 +55,9 @@ fn create_line(line_no: u32, from: usize, to: usize) -> Line {
 
 fn create_hunk(name: &str) -> Hunk {
     let mut hunk = Hunk::new(DiffKind::Unstaged);
-    hunk.handle_max(name);
     hunk.header = name.to_string();
     for i in 0..3 {
         let content = format!("{} -> line {}", hunk.header, i);
-        hunk.handle_max(&content);
         hunk.lines
             .push(create_line(i, hunk.buf.len(), content.len()));
         hunk.buf.push_str(&content);
