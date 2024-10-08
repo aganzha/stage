@@ -11,10 +11,13 @@ use gtk4::{
     SelectionMode, TextView, WrapMode,
 };
 use libadwaita::prelude::*;
-use libadwaita::{ApplicationWindow, EntryRow, SwitchRow};
+use libadwaita::{ApplicationWindow, EntryRow, SwitchRow, StyleManager};
 use log::debug;
 use std::cell::RefCell;
 use std::path::PathBuf;
+
+pub const DARK_CLASS: &str = "dark";
+pub const LIGHT_CLASS: &str = "light";
 
 pub fn commit(
     path: Option<PathBuf>,
@@ -57,12 +60,20 @@ pub fn commit(
             if amend_message.is_some() {
                 list_box.append(&amend_switch);
             }
-
+            let mut classes = glib::collections::strv::StrV::new();
+            classes.extend_from_slice(if StyleManager::default().is_dark() {
+                &[DARK_CLASS]
+            } else {
+                &[LIGHT_CLASS]
+            });
             let txt = TextView::builder()
                 .margin_start(12)
                 .margin_end(12)
                 .margin_top(12)
                 .margin_bottom(12)
+                .css_classes(
+                    classes
+                )
                 .wrap_mode(WrapMode::Word)
                 .build();
             let scroll = ScrolledWindow::builder()
