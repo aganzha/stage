@@ -27,6 +27,13 @@ banner.error revealer widget {
     background-color: #fbf0f3;
 }
 
+/* this used only in commit and alert views
+   stage_views are painted by bg_fill
+*/
+textview.dark {
+    background-color: #383838;
+}
+
 
 scheme_selector button {
   padding: 0;
