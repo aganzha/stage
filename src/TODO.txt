@@ -1,3 +1,4 @@
+TODO: FIRST: stage/unstage all. kill from unstaged
 BUG: compile ts in nomenclature repo and rm all js files
 INFO: settings are stored in /home/aganzha/.var/app/com.github.aganzha.stage/config/glib-2.0/settings/keyfile
 TODO: commit view must show parent commit!
