@@ -1,13 +1,5 @@
-<table width="100%">
-  <tr><td align="center" border="0"><table>
-        <tr valign="middle">
-          <td border="0" width="48" ><img width="48" src="./icons/com.github.aganzha.stage.svg"/></td>
-          <td border="0"><h1>Stage</h1></td>
-        </tr>
-        <tr>
-          <td colspan="2" border="0">Stage is Git UI client for linux desktops inspired by Magit</td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
+<h1>Stage</h1>
+<p>Stage is Git UI client for linux desktops inspired by Magit</p>       
+
+<h2>Installation</h2>
+<p>flatpak install -u https://raw.githubusercontent.com/aganzha/stage/refs/heads/master/stage.flatpakref</p>
