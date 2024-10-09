@@ -6,6 +6,7 @@ use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
 use crate::status_view::view::{View, ViewState};
 use crate::status_view::Label;
+use crate::status_view::context::CursorPosition;
 use crate::{
     Diff,
     DiffKind,
@@ -90,6 +91,13 @@ pub trait ViewContainer {
 
     // ViewContainer
     fn before_render<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
+
+
+    fn fill_cursor_position<'a>(
+        &'a self,
+        _context: &mut StatusRenderContext<'a>,
+    ) {
+    }
 
     fn fill_under_cursor<'a>(
         &'a self,
@@ -263,6 +271,7 @@ pub trait ViewContainer {
         // shifted. e.g. view is still current
         // bit the line is changed!
         if self.get_view().is_current() {
+            // is used to highlight cursor line
             context.cursor = self.get_view().line_no.get(); // render
         }
     }
@@ -284,7 +293,7 @@ pub trait ViewContainer {
 
         let current = view.is_rendered_in(line_no);
         if current {
-            self.fill_under_cursor(context)
+            self.fill_cursor_position(context)
         }
         let active_by_parent =
             self.is_active_by_parent(parent_active, context);
@@ -600,6 +609,16 @@ impl ViewContainer for Diff {
     ) -> Vec<tags::TxtTag> {
         vec![make_tag(tags::DIFF)]
     }
+
+    // Diff
+    fn fill_cursor_position<'a>(
+        &'a self,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        context.cursor_position = CursorPosition::CursorDiff(self);
+        self.fill_under_cursor(context);
+    }
+    
     // Diff
     fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
         context.cursor_diff = Some(self);
@@ -689,6 +708,15 @@ impl ViewContainer for File {
         ctx.rendering_file = Some(self);
     }
 
+    // File
+    fn fill_cursor_position<'a>(
+        &'a self,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        context.cursor_position = CursorPosition::CursorFile(self);
+        self.fill_under_cursor(context);
+    }
+    
     // File
     fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
         context.cursor_file = Some(self);
@@ -800,6 +828,15 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
+    fn fill_cursor_position<'a>(
+        &'a self,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        context.cursor_position = CursorPosition::CursorHunk(self);
+        self.fill_under_cursor(context);
+    }
+
+    // Hunk
     fn fill_under_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         ctx.cursor_hunk = Some(self);
     }
@@ -865,6 +902,15 @@ impl ViewContainer for Line {
         ctx.rendering_line = Some(self);
     }
 
+    // Line
+    fn fill_cursor_position<'a>(
+        &'a self,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        context.cursor_position = CursorPosition::CursorLine(self);
+        self.fill_under_cursor(context);
+    }
+    
     // Line
     fn fill_under_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         ctx.cursor_line = Some(self);
