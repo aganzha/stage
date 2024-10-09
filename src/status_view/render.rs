@@ -235,7 +235,7 @@ pub trait ViewContainer {
                     buffer.delete(iter, &mut eol_iter);
                 }
                 view.cleanup_tags();
-                self.write_content(iter, buffer, context);                
+                self.write_content(iter, buffer, context);
                 self.apply_tags(buffer, context);
 
                 self.force_forward(buffer, iter);
@@ -288,6 +288,9 @@ pub trait ViewContainer {
         }
         let active_by_parent =
             self.is_active_by_parent(parent_active, context);
+        if active_by_parent {
+            self.fill_under_cursor(context);
+        }
         let mut active_by_child = false;
 
         if view.is_expanded() {
@@ -300,6 +303,7 @@ pub trait ViewContainer {
                 if active_by_child {
                     // under cursor changed here BEFORE calling
                     // child cursor
+                    self.fill_under_cursor(context);
                     child.fill_under_cursor(context);
                     break;
                 }
@@ -595,17 +599,6 @@ impl ViewContainer for Diff {
         _ctx: &mut StatusRenderContext<'a>,
     ) -> Vec<tags::TxtTag> {
         vec![make_tag(tags::DIFF)]
-        // match self.kind {
-        //     DiffKind::Staged | DiffKind::Commit => {
-        //         vec![make_tag(tags::BOLD), make_tag(tags::STAGED)]
-        //     }
-        //     // TODO! create separate tag for conflicted!
-        //     DiffKind::Unstaged
-        //     | DiffKind::Conflicted
-        //     | DiffKind::Untracked => {
-        //         vec![make_tag(tags::BOLD), make_tag(tags::UNSTAGED)]
-        //     }
-        // }
     }
     // Diff
     fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
@@ -893,7 +886,9 @@ impl ViewContainer for Line {
         if !self.view.is_rendered() {
             return false;
         }
-        if let Some(diff) = context.rendering_diff {
+
+        if let Some(diff) = context.cursor_diff {
+            debug!("------------------> {:?}", diff.kind);
             if diff.kind == DiffKind::Conflicted {
                 if let Some(line) = context.cursor_line {
                     match &line.kind {
