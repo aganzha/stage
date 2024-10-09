@@ -247,7 +247,7 @@ impl StageView {
         }
     }
 
-    pub fn calc_max_char_width(&self) -> i32 {
+    pub fn calc_max_char_width(&self, window_width: i32) -> i32 {
         let buffer = self.buffer();
         let mut iter = buffer.iter_at_offset(0);
         let x_before = self.cursor_locations(Some(&iter)).0.x();
@@ -256,8 +256,12 @@ impl StageView {
             buffer.insert(&mut iter, " ");
         };
         let x_after = self.cursor_locations(Some(&iter)).0.x();
-
-        self.width() / (x_after - x_before)
+        let width = if self.width() > 0 {
+            self.width()
+        } else {
+            window_width
+        };
+        width / (x_after - x_before)
     }
 }
 
@@ -491,7 +495,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     gesture_controller.connect_drag_update({
         let txt = txt.clone();
         move |_, _, _| {
-            debug!("its byggy!. it kills active highlight!");
             txt.set_cursor_highlight(false);
         }
     });
