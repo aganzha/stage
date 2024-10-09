@@ -229,7 +229,7 @@ impl StageView {
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
         // here it need to pass pixels above line!
-        self.imp().cursor.replace(context.cursor);
+        self.imp().cursor.replace(context.cursor_lineno);
         // Diff labels have top margin with height of line.
         // it does not need to highlight them, only highlight
         // diff label itself
