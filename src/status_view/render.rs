@@ -266,16 +266,6 @@ pub trait ViewContainer {
             }
         }
         self.get_view().child_dirty(false);
-        // during the render the structure is changed
-        // and current highlighted line could be
-        // shifted. e.g. view is still current
-        // bit the line is changed!
-        if self.get_view().is_current() {
-            // is used to highlight cursor line
-            // perhaps i do not need it in render!
-            // it must be only in fn cursor!
-            context.cursor_lineno = self.get_view().line_no.get(); // render
-        }
     }
 
     // ViewContainer
@@ -337,9 +327,7 @@ pub trait ViewContainer {
         }
         // result here just means view is changed
         // it does not actually means that view is under cursor
-        if view.is_current() {
-            context.cursor_lineno = view.line_no.get(); // cursor
-        }
+
         // calling it on cursor??? hmmmm...
         self.after_cursor(buffer, context);
         if result {
