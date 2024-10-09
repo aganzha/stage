@@ -41,10 +41,10 @@ pub struct StatusRenderContext<'a> {
     // this is sliding values during render.
     // at the end of render they will
     // show last visited structures!
-    pub sliding_diff: Option<&'a Diff>,
-    pub sliding_file: Option<&'a File>,
-    pub sliding_hunk: Option<&'a Hunk>,
-    pub sliding_line: Option<&'a Line>,
+    pub rendering_diff: Option<&'a Diff>,
+    pub rendering_file: Option<&'a File>,
+    pub rendering_hunk: Option<&'a Hunk>,
+    pub rendering_line: Option<&'a Line>,
 }
 
 impl Default for StatusRenderContext<'_> {
@@ -69,12 +69,12 @@ impl StatusRenderContext<'_> {
                 cursor_hunk: None,
                 cursor_line: None,
 
-                sliding_diff: None,
-                sliding_file: None,
-                sliding_hunk: None,
-                // it is useless. sliding_x is sliding variable during render
+                rendering_diff: None,
+                rendering_file: None,
+                rendering_hunk: None,
+                // it is useless. rendering_x is sliding variable during render
                 // and there is nothing to render after line
-                sliding_line: None,
+                rendering_line: None,
             }
         }
     }

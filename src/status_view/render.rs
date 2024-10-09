@@ -525,7 +525,7 @@ impl ViewContainer for Diff {
 
     // Diff
     fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.sliding_diff = Some(self);
+        ctx.rendering_diff = Some(self);
     }
 
     // Diff
@@ -537,17 +537,17 @@ impl ViewContainer for Diff {
         let start_line = self.view.line_no.get();
         let mut end_line = start_line;
         // TODO! rename sliding to just last!
-        if let Some(file) = ctx.sliding_file {
+        if let Some(file) = ctx.rendering_file {
             if file.view.is_rendered() {
                 end_line = file.view.line_no.get();
             }
         }
-        if let Some(hunk) = ctx.sliding_hunk {
+        if let Some(hunk) = ctx.rendering_hunk {
             if hunk.view.is_rendered() {
                 end_line = hunk.view.line_no.get()
             }
         }
-        if let Some(line) = ctx.sliding_line {
+        if let Some(line) = ctx.rendering_line {
             if line.view.is_rendered() {
                 end_line = line.view.line_no.get();
             }
@@ -693,7 +693,7 @@ impl ViewContainer for File {
 
     // File
     fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.sliding_file = Some(self);
+        ctx.rendering_file = Some(self);
     }
 
     // File
@@ -752,7 +752,7 @@ impl ViewContainer for Hunk {
 
     // Hunk
     fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.sliding_hunk = Some(self);
+        ctx.rendering_hunk = Some(self);
     }
 
     // Hunk
@@ -814,7 +814,7 @@ impl ViewContainer for Hunk {
 
 impl ViewContainer for Line {
     fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool {
-        if let Some(hunk) = context.sliding_hunk {
+        if let Some(hunk) = context.rendering_hunk {
             return self.content(hunk).is_empty();
         }
         false
@@ -834,7 +834,7 @@ impl ViewContainer for Line {
     ) -> String {
         format!(
             "Line: {:?} at line {:?}",
-            self.content(context.sliding_hunk.unwrap()),
+            self.content(context.rendering_hunk.unwrap()),
             self.view.line_no.get()
         )
     }
@@ -866,10 +866,10 @@ impl ViewContainer for Line {
     }
 
     // Line
-    // it is useless. sliding_x is sliding variable during render
+    // it is useless. rendering_x is sliding variable during render
     // and there is nothing to render after line
     fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.sliding_line = Some(self);
+        ctx.rendering_line = Some(self);
     }
 
     // Line
@@ -893,7 +893,7 @@ impl ViewContainer for Line {
         if !self.view.is_rendered() {
             return false;
         }
-        if let Some(diff) = context.sliding_diff {
+        if let Some(diff) = context.rendering_diff {
             if diff.kind == DiffKind::Conflicted {
                 if let Some(line) = context.cursor_line {
                     match &line.kind {
@@ -983,7 +983,7 @@ impl ViewContainer for Line {
         match self.origin {
             DiffLineType::Addition => {
                 vec![make_tag(tags::ADDED)]
-                // if ctx.sliding_hunk.unwrap().view.is_active() {
+                // if ctx.rendering_hunk.unwrap().view.is_active() {
                 //     debug!("eeeeeeeeeeeeenhanced");
                 //     vec![make_tag(tags::ENHANCED_ADDED)]
                 // } else {
@@ -993,7 +993,7 @@ impl ViewContainer for Line {
             }
             DiffLineType::Deletion => {
                 vec![make_tag(tags::REMOVED)]
-                // if ctx.sliding_hunk.unwrap().view.is_active() {
+                // if ctx.rendering_hunk.unwrap().view.is_active() {
                 //     vec![make_tag(tags::ENHANCED_REMOVED)]
                 // } else {
                 //     vec![make_tag(tags::REMOVED)]
@@ -1041,7 +1041,7 @@ impl ViewContainer for Line {
             }
         }
         buffer.insert(iter, "  ");
-        buffer.insert(iter, self.content(context.sliding_hunk.unwrap()));
+        buffer.insert(iter, self.content(context.rendering_hunk.unwrap()));
     }
 
     // Line
@@ -1082,7 +1082,7 @@ impl ViewContainer for Line {
         }
 
         // highlight spaces
-        let content = self.content(context.sliding_hunk.unwrap());
+        let content = self.content(context.rendering_hunk.unwrap());
         let stripped = content
             .trim_end_matches(|c| -> bool { char::is_ascii_whitespace(&c) });
         let content_len = content.chars().count();
@@ -1129,7 +1129,7 @@ impl ViewContainer for Line {
         let line_no = self.view.line_no.get();
         if line_no >= from && line_no <= to {
             let content =
-                self.content(context.sliding_hunk.unwrap()).to_string();
+                self.content(context.rendering_hunk.unwrap()).to_string();
             content_map.insert(line_no, (content, 6));
         }
     }
