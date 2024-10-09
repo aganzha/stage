@@ -930,7 +930,6 @@ pub fn get_conflicted_v1(
         opts.pathspec(our_path);
     }
     if !has_conflict_paths {
-        debug!("BUT INDEX HAS CONFLICTS! exit get_conflicted_v1 cause no conflicts. return empty diff");
         return None;
     }
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
@@ -955,11 +954,6 @@ pub fn get_conflicted_v1(
         let mut prev_conflict_line: Option<HunkLineNo> = None;
         for file in &diff.files {
             for hunk in &file.hunks {
-                debug!("hunk in conflicted {}", hunk.header);
-                for line in &hunk.lines {
-                    debug!("{}", line.content(hunk));
-                }
-                debug!("..");
                 let (first_marker, last_marker) =
                     hunk.lines.iter().fold((None, None), |acc, line| {
                         match (acc.0, acc.1, &line.kind) {
@@ -1002,150 +996,10 @@ pub fn get_conflicted_v1(
                         assert!(end == MARKER_THEIRS);
                     }
                 }
-                // let (ours, separator, theirs) =
-                //     hunk.lines.iter().fold((None, None, None), |acc, line| match &line
-                //         .kind
-                //     {
-                //         LineKind::ConflictMarker(m) if m == MARKER_OURS => {
-                //             (line.new_line_no, acc.1, acc.2)
-                //         }
-                //         LineKind::ConflictMarker(m) if m == MARKER_VS => {
-                //             (acc.0, line.new_line_no, acc.2)
-                //         }
-                //         LineKind::ConflictMarker(m) if m == MARKER_THEIRS => {
-                //             (acc.0, acc.2, line.new_line_no)
-                //         }
-                //         _ => acc,
-                //     });
-                // // perhaps it need to increment interhunk space to join hunks
-                // // into one. possible variants are:
-                // // Some None None
-                // // Some Some None
-                // // Some(30) Some(20) Some(25)
-                // // Some(30) Some(35) Some(25)
-                // // Some(30) Some(35) Some(40) - conflict is completelly within the hunk
-                // match (ours, separator, theirs) {
-                //     // ------------- edge cases -----------------
-                //     (None, None, None) => {
-                //         // just skip?
-                //         todo!("unknown case in interhunk");
-                //     }
-                //     (None, Some(_), None) => {
-                //         // just skip?
-                //         todo!("unknown case in interhunk");
-                //     }
-                //     (Some(_), None, Some(_)) => {
-                //         // just skip?
-                //         panic!("unknown case in interhunk");
-                //     }
-                //     // ------------- edge cases -----------------
-
-                //     // first hunk
-                //     (Some(_), None, None) => {
-                //         // first hunk has ours only
-                //         // it need to join it with second one.
-                //         // i need here last line of first hunk to calculate interhunk
-                //         assert!(prev_conflict_line.is_none());
-                //         prev_conflict_line.replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-                //     }
-                //     (Some(_), Some(_), None) => {
-                //         // first hunk has ours and separator
-                //         // it need to join it with second one.
-                //         // i need here last line of first hunk to calculate interhunk
-                //         assert!(prev_conflict_line.is_none());
-                //         prev_conflict_line.replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-                //     }
-                //     (Some(ours), Some(separator), Some(theirs)) if theirs < separator && separator < ours => {
-                //         // first hunk has ours only
-                //         // it need to join it with second one.
-                //         // i need here last line of first hunk to calculate interhunk
-                //         assert!(prev_conflict_line.is_none());
-                //         prev_conflict_line.replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-                //     }
-                //     (Some(ours), Some(separator), Some(theirs)) if theirs < separator && separator > ours => {
-                //         // first hunk has ours and separator
-                //         // it need to join it with second one.
-                //         // i need here last line of first hunk to calculate interhunk
-                //         assert!(prev_conflict_line.is_none());
-                //         prev_conflict_line.replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-                //     }
-
-                //     // --------------- all ok
-                //     (Some(ours), Some(separator), Some(theirs)) => if theirs > separator && separator > ours {
-                //         // all ok
-                //         prev_conflict_line = None
-                //     }
-                //     // --------------- all ok
-
-                //     // second hunk
-
-                //     (None, Some(_), Some(_)) => {
-                //         assert!(prev_conflict_line.is_some());
-                //         hunks_to_join.push((prev_conflict_line, hunk.old_start));
-                //         prev_conflict_line = None
-                //     }
-                //     (None, None, Some(_)) => {
-                //         assert!(prev_conflict_line.is_some());
-                //         hunks_to_join.push((prev_conflict_line, hunk.old_start));
-                //         prev_conflict_line = None
-                //     }
-                //     // ????????????
-                //     (Some(ours), Some(separator), Some(theirs)) if theirs < separator && separator > ours => {
-                //         // hot to detect in second hunk that its not started with ours???
-                //         assert!(prev_conflict_line.is_none());
-                //         prev_conflict_line.replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-                //     }
-
-                // }
-
-                // debug!("------got line_nos of markers ours theirs separator {ours:?} {separator:?} {theirs:?}");
-                // if ours > theirs {
-                //     // store last line of hunk without theirs
-                //     debug!("got missing_theirs!--- {:?} {:?} {:?}", hunk.new_start, hunk.lines.len(), hunk.header);
-                //     // this is stupid! it sums new hunk start, which is true line_no in physycal file
-                //     // with hunk lines len, which does not relate to physical lines at all!
-                //     // it must be separated types which does not allow summ!
-                //     // in fact they are! but i32 and usize, but this is happenstance
-                //     missing_theirs.replace(hunk.new_start);
-                // } else if theirs > ours {
-                //     // hunk with theirs, but without ours
-
-                //     // BUGS:
-                //     // - no highlight in final hunk when conflicts are resolved
-                //     // - FIXED comparing has_conflicts does not worked in update conflicted.
-                //     // cause there is always true true (Conflicted come several times)
-                //     // - trying to stage and got git error
-                //     // if missing_theirs == 0 {
-                //     //     // this means we have theirs section, but there are no ours
-                //     //     // section before. this is possible, when user edit conflict file
-                //     //     // manually. but, in this case this means interhunk was chosen before
-                //     //     // we do not want to select interhunk on every Conflicted update.
-                //     //     // So, in case of conflict lets store interhunk globally in status
-                //     //     // and use it during conflict resolution.
-                //     // }
-
-                //     // missing_theirs == 0 is possible
-                //     // when manualy edit conflict files.
-                //     // markers are removed 1 by 1.
-                //     // assert!(missing_theirs > 0);
-                //     // hunks_to_join.push((missing_theirs, hunk.new_start));
-                //     if let Some(missing_theirs) = missing_theirs {
-                //         debug!("got hunks to join!!!!!!!! {:?} {:?} {:?}", missing_theirs, hunk.new_start, hunk.header);
-                //         hunks_to_join.push((missing_theirs, hunk.new_start));
-                //     }
-                // } else {
-                //     // if hunk is ok, reset missing theirs, which, possibly
-                //     // came from manual conflict resolution
-                //     missing_theirs = None;
-                // }
             }
         }
-        debug!("hunks to join during get_conflicted {:?}", hunks_to_join);
         if !hunks_to_join.is_empty() {
             let interhunk = hunks_to_join.iter().fold(HunkLineNo::new(0), |acc, from_to| {
-                debug!("~~~~~~~~~ missing theirs contains start of hunks which need to join!");
-                debug!("~~~~~~~~~ how can i find interhunk by hunk starts?");
-                debug!("~~~~~~~~~~~~~~~~~~~~~~~ acc and from_to {acc:?} {from_to:?}");
                 if acc < from_to.1 - from_to.0 {
                     return from_to.1 - from_to.0;
                 }
@@ -1159,7 +1013,6 @@ pub fn get_conflicted_v1(
             diff.interhunk.replace(interhunk.as_u32());
         }
     }
-    debug!("-------interhunk in conflicted_v1 {:?}", diff.interhunk);
     Some(diff)
 }
 

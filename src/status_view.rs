@@ -240,14 +240,6 @@ impl Status {
         // but the 'dirty' path will be used first
         // for querying repo status and investigate real one
         if user_action {
-            // cleanup everything here. all diffs will be updated in get_status
-            // IT DOES NOT WORK. garbage remains in stage
-            // self.head.take();
-            // self.upstream.take();
-            // self.state.take();
-            // self.staged.take();
-            // self.unstaged.take();
-            // self.conflicted.take();
 
             self.stashes.take();
             self.branches.take();
@@ -716,10 +708,6 @@ impl Status {
         gio::spawn_blocking({
             let path = self.path.clone().unwrap();
             let sender = sender.clone();
-            debug!(
-                "track changes.................... {:?} {:?}",
-                path, file_path
-            );
             let mut interhunk = None;
             let mut has_conflicted = false;
             if let Some(diff) = &self.conflicted {
