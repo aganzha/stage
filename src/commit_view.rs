@@ -16,7 +16,7 @@ use git2::Oid;
 use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow,
-    TextBuffer, TextIter, Widget, Window as Gtk4Window,
+    TextBuffer, TextIter, Widget, Window as Gtk4Window, Orientation
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -139,7 +139,6 @@ pub fn headerbar_factory(
 
 #[derive(Debug, Clone)]
 pub struct MultiLineLabel {
-    pub content: String,
     pub labels: Vec<TextViewLabel>,
     pub view: View,
 }
@@ -147,25 +146,21 @@ pub struct MultiLineLabel {
 impl MultiLineLabel {
     pub fn new(content: &str, visible_chars: i32) -> Self {
         let mut mll = MultiLineLabel {
-            content: content.to_string(),
             labels: Vec::new(),
             view: View::new(),
         };
-        mll.update_content(content, visible_chars);
+        mll.make_labels(content, visible_chars);
         mll
     }
 
-    pub fn update_content(&mut self, content: &str, visible_chars: i32) {
+    pub fn make_labels(&mut self, content: &str, visible_chars: i32) {
         self.labels = Vec::new();
         let mut acc = String::from("");
 
-        debug!("........................... {}", content);
         // split first by new lines. each new line in commit must go
         // on its own, separate label. BUT!
         // also split long lines to different labels also!
-        let user_split = content.split('\n');
-
-        for line in user_split {
+        for line in content.split('\n') {
             trace!("split {:?}", line);
             let mut split = line.split(' ');
             let mut mx = 0;
@@ -203,12 +198,11 @@ impl MultiLineLabel {
                 self.labels
                     .push(TextViewLabel::from_string(&acc.replace('\n', "")));
                 acc = String::from("");
-                // }
             }
         }
         // space for following diff
         self.labels.push(TextViewLabel::from_string(""));
-        self.view.expand(true) // expanded = true;
+        self.view.expand(true)
     }
 }
 
@@ -257,7 +251,7 @@ impl commit::CommitDiff {
         }
         iter = buffer.iter_at_offset(offset_before_erase);
         // ??? why it was commented out?
-        body_label.update_content(&self.message, txt.calc_max_char_width());
+        // body_label.update_content(&self.message, txt.calc_max_char_width());
         body_label.render(&buffer, &mut iter, ctx);
 
         if !self.diff.files.is_empty() {
@@ -289,12 +283,12 @@ pub fn show_commit_window(
 
     let mut diff: Option<commit::CommitDiff> = None;
 
+    const max_width: i32 = 1280;
     let window = Window::builder()
         .transient_for(app_window)
-        .default_width(640)
-        .default_height(480)
+        .default_width(max_width)
+        .default_height(960)
         .build();
-    window.set_default_size(1280, 960);
 
     let scroll = ScrolledWindow::new();
 
@@ -383,10 +377,9 @@ pub fn show_commit_window(
                         "Date: <span color=\"#4a708b\">{}</span>",
                         commit_diff.commit_dt
                     );
-
                     body_label.replace(MultiLineLabel::new(
-                        "",
-                        txt.calc_max_char_width(),
+                        &commit_diff.message,
+                        txt.calc_max_char_width(max_width),
                     ));
                     commit_diff.render(
                         &txt,
@@ -532,10 +525,6 @@ pub fn show_commit_window(
                                 },
                             )
                         });
-                        debug!(
-                            "++++++++++++++++++++++++ {:?} {:?}",
-                            title, body
-                        );
                     }
                 }
                 _ => {

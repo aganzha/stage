@@ -7,11 +7,11 @@
 
 
 #status_view.dark, #commit_view.dark {
-    color: @light_3;
+    color: #d6d5d2;/* @light_3; */
 }
 listview.dark {
     background-color: #232323;
-    color: @light_3;
+    color: #d6d5d2;/* @light_3; */
 }
 
 .nocorners {
