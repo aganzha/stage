@@ -242,10 +242,6 @@ impl StageView {
             }
         };
         
-        // self.imp()
-        //     .double_height_line
-        //     .replace(context.cursor_diff.is_some());
-        
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
         } else {

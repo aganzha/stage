@@ -621,7 +621,7 @@ impl ViewContainer for Diff {
     
     // Diff
     fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-        context.cursor_diff = Some(self);
+        context.selected_diff = Some(self);
     }
 }
 
@@ -719,7 +719,7 @@ impl ViewContainer for File {
     
     // File
     fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-        context.cursor_file = Some(self);
+        context.selected_file = Some(self);
     }
 }
 
@@ -838,7 +838,7 @@ impl ViewContainer for Hunk {
 
     // Hunk
     fn fill_under_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.cursor_hunk = Some(self);
+        ctx.selected_hunk = Some(self);
     }
 }
 
@@ -913,7 +913,7 @@ impl ViewContainer for Line {
     
     // Line
     fn fill_under_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.cursor_line = Some(self);
+        ctx.selected_line = Some(self);
     }
 
     // Line
@@ -933,10 +933,10 @@ impl ViewContainer for Line {
             return false;
         }
 
-        if let Some(diff) = context.cursor_diff {
+        if let Some(diff) = context.selected_diff {
             debug!("------------------> {:?}", diff.kind);
             if diff.kind == DiffKind::Conflicted {
-                if let Some(line) = context.cursor_line {
+                if let Some(line) = context.selected_line {
                     match &line.kind {
                         LineKind::Ours(i) => {
                             return active && self.kind == LineKind::Ours(*i);

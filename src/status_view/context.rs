@@ -34,10 +34,10 @@ pub struct StatusRenderContext<'a> {
 
     
     // rename to current as view: active-current etc!
-    pub cursor_diff: Option<&'a Diff>,
-    pub cursor_file: Option<&'a File>,
-    pub cursor_hunk: Option<&'a Hunk>,
-    pub cursor_line: Option<&'a Line>,
+    pub selected_diff: Option<&'a Diff>,
+    pub selected_file: Option<&'a File>,
+    pub selected_hunk: Option<&'a Hunk>,
+    pub selected_line: Option<&'a Line>,
 
     // this is sliding values during render.
     // at the end of render they will
@@ -65,10 +65,10 @@ impl StatusRenderContext<'_> {
                 highlight_hunks: Vec::new(),
 
                 cursor_position: CursorPosition::None,
-                cursor_diff: None,
-                cursor_file: None,
-                cursor_hunk: None,
-                cursor_line: None,
+                selected_diff: None,
+                selected_file: None,
+                selected_hunk: None,
+                selected_line: None,
 
                 rendering_diff: None,
                 rendering_file: None,
