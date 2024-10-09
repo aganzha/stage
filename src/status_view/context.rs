@@ -18,8 +18,6 @@ pub struct StatusRenderContext<'a> {
 
     pub erase_counter: i32,
     
-    /// is used to highlight cursor line
-    pub cursor_lineno: i32,
     /// same for hunks and line ranges
     pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>,
@@ -55,7 +53,6 @@ impl StatusRenderContext<'_> {
             Self {
                 erase_counter: 0,
 
-                cursor_lineno: 0,
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
 

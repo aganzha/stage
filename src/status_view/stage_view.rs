@@ -58,7 +58,7 @@ mod stage_view_internal {
 
     #[derive(Default)]
     pub struct StageView {
-        pub cursor: Cell<i32>,
+
         pub show_cursor: Cell<bool>,
         pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
@@ -158,9 +158,9 @@ mod stage_view_internal {
                     );
                 }
 
-                // highlight cursor ---------------------------------
-                let cursor_line = self.cursor.get();
-                iter.set_line(cursor_line);
+                // highlight cursor ---------------------------------                
+                iter.set_offset(buffer.cursor_position());
+                
                 let (mut y_from, mut y_to) = self.obj().line_yrange(&iter);
 
                 if self.double_height_line.get() {
@@ -228,11 +228,6 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-        // here it need to pass pixels above line!
-        self.imp().cursor.replace(context.cursor_lineno);
-        // Diff labels have top margin with height of line.
-        // it does not need to highlight them, only highlight
-        // diff label itself
         match context.cursor_position {
             CursorPosition::CursorDiff(_) => {
                 self.imp().double_height_line.replace(true)
