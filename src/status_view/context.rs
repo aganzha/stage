@@ -38,12 +38,6 @@ pub struct StatusRenderContext<'a> {
     pub cursor_hunk: Option<&'a Hunk>,
     pub cursor_line: Option<&'a Line>,
 
-    pub active_diff: Option<&'a Diff>,
-    pub active_file: Option<&'a File>,
-    pub active_hunk: Option<&'a Hunk>,
-    // its stupid, cause its not unique!
-    pub active_line: Option<&'a Line>,
-
     // this is sliding values during render.
     // at the end of render they will
     // show last visited structures!
@@ -74,11 +68,6 @@ impl StatusRenderContext<'_> {
                 cursor_file: None,
                 cursor_hunk: None,
                 cursor_line: None,
-
-                active_diff: None,
-                active_file: None,
-                active_hunk: None,
-                active_line: None,
 
                 sliding_diff: None,
                 sliding_file: None,

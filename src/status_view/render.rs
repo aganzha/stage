@@ -610,7 +610,6 @@ impl ViewContainer for Diff {
     // Diff
     fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
         context.cursor_diff = Some(self);
-        context.active_diff = Some(self);
     }
 }
 
@@ -699,8 +698,6 @@ impl ViewContainer for File {
 
     // File
     fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-        context.active_diff = context.sliding_diff;
-        context.active_file = Some(self);
         context.cursor_file = Some(self);
     }
 }
@@ -811,9 +808,6 @@ impl ViewContainer for Hunk {
 
     // Hunk
     fn fill_under_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.active_diff = ctx.sliding_diff;
-        ctx.active_file = ctx.sliding_file;
-        ctx.active_hunk = Some(self);
         ctx.cursor_hunk = Some(self);
     }
 }
@@ -880,10 +874,6 @@ impl ViewContainer for Line {
 
     // Line
     fn fill_under_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.active_diff = ctx.sliding_diff;
-        ctx.active_file = ctx.sliding_file;
-        ctx.active_hunk = ctx.sliding_hunk;
-        ctx.active_line = Some(self);
         ctx.cursor_line = Some(self);
     }
 
@@ -1417,14 +1407,4 @@ impl Diff {
         self.last_visible_line() >= line_no
     }
 
-    // pub fn nearest(&self, line_no: i32, context: &StatusRenderContext) ->(Option<i32>, Option<i32>) {
-    //     if let Some(file) = context.active_file {
-    //         debug!("----------------> file {:?} at line {:?} and cursor is {:?}", file.path, file.view.line_no.get(), line_no);
-    //     }
-    //     if let Some(hunk) = context.active_hunk {
-    //         debug!("----------------> hunk {:?} at line {:?} and cursor is {:?}", hunk.header, hunk.view.line_no.get(), line_no);
-    //     }
-    //     // _, hack to view what is in context!
-    //     (None, Some(line_no))
-    // }
 }
