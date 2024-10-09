@@ -1012,7 +1012,7 @@ impl Status {
         glib::source::timeout_add_local(Duration::from_millis(10), {
             let txt = txt.clone();
             let mut context = StatusRenderContext::new();
-            context.cursor = ctx.cursor; // resize highlights
+            context.cursor_lineno = ctx.cursor_lineno; // resize highlights
             context.highlight_lines = ctx.highlight_lines;
             context.highlight_hunks.clone_from(&ctx.highlight_hunks);
             move || {
@@ -1046,7 +1046,7 @@ impl Status {
         // it is used only once in resize_highlights for copy!
 
         // is used to highlight cursor line
-        context.cursor = line_no; // cursor
+        context.cursor_lineno = line_no; // cursor
 
         let mut changed = false;
         let buffer = txt.buffer();
