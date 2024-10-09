@@ -4,19 +4,14 @@
 
 use crate::{Diff, DiffKind, File, Hunk, Line};
 
-
-// #[derive(Debug, Clone)]
-// pub enum UserOpLine {
-//     Diff(i32),
-//     File(i32),
-//     Hunk(i32),
-//     Line(i32),
-// }
-// #[derive(Debug, Clone)]
-// pub struct UserOp {
-//     diff_kind: DiffKind,
-//     line: UserOpLine,
-// }
+#[derive(Debug, Clone)]
+pub enum CursorPosition<'a> {
+    CursorDiff(&'a Diff),
+    CursorFile(&'a File),
+    CursorHunk(&'a Hunk),
+    CursorLine(&'a Line),
+    None
+}
 
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
@@ -24,14 +19,20 @@ pub struct StatusRenderContext<'a> {
     /// diff_kind is used by reconcilation
     /// it just passes DiffKind down to hunks
     /// and lines
+    /// TODO: replace it with the link to diff!
+    /// same as line gets link to the hunk!
     pub diff_kind: Option<DiffKind>,
-    // TODO! kill it!
-    pub max_len: Option<i32>,
-    // TODO! kill it!
+
+    /// is used to highlight cursor line
     pub cursor: i32,
+    /// same for hunks and line ranges
     pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>,
 
+    /// introduce
+    pub cursor_position: CursorPosition<'a>,
+
+    
     // rename to current as view: active-current etc!
     pub cursor_diff: Option<&'a Diff>,
     pub cursor_file: Option<&'a File>,
@@ -59,11 +60,11 @@ impl StatusRenderContext<'_> {
             Self {
                 erase_counter: 0,
                 diff_kind: None,
-                max_len: None,
                 cursor: 0,
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
 
+                cursor_position: CursorPosition::None,
                 cursor_diff: None,
                 cursor_file: None,
                 cursor_hunk: None,

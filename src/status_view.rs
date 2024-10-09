@@ -1044,7 +1044,8 @@ impl Status {
         // context must receive ViewContainer as
         // argument and use its line_no to store cursor!
         // it is used only once in resize_highlights for copy!
-        // SO, get rid of context.cursor!
+
+        // is used to highlight cursor line
         context.cursor = line_no; // cursor
 
         let mut changed = false;

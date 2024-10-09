@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 
-use crate::status_view::context::StatusRenderContext;
+use crate::status_view::context::{StatusRenderContext, CursorPosition};
 
 use crate::status_view::tags;
 use async_channel::Sender;
@@ -233,9 +233,19 @@ impl StageView {
         // Diff labels have top margin with height of line.
         // it does not need to highlight them, only highlight
         // diff label itself
-        self.imp()
-            .double_height_line
-            .replace(context.cursor_diff.is_some());
+        match context.cursor_position {
+            CursorPosition::CursorDiff(_) => {
+                self.imp().double_height_line.replace(true)
+            },
+            _ => {
+                self.imp().double_height_line.replace(false)
+            }
+        };
+        
+        // self.imp()
+        //     .double_height_line
+        //     .replace(context.cursor_diff.is_some());
+        
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
         } else {
