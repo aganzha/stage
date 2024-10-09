@@ -934,7 +934,6 @@ impl ViewContainer for Line {
         }
 
         if let Some(diff) = context.selected_diff {
-            debug!("------------------> {:?}", diff.kind);
             if diff.kind == DiffKind::Conflicted {
                 if let Some(line) = context.selected_line {
                     match &line.kind {

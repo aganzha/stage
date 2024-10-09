@@ -15,14 +15,9 @@ pub enum CursorPosition<'a> {
 
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
-    pub erase_counter: i32,
-    /// diff_kind is used by reconcilation
-    /// it just passes DiffKind down to hunks
-    /// and lines
-    /// TODO: replace it with the link to diff!
-    /// same as line gets link to the hunk!
-    pub diff_kind: Option<DiffKind>,
 
+    pub erase_counter: i32,
+    
     /// is used to highlight cursor line
     pub cursor: i32,
     /// same for hunks and line ranges
@@ -59,7 +54,7 @@ impl StatusRenderContext<'_> {
         {
             Self {
                 erase_counter: 0,
-                diff_kind: None,
+
                 cursor: 0,
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
