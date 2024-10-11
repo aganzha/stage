@@ -110,6 +110,7 @@ pub trait ViewContainer {
         &'a self,
         _buffer: &TextBuffer,
         _ctx: &mut StatusRenderContext<'a>,
+        _active_changed: bool,
     ) {
     }
 
@@ -175,13 +176,6 @@ pub trait ViewContainer {
         for t in &self.tags(context) {
             self.add_tag(buffer, t);
         }
-    }
-
-    fn adjust_tags_on_cursor_change<'a>(
-        &'a self,
-        _buffer: &TextBuffer,
-        _context: &mut StatusRenderContext<'a>,
-    ) {
     }
 
     // ViewContainer
@@ -280,7 +274,8 @@ pub trait ViewContainer {
             self.fill_cursor_position(context)
         } else {
             for child in self.get_children() {
-                some_child_is_current = child.find_cursor_position(line_no, context);
+                some_child_is_current =
+                    child.find_cursor_position(line_no, context);
                 if some_child_is_current {
                     break;
                 }
@@ -300,11 +295,13 @@ pub trait ViewContainer {
     ) -> bool {
         let view = self.get_view();
 
+        let was_active = view.is_active();
+
         let is_current = view.is_rendered_in(line_no);
         if is_current {
             self.fill_cursor_position(context);
         }
-        
+
         let active_by_parent =
             self.is_active_by_parent(parent_active, context);
 
@@ -316,15 +313,16 @@ pub trait ViewContainer {
         if is_active {
             // todo - put in 1 method
             self.fill_under_cursor(context);
-            self.adjust_tags_on_cursor_change(buffer, context);
         }
 
         for child in self.get_children() {
             child.cursor(buffer, line_no, is_active, context);
         }
+
         view.activate(is_active);
         view.make_current(is_current);
-        self.after_cursor(buffer, context);
+
+        self.after_cursor(buffer, context, was_active != view.is_active());
         is_active
     }
 
@@ -519,6 +517,7 @@ impl ViewContainer for Diff {
         &'a self,
         buffer: &TextBuffer,
         ctx: &mut StatusRenderContext<'a>,
+        _active_changed: bool,
     ) {
         // used to wrap all diff in tags.
         // is it necessary? yes, it is used
@@ -683,6 +682,7 @@ impl ViewContainer for File {
         &'a self,
         _buffer: &TextBuffer,
         _context: &mut StatusRenderContext<'a>,
+        _active_changed: bool,
     ) {
     }
 
@@ -764,6 +764,7 @@ impl ViewContainer for Hunk {
         &'a self,
         _buffer: &TextBuffer,
         ctx: &mut StatusRenderContext<'a>,
+        _active_changed: bool,
     ) {
         if self.view.is_rendered() {
             ctx.collect_hunk_highlights(self.view.line_no.get());
@@ -849,13 +850,41 @@ impl ViewContainer for Line {
     // Line
     fn after_cursor<'a>(
         &'a self,
-        _buffer: &TextBuffer,
+        buffer: &TextBuffer,
         ctx: &mut StatusRenderContext<'a>,
+        active_changed: bool,
     ) {
         if self.view.is_rendered() && self.view.is_active() {
             // hm. collecting lines for highlight.
             // but where am i collecting active_lines?
             ctx.collect_line_highlights(self.view.line_no.get());
+        }
+        if active_changed {
+            let added = make_tag(tags::ADDED);
+            let removed = make_tag(tags::REMOVED);
+            let enhanced_added = added.enhance();
+            let enhanced_removed = removed.enhance();
+            match self.origin {
+                DiffLineType::Addition => {
+                    if self.view.is_active() {
+                        self.remove_tag(buffer, &added);
+                        self.add_tag(buffer, &enhanced_added);
+                    } else {
+                        self.remove_tag(buffer, &enhanced_added);
+                        self.add_tag(buffer, &added);
+                    }
+                }
+                DiffLineType::Deletion => {
+                    if self.view.is_active() {
+                        self.remove_tag(buffer, &removed);
+                        self.add_tag(buffer, &enhanced_removed);
+                    } else {
+                        self.remove_tag(buffer, &enhanced_removed);
+                        self.add_tag(buffer, &removed);
+                    }
+                }
+                _ => {}
+            }
         }
     }
 
@@ -945,39 +974,6 @@ impl ViewContainer for Line {
             }
         }
         active
-    }
-
-    // Line
-    fn adjust_tags_on_cursor_change<'a>(
-        &'a self,
-        buffer: &TextBuffer,
-        _context: &mut StatusRenderContext<'a>,
-    ) {
-        let added = make_tag(tags::ADDED);
-        let removed = make_tag(tags::REMOVED);
-        let enhanced_added = added.enhance();
-        let enhanced_removed = removed.enhance();
-        match self.origin {
-            DiffLineType::Addition => {
-                if self.view.is_active() {
-                    self.remove_tag(buffer, &added);
-                    self.add_tag(buffer, &enhanced_added);
-                } else {
-                    self.remove_tag(buffer, &enhanced_added);
-                    self.add_tag(buffer, &added);
-                }
-            }
-            DiffLineType::Deletion => {
-                if self.view.is_active() {
-                    self.remove_tag(buffer, &removed);
-                    self.add_tag(buffer, &enhanced_removed);
-                } else {
-                    self.remove_tag(buffer, &enhanced_removed);
-                    self.add_tag(buffer, &removed);
-                }
-            }
-            _ => {}
-        }
     }
 
     // Line
