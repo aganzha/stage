@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-use crate::{Diff, DiffKind, File, Hunk, Line};
+use crate::{Diff, File, Hunk, Line};
 
 #[derive(Debug, Clone)]
 pub enum CursorPosition<'a> {

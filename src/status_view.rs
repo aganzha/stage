@@ -30,6 +30,7 @@ use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
+use crate::status_view::context::CursorPosition;
 use crate::status_view::view::View;
 use crate::{
     get_current_repo_status, stage_untracked, stage_via_apply, track_changes,
@@ -110,7 +111,7 @@ pub struct LastOp {
 }
 
 #[derive(Debug, Clone)]
-pub struct Status {
+pub struct Status<'a> {
     pub path: Option<PathBuf>,
     pub sender: Sender<Event>,
     pub head: Option<Head>,
@@ -129,9 +130,10 @@ pub struct Status {
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
     pub settings: gio::Settings,
     pub last_op: Option<LastOp>,
+    pub cursor_position: CursorPosition<'a>,
 }
 
-impl Status {
+impl Status<'_> {
     pub fn new(
         path: Option<PathBuf>,
         settings: gio::Settings,
@@ -155,6 +157,7 @@ impl Status {
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
             settings,
             last_op: None,
+            cursor_position: CursorPosition::None
         }
     }
 
@@ -1005,7 +1008,7 @@ impl Status {
     }
 
     pub fn resize_highlights<'a>(
-        &'a self,
+        &'a mut self,
         txt: &StageView,
         ctx: &mut StatusRenderContext<'a>,
     ) {
@@ -1075,12 +1078,13 @@ impl Status {
 
         // this is called once in status_view and 3 times in commit view!!!
         txt.bind_highlights(context);
+        // self.cursor_position = context.cursor_position;
         changed
     }
 
     // Status
     pub fn expand<'a>(
-        &'a self,
+        &'a mut self,
         txt: &StageView,
         line_no: i32,
         _offset: i32,
@@ -1470,6 +1474,7 @@ impl Status {
         if let Some(untracked) = &self.untracked {
             for file in &untracked.files {
                 if file.get_view().is_current() {
+                    todo!("use StageOp here!");
                     gio::spawn_blocking({
                         let path = self.path.clone();
                         let sender = self.sender.clone();
@@ -1572,67 +1577,67 @@ impl Status {
         false
     }
 
-    pub fn dump<'a>(
-        &'a mut self,
-        txt: &StageView,
-        context: &mut StatusRenderContext<'a>,
-    ) {
-        let mut path = self.path.clone().unwrap();
-        path.push(DUMP_DIR);
-        let create_result = std::fs::create_dir(&path);
-        match create_result {
-            Ok(_) => {}
-            Err(err) => {
-                if err.kind() != ErrorKind::AlreadyExists {
-                    panic!("Error {}", err);
-                }
-            }
-        }
-        let datetime: DateTime<Utc> = std::time::SystemTime::now().into();
-        let fname = format!("dump_{}.txt", datetime.format("%d_%m_%Y_%T"));
-        path.push(fname);
-        let mut file = std::fs::File::create(path).unwrap();
+    // pub fn dump<'a>(
+    //     &'a mut self,
+    //     txt: &StageView,
+    //     context: &mut StatusRenderContext<'a>,
+    // ) {
+    //     let mut path = self.path.clone().unwrap();
+    //     path.push(DUMP_DIR);
+    //     let create_result = std::fs::create_dir(&path);
+    //     match create_result {
+    //         Ok(_) => {}
+    //         Err(err) => {
+    //             if err.kind() != ErrorKind::AlreadyExists {
+    //                 panic!("Error {}", err);
+    //             }
+    //         }
+    //     }
+    //     let datetime: DateTime<Utc> = std::time::SystemTime::now().into();
+    //     let fname = format!("dump_{}.txt", datetime.format("%d_%m_%Y_%T"));
+    //     path.push(fname);
+    //     let mut file = std::fs::File::create(path).unwrap();
 
-        let buffer = txt.buffer();
+    //     let buffer = txt.buffer();
 
-        let pos = buffer.cursor_position();
-        let iter = buffer.iter_at_offset(pos);
-        self.cursor(txt, iter.line(), iter.offset(), context);
-        self.render(txt, None, context);
+    //     let pos = buffer.cursor_position();
+    //     let iter = buffer.iter_at_offset(pos);
+    //     self.cursor(txt, iter.line(), iter.offset(), context);
+    //     self.render(txt, None, context);
 
-        let iter = buffer.iter_at_offset(0);
-        let end_iter = buffer.end_iter();
-        let content = buffer.text(&iter, &end_iter, true);
-        file.write_all(content.as_bytes()).unwrap();
-        file.write_all("\n ================================= \n".as_bytes())
-            .unwrap();
-        file.write_all(format!("context: {:?}", context).as_bytes())
-            .unwrap();
-        if let Some(conflicted) = &self.conflicted {
-            file.write_all(
-                "\n ==============Coflicted================= \n".as_bytes(),
-            )
-            .unwrap();
-            file.write_all(conflicted.dump().as_bytes()).unwrap();
-        }
-        if let Some(unstaged) = &self.unstaged {
-            file.write_all(
-                "\n ==============UnStaged================= \n".as_bytes(),
-            )
-            .unwrap();
-            file.write_all(unstaged.dump().as_bytes()).unwrap();
-        }
-        if let Some(staged) = &self.staged {
-            file.write_all(
-                "\n ==============Staged================= \n".as_bytes(),
-            )
-            .unwrap();
-            file.write_all(staged.dump().as_bytes()).unwrap();
-        }
-        self.sender
-            .send_blocking(Event::Toast(String::from("dumped")))
-            .expect("cant send through sender");
-    }
+    //     let iter = buffer.iter_at_offset(0);
+    //     let end_iter = buffer.end_iter();
+    //     let content = buffer.text(&iter, &end_iter, true);
+    //     file.write_all(content.as_bytes()).unwrap();
+    //     file.write_all("\n ================================= \n".as_bytes())
+    //         .unwrap();
+    //     file.write_all(format!("context: {:?}", context).as_bytes())
+    //         .unwrap();
+    //     if let Some(conflicted) = &self.conflicted {
+    //         file.write_all(
+    //             "\n ==============Coflicted================= \n".as_bytes(),
+    //         )
+    //         .unwrap();
+    //         file.write_all(conflicted.dump().as_bytes()).unwrap();
+    //     }
+    //     if let Some(unstaged) = &self.unstaged {
+    //         file.write_all(
+    //             "\n ==============UnStaged================= \n".as_bytes(),
+    //         )
+    //         .unwrap();
+    //         file.write_all(unstaged.dump().as_bytes()).unwrap();
+    //     }
+    //     if let Some(staged) = &self.staged {
+    //         file.write_all(
+    //             "\n ==============Staged================= \n".as_bytes(),
+    //         )
+    //         .unwrap();
+    //         file.write_all(staged.dump().as_bytes()).unwrap();
+    //     }
+    //     self.sender
+    //         .send_blocking(Event::Toast(String::from("dumped")))
+    //         .expect("cant send through sender");
+    // }
     pub fn head_oid(&self) -> crate::Oid {
         self.head.as_ref().unwrap().oid
     }
