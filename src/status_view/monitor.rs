@@ -14,7 +14,7 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-impl Status {
+impl Status<'_> {
     pub fn lock_monitors(&mut self, lock: bool) {
         self.monitor_global_lock.replace(lock);
     }
