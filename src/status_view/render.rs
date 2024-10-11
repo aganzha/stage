@@ -23,6 +23,7 @@ use crate::{
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
+use libadwaita::StyleManager;
 use log::{debug, trace};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -854,36 +855,38 @@ impl ViewContainer for Line {
         ctx: &mut StatusRenderContext<'a>,
         active_changed: bool,
     ) {
-        if self.view.is_rendered() && self.view.is_active() {
+        if self.view.is_rendered() {
             // hm. collecting lines for highlight.
             // but where am i collecting active_lines?
-            ctx.collect_line_highlights(self.view.line_no.get());
-        }
-        if active_changed {
-            let added = make_tag(tags::ADDED);
-            let removed = make_tag(tags::REMOVED);
-            let enhanced_added = added.enhance();
-            let enhanced_removed = removed.enhance();
-            match self.origin {
-                DiffLineType::Addition => {
-                    if self.view.is_active() {
-                        self.remove_tag(buffer, &added);
-                        self.add_tag(buffer, &enhanced_added);
-                    } else {
-                        self.remove_tag(buffer, &enhanced_added);
-                        self.add_tag(buffer, &added);
+            if self.view.is_active() {
+                ctx.collect_line_highlights(self.view.line_no.get());
+            }
+            if active_changed {
+                let added = make_tag(tags::ADDED);
+                let removed = make_tag(tags::REMOVED);
+                let enhanced_added = added.enhance();
+                let enhanced_removed = removed.enhance();
+                match self.origin {
+                    DiffLineType::Addition => {
+                        if self.view.is_active() {
+                            self.remove_tag(buffer, &added);
+                            self.add_tag(buffer, &enhanced_added);
+                        } else {
+                            self.remove_tag(buffer, &enhanced_added);
+                            self.add_tag(buffer, &added);
+                        }
                     }
-                }
-                DiffLineType::Deletion => {
-                    if self.view.is_active() {
-                        self.remove_tag(buffer, &removed);
-                        self.add_tag(buffer, &enhanced_removed);
-                    } else {
-                        self.remove_tag(buffer, &enhanced_removed);
-                        self.add_tag(buffer, &removed);
+                    DiffLineType::Deletion => {
+                        if self.view.is_active() {
+                            self.remove_tag(buffer, &removed);
+                            self.add_tag(buffer, &enhanced_removed);
+                        } else {
+                            self.remove_tag(buffer, &enhanced_removed);
+                            self.add_tag(buffer, &removed);
+                        }
                     }
+                    _ => {}
                 }
-                _ => {}
             }
         }
     }
@@ -1214,16 +1217,22 @@ impl ViewContainer for Head {
             "Detached head".to_string()
         };
         let short = self.oid.to_string()[..7].to_string();
+        let color = if StyleManager::default().is_dark() {
+            "#839daf"
+        } else {
+            "#4a708b"
+        };
         buffer.insert_markup(
             iter,
             &format!(
-                "{} <span color=\"#1C71D8\">{}</span> <span color=\"#4a708b\">{}</span> {}",
+                "{} <span color=\"#1C71D8\">{}</span> <span color=\"{}\">{}</span> {}",
                 if !self.is_upstream {
                     "Head:     "
                 } else {
                     "Upstream: "
                 },
                 short,
+                color,
                 title,
                 self.log_message
             ),
