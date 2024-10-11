@@ -4,6 +4,7 @@
 
 use crate::dialogs::{alert, ConfirmDialog, DangerDialog, YES};
 use crate::git::{commit, git_log};
+use crate::{DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
 use core::time::Duration;
 use git2::Oid;
@@ -634,9 +635,6 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
 
     factory
 }
-
-pub const DARK_CLASS: &str = "dark";
-pub const LIGHT_CLASS: &str = "light";
 
 pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
     let commit_list = CommitList::new();

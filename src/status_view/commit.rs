@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::dialogs::alert;
-use crate::{git::commit as git_commit, Event};
+use crate::{git::commit as git_commit, Event, DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
 use gtk4::prelude::*;
 use gtk4::{
@@ -15,9 +15,6 @@ use libadwaita::{ApplicationWindow, EntryRow, StyleManager, SwitchRow};
 use log::debug;
 use std::cell::RefCell;
 use std::path::PathBuf;
-
-pub const DARK_CLASS: &str = "dark";
-pub const LIGHT_CLASS: &str = "light";
 
 pub fn commit(
     path: Option<PathBuf>,

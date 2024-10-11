@@ -23,10 +23,12 @@ listview.dark {
     padding: 0;
 }
 
-banner.error revealer widget {
+banner.error.light revealer widget {
     background-color: #fbf0f3;
 }
-
+banner.error.light revealer widget {
+    background-color: #2b2023;
+}
 /* this used only in commit and alert views
    stage_views are painted by bg_fill
 */

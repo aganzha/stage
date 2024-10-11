@@ -23,12 +23,12 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use log::{debug, trace};
-
 use crate::dialogs::{
     alert, confirm_dialog_factory, ConfirmDialog, DangerDialog, YES,
 };
 use crate::git::{commit, tag};
+use crate::{DARK_CLASS, LIGHT_CLASS};
+use log::{debug, trace};
 
 glib::wrapper! {
     pub struct TagItem(ObjectSubclass<tag_item::TagItem>);
@@ -1008,9 +1008,6 @@ pub fn headerbar_factory(
     hb.pack_end(&revert_btn);
     hb
 }
-
-pub const DARK_CLASS: &str = "dark";
-pub const LIGHT_CLASS: &str = "light";
 
 pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
     let tag_list = TagList::new();
