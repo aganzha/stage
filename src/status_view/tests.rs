@@ -92,11 +92,12 @@ pub fn test_file_active() {
 
     let mut line_no = (&diff.files[0]).view.line_no.get();
     diff.cursor(&buffer, line_no, false, &mut context);
+
     assert!((&diff.files[0]).view.is_current());
     assert!((&diff.files[0]).view.is_active());
 
     // put cursor on file
-    diff.files[0].cursor(&buffer, line_no, false, &mut context);
+    // diff.files[0].cursor(&buffer, line_no, false, &mut context);
 
     // expand it
     diff.files[0].expand(line_no, &mut context).unwrap();
@@ -118,13 +119,23 @@ pub fn test_file_active() {
         }
     }
     // goto next line
-    line_no += 1;
+    line_no = diff.files[1].view.line_no.get();
     diff.cursor(&buffer, line_no, false, &mut context);
-    assert!(!(&diff.files[0]).view.is_active());
-    assert!(diff.files[0].hunks[0].view.is_rendered());
-    assert!(diff.files[0].hunks[0].view.is_current());
-    assert!(diff.files[0].hunks[0].view.is_active());
-    for line in &diff.files[0].hunks[0].lines {
+
+    assert!(!(&diff.files[0]).view.is_active());    
+    assert!(diff.files[1].view.is_current());
+
+    diff.files[1].expand(line_no, &mut context).unwrap();
+    let mut iter = buffer.iter_at_offset(0);
+    // successive expand always followed by render
+    diff.render(&buffer, &mut iter, &mut context);
+    // any render always follow cursor
+    diff.cursor(&buffer, line_no, false, &mut context);
+    
+    assert!(diff.files[1].hunks[0].view.is_rendered());
+    assert!(diff.files[1].hunks[0].view.is_active());
+    assert!(diff.files[1].hunks[0].view.is_expanded());
+    for line in &diff.files[1].hunks[0].lines {
         assert!(line.view.is_rendered());
         assert!(line.view.is_active());
     }
