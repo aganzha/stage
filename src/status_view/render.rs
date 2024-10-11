@@ -274,16 +274,19 @@ pub trait ViewContainer {
         line_no: i32,
         context: &mut StatusRenderContext<'a>,
     ) -> bool {
-        let mut active = self.get_view().is_rendered_in(line_no);
-        if active {
+        let is_current = self.get_view().is_rendered_in(line_no);
+        let mut some_child_is_current = false;
+        if is_current {
             self.fill_cursor_position(context)
         } else {
             for child in self.get_children() {
-                active =
-                    active || child.find_cursor_position(line_no, context);
+                some_child_is_current = child.find_cursor_position(line_no, context);
+                if some_child_is_current {
+                    break;
+                }
             }
         }
-        active
+        is_current || some_child_is_current
     }
 
     // ViewContainer
@@ -298,7 +301,10 @@ pub trait ViewContainer {
         let view = self.get_view();
 
         let is_current = view.is_rendered_in(line_no);
-
+        if is_current {
+            self.fill_cursor_position(context);
+        }
+        
         let active_by_parent =
             self.is_active_by_parent(parent_active, context);
 
