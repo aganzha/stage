@@ -32,18 +32,9 @@ use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status,
-    stage_untracked,
-    stage_via_apply,
-    track_changes,
-    Diff,
-    DiffKind,
-    Event,
-    File as GitFile,
-    Head,
-    StageOp,
-    State,
-    StatusRenderContext, //, Untracked,
+    get_current_repo_status, stage_untracked, stage_via_apply, track_changes,
+    Diff, DiffKind, Event, File as GitFile, Head, StageOp, State,
+    StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
 };
 use async_channel::Sender;
 
@@ -60,7 +51,7 @@ use gtk4::{
 use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, Banner, ButtonContent, EntryRow, PasswordEntryRow,
-    StatusPage, SwitchRow,
+    StatusPage, StyleManager, SwitchRow,
 };
 use log::{debug, info, trace};
 
@@ -769,7 +760,13 @@ impl Status {
                 }
                 if state.need_final_commit() || state.need_rebase_continue() {
                     banner.set_title(&state.title_for_proceed_banner());
-                    banner.set_css_classes(&["success"]);
+                    banner.set_css_classes(
+                        if StyleManager::default().is_dark() {
+                            &[DARK_CLASS, "success"]
+                        } else {
+                            &[LIGHT_CLASS, "success"]
+                        },
+                    );
                     banner.set_button_label(if state.need_final_commit() {
                         Some("Commit")
                     } else {
@@ -830,7 +827,11 @@ impl Status {
                 }
             } else if !banner.is_revealed() {
                 banner.set_title(&state.title_for_conflict_banner());
-                banner.set_css_classes(&["error"]);
+                banner.set_css_classes(if StyleManager::default().is_dark() {
+                    &[DARK_CLASS, "error"]
+                } else {
+                    &[LIGHT_CLASS, "error"]
+                });
                 banner.set_button_label(Some("Abort"));
                 banner_button.set_css_classes(&["destructive-action"]);
                 banner.set_revealed(true);

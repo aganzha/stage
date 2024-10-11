@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use crate::status_view::context::{CursorPosition, StatusRenderContext};
-
 use crate::status_view::tags;
+use crate::{DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
 use core::time::Duration;
 
@@ -261,9 +261,6 @@ impl StageView {
         width / (x_after - x_before)
     }
 }
-
-pub const DARK_CLASS: &str = "dark";
-pub const LIGHT_CLASS: &str = "light";
 
 pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let manager = StyleManager::default();

@@ -6,6 +6,7 @@ use async_channel::Sender;
 
 use crate::dialogs::{alert, ConfirmDialog, YES};
 use crate::git::{branch, commit, merge, rebase, remote};
+use crate::{DARK_CLASS, LIGHT_CLASS};
 use git2::BranchType;
 use glib::{clone, closure, Object};
 use gtk4::prelude::*;
@@ -837,9 +838,6 @@ pub fn item_factory() -> SignalListItemFactory {
 
     factory
 }
-
-pub const DARK_CLASS: &str = "dark";
-pub const LIGHT_CLASS: &str = "light";
 
 pub fn listview_factory(
     repo_path: PathBuf,

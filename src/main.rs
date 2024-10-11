@@ -63,6 +63,9 @@ use regex::Regex;
 
 const APP_ID: &str = "com.github.aganzha.stage";
 
+pub const DARK_CLASS: &str = "dark";
+pub const LIGHT_CLASS: &str = "light";
+
 fn main() -> glib::ExitCode {
     let app = Application::builder()
         .application_id(APP_ID)
