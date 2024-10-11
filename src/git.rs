@@ -364,9 +364,7 @@ impl Hunk {
                 DiffLineType::FileHeader
                 | DiffLineType::HunkHeader
                 | DiffLineType::Binary => {}
-                _ => {
-                    self.lines.push(line)
-                }
+                _ => self.lines.push(line),
             }
             return LineKind::None;
         }
@@ -393,10 +391,7 @@ impl Hunk {
             (LineKind::ConflictMarker(marker), LineKind::None)
                 if marker == marker_ours =>
             {
-                trace!(
-                    "sec match. ours after ours MARKER ??????????? {:?}",
-                    marker_ours
-                );
+                trace!("sec match. ours after ours MARKER {:?}", marker_ours);
                 line.kind = LineKind::Ours(self.conflict_markers_count)
             }
             (LineKind::Ours(_), LineKind::None) => {
@@ -433,9 +428,7 @@ impl Hunk {
             DiffLineType::FileHeader
             | DiffLineType::HunkHeader
             | DiffLineType::Binary => {}
-            _ => {
-                self.lines.push(line)
-            }
+            _ => self.lines.push(line),
         }
         trace!("........return this_kind {:?}", this_kind);
         trace!("");
@@ -571,10 +564,12 @@ impl State {
         }
     }
     pub fn need_final_commit(&self) -> bool {
-        matches!(self.state,
+        matches!(
+            self.state,
             RepositoryState::Merge
-            | RepositoryState::CherryPick
-            | RepositoryState::Revert)
+                | RepositoryState::CherryPick
+                | RepositoryState::Revert
+        )
     }
     pub fn need_rebase_continue(&self) -> bool {
         matches!(self.state, RepositoryState::RebaseMerge)
@@ -999,12 +994,15 @@ pub fn get_conflicted_v1(
             }
         }
         if !hunks_to_join.is_empty() {
-            let interhunk = hunks_to_join.iter().fold(HunkLineNo::new(0), |acc, from_to| {
-                if acc < from_to.1 - from_to.0 {
-                    return from_to.1 - from_to.0;
-                }
-                acc
-            });
+            let interhunk = hunks_to_join.iter().fold(
+                HunkLineNo::new(0),
+                |acc, from_to| {
+                    if acc < from_to.1 - from_to.0 {
+                        return from_to.1 - from_to.0;
+                    }
+                    acc
+                },
+            );
             opts.interhunk_lines(interhunk.as_u32());
             let git_diff = repo
                 .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
@@ -1054,7 +1052,6 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
             .expect("Could not send through channel");
     }
 }
-
 
 pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let mut diff = Diff::new(kind.clone());
@@ -1294,7 +1291,8 @@ impl Drop for DeferRefresh {
                 let path = self.path.clone();
                 let sender = self.sender.clone();
                 move || {
-                    get_current_repo_status(Some(path), sender).expect("cant get status");
+                    get_current_repo_status(Some(path), sender)
+                        .expect("cant get status");
                 }
             });
         }
@@ -1335,7 +1333,8 @@ pub fn reset_hard(
     }
     gio::spawn_blocking({
         move || {
-            get_current_repo_status(Some(path), sender).expect("cant get status");
+            get_current_repo_status(Some(path), sender)
+                .expect("cant get status");
         }
     });
     Ok(true)
@@ -1442,7 +1441,8 @@ pub fn track_changes(
             // this means file was in conflicted but now it is fixed manually!
             // PERHAPS it is no longer in index conflicts.
             // it must be in staged or unstaged then
-            get_current_repo_status(Some(path), sender).expect("cant get status");
+            get_current_repo_status(Some(path), sender)
+                .expect("cant get status");
             return;
         }
         let mut opts = make_diff_options();

@@ -14,7 +14,6 @@ use gtk4::{TextBuffer, TextIter};
 use log::debug;
 use regex::Regex;
 
-
 impl Hunk {
     // used in tests only
     pub fn fill_from_header(&mut self) {

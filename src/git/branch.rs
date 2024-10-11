@@ -10,8 +10,8 @@ use git2;
 use gtk4::gio;
 use log::info;
 use std::cmp::Ordering;
-use std::path::PathBuf;
 use std::fmt;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct BranchName(String);
@@ -38,7 +38,6 @@ impl fmt::Display for BranchName {
         write!(f, "{}", self.0)
     }
 }
-
 
 pub trait NamedBranch {
     fn branch_name(&self) -> BranchName;

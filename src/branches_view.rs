@@ -18,8 +18,8 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, EntryRow, HeaderBar, SwitchRow, ToolbarView, Window,
-    StyleManager
+    ApplicationWindow, EntryRow, HeaderBar, StyleManager, SwitchRow,
+    ToolbarView, Window,
 };
 use log::{debug, info, trace};
 use std::path::PathBuf;
@@ -862,7 +862,7 @@ pub fn listview_factory(
     let _ = bind.bidirectional().build();
 
     let branch_list = model.downcast_ref::<BranchList>().unwrap();
-    
+
     let mut classes = glib::collections::strv::StrV::new();
     classes.extend_from_slice(if StyleManager::default().is_dark() {
         &[DARK_CLASS]
@@ -878,9 +878,8 @@ pub fn listview_factory(
         .margin_top(12)
         .margin_bottom(12)
         .show_separators(true)
-        .css_classes(
-            classes
-        ).build();
+        .css_classes(classes)
+        .build();
 
     list_view.connect_activate({
         let repo_path = repo_path.clone();
