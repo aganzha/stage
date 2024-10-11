@@ -5,7 +5,9 @@
 use async_channel::Sender;
 use glib::{clone, Object};
 use libadwaita::prelude::*;
-use libadwaita::{EntryRow, HeaderBar, SwitchRow, ToolbarView, Window, StyleManager};
+use libadwaita::{
+    EntryRow, HeaderBar, StyleManager, SwitchRow, ToolbarView, Window,
+};
 
 use core::time::Duration;
 use git2::Oid;
@@ -1009,7 +1011,6 @@ pub fn headerbar_factory(
 
 pub const DARK_CLASS: &str = "dark";
 pub const LIGHT_CLASS: &str = "light";
-
 
 pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
     let tag_list = TagList::new();

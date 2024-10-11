@@ -17,7 +17,7 @@ use gtk4::{
     SingleSelection, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, ToolbarView, Window, StyleManager};
+use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
 use log::trace;
 use std::cell::RefCell;
 

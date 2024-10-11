@@ -54,9 +54,8 @@ use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Align, Button, FileDialog,
-    ListBox, SelectionMode, TextBuffer, TextIter, Widget,
-    Window as GTKWindow,
+    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, TextBuffer,
+    TextIter, Widget, Window as GTKWindow,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -169,7 +168,10 @@ impl Status {
     }
 
     pub fn file_at_cursor(&self) -> Option<&GitFile> {
-        for diff in [&self.staged, &self.unstaged, &self.conflicted].into_iter().flatten() {
+        for diff in [&self.staged, &self.unstaged, &self.conflicted]
+            .into_iter()
+            .flatten()
+        {
             let maybe_file = diff.files.iter().find(|f| {
                 f.view.is_current()
                     || f.hunks.iter().any(|h| h.view.is_active())
@@ -240,7 +242,6 @@ impl Status {
         // but the 'dirty' path will be used first
         // for querying repo status and investigate real one
         if user_action {
-
             self.stashes.take();
             self.branches.take();
 
@@ -319,7 +320,8 @@ impl Status {
             let path = self.path.clone();
             let sender = self.sender.clone();
             move || {
-                get_current_repo_status(path, sender).expect("cant get status");
+                get_current_repo_status(path, sender)
+                    .expect("cant get status");
             }
         });
     }
@@ -1319,12 +1321,15 @@ impl Status {
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         let last_line = buffer.end_iter().line();
         if iter.line() == last_line {
-            for diff in [&self.conflicted, &self.unstaged, &self.staged].into_iter().flatten() {
+            for diff in [&self.conflicted, &self.unstaged, &self.staged]
+                .into_iter()
+                .flatten()
+            {
                 if !diff.files.is_empty() {
                     return buffer
                         .iter_at_line(diff.files[0].view.line_no.get())
                         .unwrap();
-                }                
+                }
             }
             if iter.line() == last_line {
                 if let Some(untracked) = &self.untracked {
@@ -1648,13 +1653,16 @@ impl Status {
         let line_to = end_iter.line();
         let line_to_offset = end_iter.line_offset();
         let mut clean_content: HashMap<i32, (String, i32)> = HashMap::new();
-        for diff in [&self.conflicted, &self.unstaged, &self.staged].into_iter().flatten() {
-                diff.collect_clean_content(
-                    line_from,
-                    line_to,
-                    &mut clean_content,
-                    context,
-                );
+        for diff in [&self.conflicted, &self.unstaged, &self.staged]
+            .into_iter()
+            .flatten()
+        {
+            diff.collect_clean_content(
+                line_from,
+                line_to,
+                &mut clean_content,
+                context,
+            );
         }
         if !clean_content.is_empty() {
             let clipboard = txt.clipboard();

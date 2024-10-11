@@ -11,7 +11,7 @@ use gtk4::{
     SelectionMode, TextView, WrapMode,
 };
 use libadwaita::prelude::*;
-use libadwaita::{ApplicationWindow, EntryRow, SwitchRow, StyleManager};
+use libadwaita::{ApplicationWindow, EntryRow, StyleManager, SwitchRow};
 use log::debug;
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -71,9 +71,7 @@ pub fn commit(
                 .margin_end(12)
                 .margin_top(12)
                 .margin_bottom(12)
-                .css_classes(
-                    classes
-                )
+                .css_classes(classes)
                 .wrap_mode(WrapMode::Word)
                 .build();
             let scroll = ScrolledWindow::builder()

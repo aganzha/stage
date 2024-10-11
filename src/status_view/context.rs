@@ -10,14 +10,13 @@ pub enum CursorPosition<'a> {
     CursorFile(&'a File),
     CursorHunk(&'a Hunk),
     CursorLine(&'a Line),
-    None
+    None,
 }
 
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
-
     pub erase_counter: i32,
-    
+
     /// same for hunks and line ranges
     pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>,
@@ -25,7 +24,6 @@ pub struct StatusRenderContext<'a> {
     /// introduce
     pub cursor_position: CursorPosition<'a>,
 
-    
     // rename to current as view: active-current etc!
     pub selected_diff: Option<&'a Diff>,
     pub selected_file: Option<&'a File>,

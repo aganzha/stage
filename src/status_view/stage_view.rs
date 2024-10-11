@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-
-use crate::status_view::context::{StatusRenderContext, CursorPosition};
+use crate::status_view::context::{CursorPosition, StatusRenderContext};
 
 use crate::status_view::tags;
 use async_channel::Sender;
@@ -58,7 +57,6 @@ mod stage_view_internal {
 
     #[derive(Default)]
     pub struct StageView {
-
         pub show_cursor: Cell<bool>,
         pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
@@ -158,9 +156,9 @@ mod stage_view_internal {
                     );
                 }
 
-                // highlight cursor ---------------------------------                
+                // highlight cursor ---------------------------------
                 iter.set_offset(buffer.cursor_position());
-                
+
                 let (mut y_from, mut y_to) = self.obj().line_yrange(&iter);
 
                 if self.double_height_line.get() {
@@ -231,12 +229,10 @@ impl StageView {
         match context.cursor_position {
             CursorPosition::CursorDiff(_) => {
                 self.imp().double_height_line.replace(true)
-            },
-            _ => {
-                self.imp().double_height_line.replace(false)
             }
+            _ => self.imp().double_height_line.replace(false),
         };
-        
+
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
         } else {
