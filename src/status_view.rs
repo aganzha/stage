@@ -9,7 +9,7 @@ pub mod monitor;
 pub mod render;
 pub mod stage_view;
 pub mod tags;
-use crate::dialogs::{alert, DangerDialog, YES};
+use crate::dialogs::{alert, DangerDialog, YES, ConfirmDialog};
 use crate::git::{
     abort_rebase, branch::BranchData, continue_rebase, get_head, merge,
     remote, stash, HunkLineNo,
@@ -1634,26 +1634,26 @@ impl Status {
     }
 
     pub fn stage(&mut self, op: StageOp, window: &ApplicationWindow) {
-        if let Some(untracked) = &self.untracked {
-            for file in &untracked.files {
-                if file.get_view().is_current() {
-                    todo!("use StageOp here!");
-                    gio::spawn_blocking({
-                        let path = self.path.clone();
-                        let sender = self.sender.clone();
-                        let file_path = file.path.clone();
-                        move || {
-                            stage_untracked(
-                                path.expect("no path"),
-                                file_path,
-                                sender,
-                            );
-                        }
-                    });
-                    return;
-                }
-            }
-        }
+        // if let Some(untracked) = &self.untracked {
+        //     for file in &untracked.files {
+        //         if file.get_view().is_current() {
+        //             todo!("use StageOp here!");
+        //             gio::spawn_blocking({
+        //                 let path = self.path.clone();
+        //                 let sender = self.sender.clone();
+        //                 let file_path = file.path.clone();
+        //                 move || {
+        //                     stage_untracked(
+        //                         path.expect("no path"),
+        //                         file_path,
+        //                         sender,
+        //                     );
+        //                 }
+        //             });
+        //             return;
+        //         }
+        //     }
+        // }
 
         if self.stage_in_conflict(window) {
             info!(".................this is stage in conflict");
@@ -1667,16 +1667,55 @@ impl Status {
             op, diff_kind, file_path, hunk_header, self.cursor_position
         );
         match diff_kind {
-            Some(DiffKind::Untracked) => {}
+            Some(DiffKind::Untracked) => {
+                match op {
+                    StageOp::Stage(_) => {
+                        glib::spawn_future_local({
+                            let path = self.path.clone();
+                            let sender = self.sender.clone();
+                            let file_path = file_path.clone();
+                            let window = window.clone();
+                            async move {                                
+                                gio::spawn_blocking({                           
+                                    move || {
+                                        stage_untracked(
+                                            path.expect("no path"),
+                                            file_path,
+                                            sender,
+                                        )
+                                    }
+                                }).await
+                                    .unwrap_or_else(|e| {
+                                        alert(format!("{:?}", e)).present(&window);
+                                        Ok(())
+                                    })
+                                    .unwrap_or_else(|e| {
+                                        alert(e).present(&window);
+                                    });;
+                            }
+                        });
+                    }
+                    StageOp::Kill(_) => {
+                        glib::spawn_future_local({
+                            let window = window.clone();
+                            async move {
+                                let response = alert(ConfirmDialog(
+                                    "Kill Untracked files?".to_string(),
+                                    "SOME MESSAGE".to_string(),
+                                )).choose_future(&window).await;
+                                if response != YES {
+                                    return;
+                                }
+                                debug!("proceeeeeeeeed111111111");
+                            }
+                        });
+                    }
+                    _ => {
+                        debug!("unknow op for untracked");
+                    }
+                }
+            }
             Some(DiffKind::Staged) | Some(DiffKind::Unstaged) => {
-                // match self.cursor_position.get() {
-                //     CursorPosition::CursorDiff(DiffKind::Untracked) => {
-                //     }
-                //     CursorPosition::CursorDiff(DiffKind::Untracked) => {
-                //     }
-                //     _ => {
-                //     }
-                // }
                 glib::spawn_future_local({
                     let window = window.clone();
                     let path = self.path.clone();
