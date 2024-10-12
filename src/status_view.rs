@@ -295,7 +295,7 @@ pub struct Status {
 
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
-    pub settings: gio::Settings,
+    //pub settings: gio::Settings,
     pub last_op: Option<LastOp>,
     pub cursor_position: Cell<CursorPosition>,
 }
@@ -303,7 +303,7 @@ pub struct Status {
 impl Status {
     pub fn new(
         path: Option<PathBuf>,
-        settings: gio::Settings,
+        // settings: gio::Settings,
         sender: Sender<Event>,
     ) -> Self {
         Self {
@@ -322,7 +322,7 @@ impl Status {
             branches: None,
             monitor_global_lock: Rc::new(RefCell::new(false)),
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
-            settings,
+            //settings,
             last_op: None,
             cursor_position: Cell::new(CursorPosition::None),
         }
@@ -396,6 +396,7 @@ impl Status {
         path: PathBuf,
         monitors: Rc<RefCell<Vec<FileMonitor>>>,
         user_action: bool,
+        settings: &gio::Settings
     ) {
         // here could come path selected by the user
         // this is 'dirty' one. The right path will
@@ -414,15 +415,15 @@ impl Status {
             // investigated path
             assert!(path.ends_with(".git/"));
             if self.path.is_none() || path != self.path.clone().unwrap() {
-                let mut paths = self.settings.get::<Vec<String>>("paths");
+                let mut paths = settings.get::<Vec<String>>("paths");
                 let str_path =
                     String::from(path.to_str().unwrap()).replace(".git/", "");
-                self.settings
+                settings
                     .set("lastpath", str_path.clone())
                     .expect("cant set lastpath");
                 if !paths.contains(&str_path) {
                     paths.push(str_path.clone());
-                    self.settings
+                    settings
                         .set("paths", paths)
                         .expect("cant set settings");
                 }
@@ -832,10 +833,11 @@ impl Status {
         &'a mut self,
         mut untracked: Option<Diff>,
         txt: &StageView,
+        gio_settings: &gio::Settings,
         context: &mut StatusRenderContext<'a>,
     ) {
         let mut settings =
-            self.settings.get::<HashMap<String, Vec<String>>>("ignored");
+            gio_settings.get::<HashMap<String, Vec<String>>>("ignored");
 
         let repo_path = self.path.clone().unwrap();
         let str_path = repo_path.to_str().unwrap();
@@ -1634,7 +1636,7 @@ impl Status {
         false
     }
 
-    pub fn stage(&mut self, op: StageOp, window: &ApplicationWindow) {
+    pub fn stage(&mut self, op: StageOp, window: &ApplicationWindow, gio_settings: &gio::Settings) {
         if self.stage_in_conflict(window) {
             info!(".................this is stage in conflict");
             return;
@@ -1681,41 +1683,43 @@ impl Status {
                         glib::spawn_future_local({
                             let window = window.clone();
                             let path = self.path.clone();
+                            let gio_settings = gio_settings.clone();
+
+                            let mut ignored = Vec::new();
+                            let mut message = "This will kill all unstaged files!".to_string();
+                            if let Some(file_path) = &file_path {
+                                let str_path = file_path.to_str().expect("wrong path");
+                                ignored.push(str_path.to_string());
+                                message = file_path.to_str()
+                                    .expect("wrong path")
+                                    .to_string();
+                            } else {
+                                if let Some(unstaged) = &self.unstaged {
+                                    for file in &unstaged.files {
+                                        let str_path = file.path.to_str().expect("wrong path");
+                                        ignored.push(str_path.to_string());
+                                    }
+                                }
+                            }
+
                             let mut settings =
-                                self.settings
+                                gio_settings
                                     .get::<HashMap<String, Vec<String>>>(
                                         "ignored",
                                     );
                             async move {
                                 let response = alert(DangerDialog(
                                     "Kill Untracked files?".to_string(),
-                                    if let Some(file_path) = file_path {
-                                        file_path
-                                            .to_str()
-                                            .expect("wrong path")
-                                            .to_string()
-                                    } else {
-                                        "This will kill all unstaged files!"
-                                            .to_string()
-                                    },
+                                    message
                                 ))
                                 .choose_future(&window)
                                 .await;
                                 if response != YES {
                                     return;
                                 }
-                                // let ignore_path = file
-                                //     .path
-                                //     .clone()
-                                //     .into_os_string()
-                                //     .into_string()
-                                //     .expect("wrong string");
-                                // trace!("ignore path! {:?}", ignore_path);
                                 let repo_path = path.expect("no path");
                                 let repo_path =
                                     repo_path.to_str().expect("wrong path");
-                                let mut ignored = Vec::new();
-
                                 if let Some(stored) =
                                     settings.get_mut(repo_path)
                                 {
@@ -1731,9 +1735,9 @@ impl Status {
                                         settings
                                     );
                                 }
-                                // self.settings
-                                //     .set("ignored", settings)
-                                //     .expect("cant set settings");
+                                gio_settings
+                                    .set("ignored", settings)
+                                    .expect("cant set settings");
                                 // self.update_untracked(
                                 //     self.untracked.clone(),
                                 //     txt,
