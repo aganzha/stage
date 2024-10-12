@@ -337,7 +337,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     if split.shows_sidebar() {
                         split.set_show_sidebar(false);
                     }
-                    status.update_path(path, monitors.clone(), true, &settings);
+                    status.update_path(
+                        path,
+                        monitors.clone(),
+                        true,
+                        &settings,
+                    );
                     txt.grab_focus();
                     status.get_status();
                 }
@@ -355,7 +360,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         stage_set = true;
                     }
                     hb_updater(HbUpdateData::Path(path.clone()));
-                    status.update_path(path, monitors.clone(), false, &settings);
+                    status.update_path(
+                        path,
+                        monitors.clone(),
+                        false,
+                        &settings,
+                    );
                 }
                 Event::State(state) => {
                     info!("main. state");
@@ -398,7 +408,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Untracked(untracked) => {
                     info!("main. untracked");
-                    status.update_untracked(untracked, &txt, &settings, &mut ctx);
+                    status.update_untracked(
+                        untracked, &txt, &settings, &mut ctx,
+                    );
                 }
                 Event::Push => {
                     info!("main.push");
