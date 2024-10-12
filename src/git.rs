@@ -1163,12 +1163,13 @@ pub fn stage_untracked(
             return Err(Error::from_str(&format!("symlink path {:?}", pth)));
         } else {
             return Err(Error::from_str(&format!("unknown path {:?}", pth)));
-        }        
+        }
     } else {
-        index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)
+        index
+            .add_all(["*"], git2::IndexAddOption::DEFAULT, None)
             .expect("cant add path");
     }
-    
+
     index.write().expect("cant write index");
     get_current_repo_status(Some(path), sender).expect("cant get status");
     Ok(())

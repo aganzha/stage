@@ -9,7 +9,7 @@ pub mod monitor;
 pub mod render;
 pub mod stage_view;
 pub mod tags;
-use crate::dialogs::{alert, DangerDialog, YES, ConfirmDialog};
+use crate::dialogs::{alert, ConfirmDialog, DangerDialog, YES};
 use crate::git::{
     abort_rebase, branch::BranchData, continue_rebase, get_head, merge,
     remote, stash, HunkLineNo,
@@ -1521,49 +1521,50 @@ impl Status {
         _offset: i32,
         context: &mut StatusRenderContext<'a>,
     ) {
-        if let Some(untracked) = &self.untracked {
-            for file in &untracked.files {
-                // TODO!
-                // refactor to some generic method
-                // why other elements do not using this?
-                let view = file.get_view();
-                if view.is_current() && view.line_no.get() == line_no {
-                    let ignore_path = file
-                        .path
-                        .clone()
-                        .into_os_string()
-                        .into_string()
-                        .expect("wrong string");
-                    trace!("ignore path! {:?}", ignore_path);
-                    let mut settings =
-                        self.settings
-                            .get::<HashMap<String, Vec<String>>>("ignored");
-                    let repo_path = self
-                        .path
-                        .clone()
-                        .expect("no path")
-                        .into_os_string()
-                        .into_string()
-                        .expect("wrong path");
-                    if let Some(stored) = settings.get_mut(&repo_path) {
-                        stored.push(ignore_path);
-                        trace!("added ignore {:?}", settings);
-                    } else {
-                        settings.insert(repo_path, vec![ignore_path]);
-                        trace!("first ignored file {:?}", settings);
-                    }
-                    self.settings
-                        .set("ignored", settings)
-                        .expect("cant set settings");
-                    self.update_untracked(
-                        self.untracked.clone(),
-                        txt,
-                        context,
-                    );
-                    break;
-                }
-            }
-        }
+        todo!("ignore files are not yet implemented");
+        // if let Some(untracked) = &self.untracked {
+        //     for file in &untracked.files {
+        //         // TODO!
+        //         // refactor to some generic method
+        //         // why other elements do not using this?
+        //         let view = file.get_view();
+        //         if view.is_current() && view.line_no.get() == line_no {
+        //             let ignore_path = file
+        //                 .path
+        //                 .clone()
+        //                 .into_os_string()
+        //                 .into_string()
+        //                 .expect("wrong string");
+        //             trace!("ignore path! {:?}", ignore_path);
+        //             let mut settings =
+        //                 self.settings
+        //                     .get::<HashMap<String, Vec<String>>>("ignored");
+        //             let repo_path = self
+        //                 .path
+        //                 .clone()
+        //                 .expect("no path")
+        //                 .into_os_string()
+        //                 .into_string()
+        //                 .expect("wrong path");
+        //             if let Some(stored) = settings.get_mut(&repo_path) {
+        //                 stored.push(ignore_path);
+        //                 trace!("added ignore {:?}", settings);
+        //             } else {
+        //                 settings.insert(repo_path, vec![ignore_path]);
+        //                 trace!("first ignored file {:?}", settings);
+        //             }
+        //             self.settings
+        //                 .set("ignored", settings)
+        //                 .expect("cant set settings");
+        //             self.update_untracked(
+        //                 self.untracked.clone(),
+        //                 txt,
+        //                 context,
+        //             );
+        //             break;
+        //         }
+        //     }
+        // }
     }
 
     pub fn stage_in_conflict(&self, window: &ApplicationWindow) -> bool {
@@ -1634,27 +1635,6 @@ impl Status {
     }
 
     pub fn stage(&mut self, op: StageOp, window: &ApplicationWindow) {
-        // if let Some(untracked) = &self.untracked {
-        //     for file in &untracked.files {
-        //         if file.get_view().is_current() {
-        //             todo!("use StageOp here!");
-        //             gio::spawn_blocking({
-        //                 let path = self.path.clone();
-        //                 let sender = self.sender.clone();
-        //                 let file_path = file.path.clone();
-        //                 move || {
-        //                     stage_untracked(
-        //                         path.expect("no path"),
-        //                         file_path,
-        //                         sender,
-        //                     );
-        //                 }
-        //             });
-        //             return;
-        //         }
-        //     }
-        // }
-
         if self.stage_in_conflict(window) {
             info!(".................this is stage in conflict");
             return;
@@ -1666,6 +1646,7 @@ impl Status {
             "stage via apply ----------------------> {:?} {:?} {:?} {:?} === {:?}",
             op, diff_kind, file_path, hunk_header, self.cursor_position
         );
+
         match diff_kind {
             Some(DiffKind::Untracked) => {
                 match op {
@@ -1675,8 +1656,8 @@ impl Status {
                             let sender = self.sender.clone();
                             let file_path = file_path.clone();
                             let window = window.clone();
-                            async move {                                
-                                gio::spawn_blocking({                           
+                            async move {
+                                gio::spawn_blocking({
                                     move || {
                                         stage_untracked(
                                             path.expect("no path"),
@@ -1684,29 +1665,81 @@ impl Status {
                                             sender,
                                         )
                                     }
-                                }).await
-                                    .unwrap_or_else(|e| {
-                                        alert(format!("{:?}", e)).present(&window);
-                                        Ok(())
-                                    })
-                                    .unwrap_or_else(|e| {
-                                        alert(e).present(&window);
-                                    });;
+                                })
+                                .await
+                                .unwrap_or_else(|e| {
+                                    alert(format!("{:?}", e)).present(&window);
+                                    Ok(())
+                                })
+                                .unwrap_or_else(|e| {
+                                    alert(e).present(&window);
+                                });
                             }
                         });
                     }
                     StageOp::Kill(_) => {
                         glib::spawn_future_local({
                             let window = window.clone();
+                            let path = self.path.clone();
+                            let mut settings =
+                                self.settings
+                                    .get::<HashMap<String, Vec<String>>>(
+                                        "ignored",
+                                    );
                             async move {
-                                let response = alert(ConfirmDialog(
+                                let response = alert(DangerDialog(
                                     "Kill Untracked files?".to_string(),
-                                    "SOME MESSAGE".to_string(),
-                                )).choose_future(&window).await;
+                                    if let Some(file_path) = file_path {
+                                        file_path
+                                            .to_str()
+                                            .expect("wrong path")
+                                            .to_string()
+                                    } else {
+                                        "This will kill all unstaged files!"
+                                            .to_string()
+                                    },
+                                ))
+                                .choose_future(&window)
+                                .await;
                                 if response != YES {
                                     return;
                                 }
-                                debug!("proceeeeeeeeed111111111");
+                                // let ignore_path = file
+                                //     .path
+                                //     .clone()
+                                //     .into_os_string()
+                                //     .into_string()
+                                //     .expect("wrong string");
+                                // trace!("ignore path! {:?}", ignore_path);
+                                let repo_path = path.expect("no path");
+                                let repo_path =
+                                    repo_path.to_str().expect("wrong path");
+                                let mut ignored = Vec::new();
+
+                                if let Some(stored) =
+                                    settings.get_mut(repo_path)
+                                {
+                                    stored.append(&mut ignored);
+                                    trace!("added ignore {:?}", settings);
+                                } else {
+                                    settings.insert(
+                                        repo_path.to_string(),
+                                        ignored,
+                                    );
+                                    trace!(
+                                        "first ignored file {:?}",
+                                        settings
+                                    );
+                                }
+                                // self.settings
+                                //     .set("ignored", settings)
+                                //     .expect("cant set settings");
+                                // self.update_untracked(
+                                //     self.untracked.clone(),
+                                //     txt,
+                                //     context,
+                                // );
+                                // debug!("proceeeeeeeeed111111111");
                             }
                         });
                     }
