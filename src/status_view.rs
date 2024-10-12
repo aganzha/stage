@@ -120,7 +120,7 @@ pub enum CursorPosition {
 }
 
 impl CursorPosition {
-    fn from_context(context: &StatusRenderContext) -> Self {
+    pub fn from_context(context: &StatusRenderContext) -> Self {
         match context.cursor_position {
             ContextCursorPosition::CursorDiff(diff) => {
                 return CursorPosition::CursorDiff(diff.kind);
@@ -739,7 +739,8 @@ impl Status {
                 if let Some(ind) = branches.iter().position(|b| b.is_head) {
                     trace!(
                         "replace branch by index {:?} {:?}",
-                        ind, head_branch.name
+                        ind,
+                        head_branch.name
                     );
                     branches[ind] = head_branch;
                 }
@@ -771,7 +772,8 @@ impl Status {
                     }) {
                         trace!(
                             "replace branch by index {:?} {:?}",
-                            ind, upstream_branch.name
+                            ind,
+                            upstream_branch.name
                         );
                         branches[ind] = upstream_branch;
                     }
@@ -1627,39 +1629,9 @@ impl Status {
             return;
         }
 
-        match op {
-            StageOp::Stage(_) | StageOp::Kill(_) => {
-                if self.unstaged.is_none() {
-                    return;
-                }
-            }
-            StageOp::Unstage(_) => {
-                if self.staged.is_none() {
-                    return;
-                }
-            }
-        }
-
-        let diff = {
-            match op {
-                StageOp::Stage(_) | StageOp::Kill(_) => {
-                    self.unstaged.as_mut().unwrap()
-                }
-                StageOp::Unstage(_) => self.staged.as_mut().unwrap(),
-            }
-        };
-
-        // let (file, hunk) = diff.chosen_file_and_hunk();
-        // if file.is_none() {
-        //     info!("no file to stage");
-        //     self.sender
-        //         .send_blocking(Event::Toast(String::from("No file to stage")))
-        //         .expect("cant send through sender");
-        //     return;
-        // }
         let (proceed, file_path, hunk_header) =
             self.cursor_position.get().stage_opts(self, &op);
-        debug!(
+        trace!(
             "stage via apply ----------------------> {:?} {:?} {:?} {:?} === {:?}",
             op, proceed, file_path, hunk_header, self.cursor_position
         );

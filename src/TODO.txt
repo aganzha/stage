@@ -1,3 +1,4 @@
+TODO: cherry pick and revert single hunks!
 BUG: so, the bug with small line height on file is because cursor_diff is filled.
      i need another one: selected_diff
 TODO: FIRST: stage/unstage all. kill from unstaged
