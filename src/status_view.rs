@@ -120,7 +120,7 @@ pub enum CursorPosition {
 }
 
 impl CursorPosition {
-    fn from_context(context: StatusRenderContext) -> Self {
+    fn from_context(context: &StatusRenderContext) -> Self {
         match context.cursor_position {
             ContextCursorPosition::CursorDiff(diff) => {
                 let _ = CursorPosition::CursorDiff(diff.kind);
@@ -154,12 +154,10 @@ impl CursorPosition {
                         .unwrap(),
                 );
             }
-            ContextCursorPosition::CursorLine(l) => {
+            ContextCursorPosition::CursorLine(line) => {
                 let diff = context.selected_diff.unwrap();
                 let file = context.selected_file.unwrap();
                 let hunk = context.selected_hunk.unwrap();
-                let line = context.selected_line.unwrap();
-                assert!(std::ptr::eq(line, l));
                 CursorPosition::CursorLine(
                     diff.kind,
                     diff.files
@@ -1143,23 +1141,7 @@ impl Status {
 
         // this is called once in status_view and 3 times in commit view!!!
         txt.bind_highlights(context);
-        // match context.cursor_position {
-        //     CursorPosition::CursorDiff(d) => {
-        //         if let Some(unstaged) = &self.unstaged {
-        //             if std::ptr::eq(unstaged, d) {
-        //                 debug!("yyyyyyyyyyyyyyyyyyyyyyyyy");
-        //                 self.cursor_position.replace(CursorPosition::CursorDiff(Rc::clone(unstaged)));
-        //             }
-        //         }
-        //     },
-        //     CursorPosition::CursorFile(f) => {
-        //     },
-        //     CursorPosition::CursorLine(f) => {
-        //     },
-        //     _ => {
-        //     }
-        // }
-        //self.cursor_position = context.cursor_position;
+        self.cursor_position.replace(CursorPosition::from_context(context));
         changed
     }
 
