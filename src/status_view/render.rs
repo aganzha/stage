@@ -917,12 +917,12 @@ impl ViewContainer for Line {
         context: &mut StatusRenderContext<'a>,
     ) {
         context.cursor_position = CursorPosition::CursorLine(self);
-        self.fill_under_cursor(context);
     }
 
     // Line
-    fn fill_under_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.selected_line = Some(self);
+    fn fill_under_cursor<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {
+        // there are multiple selected lines,
+        // and storing some in context does not make sense
     }
 
     // Line

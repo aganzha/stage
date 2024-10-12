@@ -28,7 +28,6 @@ pub struct StatusRenderContext<'a> {
     pub selected_diff: Option<&'a Diff>,
     pub selected_file: Option<&'a File>,
     pub selected_hunk: Option<&'a Hunk>,
-    pub selected_line: Option<&'a Line>,
 
     // this is sliding values during render.
     // at the end of render they will
@@ -58,7 +57,6 @@ impl StatusRenderContext<'_> {
                 selected_diff: None,
                 selected_file: None,
                 selected_hunk: None,
-                selected_line: None,
 
                 rendering_diff: None,
                 rendering_file: None,
