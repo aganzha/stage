@@ -1146,23 +1146,32 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
 
 pub fn stage_untracked(
     path: PathBuf,
-    file_path: PathBuf,
+    file_path: Option<PathBuf>,
     sender: Sender<crate::Event>,
-) {
+) -> Result<(), Error> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut index = repo.index().expect("cant get index");
-    let pth = path.parent().unwrap().join(&file_path);
-    if pth.is_file() {
-        index.add_path(file_path.as_path()).expect("cant add path");
-    } else if pth.is_dir() {
-        index
-            .add_all([file_path], git2::IndexAddOption::DEFAULT, None)
-            .expect("cant add path");
+    if let Some(file_path) = file_path {
+        let pth = path.parent().unwrap().join(&file_path);
+        if pth.is_file() {
+            index.add_path(file_path.as_path()).expect("cant add path");
+        } else if pth.is_dir() {
+            index
+                .add_all([file_path], git2::IndexAddOption::DEFAULT, None)
+                .expect("cant add path");
+        } else if pth.is_symlink() {
+            return Err(Error::from_str(&format!("symlink path {:?}", pth)));
+        } else {
+            return Err(Error::from_str(&format!("unknown path {:?}", pth)));
+        }        
     } else {
-        panic!("unknown path {:?}", pth);
+        index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)
+            .expect("cant add path");
     }
+    
     index.write().expect("cant write index");
     get_current_repo_status(Some(path), sender).expect("cant get status");
+    Ok(())
 }
 
 pub fn stage_via_apply(
