@@ -6,7 +6,7 @@ use crate::dialogs::{alert, ConfirmDialog, YES};
 use crate::git::{commit, stash};
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
-    render::ViewContainer, stage_view::StageView, view::View,
+    render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
 use crate::Event;
@@ -331,6 +331,8 @@ pub fn show_commit_window(
 
     let path = repo_path.clone();
 
+    let mut cursor_position: CursorPosition = CursorPosition::None;
+
     glib::spawn_future_local({
         let window = window.clone();
         let sender = sender.clone();
@@ -419,15 +421,8 @@ pub fn show_commit_window(
                 Event::Cursor(_offset, line_no) => {
                     if let Some(d) = &mut diff {
                         let buffer = &txt.buffer();
-                        if d.diff.cursor(buffer, line_no, false, &mut ctx) {
-                            let mut iter = buffer
-                                .iter_at_line(d.diff.view.line_no.get())
-                                .unwrap();
-                            // will render diff whithout rendering
-                            // preceeding elements!
-                            // is it ok? perhaps yes, cause they are on top of it
-                            d.diff.render(buffer, &mut iter, &mut ctx);
-                        }
+                        d.diff.cursor(buffer, line_no, false, &mut ctx);
+                        cursor_position = CursorPosition::from_context(&ctx);
                     }
                     // it should be called after cursor in ViewContainer !!!!!!!!
                     txt.bind_highlights(&ctx);
@@ -457,33 +452,44 @@ pub fn show_commit_window(
                                 _ => "Revert",
                             }
                         };
-
-                        let (body, file_path, hunk_header) = match diff.diff.chosen_file_and_hunk() {
-                            (Some(file), Some(hunk)) => {
-                                (
+                        let (body, file_path, hunk_header) =
+                            match cursor_position {
+                                CursorPosition::CursorDiff(_) => {
+                                    (oid.to_string(), None, None)
+                                }
+                                CursorPosition::CursorFile(_, file_idx) => {
+                                    let file = &diff.diff.files[file_idx];
+                                    (
+                                        format!(
+                                            "File: {}",
+                                            file.path.to_str().unwrap()
+                                        ),
+                                        Some(file.path.clone()),
+                                        None,
+                                    )
+                                }
+                                CursorPosition::CursorHunk(
+                                    _,
+                                    file_idx,
+                                    hunk_idx,
+                                )
+                                | CursorPosition::CursorLine(
+                                    _,
+                                    file_idx,
+                                    hunk_idx,
+                                    _,
+                                ) => {
+                                    let file = &diff.diff.files[file_idx];
+                                    let hunk = &file.hunks[hunk_idx];
+                                    (
                                     format!("File: {}\nApplying single hunks is not yet implemented :(", file.path.to_str().unwrap()),
                                     Some(file.path.clone()),
                                     Some(hunk.header.clone())
                                 )
-                            }
-                            (Some(file), None) => {
-                                (
-                                    format!("File: {}", file.path.to_str().unwrap()),
-                                    Some(file.path.clone()),
-                                    None
-                                )
-                            }
-                            (None, Some(hunk)) => {
-                                panic!("hunk header without file {:?}", hunk.header);
-                            }
-                            (None, None) => {
-                                (
-                                    "".to_string(),
-                                    None,
-                                    None
-                                )
-                            }
-                        };
+                                }
+                                _ => ("".to_string(), None, None),
+                            };
+
                         let path = repo_path.clone();
                         let sender = main_sender.clone();
                         let window = window.clone();

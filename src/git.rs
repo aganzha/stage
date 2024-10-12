@@ -1177,7 +1177,10 @@ pub fn stage_via_apply(
     subject: crate::StageOp,
     sender: Sender<crate::Event>,
 ) -> Result<(), Error> {
-    info!("stage via apply {:?} {:?} {:?}", file_path, hunk_header, subject);
+    info!(
+        "stage via apply {:?} {:?} {:?}",
+        file_path, hunk_header, subject
+    );
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = Repository::open(path.clone())?;
 
@@ -1243,7 +1246,10 @@ pub fn stage_via_apply(
         if let Some(file_path) = &file_path {
             if let Some(dd) = odd {
                 let path: PathBuf = dd.new_file().path().unwrap().into();
-                debug!("and the answer is.............. {:?}", file_path == &path);
+                debug!(
+                    "and the answer is.............. {:?}",
+                    file_path == &path
+                );
                 return file_path == &path;
             }
         }
@@ -1259,7 +1265,12 @@ pub fn stage_via_apply(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
-    debug!("______________________________ {:?} foooooooooooor {:?} {:?}", make_diff(&git_diff, DiffKind::Conflicted), file_path, hunk_header);
+    debug!(
+        "______________________________ {:?} foooooooooooor {:?} {:?}",
+        make_diff(&git_diff, DiffKind::Conflicted),
+        file_path,
+        hunk_header
+    );
     repo.apply(&git_diff, apply_location, Some(&mut options))?;
 
     Ok(())
