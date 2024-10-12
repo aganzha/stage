@@ -1172,16 +1172,20 @@ pub fn stage_untracked(
 
 pub fn stage_via_apply(
     path: PathBuf,
-    file_path: PathBuf,
+    file_path: Option<PathBuf>,
     hunk_header: Option<String>,
     subject: crate::StageOp,
     sender: Sender<crate::Event>,
 ) -> Result<(), Error> {
+    info!("stage via apply {:?} {:?} {:?}", file_path, hunk_header, subject);
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = Repository::open(path.clone())?;
 
     let mut opts = make_diff_options();
-    opts.pathspec(file_path.clone());
+
+    if let Some(file_path) = &file_path {
+        opts.pathspec(file_path.clone());
+    }
 
     let git_diff = match subject {
         crate::StageOp::Stage(_) => {
@@ -1235,11 +1239,15 @@ pub fn stage_via_apply(
     });
 
     options.delta_callback(|odd| -> bool {
-        if let Some(dd) = odd {
-            let path: PathBuf = dd.new_file().path().unwrap().into();
-            return file_path == path;
+        debug!("........................... {:?}", odd);
+        if let Some(file_path) = &file_path {
+            if let Some(dd) = odd {
+                let path: PathBuf = dd.new_file().path().unwrap().into();
+                debug!("and the answer is.............. {:?}", file_path == &path);
+                return file_path == &path;
+            }
         }
-        todo!("diff without delta");
+        true
     });
     let apply_location = match subject {
         crate::StageOp::Stage(_) | crate::StageOp::Unstage(_) => {
@@ -1251,7 +1259,7 @@ pub fn stage_via_apply(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
-
+    debug!("______________________________ {:?} foooooooooooor {:?} {:?}", make_diff(&git_diff, DiffKind::Conflicted), file_path, hunk_header);
     repo.apply(&git_diff, apply_location, Some(&mut options))?;
 
     Ok(())

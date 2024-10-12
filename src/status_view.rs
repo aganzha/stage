@@ -123,13 +123,13 @@ impl CursorPosition {
     fn from_context(context: &StatusRenderContext) -> Self {
         match context.cursor_position {
             ContextCursorPosition::CursorDiff(diff) => {
-                let _ = CursorPosition::CursorDiff(diff.kind);
+                return CursorPosition::CursorDiff(diff.kind);
             }
             ContextCursorPosition::CursorFile(f) => {
                 let diff = context.selected_diff.unwrap();
                 let file = context.selected_file.unwrap();
                 assert!(std::ptr::eq(file, f));
-                CursorPosition::CursorFile(
+                return CursorPosition::CursorFile(
                     diff.kind,
                     diff.files
                         .iter()
@@ -142,7 +142,7 @@ impl CursorPosition {
                 let file = context.selected_file.unwrap();
                 let hunk = context.selected_hunk.unwrap();
                 assert!(std::ptr::eq(hunk, h));
-                CursorPosition::CursorHunk(
+                return CursorPosition::CursorHunk(
                     diff.kind,
                     diff.files
                         .iter()
@@ -158,7 +158,7 @@ impl CursorPosition {
                 let diff = context.selected_diff.unwrap();
                 let file = context.selected_file.unwrap();
                 let hunk = context.selected_hunk.unwrap();
-                CursorPosition::CursorLine(
+                return CursorPosition::CursorLine(
                     diff.kind,
                     diff.files
                         .iter()
@@ -177,6 +177,72 @@ impl CursorPosition {
             _ => {}
         }
         CursorPosition::None
+    }
+
+    fn stage_opts(
+        &self,
+        status: &Status,
+        op: &StageOp,
+    ) -> (bool, Option<PathBuf>, Option<String>) {
+        match (self, op) {
+            (
+                Self::CursorDiff(DiffKind::Unstaged),
+                StageOp::Stage(_) | StageOp::Kill(_),
+            ) => return (status.unstaged.is_some(), None, None),
+            (
+                Self::CursorFile(DiffKind::Unstaged, file_idx),
+                StageOp::Stage(_) | StageOp::Kill(_),
+            ) => {
+                if let Some(unstaged) = &status.unstaged {
+                    let file = &unstaged.files[*file_idx];
+                    return (true, Some(file.path.clone()), None);
+                }
+            }
+            (
+                Self::CursorHunk(DiffKind::Unstaged, file_idx, hunk_idx)
+                | Self::CursorLine(DiffKind::Unstaged, file_idx, hunk_idx, _),
+                StageOp::Stage(_) | StageOp::Kill(_),
+            ) => {
+                if let Some(unstaged) = &status.unstaged {
+                    let file = &unstaged.files[*file_idx];
+                    let hunk = &file.hunks[*hunk_idx];
+                    return (
+                        true,
+                        Some(file.path.clone()),
+                        Some(hunk.header.clone()),
+                    );
+                }
+            }
+            (Self::CursorDiff(DiffKind::Staged), StageOp::Unstage(_)) => {
+                return (status.staged.is_some(), None, None)
+            }
+            (
+                Self::CursorFile(DiffKind::Staged, file_idx),
+                StageOp::Unstage(_),
+            ) => {
+                if let Some(staged) = &status.staged {
+                    let file = &staged.files[*file_idx];
+                    return (true, Some(file.path.clone()), None);
+                }
+            }
+            (
+                Self::CursorHunk(DiffKind::Staged, file_idx, hunk_idx)
+                | Self::CursorLine(DiffKind::Staged, file_idx, hunk_idx, _),
+                StageOp::Unstage(_),
+            ) => {
+                if let Some(staged) = &status.staged {
+                    let file = &staged.files[*file_idx];
+                    let hunk = &file.hunks[*hunk_idx];
+                    return (
+                        true,
+                        Some(file.path.clone()),
+                        Some(hunk.header.clone()),
+                    );
+                }
+            }
+            (_, _) => {}
+        }
+        (false, None, None)
     }
 }
 
@@ -671,8 +737,8 @@ impl Status {
         if let Some(branches) = &mut self.branches {
             if let Some(head_branch) = head.branch.take() {
                 if let Some(ind) = branches.iter().position(|b| b.is_head) {
-                    debug!(
-                        "replace by index {:?} {:?}",
+                    trace!(
+                        "replace branch by index {:?} {:?}",
                         ind, head_branch.name
                     );
                     branches[ind] = head_branch;
@@ -703,8 +769,8 @@ impl Status {
                         b.name == upstream_branch.name
                             && b.branch_type == upstream_branch.branch_type
                     }) {
-                        debug!(
-                            "replace by index {:?} {:?}",
+                        trace!(
+                            "replace branch by index {:?} {:?}",
                             ind, upstream_branch.name
                         );
                         branches[ind] = upstream_branch;
@@ -1141,7 +1207,8 @@ impl Status {
 
         // this is called once in status_view and 3 times in commit view!!!
         txt.bind_highlights(context);
-        self.cursor_position.replace(CursorPosition::from_context(context));
+        self.cursor_position
+            .replace(CursorPosition::from_context(context));
         changed
     }
 
@@ -1560,7 +1627,6 @@ impl Status {
             return;
         }
 
-        // just a check
         match op {
             StageOp::Stage(_) | StageOp::Kill(_) => {
                 if self.unstaged.is_none() {
@@ -1583,54 +1649,53 @@ impl Status {
             }
         };
 
-        let (file, hunk) = diff.chosen_file_and_hunk();
-        if file.is_none() {
-            info!("no file to stage");
-            self.sender
-                .send_blocking(Event::Toast(String::from("No file to stage")))
-                .expect("cant send through sender");
-            return;
-        }
-        trace!(
-            "stage via apply ----------------------> {:?} {:?} {:?}",
-            op,
-            file,
-            hunk
+        // let (file, hunk) = diff.chosen_file_and_hunk();
+        // if file.is_none() {
+        //     info!("no file to stage");
+        //     self.sender
+        //         .send_blocking(Event::Toast(String::from("No file to stage")))
+        //         .expect("cant send through sender");
+        //     return;
+        // }
+        let (proceed, file_path, hunk_header) =
+            self.cursor_position.get().stage_opts(self, &op);
+        debug!(
+            "stage via apply ----------------------> {:?} {:?} {:?} {:?} === {:?}",
+            op, proceed, file_path, hunk_header, self.cursor_position
         );
-
-        glib::spawn_future_local({
-            let window = window.clone();
-            let path = self.path.clone();
-            let sender = self.sender.clone();
-            let file_path = file.unwrap().path.clone();
-            let hunk = hunk.map(|h| h.header.clone());
-            self.last_op.replace(LastOp {
-                op: op.clone(),
-                file_path: Some(file_path.clone()),
-                hunk_header: hunk.clone(),
-            });
-            async move {
-                gio::spawn_blocking({
-                    move || {
-                        stage_via_apply(
-                            path.expect("no path"),
-                            file_path,
-                            hunk,
-                            op,
-                            sender,
-                        )
-                    }
-                })
-                .await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
-                    Ok(())
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+        if proceed {
+            glib::spawn_future_local({
+                let window = window.clone();
+                let path = self.path.clone();
+                let sender = self.sender.clone();
+                self.last_op.replace(LastOp {
+                    op: op.clone(),
+                    file_path: file_path.clone(),
+                    hunk_header: hunk_header.clone(),
                 });
-            }
-        });
+                async move {
+                    gio::spawn_blocking({
+                        move || {
+                            stage_via_apply(
+                                path.expect("no path"),
+                                file_path,
+                                hunk_header,
+                                op,
+                                sender,
+                            )
+                        }
+                    })
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(())
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                    });
+                }
+            });
+        }
     }
 
     pub fn has_staged(&self) -> bool {
