@@ -24,13 +24,12 @@ pub mod reconciliation;
 pub mod tests;
 pub mod view;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use crate::status_view::context::CursorPosition;
 use crate::status_view::view::View;
 use crate::{
     get_current_repo_status, stage_untracked, stage_via_apply, track_changes,
@@ -41,6 +40,7 @@ use async_channel::Sender;
 
 use gio::FileMonitor;
 
+use crate::status_view::context::CursorPosition as ContextCursorPosition;
 use chrono::{offset::Utc, DateTime};
 use glib::clone;
 use glib::signal::SignalHandlerId;
@@ -110,8 +110,80 @@ pub struct LastOp {
     hunk_header: Option<String>,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum CursorPosition {
+    CursorDiff(DiffKind),
+    CursorFile(DiffKind, usize),
+    CursorHunk(DiffKind, usize, usize),
+    CursorLine(DiffKind, usize, usize, usize),
+    None,
+}
+
+impl CursorPosition {
+    fn from_context(context: StatusRenderContext) -> Self {
+        match context.cursor_position {
+            ContextCursorPosition::CursorDiff(diff) => {
+                let _ = CursorPosition::CursorDiff(diff.kind);
+            }
+            ContextCursorPosition::CursorFile(f) => {
+                let diff = context.selected_diff.unwrap();
+                let file = context.selected_file.unwrap();
+                assert!(std::ptr::eq(file, f));
+                CursorPosition::CursorFile(
+                    diff.kind,
+                    diff.files
+                        .iter()
+                        .position(|f| std::ptr::eq(file, f))
+                        .unwrap(),
+                );
+            }
+            ContextCursorPosition::CursorHunk(h) => {
+                let diff = context.selected_diff.unwrap();
+                let file = context.selected_file.unwrap();
+                let hunk = context.selected_hunk.unwrap();
+                assert!(std::ptr::eq(hunk, h));
+                CursorPosition::CursorHunk(
+                    diff.kind,
+                    diff.files
+                        .iter()
+                        .position(|f| std::ptr::eq(file, f))
+                        .unwrap(),
+                    file.hunks
+                        .iter()
+                        .position(|h| std::ptr::eq(hunk, h))
+                        .unwrap(),
+                );
+            }
+            ContextCursorPosition::CursorLine(l) => {
+                let diff = context.selected_diff.unwrap();
+                let file = context.selected_file.unwrap();
+                let hunk = context.selected_hunk.unwrap();
+                let line = context.selected_line.unwrap();
+                assert!(std::ptr::eq(line, l));
+                CursorPosition::CursorLine(
+                    diff.kind,
+                    diff.files
+                        .iter()
+                        .position(|f| std::ptr::eq(file, f))
+                        .unwrap(),
+                    file.hunks
+                        .iter()
+                        .position(|h| std::ptr::eq(hunk, h))
+                        .unwrap(),
+                    hunk.lines
+                        .iter()
+                        .position(|l| std::ptr::eq(line, l))
+                        .unwrap(),
+                );
+            }
+            _ => {}
+        }
+        CursorPosition::None
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct Status<'a> {
+pub struct Status {
     pub path: Option<PathBuf>,
     pub sender: Sender<Event>,
     pub head: Option<Head>,
@@ -130,10 +202,10 @@ pub struct Status<'a> {
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
     pub settings: gio::Settings,
     pub last_op: Option<LastOp>,
-    pub cursor_position: CursorPosition<'a>,
+    pub cursor_position: Cell<CursorPosition>,
 }
 
-impl Status<'_> {
+impl Status {
     pub fn new(
         path: Option<PathBuf>,
         settings: gio::Settings,
@@ -157,7 +229,7 @@ impl Status<'_> {
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
             settings,
             last_op: None,
-            cursor_position: CursorPosition::None
+            cursor_position: Cell::new(CursorPosition::None),
         }
     }
 
@@ -1049,7 +1121,7 @@ impl Status<'_> {
         // context must receive ViewContainer as
         // argument and use its line_no to store cursor!
         // it is used only once in resize_highlights for copy!
-
+        // self.cursor_position.replace(Rc::new(context.cursor_position.clone()));
         let mut changed = false;
         let buffer = txt.buffer();
         if let Some(untracked) = &self.untracked {
@@ -1068,17 +1140,26 @@ impl Status<'_> {
             changed =
                 staged.cursor(&buffer, line_no, false, context) || changed;
         }
-        // NO NEED TO RENDER!
-        // no need to bind highlights here!
-        // expand can go without cursor and hihjlight
-        // is required there!
-        // put highlight completelly in render!
-        // ... or put highlights in expand!!!!!!!
-        // but who triggers them in status view????
 
         // this is called once in status_view and 3 times in commit view!!!
         txt.bind_highlights(context);
-        // self.cursor_position = context.cursor_position;
+        // match context.cursor_position {
+        //     CursorPosition::CursorDiff(d) => {
+        //         if let Some(unstaged) = &self.unstaged {
+        //             if std::ptr::eq(unstaged, d) {
+        //                 debug!("yyyyyyyyyyyyyyyyyyyyyyyyy");
+        //                 self.cursor_position.replace(CursorPosition::CursorDiff(Rc::clone(unstaged)));
+        //             }
+        //         }
+        //     },
+        //     CursorPosition::CursorFile(f) => {
+        //     },
+        //     CursorPosition::CursorLine(f) => {
+        //     },
+        //     _ => {
+        //     }
+        // }
+        //self.cursor_position = context.cursor_position;
         changed
     }
 
