@@ -122,7 +122,7 @@ pub fn test_file_active() {
     line_no = diff.files[1].view.line_no.get();
     diff.cursor(&buffer, line_no, false, &mut context);
 
-    assert!(!(&diff.files[0]).view.is_active());    
+    assert!(!(&diff.files[0]).view.is_active());
     assert!(diff.files[1].view.is_current());
 
     diff.files[1].expand(line_no, &mut context).unwrap();
@@ -131,7 +131,7 @@ pub fn test_file_active() {
     diff.render(&buffer, &mut iter, &mut context);
     // any render always follow cursor
     diff.cursor(&buffer, line_no, false, &mut context);
-    
+
     assert!(diff.files[1].hunks[0].view.is_rendered());
     assert!(diff.files[1].hunks[0].view.is_active());
     assert!(diff.files[1].hunks[0].view.is_expanded());

@@ -493,7 +493,7 @@ impl File {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DiffKind {
     Staged,
     Unstaged,
@@ -1054,9 +1054,9 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
 }
 
 pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
-    let mut diff = Diff::new(kind.clone());
-    let mut current_file = File::new(kind.clone());
-    let mut current_hunk = Hunk::new(kind.clone());
+    let mut diff = Diff::new(kind);
+    let mut current_file = File::new(kind);
+    let mut current_hunk = Hunk::new(kind);
     let mut prev_line_kind = LineKind::None;
 
     let _res = git_diff.print(
@@ -1104,18 +1104,16 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
             // build up diff structure
             if current_file.path.capacity() == 0 {
                 // init new file
-                current_file =
-                    File::from_diff_file(&file, kind.clone(), status);
+                current_file = File::from_diff_file(&file, kind, status);
             }
             if current_file.path != file.path().unwrap() {
                 // go to next file
                 // push current_hunk to file and init new empty hunk
                 current_file.push_hunk(current_hunk.clone());
-                current_hunk = Hunk::new(kind.clone());
+                current_hunk = Hunk::new(kind);
                 // push current_file to diff and change to new file
                 diff.push_file(current_file.clone());
-                current_file =
-                    File::from_diff_file(&file, kind.clone(), status);
+                current_file = File::from_diff_file(&file, kind, status);
             }
             if let Some(diff_hunk) = o_diff_hunk {
                 let hh = Hunk::get_header_from(&diff_hunk);
@@ -1128,7 +1126,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                     // go to next hunk
                     prev_line_kind = LineKind::None;
                     current_file.push_hunk(current_hunk.clone());
-                    current_hunk = Hunk::new(kind.clone());
+                    current_hunk = Hunk::new(kind);
                     current_hunk.fill_from_git_hunk(&diff_hunk)
                 }
                 prev_line_kind =
