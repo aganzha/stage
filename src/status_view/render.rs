@@ -569,9 +569,17 @@ impl ViewContainer for Diff {
             return None;
         }
         let mut result: Option<i32> = None;
+        let expand_all = self.get_view().is_rendered_in(line_no);
+        if expand_all {
+            result.replace(line_no);
+        }
         for file in &self.files {
-            if let Some(line) = file.expand(line_no, context) {
-                result.replace(line);
+            if expand_all {
+                file.expand(file.view.line_no.get(), context);
+            } else {
+                if let Some(line) = file.expand(line_no, context) {
+                    result.replace(line);
+                }
             }
         }
         result
