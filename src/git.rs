@@ -1473,7 +1473,6 @@ pub fn track_changes(
                     Some(diff)
                 }))
                 .expect("Could not send through channel");
-
         } else {
             sender
                 .send_blocking(crate::Event::TrackedFile(
