@@ -4,7 +4,7 @@ Comment=Git client inspited by Magit
 Exec=stage %U
 # Exec=/usr/bin/flatpak run --branch=master --arch=x86_64 --command=stage --file-forwarding com.github.aganzha.stage @@u %U @@
 Actions=new-window;
-Icon=com.github.aganzha.stage
+Icon=io.github.aganzha.Stage
 Terminal=false
 Type=Application
 StartupNotify=true
