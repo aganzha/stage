@@ -3,10 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::git::{
-    branch::NamedBranch, get_conflicted_v1, get_current_repo_status,
-    make_diff_options, BranchData, DeferRefresh, Hunk, Line, State,
-    MARKER_DIFF_A, MARKER_DIFF_B, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS,
-    MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
+    branch::NamedBranch, get_conflicted_v1, get_current_repo_status, make_diff_options, BranchData,
+    DeferRefresh, Hunk, Line, State, MARKER_DIFF_A, MARKER_DIFF_B, MARKER_HUNK, MARKER_OURS,
+    MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
 };
 use async_channel::Sender;
 use git2;
@@ -20,10 +19,7 @@ use std::{
 
 //pub const STAGE_FLAG: u16 = 0x3000;
 
-pub fn final_commit(
-    path: PathBuf,
-    sender: Sender<crate::Event>,
-) -> Result<(), git2::Error> {
+pub fn final_commit(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let me = repo.signature()?;
 
@@ -45,17 +41,13 @@ pub fn final_commit(
     repo.cleanup_state()?;
     gio::spawn_blocking({
         move || {
-            get_current_repo_status(Some(path), sender)
-                .expect("cant get status");
+            get_current_repo_status(Some(path), sender).expect("cant get status");
         }
     });
     Ok(())
 }
 
-pub fn final_merge_commit(
-    path: PathBuf,
-    sender: Sender<crate::Event>,
-) -> Result<(), git2::Error> {
+pub fn final_merge_commit(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {
     let mut repo = git2::Repository::open(path.clone())?;
     let me = repo.signature()?;
 
@@ -111,8 +103,7 @@ pub fn final_merge_commit(
     repo.cleanup_state()?;
     gio::spawn_blocking({
         move || {
-            get_current_repo_status(Some(path), sender)
-                .expect("cant get status");
+            get_current_repo_status(Some(path), sender).expect("cant get status");
         }
     });
     Ok(())
@@ -135,29 +126,20 @@ pub fn branch(
         }
 
         Ok((analysis, preference))
-            if analysis.is_fast_forward()
-                && !preference.is_no_fast_forward() =>
+            if analysis.is_fast_forward() && !preference.is_no_fast_forward() =>
         {
             info!("merge.fastforward");
-            let ob = repo.find_object(
-                branch_data.oid,
-                Some(git2::ObjectType::Commit),
-            )?;
+            let ob = repo.find_object(branch_data.oid, Some(git2::ObjectType::Commit))?;
             sender
                 .send_blocking(crate::Event::LockMonitors(true))
                 .expect("Could not send through channel");
-            repo.checkout_tree(
-                &ob,
-                Some(git2::build::CheckoutBuilder::new().safe()),
-            )?;
+            repo.checkout_tree(&ob, Some(git2::build::CheckoutBuilder::new().safe()))?;
             sender
                 .send_blocking(crate::Event::LockMonitors(false))
                 .expect("Could not send through channel");
             repo.reset(&ob, git2::ResetType::Soft, None)?;
         }
-        Ok((analysis, preference))
-            if analysis.is_normal() && !preference.is_fastforward_only() =>
-        {
+        Ok((analysis, preference)) if analysis.is_normal() && !preference.is_fastforward_only() => {
             info!("merge.normal");
             sender
                 .send_blocking(crate::Event::LockMonitors(true))
@@ -172,12 +154,7 @@ pub fn branch(
             if index.has_conflicts() {
                 // udpate repo status via defer
                 if defer.is_none() {
-                    defer.replace(DeferRefresh::new(
-                        path.clone(),
-                        sender.clone(),
-                        true,
-                        false,
-                    ));
+                    defer.replace(DeferRefresh::new(path.clone(), sender.clone(), true, false));
                 }
                 return Ok(None);
             }
@@ -197,10 +174,7 @@ pub fn branch(
     BranchData::from_branch(branch, git2::BranchType::Local)
 }
 
-pub fn abort(
-    path: PathBuf,
-    sender: Sender<crate::Event>,
-) -> Result<(), git2::Error> {
+pub fn abort(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {
     info!("git.abort merge");
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
@@ -221,11 +195,8 @@ pub fn abort(
 
     let ob = repo.revparse_single("HEAD^{tree}")?;
     let current_tree = repo.find_tree(ob.id())?;
-    let git_diff = repo.diff_tree_to_index(
-        Some(&current_tree),
-        None,
-        Some(&mut make_diff_options()),
-    )?;
+    let git_diff =
+        repo.diff_tree_to_index(Some(&current_tree), None, Some(&mut make_diff_options()))?;
     git_diff.foreach(
         &mut |d: git2::DiffDelta, _| {
             let path = d.new_file().path().expect("cant get path");
@@ -305,9 +276,7 @@ pub fn choose_conflict_side_of_blob<'a>(
             );
             if this_is_current_conflict {
                 // this marker will be deleted
-                trace!(
-                    "current conflict. will delete OUR marker by keeping -"
-                );
+                trace!("current conflict. will delete OUR marker by keeping -");
                 acc.push(line);
                 acc.push(NEW_LINE);
             } else {
@@ -348,9 +317,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                     // go deeper inside THEIRS
                     for line in lines.by_ref() {
                         line_offset_inside_hunk += 1;
-                        if !line.is_empty()
-                            && line[1..].starts_with(MARKER_THEIRS)
-                        {
+                        if !line.is_empty() && line[1..].starts_with(MARKER_THEIRS) {
                             if this_is_current_conflict {
                                 // this marker will be deleted
                                 acc.push(line);
@@ -377,7 +344,10 @@ pub fn choose_conflict_side_of_blob<'a>(
                                 if ours_choosed {
                                     // theirs will be deleted
                                     // #1.theirs
-                                    trace!("......kill THEIRS (force -) cause OURS choosed {:?}", line);
+                                    trace!(
+                                        "......kill THEIRS (force -) cause OURS choosed {:?}",
+                                        line
+                                    );
                                     acc.push(MINUS);
                                     acc.push(&line[1..]);
                                     acc.push(NEW_LINE);
@@ -404,7 +374,10 @@ pub fn choose_conflict_side_of_blob<'a>(
                                 let hd = hunk_deltas.last().unwrap();
                                 let le = hunk_deltas.len();
                                 hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
-                                trace!("......remain theirs (kill -) when not current conflict {:?}", line);
+                                trace!(
+                                    "......remain theirs (kill -) when not current conflict {:?}",
+                                    line
+                                );
                             }
                         }
                     }
@@ -429,10 +402,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                             let hd = hunk_deltas.last().unwrap();
                             let le = hunk_deltas.len();
                             hunk_deltas[le - 1] = (hd.0, hd.1 - 1);
-                            trace!(
-                                "......delete ours (FORCE -) cause THEIR chosed {:?}",
-                                line
-                            );
+                            trace!("......delete ours (FORCE -) cause THEIR chosed {:?}", line);
                         }
                     } else {
                         // remain our lines
@@ -496,9 +466,7 @@ pub fn choose_conflict_side_of_blob<'a>(
                 // conflicts markers, but their choosen lines
                 // will be marked for deletion (there are no such lines
                 // in tree and the diff is reversed
-            } else if line.starts_with(PLUS)
-                && !line.starts_with(MARKER_DIFF_A)
-            {
+            } else if line.starts_with(PLUS) && !line.starts_with(MARKER_DIFF_A) {
                 debug!("it is trying to restore old lines with +");
                 debug!("do not do that! do not push line at all!");
                 let hd = hunk_deltas.last().unwrap();
@@ -535,18 +503,15 @@ pub fn choose_conflict_side_of_hunk(
     let mut conflict_paths: HashSet<PathBuf> = HashSet::new();
     for conflict in conflicts.flatten() {
         if let Some(entry) = conflict.our {
-            conflict_paths
-                .insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
+            conflict_paths.insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
             entries.push(entry);
         }
         if let Some(entry) = conflict.their {
-            conflict_paths
-                .insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
+            conflict_paths.insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
             entries.push(entry);
         }
         if let Some(entry) = conflict.ancestor {
-            conflict_paths
-                .insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
+            conflict_paths.insert(PathBuf::from(from_utf8(&entry.path).unwrap()));
             entries.push(entry);
         }
     }
@@ -586,9 +551,7 @@ pub fn choose_conflict_side_of_hunk(
         opts.interhunk_lines(ih);
     }
 
-    let git_diff = match repo
-        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
-    {
+    let git_diff = match repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts)) {
         Ok(gd) => gd,
         Err(error) => {
             restore_index(&file_path);
@@ -642,9 +605,14 @@ pub fn choose_conflict_side_of_hunk(
     let mut updated_reversed_header = String::from("");
 
     for (hh, delta) in hunk_deltas {
-        let new_header =
-            Hunk::shift_new_start_and_lines(hh, prev_delta, delta);
-        trace!("adjusting delta >> prev delta {:?}, delta {:?} hh {:?} new_header {:?}", prev_delta, delta, hh, new_header);
+        let new_header = Hunk::shift_new_start_and_lines(hh, prev_delta, delta);
+        trace!(
+            "adjusting delta >> prev delta {:?}, delta {:?} hh {:?} new_header {:?}",
+            prev_delta,
+            delta,
+            hh,
+            new_header
+        );
         new_body = new_body.replace(hh, &new_header);
         if hh == reversed_header {
             updated_reversed_header = new_header;
@@ -705,12 +673,7 @@ pub fn choose_conflict_side_of_hunk(
         return Err(error);
     }
 
-    cleanup_last_conflict_for_file(
-        path,
-        file_path.clone(),
-        interhunk,
-        sender,
-    )?;
+    cleanup_last_conflict_for_file(path, file_path.clone(), interhunk, sender)?;
     Ok(())
 }
 
@@ -750,8 +713,7 @@ pub fn cleanup_last_conflict_for_file(
     if update_status {
         gio::spawn_blocking({
             move || {
-                get_current_repo_status(Some(path), sender)
-                    .expect("cant get status");
+                get_current_repo_status(Some(path), sender).expect("cant get status");
             }
         });
         return Ok(());

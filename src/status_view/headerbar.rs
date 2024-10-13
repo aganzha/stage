@@ -3,16 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use libadwaita::prelude::*;
-use libadwaita::{
-    ButtonContent, ColorScheme, HeaderBar, SplitButton, StyleManager, Window,
-};
+use libadwaita::{ButtonContent, ColorScheme, HeaderBar, SplitButton, StyleManager, Window};
 // use glib::Sender;
 // use std::sync::mpsc::Sender;
 
 use async_channel::Sender;
 use gtk4::{
-    gio, Align, Box, Button, FileDialog, Label, MenuButton, Orientation,
-    PopoverMenu, ToggleButton,
+    gio, Align, Box, Button, FileDialog, Label, MenuButton, Orientation, PopoverMenu, ToggleButton,
 };
 use std::path::PathBuf;
 
@@ -59,10 +56,7 @@ pub const CUSTOM_ATTR: &str = "custom";
 pub const SCHEME_TOKEN: &str = "scheme";
 pub const ZOOM_TOKEN: &str = "zoom";
 
-pub fn scheme_selector(
-    stored_scheme: Scheme,
-    sender: Sender<crate::Event>,
-) -> Box {
+pub fn scheme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> Box {
     let scheme_selector = Box::builder()
         .orientation(Orientation::Horizontal)
         .css_name("scheme_selector")
@@ -185,16 +179,12 @@ pub fn zoom(
     bx
 }
 
-pub fn burger_menu(
-    stored_scheme: Scheme,
-    sender: Sender<crate::Event>,
-) -> MenuButton {
+pub fn burger_menu(stored_scheme: Scheme, sender: Sender<crate::Event>) -> MenuButton {
     let menu_model = gio::Menu::new();
 
     let scheme_model = gio::Menu::new();
 
-    let menu_item =
-        gio::MenuItem::new(Some(SCHEME_TOKEN), Some("win.menu::1"));
+    let menu_item = gio::MenuItem::new(Some(SCHEME_TOKEN), Some("win.menu::1"));
 
     let scheme_id = SCHEME_TOKEN.to_variant();
     menu_item.set_attribute_value(CUSTOM_ATTR, Some(&scheme_id));
@@ -386,17 +376,14 @@ pub fn factory(
             HbUpdateData::Path(path) => {
                 let some_box = repo_opener.last_child().unwrap();
                 let repo_opener_label = some_box.last_child().unwrap();
-                let repo_opener_label =
-                    repo_opener_label.downcast_ref::<Label>().unwrap();
+                let repo_opener_label = repo_opener_label.downcast_ref::<Label>().unwrap();
                 let clean_path = path
                     .into_os_string()
                     .into_string()
                     .expect("wrog path")
                     .replace(".git/", "");
-                repo_opener_label.set_markup(&format!(
-                    "<span weight=\"normal\">{}</span>",
-                    clean_path
-                ));
+                repo_opener_label
+                    .set_markup(&format!("<span weight=\"normal\">{}</span>", clean_path));
                 repo_opener_label.set_visible(true);
                 let mut path_exists = false;
                 for i in 0..repo_menu.n_items() {
@@ -404,10 +391,7 @@ pub fn factory(
                     while let Some(attr) = iter.next() {
                         if attr.0 == "target"
                             && clean_path
-                                == attr
-                                    .1
-                                    .get::<String>()
-                                    .expect("cant get path from gvariant")
+                                == attr.1.get::<String>().expect("cant get path from gvariant")
                         {
                             path_exists = true;
                             break;
@@ -440,24 +424,18 @@ pub fn factory(
         let sender = sender.clone();
         move |_| {
             let dialog = FileDialog::new();
-            dialog.select_folder(
-                None::<&Window>,
-                None::<&gio::Cancellable>,
-                {
-                    let sender = sender.clone();
-                    move |result| {
-                        if let Ok(file) = result {
-                            if let Some(path) = file.path() {
-                                sender
-                                    .send_blocking(crate::Event::OpenRepo(
-                                        path,
-                                    ))
-                                    .expect("Could not send through channel");
-                            }
+            dialog.select_folder(None::<&Window>, None::<&gio::Cancellable>, {
+                let sender = sender.clone();
+                move |result| {
+                    if let Ok(file) = result {
+                        if let Some(path) = file.path() {
+                            sender
+                                .send_blocking(crate::Event::OpenRepo(path))
+                                .expect("Could not send through channel");
                         }
                     }
-                },
-            );
+                }
+            });
         }
     });
     let hb = HeaderBar::new();

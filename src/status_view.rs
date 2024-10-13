@@ -13,8 +13,7 @@ pub mod tags;
 
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{
-    abort_rebase, branch::BranchData, continue_rebase, get_head, merge,
-    remote, stash, HunkLineNo,
+    abort_rebase, branch::BranchData, continue_rebase, get_head, merge, remote, stash, HunkLineNo,
 };
 
 use core::time::Duration;
@@ -33,9 +32,8 @@ use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, track_changes, Diff, DiffKind, Event,
-    File as GitFile, Head, StageOp, State, StatusRenderContext, DARK_CLASS,
-    LIGHT_CLASS,
+    get_current_repo_status, track_changes, Diff, DiffKind, Event, File as GitFile, Head, StageOp,
+    State, StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
 };
 use async_channel::Sender;
 
@@ -46,24 +44,27 @@ use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, TextBuffer,
-    TextIter, Widget, Window as GTKWindow,
+    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, TextBuffer, TextIter, Widget,
+    Window as GTKWindow,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, Banner, ButtonContent, EntryRow, PasswordEntryRow,
-    StatusPage, StyleManager, SwitchRow,
+    ApplicationWindow, Banner, ButtonContent, EntryRow, PasswordEntryRow, StatusPage, StyleManager,
+    SwitchRow,
 };
 use log::{debug, trace};
 
 impl State {
     pub fn title_for_proceed_banner(&self) -> String {
         match self.state {
-            RepositoryState::Merge => format!("All conflicts fixed but you are\
-                                               still merging. Commit to conclude merge branch {}", self.subject),
+            RepositoryState::Merge => format!(
+                "All conflicts fixed but you are\
+                                               still merging. Commit to conclude merge branch {}",
+                self.subject
+            ),
             RepositoryState::CherryPick => format!("Commit to finish cherry-pick {}", self.subject),
             RepositoryState::Revert => format!("Commit to finish revert {}", self.subject),
-            _ => "".to_string()
+            _ => "".to_string(),
         }
     }
     pub fn title_for_conflict_banner(&self) -> String {
@@ -236,10 +237,10 @@ impl Status {
             .into_iter()
             .flatten()
         {
-            let maybe_file = diff.files.iter().find(|f| {
-                f.view.is_current()
-                    || f.hunks.iter().any(|h| h.view.is_active())
-            });
+            let maybe_file = diff
+                .files
+                .iter()
+                .find(|f| f.view.is_current() || f.hunks.iter().any(|h| h.view.is_active()));
             if maybe_file.is_some() {
                 return maybe_file;
             }
@@ -247,10 +248,7 @@ impl Status {
         None
     }
 
-    pub fn editor_args_at_cursor(
-        &self,
-        txt: &StageView,
-    ) -> Option<(PathBuf, i32, i32)> {
+    pub fn editor_args_at_cursor(&self, txt: &StageView) -> Option<(PathBuf, i32, i32)> {
         if let Some(file) = self.file_at_cursor() {
             if file.view.is_current() {
                 return Some((self.to_abs_path(&file.path), 0, 0));
@@ -260,8 +258,7 @@ impl Status {
             let mut line_no = hunk.new_start;
             let mut col_no = 0;
             if !hunk.view.is_current() {
-                let line =
-                    hunk.lines.iter().find(|l| l.view.is_current()).unwrap();
+                let line = hunk.lines.iter().find(|l| l.view.is_current()).unwrap();
                 line_no = line
                     .new_line_no
                     .or(line.old_line_no)
@@ -319,8 +316,7 @@ impl Status {
             assert!(path.ends_with(".git/"));
             if self.path.is_none() || path != self.path.clone().unwrap() {
                 let mut paths = settings.get::<Vec<String>>("paths");
-                let str_path =
-                    String::from(path.to_str().unwrap()).replace(".git/", "");
+                let str_path = String::from(path.to_str().unwrap()).replace(".git/", "");
                 settings
                     .set("lastpath", str_path.clone())
                     .expect("cant set lastpath");
@@ -341,11 +337,7 @@ impl Status {
         self.branches.replace(branches);
     }
 
-    pub fn reset_hard(
-        &self,
-        _ooid: Option<crate::Oid>,
-        window: &impl IsA<Widget>,
-    ) {
+    pub fn reset_hard(&self, _ooid: Option<crate::Oid>, window: &impl IsA<Widget>) {
         glib::spawn_future_local({
             let sender = self.sender.clone();
             let path = self.path.clone().unwrap();
@@ -383,8 +375,7 @@ impl Status {
             let path = self.path.clone();
             let sender = self.sender.clone();
             move || {
-                get_current_repo_status(path, sender)
-                    .expect("cant get status");
+                get_current_repo_status(path, sender).expect("cant get status");
             }
         });
     }
@@ -407,45 +398,25 @@ impl Status {
             let sender = self.sender.clone();
             move |_| {
                 let dialog = FileDialog::new();
-                dialog.select_folder(
-                    None::<&GTKWindow>,
-                    None::<&gio::Cancellable>,
-                    {
-                        let sender = sender.clone();
-                        move |result| {
-                            if let Ok(file) = result {
-                                if let Some(path) = file.path() {
-                                    sender
-                                        .send_blocking(crate::Event::OpenRepo(
-                                            path,
-                                        ))
-                                        .expect(
-                                            "Could not send through channel",
-                                        );
-                                }
+                dialog.select_folder(None::<&GTKWindow>, None::<&gio::Cancellable>, {
+                    let sender = sender.clone();
+                    move |result| {
+                        if let Ok(file) = result {
+                            if let Some(path) = file.path() {
+                                sender
+                                    .send_blocking(crate::Event::OpenRepo(path))
+                                    .expect("Could not send through channel");
                             }
                         }
-                    },
-                );
+                    }
+                });
             }
         });
         StatusPage::builder()
-            .icon_name("com.github.aganzha.stage") //document-open-symbolic
+            .icon_name("io.github.aganzha.Stage")
             .title("Open repository")
             .child(&button)
             .build()
-        // let bx = Box::builder()
-        //     .hexpand(true)
-        //     .vexpand(true)
-        //     .vexpand_set(true)
-        //     .hexpand_set(true)
-        //     .valign(Align::Center)
-        //     .orientation(Orientation::Vertical)
-        //     .build();
-        // let image = Image::builder().icon_name("document-open-symbolic").build();
-        // bx.append(&image);
-        // bx.append(&GTKLabel::new(Some("Open repository")));
-        // bx
     }
 
     pub fn pull(&self, window: &ApplicationWindow, ask_pass: Option<bool>) {
@@ -487,26 +458,20 @@ impl Status {
                         ));
                     }
                 }
-                gio::spawn_blocking({
-                    move || remote::pull(path, sender, user_pass)
-                })
-                .await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
-                    Ok(())
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(&window);
-                });
+                gio::spawn_blocking({ move || remote::pull(path, sender, user_pass) })
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(())
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                    });
             }
         });
     }
 
-    pub fn push(
-        &self,
-        window: &ApplicationWindow,
-        remote_dialog: Option<(String, bool, bool)>,
-    ) {
+    pub fn push(&self, window: &ApplicationWindow, remote_dialog: Option<(String, bool, bool)>) {
         let remote = self.choose_remote();
         glib::spawn_future_local({
             let window = window.clone();
@@ -546,29 +511,23 @@ impl Status {
                     "Push",
                 );
 
-                input.connect_apply(
-                    clone!(@strong dialog as dialog => move |_| {
-                        // someone pressed enter
-                        dialog.response("confirm");
-                        dialog.close();
-                    }),
-                );
-                input.connect_entry_activated(
-                    clone!(@strong dialog as dialog => move |_| {
-                        // someone pressed enter
-                        dialog.response("confirm");
-                        dialog.close();
-                    }),
-                );
+                input.connect_apply(clone!(@strong dialog as dialog => move |_| {
+                    // someone pressed enter
+                    dialog.response("confirm");
+                    dialog.close();
+                }));
+                input.connect_entry_activated(clone!(@strong dialog as dialog => move |_| {
+                    // someone pressed enter
+                    dialog.response("confirm");
+                    dialog.close();
+                }));
                 let mut pass = false;
                 match remote_dialog {
                     None => {
                         lb.append(&input);
                         lb.append(&upstream);
                     }
-                    Some((remote_branch, track_remote, ask_password))
-                        if ask_password =>
-                    {
+                    Some((remote_branch, track_remote, ask_password)) if ask_password => {
                         input.set_text(&remote_branch);
                         if track_remote {
                             upstream.set_active(true);
@@ -670,11 +629,7 @@ impl Status {
         if let Some(branches) = &mut self.branches {
             if let Some(head_branch) = head.branch.take() {
                 if let Some(ind) = branches.iter().position(|b| b.is_head) {
-                    trace!(
-                        "replace branch by index {:?} {:?}",
-                        ind,
-                        head_branch.name
-                    );
+                    trace!("replace branch by index {:?} {:?}", ind, head_branch.name);
                     branches[ind] = head_branch;
                 }
             }
@@ -737,8 +692,7 @@ impl Status {
         gio_settings: &gio::Settings,
         context: &mut StatusRenderContext<'a>,
     ) {
-        let mut settings =
-            gio_settings.get::<HashMap<String, Vec<String>>>("ignored");
+        let mut settings = gio_settings.get::<HashMap<String, Vec<String>>>("ignored");
 
         let repo_path = self.path.clone().unwrap();
         let str_path = repo_path.to_str().unwrap();
@@ -788,15 +742,7 @@ impl Status {
                     }
                 }
             }
-            move || {
-                track_changes(
-                    path,
-                    file_path,
-                    interhunk,
-                    has_conflicted,
-                    sender,
-                )
-            }
+            move || track_changes(path, file_path, interhunk, has_conflicted, sender)
         });
     }
 
@@ -835,13 +781,11 @@ impl Status {
                 }
                 if state.need_final_commit() || state.need_rebase_continue() {
                     banner.set_title(&state.title_for_proceed_banner());
-                    banner.set_css_classes(
-                        if StyleManager::default().is_dark() {
-                            &[DARK_CLASS, "success"]
-                        } else {
-                            &[LIGHT_CLASS, "success"]
-                        },
-                    );
+                    banner.set_css_classes(if StyleManager::default().is_dark() {
+                        &[DARK_CLASS, "success"]
+                    } else {
+                        &[LIGHT_CLASS, "success"]
+                    });
                     banner.set_button_label(if state.need_final_commit() {
                         Some("Commit")
                     } else {
@@ -867,28 +811,19 @@ impl Status {
                                 async move {
                                     gio::spawn_blocking({
                                         move || match state {
-                                            RepositoryState::Merge => {
-                                                merge::final_merge_commit(
-                                                    path.clone().unwrap(),
-                                                    sender,
-                                                )
-                                            }
-                                            RepositoryState::RebaseMerge => {
-                                                continue_rebase(
-                                                    path.clone().unwrap(),
-                                                    sender,
-                                                )
-                                            }
-                                            _ => merge::final_commit(
+                                            RepositoryState::Merge => merge::final_merge_commit(
                                                 path.clone().unwrap(),
                                                 sender,
                                             ),
+                                            RepositoryState::RebaseMerge => {
+                                                continue_rebase(path.clone().unwrap(), sender)
+                                            }
+                                            _ => merge::final_commit(path.clone().unwrap(), sender),
                                         }
                                     })
                                     .await
                                     .unwrap_or_else(|e| {
-                                        alert(format!("{:?}", e))
-                                            .present(&window);
+                                        alert(format!("{:?}", e)).present(&window);
                                         Ok(())
                                     })
                                     .unwrap_or_else(|e| {
@@ -924,14 +859,10 @@ impl Status {
                             let sender = sender.clone();
                             let path = path.clone();
                             move || match state {
-                                RepositoryState::RebaseMerge => abort_rebase(
-                                    path.expect("no path"),
-                                    sender,
-                                ),
-                                _ => merge::abort(
-                                    path.expect("no path"),
-                                    sender,
-                                ),
+                                RepositoryState::RebaseMerge => {
+                                    abort_rebase(path.expect("no path"), sender)
+                                }
+                                _ => merge::abort(path.expect("no path"), sender),
                             }
                         });
                     }
@@ -1029,8 +960,7 @@ impl Status {
             // if it is not there - insert
             // if it is there and new is empty - erase it
 
-            let updated_file =
-                diff.files.into_iter().find(|f| f.path == file_path);
+            let updated_file = diff.files.into_iter().find(|f| f.path == file_path);
             let buffer = &txt.buffer();
             let mut ind = 0;
             let mut insert_ind: Option<usize> = None;
@@ -1061,7 +991,12 @@ impl Status {
                     // insert alphabetically
                     let mut ind = 0;
                     for rendered_file in &rendered.files {
-                        debug!("________compare files while insert alphabetically {:?} {:?} {:?}", file.path, rendered_file.path, file.path < rendered_file.path);
+                        debug!(
+                            "________compare files while insert alphabetically {:?} {:?} {:?}",
+                            file.path,
+                            rendered_file.path,
+                            file.path < rendered_file.path
+                        );
                         if file.path < rendered_file.path {
                             break;
                         }
@@ -1079,11 +1014,7 @@ impl Status {
         self.render(txt, None, context);
     }
 
-    pub fn resize_highlights<'a>(
-        &'a mut self,
-        txt: &StageView,
-        ctx: &mut StatusRenderContext<'a>,
-    ) {
+    pub fn resize_highlights<'a>(&'a mut self, txt: &StageView, ctx: &mut StatusRenderContext<'a>) {
         let buffer = txt.buffer();
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         self.cursor(txt, iter.line(), iter.offset(), ctx);
@@ -1125,20 +1056,16 @@ impl Status {
         let mut changed = false;
         let buffer = txt.buffer();
         if let Some(untracked) = &self.untracked {
-            changed =
-                untracked.cursor(&buffer, line_no, false, context) || changed;
+            changed = untracked.cursor(&buffer, line_no, false, context) || changed;
         }
         if let Some(conflicted) = &self.conflicted {
-            changed =
-                conflicted.cursor(&buffer, line_no, false, context) || changed;
+            changed = conflicted.cursor(&buffer, line_no, false, context) || changed;
         }
         if let Some(unstaged) = &self.unstaged {
-            changed =
-                unstaged.cursor(&buffer, line_no, false, context) || changed;
+            changed = unstaged.cursor(&buffer, line_no, false, context) || changed;
         }
         if let Some(staged) = &self.staged {
-            changed =
-                staged.cursor(&buffer, line_no, false, context) || changed;
+            changed = staged.cursor(&buffer, line_no, false, context) || changed;
         }
 
         // this is called once in status_view and 3 times in commit view!!!
@@ -1268,16 +1195,16 @@ impl Status {
                 // i can use everything EXCEPT active_.. fields
                 // FUUUUUUUUUUUUUUUUUUUUUUUUUCK
                 if let Some(unstaged) = &self.unstaged {
-                    if let Some(line_to_go) =
-                        unstaged.nearest_line_to_go(iter.line())
-                    {
+                    if let Some(line_to_go) = unstaged.nearest_line_to_go(iter.line()) {
                         debug!("i am missied in unstaged, but have line to go!!!!!! {line_to_go}");
                         debug!("here it need to cleanup op to stop smart choosing line!");
                         iter.set_line(line_to_go);
                     } else {
                         debug!("i am either in unstaged, or there are no place to go in unstaged!");
                         debug!("how do i know, that it need to clean the op?");
-                        debug!("it need to clean the op in operation itself! after the render!!!!!");
+                        debug!(
+                            "it need to clean the op in operation itself! after the render!!!!!"
+                        );
                     }
                     // // this works! but lets just return last nearest line!
                     // if !unstaged.has_view_on(iter.line()) {
@@ -1296,7 +1223,10 @@ impl Status {
                     //     debug!("hey! i am still here in unstaged!")
                     // }
                 } else {
-                    debug!("i have no unstaged. lets may be go to staged then? {:?}", self.staged.is_some());
+                    debug!(
+                        "i have no unstaged. lets may be go to staged then? {:?}",
+                        self.staged.is_some()
+                    );
                     debug!("how do i know, that it need to clean the op?");
                     debug!("it need to clean the op in operation itself! after the render!!!!!");
                 }
@@ -1406,9 +1336,7 @@ impl Status {
                 if let Some(untracked) = &self.untracked {
                     if !untracked.files.is_empty() {
                         return buffer
-                            .iter_at_line(
-                                untracked.files[0].view.line_no.get(),
-                            )
+                            .iter_at_line(untracked.files[0].view.line_no.get())
                             .unwrap();
                     }
                 }
@@ -1510,12 +1438,7 @@ impl Status {
             .into_iter()
             .flatten()
         {
-            diff.collect_clean_content(
-                line_from,
-                line_to,
-                &mut clean_content,
-                context,
-            );
+            diff.collect_clean_content(line_from, line_to, &mut clean_content, context);
         }
         if !clean_content.is_empty() {
             let clipboard = txt.clipboard();
@@ -1523,30 +1446,18 @@ impl Status {
                 async move {
                     let mut new_content = String::new();
                     let mut replace_content = false;
-                    if let Ok(Some(content)) =
-                        clipboard.read_text_future().await
-                    {
+                    if let Ok(Some(content)) = clipboard.read_text_future().await {
                         for (i, line) in content.split("\n").enumerate() {
                             replace_content = true;
                             let ind = i as i32 + line_from;
-                            if let Some((clean_line, clean_offset)) =
-                                clean_content.get(&ind)
-                            {
-                                if ind == line_from
-                                    && &line_from_offset >= clean_offset
-                                {
+                            if let Some((clean_line, clean_offset)) = clean_content.get(&ind) {
+                                if ind == line_from && &line_from_offset >= clean_offset {
                                     new_content.push_str(
-                                        &clean_line[(line_from_offset
-                                            - clean_offset)
-                                            as usize..],
+                                        &clean_line[(line_from_offset - clean_offset) as usize..],
                                     );
-                                } else if ind == line_to
-                                    && &line_to_offset >= clean_offset
-                                {
+                                } else if ind == line_to && &line_to_offset >= clean_offset {
                                     new_content.push_str(
-                                        &clean_line[..(line_to_offset
-                                            - clean_offset)
-                                            as usize],
+                                        &clean_line[..(line_to_offset - clean_offset) as usize],
                                     );
                                 } else {
                                     new_content.push_str(clean_line);
@@ -1565,11 +1476,7 @@ impl Status {
         };
     }
 
-    pub fn debug<'a>(
-        &'a mut self,
-        _txt: &StageView,
-        _context: &mut StatusRenderContext<'a>,
-    ) {
+    pub fn debug<'a>(&'a mut self, _txt: &StageView, _context: &mut StatusRenderContext<'a>) {
         gio::spawn_blocking({
             let sender = self.sender.clone();
             let path = self.path.clone().unwrap();

@@ -217,36 +217,24 @@ impl TxtTag {
             }
             LINE_NO_ADDED => {
                 if is_dark {
-                    tag.set_foreground_rgba(Some(
-                        &gdk::RGBA::parse("#4a8e0999").unwrap(),
-                    ));
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#4a8e0999").unwrap()));
                 } else {
-                    tag.set_foreground_rgba(Some(
-                        &gdk::RGBA::parse("#2ec27e55").unwrap(),
-                    ));
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#2ec27e55").unwrap()));
                 }
             }
             LINE_NO_REMOVED => {
                 if is_dark {
-                    tag.set_foreground_rgba(Some(
-                        &gdk::RGBA::parse("#a51d2d99").unwrap(),
-                    ));
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#a51d2d99").unwrap()));
                 } else {
-                    tag.set_foreground_rgba(Some(
-                        &gdk::RGBA::parse("#c01c2855").unwrap(),
-                    ));
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#c01c2855").unwrap()));
                 }
             }
             LINE_NO_CONTEXT => {
                 // tag.set_priority(100);
                 if is_dark {
-                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(
-                        1.0, 1.0, 1.0, 0.2,
-                    )));
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(1.0, 1.0, 1.0, 0.2)));
                 } else {
-                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(
-                        0.0, 0.0, 0.0, 0.2,
-                    )));
+                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(0.0, 0.0, 0.0, 0.2)));
                     // from removed
                     // tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#c01c2855").unwrap()));
                 }

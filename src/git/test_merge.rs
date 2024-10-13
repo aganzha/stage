@@ -3,10 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::git::merge::choose_conflict_side_of_blob;
-use crate::git::{
-    make_diff, DiffKind, Hunk, HunkLineNo, LineKind, MARKER_OURS,
-    MARKER_THEIRS,
-};
+use crate::git::{make_diff, DiffKind, Hunk, HunkLineNo, LineKind, MARKER_OURS, MARKER_THEIRS};
 use crate::tests::initialize;
 use git2;
 use log::debug;
@@ -62,8 +59,7 @@ pub fn choose_ours_in_first_conflict() {
     // means we want to kill all workdir changes to get
     // our tree restored as before merge
     initialize();
-    let mut git_diff = git2::Diff::from_buffer(TEST_BLOB.as_bytes())
-        .expect("cant create diff");
+    let mut git_diff = git2::Diff::from_buffer(TEST_BLOB.as_bytes()).expect("cant create diff");
     let diff = make_diff(&git_diff, DiffKind::Conflicted);
     let hunk = &diff.files[0].hunks[0];
 
@@ -81,8 +77,7 @@ pub fn choose_ours_in_first_conflict() {
 
     let ours_choosed = true;
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
-    let conflict_offset_inside_hunk =
-        hunk.get_conflict_offset_by_line(our_choosen_line);
+    let conflict_offset_inside_hunk = hunk.get_conflict_offset_by_line(our_choosen_line);
     let mut new_body = choose_conflict_side_of_blob(
         TEST_BLOB,
         &mut hunk_deltas,
@@ -104,8 +99,7 @@ pub fn choose_ours_in_first_conflict() {
     let new_header = Hunk::shift_new_start_and_lines(&hunk.header, 0, 11);
     new_body = new_body.replace(&hunk.header, &new_header);
 
-    git_diff = git2::Diff::from_buffer(new_body.as_bytes())
-        .expect("cant create diff");
+    git_diff = git2::Diff::from_buffer(new_body.as_bytes()).expect("cant create diff");
 
     for line in new_body.lines() {
         debug!("{}", line);
@@ -141,8 +135,7 @@ pub fn choose_theirs_in_second_conflict() {
     // means we want to kill all workdir changes to get
     // our tree restored as before merge
     initialize();
-    let mut git_diff = git2::Diff::from_buffer(TEST_BLOB.as_bytes())
-        .expect("cant create diff");
+    let mut git_diff = git2::Diff::from_buffer(TEST_BLOB.as_bytes()).expect("cant create diff");
     let diff = make_diff(&git_diff, DiffKind::Conflicted);
     let hunk = &diff.files[0].hunks[0];
 
@@ -160,8 +153,7 @@ pub fn choose_theirs_in_second_conflict() {
 
     let ours_choosed = false;
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
-    let conflict_offset_inside_hunk =
-        hunk.get_conflict_offset_by_line(their_choosen_line);
+    let conflict_offset_inside_hunk = hunk.get_conflict_offset_by_line(their_choosen_line);
 
     debug!(
         "{:?} offset {:?} ... {}",
@@ -195,8 +187,7 @@ pub fn choose_theirs_in_second_conflict() {
     let new_header = Hunk::shift_new_start_and_lines(&hunk.header, 0, 17);
     new_body = new_body.replace(&hunk.header, &new_header);
 
-    git_diff = git2::Diff::from_buffer(new_body.as_bytes())
-        .expect("cant create diff");
+    git_diff = git2::Diff::from_buffer(new_body.as_bytes()).expect("cant create diff");
 
     let diff = make_diff(&git_diff, DiffKind::Conflicted);
     let mut first_passed = false;

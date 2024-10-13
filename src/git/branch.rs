@@ -109,9 +109,7 @@ pub fn get_branches(path: PathBuf) -> Result<Vec<BranchData>, git2::Error> {
     let branches = repo.branches(None)?;
     branches.for_each(|item| {
         let (branch, branch_type) = item.unwrap();
-        if let Ok(Some(branch_data)) =
-            BranchData::from_branch(branch, branch_type)
-        {
+        if let Ok(Some(branch_data)) = BranchData::from_branch(branch, branch_type) {
             result.push(branch_data);
         }
     });
@@ -124,14 +122,10 @@ pub fn get_branches(path: PathBuf) -> Result<Vec<BranchData>, git2::Error> {
             return Ordering::Greater;
         }
 
-        if a.branch_type == git2::BranchType::Local
-            && b.branch_type != git2::BranchType::Local
-        {
+        if a.branch_type == git2::BranchType::Local && b.branch_type != git2::BranchType::Local {
             return Ordering::Less;
         }
-        if b.branch_type == git2::BranchType::Local
-            && a.branch_type != git2::BranchType::Local
-        {
+        if b.branch_type == git2::BranchType::Local && a.branch_type != git2::BranchType::Local {
             return Ordering::Greater;
         }
         b.commit_dt.cmp(&a.commit_dt)
@@ -156,8 +150,7 @@ pub fn checkout_branch(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
 
-    let checkout_error =
-        repo.checkout_tree(commit.as_object(), Some(opts)).err();
+    let checkout_error = repo.checkout_tree(commit.as_object(), Some(opts)).err();
 
     if let Some(checkout_error) = checkout_error {
         return Err(checkout_error);
@@ -165,18 +158,15 @@ pub fn checkout_branch(
     match branch_data.branch_type {
         git2::BranchType::Local => {}
         git2::BranchType::Remote => {
-            let created =
-                repo.branch(&branch_data.name.local_name(), &commit, false);
+            let created = repo.branch(&branch_data.name.local_name(), &commit, false);
             let mut branch = match created {
                 Ok(branch) => branch,
-                Err(_) => repo.find_branch(
-                    &branch_data.name.local_name(),
-                    git2::BranchType::Local,
-                )?,
+                Err(_) => {
+                    repo.find_branch(&branch_data.name.local_name(), git2::BranchType::Local)?
+                }
             };
             branch.set_upstream(Some(&branch_data.name.remote_name()))?;
-            if let Some(new_branch_data) =
-                BranchData::from_branch(branch, git2::BranchType::Local)?
+            if let Some(new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)?
             {
                 branch_data = new_branch_data;
             }
@@ -198,9 +188,7 @@ pub fn create_branch(
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(branch_data.oid)?;
     let branch = repo.branch(&new_branch_name, &commit, false)?;
-    if let Some(new_branch_data) =
-        BranchData::from_branch(branch, git2::BranchType::Local)?
-    {
+    if let Some(new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)? {
         if need_checkout {
             return checkout_branch(path, new_branch_data, sender);
         } else {
@@ -225,8 +213,7 @@ pub fn kill_branch(
             let path = path.clone();
             let name = name.clone();
             move || {
-                let repo = git2::Repository::open(path.clone())
-                    .expect("can't open repo");
+                let repo = git2::Repository::open(path.clone()).expect("can't open repo");
                 let mut remote = repo
                     .find_remote("origin") // TODO here is hardcode
                     .expect("no remote");

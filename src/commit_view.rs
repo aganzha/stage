@@ -15,8 +15,8 @@ use git2::Oid;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow,
-    TextBuffer, TextIter, Widget, Window as Gtk4Window,
+    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, TextBuffer, TextIter,
+    Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -80,10 +80,7 @@ pub fn headerbar_factory(
             if let Some(num) = stash_num {
                 glib::spawn_future_local({
                     git_oid_op(
-                        ConfirmDialog(
-                            "Apply stash?".to_string(),
-                            "".to_string(),
-                        ),
+                        ConfirmDialog("Apply stash?".to_string(), "".to_string()),
                         window,
                         move || stash::apply(path, num, None, None, sender),
                     )
@@ -91,14 +88,9 @@ pub fn headerbar_factory(
             } else {
                 glib::spawn_future_local({
                     git_oid_op(
-                        ConfirmDialog(
-                            "Cherry pick commit?".to_string(),
-                            "".to_string(),
-                        ),
+                        ConfirmDialog("Cherry pick commit?".to_string(), "".to_string()),
                         window,
-                        move || {
-                            commit::cherry_pick(path, oid, None, None, sender)
-                        },
+                        move || commit::cherry_pick(path, oid, None, None, sender),
                     )
                 });
             }
@@ -122,10 +114,7 @@ pub fn headerbar_factory(
                 let window = window.clone();
                 glib::spawn_future_local({
                     git_oid_op(
-                        ConfirmDialog(
-                            "Revert commit?".to_string(),
-                            "".to_string(),
-                        ),
+                        ConfirmDialog("Revert commit?".to_string(), "".to_string()),
                         window,
                         move || commit::revert(path, oid, None, None, sender),
                     )
@@ -175,9 +164,8 @@ impl MultiLineLabel {
                     if let Some(word) = split.next() {
                         trace!("got word > {} <", word);
                         if acc.len() + word.len() > chars as usize {
-                            self.labels.push(TextViewLabel::from_string(
-                                &acc.replace('\n', ""),
-                            ));
+                            self.labels
+                                .push(TextViewLabel::from_string(&acc.replace('\n', "")));
                             trace!("init new acc after width end {:?}", acc);
                             acc = String::from(word);
                         } else {
@@ -187,9 +175,8 @@ impl MultiLineLabel {
                         }
                     } else {
                         trace!("words are over! push last label! {:?}", acc);
-                        self.labels.push(TextViewLabel::from_string(
-                            &acc.replace('\n', ""),
-                        ));
+                        self.labels
+                            .push(TextViewLabel::from_string(&acc.replace('\n', "")));
                         acc = String::from("");
                         break 'words;
                     }
@@ -314,8 +301,7 @@ pub fn show_commit_window(
         let window = window.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
-                (gdk::Key::w, gdk::ModifierType::CONTROL_MASK)
-                | (gdk::Key::Escape, _) => {
+                (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) | (gdk::Key::Escape, _) => {
                     window.close();
                 }
                 _ => {}
@@ -337,18 +323,16 @@ pub fn show_commit_window(
         let window = window.clone();
         let sender = sender.clone();
         async move {
-            let diff = gio::spawn_blocking(move || {
-                commit::get_commit_diff(path, oid)
-            })
-            .await
-            .unwrap_or_else(|e| {
-                alert(format!("{:?}", e)).present(&window);
-                Ok(commit::CommitDiff::default())
-            })
-            .unwrap_or_else(|e| {
-                alert(e).present(&window);
-                commit::CommitDiff::default()
-            });
+            let diff = gio::spawn_blocking(move || commit::get_commit_diff(path, oid))
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(commit::CommitDiff::default())
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                    commit::CommitDiff::default()
+                });
             sender
                 .send_blocking(Event::CommitDiff(diff))
                 .expect("Could not send through channel");
@@ -356,10 +340,7 @@ pub fn show_commit_window(
     });
 
     let mut labels: [TextViewLabel; 3] = [
-        TextViewLabel::from_string(&format!(
-            "commit: <span color=\"#4a708b\">{:?}</span>",
-            oid
-        )),
+        TextViewLabel::from_string(&format!("commit: <span color=\"#4a708b\">{:?}</span>", oid)),
         TextViewLabel::from_string(""),
         TextViewLabel::from_string(""),
     ];
@@ -383,12 +364,7 @@ pub fn show_commit_window(
                         &commit_diff.message,
                         txt.calc_max_char_width(max_width),
                     ));
-                    commit_diff.render(
-                        &txt,
-                        &mut ctx,
-                        &mut labels,
-                        body_label.as_mut().unwrap(),
-                    );
+                    commit_diff.render(&txt, &mut ctx, &mut labels, body_label.as_mut().unwrap());
                     // it should be called after cursor in ViewContainer
                     txt.bind_highlights(&ctx);
                     diff.replace(commit_diff);
@@ -398,21 +374,17 @@ pub fn show_commit_window(
                     if let Some(d) = &mut diff {
                         let mut need_render = false;
                         for file in &mut d.diff.files {
-                            need_render = need_render
-                                || file.expand(line_no, &mut ctx).is_some();
+                            need_render = need_render || file.expand(line_no, &mut ctx).is_some();
                             if need_render {
                                 break;
                             }
                         }
                         let buffer = &txt.buffer();
-                        let mut iter = buffer
-                            .iter_at_line(d.diff.view.line_no.get())
-                            .unwrap();
+                        let mut iter = buffer.iter_at_line(d.diff.view.line_no.get()).unwrap();
                         if need_render {
                             d.diff.render(buffer, &mut iter, &mut ctx);
                             // it should be called after cursor in ViewContainer
-                            let iter = buffer
-                                .iter_at_offset(buffer.cursor_position());
+                            let iter = buffer.iter_at_offset(buffer.cursor_position());
                             d.diff.cursor(buffer, iter.line(), true, &mut ctx);
                             txt.bind_highlights(&ctx);
                         }
@@ -433,12 +405,7 @@ pub fn show_commit_window(
                 Event::TextCharVisibleWidth(w) => {
                     info!("TextCharVisibleWidth {}", w);
                     if let Some(d) = &mut diff {
-                        d.render(
-                            &txt,
-                            &mut ctx,
-                            &mut labels,
-                            body_label.as_mut().unwrap(),
-                        );
+                        d.render(&txt, &mut ctx, &mut labels, body_label.as_mut().unwrap());
                     }
                 }
                 Event::Stage(_) | Event::RepoPopup => {
@@ -452,53 +419,38 @@ pub fn show_commit_window(
                                 _ => "Revert",
                             }
                         };
-                        let (body, file_path, hunk_header) =
-                            match cursor_position {
-                                CursorPosition::CursorDiff(_) => {
-                                    (oid.to_string(), None, None)
-                                }
-                                CursorPosition::CursorFile(_, file_idx) => {
-                                    let file = &diff.diff.files[file_idx];
-                                    (
-                                        format!(
-                                            "File: {}",
-                                            file.path.to_str().unwrap()
-                                        ),
-                                        Some(file.path.clone()),
-                                        None,
-                                    )
-                                }
-                                CursorPosition::CursorHunk(
-                                    _,
-                                    file_idx,
-                                    hunk_idx,
-                                )
-                                | CursorPosition::CursorLine(
-                                    _,
-                                    file_idx,
-                                    hunk_idx,
-                                    _,
-                                ) => {
-                                    let file = &diff.diff.files[file_idx];
-                                    let hunk = &file.hunks[hunk_idx];
-                                    (
-                                    format!("File: {}\nApplying single hunks is not yet implemented :(", file.path.to_str().unwrap()),
+                        let (body, file_path, hunk_header) = match cursor_position {
+                            CursorPosition::CursorDiff(_) => (oid.to_string(), None, None),
+                            CursorPosition::CursorFile(_, file_idx) => {
+                                let file = &diff.diff.files[file_idx];
+                                (
+                                    format!("File: {}", file.path.to_str().unwrap()),
                                     Some(file.path.clone()),
-                                    Some(hunk.header.clone())
+                                    None,
                                 )
-                                }
-                                _ => ("".to_string(), None, None),
-                            };
+                            }
+                            CursorPosition::CursorHunk(_, file_idx, hunk_idx)
+                            | CursorPosition::CursorLine(_, file_idx, hunk_idx, _) => {
+                                let file = &diff.diff.files[file_idx];
+                                let hunk = &file.hunks[hunk_idx];
+                                (
+                                    format!(
+                                        "File: {}\nApplying single hunks is not yet implemented :(",
+                                        file.path.to_str().unwrap()
+                                    ),
+                                    Some(file.path.clone()),
+                                    Some(hunk.header.clone()),
+                                )
+                            }
+                            _ => ("".to_string(), None, None),
+                        };
 
                         let path = repo_path.clone();
                         let sender = main_sender.clone();
                         let window = window.clone();
                         glib::spawn_future_local({
                             git_oid_op(
-                                ConfirmDialog(
-                                    title.to_string(),
-                                    body.to_string(),
-                                ),
+                                ConfirmDialog(title.to_string(), body.to_string()),
                                 window,
                                 move || match event {
                                     Event::Stage(_) => {
@@ -520,13 +472,7 @@ pub fn show_commit_window(
                                             )
                                         }
                                     }
-                                    _ => commit::revert(
-                                        path,
-                                        oid,
-                                        file_path,
-                                        hunk_header,
-                                        sender,
-                                    ),
+                                    _ => commit::revert(path, oid, file_path, hunk_header, sender),
                                 },
                             )
                         });

@@ -9,8 +9,7 @@ use glib::{clone, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, ListBox,
-    ScrolledWindow, SelectionMode,
+    gdk, gio, glib, Button, EventControllerKey, Label, ListBox, ScrolledWindow, SelectionMode,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -20,8 +19,8 @@ use crate::git::stash;
 use crate::{confirm_dialog_factory, Event, Status};
 use libadwaita::prelude::*;
 use libadwaita::{
-    ActionRow, ApplicationWindow, EntryRow, HeaderBar, PreferencesRow,
-    SwitchRow, ToolbarStyle, ToolbarView,
+    ActionRow, ApplicationWindow, EntryRow, HeaderBar, PreferencesRow, SwitchRow, ToolbarStyle,
+    ToolbarView,
 };
 
 use log::{debug, trace};
@@ -75,10 +74,7 @@ impl OidRow {
         Object::builder().build()
     }
 
-    pub fn from_stash(
-        stash: &stash::StashData,
-        sender: Sender<Event>,
-    ) -> Self {
+    pub fn from_stash(stash: &stash::StashData, sender: Sender<Event>) -> Self {
         let row = Self::new();
         row.set_property("title", &stash.title);
         row.set_oid(stash.oid.to_string());
@@ -110,12 +106,7 @@ impl OidRow {
         row
     }
 
-    pub fn kill(
-        &self,
-        path: PathBuf,
-        window: &ApplicationWindow,
-        sender: Sender<Event>,
-    ) {
+    pub fn kill(&self, path: PathBuf, window: &ApplicationWindow, sender: Sender<Event>) {
         glib::spawn_future_local({
             clone!(@weak self as row,
             @strong window as window => async move {
@@ -153,12 +144,7 @@ impl OidRow {
         });
     }
 
-    pub fn apply_stash(
-        &self,
-        path: PathBuf,
-        window: &ApplicationWindow,
-        sender: Sender<Event>,
-    ) {
+    pub fn apply_stash(&self, path: PathBuf, window: &ApplicationWindow, sender: Sender<Event>) {
         // check stash!
         trace!("...........apply stash {:?}", self.imp().stash);
         glib::spawn_future_local({
@@ -316,10 +302,7 @@ pub fn factory(
     scroll.set_css_classes(&[&String::from("nocorners")]);
     let lb = ListBox::builder()
         .selection_mode(SelectionMode::Single)
-        .css_classes(vec![
-            String::from("boxed-list"),
-            String::from("nocorners"),
-        ])
+        .css_classes(vec![String::from("boxed-list"), String::from("nocorners")])
         .build();
     if let Some(data) = &status.stashes {
         for stash in &data.stashes {
@@ -364,8 +347,7 @@ pub fn factory(
         let lb = lb.clone();
         move |_| {
             if let Some(row) = lb.selected_row() {
-                let oid_row =
-                    row.downcast_ref::<OidRow>().expect("cant get oid row");
+                let oid_row = row.downcast_ref::<OidRow>().expect("cant get oid row");
                 oid_row.apply_stash(path.clone(), &window, sender.clone());
             }
         }
@@ -377,8 +359,7 @@ pub fn factory(
         let lb = lb.clone();
         move |_| {
             if let Some(row) = lb.selected_row() {
-                let oid_row =
-                    row.downcast_ref::<OidRow>().expect("cant get oid row");
+                let oid_row = row.downcast_ref::<OidRow>().expect("cant get oid row");
                 oid_row.kill(path.clone(), &window, sender.clone());
             }
         }
@@ -405,37 +386,22 @@ pub fn factory(
                 }
                 (gdk::Key::a, _) => {
                     if let Some(row) = lb.selected_row() {
-                        let oid_row = row
-                            .downcast_ref::<OidRow>()
-                            .expect("cant get oid row");
-                        oid_row.apply_stash(
-                            path.clone(),
-                            &window,
-                            sender.clone(),
-                        );
+                        let oid_row = row.downcast_ref::<OidRow>().expect("cant get oid row");
+                        oid_row.apply_stash(path.clone(), &window, sender.clone());
                     }
                 }
                 (gdk::Key::k | gdk::Key::d, _) => {
                     if let Some(row) = lb.selected_row() {
-                        let oid_row = row
-                            .downcast_ref::<OidRow>()
-                            .expect("cant get oid row");
+                        let oid_row = row.downcast_ref::<OidRow>().expect("cant get oid row");
                         oid_row.kill(path.clone(), &window, sender.clone());
                     }
                 }
                 (gdk::Key::z | gdk::Key::c | gdk::Key::n, _) => {
-                    add_stash(
-                        path.clone(),
-                        &window,
-                        &lb.clone(),
-                        sender.clone(),
-                    );
+                    add_stash(path.clone(), &window, &lb.clone(), sender.clone());
                 }
                 (gdk::Key::v | gdk::Key::Return, _) => {
                     if let Some(row) = lb.selected_row() {
-                        let oid_row = row
-                            .downcast_ref::<OidRow>()
-                            .expect("cant get oid row");
+                        let oid_row = row.downcast_ref::<OidRow>().expect("cant get oid row");
                         let oid = oid_row.imp().stash.borrow().oid;
                         let num = oid_row.imp().stash.borrow().num;
                         sender
@@ -444,11 +410,7 @@ pub fn factory(
                     }
                 }
                 (key, modifier) => {
-                    debug!(
-                        "key press in stashes view{:?} {:?}",
-                        key.name(),
-                        modifier
-                    );
+                    debug!("key press in stashes view{:?} {:?}", key.name(), modifier);
                 }
             }
             glib::Propagation::Proceed

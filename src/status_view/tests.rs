@@ -17,13 +17,9 @@ use regex::Regex;
 impl Hunk {
     // used in tests only
     pub fn fill_from_header(&mut self) {
-        let re =
-            Regex::new(r"@@ [+-]([0-9]+),([0-9]+) [+-]([0-9]+),([0-9]+) @@")
-                .unwrap();
-        if let Some((
-            _,
-            [old_start_s, old_lines_s, new_start_s, new_lines_s],
-        )) = re.captures_iter(&self.header).map(|c| c.extract()).next()
+        let re = Regex::new(r"@@ [+-]([0-9]+),([0-9]+) [+-]([0-9]+),([0-9]+) @@").unwrap();
+        if let Some((_, [old_start_s, old_lines_s, new_start_s, new_lines_s])) =
+            re.captures_iter(&self.header).map(|c| c.extract()).next()
         {
             self.old_start = old_start_s.parse().expect("cant parse nums");
             self.old_lines = old_lines_s.parse().expect("cant parse nums");
@@ -457,10 +453,7 @@ fn test_expand_line() {
     diff.expand(first_hunk_line, &mut ctx);
     diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
     assert!(!first_hunk.view.is_expanded());
-    assert!(
-        first_hunk.view.line_no.get() + 1
-            == diff.files[0].hunks[1].view.line_no.get()
-    );
+    assert!(first_hunk.view.line_no.get() + 1 == diff.files[0].hunks[1].view.line_no.get());
     let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
     let content_lines = content.split('\n');
 
@@ -678,7 +671,9 @@ fn test_reconciliation_new() {
     let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
 
-    let mut hunk = create_hunk("@@ -1876,7 +1897,8 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):");
+    let mut hunk = create_hunk(
+        "@@ -1876,7 +1897,8 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):",
+    );
     hunk.fill_from_header();
     rendered_file.hunks.push(hunk);
     rendered_file.view.expand(true);
@@ -688,7 +683,9 @@ fn test_reconciliation_new() {
     new_file.hunks = Vec::new();
 
     iter.set_line(0);
-    let mut hunk = create_hunk("@@ -1876,7 +1897,7 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):");
+    let mut hunk = create_hunk(
+        "@@ -1876,7 +1897,7 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):",
+    );
     hunk.fill_from_header();
     new_file.hunks.push(hunk);
     iter.set_line(0);
@@ -708,8 +705,7 @@ fn test_reconciliation_new() {
     let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
 
-    let mut hunk =
-        create_hunk("@@ -687,7 +705,9 @@ class ServiceWorkPostprocess:");
+    let mut hunk = create_hunk("@@ -687,7 +705,9 @@ class ServiceWorkPostprocess:");
     hunk.fill_from_header();
     rendered_file.hunks.push(hunk);
     rendered_file.view.expand(true);
@@ -719,8 +715,7 @@ fn test_reconciliation_new() {
     new_file.hunks = Vec::new();
 
     iter.set_line(0);
-    let mut hunk =
-        create_hunk("@@ -687,7 +704,9 @@ class ServiceWorkPostprocess:");
+    let mut hunk = create_hunk("@@ -687,7 +704,9 @@ class ServiceWorkPostprocess:");
     hunk.fill_from_header();
     new_file.hunks.push(hunk);
     iter.set_line(0);
@@ -740,16 +735,12 @@ fn test_tags() {
     let view = View::new();
     view.tag_added(&tag1);
     debug!("added at 16 {:b}", view.tag_indexes.get());
-    assert!(
-        view.tag_indexes.get() == tags::TagIdx::from(0b100000000000000000)
-    );
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b100000000000000000));
     assert!(view.tag_indexes.get().is_added(&tag1));
 
     view.tag_added(&tag3);
     debug!("added at 3 {:b}", view.tag_indexes.get());
-    assert!(
-        view.tag_indexes.get() == tags::TagIdx::from(0b100000000000001000)
-    );
+    assert!(view.tag_indexes.get() == tags::TagIdx::from(0b100000000000001000));
     assert!(view.tag_indexes.get().is_added(&tag1));
     assert!(view.tag_indexes.get().is_added(&tag3));
 
@@ -828,10 +819,7 @@ pub fn test_cursor_position() {
                 // put cursor on each line
                 diff.cursor(&buffer, line_line_no, false, &mut ctx);
                 let position = CursorPosition::from_context(&ctx);
-                assert!(
-                    position
-                        == CursorPosition::CursorLine(diff.kind, fi, hi, li)
-                );
+                assert!(position == CursorPosition::CursorLine(diff.kind, fi, hi, li));
             }
         }
     }

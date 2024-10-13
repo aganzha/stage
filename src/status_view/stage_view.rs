@@ -11,9 +11,8 @@ use core::time::Duration;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, glib, EventControllerKey, EventControllerMotion, EventSequenceState,
-    GestureClick, GestureDrag, MovementStep, TextBuffer, TextTag, TextView,
-    TextWindowType, Widget,
+    gdk, glib, EventControllerKey, EventControllerMotion, EventSequenceState, GestureClick,
+    GestureDrag, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
 use log::trace;
@@ -227,9 +226,7 @@ impl StageView {
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
         match context.cursor_position {
-            CursorPosition::CursorDiff(_) => {
-                self.imp().double_height_line.replace(true)
-            }
+            CursorPosition::CursorDiff(_) => self.imp().double_height_line.replace(true),
             _ => self.imp().double_height_line.replace(false),
         };
 
@@ -356,39 +353,24 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             match (key, modifier) {
                 (gdk::Key::Tab, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::Expand(
-                        iter.offset(),
-                        iter.line(),
-                    ))
-                    .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Expand(iter.offset(), iter.line()))
+                        .expect("Could not send through channel");
                     return glib::Propagation::Stop;
                 }
-                (
-                    gdk::Key::s
-                    | gdk::Key::a
-                    | gdk::Key::ISO_Enter
-                    | gdk::Key::KP_Enter,
-                    _,
-                ) => {
+                (gdk::Key::s | gdk::Key::a | gdk::Key::ISO_Enter | gdk::Key::KP_Enter, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::Stage(
-                        crate::StageOp::Stage(iter.line()),
-                    ))
-                    .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Stage(crate::StageOp::Stage(iter.line())))
+                        .expect("Could not send through channel");
                 }
                 (gdk::Key::u, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::Stage(
-                        crate::StageOp::Unstage(iter.line()),
-                    ))
-                    .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Stage(crate::StageOp::Unstage(iter.line())))
+                        .expect("Could not send through channel");
                 }
                 (gdk::Key::k, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::Stage(
-                        crate::StageOp::Kill(iter.line()),
-                    ))
-                    .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Stage(crate::StageOp::Kill(iter.line())))
+                        .expect("Could not send through channel");
                 }
                 (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
                     // for ctrl-c
@@ -430,14 +412,12 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                         .expect("cant send through channel");
                 }
                 (gdk::Key::d, gdk::ModifierType::CONTROL_MASK) => {
-                    let _iter =
-                        buffer.iter_at_offset(buffer.cursor_position());
+                    let _iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Dump)
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::d, _) => {
-                    let _iter =
-                        buffer.iter_at_offset(buffer.cursor_position());
+                    let _iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Debug)
                         .expect("Could not send through channel");
                 }
@@ -458,17 +438,11 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                         .expect("Could not send through channel");
                 }
                 (_, gdk::ModifierType::LOCK_MASK) => {
-                    sndr.send_blocking(crate::Event::Toast(String::from(
-                        "CapsLock pressed",
-                    )))
-                    .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Toast(String::from("CapsLock pressed")))
+                        .expect("Could not send through channel");
                 }
                 (key, modifier) => {
-                    trace!(
-                        "key press in status view {:?} {:?}",
-                        key.name(),
-                        modifier
-                    );
+                    trace!("key press in status view {:?} {:?}", key.name(), modifier);
                 }
             }
             glib::Propagation::Proceed
@@ -496,11 +470,8 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             txt.set_cursor_highlight(true);
             let pos = txt.buffer().cursor_position();
             let iter = txt.buffer().iter_at_offset(pos);
-            sndr.send_blocking(crate::Event::Cursor(
-                iter.offset(),
-                iter.line(),
-            ))
-            .expect("Could not send through channel");
+            sndr.send_blocking(crate::Event::Cursor(iter.offset(), iter.line()))
+                .expect("Could not send through channel");
             trace!(
                 "click!.......................... n_click {:?} {:?}",
                 n_clicks,
@@ -517,28 +488,21 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                             return glib::ControlFlow::Break;
                         }
                         click_lock.borrow_mut().take();
-                        sndr.send_blocking(crate::Event::Expand(
-                            iter.offset(),
-                            iter.line(),
-                        ))
-                        .expect("Could not send through channel");
+                        sndr.send_blocking(crate::Event::Expand(iter.offset(), iter.line()))
+                            .expect("Could not send through channel");
                         glib::ControlFlow::Break
                     }
                 });
             }
             if n_clicks == 2 && iter.has_tag(&staged) {
                 click_lock.borrow_mut().take();
-                sndr.send_blocking(crate::Event::Stage(
-                    crate::StageOp::Unstage(iter.line()),
-                ))
-                .expect("Could not send through channel");
+                sndr.send_blocking(crate::Event::Stage(crate::StageOp::Unstage(iter.line())))
+                    .expect("Could not send through channel");
             }
             if n_clicks == 2 && iter.has_tag(&unstaged) {
                 click_lock.borrow_mut().take();
-                sndr.send_blocking(crate::Event::Stage(
-                    crate::StageOp::Stage(iter.line()),
-                ))
-                .expect("Could not send through channel");
+                sndr.send_blocking(crate::Event::Stage(crate::StageOp::Stage(iter.line())))
+                    .expect("Could not send through channel");
             }
         }
     });
@@ -556,8 +520,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             let line_before = start_iter.line();
             // TODO! do not emit event if line is not changed!
             match step {
-                MovementStep::LogicalPositions
-                | MovementStep::VisualPositions => {
+                MovementStep::LogicalPositions | MovementStep::VisualPositions => {
                     start_iter.forward_chars(count);
                 }
                 MovementStep::Words => {
@@ -576,11 +539,8 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             }
             let current_line = start_iter.line();
             if line_before != current_line {
-                sndr.send_blocking(crate::Event::Cursor(
-                    start_iter.offset(),
-                    current_line,
-                ))
-                .expect("Could not send through channel");
+                sndr.send_blocking(crate::Event::Cursor(start_iter.offset(), current_line))
+                    .expect("Could not send through channel");
             }
         }
     });
@@ -589,20 +549,12 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     motion_controller.connect_motion({
         let txt = txt.clone();
         move |_c, x, y| {
-            let (x, y) = txt.window_to_buffer_coords(
-                TextWindowType::Text,
-                x as i32,
-                y as i32,
-            );
+            let (x, y) = txt.window_to_buffer_coords(TextWindowType::Text, x as i32, y as i32);
             if let Some(iter) = txt.iter_at_location(x, y) {
                 if iter.has_tag(&pointer) {
-                    txt.set_cursor(Some(
-                        &gdk::Cursor::from_name("pointer", None).unwrap(),
-                    ));
+                    txt.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
                 } else {
-                    txt.set_cursor(Some(
-                        &gdk::Cursor::from_name("text", None).unwrap(),
-                    ));
+                    txt.set_cursor(Some(&gdk::Cursor::from_name("text", None).unwrap()));
                 }
             }
         }

@@ -42,8 +42,7 @@ impl Stashes {
 }
 
 pub fn list(path: PathBuf, sender: Sender<crate::Event>) -> Stashes {
-    let mut repo =
-        git2::Repository::open(path.clone()).expect("can't open repo");
+    let mut repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let mut result = Vec::new();
     repo.stash_foreach(|num, title, oid| {
         result.push(StashData::new(num, *oid, title.to_string()));
@@ -98,13 +97,8 @@ pub fn apply(
     Ok(())
 }
 
-pub fn drop(
-    path: PathBuf,
-    stash_data: StashData,
-    sender: Sender<crate::Event>,
-) -> Stashes {
-    let mut repo =
-        git2::Repository::open(path.clone()).expect("can't open repo");
+pub fn drop(path: PathBuf, stash_data: StashData, sender: Sender<crate::Event>) -> Stashes {
+    let mut repo = git2::Repository::open(path.clone()).expect("can't open repo");
     repo.stash_drop(stash_data.num).expect("cant drop stash");
     list(path, sender)
 }

@@ -25,10 +25,7 @@ impl CursorPosition {
     ) -> (Option<DiffKind>, Option<PathBuf>, Option<String>) {
         // TODO! it is not string! it must be typed HunkHeader!
         match (self, op) {
-            (
-                Self::CursorDiff(DiffKind::Unstaged),
-                StageOp::Stage(_) | StageOp::Kill(_),
-            ) => {
+            (Self::CursorDiff(DiffKind::Unstaged), StageOp::Stage(_) | StageOp::Kill(_)) => {
                 if let Some(unstaged) = &status.unstaged {
                     return (Some(unstaged.kind), None, None);
                 }
@@ -39,11 +36,7 @@ impl CursorPosition {
             ) => {
                 if let Some(unstaged) = &status.unstaged {
                     let file = &unstaged.files[*file_idx];
-                    return (
-                        Some(unstaged.kind),
-                        Some(file.path.clone()),
-                        None,
-                    );
+                    return (Some(unstaged.kind), Some(file.path.clone()), None);
                 }
             }
             (
@@ -66,10 +59,7 @@ impl CursorPosition {
                     return (Some(staged.kind), None, None);
                 }
             }
-            (
-                Self::CursorFile(DiffKind::Staged, file_idx),
-                StageOp::Unstage(_),
-            ) => {
+            (Self::CursorFile(DiffKind::Staged, file_idx), StageOp::Unstage(_)) => {
                 if let Some(staged) = &status.staged {
                     let file = &staged.files[*file_idx];
                     return (Some(staged.kind), Some(file.path.clone()), None);
@@ -90,10 +80,7 @@ impl CursorPosition {
                     );
                 }
             }
-            (
-                Self::CursorDiff(DiffKind::Untracked),
-                StageOp::Stage(_) | StageOp::Kill(_),
-            ) => {
+            (Self::CursorDiff(DiffKind::Untracked), StageOp::Stage(_) | StageOp::Kill(_)) => {
                 if let Some(untracked) = &status.untracked {
                     return (Some(untracked.kind), None, None);
                 }
@@ -104,17 +91,10 @@ impl CursorPosition {
             ) => {
                 if let Some(untracked) = &status.untracked {
                     let file = &untracked.files[*file_idx];
-                    return (
-                        Some(untracked.kind),
-                        Some(file.path.clone()),
-                        None,
-                    );
+                    return (Some(untracked.kind), Some(file.path.clone()), None);
                 }
             }
-            (
-                Self::CursorLine(DiffKind::Conflicted, file_idx, hunk_idx, _),
-                StageOp::Stage(_),
-            ) => {
+            (Self::CursorLine(DiffKind::Conflicted, file_idx, hunk_idx, _), StageOp::Stage(_)) => {
                 if let Some(conflicted) = &status.conflicted {
                     let file = &conflicted.files[*file_idx];
                     let hunk = &file.hunks[*hunk_idx];
@@ -132,17 +112,16 @@ impl CursorPosition {
 }
 
 impl Status {
-    pub fn stage(
-        &mut self,
-        op: StageOp,
-        window: &ApplicationWindow,
-        gio_settings: &gio::Settings,
-    ) {
+    pub fn stage(&mut self, op: StageOp, window: &ApplicationWindow, gio_settings: &gio::Settings) {
         let (diff_kind, file_path, hunk_header) =
             self.cursor_position.get().resolve_stage_op(self, &op);
         trace!(
             "stage via apply ----------------------> {:?} {:?} {:?} {:?} === {:?}",
-            op, diff_kind, file_path, hunk_header, self.cursor_position
+            op,
+            diff_kind,
+            file_path,
+            hunk_header,
+            self.cursor_position
         );
 
         match diff_kind {
@@ -155,24 +134,16 @@ impl Status {
                         let window = window.clone();
                         async move {
                             gio::spawn_blocking({
-                                move || {
-                                    stage_untracked(
-                                        path.expect("no path"),
-                                        file_path,
-                                        sender,
-                                    )
-                                }
+                                move || stage_untracked(path.expect("no path"), file_path, sender)
                             })
                             .await
                             .unwrap_or_else(|e| {
                                 alert(format!("{:?}", e)).present(&window);
                                 Ok(())
                             })
-                            .unwrap_or_else(
-                                |e| {
-                                    alert(e).present(&window);
-                                },
-                            );
+                            .unwrap_or_else(|e| {
+                                alert(e).present(&window);
+                            });
                         }
                     });
                 }
@@ -184,47 +155,35 @@ impl Status {
                         let sender = self.sender.clone();
                         let untracked = self.untracked.clone();
                         let mut ignored = Vec::new();
-                        let mut message =
-                            "This will kill all untracked files!".to_string();
+                        let mut message = "This will kill all untracked files!".to_string();
                         if let Some(file_path) = &file_path {
-                            let str_path =
-                                file_path.to_str().expect("wrong path");
+                            let str_path = file_path.to_str().expect("wrong path");
                             ignored.push(str_path.to_string());
-                            message = file_path
-                                .to_str()
-                                .expect("wrong path")
-                                .to_string();
+                            message = file_path.to_str().expect("wrong path").to_string();
                         } else if let Some(untracked) = &untracked {
                             for file in &untracked.files {
-                                let str_path =
-                                    file.path.to_str().expect("wrong path");
+                                let str_path = file.path.to_str().expect("wrong path");
                                 ignored.push(str_path.to_string());
                             }
                         }
 
                         let mut settings =
-                            gio_settings.get::<HashMap<String, Vec<String>>>(
-                                "ignored",
-                            );
+                            gio_settings.get::<HashMap<String, Vec<String>>>("ignored");
                         async move {
-                            let response = alert(DangerDialog(
-                                "Kill Untracked files?".to_string(),
-                                message,
-                            ))
-                            .choose_future(&window)
-                            .await;
+                            let response =
+                                alert(DangerDialog("Kill Untracked files?".to_string(), message))
+                                    .choose_future(&window)
+                                    .await;
                             if response != YES {
                                 return;
                             }
                             let repo_path = path.expect("no path");
-                            let repo_path =
-                                repo_path.to_str().expect("wrong path");
+                            let repo_path = repo_path.to_str().expect("wrong path");
                             if let Some(stored) = settings.get_mut(repo_path) {
                                 stored.append(&mut ignored);
                                 trace!("added ignore {:?}", settings);
                             } else {
-                                settings
-                                    .insert(repo_path.to_string(), ignored);
+                                settings.insert(repo_path.to_string(), ignored);
                                 trace!("first ignored file {:?}", settings);
                             }
                             gio_settings
@@ -296,21 +255,21 @@ impl Status {
                             let window = window.clone();
                             let interhunk = conflicted.interhunk;
                             async move {
-                                if hunk.conflict_markers_count > 0
-                                    && line.is_side_of_conflict()
-                                {
+                                if hunk.conflict_markers_count > 0 && line.is_side_of_conflict() {
                                     info!("choose_conflict_side_of_hunk");
                                     gio::spawn_blocking({
                                         move || {
                                             merge::choose_conflict_side_of_hunk(
-                                                path, file_path, hunk, line,
-                                                interhunk, sender,
+                                                path, file_path, hunk, line, interhunk, sender,
                                             )
                                         }
-                                    }).await.unwrap_or_else(|e| {
+                                    })
+                                    .await
+                                    .unwrap_or_else(|e| {
                                         alert(format!("{:?}", e)).present(&window);
                                         Ok(())
-                                    }).unwrap_or_else(|e| {
+                                    })
+                                    .unwrap_or_else(|e| {
                                         alert(e).present(&window);
                                     });
                                 } else {
@@ -323,10 +282,13 @@ impl Status {
                                                 path, file_path, interhunk, sender,
                                             )
                                         }
-                                    }).await.unwrap_or_else(|e| {
+                                    })
+                                    .await
+                                    .unwrap_or_else(|e| {
                                         alert(format!("{:?}", e)).present(&window);
                                         Ok(())
-                                    }).unwrap_or_else(|e| {
+                                    })
+                                    .unwrap_or_else(|e| {
                                         alert(e).present(&window);
                                     });
                                 }

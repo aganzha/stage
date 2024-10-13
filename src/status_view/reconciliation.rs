@@ -27,8 +27,10 @@ impl Hunk {
             return;
         }
         let mut last_rendered = 0;
-        self.lines.iter().zip(rendered.lines.iter()).for_each(
-            |lines: (&Line, &Line)| {
+        self.lines
+            .iter()
+            .zip(rendered.lines.iter())
+            .for_each(|lines: (&Line, &Line)| {
                 trace!("zip on lines {:?} {:?}", context, lines);
                 lines.0.enrich_view(lines.1, buffer, context);
                 if (lines.0.origin != lines.1.origin)
@@ -37,8 +39,7 @@ impl Hunk {
                     lines.0.view.dirty(true);
                 }
                 last_rendered += 1;
-            },
-        );
+            });
         if rendered.lines.len() > last_rendered {
             rendered.lines[last_rendered..rendered.lines.len()]
                 .iter()
@@ -175,19 +176,13 @@ impl File {
                     in_rendered += 1;
                     rendered.erase(buffer, context);
 
-                    rendered_delta +=
-                        count_delta(rendered.new_lines, rendered.old_lines);
+                    rendered_delta += count_delta(rendered.new_lines, rendered.old_lines);
                 }
             } else if new_delta != 0 {
                 // new was inserted
                 trace!("B..... has new delta");
-                if new.header
-                    == Hunk::shift_new_start(&rendered.header, new_delta)
-                    || new.header
-                        == Hunk::shift_old_start(
-                            &rendered.header,
-                            0 - new_delta,
-                        )
+                if new.header == Hunk::shift_new_start(&rendered.header, new_delta)
+                    || new.header == Hunk::shift_old_start(&rendered.header, 0 - new_delta)
                 {
                     trace!("++++++++ enrich cases 2.1 or 2.2 ");
                     new.enrich_view(rendered, buffer, context);
@@ -208,13 +203,11 @@ impl File {
                     new.enrich_view(rendered, buffer, context);
                     in_new += 1;
                     in_rendered += 1;
-                } else if rendered.new_start == new.new_start
-                    && rendered.old_start == new.old_start
+                } else if rendered.new_start == new.new_start && rendered.old_start == new.old_start
                 {
                     trace!("hunks are same, but number of lines are changed");
 
-                    rendered_delta +=
-                        count_delta(new.new_lines, rendered.new_lines);
+                    rendered_delta += count_delta(new.new_lines, rendered.new_lines);
 
                     trace!("changed rendered delta {}", rendered_delta);
 
@@ -222,14 +215,14 @@ impl File {
                     in_new += 1;
                     in_rendered += 1;
                 } else {
-                    trace!("hunks are not equal r_start {} r_lines {} n_start {} n_lines {}",
-                           rendered.new_start,
-                           rendered.new_lines,
-                           new.new_start,
-                           new.new_lines);
-                    if new.new_start < rendered.new_start
-                        && new.old_start < rendered.old_start
-                    {
+                    trace!(
+                        "hunks are not equal r_start {} r_lines {} n_start {} n_lines {}",
+                        rendered.new_start,
+                        rendered.new_lines,
+                        new.new_start,
+                        new.new_lines
+                    );
+                    if new.new_start < rendered.new_start && new.old_start < rendered.old_start {
                         // cases 2.1 and 2.1 - insert first new hunk
                         trace!("first new hunk without rendered. SKIP");
                         in_new += 1;
@@ -242,10 +235,7 @@ impl File {
                         trace!("first rendered hunk without new. ERASE");
                         in_rendered += 1;
 
-                        rendered_delta += count_delta(
-                            rendered.new_lines,
-                            rendered.old_lines,
-                        );
+                        rendered_delta += count_delta(rendered.new_lines, rendered.old_lines);
 
                         rendered.erase(buffer, context);
                     } else if new.old_start == rendered.old_start
@@ -253,10 +243,7 @@ impl File {
                         && new.new_lines == rendered.new_lines
                     {
                         trace!("case 4");
-                        rendered_delta += count_delta(
-                            rendered.new_lines,
-                            rendered.old_lines,
-                        );
+                        rendered_delta += count_delta(rendered.new_lines, rendered.old_lines);
                         new.enrich_view(rendered, buffer, context);
                         in_new += 1;
                         in_rendered += 1;
@@ -282,10 +269,11 @@ impl Diff {
     ) {
         self.adopt_view(&rendered.view);
 
-        trace!("---------------enrich {:?} view in diff. my files {:?}, rendered files {:?}",
-               &self.kind,
-               self.files.len(),
-               rendered.files.len(),
+        trace!(
+            "---------------enrich {:?} view in diff. my files {:?}, rendered files {:?}",
+            &self.kind,
+            self.files.len(),
+            rendered.files.len(),
         );
         let mut replaces_by_new = HashSet::new();
         for file in &self.files {
@@ -297,16 +285,17 @@ impl Diff {
             }
         }
         // erase all stale views
-        trace!("before erasing files. replaced by new {:?} for total files count: {:?}", replaces_by_new, rendered.files.len());
+        trace!(
+            "before erasing files. replaced by new {:?} for total files count: {:?}",
+            replaces_by_new,
+            rendered.files.len()
+        );
         rendered
             .files
             .iter()
             .filter(|f| !replaces_by_new.contains(&f.path))
             .for_each(|f| {
-                trace!(
-                    "context on final lines of diff render view {:?}",
-                    context
-                );
+                trace!("context on final lines of diff render view {:?}", context);
                 f.erase(buffer, context)
             });
     }
