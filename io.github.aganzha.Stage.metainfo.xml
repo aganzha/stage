@@ -2,17 +2,17 @@
 <!--
 SPDX-FileCopyrightText: 2024 Aleksey Ganzha <aganzha@yandex.ru>
 
-SPDX-License-Identifier: LGPL-3.0-or-later
+SPDX-License-Identifier: GPL-3.0-or-later
 -->
 <component type="desktop-application">
-  <id>com.github.aganzha.stage</id>
+  <id>io.github.aganzha.Stage</id>
   <name>Stage</name>
-  <summary>Git gui client</summary>
+  <summary>Git GUI client inspired by Magit</summary>
   <metadata_license>CC0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   <description>
     <p>
-      Git gui client
+      Git GUI client inspired by Magit
     </p>
   </description>
 
@@ -33,7 +33,7 @@ SPDX-License-Identifier: LGPL-3.0-or-later
   <update_contact>aganzha@yandex.ru</update_contact>
 
   <releases>
-    <release version="0.1.0" date="2024-09-28">
+    <release version="0.1.0" date="2024-10-14">
       <description>
         <p>Application release</p>
       </description>
