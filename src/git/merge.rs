@@ -45,7 +45,8 @@ pub fn final_commit(
     repo.cleanup_state()?;
     gio::spawn_blocking({
         move || {
-            get_current_repo_status(Some(path), sender).expect("cant get status");
+            get_current_repo_status(Some(path), sender)
+                .expect("cant get status");
         }
     });
     Ok(())
@@ -110,7 +111,8 @@ pub fn final_merge_commit(
     repo.cleanup_state()?;
     gio::spawn_blocking({
         move || {
-            get_current_repo_status(Some(path), sender).expect("cant get status");
+            get_current_repo_status(Some(path), sender)
+                .expect("cant get status");
         }
     });
     Ok(())
@@ -481,16 +483,13 @@ pub fn choose_conflict_side_of_blob<'a>(
             // OUTSIDE conflict should be killed!!!
             // old logic below. new logic above. ---------------
             if line.starts_with(MINUS) && !line.starts_with(MARKER_DIFF_B) {
-                debug!("whats the case? see nots below");
-                debug!("???????? {:?} {:?}", hunk_deltas, line);
                 acc.push(SPACE);
                 acc.push(&line[1..]);
                 acc.push(NEW_LINE);
                 let hd = hunk_deltas.last().unwrap();
                 let le = hunk_deltas.len();
                 hunk_deltas[le - 1] = (hd.0, hd.1 + 1);
-                // ?????????????????????
-                // see necxt clause. looks like its more important
+                // see next clause. looks like its more important
                 // when 1 hunk have multiple conflicts
                 // perhaps here will be conflicts resolved
                 // in previous turn. They already stripped off
@@ -751,7 +750,8 @@ pub fn cleanup_last_conflict_for_file(
     if update_status {
         gio::spawn_blocking({
             move || {
-                get_current_repo_status(Some(path), sender).expect("cant get status");
+                get_current_repo_status(Some(path), sender)
+                    .expect("cant get status");
             }
         });
         return Ok(());

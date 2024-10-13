@@ -325,7 +325,11 @@ impl TxtTag {
                 // TODO! get it from line_yrange!
                 tag.set_weight(700);
                 tag.set_pixels_above_lines(32);
-                tag.set_foreground(Some("#8b6508"));
+                if is_dark {
+                    tag.set_foreground(Some("#a78a44"));
+                } else {
+                    tag.set_foreground(Some("#8b6508"));
+                }
             }
             CONFLICT_MARKER => {
                 tag.set_foreground(Some("#ff0000"));

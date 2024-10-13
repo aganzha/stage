@@ -1,4 +1,4 @@
-TODO: FIRST: stage/unstage all. kill from unstaged
+TODO: cherry pick and revert single hunks!
 BUG: compile ts in nomenclature repo and rm all js files
 INFO: settings are stored in /home/aganzha/.var/app/com.github.aganzha.stage/config/glib-2.0/settings/keyfile
 TODO: commit view must show parent commit!
@@ -9,8 +9,6 @@ BUG: when copy branch in very firts line and upstream event is arrived the curso
 BUG: copy folder to repo. reset hard. then copy subfolder in same path to repo - no monitor evenmt
 BUG: updating branches (refresh button) - it is not analogue of git remote update. it does not fetch branches from local repo (cloned clocally)
   
-so, after_cursor could be eliminated in the favour of under_cursor.
-just introduce first_active_line and second_active_line to store range of lines!
   
 BUG: CRITICAL: when intriduce changes in line whicj is in hunk header kill does not work! stash: broken_kill
      how to fix: it need to steps comparing hunk header: fully, and then search for same line in other hunk!

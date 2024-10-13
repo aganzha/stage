@@ -37,6 +37,7 @@ use git::{
     branch, commit, get_current_repo_status, get_directories, reset_hard,
     stage_untracked, stage_via_apply, stash::Stashes, track_changes, Diff,
     DiffKind, File, Head, Hunk, HunkLineNo, Line, LineKind, State,
+    MARKER_OURS, MARKER_THEIRS,
 };
 use git2::Oid;
 mod dialogs;
@@ -61,6 +62,9 @@ use log::{info, trace};
 use regex::Regex;
 
 const APP_ID: &str = "com.github.aganzha.stage";
+
+pub const DARK_CLASS: &str = "dark";
+pub const LIGHT_CLASS: &str = "light";
 
 fn main() -> glib::ExitCode {
     let app = Application::builder()
@@ -143,10 +147,6 @@ pub enum Event {
     Cursor(i32, i32),
     CopyToClipboard(i32, i32),
     Stage(StageOp),
-    // Stage(i32, i32),
-    // UnStage(i32, i32),
-    // Kill(i32, i32),
-    Ignore(i32, i32),
     Commit,
     Push,
     Pull,
@@ -229,7 +229,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 None
             }
         }),
-        settings.clone(),
+        // settings.clone(),
         sender.clone(),
     );
 
@@ -333,7 +333,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     if split.shows_sidebar() {
                         split.set_show_sidebar(false);
                     }
-                    status.update_path(path, monitors.clone(), true);
+                    status.update_path(
+                        path,
+                        monitors.clone(),
+                        true,
+                        &settings,
+                    );
                     txt.grab_focus();
                     status.get_status();
                 }
@@ -351,7 +356,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         stage_set = true;
                     }
                     hb_updater(HbUpdateData::Path(path.clone()));
-                    status.update_path(path, monitors.clone(), false);
+                    status.update_path(
+                        path,
+                        monitors.clone(),
+                        false,
+                        &settings,
+                    );
                 }
                 Event::State(state) => {
                     info!("main. state");
@@ -366,7 +376,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Dump => {
                     info!("Dump");
-                    status.dump(&txt, &mut ctx);
+                    // status.dump(&txt, &mut ctx);
                 }
                 Event::Debug => {
                     info!("Debug");
@@ -394,7 +404,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Untracked(untracked) => {
                     info!("main. untracked");
-                    status.update_untracked(untracked, &txt, &mut ctx);
+                    status.update_untracked(
+                        untracked, &txt, &settings, &mut ctx,
+                    );
                 }
                 Event::Push => {
                     info!("main.push");
@@ -568,11 +580,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Stage(stage_op) => {
                     info!("Stage {:?}", stage_op);
-                    status.stage(stage_op, &window);
-                }
-                Event::Ignore(offset, line_no) => {
-                    info!("main.ignore");
-                    status.ignore(&txt, line_no, offset, &mut ctx);
+                    status.stage(stage_op, &window, &settings);
                 }
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {}", w);
