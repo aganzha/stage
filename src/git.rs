@@ -493,7 +493,7 @@ impl File {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum DiffKind {
     Staged,
     Unstaged,

@@ -6,7 +6,7 @@ use crate::status_view::tags;
 use crate::status_view::view::{RenderFlags, View};
 use crate::tests::initialize;
 
-use crate::status_view::{StatusRenderContext, ViewContainer};
+use crate::status_view::{CursorPosition, StatusRenderContext, ViewContainer};
 use crate::{Diff, DiffKind, File, Hunk, HunkLineNo, Line, LineKind};
 use git2::DiffLineType;
 use gtk4::prelude::*;
@@ -335,30 +335,6 @@ fn test_render_view() {
     vc2.render(&buffer, &mut iter, &mut ctx);
     vc3.render(&buffer, &mut iter, &mut ctx);
 
-    // view1.render_in_textview(
-    //     &buffer,
-    //     &mut iter,
-    //     "test1".to_string(),
-    //     false,
-    //     Vec::new(),
-    //     &mut ctx,
-    // );
-    // view2.render_in_textview(
-    //     &buffer,
-    //     &mut iter,
-    //     "test2".to_string(),
-    //     false,
-    //     Vec::new(),
-    //     &mut ctx,
-    // );
-    // view3.render_in_textview(
-    //     &buffer,
-    //     &mut iter,
-    //     "test3".to_string(),
-    //     false,
-    //     Vec::new(),
-    //     &mut ctx,
-    // );
     assert!(vc1.view.line_no.get() == 1);
     assert!(vc2.view.line_no.get() == 2);
     assert!(vc3.view.line_no.get() == 3);
@@ -373,30 +349,6 @@ fn test_render_view() {
     vc2.render(&buffer, &mut iter, &mut ctx);
     vc3.render(&buffer, &mut iter, &mut ctx);
 
-    // view1.render_in_textview(
-    //     &buffer,
-    //     &mut iter,
-    //     "test1".to_string(),
-    //     false,
-    //     Vec::new(),
-    //     &mut ctx,
-    // );
-    // view2.render_in_textview(
-    //     &buffer,
-    //     &mut iter,
-    //     "test2".to_string(),
-    //     false,
-    //     Vec::new(),
-    //     &mut ctx,
-    // );
-    // view3.render_in_textview(
-    //     &buffer,
-    //     &mut iter,
-    //     "test3".to_string(),
-    //     false,
-    //     Vec::new(),
-    //     &mut ctx,
-    // );
     assert!(iter.line() == 4);
 
     // ------------------ test deleted
@@ -406,15 +358,6 @@ fn test_render_view() {
 
     vc1.render(&buffer, &mut iter, &mut ctx);
 
-    // view1.render_in_textview(
-    //     &buffer,
-    //     &mut iter,
-    //     "test1".to_string(),
-    //     false,
-    //     Vec::new(),
-    //     &mut ctx,
-    // );
-
     assert!(!vc1.view.is_rendered());
     // its no longer squashed. is it ok?
     assert!(!vc1.view.is_squashed());
@@ -423,41 +366,18 @@ fn test_render_view() {
     // rerender it
     vc1.render(&buffer, &mut iter, &mut ctx);
 
-    // view1.render_in_textview(
-    //     &buffer,
-    //     &mut iter,
-    //     "test1".to_string(),
-    //     false,
-    //     Vec::new(),
-    //     &mut ctx,
-    // );
     assert!(iter.line() == 2);
 
     // -------------------- test dirty
     vc2.view.dirty(true);
     vc2.render(&buffer, &mut iter, &mut ctx);
-    // view2.render_in_textview(
-    //     &buffer,
-    //     &mut iter,
-    //     "test2".to_string(),
-    //     false,
-    //     Vec::new(),
-    //     &mut ctx,
-    // );
 
     assert!(!vc2.view.is_dirty());
     assert!(iter.line() == 3);
     // -------------------- test squashed
     vc3.view.squash(true);
     vc3.render(&buffer, &mut iter, &mut ctx);
-    // view3.render_in_textview(
-    //     &buffer,
-    //     &mut iter,
-    //     "test3".to_string(),
-    //     false,
-    //     Vec::new(),
-    //     &mut ctx,
-    // );
+
     assert!(!vc3.view.is_squashed());
     // iter remains on same kine, just squashing view in place
     assert!(iter.line() == 3);
@@ -467,14 +387,6 @@ fn test_render_view() {
     vc3.view.transfer(true);
     vc3.render(&buffer, &mut iter, &mut ctx);
 
-    // view3.render_in_textview(
-    //     &buffer,
-    //     &mut iter,
-    //     "test3".to_string(),
-    //     false,
-    //     Vec::new(),
-    //     &mut ctx,
-    // );
     assert!(vc3.view.line_no.get() == 3);
     assert!(vc3.view.is_rendered());
     assert!(!vc3.view.is_dirty());
@@ -485,14 +397,7 @@ fn test_render_view() {
     iter = buffer.iter_at_line(3).unwrap();
     vc3.view.line_no.replace(0);
     vc3.render(&buffer, &mut iter, &mut ctx);
-    // view3.render_in_textview(
-    //     &buffer,
-    //     &mut iter,
-    //     "test3".to_string(),
-    //     false,
-    //     Vec::new(),
-    //     &mut ctx,
-    // );
+
     assert!(vc3.view.line_no.get() == 3);
     assert!(vc3.view.is_rendered());
     assert!(iter.line() == 4);
@@ -610,35 +515,6 @@ fn test_reconciliation_new() {
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
     debug!("iter over rendered hunks");
 
-    // not actual. rendered as criteria is wrong. must be some flag
-    // for erased views then?
-    // for (i, h) in rendered_file.hunks.iter().enumerate() {
-    //     debug!(
-    //         "first hunk is squashed, others are rendered {}",
-    //         h.view.repr()
-    //     );
-    //     if i == 0 {
-    //         // TODO when introduce new mass erase (erase without render) it will need to
-    //         // check other criteria, not rendered!
-    //         debug!("@@@@@@@@@@@@@@@@@@ {:} {:} {:} {:}", h.view.is_rendered(), h.view.is_rendered(), h.view.is_rendered(), h.view.is_rendered());
-    //         assert!(!h.view.is_rendered());
-    //         for line in &h.lines {
-    //             // TODO when introduce new mass erase (erase without render) it will need to
-    //             // check other criteria, not rendered!
-    //             assert!(!line.view.is_rendered());
-    //         }
-    //     } else {
-    //         // TODO when introduce new mass erase (erase without render) it will need to
-    //         // check other criteria, not rendered!
-    //         assert!(h.view.is_rendered());
-    //         for line in &h.lines {
-    //             // TODO when introduce new mass erase (erase without render) it will need to
-    //             // check other criteria, not rendered!
-    //             assert!(line.view.is_rendered());
-    //         }
-    //     }
-    // }
-
     debug!("iter over new hunks");
     for h in &new_file.hunks {
         assert!(h.view.is_transfered());
@@ -652,22 +528,6 @@ fn test_reconciliation_new() {
     iter = buffer.iter_at_offset(0);
 
     buffer.delete(&mut iter, &mut buffer.end_iter());
-
-    // what it was?????
-    // let mut rendered_file = create_file("File");
-    // rendered_file.hunks = Vec::new();
-
-    // for header in [
-    //     "@@ -11,7 +11,8 @@ const path = require('path');",
-    //     "@@ -106,9 +107,9 @@ function getDepsList() {",
-    //     "@@ -128,7 +129,8 @@ function getDepsList() {",
-    // ] {
-    //     let mut hunk = create_hunk(header);
-    //     hunk.fill_from_header();
-    //     rendered_file.hunks.push(hunk);
-    // }
-    // rendered_file.view.expand(true);
-    // rendered_file.render(&buffer, &mut iter, &mut context);
 
     new_file.hunks = Vec::new();
 
@@ -699,34 +559,6 @@ fn test_reconciliation_new() {
 
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
 
-    debug!("iter over rendered hunks");
-    // not actual. rendered as criteria is wrong. must be some flag
-    // for erased views then?
-    // for (i, h) in rendered_file.hunks.iter().enumerate() {
-    //     debug!(
-    //         "first hunk is squashed, otheres are rendered {}",
-    //         h.view.repr()
-    //     );
-    //     if i == 0 {
-    //         // TODO when introduce new mass erase (erase without render) it will need to
-    //         // check other criteria, not rendered!
-    //         assert!(!h.view.is_rendered());
-    //         for line in &h.lines {
-    //             // TODO when introduce new mass erase (erase without render) it will need to
-    //             // check other criteria, not rendered!
-    //             assert!(!line.view.is_rendered());
-    //         }
-    //     } else {
-    //         // TODO when introduce new mass erase (erase without render) it will need to
-    //         // check other criteria, not rendered!
-    //         assert!(h.view.is_rendered());
-    //         for line in &h.lines {
-    //             // TODO when introduce new mass erase (erase without render) it will need to
-    //             // check other criteria, not rendered!
-    //             assert!(line.view.is_rendered());
-    //         }
-    //     }
-    // }
     debug!("iter over new hunks");
     for h in &new_file.hunks {
         debug!("all new hunks are transfered {}", h.view.repr());
@@ -955,4 +787,32 @@ pub fn test_flags() {
         flags.is_squashed(),
         flags.is_expanded()
     );
+}
+
+#[gtk4::test]
+pub fn test_cursor_position() {
+    debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+    let buffer = initialize();
+    let diff = create_diff();
+    let mut ctx = StatusRenderContext::new();
+    let mut iter = buffer.iter_at_offset(0);
+    diff.render(&buffer, &mut iter, &mut ctx);
+
+    // cursor on diff
+    diff.cursor(&buffer, diff.view.line_no.get(), false, &mut ctx);
+
+    let position = CursorPosition::from_context(&ctx);
+    assert!(position == CursorPosition::CursorDiff(diff.kind));
+
+    // iterate on files
+    for fi in 0..2 {
+        diff.cursor(
+            &buffer,
+            diff.files[fi].view.line_no.get(),
+            false,
+            &mut ctx,
+        );
+        let position = CursorPosition::from_context(&ctx);
+        assert!(position == CursorPosition::CursorFile(diff.kind, fi));
+    }
 }
