@@ -6,7 +6,7 @@ use crate::dialogs::{alert, ConfirmDialog, YES};
 use crate::git::{commit, stash};
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
-    render::ViewContainer, stage_view::StageView, view::View,
+    render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
 use crate::Event;
@@ -20,7 +20,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
-use log::{debug, info, trace};
+use log::{info, trace};
 
 use std::path::PathBuf;
 
@@ -139,7 +139,6 @@ pub fn headerbar_factory(
 
 #[derive(Debug, Clone)]
 pub struct MultiLineLabel {
-    pub content: String,
     pub labels: Vec<TextViewLabel>,
     pub view: View,
 }
@@ -147,25 +146,21 @@ pub struct MultiLineLabel {
 impl MultiLineLabel {
     pub fn new(content: &str, visible_chars: i32) -> Self {
         let mut mll = MultiLineLabel {
-            content: content.to_string(),
             labels: Vec::new(),
             view: View::new(),
         };
-        mll.update_content(content, visible_chars);
+        mll.make_labels(content, visible_chars);
         mll
     }
 
-    pub fn update_content(&mut self, content: &str, visible_chars: i32) {
+    pub fn make_labels(&mut self, content: &str, visible_chars: i32) {
         self.labels = Vec::new();
         let mut acc = String::from("");
 
-        debug!("........................... {}", content);
         // split first by new lines. each new line in commit must go
         // on its own, separate label. BUT!
         // also split long lines to different labels also!
-        let user_split = content.split('\n');
-
-        for line in user_split {
+        for line in content.split('\n') {
             trace!("split {:?}", line);
             let mut split = line.split(' ');
             let mut mx = 0;
@@ -203,12 +198,11 @@ impl MultiLineLabel {
                 self.labels
                     .push(TextViewLabel::from_string(&acc.replace('\n', "")));
                 acc = String::from("");
-                // }
             }
         }
         // space for following diff
         self.labels.push(TextViewLabel::from_string(""));
-        self.view.expand(true) // expanded = true;
+        self.view.expand(true)
     }
 }
 
@@ -257,7 +251,7 @@ impl commit::CommitDiff {
         }
         iter = buffer.iter_at_offset(offset_before_erase);
         // ??? why it was commented out?
-        body_label.update_content(&self.message, txt.calc_max_char_width());
+        // body_label.update_content(&self.message, txt.calc_max_char_width());
         body_label.render(&buffer, &mut iter, ctx);
 
         if !self.diff.files.is_empty() {
@@ -289,12 +283,12 @@ pub fn show_commit_window(
 
     let mut diff: Option<commit::CommitDiff> = None;
 
+    const max_width: i32 = 1280;
     let window = Window::builder()
         .transient_for(app_window)
-        .default_width(640)
-        .default_height(480)
+        .default_width(max_width)
+        .default_height(960)
         .build();
-    window.set_default_size(1280, 960);
 
     let scroll = ScrolledWindow::new();
 
@@ -336,6 +330,8 @@ pub fn show_commit_window(
     let mut body_label: Option<MultiLineLabel> = None;
 
     let path = repo_path.clone();
+
+    let mut cursor_position: CursorPosition = CursorPosition::None;
 
     glib::spawn_future_local({
         let window = window.clone();
@@ -383,10 +379,9 @@ pub fn show_commit_window(
                         "Date: <span color=\"#4a708b\">{}</span>",
                         commit_diff.commit_dt
                     );
-
                     body_label.replace(MultiLineLabel::new(
-                        "",
-                        txt.calc_max_char_width(),
+                        &commit_diff.message,
+                        txt.calc_max_char_width(max_width),
                     ));
                     commit_diff.render(
                         &txt,
@@ -424,18 +419,10 @@ pub fn show_commit_window(
                     }
                 }
                 Event::Cursor(_offset, line_no) => {
-                    ctx.cursor = line_no;
                     if let Some(d) = &mut diff {
                         let buffer = &txt.buffer();
-                        if d.diff.cursor(buffer, line_no, false, &mut ctx) {
-                            let mut iter = buffer
-                                .iter_at_line(d.diff.view.line_no.get())
-                                .unwrap();
-                            // will render diff whithout rendering
-                            // preceeding elements!
-                            // is it ok? perhaps yes, cause they are on top of it
-                            d.diff.render(buffer, &mut iter, &mut ctx);
-                        }
+                        d.diff.cursor(buffer, line_no, false, &mut ctx);
+                        cursor_position = CursorPosition::from_context(&ctx);
                     }
                     // it should be called after cursor in ViewContainer !!!!!!!!
                     txt.bind_highlights(&ctx);
@@ -465,33 +452,44 @@ pub fn show_commit_window(
                                 _ => "Revert",
                             }
                         };
-
-                        let (body, file_path, hunk_header) = match diff.diff.chosen_file_and_hunk() {
-                            (Some(file), Some(hunk)) => {
-                                (
+                        let (body, file_path, hunk_header) =
+                            match cursor_position {
+                                CursorPosition::CursorDiff(_) => {
+                                    (oid.to_string(), None, None)
+                                }
+                                CursorPosition::CursorFile(_, file_idx) => {
+                                    let file = &diff.diff.files[file_idx];
+                                    (
+                                        format!(
+                                            "File: {}",
+                                            file.path.to_str().unwrap()
+                                        ),
+                                        Some(file.path.clone()),
+                                        None,
+                                    )
+                                }
+                                CursorPosition::CursorHunk(
+                                    _,
+                                    file_idx,
+                                    hunk_idx,
+                                )
+                                | CursorPosition::CursorLine(
+                                    _,
+                                    file_idx,
+                                    hunk_idx,
+                                    _,
+                                ) => {
+                                    let file = &diff.diff.files[file_idx];
+                                    let hunk = &file.hunks[hunk_idx];
+                                    (
                                     format!("File: {}\nApplying single hunks is not yet implemented :(", file.path.to_str().unwrap()),
                                     Some(file.path.clone()),
                                     Some(hunk.header.clone())
                                 )
-                            }
-                            (Some(file), None) => {
-                                (
-                                    format!("File: {}", file.path.to_str().unwrap()),
-                                    Some(file.path.clone()),
-                                    None
-                                )
-                            }
-                            (None, Some(hunk)) => {
-                                panic!("hunk header without file {:?}", hunk.header);
-                            }
-                            (None, None) => {
-                                (
-                                    "".to_string(),
-                                    None,
-                                    None
-                                )
-                            }
-                        };
+                                }
+                                _ => ("".to_string(), None, None),
+                            };
+
                         let path = repo_path.clone();
                         let sender = main_sender.clone();
                         let window = window.clone();
@@ -532,10 +530,6 @@ pub fn show_commit_window(
                                 },
                             )
                         });
-                        debug!(
-                            "++++++++++++++++++++++++ {:?} {:?}",
-                            title, body
-                        );
                     }
                 }
                 _ => {

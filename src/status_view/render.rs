@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
+use crate::status_view::context::CursorPosition;
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
 use crate::status_view::view::{View, ViewState};
@@ -16,13 +17,15 @@ use crate::{
     LineKind,
     State,
     StatusRenderContext, //, Untracked, UntrackedFile,
+    MARKER_OURS,
+    MARKER_THEIRS,
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
+use libadwaita::StyleManager;
 use log::{debug, trace};
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 
 pub const LINE_NO_SPACE: i32 = 6;
 
@@ -91,6 +94,12 @@ pub trait ViewContainer {
     // ViewContainer
     fn before_render<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
 
+    fn fill_cursor_position<'a>(
+        &'a self,
+        _context: &mut StatusRenderContext<'a>,
+    ) {
+    }
+
     fn fill_under_cursor<'a>(
         &'a self,
         _context: &mut StatusRenderContext<'a>,
@@ -101,6 +110,7 @@ pub trait ViewContainer {
         &'a self,
         _buffer: &TextBuffer,
         _ctx: &mut StatusRenderContext<'a>,
+        _active_changed: bool,
     ) {
     }
 
@@ -168,13 +178,6 @@ pub trait ViewContainer {
         }
     }
 
-    fn adjust_tags_on_cursor_change<'a>(
-        &'a self,
-        _buffer: &TextBuffer,
-        _context: &mut StatusRenderContext<'a>,
-    ) {
-    }
-
     // ViewContainer
     fn render<'a>(
         &'a self,
@@ -235,7 +238,7 @@ pub trait ViewContainer {
                     buffer.delete(iter, &mut eol_iter);
                 }
                 view.cleanup_tags();
-                self.write_content(iter, buffer, context);                
+                self.write_content(iter, buffer, context);
                 self.apply_tags(buffer, context);
 
                 self.force_forward(buffer, iter);
@@ -258,17 +261,31 @@ pub trait ViewContainer {
             }
         }
         self.get_view().child_dirty(false);
-        // during the render the structure is changed
-        // and current highlighted line could be
-        // shifted. e.g. view is still current
-        // bit the line is changed!
-        if self.get_view().is_current() {
-            context.cursor = self.get_view().line_no.get(); // render
+    }
+
+    fn find_cursor_position<'a>(
+        &'a self,
+        line_no: i32,
+        context: &mut StatusRenderContext<'a>,
+    ) -> bool {
+        let is_current = self.get_view().is_rendered_in(line_no);
+        let mut some_child_is_current = false;
+        if is_current {
+            self.fill_cursor_position(context)
+        } else {
+            for child in self.get_children() {
+                some_child_is_current =
+                    child.find_cursor_position(line_no, context);
+                if some_child_is_current {
+                    break;
+                }
+            }
         }
+        is_current || some_child_is_current
     }
 
     // ViewContainer
-    /// returns if view is changed during cursor move
+    /// returns if view is active (selected)
     fn cursor<'a>(
         &'a self,
         buffer: &TextBuffer,
@@ -276,79 +293,46 @@ pub trait ViewContainer {
         parent_active: bool,
         context: &mut StatusRenderContext<'a>,
     ) -> bool {
-        let mut result = false;
         let view = self.get_view();
 
-        let current_before = view.is_current();
-        let active_before = view.is_active();
+        let was_active = view.is_active();
 
-        let current = view.is_rendered_in(line_no);
-        if current {
-            self.fill_under_cursor(context)
+        let is_current = view.is_rendered_in(line_no);
+        if is_current {
+            self.fill_cursor_position(context);
         }
+
         let active_by_parent =
             self.is_active_by_parent(parent_active, context);
-        let mut active_by_child = false;
 
-        if view.is_expanded() {
-            // this is only 1 level.
-            // when line is active, its hunk is active and file is not.
-            // when file is active, all hunks below are active_by_parent
-            // and all lines below are active_by_parent
-            for child in self.get_children() {
-                active_by_child = child.get_view().is_rendered_in(line_no);
-                if active_by_child {
-                    // under cursor changed here BEFORE calling
-                    // child cursor
-                    child.fill_under_cursor(context);
-                    break;
-                }
-            }
+        let mut is_active = is_current || active_by_parent;
+        if !is_active {
+            is_active = self.find_cursor_position(line_no, context);
         }
-        active_by_child = self.is_active_by_child(active_by_child, context);
 
-        let self_active = active_by_parent || current || active_by_child;
-
-        view.activate(self_active);
-        view.make_current(current);
-
-        if view.is_rendered() {
-            result = view.is_active() != active_before
-                || view.is_current() != current_before;
+        if is_active {
+            // todo - put in 1 method
+            self.fill_under_cursor(context);
         }
+
         for child in self.get_children() {
-            result =
-                child.cursor(buffer, line_no, self_active, context) || result;
+            child.cursor(buffer, line_no, is_active, context);
         }
-        // result here just means view is changed
-        // it does not actually means that view is under cursor
-        if view.is_current() {
-            context.cursor = view.line_no.get(); // cursor
-        }
-        // calling it on cursor??? hmmmm...
-        self.after_cursor(buffer, context);
-        if result {
-            self.adjust_tags_on_cursor_change(buffer, context);
-        }
-        result
-    }
 
-    // base
-    fn is_active_by_child(
-        &self,
-        _child_active: bool,
-        _context: &mut StatusRenderContext,
-    ) -> bool {
-        false
+        view.activate(is_active);
+        view.make_current(is_current);
+
+        self.after_cursor(buffer, context, was_active != view.is_active());
+        is_active
     }
 
     // base
     fn is_active_by_parent(
         &self,
-        _parent_active: bool,
+        parent_active: bool,
         _context: &mut StatusRenderContext,
     ) -> bool {
-        false
+        parent_active
     }
 
     // ViewContainer
@@ -503,13 +487,15 @@ impl ViewContainer for Diff {
         _context: &mut StatusRenderContext<'_>,
     ) {
         if !self.is_empty() {
-            buffer.insert(
+            buffer.insert_markup(
                 iter,
                 match self.kind {
                     DiffKind::Untracked => "Untracked files",
                     DiffKind::Staged => "Staged changes",
                     DiffKind::Unstaged => "Unstaged changes",
-                    DiffKind::Conflicted => "Conflicts",
+                    DiffKind::Conflicted => {
+                        "<span color=\"#ff0000\">Conflicts</span>"
+                    }
                     DiffKind::Commit => "Commit content",
                 },
             );
@@ -525,7 +511,7 @@ impl ViewContainer for Diff {
 
     // Diff
     fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.sliding_diff = Some(self);
+        ctx.rendering_diff = Some(self);
     }
 
     // Diff
@@ -533,21 +519,24 @@ impl ViewContainer for Diff {
         &'a self,
         buffer: &TextBuffer,
         ctx: &mut StatusRenderContext<'a>,
+        _active_changed: bool,
     ) {
+        // used to wrap all diff in tags.
+        // is it necessary? yes, it is used
+        // while handling user clicks inside stage_view
         let start_line = self.view.line_no.get();
         let mut end_line = start_line;
-        // TODO! rename sliding to just last!
-        if let Some(file) = ctx.sliding_file {
+        if let Some(file) = ctx.rendering_file {
             if file.view.is_rendered() {
                 end_line = file.view.line_no.get();
             }
         }
-        if let Some(hunk) = ctx.sliding_hunk {
+        if let Some(hunk) = ctx.rendering_hunk {
             if hunk.view.is_rendered() {
                 end_line = hunk.view.line_no.get()
             }
         }
-        if let Some(line) = ctx.sliding_line {
+        if let Some(line) = ctx.rendering_line {
             if line.view.is_rendered() {
                 end_line = line.view.line_no.get();
             }
@@ -581,8 +570,14 @@ impl ViewContainer for Diff {
             return None;
         }
         let mut result: Option<i32> = None;
+        let expand_all = self.get_view().is_rendered_in(line_no);
+        if expand_all {
+            result.replace(line_no);
+        }
         for file in &self.files {
-            if let Some(line) = file.expand(line_no, context) {
+            if expand_all {
+                file.expand(file.view.line_no.get(), context);
+            } else if let Some(line) = file.expand(line_no, context) {
                 result.replace(line);
             }
         }
@@ -595,22 +590,20 @@ impl ViewContainer for Diff {
         _ctx: &mut StatusRenderContext<'a>,
     ) -> Vec<tags::TxtTag> {
         vec![make_tag(tags::DIFF)]
-        // match self.kind {
-        //     DiffKind::Staged | DiffKind::Commit => {
-        //         vec![make_tag(tags::BOLD), make_tag(tags::STAGED)]
-        //     }
-        //     // TODO! create separate tag for conflicted!
-        //     DiffKind::Unstaged
-        //     | DiffKind::Conflicted
-        //     | DiffKind::Untracked => {
-        //         vec![make_tag(tags::BOLD), make_tag(tags::UNSTAGED)]
-        //     }
-        // }
     }
+
+    // Diff
+    fn fill_cursor_position<'a>(
+        &'a self,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        context.cursor_position = CursorPosition::CursorDiff(self);
+        self.fill_under_cursor(context);
+    }
+
     // Diff
     fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-        context.cursor_diff = Some(self);
-        context.active_diff = Some(self);
+        context.selected_diff = Some(self);
     }
 }
 
@@ -672,36 +665,52 @@ impl ViewContainer for File {
         tags
     }
 
+    // File
+    fn is_active_by_parent(
+        &self,
+        active: bool,
+        context: &mut StatusRenderContext,
+    ) -> bool {
+        if active {
+            // files are active when cursor is on Diff
+            match context.cursor_position {
+                CursorPosition::CursorDiff(_) => {
+                    return true;
+                }
+                _ => {
+                    return false;
+                }
+            }
+        }
+        active
+    }
+
     // file
     fn after_cursor<'a>(
         &'a self,
         _buffer: &TextBuffer,
         _context: &mut StatusRenderContext<'a>,
+        _active_changed: bool,
     ) {
-    }
-
-    /// if something in file is active
-    /// the file IS NOT active
-    /// (because when file is active everything
-    /// in this file become active)
-    fn is_active_by_child(
-        &self,
-        _active: bool,
-        _context: &mut StatusRenderContext,
-    ) -> bool {
-        false
     }
 
     // File
     fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.sliding_file = Some(self);
+        ctx.rendering_file = Some(self);
+    }
+
+    // File
+    fn fill_cursor_position<'a>(
+        &'a self,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        context.cursor_position = CursorPosition::CursorFile(self);
+        self.fill_under_cursor(context);
     }
 
     // File
     fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-        context.active_diff = context.sliding_diff;
-        context.active_file = Some(self);
-        context.cursor_file = Some(self);
+        context.selected_file = Some(self);
     }
 }
 
@@ -755,7 +764,7 @@ impl ViewContainer for Hunk {
 
     // Hunk
     fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.sliding_hunk = Some(self);
+        ctx.rendering_hunk = Some(self);
     }
 
     // Hunk
@@ -763,15 +772,9 @@ impl ViewContainer for Hunk {
         &'a self,
         _buffer: &TextBuffer,
         ctx: &mut StatusRenderContext<'a>,
+        _active_changed: bool,
     ) {
         if self.view.is_rendered() {
-            // debug!("who is collecting hunks? me????????");
-            // let backtrace = std::backtrace::Backtrace::capture();
-            // debug!(
-            //     "----------------calling get current repo status> {:?}",
-            //     backtrace
-            // );
-
             ctx.collect_hunk_highlights(self.view.line_no.get());
         }
     }
@@ -780,23 +783,24 @@ impl ViewContainer for Hunk {
     fn is_active_by_parent(
         &self,
         active: bool,
-        _context: &mut StatusRenderContext,
+        context: &mut StatusRenderContext,
     ) -> bool {
-        // if file is active (cursor on it)
-        // whole hunk is active
+        if active {
+            // hunks are active when cursor is on File
+            // or is on Diff
+            match context.cursor_position {
+                CursorPosition::CursorFile(_)
+                | CursorPosition::CursorDiff(_) => {
+                    return true;
+                }
+                _ => {
+                    return false;
+                }
+            }
+        }
         active
     }
 
-    // Hunk
-    fn is_active_by_child(
-        &self,
-        active: bool,
-        _context: &mut StatusRenderContext,
-    ) -> bool {
-        // if line is active (cursor on it)
-        // whole hunk is active
-        active
-    }
     // Hunk
     fn tags<'a>(
         &'a self,
@@ -810,17 +814,23 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
+    fn fill_cursor_position<'a>(
+        &'a self,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        context.cursor_position = CursorPosition::CursorHunk(self);
+        self.fill_under_cursor(context);
+    }
+
+    // Hunk
     fn fill_under_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.active_diff = ctx.sliding_diff;
-        ctx.active_file = ctx.sliding_file;
-        ctx.active_hunk = Some(self);
-        ctx.cursor_hunk = Some(self);
+        ctx.selected_hunk = Some(self);
     }
 }
 
 impl ViewContainer for Line {
     fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool {
-        if let Some(hunk) = context.sliding_hunk {
+        if let Some(hunk) = context.rendering_hunk {
             return self.content(hunk).is_empty();
         }
         false
@@ -840,7 +850,7 @@ impl ViewContainer for Line {
     ) -> String {
         format!(
             "Line: {:?} at line {:?}",
-            self.content(context.sliding_hunk.unwrap()),
+            self.content(context.rendering_hunk.unwrap()),
             self.view.line_no.get()
         )
     }
@@ -848,13 +858,43 @@ impl ViewContainer for Line {
     // Line
     fn after_cursor<'a>(
         &'a self,
-        _buffer: &TextBuffer,
+        buffer: &TextBuffer,
         ctx: &mut StatusRenderContext<'a>,
+        active_changed: bool,
     ) {
-        if self.view.is_rendered() && self.view.is_active() {
+        if self.view.is_rendered() {
             // hm. collecting lines for highlight.
             // but where am i collecting active_lines?
-            ctx.collect_line_highlights(self.view.line_no.get());
+            if self.view.is_active() {
+                ctx.collect_line_highlights(self.view.line_no.get());
+            }
+            if active_changed {
+                let added = make_tag(tags::ADDED);
+                let removed = make_tag(tags::REMOVED);
+                let enhanced_added = added.enhance();
+                let enhanced_removed = removed.enhance();
+                match self.origin {
+                    DiffLineType::Addition => {
+                        if self.view.is_active() {
+                            self.remove_tag(buffer, &added);
+                            self.add_tag(buffer, &enhanced_added);
+                        } else {
+                            self.remove_tag(buffer, &enhanced_added);
+                            self.add_tag(buffer, &added);
+                        }
+                    }
+                    DiffLineType::Deletion => {
+                        if self.view.is_active() {
+                            self.remove_tag(buffer, &removed);
+                            self.add_tag(buffer, &enhanced_removed);
+                        } else {
+                            self.remove_tag(buffer, &enhanced_removed);
+                            self.add_tag(buffer, &removed);
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
     }
 
@@ -872,19 +912,24 @@ impl ViewContainer for Line {
     }
 
     // Line
-    // it is useless. sliding_x is sliding variable during render
+    // it is useless. rendering_x is sliding variable during render
     // and there is nothing to render after line
     fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.sliding_line = Some(self);
+        ctx.rendering_line = Some(self);
     }
 
     // Line
-    fn fill_under_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.active_diff = ctx.sliding_diff;
-        ctx.active_file = ctx.sliding_file;
-        ctx.active_hunk = ctx.sliding_hunk;
-        ctx.active_line = Some(self);
-        ctx.cursor_line = Some(self);
+    fn fill_cursor_position<'a>(
+        &'a self,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        context.cursor_position = CursorPosition::CursorLine(self);
+    }
+
+    // Line
+    fn fill_under_cursor<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {
+        // there are multiple selected lines,
+        // and storing some in context does not make sense
     }
 
     // Line
@@ -903,58 +948,42 @@ impl ViewContainer for Line {
         if !self.view.is_rendered() {
             return false;
         }
-        if let Some(diff) = context.sliding_diff {
+
+        if let Some(diff) = context.selected_diff {
             if diff.kind == DiffKind::Conflicted {
-                if let Some(line) = context.cursor_line {
-                    match &line.kind {
-                        LineKind::Ours(i) => {
-                            return active && self.kind == LineKind::Ours(*i);
+                match context.cursor_position {
+                    CursorPosition::CursorLine(line) => {
+                        match (&line.kind, &self.kind) {
+                            (LineKind::Ours(_), LineKind::Ours(_)) => {
+                                return active;
+                            }
+                            (
+                                LineKind::ConflictMarker(marker),
+                                LineKind::Ours(_),
+                            ) if marker == MARKER_OURS => {
+                                return active;
+                            }
+                            (LineKind::Theirs(_), LineKind::Theirs(_)) => {
+                                return active;
+                            }
+                            (
+                                LineKind::ConflictMarker(marker),
+                                LineKind::Theirs(_),
+                            ) if marker == MARKER_THEIRS => {
+                                return active;
+                            }
+                            _ => {
+                                return false;
+                            }
                         }
-                        LineKind::Theirs(i) => {
-                            return active
-                                && self.kind == LineKind::Theirs(*i);
-                        }
-                        _ => {}
+                    }
+                    _ => {
+                        return false;
                     }
                 }
-                return false;
             }
         }
-
         active
-    }
-
-    // Line
-    fn adjust_tags_on_cursor_change<'a>(
-        &'a self,
-        buffer: &TextBuffer,
-        _context: &mut StatusRenderContext<'a>,
-    ) {
-        let added = make_tag(tags::ADDED);
-        let removed = make_tag(tags::REMOVED);
-        let enhanced_added = added.enhance();
-        let enhanced_removed = removed.enhance();
-        match self.origin {
-            DiffLineType::Addition => {
-                if self.view.is_active() {
-                    self.remove_tag(buffer, &added);
-                    self.add_tag(buffer, &enhanced_added);
-                } else {
-                    self.remove_tag(buffer, &enhanced_added);
-                    self.add_tag(buffer, &added);
-                }
-            }
-            DiffLineType::Deletion => {
-                if self.view.is_active() {
-                    self.remove_tag(buffer, &removed);
-                    self.add_tag(buffer, &enhanced_removed);
-                } else {
-                    self.remove_tag(buffer, &enhanced_removed);
-                    self.add_tag(buffer, &removed);
-                }
-            }
-            _ => {}
-        }
     }
 
     // Line
@@ -993,7 +1022,7 @@ impl ViewContainer for Line {
         match self.origin {
             DiffLineType::Addition => {
                 vec![make_tag(tags::ADDED)]
-                // if ctx.sliding_hunk.unwrap().view.is_active() {
+                // if ctx.rendering_hunk.unwrap().view.is_active() {
                 //     debug!("eeeeeeeeeeeeenhanced");
                 //     vec![make_tag(tags::ENHANCED_ADDED)]
                 // } else {
@@ -1003,7 +1032,7 @@ impl ViewContainer for Line {
             }
             DiffLineType::Deletion => {
                 vec![make_tag(tags::REMOVED)]
-                // if ctx.sliding_hunk.unwrap().view.is_active() {
+                // if ctx.rendering_hunk.unwrap().view.is_active() {
                 //     vec![make_tag(tags::ENHANCED_REMOVED)]
                 // } else {
                 //     vec![make_tag(tags::REMOVED)]
@@ -1051,7 +1080,7 @@ impl ViewContainer for Line {
             }
         }
         buffer.insert(iter, "  ");
-        buffer.insert(iter, self.content(context.sliding_hunk.unwrap()));
+        buffer.insert(iter, self.content(context.rendering_hunk.unwrap()));
     }
 
     // Line
@@ -1092,7 +1121,7 @@ impl ViewContainer for Line {
         }
 
         // highlight spaces
-        let content = self.content(context.sliding_hunk.unwrap());
+        let content = self.content(context.rendering_hunk.unwrap());
         let stripped = content
             .trim_end_matches(|c| -> bool { char::is_ascii_whitespace(&c) });
         let content_len = content.chars().count();
@@ -1139,7 +1168,7 @@ impl ViewContainer for Line {
         let line_no = self.view.line_no.get();
         if line_no >= from && line_no <= to {
             let content =
-                self.content(context.sliding_hunk.unwrap()).to_string();
+                self.content(context.rendering_hunk.unwrap()).to_string();
             content_map.insert(line_no, (content, 6));
         }
     }
@@ -1195,16 +1224,22 @@ impl ViewContainer for Head {
             "Detached head".to_string()
         };
         let short = self.oid.to_string()[..7].to_string();
+        let color = if StyleManager::default().is_dark() {
+            "#839daf"
+        } else {
+            "#4a708b"
+        };
         buffer.insert_markup(
             iter,
             &format!(
-                "{} <span color=\"#1C71D8\">{}</span> <span color=\"#4a708b\">{}</span> {}",
+                "{} <span color=\"#1C71D8\">{}</span> <span color=\"{}\">{}</span> {}",
                 if !self.is_upstream {
                     "Head:     "
                 } else {
                     "Upstream: "
                 },
                 short,
+                color,
                 title,
                 self.log_message
             ),
@@ -1308,53 +1343,6 @@ impl ViewContainer for State {
 }
 
 impl Diff {
-    pub fn chosen_file_and_hunk_old(
-        &self,
-    ) -> (Option<PathBuf>, Option<String>) {
-        let mut file_path: Option<PathBuf> = None;
-        let mut hunk_header: Option<String> = None;
-        for file in &self.files {
-            if file.view.is_current() {
-                file_path.replace(file.path.clone());
-                break;
-            }
-            for hunk in &file.hunks {
-                if hunk.view.is_active() {
-                    // if more then 1 hunks are active that means
-                    // that file is active and previous break
-                    // must prevent to going here
-                    assert!(hunk_header.is_none());
-                    file_path.replace(file.path.clone());
-                    hunk_header.replace(hunk.header.clone());
-                    break;
-                }
-            }
-        }
-        (file_path, hunk_header)
-    }
-    pub fn chosen_file_and_hunk(&self) -> (Option<&File>, Option<&Hunk>) {
-        let mut file_path: Option<&File> = None;
-        let mut hunk_header: Option<&Hunk> = None;
-        for file in &self.files {
-            if file.view.is_current() {
-                file_path.replace(file);
-                break;
-            }
-            for hunk in &file.hunks {
-                if hunk.view.is_active() {
-                    // if more then 1 hunks are active that means
-                    // that file is active and previous break
-                    // must prevent to going here
-                    assert!(hunk_header.is_none());
-                    file_path.replace(file);
-                    hunk_header.replace(hunk);
-                    break;
-                }
-            }
-        }
-        (file_path, hunk_header)
-    }
-
     pub fn last_visible_line(&self) -> i32 {
         let le = self.files.len() - 1;
         let last_file = &self.files[le];
@@ -1416,15 +1404,4 @@ impl Diff {
         );
         self.last_visible_line() >= line_no
     }
-
-    // pub fn nearest(&self, line_no: i32, context: &StatusRenderContext) ->(Option<i32>, Option<i32>) {
-    //     if let Some(file) = context.active_file {
-    //         debug!("----------------> file {:?} at line {:?} and cursor is {:?}", file.path, file.view.line_no.get(), line_no);
-    //     }
-    //     if let Some(hunk) = context.active_hunk {
-    //         debug!("----------------> hunk {:?} at line {:?} and cursor is {:?}", hunk.header, hunk.view.line_no.get(), line_no);
-    //     }
-    //     // _, hack to view what is in context!
-    //     (None, Some(line_no))
-    // }
 }

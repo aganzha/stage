@@ -123,7 +123,6 @@ impl Default for Line {
 
 impl Line {
     pub fn content<'a>(&'a self, hunk: &'a Hunk) -> &'a str {
-        // debug!(".......................... {:?} >>{:?}<<", self.content_idx, hunk.buf);
         &hunk.buf[self.content_idx.0..self.content_idx.0 + self.content_idx.1]
     }
 
@@ -364,9 +363,7 @@ impl Hunk {
                 DiffLineType::FileHeader
                 | DiffLineType::HunkHeader
                 | DiffLineType::Binary => {}
-                _ => {
-                    self.lines.push(line)
-                }
+                _ => self.lines.push(line),
             }
             return LineKind::None;
         }
@@ -393,10 +390,7 @@ impl Hunk {
             (LineKind::ConflictMarker(marker), LineKind::None)
                 if marker == marker_ours =>
             {
-                trace!(
-                    "sec match. ours after ours MARKER ??????????? {:?}",
-                    marker_ours
-                );
+                trace!("sec match. ours after ours MARKER {:?}", marker_ours);
                 line.kind = LineKind::Ours(self.conflict_markers_count)
             }
             (LineKind::Ours(_), LineKind::None) => {
@@ -433,12 +427,8 @@ impl Hunk {
             DiffLineType::FileHeader
             | DiffLineType::HunkHeader
             | DiffLineType::Binary => {}
-            _ => {
-                self.lines.push(line)
-            }
+            _ => self.lines.push(line),
         }
-        trace!("........return this_kind {:?}", this_kind);
-        trace!("");
         this_kind
     }
 
@@ -500,7 +490,7 @@ impl File {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum DiffKind {
     Staged,
     Unstaged,
@@ -571,10 +561,12 @@ impl State {
         }
     }
     pub fn need_final_commit(&self) -> bool {
-        matches!(self.state,
+        matches!(
+            self.state,
             RepositoryState::Merge
-            | RepositoryState::CherryPick
-            | RepositoryState::Revert)
+                | RepositoryState::CherryPick
+                | RepositoryState::Revert
+        )
     }
     pub fn need_rebase_continue(&self) -> bool {
         matches!(self.state, RepositoryState::RebaseMerge)
@@ -682,11 +674,6 @@ pub fn get_current_repo_status(
     current_path: Option<PathBuf>,
     sender: Sender<crate::Event>,
 ) -> Result<(), Error> {
-    // let backtrace = Backtrace::capture();
-    // debug!(
-    //     "----------------calling get current repo status> {:?}",
-    //     backtrace
-    // );
     // path could came from command args or from choosing path
     // by user
     let path = {
@@ -910,10 +897,6 @@ pub fn get_conflicted_v1(
     let repo = Repository::open(path).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
-    debug!(
-        "does index has conflicts in conflicted_v1? ===================> {:?}",
-        index.has_conflicts()
-    );
     let mut opts = make_diff_options();
     // 6 - for 3 context lines in eacj hunk?
     // opts.interhunk_lines(interhunk.unwrap_or(10));
@@ -930,7 +913,6 @@ pub fn get_conflicted_v1(
         opts.pathspec(our_path);
     }
     if !has_conflict_paths {
-        debug!("BUT INDEX HAS CONFLICTS! exit get_conflicted_v1 cause no conflicts. return empty diff");
         return None;
     }
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
@@ -955,11 +937,6 @@ pub fn get_conflicted_v1(
         let mut prev_conflict_line: Option<HunkLineNo> = None;
         for file in &diff.files {
             for hunk in &file.hunks {
-                debug!("hunk in conflicted {}", hunk.header);
-                for line in &hunk.lines {
-                    debug!("{}", line.content(hunk));
-                }
-                debug!("..");
                 let (first_marker, last_marker) =
                     hunk.lines.iter().fold((None, None), |acc, line| {
                         match (acc.0, acc.1, &line.kind) {
@@ -1002,155 +979,18 @@ pub fn get_conflicted_v1(
                         assert!(end == MARKER_THEIRS);
                     }
                 }
-                // let (ours, separator, theirs) =
-                //     hunk.lines.iter().fold((None, None, None), |acc, line| match &line
-                //         .kind
-                //     {
-                //         LineKind::ConflictMarker(m) if m == MARKER_OURS => {
-                //             (line.new_line_no, acc.1, acc.2)
-                //         }
-                //         LineKind::ConflictMarker(m) if m == MARKER_VS => {
-                //             (acc.0, line.new_line_no, acc.2)
-                //         }
-                //         LineKind::ConflictMarker(m) if m == MARKER_THEIRS => {
-                //             (acc.0, acc.2, line.new_line_no)
-                //         }
-                //         _ => acc,
-                //     });
-                // // perhaps it need to increment interhunk space to join hunks
-                // // into one. possible variants are:
-                // // Some None None
-                // // Some Some None
-                // // Some(30) Some(20) Some(25)
-                // // Some(30) Some(35) Some(25)
-                // // Some(30) Some(35) Some(40) - conflict is completelly within the hunk
-                // match (ours, separator, theirs) {
-                //     // ------------- edge cases -----------------
-                //     (None, None, None) => {
-                //         // just skip?
-                //         todo!("unknown case in interhunk");
-                //     }
-                //     (None, Some(_), None) => {
-                //         // just skip?
-                //         todo!("unknown case in interhunk");
-                //     }
-                //     (Some(_), None, Some(_)) => {
-                //         // just skip?
-                //         panic!("unknown case in interhunk");
-                //     }
-                //     // ------------- edge cases -----------------
-
-                //     // first hunk
-                //     (Some(_), None, None) => {
-                //         // first hunk has ours only
-                //         // it need to join it with second one.
-                //         // i need here last line of first hunk to calculate interhunk
-                //         assert!(prev_conflict_line.is_none());
-                //         prev_conflict_line.replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-                //     }
-                //     (Some(_), Some(_), None) => {
-                //         // first hunk has ours and separator
-                //         // it need to join it with second one.
-                //         // i need here last line of first hunk to calculate interhunk
-                //         assert!(prev_conflict_line.is_none());
-                //         prev_conflict_line.replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-                //     }
-                //     (Some(ours), Some(separator), Some(theirs)) if theirs < separator && separator < ours => {
-                //         // first hunk has ours only
-                //         // it need to join it with second one.
-                //         // i need here last line of first hunk to calculate interhunk
-                //         assert!(prev_conflict_line.is_none());
-                //         prev_conflict_line.replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-                //     }
-                //     (Some(ours), Some(separator), Some(theirs)) if theirs < separator && separator > ours => {
-                //         // first hunk has ours and separator
-                //         // it need to join it with second one.
-                //         // i need here last line of first hunk to calculate interhunk
-                //         assert!(prev_conflict_line.is_none());
-                //         prev_conflict_line.replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-                //     }
-
-                //     // --------------- all ok
-                //     (Some(ours), Some(separator), Some(theirs)) => if theirs > separator && separator > ours {
-                //         // all ok
-                //         prev_conflict_line = None
-                //     }
-                //     // --------------- all ok
-
-                //     // second hunk
-
-                //     (None, Some(_), Some(_)) => {
-                //         assert!(prev_conflict_line.is_some());
-                //         hunks_to_join.push((prev_conflict_line, hunk.old_start));
-                //         prev_conflict_line = None
-                //     }
-                //     (None, None, Some(_)) => {
-                //         assert!(prev_conflict_line.is_some());
-                //         hunks_to_join.push((prev_conflict_line, hunk.old_start));
-                //         prev_conflict_line = None
-                //     }
-                //     // ????????????
-                //     (Some(ours), Some(separator), Some(theirs)) if theirs < separator && separator > ours => {
-                //         // hot to detect in second hunk that its not started with ours???
-                //         assert!(prev_conflict_line.is_none());
-                //         prev_conflict_line.replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-                //     }
-
-                // }
-
-                // debug!("------got line_nos of markers ours theirs separator {ours:?} {separator:?} {theirs:?}");
-                // if ours > theirs {
-                //     // store last line of hunk without theirs
-                //     debug!("got missing_theirs!--- {:?} {:?} {:?}", hunk.new_start, hunk.lines.len(), hunk.header);
-                //     // this is stupid! it sums new hunk start, which is true line_no in physycal file
-                //     // with hunk lines len, which does not relate to physical lines at all!
-                //     // it must be separated types which does not allow summ!
-                //     // in fact they are! but i32 and usize, but this is happenstance
-                //     missing_theirs.replace(hunk.new_start);
-                // } else if theirs > ours {
-                //     // hunk with theirs, but without ours
-
-                //     // BUGS:
-                //     // - no highlight in final hunk when conflicts are resolved
-                //     // - FIXED comparing has_conflicts does not worked in update conflicted.
-                //     // cause there is always true true (Conflicted come several times)
-                //     // - trying to stage and got git error
-                //     // if missing_theirs == 0 {
-                //     //     // this means we have theirs section, but there are no ours
-                //     //     // section before. this is possible, when user edit conflict file
-                //     //     // manually. but, in this case this means interhunk was chosen before
-                //     //     // we do not want to select interhunk on every Conflicted update.
-                //     //     // So, in case of conflict lets store interhunk globally in status
-                //     //     // and use it during conflict resolution.
-                //     // }
-
-                //     // missing_theirs == 0 is possible
-                //     // when manualy edit conflict files.
-                //     // markers are removed 1 by 1.
-                //     // assert!(missing_theirs > 0);
-                //     // hunks_to_join.push((missing_theirs, hunk.new_start));
-                //     if let Some(missing_theirs) = missing_theirs {
-                //         debug!("got hunks to join!!!!!!!! {:?} {:?} {:?}", missing_theirs, hunk.new_start, hunk.header);
-                //         hunks_to_join.push((missing_theirs, hunk.new_start));
-                //     }
-                // } else {
-                //     // if hunk is ok, reset missing theirs, which, possibly
-                //     // came from manual conflict resolution
-                //     missing_theirs = None;
-                // }
             }
         }
-        debug!("hunks to join during get_conflicted {:?}", hunks_to_join);
         if !hunks_to_join.is_empty() {
-            let interhunk = hunks_to_join.iter().fold(HunkLineNo::new(0), |acc, from_to| {
-                debug!("~~~~~~~~~ missing theirs contains start of hunks which need to join!");
-                debug!("~~~~~~~~~ how can i find interhunk by hunk starts?");
-                debug!("~~~~~~~~~~~~~~~~~~~~~~~ acc and from_to {acc:?} {from_to:?}");
-                if acc < from_to.1 - from_to.0 {
-                    return from_to.1 - from_to.0;
-                }
-                acc
-            });
+            let interhunk = hunks_to_join.iter().fold(
+                HunkLineNo::new(0),
+                |acc, from_to| {
+                    if acc < from_to.1 - from_to.0 {
+                        return from_to.1 - from_to.0;
+                    }
+                    acc
+                },
+            );
             opts.interhunk_lines(interhunk.as_u32());
             let git_diff = repo
                 .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
@@ -1159,7 +999,6 @@ pub fn get_conflicted_v1(
             diff.interhunk.replace(interhunk.as_u32());
         }
     }
-    debug!("-------interhunk in conflicted_v1 {:?}", diff.interhunk);
     Some(diff)
 }
 
@@ -1202,11 +1041,10 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
     }
 }
 
-
 pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
-    let mut diff = Diff::new(kind.clone());
-    let mut current_file = File::new(kind.clone());
-    let mut current_hunk = Hunk::new(kind.clone());
+    let mut diff = Diff::new(kind);
+    let mut current_file = File::new(kind);
+    let mut current_hunk = Hunk::new(kind);
     let mut prev_line_kind = LineKind::None;
 
     let _res = git_diff.print(
@@ -1254,18 +1092,16 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
             // build up diff structure
             if current_file.path.capacity() == 0 {
                 // init new file
-                current_file =
-                    File::from_diff_file(&file, kind.clone(), status);
+                current_file = File::from_diff_file(&file, kind, status);
             }
             if current_file.path != file.path().unwrap() {
                 // go to next file
                 // push current_hunk to file and init new empty hunk
                 current_file.push_hunk(current_hunk.clone());
-                current_hunk = Hunk::new(kind.clone());
+                current_hunk = Hunk::new(kind);
                 // push current_file to diff and change to new file
                 diff.push_file(current_file.clone());
-                current_file =
-                    File::from_diff_file(&file, kind.clone(), status);
+                current_file = File::from_diff_file(&file, kind, status);
             }
             if let Some(diff_hunk) = o_diff_hunk {
                 let hh = Hunk::get_header_from(&diff_hunk);
@@ -1278,7 +1114,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                     // go to next hunk
                     prev_line_kind = LineKind::None;
                     current_file.push_hunk(current_hunk.clone());
-                    current_hunk = Hunk::new(kind.clone());
+                    current_hunk = Hunk::new(kind);
                     current_hunk.fill_from_git_hunk(&diff_hunk)
                 }
                 prev_line_kind =
@@ -1303,37 +1139,54 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
 
 pub fn stage_untracked(
     path: PathBuf,
-    file_path: PathBuf,
+    file_path: Option<PathBuf>,
     sender: Sender<crate::Event>,
-) {
+) -> Result<(), Error> {
     let repo = Repository::open(path.clone()).expect("can't open repo");
     let mut index = repo.index().expect("cant get index");
-    let pth = path.parent().unwrap().join(&file_path);
-    if pth.is_file() {
-        index.add_path(file_path.as_path()).expect("cant add path");
-    } else if pth.is_dir() {
-        index
-            .add_all([file_path], git2::IndexAddOption::DEFAULT, None)
-            .expect("cant add path");
+    if let Some(file_path) = file_path {
+        let pth = path.parent().unwrap().join(&file_path);
+        if pth.is_file() {
+            index.add_path(file_path.as_path()).expect("cant add path");
+        } else if pth.is_dir() {
+            index
+                .add_all([file_path], git2::IndexAddOption::DEFAULT, None)
+                .expect("cant add path");
+        } else if pth.is_symlink() {
+            return Err(Error::from_str(&format!("symlink path {:?}", pth)));
+        } else {
+            return Err(Error::from_str(&format!("unknown path {:?}", pth)));
+        }
     } else {
-        panic!("unknown path {:?}", pth);
+        index
+            .add_all(["*"], git2::IndexAddOption::DEFAULT, None)
+            .expect("cant add path");
     }
+
     index.write().expect("cant write index");
     get_current_repo_status(Some(path), sender).expect("cant get status");
+    Ok(())
 }
 
 pub fn stage_via_apply(
     path: PathBuf,
-    file_path: PathBuf,
+    file_path: Option<PathBuf>,
     hunk_header: Option<String>,
     subject: crate::StageOp,
     sender: Sender<crate::Event>,
 ) -> Result<(), Error> {
+    info!(
+        "stage via apply {:?} {:?} {:?}",
+        file_path, hunk_header, subject
+    );
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = Repository::open(path.clone())?;
 
     let mut opts = make_diff_options();
-    opts.pathspec(file_path.clone());
+
+    if let Some(file_path) = &file_path {
+        opts.pathspec(file_path.clone());
+    }
 
     let git_diff = match subject {
         crate::StageOp::Stage(_) => {
@@ -1387,11 +1240,17 @@ pub fn stage_via_apply(
     });
 
     options.delta_callback(|odd| -> bool {
-        if let Some(dd) = odd {
-            let path: PathBuf = dd.new_file().path().unwrap().into();
-            return file_path == path;
+        if let Some(file_path) = &file_path {
+            if let Some(dd) = odd {
+                let path: PathBuf = dd.new_file().path().unwrap().into();
+                debug!(
+                    "and the answer is.............. {:?}",
+                    file_path == &path
+                );
+                return file_path == &path;
+            }
         }
-        todo!("diff without delta");
+        true
     });
     let apply_location = match subject {
         crate::StageOp::Stage(_) | crate::StageOp::Unstage(_) => {
@@ -1403,7 +1262,6 @@ pub fn stage_via_apply(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
-
     repo.apply(&git_diff, apply_location, Some(&mut options))?;
 
     Ok(())
@@ -1434,14 +1292,13 @@ impl DeferRefresh {
 
 impl Drop for DeferRefresh {
     fn drop(&mut self) {
-        // let backtrace = Backtrace::capture();
-        // debug!("droping DeferRefresh ................ {}", backtrace);
         if self.update_status {
             gio::spawn_blocking({
                 let path = self.path.clone();
                 let sender = self.sender.clone();
                 move || {
-                    get_current_repo_status(Some(path), sender).expect("cant get status");
+                    get_current_repo_status(Some(path), sender)
+                        .expect("cant get status");
                 }
             });
         }
@@ -1482,7 +1339,8 @@ pub fn reset_hard(
     }
     gio::spawn_blocking({
         move || {
-            get_current_repo_status(Some(path), sender).expect("cant get status");
+            get_current_repo_status(Some(path), sender)
+                .expect("cant get status");
         }
     });
     Ok(true)
@@ -1589,7 +1447,8 @@ pub fn track_changes(
             // this means file was in conflicted but now it is fixed manually!
             // PERHAPS it is no longer in index conflicts.
             // it must be in staged or unstaged then
-            get_current_repo_status(Some(path), sender).expect("cant get status");
+            get_current_repo_status(Some(path), sender)
+                .expect("cant get status");
             return;
         }
         let mut opts = make_diff_options();
@@ -1614,24 +1473,7 @@ pub fn track_changes(
                     Some(diff)
                 }))
                 .expect("Could not send through channel");
-            // debug!(
-            //     "***********diff is empty AND no other files? {:?} {:?}",
-            //     diff.is_empty(),
-            //     !has_other_modified
-            // );
-            // sender
-            //     .send_blocking(crate::Event::Unstaged(None))
-            //     .expect("Could not send through channel");
         } else {
-            // // hm it is possible that diff is empty and has othe files?
-            // debug!(
-            //     "***********diff is empty OR has other files {:?} {:?}",
-            //     diff.is_empty(),
-            //     has_other_modified
-            // );
-            // here is the problem. sending 1 file in event.
-            // perhaps it does not even need to enhance this method
-            // with handling array of files.
             sender
                 .send_blocking(crate::Event::TrackedFile(
                     file_path.into(),

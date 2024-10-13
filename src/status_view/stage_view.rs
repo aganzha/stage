@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-
-use crate::status_view::context::StatusRenderContext;
-
+use crate::status_view::context::{CursorPosition, StatusRenderContext};
 use crate::status_view::tags;
+use crate::{DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
 use core::time::Duration;
 
@@ -17,7 +16,7 @@ use gtk4::{
     TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::{debug, trace};
+use log::trace;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -58,7 +57,6 @@ mod stage_view_internal {
 
     #[derive(Default)]
     pub struct StageView {
-        pub cursor: Cell<i32>,
         pub show_cursor: Cell<bool>,
         pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
@@ -159,8 +157,8 @@ mod stage_view_internal {
                 }
 
                 // highlight cursor ---------------------------------
-                let cursor_line = self.cursor.get();
-                iter.set_line(cursor_line);
+                iter.set_offset(buffer.cursor_position());
+
                 let (mut y_from, mut y_to) = self.obj().line_yrange(&iter);
 
                 if self.double_height_line.get() {
@@ -228,14 +226,13 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-        // here it need to pass pixels above line!
-        self.imp().cursor.replace(context.cursor);
-        // Diff labels have top margin with height of line.
-        // it does not need to highlight them, only highlight
-        // diff label itself
-        self.imp()
-            .double_height_line
-            .replace(context.cursor_diff.is_some());
+        match context.cursor_position {
+            CursorPosition::CursorDiff(_) => {
+                self.imp().double_height_line.replace(true)
+            }
+            _ => self.imp().double_height_line.replace(false),
+        };
+
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
         } else {
@@ -247,7 +244,7 @@ impl StageView {
         }
     }
 
-    pub fn calc_max_char_width(&self) -> i32 {
+    pub fn calc_max_char_width(&self, window_width: i32) -> i32 {
         let buffer = self.buffer();
         let mut iter = buffer.iter_at_offset(0);
         let x_before = self.cursor_locations(Some(&iter)).0.x();
@@ -256,13 +253,14 @@ impl StageView {
             buffer.insert(&mut iter, " ");
         };
         let x_after = self.cursor_locations(Some(&iter)).0.x();
-
-        self.width() / (x_after - x_before)
+        let width = if self.width() > 0 {
+            self.width()
+        } else {
+            window_width
+        };
+        width / (x_after - x_before)
     }
 }
-
-pub const DARK_CLASS: &str = "dark";
-pub const LIGHT_CLASS: &str = "light";
 
 pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let manager = StyleManager::default();
@@ -392,14 +390,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     ))
                     .expect("Could not send through channel");
                 }
-                (gdk::Key::i, _) => {
-                    let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::Ignore(
-                        iter.offset(),
-                        iter.line(),
-                    ))
-                    .expect("Could not send through channel");
-                }
                 (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
                     // for ctrl-c
                 }
@@ -491,7 +481,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     gesture_controller.connect_drag_update({
         let txt = txt.clone();
         move |_, _, _| {
-            debug!("its byggy!. it kills active highlight!");
             txt.set_cursor_highlight(false);
         }
     });

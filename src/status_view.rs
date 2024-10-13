@@ -7,8 +7,10 @@ pub mod context;
 pub mod headerbar;
 pub mod monitor;
 pub mod render;
+pub mod stage;
 pub mod stage_view;
 pub mod tags;
+
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{
     abort_rebase, branch::BranchData, continue_rebase, get_head, merge,
@@ -24,46 +26,35 @@ pub mod reconciliation;
 pub mod tests;
 pub mod view;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
-use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status,
-    stage_untracked,
-    stage_via_apply,
-    track_changes,
-    Diff,
-    DiffKind,
-    Event,
-    File as GitFile,
-    Head,
-    StageOp,
-    State,
-    StatusRenderContext, //, Untracked,
+    get_current_repo_status, track_changes, Diff, DiffKind, Event,
+    File as GitFile, Head, StageOp, State, StatusRenderContext, DARK_CLASS,
+    LIGHT_CLASS,
 };
 use async_channel::Sender;
 
 use gio::FileMonitor;
 
-use chrono::{offset::Utc, DateTime};
+use crate::status_view::context::CursorPosition as ContextCursorPosition;
 use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Align, Button, FileDialog,
-    ListBox, SelectionMode, TextBuffer, TextIter, Widget,
-    Window as GTKWindow,
+    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, TextBuffer,
+    TextIter, Widget, Window as GTKWindow,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, Banner, ButtonContent, EntryRow, PasswordEntryRow,
-    StatusPage, SwitchRow,
+    StatusPage, StyleManager, SwitchRow,
 };
-use log::{debug, info, trace};
+use log::{debug, trace};
 
 impl State {
     pub fn title_for_proceed_banner(&self) -> String {
@@ -119,6 +110,76 @@ pub struct LastOp {
     hunk_header: Option<String>,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum CursorPosition {
+    CursorDiff(DiffKind),
+    CursorFile(DiffKind, usize),
+    CursorHunk(DiffKind, usize, usize),
+    CursorLine(DiffKind, usize, usize, usize),
+    None,
+}
+
+impl CursorPosition {
+    pub fn from_context(context: &StatusRenderContext) -> Self {
+        match context.cursor_position {
+            ContextCursorPosition::CursorDiff(diff) => {
+                return CursorPosition::CursorDiff(diff.kind);
+            }
+            ContextCursorPosition::CursorFile(f) => {
+                let diff = context.selected_diff.unwrap();
+                let file = context.selected_file.unwrap();
+                assert!(std::ptr::eq(file, f));
+                return CursorPosition::CursorFile(
+                    diff.kind,
+                    diff.files
+                        .iter()
+                        .position(|f| std::ptr::eq(file, f))
+                        .unwrap(),
+                );
+            }
+            ContextCursorPosition::CursorHunk(h) => {
+                let diff = context.selected_diff.unwrap();
+                let file = context.selected_file.unwrap();
+                let hunk = context.selected_hunk.unwrap();
+                assert!(std::ptr::eq(hunk, h));
+                return CursorPosition::CursorHunk(
+                    diff.kind,
+                    diff.files
+                        .iter()
+                        .position(|f| std::ptr::eq(file, f))
+                        .unwrap(),
+                    file.hunks
+                        .iter()
+                        .position(|h| std::ptr::eq(hunk, h))
+                        .unwrap(),
+                );
+            }
+            ContextCursorPosition::CursorLine(line) => {
+                let diff = context.selected_diff.unwrap();
+                let file = context.selected_file.unwrap();
+                let hunk = context.selected_hunk.unwrap();
+                return CursorPosition::CursorLine(
+                    diff.kind,
+                    diff.files
+                        .iter()
+                        .position(|f| std::ptr::eq(file, f))
+                        .unwrap(),
+                    file.hunks
+                        .iter()
+                        .position(|h| std::ptr::eq(hunk, h))
+                        .unwrap(),
+                    hunk.lines
+                        .iter()
+                        .position(|l| std::ptr::eq(line, l))
+                        .unwrap(),
+                );
+            }
+            _ => {}
+        }
+        CursorPosition::None
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Status {
     pub path: Option<PathBuf>,
@@ -137,14 +198,15 @@ pub struct Status {
 
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
-    pub settings: gio::Settings,
+    //pub settings: gio::Settings,
     pub last_op: Option<LastOp>,
+    pub cursor_position: Cell<CursorPosition>,
 }
 
 impl Status {
     pub fn new(
         path: Option<PathBuf>,
-        settings: gio::Settings,
+        // settings: gio::Settings,
         sender: Sender<Event>,
     ) -> Self {
         Self {
@@ -163,13 +225,17 @@ impl Status {
             branches: None,
             monitor_global_lock: Rc::new(RefCell::new(false)),
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
-            settings,
+            //settings,
             last_op: None,
+            cursor_position: Cell::new(CursorPosition::None),
         }
     }
 
     pub fn file_at_cursor(&self) -> Option<&GitFile> {
-        for diff in [&self.staged, &self.unstaged, &self.conflicted].into_iter().flatten() {
+        for diff in [&self.staged, &self.unstaged, &self.conflicted]
+            .into_iter()
+            .flatten()
+        {
             let maybe_file = diff.files.iter().find(|f| {
                 f.view.is_current()
                     || f.hunks.iter().any(|h| h.view.is_active())
@@ -233,6 +299,7 @@ impl Status {
         path: PathBuf,
         monitors: Rc<RefCell<Vec<FileMonitor>>>,
         user_action: bool,
+        settings: &gio::Settings,
     ) {
         // here could come path selected by the user
         // this is 'dirty' one. The right path will
@@ -240,15 +307,6 @@ impl Status {
         // but the 'dirty' path will be used first
         // for querying repo status and investigate real one
         if user_action {
-            // cleanup everything here. all diffs will be updated in get_status
-            // IT DOES NOT WORK. garbage remains in stage
-            // self.head.take();
-            // self.upstream.take();
-            // self.state.take();
-            // self.staged.take();
-            // self.unstaged.take();
-            // self.conflicted.take();
-
             self.stashes.take();
             self.branches.take();
 
@@ -260,17 +318,15 @@ impl Status {
             // investigated path
             assert!(path.ends_with(".git/"));
             if self.path.is_none() || path != self.path.clone().unwrap() {
-                let mut paths = self.settings.get::<Vec<String>>("paths");
+                let mut paths = settings.get::<Vec<String>>("paths");
                 let str_path =
                     String::from(path.to_str().unwrap()).replace(".git/", "");
-                self.settings
+                settings
                     .set("lastpath", str_path.clone())
                     .expect("cant set lastpath");
                 if !paths.contains(&str_path) {
                     paths.push(str_path.clone());
-                    self.settings
-                        .set("paths", paths)
-                        .expect("cant set settings");
+                    settings.set("paths", paths).expect("cant set settings");
                 }
                 self.setup_monitors(monitors, PathBuf::from(str_path));
             }
@@ -327,7 +383,8 @@ impl Status {
             let path = self.path.clone();
             let sender = self.sender.clone();
             move || {
-                get_current_repo_status(path, sender).expect("cant get status");
+                get_current_repo_status(path, sender)
+                    .expect("cant get status");
             }
         });
     }
@@ -613,9 +670,10 @@ impl Status {
         if let Some(branches) = &mut self.branches {
             if let Some(head_branch) = head.branch.take() {
                 if let Some(ind) = branches.iter().position(|b| b.is_head) {
-                    debug!(
-                        "replace by index {:?} {:?}",
-                        ind, head_branch.name
+                    trace!(
+                        "replace branch by index {:?} {:?}",
+                        ind,
+                        head_branch.name
                     );
                     branches[ind] = head_branch;
                 }
@@ -645,9 +703,10 @@ impl Status {
                         b.name == upstream_branch.name
                             && b.branch_type == upstream_branch.branch_type
                     }) {
-                        debug!(
-                            "replace by index {:?} {:?}",
-                            ind, upstream_branch.name
+                        trace!(
+                            "replace branch by index {:?} {:?}",
+                            ind,
+                            upstream_branch.name
                         );
                         branches[ind] = upstream_branch;
                     }
@@ -675,10 +734,11 @@ impl Status {
         &'a mut self,
         mut untracked: Option<Diff>,
         txt: &StageView,
+        gio_settings: &gio::Settings,
         context: &mut StatusRenderContext<'a>,
     ) {
         let mut settings =
-            self.settings.get::<HashMap<String, Vec<String>>>("ignored");
+            gio_settings.get::<HashMap<String, Vec<String>>>("ignored");
 
         let repo_path = self.path.clone().unwrap();
         let str_path = repo_path.to_str().unwrap();
@@ -716,10 +776,6 @@ impl Status {
         gio::spawn_blocking({
             let path = self.path.clone().unwrap();
             let sender = sender.clone();
-            debug!(
-                "track changes.................... {:?} {:?}",
-                path, file_path
-            );
             let mut interhunk = None;
             let mut has_conflicted = false;
             if let Some(diff) = &self.conflicted {
@@ -779,7 +835,13 @@ impl Status {
                 }
                 if state.need_final_commit() || state.need_rebase_continue() {
                     banner.set_title(&state.title_for_proceed_banner());
-                    banner.set_css_classes(&["success"]);
+                    banner.set_css_classes(
+                        if StyleManager::default().is_dark() {
+                            &[DARK_CLASS, "success"]
+                        } else {
+                            &[LIGHT_CLASS, "success"]
+                        },
+                    );
                     banner.set_button_label(if state.need_final_commit() {
                         Some("Commit")
                     } else {
@@ -840,7 +902,11 @@ impl Status {
                 }
             } else if !banner.is_revealed() {
                 banner.set_title(&state.title_for_conflict_banner());
-                banner.set_css_classes(&["error"]);
+                banner.set_css_classes(if StyleManager::default().is_dark() {
+                    &[DARK_CLASS, "error"]
+                } else {
+                    &[LIGHT_CLASS, "error"]
+                });
                 banner.set_button_label(Some("Abort"));
                 banner_button.set_css_classes(&["destructive-action"]);
                 banner.set_revealed(true);
@@ -1014,7 +1080,7 @@ impl Status {
     }
 
     pub fn resize_highlights<'a>(
-        &'a self,
+        &'a mut self,
         txt: &StageView,
         ctx: &mut StatusRenderContext<'a>,
     ) {
@@ -1024,7 +1090,6 @@ impl Status {
         glib::source::timeout_add_local(Duration::from_millis(10), {
             let txt = txt.clone();
             let mut context = StatusRenderContext::new();
-            context.cursor = ctx.cursor; // resize highlights
             context.highlight_lines = ctx.highlight_lines;
             context.highlight_hunks.clone_from(&ctx.highlight_hunks);
             move || {
@@ -1056,9 +1121,7 @@ impl Status {
         // context must receive ViewContainer as
         // argument and use its line_no to store cursor!
         // it is used only once in resize_highlights for copy!
-        // SO, get rid of context.cursor!
-        context.cursor = line_no; // cursor
-
+        // self.cursor_position.replace(Rc::new(context.cursor_position.clone()));
         let mut changed = false;
         let buffer = txt.buffer();
         if let Some(untracked) = &self.untracked {
@@ -1077,22 +1140,17 @@ impl Status {
             changed =
                 staged.cursor(&buffer, line_no, false, context) || changed;
         }
-        // NO NEED TO RENDER!
-        // no need to bind highlights here!
-        // expand can go without cursor and hihjlight
-        // is required there!
-        // put highlight completelly in render!
-        // ... or put highlights in expand!!!!!!!
-        // but who triggers them in status view????
 
         // this is called once in status_view and 3 times in commit view!!!
         txt.bind_highlights(context);
+        self.cursor_position
+            .replace(CursorPosition::from_context(context));
         changed
     }
 
     // Status
     pub fn expand<'a>(
-        &'a self,
+        &'a mut self,
         txt: &StageView,
         line_no: i32,
         _offset: i32,
@@ -1334,12 +1392,15 @@ impl Status {
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         let last_line = buffer.end_iter().line();
         if iter.line() == last_line {
-            for diff in [&self.conflicted, &self.unstaged, &self.staged].into_iter().flatten() {
+            for diff in [&self.conflicted, &self.unstaged, &self.staged]
+                .into_iter()
+                .flatten()
+            {
                 if !diff.files.is_empty() {
                     return buffer
                         .iter_at_line(diff.files[0].view.line_no.get())
                         .unwrap();
-                }                
+                }
             }
             if iter.line() == last_line {
                 if let Some(untracked) = &self.untracked {
@@ -1356,224 +1417,6 @@ impl Status {
         iter
     }
 
-    pub fn ignore<'a>(
-        &'a mut self,
-        txt: &StageView,
-        line_no: i32,
-        _offset: i32,
-        context: &mut StatusRenderContext<'a>,
-    ) {
-        if let Some(untracked) = &self.untracked {
-            for file in &untracked.files {
-                // TODO!
-                // refactor to some generic method
-                // why other elements do not using this?
-                let view = file.get_view();
-                if view.is_current() && view.line_no.get() == line_no {
-                    let ignore_path = file
-                        .path
-                        .clone()
-                        .into_os_string()
-                        .into_string()
-                        .expect("wrong string");
-                    trace!("ignore path! {:?}", ignore_path);
-                    let mut settings =
-                        self.settings
-                            .get::<HashMap<String, Vec<String>>>("ignored");
-                    let repo_path = self
-                        .path
-                        .clone()
-                        .expect("no path")
-                        .into_os_string()
-                        .into_string()
-                        .expect("wrong path");
-                    if let Some(stored) = settings.get_mut(&repo_path) {
-                        stored.push(ignore_path);
-                        trace!("added ignore {:?}", settings);
-                    } else {
-                        settings.insert(repo_path, vec![ignore_path]);
-                        trace!("first ignored file {:?}", settings);
-                    }
-                    self.settings
-                        .set("ignored", settings)
-                        .expect("cant set settings");
-                    self.update_untracked(
-                        self.untracked.clone(),
-                        txt,
-                        context,
-                    );
-                    break;
-                }
-            }
-        }
-    }
-
-    pub fn stage_in_conflict(&self, window: &ApplicationWindow) -> bool {
-        // it need to implement method for diff, which will return current Hunk, Line and File and use it in stage.
-        // also it must return indicator what of this 3 is current.
-        if let Some(conflicted) = &self.conflicted {
-            // also someone can press stage on label!
-            for f in &conflicted.files {
-                // also someone can press stage on file!
-                for hunk in &f.hunks {
-                    // also someone can press stage on hunk!
-                    for line in &hunk.lines {
-                        if line.view.is_current() {
-                            glib::spawn_future_local({
-                                let path = self.path.clone().unwrap();
-                                let sender = self.sender.clone();
-                                let file_path = f.path.clone();
-                                let hunk = hunk.clone();
-                                let line = line.clone();
-                                let window = window.clone();
-                                let interhunk = conflicted.interhunk;
-                                async move {
-                                    if hunk.conflict_markers_count > 0
-                                        && line.is_side_of_conflict()
-                                    {
-                                        info!("choose_conflict_side_of_hunk");
-                                        gio::spawn_blocking({
-                                            move || {
-                                                merge::choose_conflict_side_of_hunk(
-                                                    path, file_path, hunk, line,
-                                                    interhunk, sender,
-                                                )
-                                            }
-                                        }).await.unwrap_or_else(|e| {
-                                            alert(format!("{:?}", e)).present(&window);
-                                            Ok(())
-                                        }).unwrap_or_else(|e| {
-                                            alert(e).present(&window);
-                                        });
-                                    } else {
-                                        // this should be never called
-                                        // conflicts are resolved in branch above
-                                        info!(
-                                            "cleanup_last_conflict_for_file"
-                                        );
-                                        gio::spawn_blocking({
-                                            move || {
-                                                merge::cleanup_last_conflict_for_file(
-                                                    path, file_path, interhunk, sender,
-                                                )
-                                            }
-                                        }).await.unwrap_or_else(|e| {
-                                            alert(format!("{:?}", e)).present(&window);
-                                            Ok(())
-                                        }).unwrap_or_else(|e| {
-                                            alert(e).present(&window);
-                                        });
-                                    }
-                                }
-                            });
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-        false
-    }
-
-    pub fn stage(&mut self, op: StageOp, window: &ApplicationWindow) {
-        if let Some(untracked) = &self.untracked {
-            for file in &untracked.files {
-                if file.get_view().is_current() {
-                    gio::spawn_blocking({
-                        let path = self.path.clone();
-                        let sender = self.sender.clone();
-                        let file_path = file.path.clone();
-                        move || {
-                            stage_untracked(
-                                path.expect("no path"),
-                                file_path,
-                                sender,
-                            );
-                        }
-                    });
-                    return;
-                }
-            }
-        }
-
-        if self.stage_in_conflict(window) {
-            info!(".................this is stage in conflict");
-            return;
-        }
-
-        // just a check
-        match op {
-            StageOp::Stage(_) | StageOp::Kill(_) => {
-                if self.unstaged.is_none() {
-                    return;
-                }
-            }
-            StageOp::Unstage(_) => {
-                if self.staged.is_none() {
-                    return;
-                }
-            }
-        }
-
-        let diff = {
-            match op {
-                StageOp::Stage(_) | StageOp::Kill(_) => {
-                    self.unstaged.as_mut().unwrap()
-                }
-                StageOp::Unstage(_) => self.staged.as_mut().unwrap(),
-            }
-        };
-
-        let (file, hunk) = diff.chosen_file_and_hunk();
-        if file.is_none() {
-            info!("no file to stage");
-            self.sender
-                .send_blocking(Event::Toast(String::from("No file to stage")))
-                .expect("cant send through sender");
-            return;
-        }
-        trace!(
-            "stage via apply ----------------------> {:?} {:?} {:?}",
-            op,
-            file,
-            hunk
-        );
-
-        glib::spawn_future_local({
-            let window = window.clone();
-            let path = self.path.clone();
-            let sender = self.sender.clone();
-            let file_path = file.unwrap().path.clone();
-            let hunk = hunk.map(|h| h.header.clone());
-            self.last_op.replace(LastOp {
-                op: op.clone(),
-                file_path: Some(file_path.clone()),
-                hunk_header: hunk.clone(),
-            });
-            async move {
-                gio::spawn_blocking({
-                    move || {
-                        stage_via_apply(
-                            path.expect("no path"),
-                            file_path,
-                            hunk,
-                            op,
-                            sender,
-                        )
-                    }
-                })
-                .await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
-                    Ok(())
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(&window);
-                });
-            }
-        });
-    }
-
     pub fn has_staged(&self) -> bool {
         if let Some(staged) = &self.staged {
             return !staged.files.is_empty();
@@ -1581,67 +1424,67 @@ impl Status {
         false
     }
 
-    pub fn dump<'a>(
-        &'a mut self,
-        txt: &StageView,
-        context: &mut StatusRenderContext<'a>,
-    ) {
-        let mut path = self.path.clone().unwrap();
-        path.push(DUMP_DIR);
-        let create_result = std::fs::create_dir(&path);
-        match create_result {
-            Ok(_) => {}
-            Err(err) => {
-                if err.kind() != ErrorKind::AlreadyExists {
-                    panic!("Error {}", err);
-                }
-            }
-        }
-        let datetime: DateTime<Utc> = std::time::SystemTime::now().into();
-        let fname = format!("dump_{}.txt", datetime.format("%d_%m_%Y_%T"));
-        path.push(fname);
-        let mut file = std::fs::File::create(path).unwrap();
+    // pub fn dump<'a>(
+    //     &'a mut self,
+    //     txt: &StageView,
+    //     context: &mut StatusRenderContext<'a>,
+    // ) {
+    //     let mut path = self.path.clone().unwrap();
+    //     path.push(DUMP_DIR);
+    //     let create_result = std::fs::create_dir(&path);
+    //     match create_result {
+    //         Ok(_) => {}
+    //         Err(err) => {
+    //             if err.kind() != ErrorKind::AlreadyExists {
+    //                 panic!("Error {}", err);
+    //             }
+    //         }
+    //     }
+    //     let datetime: DateTime<Utc> = std::time::SystemTime::now().into();
+    //     let fname = format!("dump_{}.txt", datetime.format("%d_%m_%Y_%T"));
+    //     path.push(fname);
+    //     let mut file = std::fs::File::create(path).unwrap();
 
-        let buffer = txt.buffer();
+    //     let buffer = txt.buffer();
 
-        let pos = buffer.cursor_position();
-        let iter = buffer.iter_at_offset(pos);
-        self.cursor(txt, iter.line(), iter.offset(), context);
-        self.render(txt, None, context);
+    //     let pos = buffer.cursor_position();
+    //     let iter = buffer.iter_at_offset(pos);
+    //     self.cursor(txt, iter.line(), iter.offset(), context);
+    //     self.render(txt, None, context);
 
-        let iter = buffer.iter_at_offset(0);
-        let end_iter = buffer.end_iter();
-        let content = buffer.text(&iter, &end_iter, true);
-        file.write_all(content.as_bytes()).unwrap();
-        file.write_all("\n ================================= \n".as_bytes())
-            .unwrap();
-        file.write_all(format!("context: {:?}", context).as_bytes())
-            .unwrap();
-        if let Some(conflicted) = &self.conflicted {
-            file.write_all(
-                "\n ==============Coflicted================= \n".as_bytes(),
-            )
-            .unwrap();
-            file.write_all(conflicted.dump().as_bytes()).unwrap();
-        }
-        if let Some(unstaged) = &self.unstaged {
-            file.write_all(
-                "\n ==============UnStaged================= \n".as_bytes(),
-            )
-            .unwrap();
-            file.write_all(unstaged.dump().as_bytes()).unwrap();
-        }
-        if let Some(staged) = &self.staged {
-            file.write_all(
-                "\n ==============Staged================= \n".as_bytes(),
-            )
-            .unwrap();
-            file.write_all(staged.dump().as_bytes()).unwrap();
-        }
-        self.sender
-            .send_blocking(Event::Toast(String::from("dumped")))
-            .expect("cant send through sender");
-    }
+    //     let iter = buffer.iter_at_offset(0);
+    //     let end_iter = buffer.end_iter();
+    //     let content = buffer.text(&iter, &end_iter, true);
+    //     file.write_all(content.as_bytes()).unwrap();
+    //     file.write_all("\n ================================= \n".as_bytes())
+    //         .unwrap();
+    //     file.write_all(format!("context: {:?}", context).as_bytes())
+    //         .unwrap();
+    //     if let Some(conflicted) = &self.conflicted {
+    //         file.write_all(
+    //             "\n ==============Coflicted================= \n".as_bytes(),
+    //         )
+    //         .unwrap();
+    //         file.write_all(conflicted.dump().as_bytes()).unwrap();
+    //     }
+    //     if let Some(unstaged) = &self.unstaged {
+    //         file.write_all(
+    //             "\n ==============UnStaged================= \n".as_bytes(),
+    //         )
+    //         .unwrap();
+    //         file.write_all(unstaged.dump().as_bytes()).unwrap();
+    //     }
+    //     if let Some(staged) = &self.staged {
+    //         file.write_all(
+    //             "\n ==============Staged================= \n".as_bytes(),
+    //         )
+    //         .unwrap();
+    //         file.write_all(staged.dump().as_bytes()).unwrap();
+    //     }
+    //     self.sender
+    //         .send_blocking(Event::Toast(String::from("dumped")))
+    //         .expect("cant send through sender");
+    // }
     pub fn head_oid(&self) -> crate::Oid {
         self.head.as_ref().unwrap().oid
     }
@@ -1663,13 +1506,16 @@ impl Status {
         let line_to = end_iter.line();
         let line_to_offset = end_iter.line_offset();
         let mut clean_content: HashMap<i32, (String, i32)> = HashMap::new();
-        for diff in [&self.conflicted, &self.unstaged, &self.staged].into_iter().flatten() {
-                diff.collect_clean_content(
-                    line_from,
-                    line_to,
-                    &mut clean_content,
-                    context,
-                );
+        for diff in [&self.conflicted, &self.unstaged, &self.staged]
+            .into_iter()
+            .flatten()
+        {
+            diff.collect_clean_content(
+                line_from,
+                line_to,
+                &mut clean_content,
+                context,
+            );
         }
         if !clean_content.is_empty() {
             let clipboard = txt.clipboard();
