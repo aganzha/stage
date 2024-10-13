@@ -1,8 +1,8 @@
 [Flatpak Ref]
 Title=Stage
-Name=com.github.aganzha.stage
-Comment=Stage - gui git client
-Description=Stage - gui git client
+Name=io.github.aganzha.Stage
+Comment=Stage - GIT GUI client for linux desktops
+Description=Stage - GIT GUI client for linux desktops
 Icon=https://www.aganzha.online/static/logo.svg
 Url=https://www.aganzha.online/stage_flatpak_repo/
 Branch=master
