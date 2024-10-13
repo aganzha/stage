@@ -494,7 +494,9 @@ impl ViewContainer for Diff {
                     DiffKind::Untracked => "Untracked files",
                     DiffKind::Staged => "Staged changes",
                     DiffKind::Unstaged => "Unstaged changes",
-                    DiffKind::Conflicted => "<span color=\"#ff0000\">Conflicts</span>",
+                    DiffKind::Conflicted => {
+                        "<span color=\"#ff0000\">Conflicts</span>"
+                    }
                     DiffKind::Commit => "Commit content",
                 },
             );
