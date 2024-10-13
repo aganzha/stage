@@ -1,7 +1,7 @@
 TODO: cherry pick and revert single hunks!
 BUG: so, the bug with small line height on file is because cursor_diff is filled.
      i need another one: selected_diff
-TODO: FIRST: stage/unstage all. kill from unstaged
+TODO: FIRST: stage/unstage all. kill from unstaged!
 BUG: compile ts in nomenclature repo and rm all js files
 INFO: settings are stored in /home/aganzha/.var/app/com.github.aganzha.stage/config/glib-2.0/settings/keyfile
 TODO: commit view must show parent commit!
