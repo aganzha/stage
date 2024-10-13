@@ -9,15 +9,10 @@ use crate::git::merge;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::{
-    stage_untracked, stage_via_apply, DiffKind, Event, StageOp,
-};
-
+use crate::{stage_untracked, stage_via_apply, DiffKind, Event, StageOp};
 
 use gtk4::prelude::*;
-use gtk4::{
-    gio, glib,
-};
+use gtk4::{gio, glib};
 use libadwaita::prelude::*;
 use libadwaita::ApplicationWindow;
 use log::{debug, info, trace};
@@ -201,10 +196,8 @@ impl Status {
                                 .to_string();
                         } else if let Some(untracked) = &untracked {
                             for file in &untracked.files {
-                                let str_path = file
-                                    .path
-                                    .to_str()
-                                    .expect("wrong path");
+                                let str_path =
+                                    file.path.to_str().expect("wrong path");
                                 ignored.push(str_path.to_string());
                             }
                         }
