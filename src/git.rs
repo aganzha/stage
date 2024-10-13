@@ -123,7 +123,6 @@ impl Default for Line {
 
 impl Line {
     pub fn content<'a>(&'a self, hunk: &'a Hunk) -> &'a str {
-        // debug!(".......................... {:?} >>{:?}<<", self.content_idx, hunk.buf);
         &hunk.buf[self.content_idx.0..self.content_idx.0 + self.content_idx.1]
     }
 
@@ -430,8 +429,6 @@ impl Hunk {
             | DiffLineType::Binary => {}
             _ => self.lines.push(line),
         }
-        trace!("........return this_kind {:?}", this_kind);
-        trace!("");
         this_kind
     }
 
@@ -900,10 +897,6 @@ pub fn get_conflicted_v1(
     let repo = Repository::open(path).expect("can't open repo");
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
-    debug!(
-        "does index has conflicts in conflicted_v1? ===================> {:?}",
-        index.has_conflicts()
-    );
     let mut opts = make_diff_options();
     // 6 - for 3 context lines in eacj hunk?
     // opts.interhunk_lines(interhunk.unwrap_or(10));
@@ -1247,7 +1240,6 @@ pub fn stage_via_apply(
     });
 
     options.delta_callback(|odd| -> bool {
-        debug!("........................... {:?}", odd);
         if let Some(file_path) = &file_path {
             if let Some(dd) = odd {
                 let path: PathBuf = dd.new_file().path().unwrap().into();
@@ -1270,12 +1262,6 @@ pub fn stage_via_apply(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
-    debug!(
-        "______________________________ {:?} foooooooooooor {:?} {:?}",
-        make_diff(&git_diff, DiffKind::Conflicted),
-        file_path,
-        hunk_header
-    );
     repo.apply(&git_diff, apply_location, Some(&mut options))?;
 
     Ok(())
@@ -1306,8 +1292,6 @@ impl DeferRefresh {
 
 impl Drop for DeferRefresh {
     fn drop(&mut self) {
-        // let backtrace = Backtrace::capture();
-        // debug!("droping DeferRefresh ................ {}", backtrace);
         if self.update_status {
             gio::spawn_blocking({
                 let path = self.path.clone();
@@ -1489,24 +1473,8 @@ pub fn track_changes(
                     Some(diff)
                 }))
                 .expect("Could not send through channel");
-            // debug!(
-            //     "***********diff is empty AND no other files? {:?} {:?}",
-            //     diff.is_empty(),
-            //     !has_other_modified
-            // );
-            // sender
-            //     .send_blocking(crate::Event::Unstaged(None))
-            //     .expect("Could not send through channel");
+
         } else {
-            // // hm it is possible that diff is empty and has othe files?
-            // debug!(
-            //     "***********diff is empty OR has other files {:?} {:?}",
-            //     diff.is_empty(),
-            //     has_other_modified
-            // );
-            // here is the problem. sending 1 file in event.
-            // perhaps it does not even need to enhance this method
-            // with handling array of files.
             sender
                 .send_blocking(crate::Event::TrackedFile(
                     file_path.into(),
