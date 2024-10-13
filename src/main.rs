@@ -147,10 +147,6 @@ pub enum Event {
     Cursor(i32, i32),
     CopyToClipboard(i32, i32),
     Stage(StageOp),
-    // Stage(i32, i32),
-    // UnStage(i32, i32),
-    // Kill(i32, i32),
-    Ignore(i32, i32),
     Commit,
     Push,
     Pull,
@@ -585,10 +581,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::Stage(stage_op) => {
                     info!("Stage {:?}", stage_op);
                     status.stage(stage_op, &window, &settings);
-                }
-                Event::Ignore(offset, line_no) => {
-                    info!("main.ignore");
-                    status.ignore(&txt, line_no, offset, &mut ctx);
                 }
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {}", w);

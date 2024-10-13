@@ -390,14 +390,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     ))
                     .expect("Could not send through channel");
                 }
-                (gdk::Key::i, _) => {
-                    let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::Ignore(
-                        iter.offset(),
-                        iter.line(),
-                    ))
-                    .expect("Could not send through channel");
-                }
                 (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
                     // for ctrl-c
                 }
