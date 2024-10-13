@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2024 Aleksey Ganzha <aganzha@yandex.ru>
 //
-// SPDX-License-Identifier: LGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::git::merge::choose_conflict_side_of_blob;
 use crate::git::{

@@ -18,11 +18,9 @@ flatpak run com.github.aganzha.stage
 
 ### Staging
 
-[Here is short link to the flatref file](https://github.com/aganzha/stage/raw/master/stage.flatpakref)
+Open git repository. Stage will watch for changes and display current repository status in form of Diff.
 
-Open git repository. Stage will watch for changes and display current repository status and display it in form of Diff.
-
-- Expand/collapse underlying files and hunks by pressing TAB or SPACE or double clicking expandanle items on screen.
+- Expand/collapse underlying files and hunks by pressing TAB or SPACE or clicking expandanle items on screen.
 
 - Stage selected files or hunks or all changes by pressing ENTER or S or double clicking items on screen
 
