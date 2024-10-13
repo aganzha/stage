@@ -87,12 +87,18 @@ mod branch_item {
 }
 
 impl BranchItem {
-    pub fn new(branch: &branch::BranchData) -> Self {
+    pub fn new(branch: &branch::BranchData, is_dark: bool) -> Self {
+        let color = if StyleManager::default().is_dark() {
+            "#839daf"
+        } else {
+            "#4a708b"
+        };
         let ob = Object::builder::<BranchItem>()
             .property(
                 "title",
                 format!(
-                    "<span color=\"#4a708b\">{}</span>",
+                    "<span color=\"{}\">{}</span>",
+                    color,
                     &branch.name.to_str()
                 ),
             )
@@ -187,13 +193,14 @@ impl BranchList {
     pub fn search_new(&self, term: String) {
         let orig_le = self.imp().list.take().len();
         self.items_changed(0, orig_le as u32, 0);
+        let is_dark = StyleManager::default().is_dark();
         self.imp().list.replace(
             self.imp()
                 .original_list
                 .borrow()
                 .iter()
                 .filter(|bd| bd.name.to_str().contains(&term))
-                .map(BranchItem::new)
+                .map(|b|BranchItem::new(b, is_dark))
                 .collect(),
         );
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
@@ -220,10 +227,11 @@ impl BranchList {
                     return;
                 }
                 branch_list.imp().original_list.replace(branches);
+                let is_dark = StyleManager::default().is_dark();
                 branch_list.imp().list.replace(
                     branch_list.imp().original_list.borrow()
                         .iter()
-                        .map(BranchItem::new)
+                        .map(|b|BranchItem::new(b, is_dark))
                         .collect()
                 );
                 branch_list.items_changed(0, 0, branch_list.imp().list.borrow().len() as u32);
@@ -606,10 +614,13 @@ impl BranchList {
             .borrow_mut()
             .insert(0, branch_data.clone());
         debug!("inserted in original list!");
-        self.imp()
-            .list
-            .borrow_mut()
-            .insert(0, BranchItem::new(&self.imp().original_list.borrow()[0]));
+        self.imp().list.borrow_mut().insert(
+            0,
+            BranchItem::new(
+                &self.imp().original_list.borrow()[0],
+                StyleManager::default().is_dark(),
+            ),
+        );
 
         if !need_checkout {
             self.items_changed(0, 0, 1);
