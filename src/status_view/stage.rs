@@ -3,42 +3,23 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use super::{CursorPosition, LastOp, Status};
-use crate::dialogs::{alert, ConfirmDialog, DangerDialog, YES};
-use crate::git::{
-    abort_rebase, branch::BranchData, continue_rebase, get_head, merge,
-    remote, stash, HunkLineNo,
-};
+use crate::dialogs::{alert, DangerDialog, YES};
+use crate::git::merge;
 
-use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, HashSet};
-use std::io::{ErrorKind, Write};
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::collections::HashMap;
+use std::path::PathBuf;
 
-use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, stage_untracked, stage_via_apply, track_changes,
-    Diff, DiffKind, Event, File as GitFile, Head, StageOp, State,
-    StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
+    stage_untracked, stage_via_apply, DiffKind, Event, StageOp,
 };
-use async_channel::Sender;
 
-use gio::FileMonitor;
 
-use crate::status_view::context::CursorPosition as ContextCursorPosition;
-use chrono::{offset::Utc, DateTime};
-use glib::clone;
-use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, TextBuffer,
-    TextIter, Widget, Window as GTKWindow,
+    gio, glib,
 };
 use libadwaita::prelude::*;
-use libadwaita::{
-    ApplicationWindow, Banner, ButtonContent, EntryRow, PasswordEntryRow,
-    StatusPage, StyleManager, SwitchRow,
-};
+use libadwaita::ApplicationWindow;
 use log::{debug, info, trace};
 
 impl CursorPosition {
@@ -218,15 +199,13 @@ impl Status {
                                 .to_str()
                                 .expect("wrong path")
                                 .to_string();
-                        } else {
-                            if let Some(untracked) = &untracked {
-                                for file in &untracked.files {
-                                    let str_path = file
-                                        .path
-                                        .to_str()
-                                        .expect("wrong path");
-                                    ignored.push(str_path.to_string());
-                                }
+                        } else if let Some(untracked) = &untracked {
+                            for file in &untracked.files {
+                                let str_path = file
+                                    .path
+                                    .to_str()
+                                    .expect("wrong path");
+                                ignored.push(str_path.to_string());
                             }
                         }
 
