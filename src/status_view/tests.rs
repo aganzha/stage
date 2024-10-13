@@ -799,20 +799,52 @@ pub fn test_cursor_position() {
     diff.render(&buffer, &mut iter, &mut ctx);
 
     // cursor on diff
+    let line_no = diff.view.line_no.get();
+    diff.expand(line_no, &mut ctx);
+    let mut iter = buffer.iter_at_offset(0);
+    diff.render(&buffer, &mut iter, &mut ctx);    
     diff.cursor(&buffer, diff.view.line_no.get(), false, &mut ctx);
 
     let position = CursorPosition::from_context(&ctx);
     assert!(position == CursorPosition::CursorDiff(diff.kind));
 
     // iterate on files
-    for fi in 0..2 {
+    for (fi, file) in diff.files.iter().enumerate() {
+        let file_line_no = file.view.line_no.get();
+        // put cursor on each file
         diff.cursor(
             &buffer,
-            diff.files[fi].view.line_no.get(),
+            file_line_no,
             false,
             &mut ctx,
         );
         let position = CursorPosition::from_context(&ctx);
         assert!(position == CursorPosition::CursorFile(diff.kind, fi));
+
+        for (hi, hunk) in file.hunks.iter().enumerate() {
+            let hunk_line_no = hunk.view.line_no.get();
+            // put cursor on each hunk
+            diff.cursor(
+                &buffer,
+                hunk_line_no,
+                false,
+                &mut ctx,
+            );
+            let position = CursorPosition::from_context(&ctx);
+            assert!(position == CursorPosition::CursorHunk(diff.kind, fi, hi));
+
+            for (li, line) in hunk.lines.iter().enumerate() {
+                let line_line_no = line.view.line_no.get();
+                // put cursor on each line
+                diff.cursor(
+                    &buffer,
+                    line_line_no,
+                    false,
+                    &mut ctx,
+                );
+                let position = CursorPosition::from_context(&ctx);
+                assert!(position == CursorPosition::CursorLine(diff.kind, fi, hi, li));
+            }
+        }
     }
 }
