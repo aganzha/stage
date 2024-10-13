@@ -183,7 +183,7 @@ impl CursorPosition {
         &self,
         status: &Status,
         op: &StageOp,
-    ) -> (Option<DiffKind>, Option<PathBuf>, Option<String>) {
+    ) -> (Option<DiffKind>, Option<PathBuf>, Option<String>) {// TODO! it is not string! it must be typed HunkHeader!
         match (self, op) {
             (
                 Self::CursorDiff(DiffKind::Unstaged),
@@ -268,6 +268,20 @@ impl CursorPosition {
                         Some(untracked.kind),
                         Some(file.path.clone()),
                         None,
+                    );
+                }
+            }
+            (
+                Self::CursorLine(DiffKind::Conflicted, file_idx, hunk_idx, _),
+                StageOp::Stage(_),
+            ) => {
+                if let Some(conflicted) = &status.conflicted {
+                    let file = &conflicted.files[*file_idx];
+                    let hunk = &file.hunks[*hunk_idx];
+                    return (
+                        Some(conflicted.kind),
+                        Some(file.path.clone()),
+                        Some(hunk.header.clone()),
                     );
                 }
             }
@@ -1587,10 +1601,10 @@ impl Status {
         window: &ApplicationWindow,
         gio_settings: &gio::Settings,
     ) {
-        if self.stage_in_conflict(window) {
-            info!(".................this is stage in conflict");
-            return;
-        }
+        // if self.stage_in_conflict(window) {
+        //     info!(".................this is stage in conflict");
+        //     return;
+        // }
 
         let (diff_kind, file_path, hunk_header) =
             self.cursor_position.get().resolve_stage_op(self, &op);
@@ -1730,6 +1744,68 @@ impl Status {
                         });
                     }
                 });
+            }
+            Some(DiffKind::Conflicted) => {
+                // if op is resolved, this means StageOp AND
+                // CursorLine position
+                match self.cursor_position.get() {
+                    CursorPosition::CursorLine(DiffKind::Conflicted, file_idx, hunk_idx, line_idx) => {
+                        let conflicted = self.conflicted.as_ref().unwrap();
+                        let file = &conflicted.files[file_idx];
+                        let hunk = &file.hunks[hunk_idx];
+                        let line = &hunk.lines[line_idx];
+                        glib::spawn_future_local({
+                            let path = self.path.clone().unwrap();
+                            let sender = self.sender.clone();
+                            let file_path = file.path.clone();
+                            let hunk = hunk.clone();
+                            let line = line.clone();
+                            let window = window.clone();
+                            let interhunk = conflicted.interhunk;
+                            async move {
+                                if hunk.conflict_markers_count > 0
+                                    && line.is_side_of_conflict()
+                                {
+                                    info!("choose_conflict_side_of_hunk");
+                                    gio::spawn_blocking({
+                                        move || {
+                                            merge::choose_conflict_side_of_hunk(
+                                                path, file_path, hunk, line,
+                                                interhunk, sender,
+                                            )
+                                        }
+                                    }).await.unwrap_or_else(|e| {
+                                        alert(format!("{:?}", e)).present(&window);
+                                        Ok(())
+                                    }).unwrap_or_else(|e| {
+                                        alert(e).present(&window);
+                                    });
+                                } else {
+                                    // this should be never called
+                                    // conflicts are resolved in branch above
+                                    info!(
+                                        "cleanup_last_conflict_for_file"
+                                    );
+                                    gio::spawn_blocking({
+                                        move || {
+                                            merge::cleanup_last_conflict_for_file(
+                                                path, file_path, interhunk, sender,
+                                            )
+                                        }
+                                    }).await.unwrap_or_else(|e| {
+                                        alert(format!("{:?}", e)).present(&window);
+                                        Ok(())
+                                    }).unwrap_or_else(|e| {
+                                        alert(e).present(&window);
+                                    });
+                                }
+                            }
+                        });
+                    }
+                    _ => {
+                        panic!("wrong Op resolution");
+                    }
+                }                
             }
             _ => {
                 debug!("stage op is not resolved");

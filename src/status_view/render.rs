@@ -488,13 +488,13 @@ impl ViewContainer for Diff {
         _context: &mut StatusRenderContext<'_>,
     ) {
         if !self.is_empty() {
-            buffer.insert(
+            buffer.insert_markup(
                 iter,
                 match self.kind {
                     DiffKind::Untracked => "Untracked files",
                     DiffKind::Staged => "Staged changes",
                     DiffKind::Unstaged => "Unstaged changes",
-                    DiffKind::Conflicted => "Conflicts",
+                    DiffKind::Conflicted => "<span color=\"#ff0000\">Conflicts</span>",
                     DiffKind::Commit => "Commit content",
                 },
             );
