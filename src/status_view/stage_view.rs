@@ -16,7 +16,7 @@ use gtk4::{
     TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::{debug, trace};
+use log::trace;
 
 use std::cell::RefCell;
 use std::rc::Rc;

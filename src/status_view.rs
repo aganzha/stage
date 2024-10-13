@@ -11,7 +11,7 @@ pub mod stage;
 pub mod stage_view;
 pub mod tags;
 
-use crate::dialogs::{alert, ConfirmDialog, DangerDialog, YES};
+use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{
     abort_rebase, branch::BranchData, continue_rebase, get_head, merge,
     remote, stash, HunkLineNo,
@@ -28,13 +28,12 @@ pub mod view;
 
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
-use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, stage_untracked, stage_via_apply, track_changes,
+    get_current_repo_status, track_changes,
     Diff, DiffKind, Event, File as GitFile, Head, StageOp, State,
     StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
 };
@@ -43,7 +42,6 @@ use async_channel::Sender;
 use gio::FileMonitor;
 
 use crate::status_view::context::CursorPosition as ContextCursorPosition;
-use chrono::{offset::Utc, DateTime};
 use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
@@ -56,7 +54,7 @@ use libadwaita::{
     ApplicationWindow, Banner, ButtonContent, EntryRow, PasswordEntryRow,
     StatusPage, StyleManager, SwitchRow,
 };
-use log::{debug, info, trace};
+use log::{debug, trace};
 
 impl State {
     pub fn title_for_proceed_banner(&self) -> String {

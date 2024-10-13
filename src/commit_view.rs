@@ -15,12 +15,12 @@ use git2::Oid;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, Orientation,
+    gdk, gio, glib, Button, EventControllerKey, Label,
     ScrolledWindow, TextBuffer, TextIter, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
-use log::{debug, info, trace};
+use log::{info, trace};
 
 use std::path::PathBuf;
 

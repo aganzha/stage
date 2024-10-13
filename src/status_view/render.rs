@@ -26,7 +26,6 @@ use gtk4::{TextBuffer, TextIter};
 use libadwaita::StyleManager;
 use log::{debug, trace};
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 
 pub const LINE_NO_SPACE: i32 = 6;
 
@@ -578,10 +577,8 @@ impl ViewContainer for Diff {
         for file in &self.files {
             if expand_all {
                 file.expand(file.view.line_no.get(), context);
-            } else {
-                if let Some(line) = file.expand(line_no, context) {
-                    result.replace(line);
-                }
+            } else if let Some(line) = file.expand(line_no, context) {
+                result.replace(line);
             }
         }
         result
