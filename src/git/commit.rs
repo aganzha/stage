@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::git::{
-    get_head, make_diff, make_diff_options, DeferRefresh, Diff, DiffKind,
-};
+use crate::git::{get_head, make_diff, make_diff_options, DeferRefresh, Diff, DiffKind};
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use git2;
@@ -21,8 +19,7 @@ pub trait CommitRepr {
 
 impl CommitRepr for git2::Commit<'_> {
     fn dt(&self) -> DateTime<FixedOffset> {
-        let tz =
-            FixedOffset::east_opt(self.time().offset_minutes() * 60).unwrap();
+        let tz = FixedOffset::east_opt(self.time().offset_minutes() * 60).unwrap();
         match tz.timestamp_opt(self.time().seconds(), 0) {
             LocalResult::Single(dt) => dt,
             LocalResult::Ambiguous(dt, _) => dt,
@@ -146,10 +143,7 @@ impl CommitDiff {
     }
 }
 
-pub fn get_commit_diff(
-    path: PathBuf,
-    oid: git2::Oid,
-) -> Result<CommitDiff, git2::Error> {
+pub fn get_commit_diff(path: PathBuf, oid: git2::Oid) -> Result<CommitDiff, git2::Error> {
     let repo = git2::Repository::open(path)?;
     let commit = repo.find_commit(oid)?;
     let tree = commit.tree()?;
@@ -194,23 +188,13 @@ pub fn create(
             Some(&tree),
         )?;
     } else {
-        repo.commit(
-            Some("HEAD"),
-            &me,
-            &me,
-            &message,
-            &tree,
-            &[&parent_commit],
-        )?;
+        repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&parent_commit])?;
     }
     // update staged changes
     let ob = repo.revparse_single("HEAD^{tree}")?;
     let current_tree = repo.find_tree(ob.id())?;
-    let git_diff = repo.diff_tree_to_index(
-        Some(&current_tree),
-        None,
-        Some(&mut make_diff_options()),
-    )?;
+    let git_diff =
+        repo.diff_tree_to_index(Some(&current_tree), None, Some(&mut make_diff_options()))?;
 
     let diff = make_diff(&git_diff, DiffKind::Staged);
     sender

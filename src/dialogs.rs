@@ -7,10 +7,7 @@ use crate::git::remote::RemoteResponse;
 use libadwaita::prelude::*;
 use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance};
 
-use gtk4::{
-    Box, Label, Orientation, ScrolledWindow, TextView, Widget,
-    Window as Gtk4Window,
-};
+use gtk4::{Box, Label, Orientation, ScrolledWindow, TextView, Widget, Window as Gtk4Window};
 
 pub fn confirm_dialog_factory(
     window: &impl IsA<Gtk4Window>,
@@ -38,10 +35,7 @@ pub fn confirm_dialog_factory(
         (confirm_response, confirm_title),
     ]);
 
-    dialog.set_response_appearance(
-        confirm_response,
-        ResponseAppearance::Suggested,
-    );
+    dialog.set_response_appearance(confirm_response, ResponseAppearance::Suggested);
     dialog
 }
 
@@ -98,8 +92,7 @@ impl AlertConversation for RemoteResponse {
                 .build();
             let buffer = txt.buffer();
             let mut iter = buffer.iter_at_offset(0);
-            let body: String =
-                body.iter().fold("".to_string(), |cur, nxt| cur + nxt);
+            let body: String = body.iter().fold("".to_string(), |cur, nxt| cur + nxt);
             buffer.insert(&mut iter, &body);
 
             let scroll = ScrolledWindow::builder()

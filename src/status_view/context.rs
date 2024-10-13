@@ -85,11 +85,7 @@ impl StatusRenderContext<'_> {
                 self.highlight_lines.replace((line_no, line_no));
             }
             _ => {
-                todo!(
-                    "whats the case? {:?} {:?}",
-                    self.highlight_lines,
-                    line_no
-                )
+                todo!("whats the case? {:?} {:?}", self.highlight_lines, line_no)
             }
         }
     }

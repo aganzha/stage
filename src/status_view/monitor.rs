@@ -4,9 +4,7 @@
 
 use crate::{get_directories, Event, Status};
 use core::time::Duration;
-use gio::{
-    Cancellable, File, FileMonitor, FileMonitorEvent, FileMonitorFlags,
-};
+use gio::{Cancellable, File, FileMonitor, FileMonitorEvent, FileMonitorFlags};
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
 use log::{debug, trace};
@@ -19,11 +17,7 @@ impl Status {
         self.monitor_global_lock.replace(lock);
     }
 
-    pub fn setup_monitors(
-        &mut self,
-        monitors: Rc<RefCell<Vec<FileMonitor>>>,
-        path: PathBuf,
-    ) {
+    pub fn setup_monitors(&mut self, monitors: Rc<RefCell<Vec<FileMonitor>>>, path: PathBuf) {
         glib::spawn_future_local({
             let sender = self.sender.clone();
             let lock = self.monitor_lock.clone();
@@ -53,10 +47,7 @@ impl Status {
                     let flags = FileMonitorFlags::empty();
 
                     let monitor = file
-                        .monitor_directory(
-                            flags,
-                            Cancellable::current().as_ref(),
-                        )
+                        .monitor_directory(flags, Cancellable::current().as_ref())
                         .expect("cant get monitor");
                     monitor.connect_changed({
                         let path = path.clone();

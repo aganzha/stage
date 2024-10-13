@@ -34,10 +34,9 @@ use std::rc::Rc;
 
 mod git;
 use git::{
-    branch, commit, get_current_repo_status, get_directories, reset_hard,
-    stage_untracked, stage_via_apply, stash::Stashes, track_changes, Diff,
-    DiffKind, File, Head, Hunk, HunkLineNo, Line, LineKind, State,
-    MARKER_OURS, MARKER_THEIRS,
+    branch, commit, get_current_repo_status, get_directories, reset_hard, stage_untracked,
+    stage_via_apply, stash::Stashes, track_changes, Diff, DiffKind, File, Head, Hunk, HunkLineNo,
+    Line, LineKind, State, MARKER_OURS, MARKER_THEIRS,
 };
 use git2::Oid;
 mod dialogs;
@@ -48,20 +47,19 @@ use gdk::Display;
 use glib::{clone, ControlFlow};
 use libadwaita::prelude::*;
 use libadwaita::{
-    Application, ApplicationWindow, Banner, OverlaySplitView, StyleManager,
-    Toast, ToastOverlay, ToolbarStyle, ToolbarView, Window,
+    Application, ApplicationWindow, Banner, OverlaySplitView, StyleManager, Toast, ToastOverlay,
+    ToolbarStyle, ToolbarView, Window,
 };
 
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Align, Box,
-    CssProvider, Orientation, ScrolledWindow, Settings,
-    STYLE_PROVIDER_PRIORITY_USER,
+    gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider, Orientation,
+    ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
 };
 
 use log::{info, trace};
 use regex::Regex;
 
-const APP_ID: &str = "com.github.aganzha.stage";
+const APP_ID: &str = "io.github.aganzha.Stage";
 
 pub const DARK_CLASS: &str = "dark";
 pub const LIGHT_CLASS: &str = "light";
@@ -73,8 +71,7 @@ fn main() -> glib::ExitCode {
         .build();
     app.connect_startup(|_| load_css());
 
-    let initial_path: Rc<RefCell<Option<PathBuf>>> =
-        Rc::new(RefCell::new(None));
+    let initial_path: Rc<RefCell<Option<PathBuf>>> = Rc::new(RefCell::new(None));
 
     app.connect_open({
         let initial_path = initial_path.clone();
@@ -106,18 +103,13 @@ fn load_css() {
     let settings = Settings::for_display(&display);
     let stored_settings = get_settings();
     let stored_font_size = stored_settings.get::<i32>("zoom");
-    settings
-        .set_gtk_font_name(Some(&format!("Cantarell {}", stored_font_size)));
+    settings.set_gtk_font_name(Some(&format!("Cantarell {}", stored_font_size)));
 
     let provider = CssProvider::new();
 
     provider.load_from_string(include_str!("style.css"));
 
-    style_context_add_provider_for_display(
-        &display,
-        &provider,
-        STYLE_PROVIDER_PRIORITY_USER,
-    );
+    style_context_add_provider_for_display(&display, &provider, STYLE_PROVIDER_PRIORITY_USER);
 }
 
 #[derive(Debug, Clone)]
@@ -178,9 +170,7 @@ fn zoom(dir: bool) {
     let font = settings.gtk_font_name().expect("cant get font");
     // "Cantarell 21"
     let re = Regex::new(r".+ ([0-9]+)").expect("fail in regexp");
-    if let Some((_whole, [size])) =
-        re.captures_iter(&font).map(|c| c.extract()).next()
-    {
+    if let Some((_whole, [size])) = re.captures_iter(&font).map(|c| c.extract()).next() {
         let mut int_size = size.parse::<i32>().expect("cant parse size");
         if dir {
             if int_size < 64 {
@@ -200,8 +190,7 @@ pub fn get_settings() -> gio::Settings {
     exe_path.pop();
     let exe_path = exe_path.as_path();
     let schema_source =
-        gio::SettingsSchemaSource::from_directory(exe_path, None, true)
-            .expect("no source");
+        gio::SettingsSchemaSource::from_directory(exe_path, None, true).expect("no source");
     let schema = schema_source.lookup(APP_ID, false).expect("no schema");
     gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None)
 }
@@ -216,8 +205,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     let scheme = settings.get::<String>(SCHEME_TOKEN);
     if !scheme.is_empty() {
-        StyleManager::default()
-            .set_color_scheme(Scheme::new(scheme).scheme_name());
+        StyleManager::default().set_color_scheme(Scheme::new(scheme).scheme_name());
     }
 
     let mut status = Status::new(
@@ -246,8 +234,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     }));
     window.add_action(&action_close);
 
-    let action_open =
-        gio::SimpleAction::new("open", Some(glib::VariantTy::STRING)); //
+    let action_open = gio::SimpleAction::new("open", Some(glib::VariantTy::STRING)); //
     action_open.connect_activate(clone!(@strong sender => move |_, chosen_path| {
         if let Some(path) = chosen_path {
             let path:String = path.get().expect("cant get path from gvariant");
@@ -285,8 +272,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     let gizmo = revealer.last_child().unwrap();
     let banner_button = gizmo.last_child().unwrap();
     let banner_button_handler_id = banner.connect_button_clicked(|_| {});
-    let banner_button_clicked =
-        Rc::new(RefCell::new(Some(banner_button_handler_id)));
+    let banner_button_clicked = Rc::new(RefCell::new(Some(banner_button_handler_id)));
     bx.append(&banner);
     bx.append(&scroll);
 
@@ -313,8 +299,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     status.get_status();
     window.present();
 
-    let window_stack: Rc<RefCell<Vec<Window>>> =
-        Rc::new(RefCell::new(Vec::new()));
+    let window_stack: Rc<RefCell<Vec<Window>>> = Rc::new(RefCell::new(Vec::new()));
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
@@ -333,12 +318,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     if split.shows_sidebar() {
                         split.set_show_sidebar(false);
                     }
-                    status.update_path(
-                        path,
-                        monitors.clone(),
-                        true,
-                        &settings,
-                    );
+                    status.update_path(path, monitors.clone(), true, &settings);
                     txt.grab_focus();
                     status.get_status();
                 }
@@ -356,12 +336,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         stage_set = true;
                     }
                     hb_updater(HbUpdateData::Path(path.clone()));
-                    status.update_path(
-                        path,
-                        monitors.clone(),
-                        false,
-                        &settings,
-                    );
+                    status.update_path(path, monitors.clone(), false, &settings);
                 }
                 Event::State(state) => {
                     info!("main. state");
@@ -394,19 +369,15 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::Commit => {
                     info!("main.commit");
                     if !status.has_staged() {
-                        alert(String::from(
-                            "No changes were staged. Stage by hitting 's'",
-                        ))
-                        .present(&txt);
+                        alert(String::from("No changes were staged. Stage by hitting 's'"))
+                            .present(&txt);
                     } else {
                         status.commit(&window);
                     }
                 }
                 Event::Untracked(untracked) => {
                     info!("main. untracked");
-                    status.update_untracked(
-                        untracked, &txt, &settings, &mut ctx,
-                    );
+                    status.update_untracked(untracked, &txt, &settings, &mut ctx);
                 }
                 Event::Push => {
                     info!("main.push");
@@ -482,8 +453,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                             show_log_window(
                                 status.path.clone().expect("no path"),
                                 stack,
-                                obranch_name
-                                    .unwrap_or("unknown branch".to_string()),
+                                obranch_name.unwrap_or("unknown branch".to_string()),
                                 sender.clone(),
                                 ooid,
                             )
@@ -512,9 +482,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::Head(h) => {
                     info!("main. head");
                     if let Some(upstream) = &status.upstream {
-                        hb_updater(HbUpdateData::Unsynced(
-                            h.oid != upstream.oid,
-                        ));
+                        hb_updater(HbUpdateData::Unsynced(h.oid != upstream.oid));
                     } else {
                         hb_updater(HbUpdateData::Unsynced(true));
                     }
@@ -523,9 +491,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::Upstream(h) => {
                     info!("main. upstream");
                     if let (Some(head), Some(upstream)) = (&status.head, &h) {
-                        hb_updater(HbUpdateData::Unsynced(
-                            head.oid != upstream.oid,
-                        ));
+                        hb_updater(HbUpdateData::Unsynced(head.oid != upstream.oid));
                     }
                     status.update_upstream(h, &txt, &mut ctx);
                 }
@@ -558,8 +524,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::TrackedFile(file_path, diff) => {
                     info!("Unstaged");
-                    status
-                        .update_tracked_file(file_path, diff, &txt, &mut ctx);
+                    status.update_tracked_file(file_path, diff, &txt, &mut ctx);
                 }
                 Event::Expand(offset, line_no) => {
                     info!("Expand");
@@ -571,12 +536,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::CopyToClipboard(start_offset, end_offset) => {
                     info!("CopyToClipboard");
-                    status.copy_to_clipboard(
-                        &txt,
-                        start_offset,
-                        end_offset,
-                        &mut ctx,
-                    );
+                    status.copy_to_clipboard(&txt, start_offset, end_offset, &mut ctx);
                 }
                 Event::Stage(stage_op) => {
                     info!("Stage {:?}", stage_op);
@@ -592,8 +552,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     info!("Toast {:?}", toast_lock);
                     if !toast_lock.get() {
                         toast_lock.replace(true);
-                        let toast =
-                            Toast::builder().title(title).timeout(2).build();
+                        let toast = Toast::builder().title(title).timeout(2).build();
                         toast.connect_dismissed({
                             let toast_lock = toast_lock.clone();
                             move |_t| {
@@ -612,16 +571,13 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     // width of ScrollView
                     status.resize_highlights(&txt, &mut ctx);
                     scroll.set_halign(Align::Start);
-                    glib::source::timeout_add_local(
-                        Duration::from_millis(30),
-                        {
-                            let scroll = scroll.clone();
-                            move || {
-                                scroll.set_halign(Align::Fill);
-                                ControlFlow::Break
-                            }
-                        },
-                    );
+                    glib::source::timeout_add_local(Duration::from_millis(30), {
+                        let scroll = scroll.clone();
+                        move || {
+                            scroll.set_halign(Align::Fill);
+                            ControlFlow::Break
+                        }
+                    });
                 }
                 Event::Stashes(stashes) => {
                     info!("stashes data");
@@ -633,8 +589,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         split.set_show_sidebar(false);
                         txt.grab_focus();
                     } else {
-                        let (view, focus) =
-                            stashes_view_factory(&window, &status);
+                        let (view, focus) = stashes_view_factory(&window, &status);
                         split.set_sidebar(Some(&view));
                         split.set_show_sidebar(true);
                         focus();
@@ -688,10 +643,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     info!("StoreSettings {} {}", name, value);
                     settings.set(&name, value).expect("cant set settings");
                     if name == SCHEME_TOKEN {
-                        txt.set_is_dark(
-                            StyleManager::default().is_dark(),
-                            true,
-                        );
+                        txt.set_is_dark(StyleManager::default().is_dark(), true);
                     }
                 }
             };

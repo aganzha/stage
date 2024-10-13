@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <schemalist>
-  <schema id="com.github.aganzha.stage" path="/com/github/aganzha/stage/">
+  <schema id="io.github.aganzha.Stage" path="/io/github/aganzha/Stage/">
     <key name="ignored" type="a{sas}">
       <default>[]</default>
       <summary>ignored files</summary>

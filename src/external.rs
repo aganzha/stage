@@ -8,12 +8,7 @@ use log::info;
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-pub fn open_at_line_via_dbus(
-    executable: PathBuf,
-    path: PathBuf,
-    line_no: i32,
-    col_no: i32,
-) {
+pub fn open_at_line_via_dbus(executable: PathBuf, path: PathBuf, line_no: i32, col_no: i32) {
     let proxy = gio::DBusProxy::for_bus_sync(
         gio::BusType::Session,
         gio::DBusProxyFlags::empty(),
@@ -32,27 +27,18 @@ pub fn open_at_line_via_dbus(
     exe.push("\0");
 
     let byte_array_type = glib::VariantTy::new("ay").expect("bad type");
-    let exe = glib::Variant::from_data_with_type(
-        exe.as_encoded_bytes(),
-        byte_array_type,
-    );
+    let exe = glib::Variant::from_data_with_type(exe.as_encoded_bytes(), byte_array_type);
 
     let mut path = OsString::from(path);
     path.push("\0");
-    let file_path = glib::Variant::from_data_with_type(
-        path.as_encoded_bytes(),
-        byte_array_type,
-    );
+    let file_path = glib::Variant::from_data_with_type(path.as_encoded_bytes(), byte_array_type);
 
     let mut line = OsString::from("+");
     line.push(line_no.to_string());
     line.push(":");
     line.push(col_no.to_string());
     line.push("\0");
-    let line_no = glib::Variant::from_data_with_type(
-        line.as_encoded_bytes(),
-        byte_array_type,
-    );
+    let line_no = glib::Variant::from_data_with_type(line.as_encoded_bytes(), byte_array_type);
 
     let byte_array_array_type = glib::VariantTy::new("aay").expect("bad type");
 
@@ -67,14 +53,11 @@ pub fn open_at_line_via_dbus(
     )
     .unwrap();
 
-    let object_path = glib::variant::ObjectPath::try_from(String::from(
-        "/org/gnome/TextEditor",
-    ));
+    let object_path = glib::variant::ObjectPath::try_from(String::from("/org/gnome/TextEditor"));
 
     let path = object_path.unwrap().to_variant();
 
-    let args =
-        glib::Variant::tuple_from_iter([path, byte_array_array, platform_ob]);
+    let args = glib::Variant::tuple_from_iter([path, byte_array_array, platform_ob]);
 
     info!("dbus args {:?}", args);
 
@@ -89,8 +72,7 @@ pub fn open_at_line_via_dbus(
 }
 
 pub fn try_open_editor(path: PathBuf, line_no: i32, col_no: i32) {
-    let (content_type, _) =
-        gio::functions::content_type_guess(Some(path.clone()), &[]);
+    let (content_type, _) = gio::functions::content_type_guess(Some(path.clone()), &[]);
     if line_no > 0 {
         // it is possible to open TextEditor on certain line with DBUS
         for app_info in gio::AppInfo::all_for_type(&content_type) {
@@ -99,9 +81,7 @@ pub fn try_open_editor(path: PathBuf, line_no: i32, col_no: i32) {
                     gio::spawn_blocking({
                         let exe = app_info.commandline().unwrap();
                         let path = path.clone();
-                        move || {
-                            open_at_line_via_dbus(exe, path, line_no, col_no)
-                        }
+                        move || open_at_line_via_dbus(exe, path, line_no, col_no)
                     });
                     return;
                 }
@@ -109,9 +89,7 @@ pub fn try_open_editor(path: PathBuf, line_no: i32, col_no: i32) {
         }
     }
 
-    if let Some(app_info) =
-        gio::AppInfo::default_for_type(&content_type, false)
-    {
+    if let Some(app_info) = gio::AppInfo::default_for_type(&content_type, false) {
         let file = gio::File::for_path(path);
         let opts: Option<&gio::AppLaunchContext> = None;
         app_info.launch(&[file], opts).expect("cant launch app");

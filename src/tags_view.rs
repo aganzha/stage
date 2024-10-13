@@ -5,27 +5,21 @@
 use async_channel::Sender;
 use glib::{clone, Object};
 use libadwaita::prelude::*;
-use libadwaita::{
-    EntryRow, HeaderBar, StyleManager, SwitchRow, ToolbarView, Window,
-};
+use libadwaita::{EntryRow, HeaderBar, StyleManager, SwitchRow, ToolbarView, Window};
 
 use core::time::Duration;
 use git2::Oid;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick,
-    Label, ListBox, ListItem, ListView, Orientation, PositionType,
-    ScrolledWindow, SearchBar, SearchEntry, SelectionMode,
-    SignalListItemFactory, SingleSelection, TextView, Widget,
-    Window as Gtk4Window, WrapMode,
+    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick, Label, ListBox, ListItem,
+    ListView, Orientation, PositionType, ScrolledWindow, SearchBar, SearchEntry, SelectionMode,
+    SignalListItemFactory, SingleSelection, TextView, Widget, Window as Gtk4Window, WrapMode,
 };
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::dialogs::{
-    alert, confirm_dialog_factory, ConfirmDialog, DangerDialog, YES,
-};
+use crate::dialogs::{alert, confirm_dialog_factory, ConfirmDialog, DangerDialog, YES};
 use crate::git::{commit, tag};
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use log::{debug, trace};
@@ -222,9 +216,7 @@ impl TagList {
                 let tags = gio::spawn_blocking({
                     let search_term = search_term.clone();
                     let repo_path = repo_path.clone();
-                    move || {
-                        tag::get_tag_list(repo_path, start_oid, search_term)
-                    }
+                    move || tag::get_tag_list(repo_path, start_oid, search_term)
                 })
                 .await
                 .unwrap_or_else(|e| {
@@ -245,11 +237,7 @@ impl TagList {
                     .into_iter()
                     .map(|tag| {
                         if search_term.is_none() {
-                            tag_list
-                                .imp()
-                                .original_list
-                                .borrow_mut()
-                                .push(tag.clone());
+                            tag_list.imp().original_list.borrow_mut().push(tag.clone());
                         }
                         tag
                     })
@@ -279,11 +267,7 @@ impl TagList {
                         "go next loop with start >>>>>>>>   oid {:?}",
                         last_added_oid
                     );
-                    tag_list.get_tags_inside(
-                        repo_path,
-                        last_added_oid,
-                        &widget,
-                    );
+                    tag_list.get_tags_inside(repo_path, last_added_oid, &widget);
                 }
             }
         });
@@ -311,12 +295,7 @@ impl TagList {
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
     }
 
-    pub fn search(
-        &self,
-        term: String,
-        repo_path: PathBuf,
-        widget: &impl IsA<Widget>,
-    ) {
+    pub fn search(&self, term: String, repo_path: PathBuf, widget: &impl IsA<Widget>) {
         self.imp().search_term.replace((term, 0));
         let current_length = self.imp().list.borrow().len();
         self.imp().list.borrow_mut().clear();
@@ -348,30 +327,23 @@ impl TagList {
         (name, pos)
     }
 
-    pub fn kill_tag(
-        &self,
-        repo_path: PathBuf,
-        window: &Window,
-        sender: Sender<crate::Event>,
-    ) {
+    pub fn kill_tag(&self, repo_path: PathBuf, window: &Window, sender: Sender<crate::Event>) {
         glib::spawn_future_local({
             let tags_list = self.clone();
             let window = window.clone();
             async move {
                 let (tag_name, selected_pos) = tags_list.get_selected_tag();
                 let tg_name = tag_name.clone();
-                let result = gio::spawn_blocking(move || {
-                    tag::kill_tag(repo_path, tg_name, sender)
-                })
-                .await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
-                    Ok(None)
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(&window);
-                    None
-                });
+                let result = gio::spawn_blocking(move || tag::kill_tag(repo_path, tg_name, sender))
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(None)
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                        None
+                    });
                 if result.is_none() {
                     return;
                 }
@@ -446,26 +418,17 @@ impl TagList {
                 row.set_css_classes(&["hidden_row"]);
                 row.set_focusable(false);
                 lb.append(&lightweight);
-                let dialog = confirm_dialog_factory(
-                    &window,
-                    Some(&lb),
-                    "Create new tag",
-                    "Create",
-                );
-                input.connect_apply(
-                    clone!(@strong dialog as dialog => move |_entry| {
-                        // someone pressed enter
-                        dialog.response("confirm");
-                        dialog.close();
-                    }),
-                );
-                input.connect_entry_activated(
-                    clone!(@strong dialog as dialog => move |_entry| {
-                        // someone pressed enter
-                        dialog.response("confirm");
-                        dialog.close();
-                    }),
-                );
+                let dialog = confirm_dialog_factory(&window, Some(&lb), "Create new tag", "Create");
+                input.connect_apply(clone!(@strong dialog as dialog => move |_entry| {
+                    // someone pressed enter
+                    dialog.response("confirm");
+                    dialog.close();
+                }));
+                input.connect_entry_activated(clone!(@strong dialog as dialog => move |_entry| {
+                    // someone pressed enter
+                    dialog.response("confirm");
+                    dialog.close();
+                }));
 
                 if "confirm" != dialog.choose_future().await {
                     return;
@@ -631,8 +594,7 @@ impl TagList {
                 if result {
                     loop {
                         // let original = *commit_list.imp().original_list.borrow_mut();
-                        let first_oid =
-                            commit_list.imp().original_list.borrow()[0].oid;
+                        let first_oid = commit_list.imp().original_list.borrow()[0].oid;
                         commit_list.imp().original_list.borrow_mut().remove(0);
                         if first_oid == oid {
                             break;
@@ -644,10 +606,8 @@ impl TagList {
                         loop {
                             // let original = *commit_list.imp().original_list.borrow_mut();
                             let first_oid = {
-                                let first_item =
-                                    &commit_list.imp().list.borrow()[0];
-                                let first_oid =
-                                    first_item.imp().tag.borrow().commit.oid;
+                                let first_item = &commit_list.imp().list.borrow()[0];
+                                let first_oid = first_item.imp().tag.borrow().commit.oid;
                                 first_oid
                             };
                             if first_oid == oid {
@@ -785,37 +745,22 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
         list_item.set_focusable(true);
 
         let item = list_item.property_expression("item");
-        item.chain_property::<TagItem>("commit_oid").bind(
-            &oid_label,
-            "label",
-            Widget::NONE,
-        );
+        item.chain_property::<TagItem>("commit_oid")
+            .bind(&oid_label, "label", Widget::NONE);
 
-        item.chain_property::<TagItem>("author").bind(
-            &author_label,
-            "label",
-            Widget::NONE,
-        );
-        item.chain_property::<TagItem>("name").bind(
-            &label_name,
-            "label",
-            Widget::NONE,
-        );
-        item.chain_property::<TagItem>("message").bind(
-            &label_message,
-            "label",
-            Widget::NONE,
-        );
+        item.chain_property::<TagItem>("author")
+            .bind(&author_label, "label", Widget::NONE);
+        item.chain_property::<TagItem>("name")
+            .bind(&label_name, "label", Widget::NONE);
+        item.chain_property::<TagItem>("message")
+            .bind(&label_message, "label", Widget::NONE);
         item.chain_property::<TagItem>("commit_message").bind(
             &label_commit_message,
             "label",
             Widget::NONE,
         );
-        item.chain_property::<TagItem>("dt").bind(
-            &label_dt,
-            "label",
-            Widget::NONE,
-        );
+        item.chain_property::<TagItem>("dt")
+            .bind(&label_dt, "label", Widget::NONE);
         let focus = focus.clone();
         list_item.connect_selected_notify(move |li: &ListItem| {
             glib::source::timeout_add_local(Duration::from_millis(300), {
@@ -824,8 +769,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
                 move || {
                     if !*focus.borrow() {
                         let first_child = li.child().unwrap();
-                        let first_child =
-                            first_child.downcast_ref::<Widget>().unwrap();
+                        let first_child = first_child.downcast_ref::<Widget>().unwrap();
                         let row = first_child.parent().unwrap();
                         row.grab_focus();
                         *focus.borrow_mut() = true;
@@ -976,12 +920,7 @@ pub fn headerbar_factory(
         let tag_list = tag_list.clone();
         let repo_path = repo_path.clone();
         move |_| {
-            tag_list.create_tag(
-                repo_path.clone(),
-                target_oid,
-                &window,
-                sender.clone(),
-            );
+            tag_list.create_tag(repo_path.clone(), target_oid, &window, sender.clone());
         }
     });
     let kill_btn = Button::builder()
@@ -1015,8 +954,7 @@ pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
 
     // model IS tag_list actually
     let model = selection_model.model().unwrap();
-    let bind =
-        selection_model.bind_property("selected", &model, "selected_pos");
+    let bind = selection_model.bind_property("selected", &model, "selected_pos");
     let _ = bind.bidirectional().build();
 
     let factory = item_factory(sender.clone());
@@ -1040,8 +978,7 @@ pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
         let sender = sender.clone();
         move |lv: &ListView, _pos: u32| {
             let selection_model = lv.model().unwrap();
-            let single_selection =
-                selection_model.downcast_ref::<SingleSelection>().unwrap();
+            let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
             let list_item = single_selection.selected_item().unwrap();
             let tag_item = list_item.downcast_ref::<TagItem>().unwrap();
             let oid = tag_item.imp().tag.borrow().commit.oid;
@@ -1055,8 +992,7 @@ pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
 
 pub fn get_tags_list(list_view: &ListView) -> TagList {
     let selection_model = list_view.model().unwrap();
-    let single_selection =
-        selection_model.downcast_ref::<SingleSelection>().unwrap();
+    let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
     let list_model = single_selection.model().unwrap();
     let tag_list = list_model.downcast_ref::<TagList>().unwrap();
     tag_list.to_owned()
@@ -1130,11 +1066,9 @@ pub fn show_tags_window(
                 }
                 (gdk::Key::s, _) => {
                     let search_bar = hb.title_widget().unwrap();
-                    let search_bar =
-                        search_bar.downcast_ref::<SearchBar>().unwrap();
+                    let search_bar = search_bar.downcast_ref::<SearchBar>().unwrap();
                     let search_entry = search_bar.child().unwrap();
-                    let search_entry =
-                        search_entry.downcast_ref::<SearchEntry>().unwrap();
+                    let search_entry = search_entry.downcast_ref::<SearchEntry>().unwrap();
                     trace!("enter search");
                     search_entry.grab_focus();
                 }
@@ -1150,11 +1084,7 @@ pub fn show_tags_window(
                 }
                 (gdk::Key::k | gdk::Key::d, _) => {
                     let tag_list = get_tags_list(&list_view);
-                    tag_list.kill_tag(
-                        repo_path.clone(),
-                        &window,
-                        main_sender.clone(),
-                    );
+                    tag_list.kill_tag(repo_path.clone(), &window, main_sender.clone());
                 }
                 (key, modifier) => {
                     trace!("key pressed {:?} {:?}", key, modifier);
@@ -1166,10 +1096,6 @@ pub fn show_tags_window(
     window.add_controller(event_controller);
     window.present();
     list_view.grab_focus();
-    get_tags_list(&list_view).get_tags_inside(
-        repo_path.clone(),
-        None,
-        &list_view,
-    );
+    get_tags_list(&list_view).get_tags_inside(repo_path.clone(), None, &list_view);
     window
 }

@@ -1,5 +1,5 @@
 <p float="left">
-   <img valign="middle" alt="Stage logo" src="./icons/64x64/com.github.aganzha.stage.png" width="32">
+   <img valign="middle" alt="Stage logo" src="./icons/64x64/io.github.aganzha.Stage.png" width="32">
    <strong>Stage</strong> -
    <span>Git GUI client for linux desktops inspired by Magit</span>
 </p>
@@ -13,7 +13,7 @@ flatpak install -u https://github.com/aganzha/stage/raw/master/stage.flatpakref
 Start within your DE via dash, activities, software search etc by typing Stage, or by flatpak:
 
 ```sh
-flatpak run com.github.aganzha.stage
+flatpak run io.github.aganzha.Stage
 ```
 
 ### Staging
@@ -39,3 +39,6 @@ Open git repository. Stage will watch for changes and display current repository
 ### Log
 ### Cherry-picking
 ### Reverting
+
+## Acknowledgments
+Stage is created thanks to the existence of many projects, organisations and software developers contributing to open source world.

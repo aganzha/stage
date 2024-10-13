@@ -45,26 +45,16 @@ pub fn set_remote_callbacks(
         let user_pass = user_pass.clone();
         move |url, username_from_url, allowed_types| {
             trace!("auth credentials url {:?}", url);
-            // "git@github.com:aganzha/stage.git"
-            debug!(
-                "auth credentials username_from_url {:?}",
-                username_from_url
-            );
+            debug!("auth credentials username_from_url {:?}", username_from_url);
             trace!("auth credentials allowed_types {:?}", allowed_types);
             if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-                let result =
-                    git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
-                trace!(
-                    "got auth memory result. is it ok? {:?}",
-                    result.is_ok()
-                );
+                let result = git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
+                trace!("got auth memory result. is it ok? {:?}", result.is_ok());
                 return result;
             }
             if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
                 if let Some((user_name, password)) = &user_pass {
-                    return git2::Cred::userpass_plaintext(
-                        user_name, password,
-                    );
+                    return git2::Cred::userpass_plaintext(user_name, password);
                 }
                 return Err(git2::Error::from_str(PLAIN_PASSWORD));
             }
@@ -186,12 +176,7 @@ pub fn update_remote(
     let mut callbacks = git2::RemoteCallbacks::new();
     set_remote_callbacks(&mut callbacks, &user_pass);
     remote
-        .update_tips(
-            Some(&mut callbacks),
-            true,
-            git2::AutotagOption::Auto,
-            None,
-        )
+        .update_tips(Some(&mut callbacks), true, git2::AutotagOption::Auto, None)
         .expect("cant update");
 
     Ok(())
@@ -211,8 +196,7 @@ pub fn push(
 
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
-    let head_ref_name =
-        head_ref.name().ok_or("head ref has no name".to_string())?;
+    let head_ref_name = head_ref.name().ok_or("head ref has no name".to_string())?;
 
     let refspec = format!("{}:refs/heads/{}", head_ref_name, remote_branch);
     trace!("push. refspec {}", refspec);
@@ -232,17 +216,13 @@ pub fn push(
             );
             if tracking_remote {
                 branch
-                    .set_upstream(Some(&format!(
-                        "{}/{}",
-                        REMOTE, &remote_branch
-                    )))
+                    .set_upstream(Some(&format!("{}/{}", REMOTE, &remote_branch)))
                     .expect("cant set upstream");
             }
             sender
                 .send_blocking(crate::Event::Toast(String::from(updated_ref)))
                 .expect("cant send through channel");
-            get_upstream(path.clone(), sender.clone())
-                .expect("cant update tips");
+            get_upstream(path.clone(), sender.clone()).expect("cant update tips");
             // todo what is this?
             true
         }
@@ -263,10 +243,7 @@ pub fn push(
         Err(error) if error.message() == PLAIN_PASSWORD => {
             // asks for password
             sender
-                .send_blocking(crate::Event::PushUserPass(
-                    remote_branch,
-                    tracking_remote,
-                ))
+                .send_blocking(crate::Event::PushUserPass(remote_branch, tracking_remote))
                 .expect("cant send through channel");
             return Ok(());
         }
@@ -318,8 +295,7 @@ pub fn pull(
             sender
                 .send_blocking(crate::Event::Toast(String::from(updated_ref)))
                 .expect("cant send through channel");
-            get_upstream(path.clone(), sender.clone())
-                .expect("cant update tips");
+            get_upstream(path.clone(), sender.clone()).expect("cant update tips");
             true
         }
     });
@@ -333,10 +309,9 @@ pub fn pull(
     let branch = git2::Branch::wrap(head_ref);
     let upstream = branch.upstream().unwrap();
 
-    let branch_data =
-        BranchData::from_branch(upstream, git2::BranchType::Remote)
-            .unwrap()
-            .unwrap();
+    let branch_data = BranchData::from_branch(upstream, git2::BranchType::Remote)
+        .unwrap()
+        .unwrap();
     merge::branch(path.clone(), branch_data, sender.clone(), Some(defer))?;
     Ok(())
 }

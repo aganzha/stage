@@ -7,8 +7,7 @@ use crate::{git::commit as git_commit, Event, DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Box, Button, ListBox, Orientation, ScrolledWindow,
-    SelectionMode, TextView, WrapMode,
+    gio, glib, Box, Button, ListBox, Orientation, ScrolledWindow, SelectionMode, TextView, WrapMode,
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, EntryRow, StyleManager, SwitchRow};
@@ -113,10 +112,8 @@ pub fn commit(
                             txt.buffer().insert(&mut iter, &entry.text());
                             txt.buffer().insert(&mut iter, "\n");
                         }
-                        txt.buffer().insert(
-                            &mut iter,
-                            &amend_message.clone().unwrap(),
-                        );
+                        txt.buffer()
+                            .insert(&mut iter, &amend_message.clone().unwrap());
                         entry.set_visible(false);
                         scroll.set_visible(true);
                         *amend_inserted.borrow_mut() = true;
@@ -129,10 +126,8 @@ pub fn commit(
                         if !(*amend_inserted.borrow()) {
                             debug!("insert text");
                             let mut iter = txt.buffer().end_iter();
-                            txt.buffer().insert(
-                                &mut iter,
-                                &amend_message.clone().unwrap(),
-                            );
+                            txt.buffer()
+                                .insert(&mut iter, &amend_message.clone().unwrap());
                             *amend_inserted.borrow_mut() = true;
                         } else {
                             debug!("noooooooooooooo way");
@@ -154,12 +149,8 @@ pub fn commit(
             text_view_box.append(&scroll);
             text_view_box.append(&list_box);
 
-            let dialog = crate::confirm_dialog_factory(
-                &window,
-                Some(&text_view_box),
-                "Commit",
-                "Commit",
-            );
+            let dialog =
+                crate::confirm_dialog_factory(&window, Some(&text_view_box), "Commit", "Commit");
 
             commit_message.connect_entry_activated({
                 let dialog = dialog.clone();
@@ -192,14 +183,7 @@ pub fn commit(
                 };
 
                 let amend = amend_switch.is_active();
-                move || {
-                    git_commit::create(
-                        path.expect("no path"),
-                        message,
-                        amend,
-                        sender,
-                    )
-                }
+                move || git_commit::create(path.expect("no path"), message, amend, sender)
             })
             .await
             .unwrap_or_else(|e| {

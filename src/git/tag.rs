@@ -17,12 +17,7 @@ pub struct Tag {
 }
 
 impl Tag {
-    pub fn new(
-        oid: git2::Oid,
-        name: String,
-        commit: CommitLog,
-        message: String,
-    ) -> Tag {
+    pub fn new(oid: git2::Oid, name: String, commit: CommitLog, message: String) -> Tag {
         let mut encoded = String::from("");
         html_escape::encode_safe_to_string(message, &mut encoded);
         let name = name.replace("refs/tags/", "");
@@ -108,8 +103,7 @@ pub fn create_tag(
 ) -> Result<Option<Tag>, git2::Error> {
     info!("create_tag {:?}", target_oid);
     let repo = git2::Repository::open(path.clone())?;
-    let target =
-        repo.find_object(target_oid, Some(git2::ObjectType::Commit))?;
+    let target = repo.find_object(target_oid, Some(git2::ObjectType::Commit))?;
     let created_oid = if lightweight {
         repo.tag_lightweight(&tag_name, &target, false)?
     } else {

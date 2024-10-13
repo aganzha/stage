@@ -12,10 +12,9 @@ use glib::{clone, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick,
-    Image, Label, ListItem, ListView, Orientation, PositionType,
-    ScrolledWindow, SearchBar, SearchEntry, SignalListItemFactory,
-    SingleSelection, Widget, Window as Gtk4Window,
+    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick, Image, Label, ListItem,
+    ListView, Orientation, PositionType, ScrolledWindow, SearchBar, SearchEntry,
+    SignalListItemFactory, SingleSelection, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
@@ -79,12 +78,8 @@ mod commit_item {
         pub fn get_source(&self) -> String {
             match self.commit.borrow().from {
                 commit::CommitRelation::None => "".to_string(),
-                commit::CommitRelation::Left(_) => {
-                    "mail-forward-symbolic".to_string()
-                }
-                commit::CommitRelation::Right(_) => {
-                    "mail-reply-sender-symbolic".to_string()
-                }
+                commit::CommitRelation::Left(_) => "mail-forward-symbolic".to_string(),
+                commit::CommitRelation::Right(_) => "mail-reply-sender-symbolic".to_string(),
             }
         }
         pub fn get_source_tooltip(&self) -> String {
@@ -217,8 +212,7 @@ impl CommitList {
                 let mut append_to_existing = false;
                 if list_le > 0 {
                     let item = commit_list.item(list_le - 1).unwrap();
-                    let commit_item =
-                        item.downcast_ref::<CommitItem>().unwrap();
+                    let commit_item = item.downcast_ref::<CommitItem>().unwrap();
                     let oid = commit_item.imp().commit.borrow().oid;
                     start_oid.replace(oid);
                     append_to_existing = true;
@@ -270,11 +264,7 @@ impl CommitList {
                     added += 1;
                 }
                 if added > 0 {
-                    commit_list.items_changed(
-                        if list_le > 0 { list_le } else { 0 },
-                        0,
-                        added,
-                    );
+                    commit_list.items_changed(if list_le > 0 { list_le } else { 0 }, 0, added);
                     // search will return commits 1 by 1
                     // when got 1 commit and got for another
                     // it need to stop somehow
@@ -286,11 +276,7 @@ impl CommitList {
                             "go next loop with start >>>>>>>>   oid {:?}",
                             last_added_oid
                         );
-                        commit_list.get_commits_inside(
-                            repo_path,
-                            last_added_oid,
-                            &widget,
-                        );
+                        commit_list.get_commits_inside(repo_path, last_added_oid, &widget);
                     }
                 }
             }
@@ -319,12 +305,7 @@ impl CommitList {
         self.items_changed(0, 0, self.imp().list.borrow().len() as u32);
     }
 
-    pub fn search(
-        &self,
-        term: String,
-        repo_path: PathBuf,
-        widget: &impl IsA<Widget>,
-    ) {
+    pub fn search(&self, term: String, repo_path: PathBuf, widget: &impl IsA<Widget>) {
         self.imp().search_term.replace((term, 0));
         let current_length = self.imp().list.borrow().len();
         self.imp().list.borrow_mut().clear();
@@ -454,8 +435,7 @@ impl CommitList {
                 if result {
                     loop {
                         // let original = *commit_list.imp().original_list.borrow_mut();
-                        let first_oid =
-                            commit_list.imp().original_list.borrow()[0].oid;
+                        let first_oid = commit_list.imp().original_list.borrow()[0].oid;
                         commit_list.imp().original_list.borrow_mut().remove(0);
                         if first_oid == oid {
                             break;
@@ -467,10 +447,8 @@ impl CommitList {
                         loop {
                             // let original = *commit_list.imp().original_list.borrow_mut();
                             let first_oid = {
-                                let first_item =
-                                    &commit_list.imp().list.borrow()[0];
-                                let first_oid =
-                                    first_item.imp().commit.borrow().oid;
+                                let first_item = &commit_list.imp().list.borrow()[0];
+                                let first_oid = first_item.imp().commit.borrow().oid;
                                 first_oid
                             };
                             if first_oid == oid {
@@ -509,8 +487,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
             move |_gesture, _some, _wx, _wy| {
                 let list_item = list_item.downcast_ref::<ListItem>().unwrap();
                 let commit_item = list_item.item().unwrap();
-                let commit_item =
-                    commit_item.downcast_ref::<CommitItem>().unwrap();
+                let commit_item = commit_item.downcast_ref::<CommitItem>().unwrap();
                 let oid = commit_item.imp().commit.borrow().oid;
                 sender
                     .send_blocking(crate::Event::ShowOid(oid, None))
@@ -581,38 +558,23 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
         list_item.set_focusable(true);
 
         let item = list_item.property_expression("item");
-        item.chain_property::<CommitItem>("oid").bind(
-            &oid_label,
-            "label",
-            Widget::NONE,
-        );
-        item.chain_property::<CommitItem>("source").bind(
-            &source,
-            "icon-name",
-            Widget::NONE,
-        );
+        item.chain_property::<CommitItem>("oid")
+            .bind(&oid_label, "label", Widget::NONE);
+        item.chain_property::<CommitItem>("source")
+            .bind(&source, "icon-name", Widget::NONE);
         item.chain_property::<CommitItem>("source_tooltip").bind(
             &source,
             "tooltip-text",
             Widget::NONE,
         );
 
-        item.chain_property::<CommitItem>("author").bind(
-            &author_label,
-            "label",
-            Widget::NONE,
-        );
-        item.chain_property::<CommitItem>("message").bind(
-            &label_commit,
-            "label",
-            Widget::NONE,
-        );
+        item.chain_property::<CommitItem>("author")
+            .bind(&author_label, "label", Widget::NONE);
+        item.chain_property::<CommitItem>("message")
+            .bind(&label_commit, "label", Widget::NONE);
 
-        item.chain_property::<CommitItem>("dt").bind(
-            &label_dt,
-            "label",
-            Widget::NONE,
-        );
+        item.chain_property::<CommitItem>("dt")
+            .bind(&label_dt, "label", Widget::NONE);
         let focus = focus.clone();
         list_item.connect_selected_notify(move |li: &ListItem| {
             glib::source::timeout_add_local(Duration::from_millis(300), {
@@ -621,8 +583,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
                 move || {
                     if !*focus.borrow() {
                         let first_child = li.child().unwrap();
-                        let first_child =
-                            first_child.downcast_ref::<Widget>().unwrap();
+                        let first_child = first_child.downcast_ref::<Widget>().unwrap();
                         let row = first_child.parent().unwrap();
                         row.grab_focus();
                         *focus.borrow_mut() = true;
@@ -642,8 +603,7 @@ pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
 
     // model IS commit_list actually
     let model = selection_model.model().unwrap();
-    let bind =
-        selection_model.bind_property("selected", &model, "selected_pos");
+    let bind = selection_model.bind_property("selected", &model, "selected_pos");
     let _ = bind.bidirectional().build();
 
     let factory = item_factory(sender.clone());
@@ -667,8 +627,7 @@ pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
         let sender = sender.clone();
         move |lv: &ListView, _pos: u32| {
             let selection_model = lv.model().unwrap();
-            let single_selection =
-                selection_model.downcast_ref::<SingleSelection>().unwrap();
+            let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
             let list_item = single_selection.selected_item().unwrap();
             let commit_item = list_item.downcast_ref::<CommitItem>().unwrap();
             let oid = commit_item.imp().commit.borrow().oid;
@@ -682,8 +641,7 @@ pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
 
 pub fn get_commit_list(list_view: &ListView) -> CommitList {
     let selection_model = list_view.model().unwrap();
-    let single_selection =
-        selection_model.downcast_ref::<SingleSelection>().unwrap();
+    let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
     let list_model = single_selection.model().unwrap();
     let commit_list = list_model.downcast_ref::<CommitList>().unwrap();
     commit_list.to_owned()
@@ -888,11 +846,9 @@ pub fn show_log_window(
                 }
                 (gdk::Key::s, _) => {
                     let search_bar = hb.title_widget().unwrap();
-                    let search_bar =
-                        search_bar.downcast_ref::<SearchBar>().unwrap();
+                    let search_bar = search_bar.downcast_ref::<SearchBar>().unwrap();
                     let search_entry = search_bar.child().unwrap();
-                    let search_entry =
-                        search_entry.downcast_ref::<SearchEntry>().unwrap();
+                    let search_entry = search_entry.downcast_ref::<SearchEntry>().unwrap();
                     trace!("enter search");
                     search_entry.grab_focus();
                 }
@@ -928,10 +884,6 @@ pub fn show_log_window(
     window.present();
     trace!("grab list focus");
     list_view.grab_focus();
-    get_commit_list(&list_view).get_commits_inside(
-        repo_path.clone(),
-        start_oid,
-        &list_view,
-    );
+    get_commit_list(&list_view).get_commits_inside(repo_path.clone(), start_oid, &list_view);
     window
 }
