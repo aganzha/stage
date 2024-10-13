@@ -1514,59 +1514,6 @@ impl Status {
         iter
     }
 
-    pub fn ignore<'a>(
-        &'a mut self,
-        txt: &StageView,
-        line_no: i32,
-        _offset: i32,
-        context: &mut StatusRenderContext<'a>,
-    ) {
-        todo!("ignore files are not yet implemented");
-        // if let Some(untracked) = &self.untracked {
-        //     for file in &untracked.files {
-        //         // TODO!
-        //         // refactor to some generic method
-        //         // why other elements do not using this?
-        //         let view = file.get_view();
-        //         if view.is_current() && view.line_no.get() == line_no {
-        //             let ignore_path = file
-        //                 .path
-        //                 .clone()
-        //                 .into_os_string()
-        //                 .into_string()
-        //                 .expect("wrong string");
-        //             trace!("ignore path! {:?}", ignore_path);
-        //             let mut settings =
-        //                 self.settings
-        //                     .get::<HashMap<String, Vec<String>>>("ignored");
-        //             let repo_path = self
-        //                 .path
-        //                 .clone()
-        //                 .expect("no path")
-        //                 .into_os_string()
-        //                 .into_string()
-        //                 .expect("wrong path");
-        //             if let Some(stored) = settings.get_mut(&repo_path) {
-        //                 stored.push(ignore_path);
-        //                 trace!("added ignore {:?}", settings);
-        //             } else {
-        //                 settings.insert(repo_path, vec![ignore_path]);
-        //                 trace!("first ignored file {:?}", settings);
-        //             }
-        //             self.settings
-        //                 .set("ignored", settings)
-        //                 .expect("cant set settings");
-        //             self.update_untracked(
-        //                 self.untracked.clone(),
-        //                 txt,
-        //                 context,
-        //             );
-        //             break;
-        //         }
-        //     }
-        // }
-    }
-
     pub fn stage_in_conflict(&self, window: &ApplicationWindow) -> bool {
         // it need to implement method for diff, which will return current Hunk, Line and File and use it in stage.
         // also it must return indicator what of this 3 is current.
