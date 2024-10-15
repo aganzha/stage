@@ -1,3 +1,5 @@
+BUG: add unstaged files and kill them 1 by 1. at some moment there are 2 cursors!
+CRITICAL: had to edit ~/.local/share/flatpak/repo/config to disable gpg verification!!!
 TODO: cherry pick and revert single hunks!
 BUG: compile ts in nomenclature repo and rm all js files
 INFO: settings are stored in /home/aganzha/.var/app/com.github.aganzha.stage/config/glib-2.0/settings/keyfile
