@@ -86,7 +86,6 @@ impl Status {
                                         return;
                                     }
                                     lock.borrow_mut().insert(file_path.clone());
-                                    debug!("_________inserted file into lock {:?} to {:?}", file_path, lock);
                                     let current_lock_len = lock.borrow().len();
                                     glib::source::timeout_add_local(
                                         Duration::from_millis(300),
@@ -97,10 +96,7 @@ impl Status {
                                             move || {
                                                 let future_lock_len = lock.borrow().len();
                                                 if future_lock_len != current_lock_len {
-                                                    debug!(
-                                                        "^^^^^^^^something added to lock!.... NO WAY!!!! {:?}",
-                                                        &lock
-                                                    );
+                                                    trace!("^^^^^^^^something added to lock!.... NO WAY!!!!");
                                                     return glib::ControlFlow::Break;
                                                 }
                                                 if future_lock_len > 1 {
@@ -117,10 +113,7 @@ impl Status {
                                                     sender.send_blocking(Event::TrackChanges(file_path))
                                                         .expect("cant send through channel");
                                                 }
-                                                debug!("........ cleanup lock  {:?} while handle {:?}",
-                                                       lock,
-                                                       file_path,
-                                                );
+                                                trace!("........ cleanup lock");
                                                 lock.borrow_mut().clear();
                                                 glib::ControlFlow::Break
                                             }
