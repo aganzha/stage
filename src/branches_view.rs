@@ -110,6 +110,22 @@ glib::wrapper! {
         @implements gio::ListModel, SectionModel; // , FilterListModel
 }
 
+pub struct Progress {
+    callable: std::boxed::Box<dyn FnMut() -> ()>,
+}
+
+// pub struct Progress<F> where F: FnMut()->() {
+//     callable: F
+// }
+
+impl Default for Progress {
+    fn default() -> Self {
+        Progress {
+            callable: std::boxed::Box::new(|| {}),
+        }
+    }
+}
+
 mod branch_list {
 
     use glib::Properties;
@@ -127,6 +143,8 @@ mod branch_list {
 
         #[property(get, set)]
         pub selected_pos: RefCell<u32>,
+
+        pub progress: RefCell<super::Progress>,
     }
 
     #[glib::object_subclass]
@@ -182,6 +200,13 @@ mod branch_list {
 impl BranchList {
     pub fn new(_sender: Sender<crate::Event>) -> Self {
         Object::builder().build()
+    }
+
+    pub fn set_progress(&self, progress: Progress) {
+        self.imp().progress.replace(progress);
+    }
+    pub fn toggle_progress(&self) {
+        (self.imp().progress.borrow_mut().callable)();
     }
 
     pub fn search_new(&self, term: String) {
@@ -324,6 +349,7 @@ impl BranchList {
 
     pub fn update_remote(&self, repo_path: PathBuf, window: &Window, sender: Sender<crate::Event>) {
         trace!("update remote!");
+        self.toggle_progress();
         let le = self.imp().list.borrow().len();
         self.imp().list.borrow_mut().clear();
         self.imp().original_list.borrow_mut().clear();
@@ -334,6 +360,7 @@ impl BranchList {
                 let _ = gio::spawn_blocking(move || {
                     remote::update_remote(repo_path, sender, None)
                 }).await;
+                branch_list.toggle_progress();
                 branch_list.get_branches(path, None, &window);
             })
         });
@@ -899,13 +926,11 @@ pub fn headerbar_factory(
         .build();
 
     let new_btn = Button::builder()
-        // .label("N")
         .icon_name("list-add-symbolic")
         .can_shrink(true)
         .tooltip_text("Create branch (N)")
         .sensitive(true)
         .use_underline(true)
-        // .action_name("branches.new")
         .build();
     new_btn.connect_clicked({
         let sender = sender.clone();
@@ -917,7 +942,7 @@ pub fn headerbar_factory(
         }
     });
     let kill_btn = Button::builder()
-        .icon_name("user-trash-symbolic") // process-stop-symbolic
+        .icon_name("user-trash-symbolic")
         .use_underline(true)
         .tooltip_text("Delete branch (K)")
         .sensitive(false)
@@ -1082,7 +1107,50 @@ pub fn show_branches_window(
 
     let hb = headerbar_factory(repo_path.clone(), &list_view, &window, sender.clone());
 
+    let spinner = Spinner::new();
+    spinner.start();
     scroll.set_child(Some(&list_view));
+
+    // let action_progress = gio::SimpleAction::new("progress", Some(glib::VariantTy::STRING)); //
+    // action_progress.connect_activate({
+    //     let list_view = list_view.clone();
+    //     let spinner = spinner.clone();
+    //     let scroll = scroll.clone();
+    //     let mut progress = false;
+    //     move |_, _| {
+    //         progress = !progress;
+    //         if progress {
+    //             spinner.start();
+    //             scroll.set_child(Some(&spinner));
+    //         } else {
+    //             spinner.stop();
+    //             scroll.set_child(Some(&list_view));
+    //         }
+
+    //     }
+    // });
+    // window.add_action(&action_progress);
+    let progress = {
+        let list_view = list_view.clone();
+        let spinner = spinner.clone();
+        let scroll = scroll.clone();
+        let mut progress = false;
+        move || {
+            progress = !progress;
+            if progress {
+                spinner.start();
+                scroll.set_child(Some(&spinner));
+            } else {
+                spinner.stop();
+                scroll.set_child(Some(&list_view));
+            }
+        }
+    };
+    let mut branch_list = get_branch_list(&list_view);
+    branch_list.set_progress(Progress {
+        callable: std::boxed::Box::new(progress),
+    });
+    // branch_list.imp().progress = Progress{callable: std::boxed::Box::new(progress)};
 
     let tb = ToolbarView::builder().content(&scroll).build();
     tb.add_top_bar(&hb);
