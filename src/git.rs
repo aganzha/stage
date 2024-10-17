@@ -105,6 +105,7 @@ pub struct Line {
     pub old_line_no: Option<HunkLineNo>,
     pub kind: LineKind,
     pub content_idx: (usize, usize),
+    pub debug_hunk_id: usize
 }
 
 impl Default for Line {
@@ -116,6 +117,7 @@ impl Default for Line {
             old_line_no: None,
             kind: LineKind::None,
             content_idx: (0, 0),
+            debug_hunk_id: 0
         }
     }
 }
@@ -125,7 +127,7 @@ impl Line {
         &hunk.buf[self.content_idx.0..self.content_idx.0 + self.content_idx.1]
     }
 
-    pub fn from_diff_line(l: &DiffLine, content_from: usize, content_to: usize) -> Self {
+    pub fn from_diff_line(l: &DiffLine, content_from: usize, content_to: usize, debug_hunk_id: usize) -> Self {
         Self {
             view: View::new(),
             origin: l.origin_value(),
@@ -133,6 +135,7 @@ impl Line {
             old_line_no: l.old_lineno().map(HunkLineNo),
             kind: LineKind::None,
             content_idx: (content_from, content_to),
+            debug_hunk_id
         }
     }
     pub fn is_our_side_of_conflict(&self) -> bool {
@@ -184,10 +187,11 @@ pub struct Hunk {
     pub kind: DiffKind,
     pub conflict_markers_count: i32,
     pub buf: String,
+    pub debug_id: usize
 }
 
 impl Hunk {
-    pub fn new(kind: DiffKind) -> Self {
+    pub fn new(kind: DiffKind, debug_id: usize) -> Self {
         let view = View::new();
         view.expand(true);
         Self {
@@ -201,6 +205,7 @@ impl Hunk {
             kind,
             conflict_markers_count: 0,
             buf: String::new(),
+            debug_id
         }
     }
 
@@ -327,7 +332,7 @@ impl Hunk {
         if let Some(striped) = content.strip_prefix('\n') {
             content = striped;
         }
-        let mut line = Line::from_diff_line(diff_line, self.buf.len(), content.len());
+        let mut line = Line::from_diff_line(diff_line, self.buf.len(), content.len(), self.debug_id);
         self.buf.push_str(content);
         if self.kind != DiffKind::Conflicted {
             match line.origin {
@@ -967,9 +972,11 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
 }
 
 pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
+    let mut debug_hunk_id = 0;
     let mut diff = Diff::new(kind);
     let mut current_file = File::new(kind);
-    let mut current_hunk = Hunk::new(kind);
+    let mut current_hunk = Hunk::new(kind, debug_hunk_id);
+    debug_hunk_id += 1;
     let mut prev_line_kind = LineKind::None;
 
     let _res = git_diff.print(DiffFormat::Patch, |diff_delta, o_diff_hunk, diff_line| {
@@ -1017,7 +1024,8 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
             // go to next file
             // push current_hunk to file and init new empty hunk
             current_file.push_hunk(current_hunk.clone());
-            current_hunk = Hunk::new(kind);
+            current_hunk = Hunk::new(kind, debug_hunk_id);
+            debug_hunk_id += 1;
             // push current_file to diff and change to new file
             diff.push_file(current_file.clone());
             current_file = File::from_diff_file(&file, kind, status);
@@ -1033,7 +1041,8 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                 // go to next hunk
                 prev_line_kind = LineKind::None;
                 current_file.push_hunk(current_hunk.clone());
-                current_hunk = Hunk::new(kind);
+                current_hunk = Hunk::new(kind, debug_hunk_id);
+                debug_hunk_id += 1;
                 current_hunk.fill_from_git_hunk(&diff_hunk)
             }
             prev_line_kind = current_hunk.push_line(&diff_line, prev_line_kind.clone());
@@ -1274,40 +1283,8 @@ pub fn track_changes(
         .into_os_string()
         .into_string()
         .expect("wrong path");
-    // lets do it from statuses!
     let mut status_opts = StatusOptions::new();
     status_opts.include_unmodified(false);
-    // let mut is_tracked = false;
-
-    // this is required for case, when file is tracked, and
-    // it is rendered in Unstaged, but its content was reset to tree version.
-    // in such case it need to cleanup Unstaged alltogether!
-    // let mut has_other_modified = false;
-    // for status_entry in &repo
-    //     .statuses(Some(&mut status_opts))
-    //     .expect("cant get statuses")
-    // {
-    //     let path = status_entry.path().expect("no path");
-    //     if status_entry.status() == Status::WT_MODIFIED {
-    //         if path == file_path {
-    //             is_tracked = true;
-    //         } else {
-    //             has_other_modified = true;
-    //         }
-    //     }
-    // }
-    // if !is_tracked {
-    //     // perhaps file was reset to initial state, but its still need
-    //     // to remove it from unstaged
-    //     for entry in index.iter() {
-    //         let entry_path =
-    //             format!("{}", String::from_utf8_lossy(&entry.path));
-    //         if file_path == entry_path {
-    //             is_tracked = true;
-    //             break;
-    //         }
-    //     }
-    // }
     let mut is_tracked = false;
     for entry in index.iter() {
         if file_path == String::from_utf8_lossy(&entry.path) {
@@ -1352,12 +1329,11 @@ pub fn track_changes(
         let git_diff = repo
             .diff_index_to_workdir(Some(&index), Some(&mut opts))
             .expect("cant' get diff index to workdir");
+
         let diff = make_diff(&git_diff, DiffKind::Unstaged);
-        // to get rid of has_other_modified, perhaps just call
-        // for full unstaged diff???
-        // in another thread :)
+
         if diff.is_empty() {
-            //  && !has_other_modified
+            // changes to file were eliminated
             let git_diff = repo
                 .diff_index_to_workdir(None, Some(&mut make_diff_options()))
                 .expect("cant' get diff index to workdir");

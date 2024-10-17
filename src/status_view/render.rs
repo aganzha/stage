@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::status_view::context::CursorPosition;
-use crate::status_view::stage_view::cursor_to_line_offset;
+use crate::status_view::stage_view::{cursor_to_line_offset, StageView};
 use crate::status_view::tags;
 use crate::status_view::view::{View, ViewState};
 use crate::status_view::Label;
@@ -26,6 +26,7 @@ use gtk4::{TextBuffer, TextIter};
 use libadwaita::StyleManager;
 use log::{debug, trace};
 use std::collections::{HashMap, HashSet};
+use std::path::{PathBuf};
 
 pub const LINE_NO_SPACE: i32 = 6;
 
@@ -980,6 +981,8 @@ impl ViewContainer for Line {
         }
         buffer.insert(iter, "  ");
         buffer.insert(iter, self.content(context.rendering_hunk.unwrap()));
+        assert!(self.debug_hunk_id == context.rendering_hunk.unwrap().debug_id);
+        // om
     }
 
     // Line
@@ -1128,6 +1131,9 @@ impl ViewContainer for Head {
             ),
         );
     }
+
+    // Head
+    fn apply_tags<'a>(&'a self, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {}
 }
 
 impl ViewContainer for State {
@@ -1259,5 +1265,62 @@ impl Diff {
             self.last_visible_line()
         );
         self.last_visible_line() >= line_no
+    }
+}
+
+
+impl Diff {
+    pub fn update_single_file(&mut self, other: Diff, file_path: PathBuf, txt: &StageView, context: &mut StatusRenderContext) {
+        // so. it need to find file in rendered.
+        // if it is there - enrich new one by it and replace
+        // if it is not there - insert
+        // if it is there and new is empty - erase it
+
+        let updated_file = other.files.into_iter().find(|f| f.path == file_path);
+        let buffer = &txt.buffer();
+        let mut ind = 0;
+        let mut insert_ind: Option<usize> = None;
+        debug!(
+            "track 1 file. rendered files are {:}",
+            &self.files.len()
+        );
+        self.files.retain_mut(|f| {
+            ind += 1;
+            if f.path == file_path {
+                insert_ind = Some(ind);
+                if let Some(file) = &updated_file {
+                    file.enrich_view(f, buffer, context);
+                } else {
+                    debug!("ERASE rendered file!!!!!!!!!");
+                    f.erase(buffer, context);
+                }
+                false
+            } else {
+                true
+            }
+        });
+
+        if let Some(file) = updated_file {
+            if let Some(ind) = insert_ind {
+                self.files.insert(ind - 1, file);
+            } else {
+                // insert alphabetically
+                let mut ind = 0;
+                for rendered_file in &self.files {
+                    debug!(
+                        "________compare files while insert alphabetically {:?} {:?} {:?}",
+                        file.path,
+                        rendered_file.path,
+                        file.path < rendered_file.path
+                    );
+                    if file.path < rendered_file.path {
+                        break;
+                    }
+                    ind += 1
+                }
+                self.files.insert(ind, file);
+            }
+            debug!("just inserted new file...........");
+        }
     }
 }

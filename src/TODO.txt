@@ -1,7 +1,6 @@
 BUG: add unstaged files and kill them 1 by 1. at some moment there are 2 cursors!
 CRITICAL: had to edit ~/.local/share/flatpak/repo/config to disable gpg verification!!!
 TODO: cherry pick and revert single hunks!
-BUG: compile ts in nomenclature repo and rm all js files
 INFO: settings are stored in /home/aganzha/.var/app/com.github.aganzha.stage/config/glib-2.0/settings/keyfile
 TODO: commit view must show parent commit!
 TODO: SMART POSITION: after expand, of course it need to stay on position which will allow expansion of the same region!
@@ -16,22 +15,10 @@ BUG: CRITICAL: when intriduce changes in line whicj is in hunk header kill does 
      how to fix: it need to steps comparing hunk header: fully, and then search for same line in other hunk!
      put it on hunkheader. hunkheader must be separated type!
 
-BUG: double click is broken
        
 BUG: pulling from origin contained new commits - nothing happens. merge remote branch works, but upstream was not updated
-TODO: stage via apply could see context now, for its filter!
-TODO: full render on
-[INFO  stage] main. state
-[INFO  stage] Conflicted
-[INFO  stage] main. head
-[INFO  stage] main. upstream
 
-BUG: staged conflicted file with no our parts. just
-<<<<<<<<<<
-===========
-...
->>>>>>>>>>>
-got situation when conflict is resolved, but no file staged! had to add it manually with git add
+BUGS: got situation when conflict is resolved, but no file staged! had to add it manually with git add
 
 BUG: open just crteated repo (created via cargo) - panics
 thread '<unnamed>' panicked at src/git.rs:592:32:
@@ -43,18 +30,11 @@ thread '<unnamed>' panicked at src/git.rs:737:53:
 fail revparse: Error { code: -3, klass: 4, message: "revspec 'HEAD' not found" }
 
 
-
-BUG: wtf in conflicts merging _1 to spare? must be 1 hunk!
-
 BUG: [DEBUG stage::status_view] update untracked! false
 thread 'main' panicked at src/branches_view.rs:299:35:
 called `Option::unwrap()` on a `None` value
 stack backtrace:
 
-BUG: cant kill hunk, when hunk is only No new line at end of file
-TODO: so. when call update_x.. on status view finally render was called if there is something to render.
-BUT, some wird artifacts with line height exists. tags????? nopes. does not helped.
-the views become rendered not in place after erasing and all are fucked up.
 
 thread 'main' panicked at src/status_view/render.rs:474:53:
 called `Option::unwrap()` on a `None` value
@@ -71,8 +51,6 @@ stack backtrace:
              at /rustc/9b00956e56009bab2aa15d7bff10916599e3d6d6/library/core/src/option.rs:933:21
    5: stage::status_view::render::ViewContainer::erase
              at /mnt/stage/src/status_view/render.rs:474:24
-
-BUG: when stage multiple opened files, after staginh last file all files are in staged, but hunk highlight is visible (though all hunks are collapsed in staged)
 
 BUG: when switched from repo with conflicts to another repo - conflicts are not erased.
 it need to send empty conflicts diff or better None

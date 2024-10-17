@@ -458,7 +458,7 @@ impl Status {
                         ));
                     }
                 }
-                gio::spawn_blocking({ move || remote::pull(path, sender, user_pass) })
+                gio::spawn_blocking(move || remote::pull(path, sender, user_pass) )
                     .await
                     .unwrap_or_else(|e| {
                         alert(format!("{:?}", e)).present(&window);
@@ -949,63 +949,13 @@ impl Status {
         // and it must be removed from unstaged/conflicted and this is
         // ONLY file in unstaged/conflicted, then another event will raise and diff
         // will be removed completelly
-        let mine = if diff.kind == DiffKind::Conflicted {
+        let rendered = if diff.kind == DiffKind::Conflicted {
             &mut self.conflicted
         } else {
             &mut self.unstaged
         };
-        if let Some(rendered) = mine {
-            // so. it need to find file in rendered.
-            // if it is there - enrich new one by it and replace
-            // if it is not there - insert
-            // if it is there and new is empty - erase it
-
-            let updated_file = diff.files.into_iter().find(|f| f.path == file_path);
-            let buffer = &txt.buffer();
-            let mut ind = 0;
-            let mut insert_ind: Option<usize> = None;
-            debug!(
-                "track 1 file. rendered files are {:}",
-                &rendered.files.len()
-            );
-            rendered.files.retain_mut(|f| {
-                ind += 1;
-                if f.path == file_path {
-                    insert_ind = Some(ind);
-                    if let Some(file) = &updated_file {
-                        file.enrich_view(f, buffer, context);
-                    } else {
-                        debug!("ERASE rendered file!!!!!!!!!");
-                        f.erase(buffer, context);
-                    }
-                    false
-                } else {
-                    true
-                }
-            });
-
-            if let Some(file) = updated_file {
-                if let Some(ind) = insert_ind {
-                    rendered.files.insert(ind - 1, file);
-                } else {
-                    // insert alphabetically
-                    let mut ind = 0;
-                    for rendered_file in &rendered.files {
-                        debug!(
-                            "________compare files while insert alphabetically {:?} {:?} {:?}",
-                            file.path,
-                            rendered_file.path,
-                            file.path < rendered_file.path
-                        );
-                        if file.path < rendered_file.path {
-                            break;
-                        }
-                        ind += 1
-                    }
-                    rendered.files.insert(ind, file);
-                }
-                debug!("just inserted new file...........");
-            }
+        if let Some(rendered) = rendered {
+            rendered.update_single_file(diff, file_path, txt, context);
         } else if diff.kind == DiffKind::Conflicted {
             self.conflicted = Some(diff);
         } else {

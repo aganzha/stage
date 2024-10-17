@@ -37,7 +37,7 @@ impl Hunk {
     }
 }
 
-fn create_line(line_no: u32, from: usize, to: usize) -> Line {
+fn create_line(line_no: u32, from: usize, to: usize, debug_hunk_id: usize) -> Line {
     Line {
         origin: DiffLineType::Context,
         view: View::new(),
@@ -45,16 +45,17 @@ fn create_line(line_no: u32, from: usize, to: usize) -> Line {
         old_line_no: Some(HunkLineNo::new(line_no)),
         kind: LineKind::None,
         content_idx: (from, to),
+        debug_hunk_id
     }
 }
 
-fn create_hunk(name: &str) -> Hunk {
-    let mut hunk = Hunk::new(DiffKind::Unstaged);
+fn create_hunk(name: &str, hunk_debug_id: usize) -> Hunk {
+    let mut hunk = Hunk::new(DiffKind::Unstaged, hunk_debug_id);
     hunk.header = name.to_string();
     for i in 0..3 {
         let content = format!("{} -> line {}", hunk.header, i);
         hunk.lines
-            .push(create_line(i, hunk.buf.len(), content.len()));
+            .push(create_line(i, hunk.buf.len(), content.len(), hunk_debug_id));
         hunk.buf.push_str(&content);
     }
     hunk
@@ -65,7 +66,7 @@ fn create_file(name: &str) -> File {
     file.path = name.to_string().into();
     for i in 0..3 {
         file.hunks
-            .push(create_hunk(&format!("{} -> hunk {}", name, i)));
+            .push(create_hunk(&format!("{} -> hunk {}", name, i), i));
     }
     file
 }
