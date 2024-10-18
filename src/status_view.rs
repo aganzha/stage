@@ -997,7 +997,7 @@ impl Status {
                             rendered_file.path,
                             file.path < rendered_file.path
                         );
-                        if file.path < rendered_file.path {
+                        if file.path.to_str().unwrap() < rendered_file.path.to_str().unwrap() {
                             break;
                         }
                         ind += 1
