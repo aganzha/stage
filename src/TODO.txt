@@ -1,3 +1,4 @@
+BUG: when track 1 file the very first change kill enhanced green!
 TODO: vim/emacs keybindings
 BUG: add unstaged files and kill them 1 by 1. at some moment there are 2 cursors!
 CRITICAL: had to edit ~/.local/share/flatpak/repo/config to disable gpg verification!!!
