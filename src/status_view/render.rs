@@ -86,19 +86,13 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn before_render<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
+    fn prepare_context<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
 
     fn fill_cursor_position<'a>(&'a self, _context: &mut StatusRenderContext<'a>) {}
 
     fn fill_under_cursor<'a>(&'a self, _context: &mut StatusRenderContext<'a>) {}
 
-    fn after_cursor<'a>(
-        &'a self,
-        _buffer: &TextBuffer,
-        _ctx: &mut StatusRenderContext<'a>,
-        _active_changed: bool,
-    ) {
-    }
+    fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, _ctx: &mut StatusRenderContext<'a>) {}
 
     fn force_forward(&self, buffer: &TextBuffer, iter: &mut TextIter) {
         let current_line = iter.line();
@@ -149,6 +143,9 @@ pub trait ViewContainer {
             // TAGS BECOME BROKEN ON EMPTY LINES!
             return;
         }
+        if !self.get_view().is_rendered() {
+            return;
+        }
         for t in &self.tags(context) {
             self.add_tag(buffer, t);
         }
@@ -161,7 +158,7 @@ pub trait ViewContainer {
         iter: &mut TextIter,
         context: &mut StatusRenderContext<'a>,
     ) {
-        self.before_render(context);
+        self.prepare_context(context);
 
         let line_no = iter.line();
         let view = self.get_view();
@@ -182,11 +179,14 @@ pub trait ViewContainer {
 
                 view.line_no.replace(line_no);
                 view.render(true);
-                self.apply_tags(buffer, context);
+                // moved to cursor
+                // self.apply_tags(buffer, context);
             }
             ViewState::TagsModified => {
+                todo!("whats the case?");
                 trace!("..render MATCH TagsModified {:?}", line_no);
-                self.apply_tags(buffer, context);
+                // moved to cursor
+                // self.apply_tags(buffer, context);
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
                 }
@@ -215,7 +215,8 @@ pub trait ViewContainer {
                 }
                 view.cleanup_tags();
                 self.write_content(iter, buffer, context);
-                self.apply_tags(buffer, context);
+                // moved to cursor
+                // self.apply_tags(buffer, context);
 
                 self.force_forward(buffer, iter);
             }
@@ -268,9 +269,9 @@ pub trait ViewContainer {
         parent_active: bool,
         context: &mut StatusRenderContext<'a>,
     ) -> bool {
-        let view = self.get_view();
+        self.prepare_context(context);
 
-        let was_active = view.is_active();
+        let view = self.get_view();
 
         let is_current = view.is_rendered_in(line_no);
         if is_current {
@@ -285,7 +286,6 @@ pub trait ViewContainer {
         }
 
         if is_active {
-            // todo - put in 1 method
             self.fill_under_cursor(context);
         }
 
@@ -295,8 +295,8 @@ pub trait ViewContainer {
 
         view.activate(is_active);
         view.make_current(is_current);
-
-        self.after_cursor(buffer, context, was_active != view.is_active());
+        self.apply_tags(buffer, context);
+        self.after_cursor(buffer, context);
         is_active
     }
 
@@ -417,7 +417,7 @@ pub trait ViewContainer {
         context: &mut StatusRenderContext<'a>,
     ) {
         for child in self.get_children() {
-            child.before_render(context);
+            child.prepare_context(context);
             child.collect_clean_content(from, to, content, context)
         }
     }
@@ -471,33 +471,28 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.rendering_diff = Some(self);
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+        ctx.current_diff = Some(self);
     }
 
     // Diff
-    fn after_cursor<'a>(
-        &'a self,
-        buffer: &TextBuffer,
-        ctx: &mut StatusRenderContext<'a>,
-        _active_changed: bool,
-    ) {
+    fn after_cursor<'a>(&'a self, buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
         // used to wrap all diff in tags.
         // is it necessary? yes, it is used
         // while handling user clicks inside stage_view
         let start_line = self.view.line_no.get();
         let mut end_line = start_line;
-        if let Some(file) = ctx.rendering_file {
+        if let Some(file) = ctx.current_file {
             if file.view.is_rendered() {
                 end_line = file.view.line_no.get();
             }
         }
-        if let Some(hunk) = ctx.rendering_hunk {
+        if let Some(hunk) = ctx.current_diff {
             if hunk.view.is_rendered() {
                 end_line = hunk.view.line_no.get()
             }
         }
-        if let Some(line) = ctx.rendering_line {
+        if let Some(line) = ctx.current_line {
             if line.view.is_rendered() {
                 end_line = line.view.line_no.get();
             }
@@ -627,17 +622,11 @@ impl ViewContainer for File {
     }
 
     // file
-    fn after_cursor<'a>(
-        &'a self,
-        _buffer: &TextBuffer,
-        _context: &mut StatusRenderContext<'a>,
-        _active_changed: bool,
-    ) {
-    }
+    fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, _context: &mut StatusRenderContext<'a>) {}
 
     // File
-    fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.rendering_file = Some(self);
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+        ctx.current_file = Some(self);
     }
 
     // File
@@ -698,17 +687,12 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
-    fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.rendering_hunk = Some(self);
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+        ctx.current_hunk = Some(self);
     }
 
     // Hunk
-    fn after_cursor<'a>(
-        &'a self,
-        _buffer: &TextBuffer,
-        ctx: &mut StatusRenderContext<'a>,
-        _active_changed: bool,
-    ) {
+    fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
         if self.view.is_rendered() {
             ctx.collect_hunk_highlights(self.view.line_no.get());
         }
@@ -754,7 +738,7 @@ impl ViewContainer for Hunk {
 
 impl ViewContainer for Line {
     fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool {
-        if let Some(hunk) = context.rendering_hunk {
+        if let Some(hunk) = context.current_hunk {
             return self.content(hunk).is_empty();
         }
         false
@@ -771,50 +755,17 @@ impl ViewContainer for Line {
     fn get_content_for_debug(&self, context: &mut StatusRenderContext<'_>) -> String {
         format!(
             "Line: {:?} at line {:?}",
-            self.content(context.rendering_hunk.unwrap()),
+            self.content(context.current_hunk.unwrap()),
             self.view.line_no.get()
         )
     }
 
     // Line
-    fn after_cursor<'a>(
-        &'a self,
-        buffer: &TextBuffer,
-        ctx: &mut StatusRenderContext<'a>,
-        active_changed: bool,
-    ) {
+    fn after_cursor<'a>(&'a self, buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
         if self.view.is_rendered() {
             // hm. collecting lines for highlight.
-            // but where am i collecting active_lines?
             if self.view.is_active() {
                 ctx.collect_line_highlights(self.view.line_no.get());
-            }
-            if active_changed {
-                let added = make_tag(tags::ADDED);
-                let removed = make_tag(tags::REMOVED);
-                let enhanced_added = added.enhance();
-                let enhanced_removed = removed.enhance();
-                match self.origin {
-                    DiffLineType::Addition => {
-                        if self.view.is_active() {
-                            self.remove_tag(buffer, &added);
-                            self.add_tag(buffer, &enhanced_added);
-                        } else {
-                            self.remove_tag(buffer, &enhanced_added);
-                            self.add_tag(buffer, &added);
-                        }
-                    }
-                    DiffLineType::Deletion => {
-                        if self.view.is_active() {
-                            self.remove_tag(buffer, &removed);
-                            self.add_tag(buffer, &enhanced_removed);
-                        } else {
-                            self.remove_tag(buffer, &enhanced_removed);
-                            self.add_tag(buffer, &removed);
-                        }
-                    }
-                    _ => {}
-                }
             }
         }
     }
@@ -831,8 +782,8 @@ impl ViewContainer for Line {
     // Line
     // it is useless. rendering_x is sliding variable during render
     // and there is nothing to render after line
-    fn before_render<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        ctx.rendering_line = Some(self);
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+        ctx.current_line = Some(self);
     }
 
     // Line
@@ -895,7 +846,6 @@ impl ViewContainer for Line {
     // Line
     fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         match self.kind {
-            //
             LineKind::ConflictMarker(_) => return vec![make_tag(tags::CONFLICT_MARKER)],
             // no need to mark theirs/ours. use regular colors downwhere
             LineKind::Ours(_) | LineKind::Theirs(_) => {
@@ -912,30 +862,12 @@ impl ViewContainer for Line {
             }
             _ => {}
         }
-        // TODO! ENHANCED_ADDED!!!!
-        // context is not enough. because apply_tags is called ONLY
-        // in render. but it need to change tags in cursor!
-        // there is only highlight changes for now!
-        // it need to add apply_tags in cursor!
-        // first cleanup tags and then reapply!
         match self.origin {
             DiffLineType::Addition => {
                 vec![make_tag(tags::ADDED)]
-                // if ctx.rendering_hunk.unwrap().view.is_active() {
-                //     debug!("eeeeeeeeeeeeenhanced");
-                //     vec![make_tag(tags::ENHANCED_ADDED)]
-                // } else {
-                //     debug!("regular...............");
-                //     vec![make_tag(tags::ADDED)]
-                // }
             }
             DiffLineType::Deletion => {
                 vec![make_tag(tags::REMOVED)]
-                // if ctx.rendering_hunk.unwrap().view.is_active() {
-                //     vec![make_tag(tags::ENHANCED_REMOVED)]
-                // } else {
-                //     vec![make_tag(tags::REMOVED)]
-                // }
             }
             DiffLineType::Context => {
                 vec![make_tag(tags::CONTEXT)]
@@ -979,19 +911,20 @@ impl ViewContainer for Line {
             }
         }
         buffer.insert(iter, "  ");
-        buffer.insert(iter, self.content(context.rendering_hunk.unwrap()));
+        buffer.insert(iter, self.content(context.current_hunk.unwrap()));
     }
 
     // Line
     fn apply_tags<'a>(&'a self, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {
-        // -----------------super-----------------
-        // lines are always have line_no and cant be empty
-        // if self.is_empty(context) {
-        //     // TAGS BECOME BROKEN ON EMPTY LINES!
-        //     return;
-        // }
+        if !self.view.is_rendered() {
+            return;
+        }
         for t in &self.tags(context) {
-            self.add_tag(buffer, t);
+            if self.view.is_active() {
+                self.add_tag(buffer, &t.enhance());
+            } else {
+                self.add_tag(buffer, t);
+            }
         }
         // ---------------------------------------
 
@@ -1011,7 +944,7 @@ impl ViewContainer for Line {
         }
 
         // highlight spaces
-        let content = self.content(context.rendering_hunk.unwrap());
+        let content = self.content(context.current_hunk.unwrap());
         let stripped = content.trim_end_matches(|c| -> bool { char::is_ascii_whitespace(&c) });
         let content_len = content.chars().count();
         let stripped_len = stripped.chars().count();
@@ -1051,7 +984,7 @@ impl ViewContainer for Line {
         }
         let line_no = self.view.line_no.get();
         if line_no >= from && line_no <= to {
-            let content = self.content(context.rendering_hunk.unwrap()).to_string();
+            let content = self.content(context.current_hunk.unwrap()).to_string();
             content_map.insert(line_no, (content, 6));
         }
     }
