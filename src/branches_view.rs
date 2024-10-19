@@ -621,44 +621,6 @@ impl BranchList {
         // works via bind to single_selection selected
         self.set_selected_pos(0);
     }
-
-    pub fn cherry_pick(
-        &self,
-        repo_path: PathBuf,
-        window: &impl IsA<Widget>,
-        sender: Sender<crate::Event>,
-    ) {
-        glib::spawn_future_local({
-            let sender = sender.clone();
-            let path = repo_path.clone();
-            let window = window.clone();
-            let oid = self.get_selected_branch().oid;
-            async move {
-                let response = alert(ConfirmDialog(
-                    "Cherry pick commit?".to_string(),
-                    format!("{}", oid),
-                ))
-                .choose_future(&window)
-                .await;
-                if response != YES {
-                    return;
-                }
-                gio::spawn_blocking({
-                    let sender = sender.clone();
-                    let path = path.clone();
-                    move || commit::cherry_pick(path, oid, None, None, false, sender)
-                })
-                .await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
-                    Ok(())
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(&window);
-                });
-            }
-        });
-    }
 }
 
 pub fn header_factory() -> SignalListItemFactory {
@@ -1200,8 +1162,11 @@ pub fn show_branches_window(
                         .expect("cant send through sender");
                 }
                 (gdk::Key::a, _) => {
-                    let branch_list = get_branch_list(&list_view);
-                    branch_list.cherry_pick(repo_path.clone(), &window, sender.clone());
+                    let (_current_branch, selected_branch) = branches_in_use(&list_view);
+                    let oid = selected_branch.oid;
+                    sender
+                        .send_blocking(crate::Event::CherryPick(oid, None, None))
+                        .expect("cant send through sender");
                 }
                 (gdk::Key::u, _) => {
                     let branch_list = get_branch_list(&list_view);
