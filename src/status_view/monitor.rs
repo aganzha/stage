@@ -7,7 +7,7 @@ use core::time::Duration;
 use gio::{Cancellable, File, FileMonitor, FileMonitorEvent, FileMonitorFlags};
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
-use log::{debug, trace};
+use log::trace;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;

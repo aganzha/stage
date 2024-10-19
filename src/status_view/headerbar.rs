@@ -383,8 +383,8 @@ pub fn factory(
         let push_btn = push_btn.clone();
         let log_btn = log_btn.clone();
         let pull_btn = pull_btn.clone();
-        
-        let repo_selector = repo_selector.clone();        
+
+        let repo_selector = repo_selector.clone();
         move |data: HbUpdateData| match data {
             HbUpdateData::Path(path) => {
                 stashes_btn.set_sensitive(true);

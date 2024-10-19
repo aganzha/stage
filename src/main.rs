@@ -27,6 +27,8 @@ use stashes_view::factory as stashes_view_factory;
 mod commit_view;
 use commit_view::show_commit_window;
 
+mod common;
+use common::cherry_pick;
 use core::time::Duration;
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
@@ -162,6 +164,7 @@ pub enum Event {
     OpenEditor,
     Tags(Option<Oid>),
     TrackChanges(PathBuf),
+    CherryPick(Oid),
 }
 
 fn zoom(dir: bool) {
@@ -644,6 +647,23 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     settings.set(&name, value).expect("cant set settings");
                     if name == SCHEME_TOKEN {
                         txt.set_is_dark(StyleManager::default().is_dark(), true);
+                    }
+                }
+                Event::CherryPick(oid) => {
+                    if let Some(window) = window_stack.borrow().last() {
+                        cherry_pick(
+                            status.path.clone().expect("no path"),
+                            window,
+                            oid,
+                            sender.clone(),
+                        )
+                    } else {
+                        cherry_pick(
+                            status.path.clone().expect("no path"),
+                            &window,
+                            oid,
+                            sender.clone(),
+                        )
                     }
                 }
             };
