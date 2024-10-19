@@ -223,6 +223,7 @@ pub fn factory(
         .can_focus(false)
         .tooltip_text("Stashes")
         .icon_name("sidebar-show-symbolic")
+        .sensitive(false)
         .can_shrink(true)
         .build();
     stashes_btn.connect_clicked({
@@ -240,6 +241,7 @@ pub fn factory(
         .tooltip_text("Refresh")
         .icon_name("view-refresh-symbolic")
         .can_shrink(true)
+        .sensitive(false)
         .build();
     refresh_btn.connect_clicked({
         let sender = sender.clone();
@@ -257,6 +259,7 @@ pub fn factory(
         .tooltip_text("Branches")
         .icon_name("org.gtk.gtk4.NodeEditor-symbolic")
         .can_shrink(true)
+        .sensitive(false)
         .build();
     branches_btn.connect_clicked({
         let sender = sender.clone();
@@ -291,6 +294,7 @@ pub fn factory(
         .tooltip_text("Reset hard")
         .icon_name("software-update-urgent-symbolic")
         .can_shrink(true)
+        .sensitive(false)
         .build();
     reset_btn.connect_clicked({
         let sender = sender.clone();
@@ -307,6 +311,7 @@ pub fn factory(
         .tooltip_text("Log")
         .icon_name("org.gnome.Logs-symbolic")
         .can_shrink(true)
+        .sensitive(false)
         .build();
     log_btn.connect_clicked({
         let sender = sender.clone();
@@ -324,6 +329,7 @@ pub fn factory(
         .tooltip_text("Pull")
         .icon_name("document-save-symbolic")
         .can_shrink(true)
+        .sensitive(false)
         .build();
     pull_btn.connect_clicked({
         let sender = sender.clone();
@@ -368,12 +374,25 @@ pub fn factory(
     repo_selector.set_popover(Some(&repo_popover));
 
     let updater = {
+        let stashes_btn = stashes_btn.clone();
+        let refresh_btn = refresh_btn.clone();
+        let branches_btn = branches_btn.clone();
+        let reset_btn = reset_btn.clone();
         let repo_opener = repo_opener.clone();
         let commit_btn = commit_btn.clone();
         let push_btn = push_btn.clone();
-        let repo_selector = repo_selector.clone();
+        let log_btn = log_btn.clone();
+        let pull_btn = pull_btn.clone();
+        
+        let repo_selector = repo_selector.clone();        
         move |data: HbUpdateData| match data {
             HbUpdateData::Path(path) => {
+                stashes_btn.set_sensitive(true);
+                refresh_btn.set_sensitive(true);
+                branches_btn.set_sensitive(true);
+                reset_btn.set_sensitive(true);
+                log_btn.set_sensitive(true);
+                pull_btn.set_sensitive(true);
                 let some_box = repo_opener.last_child().unwrap();
                 let repo_opener_label = some_box.last_child().unwrap();
                 let repo_opener_label = repo_opener_label.downcast_ref::<Label>().unwrap();
