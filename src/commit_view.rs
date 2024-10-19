@@ -86,13 +86,16 @@ pub fn headerbar_factory(
                     )
                 });
             } else {
-                glib::spawn_future_local({
-                    git_oid_op(
-                        ConfirmDialog("Cherry pick commit?".to_string(), format!("{}", oid)),
-                        window,
-                        move || commit::cherry_pick(path, oid, None, None, false, sender),
-                    )
-                });
+                sender
+                    .send_blocking(crate::Event::CherryPick(oid, None, None))
+                    .expect("cant send through channel");
+                // glib::spawn_future_local({
+                //     git_oid_op(
+                //         ConfirmDialog("Cherry pick commit?".to_string(), format!("{}", oid)),
+                //         window,
+                //         move || commit::cherry_pick(path, oid, None, None, false, sender),
+                //     )
+                // });
             }
         }
     });
@@ -265,7 +268,7 @@ pub fn show_commit_window(
     stash_num: Option<usize>,
     app_window: &impl IsA<Gtk4Window>,
     main_sender: Sender<Event>, // i need that to trigger revert and cherry-pick.
-) {
+) -> Window {
     let (sender, receiver) = async_channel::unbounded();
 
     let mut diff: Option<commit::CommitDiff> = None;
@@ -345,144 +348,179 @@ pub fn show_commit_window(
         TextViewLabel::from_string(""),
     ];
 
-    glib::spawn_future_local(async move {
-        while let Ok(event) = receiver.recv().await {
-            let mut ctx = crate::StatusRenderContext::new();
-            match event {
-                Event::CommitDiff(mut commit_diff) => {
-                    info!("CommitDiff");
+    glib::spawn_future_local({
+        let window = window.clone();
+        async move {
+            while let Ok(event) = receiver.recv().await {
+                let mut ctx = crate::StatusRenderContext::new();
+                match event {
+                    Event::CommitDiff(mut commit_diff) => {
+                        info!("CommitDiff");
 
-                    labels[1].content = format!(
-                        "Author: <span color=\"#4a708b\">{}</span>",
-                        commit_diff.author
-                    );
-                    labels[2].content = format!(
-                        "Date: <span color=\"#4a708b\">{}</span>",
-                        commit_diff.commit_dt
-                    );
-                    body_label.replace(MultiLineLabel::new(
-                        &commit_diff.message,
-                        txt.calc_max_char_width(max_width),
-                    ));
-                    commit_diff.render(&txt, &mut ctx, &mut labels, body_label.as_mut().unwrap());
-                    // it should be called after cursor in ViewContainer
-                    txt.bind_highlights(&ctx);
-                    diff.replace(commit_diff);
-                }
-                Event::Expand(_offset, line_no) => {
-                    info!("Expand {}", line_no);
-                    if let Some(d) = &mut diff {
-                        let mut need_render = false;
-                        for file in &mut d.diff.files {
-                            need_render = need_render || file.expand(line_no, &mut ctx).is_some();
+                        labels[1].content = format!(
+                            "Author: <span color=\"#4a708b\">{}</span>",
+                            commit_diff.author
+                        );
+                        labels[2].content = format!(
+                            "Date: <span color=\"#4a708b\">{}</span>",
+                            commit_diff.commit_dt
+                        );
+                        body_label.replace(MultiLineLabel::new(
+                            &commit_diff.message,
+                            txt.calc_max_char_width(max_width),
+                        ));
+                        commit_diff.render(
+                            &txt,
+                            &mut ctx,
+                            &mut labels,
+                            body_label.as_mut().unwrap(),
+                        );
+                        // it should be called after cursor in ViewContainer
+                        txt.bind_highlights(&ctx);
+                        diff.replace(commit_diff);
+                    }
+                    Event::Expand(_offset, line_no) => {
+                        info!("Expand {}", line_no);
+                        if let Some(d) = &mut diff {
+                            let mut need_render = false;
+                            for file in &mut d.diff.files {
+                                need_render =
+                                    need_render || file.expand(line_no, &mut ctx).is_some();
+                                if need_render {
+                                    break;
+                                }
+                            }
+                            let buffer = &txt.buffer();
+                            let mut iter = buffer.iter_at_line(d.diff.view.line_no.get()).unwrap();
                             if need_render {
-                                break;
+                                d.diff.render(buffer, &mut iter, &mut ctx);
+                                // it should be called after cursor in ViewContainer
+                                let iter = buffer.iter_at_offset(buffer.cursor_position());
+                                d.diff.cursor(buffer, iter.line(), true, &mut ctx);
+                                txt.bind_highlights(&ctx);
                             }
                         }
-                        let buffer = &txt.buffer();
-                        let mut iter = buffer.iter_at_line(d.diff.view.line_no.get()).unwrap();
-                        if need_render {
-                            d.diff.render(buffer, &mut iter, &mut ctx);
-                            // it should be called after cursor in ViewContainer
-                            let iter = buffer.iter_at_offset(buffer.cursor_position());
-                            d.diff.cursor(buffer, iter.line(), true, &mut ctx);
-                            txt.bind_highlights(&ctx);
+                    }
+                    Event::Cursor(_offset, line_no) => {
+                        if let Some(d) = &mut diff {
+                            let buffer = &txt.buffer();
+                            d.diff.cursor(buffer, line_no, false, &mut ctx);
+                            cursor_position = CursorPosition::from_context(&ctx);
+                        }
+                        // it should be called after cursor in ViewContainer !!!!!!!!
+                        txt.bind_highlights(&ctx);
+                    }
+                    Event::TextViewResize(w) => {
+                        info!("TextViewResize {} {:?}", w, ctx);
+                    }
+                    Event::TextCharVisibleWidth(w) => {
+                        info!("TextCharVisibleWidth {}", w);
+                        if let Some(d) = &mut diff {
+                            d.render(&txt, &mut ctx, &mut labels, body_label.as_mut().unwrap());
                         }
                     }
-                }
-                Event::Cursor(_offset, line_no) => {
-                    if let Some(d) = &mut diff {
-                        let buffer = &txt.buffer();
-                        d.diff.cursor(buffer, line_no, false, &mut ctx);
-                        cursor_position = CursorPosition::from_context(&ctx);
-                    }
-                    // it should be called after cursor in ViewContainer !!!!!!!!
-                    txt.bind_highlights(&ctx);
-                }
-                Event::TextViewResize(w) => {
-                    info!("TextViewResize {} {:?}", w, ctx);
-                }
-                Event::TextCharVisibleWidth(w) => {
-                    info!("TextCharVisibleWidth {}", w);
-                    if let Some(d) = &mut diff {
-                        d.render(&txt, &mut ctx, &mut labels, body_label.as_mut().unwrap());
-                    }
-                }
-                Event::Stage(_) | Event::RepoPopup => {
-                    info!("Stage/Unstage ot r pressed");
-                    if let Some(diff) = &diff {
-                        let title = if stash_num.is_some() {
-                            "Apply stash"
-                        } else {
+                    Event::Stage(_) | Event::RepoPopup => {
+                        info!("Stage/Unstage or r pressed");
+                        if let Some(diff) = &diff {
+                            let title = if stash_num.is_some() {
+                                "Apply stash"
+                            } else {
+                                match event {
+                                    Event::Stage(_) => "Cherry pick",
+                                    _ => "Revert",
+                                }
+                            };
+                            let (body, file_path, hunk_header) = match cursor_position {
+                                CursorPosition::CursorDiff(_) => (oid.to_string(), None, None),
+                                CursorPosition::CursorFile(_, file_idx) => {
+                                    let file = &diff.diff.files[file_idx];
+                                    (
+                                        format!("File: {}", file.path.to_str().unwrap()),
+                                        Some(file.path.clone()),
+                                        None,
+                                    )
+                                }
+                                CursorPosition::CursorHunk(_, file_idx, hunk_idx)
+                                | CursorPosition::CursorLine(_, file_idx, hunk_idx, _) => {
+                                    let file = &diff.diff.files[file_idx];
+                                    let hunk = &file.hunks[hunk_idx];
+                                    (
+                                            format!(
+                                                "File: {}\nApplying single hunks is not yet implemented :(",
+                                                file.path.to_str().unwrap()
+                                            ),
+                                            Some(file.path.clone()),
+                                            Some(hunk.header.clone()),
+                                        )
+                                }
+                                _ => ("".to_string(), None, None),
+                            };
+                            let mut cherry_pick_handled = false;
                             match event {
-                                Event::Stage(_) => "Cherry pick",
-                                _ => "Revert",
+                                Event::Stage(_) => {
+                                    if stash_num.is_none() {
+                                        cherry_pick_handled = true;
+                                        main_sender
+                                            .send_blocking(crate::Event::CherryPick(
+                                                oid,
+                                                file_path.clone(),
+                                                hunk_header.clone(),
+                                            ))
+                                            .expect("cant send through channel");
+                                    }
+                                }
+                                _ => {}
                             }
-                        };
-                        let (body, file_path, hunk_header) = match cursor_position {
-                            CursorPosition::CursorDiff(_) => (oid.to_string(), None, None),
-                            CursorPosition::CursorFile(_, file_idx) => {
-                                let file = &diff.diff.files[file_idx];
-                                (
-                                    format!("File: {}", file.path.to_str().unwrap()),
-                                    Some(file.path.clone()),
-                                    None,
-                                )
-                            }
-                            CursorPosition::CursorHunk(_, file_idx, hunk_idx)
-                            | CursorPosition::CursorLine(_, file_idx, hunk_idx, _) => {
-                                let file = &diff.diff.files[file_idx];
-                                let hunk = &file.hunks[hunk_idx];
-                                (
-                                    format!(
-                                        "File: {}\nApplying single hunks is not yet implemented :(",
-                                        file.path.to_str().unwrap()
-                                    ),
-                                    Some(file.path.clone()),
-                                    Some(hunk.header.clone()),
-                                )
-                            }
-                            _ => ("".to_string(), None, None),
-                        };
-
-                        let path = repo_path.clone();
-                        let sender = main_sender.clone();
-                        let window = window.clone();
-                        glib::spawn_future_local({
-                            git_oid_op(
-                                ConfirmDialog(title.to_string(), body.to_string()),
-                                window,
-                                move || match event {
-                                    Event::Stage(_) => {
-                                        if let Some(stash_num) = stash_num {
-                                            stash::apply(
-                                                path,
-                                                stash_num,
-                                                file_path,
-                                                hunk_header,
-                                                sender,
-                                            )
-                                        } else {
-                                            commit::cherry_pick(
+                            // temporary untill revert is not going via main event loop
+                            if !cherry_pick_handled {
+                                let path = repo_path.clone();
+                                let sender = main_sender.clone();
+                                let window = window.clone();
+                                glib::spawn_future_local({
+                                    git_oid_op(
+                                        ConfirmDialog(title.to_string(), body.to_string()),
+                                        window,
+                                        move || match event {
+                                            Event::Stage(_) => {
+                                                if let Some(stash_num) = stash_num {
+                                                    stash::apply(
+                                                        path,
+                                                        stash_num,
+                                                        file_path,
+                                                        hunk_header,
+                                                        sender,
+                                                    )
+                                                } else {
+                                                    Ok(())
+                                                    // commit::cherry_pick(
+                                                    //     path,
+                                                    //     oid,
+                                                    //     file_path,
+                                                    //     hunk_header,
+                                                    //     false,
+                                                    //     sender,
+                                                    // )
+                                                }
+                                            }
+                                            _ => commit::revert(
                                                 path,
                                                 oid,
                                                 file_path,
                                                 hunk_header,
-                                                false,
                                                 sender,
-                                            )
-                                        }
-                                    }
-                                    _ => commit::revert(path, oid, file_path, hunk_header, sender),
-                                },
-                            )
-                        });
+                                            ),
+                                        },
+                                    )
+                                });
+                            }
+                        }
                     }
-                }
-                _ => {
-                    trace!("unhandled event in commit_view {:?}", event);
+                    _ => {
+                        trace!("unhandled event in commit_view {:?}", event);
+                    }
                 }
             }
         }
     });
+    window
 }

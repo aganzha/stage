@@ -321,58 +321,6 @@ impl CommitList {
         oid
     }
 
-    // pub fn cherry_pick(
-    //     &self,
-    //     repo_path: PathBuf,
-    //     window: &impl IsA<Widget>,
-    //     sender: Sender<crate::Event>,
-    // ) {
-    //     glib::spawn_future_local({
-    //         let sender = sender.clone();
-    //         let path = repo_path.clone();
-    //         let window = window.clone();
-    //         let oid = self.get_selected_oid();
-    //         async move {
-    //             let list_box = ListBox::builder()
-    //                 .selection_mode(SelectionMode::None)
-    //                 .css_classes(vec![String::from("boxed-list")])
-    //                 .build();
-    //             let no_commit = SwitchRow::builder()
-    //                 .title("Only apply changes without commit")
-    //                 .css_classes(vec!["input_field"])
-    //                 .active(false)
-    //                 .build();
-
-    //             list_box.append(&no_commit);
-
-    //             let response = alert(ConfirmWithOptions(
-    //                 "Cherry pick commit?".to_string(),
-    //                 format!("{}", oid),
-    //                 list_box.into(),
-    //             ))
-    //             .choose_future(&window)
-    //             .await;
-    //             if response != YES {
-    //                 return;
-    //             }
-    //             gio::spawn_blocking({
-    //                 let sender = sender.clone();
-    //                 let path = path.clone();
-    //                 let is_active = no_commit.is_active();
-    //                 move || commit::cherry_pick(path, oid, None, None, is_active, sender)
-    //             })
-    //             .await
-    //             .unwrap_or_else(|e| {
-    //                 alert(format!("{:?}", e)).present(&window);
-    //                 Ok(())
-    //             })
-    //             .unwrap_or_else(|e| {
-    //                 alert(e).present(&window);
-    //             });
-    //         }
-    //     });
-    // }
-
     pub fn revert(
         &self,
         repo_path: PathBuf,
@@ -744,16 +692,14 @@ pub fn headerbar_factory(
         let sender = sender.clone();
         let commit_list = commit_list.clone();
         move |_| {
-            sender.send_blocking(crate::Event::CherryPick(commit_list.get_selected_oid()))
+            sender
+                .send_blocking(crate::Event::CherryPick(
+                    commit_list.get_selected_oid(),
+                    None,
+                    None,
+                ))
                 .expect("cant send through channel");
         }
-        // let sender = sender.clone();
-        // let path = repo_path.clone();
-        // let window = window.clone();
-        // let commit_list = commit_list.clone();
-        // move |_btn| {
-        //     commit_list.cherry_pick(path.clone(), &window, sender.clone());
-        // }
     });
 
     let revert_btn = Button::builder()
@@ -880,9 +826,13 @@ pub fn show_log_window(
                     );
                 }
                 (gdk::Key::a, _) => {
-                    main_sender.send_blocking(crate::Event::CherryPick(
-                        get_commit_list(&list_view).get_selected_oid())
-                    ).expect("cant send through channel");
+                    main_sender
+                        .send_blocking(crate::Event::CherryPick(
+                            get_commit_list(&list_view).get_selected_oid(),
+                            None,
+                            None,
+                        ))
+                        .expect("cant send through channel");
                     // get_commit_list(&list_view).cherry_pick(
                     //     repo_path.clone(),
                     //     &window,

@@ -480,44 +480,6 @@ impl TagList {
         self.items_changed(0, 0, 1);
     }
 
-    pub fn cherry_pick(
-        &self,
-        repo_path: PathBuf,
-        window: &impl IsA<Widget>,
-        sender: Sender<crate::Event>,
-    ) {
-        glib::spawn_future_local({
-            let sender = sender.clone();
-            let path = repo_path.clone();
-            let window = window.clone();
-            let oid = self.get_selected_commit_oid();
-            async move {
-                let response = alert(ConfirmDialog(
-                    "Cherry pick commit?".to_string(),
-                    format!("{}", oid),
-                ))
-                .choose_future(&window)
-                .await;
-                if response != YES {
-                    return;
-                }
-                gio::spawn_blocking({
-                    let sender = sender.clone();
-                    let path = path.clone();
-                    move || commit::cherry_pick(path, oid, None, None, false, sender)
-                })
-                .await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
-                    Ok(())
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(&window);
-                });
-            }
-        });
-    }
-
     pub fn revert(
         &self,
         repo_path: PathBuf,
@@ -861,11 +823,15 @@ pub fn headerbar_factory(
         .build();
     cherry_pick_btn.connect_clicked({
         let sender = sender.clone();
-        let path = repo_path.clone();
-        let window = window.clone();
         let tag_list = tag_list.clone();
         move |_btn| {
-            tag_list.cherry_pick(path.clone(), &window, sender.clone());
+            sender
+                .send_blocking(crate::Event::CherryPick(
+                    tag_list.get_selected_commit_oid(),
+                    None,
+                    None,
+                ))
+                .expect("cant send through channel");
         }
     });
 

@@ -11,14 +11,14 @@ pub mod stage;
 pub mod stage_view;
 pub mod tags;
 
-use crate::dialogs::{alert, DangerDialog, YES, ConfirmWithOptions};
+use crate::dialogs::{alert, ConfirmWithOptions, DangerDialog, YES};
 use crate::git::{
-    abort_rebase, branch::BranchData, continue_rebase, get_head, merge, remote, stash, HunkLineNo,
-    commit as git_commit,
+    abort_rebase, branch::BranchData, commit as git_commit, continue_rebase, get_head, merge,
+    remote, stash, HunkLineNo,
 };
 
 use core::time::Duration;
-use git2::{RepositoryState, Oid};
+use git2::{Oid, RepositoryState};
 use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -1491,6 +1491,8 @@ impl Status {
         &self,
         window: &impl IsA<Widget>,
         oid: git2::Oid,
+        file_path: Option<PathBuf>,
+        hunk_header: Option<String>,
     ) {
         glib::spawn_future_local({
             let sender = self.sender.clone();
@@ -1514,8 +1516,8 @@ impl Status {
                     format!("{}", oid),
                     list_box.into(),
                 ))
-                    .choose_future(&window)
-                    .await;
+                .choose_future(&window)
+                .await;
                 if response != YES {
                     return;
                 }
@@ -1523,16 +1525,25 @@ impl Status {
                     let sender = sender.clone();
                     let path = path.clone();
                     let is_active = no_commit.is_active();
-                    move || git_commit::cherry_pick(path, oid, None, None, is_active, sender)
+                    move || {
+                        git_commit::cherry_pick(
+                            path,
+                            oid,
+                            file_path,
+                            hunk_header,
+                            is_active,
+                            sender,
+                        )
+                    }
                 })
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
-                        Ok(())
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(&window);
-                    });
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(())
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                });
             }
         });
     }
