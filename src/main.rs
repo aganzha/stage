@@ -162,7 +162,7 @@ pub enum Event {
     OpenEditor,
     Tags(Option<Oid>),
     TrackChanges(PathBuf),
-    CherryPick(Oid),
+    CherryPick(Oid, Option<PathBuf>, Option<String>),
 }
 
 fn zoom(dir: bool) {
@@ -598,23 +598,36 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::ShowOid(oid, num) => {
                     info!("main.show oid {:?}", oid);
-                    if let Some(stack) = window_stack.borrow().last() {
-                        show_commit_window(
-                            status.path.clone().expect("no path"),
-                            oid,
-                            num,
-                            stack,
-                            sender.clone(),
-                        );
-                    } else {
-                        show_commit_window(
-                            status.path.clone().expect("no path"),
-                            oid,
-                            num,
-                            &window,
-                            sender.clone(),
-                        );
-                    }
+                    let w = {
+                        if let Some(stack) = window_stack.borrow().last() {
+                            show_commit_window(
+                                status.path.clone().expect("no path"),
+                                oid,
+                                num,
+                                stack,
+                                sender.clone(),
+                            )
+                        } else {
+                            show_commit_window(
+                                status.path.clone().expect("no path"),
+                                oid,
+                                num,
+                                &window,
+                                sender.clone(),
+                            )
+                        }
+                    };
+                    w.connect_close_request({
+                        let window_stack = window_stack.clone();
+                        move |_| {
+                            info!(
+                                "popping stack while close commit {:?}",
+                                window_stack.borrow_mut().pop()
+                            );
+                            glib::signal::Propagation::Proceed
+                        }
+                    });
+                    window_stack.borrow_mut().push(w);
                 }
                 Event::ResetHard(ooid) => {
                     info!("main. reset hard");
@@ -647,17 +660,15 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         txt.set_is_dark(StyleManager::default().is_dark(), true);
                     }
                 }
-                Event::CherryPick(oid) => {
+                Event::CherryPick(oid, ofile_path, ohunk_header) => {
+                    info!(
+                        "CherryPick {:?} {:?} {:?} {:?}",
+                        oid, ofile_path, ohunk_header, window_stack
+                    );
                     if let Some(window) = window_stack.borrow().last() {
-                        status.cherry_pick(
-                            window,
-                            oid,
-                        )
+                        status.cherry_pick(window, oid, ofile_path, ohunk_header)
                     } else {
-                        status.cherry_pick(
-                            &window,
-                            oid,
-                        )
+                        status.cherry_pick(&window, oid, ofile_path, ohunk_header)
                     }
                 }
             };

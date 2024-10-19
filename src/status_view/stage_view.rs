@@ -470,8 +470,9 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             txt.set_cursor_highlight(true);
             let pos = txt.buffer().cursor_position();
             let iter = txt.buffer().iter_at_offset(pos);
-            sndr.send_blocking(crate::Event::Cursor(iter.offset(), iter.line()))
-                .expect("Could not send through channel");
+            if let Err(err) = sndr.send_blocking(crate::Event::Cursor(iter.offset(), iter.line())) {
+                println!("iiiiiiiiiiiiiiiiiii {:?}", err);
+            }
             trace!(
                 "click!.......................... n_click {:?} {:?}",
                 n_clicks,
@@ -539,8 +540,12 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             }
             let current_line = start_iter.line();
             if line_before != current_line {
-                sndr.send_blocking(crate::Event::Cursor(start_iter.offset(), current_line))
-                    .expect("Could not send through channel");
+                if let Err(err) =
+                    sndr.send_blocking(crate::Event::Cursor(start_iter.offset(), current_line))
+                {
+                    // .expect("Could not send through channel");
+                    println!("uuuuuuuuuuuuuuuuuuuuuu {:?}", err.to_string());
+                }
             }
         }
     });
