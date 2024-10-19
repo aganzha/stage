@@ -80,7 +80,7 @@ pub fn headerbar_factory(
             if let Some(num) = stash_num {
                 glib::spawn_future_local({
                     git_oid_op(
-                        ConfirmDialog("Apply stash?".to_string(), "".to_string()),
+                        ConfirmDialog("Apply stash?".to_string(), format!("{}", num)),
                         window,
                         move || stash::apply(path, num, None, None, sender),
                     )
@@ -88,9 +88,9 @@ pub fn headerbar_factory(
             } else {
                 glib::spawn_future_local({
                     git_oid_op(
-                        ConfirmDialog("Cherry pick commit?".to_string(), "".to_string()),
+                        ConfirmDialog("Cherry pick commit?".to_string(), format!("{}", oid)),
                         window,
-                        move || commit::cherry_pick(path, oid, None, None, sender),
+                        move || commit::cherry_pick(path, oid, None, None, false, sender),
                     )
                 });
             }
@@ -468,6 +468,7 @@ pub fn show_commit_window(
                                                 oid,
                                                 file_path,
                                                 hunk_header,
+                                                false,
                                                 sender,
                                             )
                                         }
