@@ -163,6 +163,7 @@ pub enum Event {
     Tags(Option<Oid>),
     TrackChanges(PathBuf),
     CherryPick(Oid, Option<PathBuf>, Option<String>),
+    Revert(Oid, Option<PathBuf>, Option<String>),
 }
 
 fn zoom(dir: bool) {
@@ -670,6 +671,17 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     } else {
                         status.cherry_pick(&window, oid, ofile_path, ohunk_header)
                     }
+                }
+                Event::Revert(oid, ofile_path, ohunk_header) => {
+                    info!(
+                        "Revert {:?} {:?} {:?} {:?}",
+                        oid, ofile_path, ohunk_header, window_stack
+                    );
+                    // if let Some(window) = window_stack.borrow().last() {
+                    //     status.revert(window, oid, ofile_path, ohunk_header)
+                    // } else {
+                    //     status.revert(&window, oid, ofile_path, ohunk_header)
+                    // }
                 }
             };
             // no way. it need to choose in each place...
