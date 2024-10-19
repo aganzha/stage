@@ -11,13 +11,14 @@ pub mod stage;
 pub mod stage_view;
 pub mod tags;
 
-use crate::dialogs::{alert, DangerDialog, YES};
+use crate::dialogs::{alert, DangerDialog, YES, ConfirmWithOptions};
 use crate::git::{
     abort_rebase, branch::BranchData, continue_rebase, get_head, merge, remote, stash, HunkLineNo,
+    commit as git_commit,
 };
 
 use core::time::Duration;
-use git2::RepositoryState;
+use git2::{RepositoryState, Oid};
 use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -1482,6 +1483,56 @@ impl Status {
             let path = self.path.clone().unwrap();
             move || {
                 get_head(path, sender).expect("cant get head");
+            }
+        });
+    }
+
+    pub fn cherry_pick(
+        &self,
+        window: &impl IsA<Widget>,
+        oid: git2::Oid,
+    ) {
+        glib::spawn_future_local({
+            let sender = self.sender.clone();
+            let path = self.path.clone().unwrap();
+            let window = window.clone();
+            async move {
+                let list_box = ListBox::builder()
+                    .selection_mode(SelectionMode::None)
+                    .css_classes(vec![String::from("boxed-list")])
+                    .build();
+                let no_commit = SwitchRow::builder()
+                    .title("Only apply changes without commit")
+                    .css_classes(vec!["input_field"])
+                    .active(false)
+                    .build();
+
+                list_box.append(&no_commit);
+
+                let response = alert(ConfirmWithOptions(
+                    "Cherry pick commit?".to_string(),
+                    format!("{}", oid),
+                    list_box.into(),
+                ))
+                    .choose_future(&window)
+                    .await;
+                if response != YES {
+                    return;
+                }
+                gio::spawn_blocking({
+                    let sender = sender.clone();
+                    let path = path.clone();
+                    let is_active = no_commit.is_active();
+                    move || git_commit::cherry_pick(path, oid, None, None, is_active, sender)
+                })
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(&window);
+                        Ok(())
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(&window);
+                    });
             }
         });
     }
