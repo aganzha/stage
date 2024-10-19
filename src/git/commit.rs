@@ -233,6 +233,7 @@ pub fn cherry_pick(
     oid: git2::Oid,
     file_path: Option<PathBuf>,
     _hunk_header: Option<String>,
+    nocommit: bool,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
@@ -244,13 +245,26 @@ pub fn cherry_pick(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
 
-    let mut cherry_pick_options = git2::CherrypickOptions::new();
-    if let Some(file_path) = file_path {
+    // cherry without commit
+    if nocommit {
+        let head_ref = repo.head()?;
+        let ob = head_ref.peel(git2::ObjectType::Commit)?;
+        let our_commit = ob.peel_to_commit()?;
+        let mut memory_index = repo.cherrypick_commit(&commit, &our_commit, 0, None)?;
         let mut cb = git2::build::CheckoutBuilder::new();
-        cb.path(file_path);
-        cherry_pick_options.checkout_builder(cb);
-    };
-    repo.cherrypick(&commit, Some(&mut cherry_pick_options))?;
+        if let Some(file_path) = file_path {
+            cb.path(file_path);            
+        };    
+        repo.checkout_index(Some(&mut memory_index), Some(&mut cb))?;
+    } else {
+        let mut cherry_pick_options = git2::CherrypickOptions::new();
+        if let Some(file_path) = file_path {
+            let mut cb = git2::build::CheckoutBuilder::new();
+            cb.path(file_path);
+            cherry_pick_options.checkout_builder(cb);
+        };
+        repo.cherrypick(&commit, Some(&mut cherry_pick_options))?;
+    }    
     Ok(())
 }
 

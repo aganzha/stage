@@ -52,6 +52,9 @@ pub trait AlertConversation {
     fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
         vec![(CLOSE, CLOSE, ResponseAppearance::Destructive)]
     }
+    fn extra_child_height(&self) -> Option<i32> {
+        None
+    }
 }
 
 impl AlertConversation for git2::Error {
@@ -116,6 +119,9 @@ impl AlertConversation for RemoteResponse {
         }
         None
     }
+    fn extra_child_height(&self) -> Option<i32> {
+        Some(480)
+    }
 }
 #[derive(Default, Clone)]
 pub struct DangerDialog(pub String, pub String);
@@ -137,6 +143,7 @@ impl AlertConversation for DangerDialog {
 
 #[derive(Default, Clone)]
 pub struct ConfirmDialog(pub String, pub String);
+
 impl AlertConversation for ConfirmDialog {
     fn heading_and_message(&self) -> (String, String) {
         (self.0.to_string(), self.1.to_string())
@@ -149,23 +156,40 @@ impl AlertConversation for ConfirmDialog {
     }
 }
 
+#[derive(Clone)]
+pub struct ConfirmWithOptions(pub String, pub String, pub Widget);
+
+impl AlertConversation for ConfirmWithOptions {
+    fn heading_and_message(&self) -> (String, String) {
+        (self.0.to_string(), self.1.to_string())
+    }
+    fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
+        vec![
+            (NO, NO, ResponseAppearance::Default),
+            (YES, YES, ResponseAppearance::Suggested),
+        ]
+    }
+    fn extra_child(&mut self) -> Option<Widget> {
+        Some(self.2.clone())
+    }
+}
+
 pub fn alert<AC>(mut conversation: AC) -> AlertDialog
 where
     AC: AlertConversation,
 {
     let (heading, message) = conversation.heading_and_message();
-    // let body_label = Label::builder()
-    //     .label(message)
-    //     .build();
     let dialog = AlertDialog::builder()
         .heading_use_markup(true)
         .heading(heading)
         .width_request(640)
         .body_use_markup(true)
-        .body(message);
+        .body(&message);
     let dialog = dialog.build();
     if let Some(body) = conversation.extra_child() {
-        dialog.set_height_request(480);
+        if let Some(height) = conversation.extra_child_height() {
+            dialog.set_height_request(height);
+        }
         dialog.set_extra_child(Some(&body));
         let parent = body.parent().unwrap();
         let childs = parent.observe_children();

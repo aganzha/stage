@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::dialogs::{alert, ConfirmDialog, DangerDialog, YES};
+use crate::dialogs::{alert, ConfirmDialog, ConfirmWithOptions, DangerDialog, YES};
 use crate::git::{commit, git_log};
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
@@ -15,9 +15,10 @@ use gtk4::{
     gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick, Image, Label, ListItem,
     ListView, Orientation, PositionType, ScrolledWindow, SearchBar, SearchEntry,
     SignalListItemFactory, SingleSelection, Widget, Window as Gtk4Window,
+    ListBox, SelectionMode
 };
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
+use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window, SwitchRow};
 use log::trace;
 use std::cell::RefCell;
 
@@ -333,9 +334,22 @@ impl CommitList {
             let window = window.clone();
             let oid = self.get_selected_oid();
             async move {
-                let response = alert(ConfirmDialog(
+                let list_box = ListBox::builder()
+                    .selection_mode(SelectionMode::None)
+                    .css_classes(vec![String::from("boxed-list")])
+                    .build();
+                let no_commit = SwitchRow::builder()
+                .title("Only apply changes without commit")
+                .css_classes(vec!["input_field"])
+                .active(false)
+                .build();
+
+                list_box.append(&no_commit);
+
+                let response = alert(ConfirmWithOptions(
                     "Cherry pick commit?".to_string(),
                     format!("{}", oid),
+                    list_box.into()
                 ))
                 .choose_future(&window)
                 .await;
@@ -345,7 +359,8 @@ impl CommitList {
                 gio::spawn_blocking({
                     let sender = sender.clone();
                     let path = path.clone();
-                    move || commit::cherry_pick(path, oid, None, None, sender)
+                    let is_active = no_commit.is_active();
+                    move || commit::cherry_pick(path, oid, None, None, is_active, sender)
                 })
                 .await
                 .unwrap_or_else(|e| {
