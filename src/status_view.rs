@@ -458,7 +458,7 @@ impl Status {
                         ));
                     }
                 }
-                gio::spawn_blocking({ move || remote::pull(path, sender, user_pass) })
+                gio::spawn_blocking(move || remote::pull(path, sender, user_pass))
                     .await
                     .unwrap_or_else(|e| {
                         alert(format!("{:?}", e)).present(&window);
