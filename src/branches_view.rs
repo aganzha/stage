@@ -18,7 +18,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, Clamp, EntryRow, HeaderBar, StyleManager, SwitchRow, ToolbarView, Window,
+    ApplicationWindow, EntryRow, HeaderBar, StyleManager, SwitchRow, ToolbarView, Window,
 };
 
 use log::{debug, info, trace};
@@ -112,7 +112,7 @@ glib::wrapper! {
 }
 
 pub struct SpinnerWrapper {
-    spin: std::boxed::Box<dyn FnMut() -> ()>,
+    spin: std::boxed::Box<dyn FnMut()>,
 }
 
 impl Default for SpinnerWrapper {
@@ -1148,7 +1148,7 @@ pub fn show_branches_window(
             }
         }
     };
-    let mut branch_list = get_branch_list(&list_view);
+    let branch_list = get_branch_list(&list_view);
     branch_list.set_spinner(SpinnerWrapper {
         spin: std::boxed::Box::new(spin),
     });

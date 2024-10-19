@@ -253,8 +253,8 @@ pub fn cherry_pick(
         let mut memory_index = repo.cherrypick_commit(&commit, &our_commit, 0, None)?;
         let mut cb = git2::build::CheckoutBuilder::new();
         if let Some(file_path) = file_path {
-            cb.path(file_path);            
-        };    
+            cb.path(file_path);
+        };
         repo.checkout_index(Some(&mut memory_index), Some(&mut cb))?;
     } else {
         let mut cherry_pick_options = git2::CherrypickOptions::new();
@@ -264,7 +264,7 @@ pub fn cherry_pick(
             cherry_pick_options.checkout_builder(cb);
         };
         repo.cherrypick(&commit, Some(&mut cherry_pick_options))?;
-    }    
+    }
     Ok(())
 }
 
