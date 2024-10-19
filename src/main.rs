@@ -27,8 +27,6 @@ use stashes_view::factory as stashes_view_factory;
 mod commit_view;
 use commit_view::show_commit_window;
 
-mod common;
-use common::cherry_pick;
 use core::time::Duration;
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
@@ -651,18 +649,14 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::CherryPick(oid) => {
                     if let Some(window) = window_stack.borrow().last() {
-                        cherry_pick(
-                            status.path.clone().expect("no path"),
+                        status.cherry_pick(
                             window,
                             oid,
-                            sender.clone(),
                         )
                     } else {
-                        cherry_pick(
-                            status.path.clone().expect("no path"),
+                        status.cherry_pick(
                             &window,
                             oid,
-                            sender.clone(),
                         )
                     }
                 }
