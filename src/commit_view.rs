@@ -89,13 +89,6 @@ pub fn headerbar_factory(
                 sender
                     .send_blocking(crate::Event::CherryPick(oid, None, None))
                     .expect("cant send through channel");
-                // glib::spawn_future_local({
-                //     git_oid_op(
-                //         ConfirmDialog("Cherry pick commit?".to_string(), format!("{}", oid)),
-                //         window,
-                //         move || commit::cherry_pick(path, oid, None, None, false, sender),
-                //     )
-                // });
             }
         }
     });
@@ -492,14 +485,6 @@ pub fn show_commit_window(
                                                     )
                                                 } else {
                                                     Ok(())
-                                                    // commit::cherry_pick(
-                                                    //     path,
-                                                    //     oid,
-                                                    //     file_path,
-                                                    //     hunk_header,
-                                                    //     false,
-                                                    //     sender,
-                                                    // )
                                                 }
                                             }
                                             _ => commit::revert(
