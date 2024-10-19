@@ -12,14 +12,15 @@ use glib::{clone, closure, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, Button, EventControllerKey, Image, Label, ListBox, ListHeader,
-    ListItem, ListView, Orientation, ScrolledWindow, SearchBar, SearchEntry, SectionModel,
-    SelectionMode, SignalListItemFactory, SingleSelection, Spinner, Widget,
+    gdk, gio, glib, pango, Align, Box, Button, EventControllerKey, Image, Label, ListBox,
+    ListHeader, ListItem, ListView, Orientation, ScrolledWindow, SearchBar, SearchEntry,
+    SectionModel, SelectionMode, SignalListItemFactory, SingleSelection, Spinner, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, EntryRow, HeaderBar, StyleManager, SwitchRow, ToolbarView, Window,
+    ApplicationWindow, Clamp, EntryRow, HeaderBar, StyleManager, SwitchRow, ToolbarView, Window,
 };
+
 use log::{debug, info, trace};
 use std::path::PathBuf;
 
@@ -110,18 +111,14 @@ glib::wrapper! {
         @implements gio::ListModel, SectionModel; // , FilterListModel
 }
 
-pub struct Progress {
-    callable: std::boxed::Box<dyn FnMut() -> ()>,
+pub struct SpinnerWrapper {
+    spin: std::boxed::Box<dyn FnMut() -> ()>,
 }
 
-// pub struct Progress<F> where F: FnMut()->() {
-//     callable: F
-// }
-
-impl Default for Progress {
+impl Default for SpinnerWrapper {
     fn default() -> Self {
-        Progress {
-            callable: std::boxed::Box::new(|| {}),
+        SpinnerWrapper {
+            spin: std::boxed::Box::new(|| {}),
         }
     }
 }
@@ -144,7 +141,7 @@ mod branch_list {
         #[property(get, set)]
         pub selected_pos: RefCell<u32>,
 
-        pub progress: RefCell<super::Progress>,
+        pub spinner: RefCell<super::SpinnerWrapper>,
     }
 
     #[glib::object_subclass]
@@ -202,11 +199,11 @@ impl BranchList {
         Object::builder().build()
     }
 
-    pub fn set_progress(&self, progress: Progress) {
-        self.imp().progress.replace(progress);
+    pub fn set_spinner(&self, spinner: SpinnerWrapper) {
+        self.imp().spinner.replace(spinner);
     }
-    pub fn toggle_progress(&self) {
-        (self.imp().progress.borrow_mut().callable)();
+    pub fn toggle_spinner(&self) {
+        (self.imp().spinner.borrow_mut().spin)();
     }
 
     pub fn search_new(&self, term: String) {
@@ -349,7 +346,7 @@ impl BranchList {
 
     pub fn update_remote(&self, repo_path: PathBuf, window: &Window, sender: Sender<crate::Event>) {
         trace!("update remote!");
-        self.toggle_progress();
+        self.toggle_spinner();
         let le = self.imp().list.borrow().len();
         self.imp().list.borrow_mut().clear();
         self.imp().original_list.borrow_mut().clear();
@@ -360,7 +357,7 @@ impl BranchList {
                 let _ = gio::spawn_blocking(move || {
                     remote::update_remote(repo_path, sender, None)
                 }).await;
-                branch_list.toggle_progress();
+                branch_list.toggle_spinner();
                 branch_list.get_branches(path, None, &window);
             })
         });
@@ -694,9 +691,9 @@ pub fn item_factory() -> SignalListItemFactory {
     factory.connect_setup(move |_, list_item| {
         let image = Image::new();
         image.set_margin_top(4);
-        let spinner = Spinner::new();
-        spinner.set_visible(false);
-        // spinner.set_spinning(true);
+        // let spinner = Spinner::new();
+        // spinner.set_visible(false);
+
         let label_title = Label::builder()
             .label("")
             .lines(1)
@@ -749,7 +746,7 @@ pub fn item_factory() -> SignalListItemFactory {
             .focusable(true)
             .build();
         bx.append(&image);
-        bx.append(&spinner);
+        // bx.append(&spinner);
         bx.append(&label_title);
         bx.append(&label_commit);
         bx.append(&label_dt);
@@ -1107,39 +1104,44 @@ pub fn show_branches_window(
 
     let hb = headerbar_factory(repo_path.clone(), &list_view, &window, sender.clone());
 
-    let spinner = Spinner::new();
+    let spinner = Spinner::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .vexpand_set(true)
+        .hexpand_set(true)
+        .halign(Align::Center)
+        .valign(Align::Center)
+        .margin_bottom(32)
+        .height_request(128)
+        .width_request(128)
+        .build();
+
+    let spinner_box = Box::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .vexpand_set(true)
+        .hexpand_set(true)
+        .halign(Align::Center)
+        .valign(Align::Center)
+        .orientation(Orientation::Vertical)
+        .build();
+    let spinner_label = Label::new(Some("Updating remote branches"));
+    spinner_box.append(&spinner);
+    spinner_box.append(&spinner_label);
+
     spinner.start();
     scroll.set_child(Some(&list_view));
 
-    // let action_progress = gio::SimpleAction::new("progress", Some(glib::VariantTy::STRING)); //
-    // action_progress.connect_activate({
-    //     let list_view = list_view.clone();
-    //     let spinner = spinner.clone();
-    //     let scroll = scroll.clone();
-    //     let mut progress = false;
-    //     move |_, _| {
-    //         progress = !progress;
-    //         if progress {
-    //             spinner.start();
-    //             scroll.set_child(Some(&spinner));
-    //         } else {
-    //             spinner.stop();
-    //             scroll.set_child(Some(&list_view));
-    //         }
-
-    //     }
-    // });
-    // window.add_action(&action_progress);
-    let progress = {
+    let spin = {
         let list_view = list_view.clone();
         let spinner = spinner.clone();
         let scroll = scroll.clone();
-        let mut progress = false;
+        let mut spinning = false;
         move || {
-            progress = !progress;
-            if progress {
+            spinning = !spinning;
+            if spinning {
                 spinner.start();
-                scroll.set_child(Some(&spinner));
+                scroll.set_child(Some(&spinner_box));
             } else {
                 spinner.stop();
                 scroll.set_child(Some(&list_view));
@@ -1147,10 +1149,9 @@ pub fn show_branches_window(
         }
     };
     let mut branch_list = get_branch_list(&list_view);
-    branch_list.set_progress(Progress {
-        callable: std::boxed::Box::new(progress),
+    branch_list.set_spinner(SpinnerWrapper {
+        spin: std::boxed::Box::new(spin),
     });
-    // branch_list.imp().progress = Progress{callable: std::boxed::Box::new(progress)};
 
     let tb = ToolbarView::builder().content(&scroll).build();
     tb.add_top_bar(&hb);
