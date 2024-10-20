@@ -183,7 +183,7 @@ pub trait ViewContainer {
                 // self.apply_tags(buffer, context);
             }
             ViewState::TagsModified => {
-                todo!("whats the case?");
+                // todo!("whats the case?");
                 trace!("..render MATCH TagsModified {:?}", line_no);
                 // moved to cursor
                 // self.apply_tags(buffer, context);

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::dialogs::{alert, ConfirmDialog, ConfirmWithOptions, DangerDialog, YES};
+use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{commit, git_log};
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
@@ -12,12 +12,11 @@ use glib::{clone, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick, Image, Label, ListBox,
-    ListItem, ListView, Orientation, PositionType, ScrolledWindow, SearchBar, SearchEntry,
-    SelectionMode, SignalListItemFactory, SingleSelection, Widget, Window as Gtk4Window,
+    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick, Image, Label,
+    ListItem, ListView, Orientation, PositionType, ScrolledWindow, SearchBar, SearchEntry, SignalListItemFactory, SingleSelection, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, StyleManager, SwitchRow, ToolbarView, Window};
+use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
 use log::trace;
 use std::cell::RefCell;
 
@@ -319,44 +318,6 @@ impl CommitList {
         let commit_item = item.downcast_ref::<CommitItem>().unwrap();
         let oid = commit_item.imp().commit.borrow().oid;
         oid
-    }
-
-    pub fn revert(
-        &self,
-        repo_path: PathBuf,
-        window: &impl IsA<Widget>,
-        sender: Sender<crate::Event>,
-    ) {
-        glib::spawn_future_local({
-            let sender = sender.clone();
-            let path = repo_path.clone();
-            let window = window.clone();
-            let oid = self.get_selected_oid();
-            async move {
-                let response = alert(ConfirmDialog(
-                    "Revert commit?".to_string(),
-                    format!("{}", oid),
-                ))
-                .choose_future(&window)
-                .await;
-                if response != YES {
-                    return;
-                }
-                gio::spawn_blocking({
-                    let sender = sender.clone();
-                    let path = path.clone();
-                    move || commit::revert(path, oid, None, None, sender)
-                })
-                .await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
-                    Ok(())
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(&window);
-                });
-            }
-        });
     }
 
     pub fn reset_hard(
@@ -695,6 +656,7 @@ pub fn headerbar_factory(
             sender
                 .send_blocking(crate::Event::CherryPick(
                     commit_list.get_selected_oid(),
+                    false,
                     None,
                     None,
                 ))
@@ -715,7 +677,14 @@ pub fn headerbar_factory(
         let window = window.clone();
         let commit_list = commit_list.clone();
         move |_btn| {
-            commit_list.revert(path.clone(), &window, sender.clone());
+            sender
+                .send_blocking(crate::Event::CherryPick(
+                    commit_list.get_selected_oid(),
+                    true,
+                    None,
+                    None,
+                ))
+                .expect("cant send through channel");
         }
     });
 
@@ -829,22 +798,21 @@ pub fn show_log_window(
                     main_sender
                         .send_blocking(crate::Event::CherryPick(
                             get_commit_list(&list_view).get_selected_oid(),
+                            false,
                             None,
                             None,
                         ))
                         .expect("cant send through channel");
-                    // get_commit_list(&list_view).cherry_pick(
-                    //     repo_path.clone(),
-                    //     &window,
-                    //     main_sender.clone(),
-                    // );
                 }
                 (gdk::Key::r, _) => {
-                    get_commit_list(&list_view).revert(
-                        repo_path.clone(),
-                        &window,
-                        main_sender.clone(),
-                    );
+                    main_sender
+                        .send_blocking(crate::Event::CherryPick(
+                            get_commit_list(&list_view).get_selected_oid(),
+                            true,
+                            None,
+                            None,
+                        ))
+                        .expect("cant send through channel");
                 }
                 (key, modifier) => {
                     trace!("key pressed {:?} {:?}", key, modifier);

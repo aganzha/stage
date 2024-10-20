@@ -4,8 +4,8 @@
 
 use async_channel::Sender;
 
-use crate::dialogs::{alert, ConfirmDialog, YES};
-use crate::git::{branch, commit, merge, rebase, remote};
+use crate::dialogs::alert;
+use crate::git::{branch, merge, rebase, remote};
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use git2::BranchType;
 use glib::{clone, closure, Object};
@@ -1165,7 +1165,7 @@ pub fn show_branches_window(
                     let (_current_branch, selected_branch) = branches_in_use(&list_view);
                     let oid = selected_branch.oid;
                     sender
-                        .send_blocking(crate::Event::CherryPick(oid, None, None))
+                        .send_blocking(crate::Event::CherryPick(oid, false, None, None))
                         .expect("cant send through sender");
                 }
                 (gdk::Key::u, _) => {

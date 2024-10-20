@@ -7,6 +7,7 @@ use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use git2;
 use gtk4::gio;
+use log::info;
 use std::path::PathBuf;
 
 pub trait CommitRepr {
@@ -228,14 +229,19 @@ pub fn create(
     Ok(())
 }
 
-pub fn cherry_pick(
+pub fn apply(
     path: PathBuf,
     oid: git2::Oid,
+    revert: bool,
     file_path: Option<PathBuf>,
     _hunk_header: Option<String>,
     nocommit: bool,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
+    info!(
+        "git apply commit {:?} {:?} {:?} {:?}",
+        oid, revert, file_path, nocommit
+    );
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
 
     let repo = git2::Repository::open(path.clone())?;
@@ -245,51 +251,40 @@ pub fn cherry_pick(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
 
-    // cherry without commit
     if nocommit {
         let head_ref = repo.head()?;
         let ob = head_ref.peel(git2::ObjectType::Commit)?;
         let our_commit = ob.peel_to_commit()?;
-        let mut memory_index = repo.cherrypick_commit(&commit, &our_commit, 0, None)?;
+        let mut memory_index = if revert {
+            repo.revert_commit(&commit, &our_commit, 0, None)?
+        } else {
+            repo.cherrypick_commit(&commit, &our_commit, 0, None)?
+        };
         let mut cb = git2::build::CheckoutBuilder::new();
         if let Some(file_path) = file_path {
             cb.path(file_path);
         };
         repo.checkout_index(Some(&mut memory_index), Some(&mut cb))?;
     } else {
-        let mut cherry_pick_options = git2::CherrypickOptions::new();
+        let mut cb: Option<git2::build::CheckoutBuilder> = None;
         if let Some(file_path) = file_path {
-            let mut cb = git2::build::CheckoutBuilder::new();
-            cb.path(file_path);
-            cherry_pick_options.checkout_builder(cb);
+            let mut cbuilder = git2::build::CheckoutBuilder::new();
+            cbuilder.path(file_path);
+            cb = Some(cbuilder)
         };
-        repo.cherrypick(&commit, Some(&mut cherry_pick_options))?;
+        if revert {
+            let mut opts = git2::RevertOptions::new();
+            if let Some(cb) = cb {
+                opts.checkout_builder(cb);
+            }
+            repo.revert(&commit, Some(&mut opts))?;
+        } else {
+            let mut opts = git2::CherrypickOptions::new();
+            if let Some(cb) = cb {
+                opts.checkout_builder(cb);
+            }
+            repo.cherrypick(&commit, Some(&mut opts))?;
+        }
     }
-    Ok(())
-}
-
-pub fn revert(
-    path: PathBuf,
-    oid: git2::Oid,
-    file_path: Option<PathBuf>,
-    _hunk_header: Option<String>,
-    sender: Sender<crate::Event>,
-) -> Result<(), git2::Error> {
-    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
-    let repo = git2::Repository::open(path.clone())?;
-    let commit = repo.find_commit(oid)?;
-
-    let mut revert_options = git2::RevertOptions::new();
-    if let Some(file_path) = file_path {
-        let mut cb = git2::build::CheckoutBuilder::new();
-        cb.path(file_path);
-        revert_options.checkout_builder(cb);
-    };
-    sender
-        .send_blocking(crate::Event::LockMonitors(true))
-        .expect("can send through channel");
-
-    repo.revert(&commit, Some(&mut revert_options))?;
-
     Ok(())
 }
