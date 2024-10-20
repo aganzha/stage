@@ -19,8 +19,8 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::dialogs::{alert, confirm_dialog_factory, ConfirmDialog, DangerDialog, YES};
-use crate::git::{commit, tag};
+use crate::dialogs::{alert, confirm_dialog_factory, DangerDialog, YES};
+use crate::git::tag;
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use log::{debug, trace};
 
@@ -480,44 +480,6 @@ impl TagList {
         self.items_changed(0, 0, 1);
     }
 
-    pub fn revert(
-        &self,
-        repo_path: PathBuf,
-        window: &impl IsA<Widget>,
-        sender: Sender<crate::Event>,
-    ) {
-        glib::spawn_future_local({
-            let sender = sender.clone();
-            let path = repo_path.clone();
-            let window = window.clone();
-            let oid = self.get_selected_commit_oid();
-            async move {
-                let response = alert(ConfirmDialog(
-                    "Revert commit?".to_string(),
-                    format!("{}", oid),
-                ))
-                .choose_future(&window)
-                .await;
-                if response != YES {
-                    return;
-                }
-                gio::spawn_blocking({
-                    let sender = sender.clone();
-                    let path = path.clone();
-                    move || commit::revert(path, oid, None, None, sender)
-                })
-                .await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
-                    Ok(())
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(&window);
-                });
-            }
-        });
-    }
-
     pub fn reset_hard(
         &self,
         repo_path: PathBuf,
@@ -828,6 +790,7 @@ pub fn headerbar_factory(
             sender
                 .send_blocking(crate::Event::CherryPick(
                     tag_list.get_selected_commit_oid(),
+                    false,
                     None,
                     None,
                 ))
@@ -848,7 +811,14 @@ pub fn headerbar_factory(
         let window = window.clone();
         let tag_list = tag_list.clone();
         move |_btn| {
-            tag_list.revert(path.clone(), &window, sender.clone());
+            sender
+                .send_blocking(crate::Event::CherryPick(
+                    tag_list.get_selected_commit_oid(),
+                    true,
+                    None,
+                    None,
+                ))
+                .expect("cant send through channel");
         }
     });
 

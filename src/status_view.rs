@@ -18,7 +18,7 @@ use crate::git::{
 };
 
 use core::time::Duration;
-use git2::{Oid, RepositoryState};
+use git2::RepositoryState;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -1491,6 +1491,7 @@ impl Status {
         &self,
         window: &impl IsA<Widget>,
         oid: git2::Oid,
+        revert: bool,
         file_path: Option<PathBuf>,
         hunk_header: Option<String>,
     ) {
@@ -1512,7 +1513,7 @@ impl Status {
                 list_box.append(&no_commit);
 
                 let response = alert(ConfirmWithOptions(
-                    "Cherry pick commit?".to_string(),
+                    format!("{} commit?", if revert { "Revert" } else { "Cherry pick" }),
                     format!("{}", oid),
                     list_box.into(),
                 ))
@@ -1526,9 +1527,10 @@ impl Status {
                     let path = path.clone();
                     let is_active = no_commit.is_active();
                     move || {
-                        git_commit::cherry_pick(
+                        git_commit::apply(
                             path,
                             oid,
+                            revert,
                             file_path,
                             hunk_header,
                             is_active,

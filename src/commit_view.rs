@@ -87,7 +87,7 @@ pub fn headerbar_factory(
                 });
             } else {
                 sender
-                    .send_blocking(crate::Event::CherryPick(oid, None, None))
+                    .send_blocking(crate::Event::CherryPick(oid, false, None, None))
                     .expect("cant send through channel");
             }
         }
@@ -103,18 +103,10 @@ pub fn headerbar_factory(
             .build();
 
         revert_btn.connect_clicked({
-            let window = window.clone();
             move |_| {
-                let sender = sender.clone();
-                let path = repo_path.clone();
-                let window = window.clone();
-                glib::spawn_future_local({
-                    git_oid_op(
-                        ConfirmDialog("Revert commit?".to_string(), "".to_string()),
-                        window,
-                        move || commit::revert(path, oid, None, None, sender),
-                    )
-                });
+                sender
+                    .send_blocking(crate::Event::CherryPick(oid, true, None, None))
+                    .expect("cant send through channel");
             }
         });
         hb.pack_end(&revert_btn);
@@ -456,13 +448,24 @@ pub fn show_commit_window(
                                         main_sender
                                             .send_blocking(crate::Event::CherryPick(
                                                 oid,
+                                                false,
                                                 file_path.clone(),
                                                 hunk_header.clone(),
                                             ))
                                             .expect("cant send through channel");
                                     }
                                 }
-                                _ => {}
+                                _ => {
+                                    cherry_pick_handled = true;
+                                    main_sender
+                                        .send_blocking(crate::Event::CherryPick(
+                                            oid,
+                                            true,
+                                            file_path.clone(),
+                                            hunk_header.clone(),
+                                        ))
+                                        .expect("cant send through channel");
+                                }
                             }
                             // temporary untill revert is not going via main event loop
                             if !cherry_pick_handled {
@@ -487,13 +490,7 @@ pub fn show_commit_window(
                                                     Ok(())
                                                 }
                                             }
-                                            _ => commit::revert(
-                                                path,
-                                                oid,
-                                                file_path,
-                                                hunk_header,
-                                                sender,
-                                            ),
+                                            _ => Ok(()),
                                         },
                                     )
                                 });
