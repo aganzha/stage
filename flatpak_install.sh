@@ -1,2 +1,2 @@
 #!/bin/bash
-flatpak -u install ./flatpak_target com.github.aganzha.stage
+flatpak -u install ./flatpak_target io.github.aganzha.Stage
