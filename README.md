@@ -14,7 +14,7 @@ flatpak install -u https://github.com/aganzha/stage/raw/master/stage.flatpakref
 flatpak run io.github.aganzha.Stage
 ```
 > [!NOTE]
-> Stage will watch your repository for changes and display them as diff welcoming you to stage and commit  them.
+> Stage will watch your repository for changes and display them as diff for commit
 
 ### Staging
 
@@ -30,7 +30,6 @@ flatpak run io.github.aganzha.Stage
 ### Commit/Push/Pull
 - **Commit** hit `C` or ![Push button](./icons/emblem-shared-symbolic.svg)
 
-</p>
 ### Stash
 ### Log
 ### Cherry-pick/Revert
