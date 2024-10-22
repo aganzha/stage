@@ -162,7 +162,7 @@ impl MultiLineLabel {
                             acc.push(' ');
                         }
                     } else {
-                        trace!("words are over! push last label! {:?}", acc);
+                        trace!("completed internal loop. acc: {:?}", acc);
                         self.labels
                             .push(TextViewLabel::from_string(&acc.replace('\n', "")));
                         acc = String::from("");
