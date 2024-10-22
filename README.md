@@ -27,16 +27,12 @@ flatpak run io.github.aganzha.Stage
 - **Kill** unstaged changes by pressing `K` while cursor is on unstaged items.
 
 
-
 ### Commit/Push/Pull
-### Branches
-#### Merging
-##### Resolving conflicts
-#### Rebasing
+- **Commit** hit `C` or !(./icons/emblem-shared-symbolic.svg)
+
+</p>
 ### Stash
 ### Log
-### Cherry-picking
-### Reverting
-
-## Acknowledgments
-Stage is created thanks to the existence of many projects, organisations and software developers contributing to open source world.
+### Cherry-pick/Revert
+### Branches
+##### Resolving conflicts
