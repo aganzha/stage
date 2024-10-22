@@ -18,7 +18,7 @@ flatpak run io.github.aganzha.Stage
 
 ### Staging
 
-- **Expand/collapse** underlying files and hunks by pressing `TAB` or `SPACE` or `clicking` expandanle items on screen.
+- **Expand/collapse** underlying files and hunks by pressing `TAB` or `SPACE` or `clicking` expandable items on screen.
 
 - **Stage** selected files or hunks or all changes by pressing `ENTER` or `S` or `double clicking` items on screen
 
