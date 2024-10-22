@@ -148,11 +148,13 @@ pub fn get_commit_diff(path: PathBuf, oid: git2::Oid) -> Result<CommitDiff, git2
     let repo = git2::Repository::open(path)?;
     let commit = repo.find_commit(oid)?;
     let tree = commit.tree()?;
-    let parent = commit.parent(0)?;
-
-    let parent_tree = parent.tree()?;
+    let mut parent_tree: Option<git2::Tree> = None;
+    if let Ok(parent) = commit.parent(0) {
+        let tree = parent.tree()?;
+        parent_tree.replace(tree);
+    }
     let git_diff = repo.diff_tree_to_tree(
-        Some(&parent_tree),
+        parent_tree.as_ref(),
         Some(&tree),
         Some(&mut make_diff_options()),
     )?;
