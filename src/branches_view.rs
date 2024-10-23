@@ -825,13 +825,6 @@ pub fn listview_factory(
         let repo_path = repo_path.clone();
         let window = window.clone();
         move |lv: &ListView, _pos: u32| {
-            // let root = lv.root().unwrap();
-            // let window = root.downcast_ref::<Window>().unwrap();
-            // let selection_model = lv.model().unwrap();
-            // let single_selection =
-            //     selection_model.downcast_ref::<SingleSelection>().unwrap();
-            // let list_model = single_selection.model().unwrap();
-            // let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
             let branch_list = get_branch_list(lv);
             branch_list.checkout(repo_path.clone(), &window, sender.clone());
         }
