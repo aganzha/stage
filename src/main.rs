@@ -169,7 +169,6 @@ fn zoom(dir: bool) {
     let display = Display::default().expect("Could not connect to a display.");
     let settings = Settings::for_display(&display);
     let font = settings.gtk_font_name().expect("cant get font");
-    // "Cantarell 21"
     let re = Regex::new(r".+ ([0-9]+)").expect("fail in regexp");
     if let Some((_whole, [size])) = re.captures_iter(&font).map(|c| c.extract()).next() {
         let mut int_size = size.parse::<i32>().expect("cant parse size");
@@ -218,7 +217,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 None
             }
         }),
-        // settings.clone(),
         sender.clone(),
     );
 
@@ -226,7 +224,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         .application(app)
         .default_width(1280)
         .default_height(480)
-        //.css_classes(vec!["devel"])
         .build();
 
     let action_close = gio::SimpleAction::new("close", None);
@@ -235,7 +232,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     }));
     window.add_action(&action_close);
 
-    let action_open = gio::SimpleAction::new("open", Some(glib::VariantTy::STRING)); //
+    let action_open = gio::SimpleAction::new("open", Some(glib::VariantTy::STRING));
     action_open.connect_activate(clone!(@strong sender => move |_, chosen_path| {
         if let Some(path) = chosen_path {
             let path:String = path.get().expect("cant get path from gvariant");
@@ -247,9 +244,8 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone()); // TODO! remove/
+    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone());
 
-    // what about changing color_scheme from gnome settings?
     let txt = stage_factory(sender.clone(), "status_view");
 
     let scroll = ScrolledWindow::builder()
@@ -280,7 +276,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     let toast_lock: Rc<Cell<bool>> = Rc::new(Cell::new(false));
 
     let toast_overlay = ToastOverlay::new();
-    toast_overlay.set_child(Some(&bx)); // scroll bs bx
+    toast_overlay.set_child(Some(&bx));
 
     let split = OverlaySplitView::builder()
         .content(&toast_overlay)
@@ -304,7 +300,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
-            // context is updated on every render
             let mut ctx = StatusRenderContext::new();
 
             match event {
@@ -352,20 +347,10 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Dump => {
                     info!("Dump");
-                    // status.dump(&txt, &mut ctx);
                 }
                 Event::Debug => {
                     info!("Debug");
                     status.debug(&txt, &mut ctx);
-                    // let new_snapshot = Snapshot::new();
-                    // new_snapshot.append_color(
-                    //     &gdk::RGBA::new(0.0, 0.0, 0.0, 1.0),
-                    //     &graphene::Rect::new(0.0, 0.0, 100.0, 100.0)
-                    // );
-                    // new_snapshot.pop();
-                    // scroll.snapshot_child(&txt, &new_snapshot);
-                    // txt.snapshot_layer();
-                    // info!("meeeeeeeeeeeeeeeeeeeeeeeeeeee");
                 }
                 Event::Commit => {
                     info!("main.commit");
@@ -498,10 +483,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Conflicted(odiff, ostate) => {
                     info!("Conflicted");
-                    // hb_updater(HbUpdateData::Staged(!d.files.is_empty()));
-                    // if let Some(state) = ostate {
-                    //     status.update_state(state, &txt, &mut ctx);
-                    // }
                     status.update_conflicted(
                         odiff,
                         ostate,
@@ -644,8 +625,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     status.push(&window, Some((remote, tracking, true)))
                 }
                 Event::PullUserPass => {
-                    // does it used? yes.
-                    // just pulling via ssh.
                     info!("main. userpass");
                     status.pull(&window, Some(true))
                 }
@@ -672,8 +651,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     }
                 }
             };
-            // no way. it need to choose in each place...
-            // status.choose_cursor_position(&txt, &mut ctx);
         }
     });
 }
