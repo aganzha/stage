@@ -38,13 +38,6 @@ pub fn make_diff_options() -> DiffOptions {
     let mut opts = DiffOptions::new();
     opts.indent_heuristic(true);
     opts.minimal(true);
-    // fo conflicts, when the conflict size is large
-    // git will make only the shor hunk for <<<< HEAD
-    // not full one. perhaps it need to increate that position
-    // to something big. actually it must be larger
-    // line count between <<<< and =========
-
-    // opts.interhunk_lines(3); // try to put 0 here
     opts
 }
 
@@ -423,7 +416,6 @@ impl File {
         Self {
             view: View::new(),
             path: PathBuf::new(),
-            // id: Oid::zero(),
             hunks: Vec::new(),
             kind,
             status: Delta::Unmodified,
@@ -435,7 +427,6 @@ impl File {
         File {
             view: View::new(),
             path,
-            // id: f.id(),
             hunks: Vec::new(),
             kind,
             status,
@@ -824,7 +815,7 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Option<Diff> 
     // so, when file is in conflict during merge, this means nothing
     // was staged to that file, cause merging in such state is PROHIBITED!
 
-    // what is important here: all conflicts hunks must accomodate
+    // what is important here: all conflicts hunks must accommodate
     // both side: ours and theirs. if those come separated everything
     // will be broken!
     info!(".........get_conflicted_v1");
@@ -832,8 +823,7 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Option<Diff> 
     let index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
     let mut opts = make_diff_options();
-    // 6 - for 3 context lines in eacj hunk?
-    // opts.interhunk_lines(interhunk.unwrap_or(10));
+
     if let Some(interhunk) = interhunk {
         opts.interhunk_lines(interhunk);
     }
@@ -859,7 +849,7 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Option<Diff> 
     if diff.is_empty() {
         return None;
     }
-    // if intehunk in unknown it need to check missing hunks
+    // if intehunk is unknown it need to check missing hunks
     // (either ours or theirs could go to separate hunk)
     // and recreate diff to accomodate both ours and theirs in single hunk
     if let Some(interhunk) = interhunk {
@@ -988,9 +978,6 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                 DiffKind::Conflicted => {
                     todo!("delta added in conflicted {:?}", diff_delta)
                 }
-                // DiffKind::Commit => {
-                //     todo!("delta added in commit {:?}", diff_delta)
-                // }
                 DiffKind::Untracked => {
                     panic!("untracked is not used with git diffs")
                 }
@@ -1149,7 +1136,6 @@ pub fn stage_via_apply(
         if let Some(file_path) = &file_path {
             if let Some(dd) = odd {
                 let path: PathBuf = dd.new_file().path().unwrap().into();
-                debug!("and the answer is.............. {:?}", file_path == &path);
                 return file_path == &path;
             }
         }
@@ -1274,40 +1260,9 @@ pub fn track_changes(
         .into_os_string()
         .into_string()
         .expect("wrong path");
-    // lets do it from statuses!
+    
     let mut status_opts = StatusOptions::new();
     status_opts.include_unmodified(false);
-    // let mut is_tracked = false;
-
-    // this is required for case, when file is tracked, and
-    // it is rendered in Unstaged, but its content was reset to tree version.
-    // in such case it need to cleanup Unstaged alltogether!
-    // let mut has_other_modified = false;
-    // for status_entry in &repo
-    //     .statuses(Some(&mut status_opts))
-    //     .expect("cant get statuses")
-    // {
-    //     let path = status_entry.path().expect("no path");
-    //     if status_entry.status() == Status::WT_MODIFIED {
-    //         if path == file_path {
-    //             is_tracked = true;
-    //         } else {
-    //             has_other_modified = true;
-    //         }
-    //     }
-    // }
-    // if !is_tracked {
-    //     // perhaps file was reset to initial state, but its still need
-    //     // to remove it from unstaged
-    //     for entry in index.iter() {
-    //         let entry_path =
-    //             format!("{}", String::from_utf8_lossy(&entry.path));
-    //         if file_path == entry_path {
-    //             is_tracked = true;
-    //             break;
-    //         }
-    //     }
-    // }
     let mut is_tracked = false;
     for entry in index.iter() {
         if file_path == String::from_utf8_lossy(&entry.path) {
@@ -1353,11 +1308,8 @@ pub fn track_changes(
             .diff_index_to_workdir(Some(&index), Some(&mut opts))
             .expect("cant' get diff index to workdir");
         let diff = make_diff(&git_diff, DiffKind::Unstaged);
-        // to get rid of has_other_modified, perhaps just call
-        // for full unstaged diff???
-        // in another thread :)
+
         if diff.is_empty() {
-            //  && !has_other_modified
             let git_diff = repo
                 .diff_index_to_workdir(None, Some(&mut make_diff_options()))
                 .expect("cant' get diff index to workdir");
