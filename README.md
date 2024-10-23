@@ -16,12 +16,21 @@ flatpak run io.github.aganzha.Stage
 > [!NOTE]
 > Stage will watch your repository for changes and display them as diff for commit
 
+
+<p float="left">
+   <img valign="middle" alt="Stage logo" src="./icons/64x64/io.github.aganzha.Stage.png" width="32">
+   <strong>Stage</strong> -
+   <span>Git GUI client for linux desktops inspired by Magit</span>
+</p>
+
+<div align="center">
 <table width="100%">
   <tr>
-    <td align="center"><strong>Gedit</strong></td>
-    <td align="center"><strong>Stage</strong></td>
+    <td align="center">Editing in Gedit</td>
+    <td align="center">Reflected in Stage</td>
   </tr>
 </table>
+</div>
 
 https://github.com/user-attachments/assets/d3fe0575-7a0a-444c-938a-40af9e75bceb
 
