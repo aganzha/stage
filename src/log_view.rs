@@ -190,7 +190,6 @@ impl CommitList {
             let commit_list = self.clone();
             let repo_path = repo_path.clone();
             let widget = widget.clone();
-            // let (ref term, term_count) = *self.imp().search_term.borrow();
             let (term, term_count) = self.imp().search_term.take();
             let search_term = {
                 if term.is_empty() {
@@ -198,8 +197,6 @@ impl CommitList {
                 } else {
                     // search pull commits 1 by 1. inc counter
                     // to stop that iteration when page size is reached
-                    // self.imp().search_term.borrow_mut().1 = term_count + 1;
-                    // Some(String::from(term))
                     self.imp()
                         .search_term
                         .replace((term.clone(), term_count + 1));
@@ -230,7 +227,7 @@ impl CommitList {
                     alert(e).present(&widget);
                     Vec::new()
                 });
-                // trace!("commits in response {:?}", commits.len());
+
                 if commits.is_empty() {
                     return;
                 }
@@ -253,7 +250,6 @@ impl CommitList {
                     if append_to_existing {
                         if let Some(oid) = start_oid {
                             if item.imp().commit.borrow().oid == oid {
-                                // trace!("skip previously found commit {:?}", oid);
                                 continue;
                             }
                         }
@@ -265,7 +261,6 @@ impl CommitList {
                 if added > 0 {
                     commit_list.items_changed(if list_le > 0 { list_le } else { 0 }, 0, added);
                     // search will return commits 1 by 1
-                    // when got 1 commit and got for another
                     // it need to stop somehow
                     if search_term.is_some()
                         && last_added_oid.is_some()
@@ -357,7 +352,6 @@ impl CommitList {
                 });
                 if result {
                     loop {
-                        // let original = *commit_list.imp().original_list.borrow_mut();
                         let first_oid = commit_list.imp().original_list.borrow()[0].oid;
                         commit_list.imp().original_list.borrow_mut().remove(0);
                         if first_oid == oid {
@@ -368,7 +362,6 @@ impl CommitList {
                         // remove from visual list only if it is not in search
                         let mut removed = 0;
                         loop {
-                            // let original = *commit_list.imp().original_list.borrow_mut();
                             let first_oid = {
                                 let first_item = &commit_list.imp().list.borrow()[0];
                                 let first_oid = first_item.imp().commit.borrow().oid;
@@ -700,7 +693,6 @@ pub fn headerbar_factory(
         .can_shrink(true)
         .build();
     reset_btn.connect_clicked({
-        // let sender = sender.clone();
         let window = window.clone();
         let repo_path = repo_path.clone();
         move |_| {
@@ -714,15 +706,12 @@ pub fn headerbar_factory(
 pub fn show_log_window(
     repo_path: PathBuf,
     app_window: &impl IsA<Gtk4Window>,
-    // app_window: &ApplicationWindow,
     branch_name: String,
     main_sender: Sender<crate::Event>,
     start_oid: Option<Oid>,
 ) -> Window {
-    // let (sender, receiver) = async_channel::unbounded();
 
     let window = Window::builder()
-        //.application(&app_window.application().unwrap())// panic!
         .transient_for(app_window)
         .default_width(640)
         .default_height(480)
