@@ -5,7 +5,6 @@ edition = "2021"
 license = "GPL-3.0-or-later"
 authors = ["Aleksey Ganzha <aganzha@yandex.ru>"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 gtk4 = { version = "0.8.0", features = ["v4_12"] }
