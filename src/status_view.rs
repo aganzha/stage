@@ -200,7 +200,6 @@ pub struct Status {
 
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
-    //pub settings: gio::Settings,
     pub last_op: Option<LastOp>,
     pub cursor_position: Cell<CursorPosition>,
 }
@@ -208,7 +207,6 @@ pub struct Status {
 impl Status {
     pub fn new(
         path: Option<PathBuf>,
-        // settings: gio::Settings,
         sender: Sender<Event>,
     ) -> Self {
         Self {
@@ -227,12 +225,12 @@ impl Status {
             branches: None,
             monitor_global_lock: Rc::new(RefCell::new(false)),
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
-            //settings,
             last_op: None,
             cursor_position: Cell::new(CursorPosition::None),
         }
     }
 
+    // TODO! remove it
     pub fn file_at_cursor(&self) -> Option<&GitFile> {
         for diff in [&self.staged, &self.unstaged, &self.conflicted]
             .into_iter()
@@ -249,6 +247,7 @@ impl Status {
         None
     }
 
+    // TODO! replace in the favour of context
     pub fn editor_args_at_cursor(&self, txt: &StageView) -> Option<(PathBuf, i32, i32)> {
         if let Some(file) = self.file_at_cursor() {
             if file.view.is_current() {
@@ -276,6 +275,7 @@ impl Status {
         None
     }
 
+    // TODO! remove
     pub fn to_abs_path(&self, path: &Path) -> PathBuf {
         let mut base = self.path.clone().unwrap();
         base.pop();
@@ -992,12 +992,6 @@ impl Status {
                     // insert alphabetically
                     let mut ind = 0;
                     for rendered_file in &rendered.files {
-                        debug!(
-                            "________compare files while insert alphabetically {:?} {:?} {:?}",
-                            file.path,
-                            rendered_file.path,
-                            file.path < rendered_file.path
-                        );
                         if file.path.to_str().unwrap() < rendered_file.path.to_str().unwrap() {
                             break;
                         }
@@ -1015,6 +1009,7 @@ impl Status {
         self.render(txt, None, context);
     }
 
+    // TODO! is it still used?
     pub fn resize_highlights<'a>(&'a mut self, txt: &StageView, ctx: &mut StatusRenderContext<'a>) {
         let buffer = txt.buffer();
         let iter = buffer.iter_at_offset(buffer.cursor_position());
@@ -1040,20 +1035,7 @@ impl Status {
         _offset: i32,
         context: &mut StatusRenderContext<'a>,
     ) -> bool {
-        // this is actually needed for views which are not implemented
-        // ViewContainer, and does not affect context!
-        // do i still have such views????
 
-        // thought: so, diff also implements
-        // view container, so yes. no need to do that
-        // (will be done in view container, BUT!)
-        // why it is even possible to do this here???
-        // it must be hidden in such a place, where ONLY
-        // ViewContainer is needed to setup cursor!
-        // context must receive ViewContainer as
-        // argument and use its line_no to store cursor!
-        // it is used only once in resize_highlights for copy!
-        // self.cursor_position.replace(Rc::new(context.cursor_position.clone()));
         let mut changed = false;
         let buffer = txt.buffer();
         if let Some(untracked) = &self.untracked {
@@ -1076,7 +1058,6 @@ impl Status {
         changed
     }
 
-    // Status
     pub fn expand<'a>(
         &'a mut self,
         txt: &StageView,
@@ -1151,18 +1132,11 @@ impl Status {
         let iter = self.choose_cursor_position(&buffer, last_op);
         trace!("__________ chused position {:?}", iter.line());
         buffer.place_cursor(&iter);
-        // hey. here is a cursor kust in the end of render.
-        // do i need after_render at all?
-        // only diff is using after render, cause it sets its own tags.
-        // file is only using it for max_width (no longer used).
-
-        // so, the pyramid:
-        // expand->render->cursor. cursor is last thing called.
+        // WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
     }
 
     pub fn choose_cursor_position(
-        //
         &self,
         buffer: &TextBuffer,
         last_op: Option<LastOp>, // context: &mut StatusRenderContext<'a>,
@@ -1353,67 +1327,6 @@ impl Status {
         false
     }
 
-    // pub fn dump<'a>(
-    //     &'a mut self,
-    //     txt: &StageView,
-    //     context: &mut StatusRenderContext<'a>,
-    // ) {
-    //     let mut path = self.path.clone().unwrap();
-    //     path.push(DUMP_DIR);
-    //     let create_result = std::fs::create_dir(&path);
-    //     match create_result {
-    //         Ok(_) => {}
-    //         Err(err) => {
-    //             if err.kind() != ErrorKind::AlreadyExists {
-    //                 panic!("Error {}", err);
-    //             }
-    //         }
-    //     }
-    //     let datetime: DateTime<Utc> = std::time::SystemTime::now().into();
-    //     let fname = format!("dump_{}.txt", datetime.format("%d_%m_%Y_%T"));
-    //     path.push(fname);
-    //     let mut file = std::fs::File::create(path).unwrap();
-
-    //     let buffer = txt.buffer();
-
-    //     let pos = buffer.cursor_position();
-    //     let iter = buffer.iter_at_offset(pos);
-    //     self.cursor(txt, iter.line(), iter.offset(), context);
-    //     self.render(txt, None, context);
-
-    //     let iter = buffer.iter_at_offset(0);
-    //     let end_iter = buffer.end_iter();
-    //     let content = buffer.text(&iter, &end_iter, true);
-    //     file.write_all(content.as_bytes()).unwrap();
-    //     file.write_all("\n ================================= \n".as_bytes())
-    //         .unwrap();
-    //     file.write_all(format!("context: {:?}", context).as_bytes())
-    //         .unwrap();
-    //     if let Some(conflicted) = &self.conflicted {
-    //         file.write_all(
-    //             "\n ==============Coflicted================= \n".as_bytes(),
-    //         )
-    //         .unwrap();
-    //         file.write_all(conflicted.dump().as_bytes()).unwrap();
-    //     }
-    //     if let Some(unstaged) = &self.unstaged {
-    //         file.write_all(
-    //             "\n ==============UnStaged================= \n".as_bytes(),
-    //         )
-    //         .unwrap();
-    //         file.write_all(unstaged.dump().as_bytes()).unwrap();
-    //     }
-    //     if let Some(staged) = &self.staged {
-    //         file.write_all(
-    //             "\n ==============Staged================= \n".as_bytes(),
-    //         )
-    //         .unwrap();
-    //         file.write_all(staged.dump().as_bytes()).unwrap();
-    //     }
-    //     self.sender
-    //         .send_blocking(Event::Toast(String::from("dumped")))
-    //         .expect("cant send through sender");
-    // }
     pub fn head_oid(&self) -> crate::Oid {
         self.head.as_ref().unwrap().oid
     }
