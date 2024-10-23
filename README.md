@@ -16,6 +16,17 @@ flatpak run io.github.aganzha.Stage
 > [!NOTE]
 > Stage will watch your repository for changes and display them as diff for commit
 
+<table width="100%">
+  <tr>
+    <td align="center"><strong>Gedit</strong></td>
+    <td align="center"><strong>Stage</strong></td>
+  </tr>
+</table>
+<video autoplay="true" playsinline="true" loop="true" muted="true" crossorigin="anonymous">
+  <source type="video/mp4" src="https://www.aganzha.online/demo3.mp4"/>
+</video>
+
+
 ### Staging
 
 - **Expand/collapse** underlying files and hunks by pressing `TAB` or `SPACE` or `clicking` expandable items on screen.
@@ -35,6 +46,7 @@ flatpak run io.github.aganzha.Stage
 ### Stash
 Pressing `Z` or <span><img valign="middle" alt="Push button" src="./icons/sidebar-show-symbolic.svg" width="12"/></span> opens **Stashes panel**
 ### Log
+Pressing `L` opens log view or <span><img valign="middle" alt="Push button" src="./icons/org.gnome.Logs-symbolic.svg" width="12"/></span> opens **Git log view**
 ### Cherry-pick/Revert
 ### Branches
 ##### Resolving conflicts
