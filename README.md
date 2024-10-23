@@ -23,7 +23,7 @@ flatpak run io.github.aganzha.Stage
   </tr>
 </table>
 
-[![Stage demo]](https://www.aganzha.online/demo3.mp4)
+https://www.aganzha.online/demo3.mp4
 
 
 ### Staging
