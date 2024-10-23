@@ -4,41 +4,34 @@
    <span>Git GUI client for linux desktops inspired by Magit</span>
 </p>
 
-## Installation
+## Installing
 ```sh
 flatpak install -u https://github.com/aganzha/stage/raw/master/stage.flatpakref
 ```
 
-## Usage
-Start within your DE via dash, activities, software search etc by typing Stage, or by flatpak:
-
+## Using
 ```sh
 flatpak run io.github.aganzha.Stage
 ```
+> [!NOTE]
+> Stage will watch your repository for changes and display them as diff for commit
 
 ### Staging
 
-Open git repository. Stage will watch for changes and display current repository status in form of Diff.
+- **Expand/collapse** underlying files and hunks by pressing `TAB` or `SPACE` or `clicking` expandable items on screen.
 
-- Expand/collapse underlying files and hunks by pressing TAB or SPACE or clicking expandanle items on screen.
+- **Stage** selected files or hunks or all changes by pressing `ENTER` or `S` or `double clicking` items on screen
 
-- Stage selected files or hunks or all changes by pressing ENTER or S or double clicking items on screen
+- **Unstage** staged changes by pressing `U` or `double clicking` while cursor is on staged items.
 
-- Unstage staged changes by pressing U or double clicking while cursor is on staged items.
-
-- Kill changes by pressing K while cursor is on unstaged items.
-
+- **Kill** unstaged changes by pressing `K` while cursor is on unstaged items.
 
 
 ### Commit/Push/Pull
-### Branches
-#### Merging
-##### Resolving conflicts
-#### Rebasing
+- **Commit** hit `C` or ![Push button](./icons/emblem-shared-symbolic.svg)
+
 ### Stash
 ### Log
-### Cherry-picking
-### Reverting
-
-## Acknowledgments
-Stage is created thanks to the existence of many projects, organisations and software developers contributing to open source world.
+### Cherry-pick/Revert
+### Branches
+##### Resolving conflicts
