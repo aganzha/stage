@@ -258,13 +258,12 @@ impl BranchList {
 
     pub fn checkout(&self, repo_path: PathBuf, window: &Window, sender: Sender<crate::Event>) {
         glib::spawn_future_local({
-            clone!(@weak self as branch_list, @weak window as window => async move { // , @weak selected_item, @weak current_item
+            clone!(@weak self as branch_list, @weak window as window => async move {
                 let selected_pos = branch_list.selected_pos();
                 let selected_item = branch_list.item(selected_pos).unwrap();
                 let selected_item = selected_item.downcast_ref::<BranchItem>().unwrap();
 
                 let branch_data = selected_item.imp().branch.borrow().clone();
-                let local = branch_data.branch_type == BranchType::Local;
                 let new_branch_data = gio::spawn_blocking(move || {
                     branch::checkout_branch(repo_path, branch_data, sender)
                 }).await.unwrap_or_else(|e| {
@@ -280,13 +279,13 @@ impl BranchList {
                     return;
                 }
                 let new_branch_data = new_branch_data.unwrap();
-                if local {
-                    // update existting branch
+                if branch_list.imp().original_list.borrow().iter().find(|b| {
+                    b.name == new_branch_data.name
+                }).is_some() {
                     branch_list.update_head_branch(new_branch_data);
                 } else {
-                    // adding new item from remote
-                    branch_list.add_new_branch_item(new_branch_data, true)
-                }
+                    branch_list.add_new_branch_item(new_branch_data, true);
+                };
             })
         });
     }
