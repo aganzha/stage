@@ -155,7 +155,7 @@ impl Status {
                         let sender = self.sender.clone();
                         let untracked = self.untracked.clone();
                         let mut ignored = Vec::new();
-                        let mut message = "This will kill all untracked files!".to_string();
+                        let mut message = "This will hide all untracked files!".to_string();
                         if let Some(file_path) = &file_path {
                             let str_path = file_path.to_str().expect("wrong path");
                             ignored.push(str_path.to_string());
@@ -171,7 +171,7 @@ impl Status {
                             gio_settings.get::<HashMap<String, Vec<String>>>("ignored");
                         async move {
                             let response =
-                                alert(DangerDialog("Kill Untracked files?".to_string(), message))
+                                alert(DangerDialog("Hide Untracked files?".to_string(), message))
                                     .choose_future(&window)
                                     .await;
                             if response != YES {

@@ -28,7 +28,7 @@ flatpak run io.github.aganzha.Stage
 
 
 ### Commit/Push/Pull
-- **Commit** hit `C` or ![Push button](./icons/emblem-shared-symbolic.svg)
+- **Commit** hit `C` or press <span><img valign="middle" alt="Push button" src="./icons/emblem-shared-symbolic.svg" width="16"/></span> button
 
 ### Stash
 ### Log
