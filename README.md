@@ -33,6 +33,7 @@ flatpak run io.github.aganzha.Stage
 - **Push** hit `P` or press <span><img valign="middle" alt="Push button" src="./icons/send-to-symbolic.svg" width="12"/></span> button
 
 ### Stash
+Pressing `Z` or <span><img valign="middle" alt="Push button" src="./icons/sidebar-show-symbolic.svg" width="12"/></span> opens **Stashes panel**
 ### Log
 ### Cherry-pick/Revert
 ### Branches
