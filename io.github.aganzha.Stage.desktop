@@ -1,11 +1,17 @@
 [Desktop Entry]
 Name=Stage
-Comment=Git client inspited by Magit
+Comment=GUI Git client inspited by Magit
+
+Keywords=GNOME;GTK;Git;Commt;Branch;Push;Pull;Merge;Rebase;Cherry-pick;Revert;
+Categories=Development;Utility;RevisionControl;Monitor;FileTools;GNOME;GTK;
+
 Exec=stage %U
-# Exec=/usr/bin/flatpak run --branch=master --arch=x86_64 --command=stage --file-forwarding com.github.aganzha.stage @@u %U @@
 Actions=new-window;
 Icon=io.github.aganzha.Stage
 Terminal=false
 Type=Application
 StartupNotify=true
-Categories=Development;
+
+[Desktop Action new-window]
+Name=New Window
+Exec=stage
