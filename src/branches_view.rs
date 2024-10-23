@@ -468,7 +468,6 @@ impl BranchList {
                     return
                 }
 
-                // put borrow in block
                 branch_list.imp().list.borrow_mut().remove(pos as usize);
                 branch_list.imp().original_list.borrow_mut().retain(|bd| {
                     bd.name != name
@@ -578,7 +577,6 @@ impl BranchList {
                     None
                 });
                 if let Some(branch_data) = branch_data {
-                    // aganzha what about optional checkout?
                     branch_list.add_new_branch_item(branch_data, need_checkout);
                 }
             })
@@ -652,8 +650,6 @@ pub fn item_factory() -> SignalListItemFactory {
     factory.connect_setup(move |_, list_item| {
         let image = Image::new();
         image.set_margin_top(4);
-        // let spinner = Spinner::new();
-        // spinner.set_visible(false);
 
         let label_title = Label::builder()
             .label("")
@@ -663,7 +659,6 @@ pub fn item_factory() -> SignalListItemFactory {
             .width_chars(36)
             .max_width_chars(36)
             .ellipsize(pango::EllipsizeMode::End)
-            //.selectable(true)
             .use_markup(true)
             .can_focus(true)
             .can_target(true)
@@ -676,7 +671,6 @@ pub fn item_factory() -> SignalListItemFactory {
             .width_chars(36)
             .max_width_chars(36)
             .ellipsize(pango::EllipsizeMode::End)
-            //.selectable(true)
             .use_markup(true)
             .can_focus(true)
             .can_target(true)
@@ -689,7 +683,6 @@ pub fn item_factory() -> SignalListItemFactory {
             .width_chars(24)
             .max_width_chars(24)
             .ellipsize(pango::EllipsizeMode::End)
-            //.selectable(true)
             .use_markup(true)
             .can_focus(true)
             .can_target(true)
@@ -697,7 +690,6 @@ pub fn item_factory() -> SignalListItemFactory {
 
         let bx = Box::builder()
             .orientation(Orientation::Horizontal)
-            // .css_classes(vec![String::from("branch_row")])
             .margin_top(2)
             .margin_bottom(2)
             .margin_start(2)
@@ -707,7 +699,6 @@ pub fn item_factory() -> SignalListItemFactory {
             .focusable(true)
             .build();
         bx.append(&image);
-        // bx.append(&spinner);
         bx.append(&label_title);
         bx.append(&label_commit);
         bx.append(&label_dt);
@@ -734,7 +725,6 @@ pub fn item_factory() -> SignalListItemFactory {
         list_item.connect_selected_notify(|li: &ListItem| {
             // grab focus only once on list init
             if let Some(item) = li.item() {
-                // li.child().expect("no child").set_css_classes(&vec!["branch_row"]);
                 let branch_item = item.downcast_ref::<BranchItem>().unwrap();
                 // looks like it works only first time.
                 // set_selected_pos from outside does not
@@ -746,7 +736,6 @@ pub fn item_factory() -> SignalListItemFactory {
                     li.position()
                 );
                 if branch_item.initial_focus() {
-                    debug!(".......................................");
                     li.child().unwrap().grab_focus();
                     branch_item.set_initial_focus(false)
                 }
@@ -794,8 +783,6 @@ pub fn listview_factory(
     let branch_list = BranchList::new(sender.clone());
 
     let selection_model = SingleSelection::new(Some(branch_list));
-    // why it was needed?
-    // selection_model.set_autoselect(false);
 
     let model = selection_model.model().unwrap();
     let bind = selection_model.bind_property("selected", &model, "selected_pos");
