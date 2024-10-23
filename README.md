@@ -14,14 +14,14 @@ flatpak install -u https://github.com/aganzha/stage/raw/master/stage.flatpakref
 flatpak run io.github.aganzha.Stage
 ```
 > [!NOTE]
-> Stage will watch your repository for changes and display them as diff for commit
+> While running Stage will watch your repository for changes and display them as diff for your commit
 
 
 <div align="center">
-<table width="100%">
+<table width="600">
   <tr>
-    <td width="50%" align="center">Editing in Gedit</td>
-    <td width="50%" align="center">Reflected in Stage</td>
+    <td align="center">Editing in Gedit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>                                                                  
+    <td align="center">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Reflected in Stage</td> 
   </tr>
 </table>
 </div>
