@@ -22,9 +22,8 @@ flatpak run io.github.aganzha.Stage
     <td align="center"><strong>Stage</strong></td>
   </tr>
 </table>
-<video autoplay="true" playsinline="true" loop="true" muted="true" crossorigin="anonymous">
-  <source type="video/mp4" src="https://www.aganzha.online/demo3.mp4"/>
-</video>
+
+[![Stage demo](https://www.aganzha.online/demo3.mp4)
 
 
 ### Staging
