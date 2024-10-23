@@ -227,7 +227,6 @@ impl TagList {
                     alert(e).present(&widget);
                     Vec::new()
                 });
-                // trace!("tags in response {:?}", tags.len());
                 if tags.is_empty() {
                     return;
                 }
@@ -246,7 +245,6 @@ impl TagList {
                     if append_to_existing {
                         if let Some(oid) = start_oid {
                             if item.imp().tag.borrow().oid == oid {
-                                // trace!("skip previously found tag {:?}", oid);
                                 continue;
                             }
                         }
@@ -347,7 +345,6 @@ impl TagList {
                 if result.is_none() {
                     return;
                 }
-                // put borrow in block
                 tags_list
                     .imp()
                     .list
@@ -643,7 +640,6 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
 
         let bx = Box::builder()
             .orientation(Orientation::Horizontal)
-            // .css_classes(vec![String::from("branch_row")])
             .margin_top(2)
             .margin_bottom(2)
             .margin_start(2)
@@ -841,13 +837,11 @@ pub fn headerbar_factory(
     });
 
     let new_btn = Button::builder()
-        // .label("N")
         .icon_name("list-add-symbolic")
         .can_shrink(true)
         .tooltip_text("Create branch (N)")
         .sensitive(true)
         .use_underline(true)
-        // .action_name("branches.new")
         .build();
 
     new_btn.connect_clicked({
@@ -940,10 +934,8 @@ pub fn show_tags_window(
     target_oid: git2::Oid,
     main_sender: Sender<crate::Event>,
 ) -> Window {
-    // let (sender, receiver) = async_channel::unbounded();
 
     let window = Window::builder()
-        //.application(&app_window.application().unwrap())// panic!
         .transient_for(app_window)
         .default_width(640)
         .default_height(480)
