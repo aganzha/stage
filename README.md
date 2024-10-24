@@ -46,13 +46,14 @@ https://github.com/user-attachments/assets/d3fe0575-7a0a-444c-938a-40af9e75bceb
 ### Commit/Push/Pull
 - **Commit** hit `C` or press <picture><source srcset="./icons/object-select-symbolic.svg"><img valign="middle" alt="Commit button" src="./icons/object-select-symbolic.svg" width="12"></picture> button
 - **Pull** hit `F` (fetch) or press <picture><source srcset="./icons/document-save-symbolic.svg"><img valign="middle" alt="Pull button" src="./icons/document-save-symbolic.svg"></picture> button
-- **Push** hit `P` or press <span><img valign="middle" alt="Push button" src="./icons/send-to-symbolic.svg" width="12"></span> button
+- **Push** hit `P` or press <picture><img valign="middle" alt="Push button" src="./icons/send-to-symbolic.svg" width="12"></picture> button
 
 ### Stash
 Pressing `Z` or <picture><source srcset="./icons/sidebar-show-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/sidebar-show-symbolic.svg" width="12"></picture> opens **Stashes panel**
 ### Log
-Pressing `L` opens log view or <picture><src srcset="./icons/org.gnome.Logs-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/org.gnome.Logs-symbolic.svg" width="12"></picture> opens **Git log view**
+Pressing `L` opens log view or <picture><source srcset="./icons/org.gnome.Logs-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/org.gnome.Logs-symbolic.svg" width="12"></picture> opens **Git log view**
 ### Cherry-pick/Revert
-Both actions are available on all views (Branches, Logs and Commit/Stash views) by pressing respectivelly `A` (apply) / `R` (revert) <picture><src srcset="./icons/emblem-shared-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/emblem-shared-symbolic.svg" width="12"></picture> / <picture><src srcset="./icons/edit-undo-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/edit-undo-symbolic.svg" width="12"></picture> buttons.
+Both actions are available on all views (Branches, Logs, Commit and Stash views) by pressing respectivelly `A` (apply) `R` (revert) 
+<picture><source srcset="./icons/emblem-shared-symbolic.svg"><img valign="middle" alt="Apply button" src="./icons/emblem-shared-symbolic.svg" width="12"></picture> <picture><source srcset="./icons/edit-undo-symbolic.svg"><img valign="middle" alt="Revert button" src="./icons/edit-undo-symbolic.svg" width="12"></picture> buttons.
 ### Branches
 ##### Resolving conflicts
