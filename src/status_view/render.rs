@@ -71,8 +71,6 @@ pub trait ViewContainer {
         self.adopt_view(rendered.get_view());
     }
 
-    // TODO - return bool and stop iteration when false
-    // visitor takes child as first arg and parent as second arg
     fn walk_down(&self, visitor: &mut dyn FnMut(&dyn ViewContainer)) {
         for child in self.get_children() {
             visitor(child);
