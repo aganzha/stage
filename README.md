@@ -13,8 +13,8 @@ flatpak install -u https://github.com/aganzha/stage/raw/master/stage.flatpakref
 ```sh
 flatpak run io.github.aganzha.Stage
 ```
-
-![Stage Screenshot](https://github.com/user-attachments/assets/22f7b87d-42fd-4358-b719-5ea705df1f41)
+To perform commit changes, it need "to stage" `Unstagd changes` either all of them or separate files/hunks.
+![Screenshot from 2024-10-24 23-58-38](https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1)
 
 > [!NOTE]
 > While running Stage will watch your repository for changes and display them as diff for your commit
@@ -50,10 +50,14 @@ https://github.com/user-attachments/assets/d3fe0575-7a0a-444c-938a-40af9e75bceb
 
 ### Stash
 Pressing `Z` or <picture><source srcset="./icons/sidebar-show-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/sidebar-show-symbolic.svg" width="12"></picture> opens **Stashes panel**
+![Stage Screenshot](https://github.com/user-attachments/assets/22f7b87d-42fd-4358-b719-5ea705df1f41)
+
 ### Log
 Pressing `L` opens log view or <picture><source srcset="./icons/org.gnome.Logs-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/org.gnome.Logs-symbolic.svg" width="12"></picture> opens **Git log view**
 ### Cherry-pick/Revert
 Both actions are available on all views (Branches, Logs, Commit and Stash views) by pressing respectivelly `A` (apply) `R` (revert) 
 <picture><source srcset="./icons/emblem-shared-symbolic.svg"><img valign="middle" alt="Apply button" src="./icons/emblem-shared-symbolic.svg" width="12"></picture> <picture><source srcset="./icons/edit-undo-symbolic.svg"><img valign="middle" alt="Revert button" src="./icons/edit-undo-symbolic.svg" width="12"></picture> buttons.
 ### Branches
+Hit `B` in Status view or press <picture><source srcset=".icons/org.gtk.gtk4.NodeEditor-symbolic.svg" > <img valign="middle" alt="Branches button" src="./icons/org.gtk.gtk4.NodeEditor-symbolic.svg"></picture> button to open Branches view.
 ##### Resolving conflicts
+When in conflict hit `S` to either Theirs or Others side of conflict to choose change to be applied.
