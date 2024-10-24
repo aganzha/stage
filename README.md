@@ -9,15 +9,16 @@
 flatpak install -u https://github.com/aganzha/stage/raw/master/stage.flatpakref
 ```
 
-## Using
+## Running
 ```sh
 flatpak run io.github.aganzha.Stage
 ```
+## Using
 To create commit, it need "to stage" `Unstagd changes` either all of them or separate files/hunks.
 > [!NOTE]
 > You can use either buttons in headerbar or press `command keys` on your keyboard which will apply to line highlighted by cursor 
 
-![Screenshot from 2024-10-24 23-58-38](https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1)
+<picture><source srcset="https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1"><img alt="Stage screenshot" src="https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1"></picture>
 
 > [!NOTE]
 > While running Stage will watch your repository for changes and display them as diff for your commit
@@ -53,7 +54,7 @@ https://github.com/user-attachments/assets/d3fe0575-7a0a-444c-938a-40af9e75bceb
 
 ### Branches
 Hit `B` in Status view or press <picture><source srcset="./icons/org.gtk.gtk4.NodeEditor-symbolic.svg" > <img valign="middle" alt="Branches button" src="./icons/org.gtk.gtk4.NodeEditor-symbolic.svg"></picture> button to open Branches view.
-![Screenshot from 2024-10-25 00-11-50](https://github.com/user-attachments/assets/a07cd1bf-b435-40ad-beca-edbabc5d285f)
+<picture><source srcset="https://github.com/user-attachments/assets/a07cd1bf-b435-40ad-beca-edbabc5d285f"> <img alt="Branches view" src="https://github.com/user-attachments/assets/a07cd1bf-b435-40ad-beca-edbabc5d285f"></picture>
 
 #### Resolving conflicts
 When in conflict hit `S` to either Theirs or Others side of conflict to choose change to be applied.
@@ -67,7 +68,7 @@ Both actions are available on all views (Branches, Logs, Commit and Stash views)
 
 ### Stash
 Pressing `Z` or <picture><source srcset="./icons/sidebar-show-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/sidebar-show-symbolic.svg" width="12"></picture> opens **Stashes panel**
-![Stage Screenshot](https://github.com/user-attachments/assets/22f7b87d-42fd-4358-b719-5ea705df1f41)
+<picture><source srcset="https://github.com/user-attachments/assets/22f7b87d-42fd-4358-b719-5ea705df1f41"><img alt="Stashes view" src="https://github.com/user-attachments/assets/22f7b87d-42fd-4358-b719-5ea705df1f41"></picture>
 
 ### Tags
 Pressing `T` opens Tags view
