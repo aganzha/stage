@@ -13,6 +13,9 @@ flatpak install -u https://github.com/aganzha/stage/raw/master/stage.flatpakref
 ```sh
 flatpak run io.github.aganzha.Stage
 ```
+
+![Stage Screenshot](https://github.com/user-attachments/assets/22f7b87d-42fd-4358-b719-5ea705df1f41)
+
 > [!NOTE]
 > While running Stage will watch your repository for changes and display them as diff for your commit
 
