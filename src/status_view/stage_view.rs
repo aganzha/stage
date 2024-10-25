@@ -51,9 +51,6 @@ mod stage_view_internal {
     const LIGHT_HUNKS: gdk::RGBA = gdk::RGBA::new(0.871, 0.871, 0.855, 1.0);
     const DARK_HUNKS: gdk::RGBA = gdk::RGBA::new(0.22, 0.22, 0.22, 1.0);
 
-    // #[derive(Properties, Default)]
-    // #[properties(wrapper_type = super::StageView)]
-
     #[derive(Default)]
     pub struct StageView {
         pub show_cursor: Cell<bool>,
@@ -283,8 +280,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let mut unstaged: Option<TextTag> = None;
     let mut file: Option<TextTag> = None;
     let mut hunk: Option<TextTag> = None;
-    //let scheme = Scheme::new(settings.get::<String>(SCHEME_TOKEN));
-
+    
     for tag_name in tags::TEXT_TAGS {
         let text_tag = tags::TxtTag::from_str(tag_name).create();
         table.add(&text_tag);
@@ -450,7 +446,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     });
     txt.add_controller(key_controller);
 
-    // let num_clicks = Rc::new(Cell::new(0));
     let gesture_controller = GestureDrag::new();
     gesture_controller.connect_drag_update({
         let txt = txt.clone();
@@ -506,14 +501,12 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
     txt.connect_move_cursor({
         let sndr = sndr.clone();
-        // let latest_char_offset = RefCell::new(0);
         move |view: &StageView, step, count, _selection| {
             view.set_cursor_highlight(true);
             let buffer = view.buffer();
             let pos = buffer.cursor_position();
             let mut start_iter = buffer.iter_at_offset(pos);
             let line_before = start_iter.line();
-            // TODO! do not emit event if line is not changed!
             match step {
                 MovementStep::LogicalPositions | MovementStep::VisualPositions => {
                     start_iter.forward_chars(count);
