@@ -1260,7 +1260,7 @@ pub fn track_changes(
         .into_os_string()
         .into_string()
         .expect("wrong path");
-    
+
     let mut status_opts = StatusOptions::new();
     status_opts.include_unmodified(false);
     let mut is_tracked = false;

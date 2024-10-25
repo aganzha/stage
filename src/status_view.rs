@@ -205,10 +205,7 @@ pub struct Status {
 }
 
 impl Status {
-    pub fn new(
-        path: Option<PathBuf>,
-        sender: Sender<Event>,
-    ) -> Self {
+    pub fn new(path: Option<PathBuf>, sender: Sender<Event>) -> Self {
         Self {
             path,
             sender,
@@ -1035,7 +1032,6 @@ impl Status {
         _offset: i32,
         context: &mut StatusRenderContext<'a>,
     ) -> bool {
-
         let mut changed = false;
         let buffer = txt.buffer();
         if let Some(untracked) = &self.untracked {
