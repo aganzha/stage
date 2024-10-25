@@ -921,7 +921,6 @@ impl Status {
             if let Some(last_op) = &self.last_op {
                 if let StageOp::Stage(_) = last_op.op {
                     op = self.last_op.take();
-                    // op.replace(stage);
                 }
             }
         }
@@ -930,8 +929,6 @@ impl Status {
         if self.unstaged.is_some() || render_required {
             self.render(txt, op, context);
         }
-        // if self.unstaged.is_some() {
-        // }
     }
 
     pub fn update_tracked_file<'a>(
@@ -1145,26 +1142,6 @@ impl Status {
         let mut iter = buffer.iter_at_offset(this_pos);
         if let Some(last_op) = &last_op {
             if let StageOp::Stage(_line_no) = last_op.op {
-                // if i am still in staging diff - be here.
-                // if let Some(diff) = self.// fuck, i need whole diff by
-                // cursor_line!
-                // what can i do? store it in the context...
-                // for current line store its current diff!
-                // how diff could be active! i;ve using it
-                // for highlight! it need to set active diff
-                // from file or hunk then!
-
-                // FUUUUUUUUUUUUUUUUUUUUUUUUUCK
-                // there is no active diff, cause cursor is
-                // called AFTER this function!
-                // and previous active diffs are cleanud up
-                // cause context is new every time!
-                // i must not relate to active links here!
-                // those are only for stage_via_apply!
-                // so. what can i get here.
-                // i have self.views rendered!
-                // i can use everything EXCEPT active_.. fields
-                // FUUUUUUUUUUUUUUUUUUUUUUUUUCK
                 if let Some(unstaged) = &self.unstaged {
                     if let Some(line_to_go) = unstaged.nearest_line_to_go(iter.line()) {
                         debug!("i am missied in unstaged, but have line to go!!!!!! {line_to_go}");
@@ -1177,22 +1154,6 @@ impl Status {
                             "it need to clean the op in operation itself! after the render!!!!!"
                         );
                     }
-                    // // this works! but lets just return last nearest line!
-                    // if !unstaged.has_view_on(iter.line()) {
-                    //     // i am still
-                    //     debug!("i have no view in unstaged !!!!!!!!!!!");
-                    //     debug!(" but unstaged is alive! it must be upper!");
-
-                    //     // let (nearest_top, nearest_bottom) = unstaged.nearest(iter.line(), context);
-                    //     // debug!("????????????????? nearest_top {:?} nearest_bottom {:?}", nearest_top, nearest_bottom);
-                    //     // if let Some(nearest_bottom) = nearest_bottom {
-                    //     //     iter.set_line(nearest_bottom);
-                    //     // } else {
-                    //     //     iter.set_line(nearest_top.unwrap());
-                    //     // }
-                    // } else {
-                    //     debug!("hey! i am still here in unstaged!")
-                    // }
                 } else {
                     debug!(
                         "i have no unstaged. lets may be go to staged then? {:?}",
@@ -1200,116 +1161,6 @@ impl Status {
                     );
                     debug!("how do i know, that it need to clean the op?");
                     debug!("it need to clean the op in operation itself! after the render!!!!!");
-                }
-
-                // if let Some(diff) = context.active_diff {
-                //     if diff.kind == DiffKind::Unstaged {
-                //         debug!(
-                //             "~~~~~~~~~~~~~~~~~~~~~~~~~~~~i am still in unstaged after staging. all ok"
-                //         );
-                //         return iter;
-                //     }
-                // } else {
-                //     debug!("ooooooooops. i am nowhere after staging");
-                //     if let Some(diff) = &self.unstaged {
-                //         debug!("but i still have unstaged. lets go to last hunk or line? then");
-                //         debug!("it is better line, cause it could be visually closer!");
-                //         debug!("u need last line!");
-                //         // let last_line = diff.last_visible_line();
-                //         // hey!
-                //         debug!("if i have hunk below - go below, but first actual line");
-                //         debug!("if i have something above - go above last line");
-                //         let (nearest_top, nearest_bottom) = diff.nearest(iter.line(), context);
-                //         debug!("????????????????? nearest_top {:?} nearest_bottom {:?} iter line {:?}", nearest_top, nearest_bottom, iter.line());
-                //         if let Some(nearest_bottom) = nearest_bottom {
-                //             iter.set_line(nearest_bottom);
-                //         } else {
-                //             iter.set_line(nearest_top.unwrap());
-                //         }
-                //     }
-                // }
-                // debug!(
-                //     "...........................> {:?} {:?}",
-                //     line_no,
-                //     iter.line()
-                // );
-                // context is here, right in the full filled context!
-            }
-        }
-        iter
-        // so. lets see just 2 cases: staging-unstaging
-        // user staged --------------------------
-
-        // staged diff -> do nothing (stay same and staged will come)
-
-        // staged file and has another below -> do nothing (will stay on another)
-        // staged file and has no more files -> go to staged diff
-        // staged file and has no more files below, but 1 above -> go to file above
-
-        // staged hunk and has another below -> do nothing (will stay on another hunk)
-        // staged hunk and has no more hunks -> go to unstaged diff
-        // staged hunk and has no more hunks below, but 1 above -> go to hunk above
-
-        // user unstaged --------------------------------
-        // unstaged diff -> go to staged diff
-
-        // ustaged file and has another below -> do nothing (will stay on another)
-        // unstaged file and has no more files -> go to unstaged diff
-        // ustaged file and has no more files below, but 1 above -> go file above
-
-        // unstaged hunk and has another below -> do nothing (stay on hunk)
-        // staged hunk and has no more hunks -> go to unstaged diff
-        // staged hunk and has no more hunks below, but 1 above -> go to hunk above.
-
-        // during staging-unstaging op it need to remember 'op'.
-        // then after op completed, choose proper direction.
-        // for remember 'DiffKind' could be used AND view.kind could be used.
-
-        // i have a common method: stage which is used for staging/unstaging/killling
-        // thats the enter point.
-        // Lets introduce Op - current user operation.
-        // DiffKind, direction and ViewKind. Hot to impress direction?
-        // it does not needed. Any op always removes something from Diff.
-        // but unstaged could be moved either to staged or killed!
-        // never mind. even if kill staged, it need to go to unstaged, anyways.
-        // so, just DiffKind and ViewKind!
-        // ViewKind already has DiffKind in it, but only for diff!
-        // lets put it in every view!
-        // ViewKind is never used!!!!!
-        // I have already StageOp!
-    }
-
-    pub fn smart_cursor_position(&self, buffer: &TextBuffer) -> TextIter {
-        // its buggy. it need to now what happens right now!
-        // it need to introduce what_it_was at the end of render
-        // then check "what it was" by previous UnderCursor and
-        // render source! then looks like it need to compare it
-        // with current UnderCursor, but how? the cursor is not
-        // set yet! looks like it need to do it AFTER cursor:
-        // - render (rendersource::Git)
-        // - smart_choose_pos before cursor
-        // - cursor to highlight whats behind
-        // - smart_choose_pos AFTER cursor ???? why after? why second chose????
-        let iter = buffer.iter_at_offset(buffer.cursor_position());
-        let last_line = buffer.end_iter().line();
-        if iter.line() == last_line {
-            for diff in [&self.conflicted, &self.unstaged, &self.staged]
-                .into_iter()
-                .flatten()
-            {
-                if !diff.files.is_empty() {
-                    return buffer
-                        .iter_at_line(diff.files[0].view.line_no.get())
-                        .unwrap();
-                }
-            }
-            if iter.line() == last_line {
-                if let Some(untracked) = &self.untracked {
-                    if !untracked.files.is_empty() {
-                        return buffer
-                            .iter_at_line(untracked.files[0].view.line_no.get())
-                            .unwrap();
-                    }
                 }
             }
         }
