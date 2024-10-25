@@ -934,7 +934,6 @@ pub fn show_tags_window(
     target_oid: git2::Oid,
     main_sender: Sender<crate::Event>,
 ) -> Window {
-
     let window = Window::builder()
         .transient_for(app_window)
         .default_width(640)

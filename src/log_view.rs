@@ -12,8 +12,9 @@ use glib::{clone, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick, Image, Label,
-    ListItem, ListView, Orientation, PositionType, ScrolledWindow, SearchBar, SearchEntry, SignalListItemFactory, SingleSelection, Widget, Window as Gtk4Window,
+    gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick, Image, Label, ListItem,
+    ListView, Orientation, PositionType, ScrolledWindow, SearchBar, SearchEntry,
+    SignalListItemFactory, SingleSelection, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
@@ -710,7 +711,6 @@ pub fn show_log_window(
     main_sender: Sender<crate::Event>,
     start_oid: Option<Oid>,
 ) -> Window {
-
     let window = Window::builder()
         .transient_for(app_window)
         .default_width(640)
