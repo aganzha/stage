@@ -14,9 +14,9 @@ flatpak install -u https://github.com/aganzha/stage/raw/master/stage.flatpakref
 flatpak run io.github.aganzha.Stage
 ```
 ## Using
-To create commit, it need "to stage" `Unstagd changes` either all of them or separate files/hunks.
+To create commit, it need "to stage" `Unstaged changes` either all of them or separate files/hunks.
 > [!NOTE]
-> You can use either buttons in headerbar or press `command keys` on your keyboard which will apply to line highlighted by cursor 
+> You can use either buttons in headerbar or press `command keys` on your keyboard which will apply to line highlighted by cursor. All actions could be driven by keyboard 
 
 <picture><source srcset="https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1"><img alt="Stage screenshot" src="https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1"></picture>
 
