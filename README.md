@@ -18,6 +18,9 @@ To create commit, it need "to stage" `Unstaged changes` either all of them or se
 > [!NOTE]
 > You can use either buttons in headerbar or press `command keys` on your keyboard which will apply to line highlighted by cursor. All actions could be driven by keyboard 
 
+- Use Ctrl + / Ctrl - to change font size.
+- dark / light theme switcher is in the burger
+
 <picture><source srcset="https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1"><img alt="Stage screenshot" src="https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1"></picture>
 
 > [!NOTE]

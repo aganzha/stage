@@ -347,13 +347,13 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
         move |_, key, _, modifier| {
             match (key, modifier) {
-                (gdk::Key::Tab, _) => {
+                (gdk::Key::Tab | gdk::Key::space, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Expand(iter.offset(), iter.line()))
                         .expect("Could not send through channel");
                     return glib::Propagation::Stop;
                 }
-                (gdk::Key::s | gdk::Key::a | gdk::Key::ISO_Enter | gdk::Key::KP_Enter, _) => {
+                (gdk::Key::s | gdk::Key::a | gdk::Key::Return, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Stage(iter.line())))
                         .expect("Could not send through channel");
@@ -363,7 +363,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Unstage(iter.line())))
                         .expect("Could not send through channel");
                 }
-                (gdk::Key::k, _) => {
+                (gdk::Key::k | gdk::Key::Delete | gdk::Key::BackSpace, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Kill(iter.line())))
                         .expect("Could not send through channel");
