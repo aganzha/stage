@@ -105,12 +105,6 @@ pub enum RenderSource {
 
 pub const DUMP_DIR: &str = "stage_dump";
 
-#[derive(Debug, Clone)]
-pub struct LastOp {
-    op: StageOp,
-    file_path: Option<PathBuf>,
-    hunk_header: Option<String>,
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CursorPosition {
@@ -119,6 +113,11 @@ pub enum CursorPosition {
     CursorHunk(DiffKind, usize, usize),
     CursorLine(DiffKind, usize, usize, usize),
     None,
+}
+#[derive(Debug, Clone, Copy)]
+pub struct LastOp {
+    op: StageOp,
+    cursor_position: CursorPosition
 }
 
 impl CursorPosition {
@@ -200,7 +199,7 @@ pub struct Status {
 
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
-    pub last_op: Option<LastOp>,
+    pub last_op: Cell<Option<LastOp>>,
     pub cursor_position: Cell<CursorPosition>,
 }
 
@@ -220,9 +219,10 @@ impl Status {
 
             stashes: None,
             branches: None,
+            // TODO! replace with Cell
             monitor_global_lock: Rc::new(RefCell::new(false)),
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
-            last_op: None,
+            last_op: Cell::new(None),
             cursor_position: Cell::new(CursorPosition::None),
         }
     }
@@ -633,7 +633,7 @@ impl Status {
             }
         }
         self.head.replace(head);
-        self.render(txt, None, context);
+        self.render(txt, context);
     }
 
     pub fn update_upstream<'a>(
@@ -667,7 +667,7 @@ impl Status {
             }
         }
         self.upstream = upstream;
-        self.render(txt, None, context);
+        self.render(txt, context);
     }
 
     pub fn update_state<'a>(
@@ -680,7 +680,7 @@ impl Status {
             state.enrich_view(current_state, &txt.buffer(), context)
         }
         self.state.replace(state);
-        self.render(txt, None, context);
+        self.render(txt, context);
     }
 
     pub fn update_untracked<'a>(
@@ -707,7 +707,7 @@ impl Status {
         if !has_files {
             untracked = None;
         }
-        debug!("update untracked! {:?}", untracked.is_some());
+
         let mut render_required = false;
         if let Some(rendered) = &mut self.untracked {
             render_required = true;
@@ -720,7 +720,7 @@ impl Status {
         }
         self.untracked = untracked;
         if self.untracked.is_some() || render_required {
-            self.render(txt, None, context);
+            self.render(txt, context);
         }
     }
 
@@ -869,7 +869,7 @@ impl Status {
             }
         }
         self.conflicted = diff;
-        self.render(txt, None, context);
+        self.render(txt, context);
     }
 
     pub fn update_staged<'a>(
@@ -890,7 +890,7 @@ impl Status {
         }
         self.staged = diff;
         if self.staged.is_some() || render_required {
-            self.render(txt, None, context);
+            self.render(txt, context);
         }
     }
 
@@ -915,19 +915,19 @@ impl Status {
 
         self.unstaged = diff;
 
-        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cleanup StageOp here!
-        let mut op: Option<LastOp> = None;
-        if self.unstaged.is_some() {
-            if let Some(last_op) = &self.last_op {
-                if let StageOp::Stage(_) = last_op.op {
-                    op = self.last_op.take();
-                }
-            }
-        }
-        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cleanup StageOp here!
+        // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cleanup StageOp here!
+        // let mut op: Option<LastOp> = None;
+        // if self.unstaged.is_some() {
+        //     if let Some(last_op) = &self.last_op {
+        //         if let StageOp::Stage(_) = last_op.op {
+        //             op = self.last_op.take();
+        //         }
+        //     }
+        // }
+        // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cleanup StageOp here!
 
         if self.unstaged.is_some() || render_required {
-            self.render(txt, op, context);
+            self.render(txt, context);
         }
     }
 
@@ -1000,7 +1000,7 @@ impl Status {
         } else {
             self.unstaged = Some(diff);
         }
-        self.render(txt, None, context);
+        self.render(txt, context);
     }
 
     // TODO! is it still used?
@@ -1060,20 +1060,20 @@ impl Status {
     ) {
         if let Some(conflicted) = &self.conflicted {
             if conflicted.expand(line_no, context).is_some() {
-                self.render(txt, None, context);
+                self.render(txt, context);
                 return;
             }
         }
 
         if let Some(unstaged) = &self.unstaged {
             if unstaged.expand(line_no, context).is_some() {
-                self.render(txt, None, context);
+                self.render(txt, context);
                 return;
             }
         }
         if let Some(staged) = &self.staged {
             if staged.expand(line_no, context).is_some() {
-                self.render(txt, None, context);
+                self.render(txt, context);
             }
         }
     }
@@ -1081,7 +1081,6 @@ impl Status {
     pub fn render<'a>(
         &'a self,
         txt: &StageView,
-        last_op: Option<LastOp>,
         context: &mut StatusRenderContext<'a>,
     ) {
         let buffer = txt.buffer();
@@ -1122,7 +1121,7 @@ impl Status {
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
-        let iter = self.choose_cursor_position(&buffer, last_op);
+        let iter = self.choose_cursor_position(&buffer);
         trace!("__________ chused position {:?}", iter.line());
         buffer.place_cursor(&iter);
         // WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
@@ -1132,37 +1131,64 @@ impl Status {
     pub fn choose_cursor_position(
         &self,
         buffer: &TextBuffer,
-        last_op: Option<LastOp>, // context: &mut StatusRenderContext<'a>,
     ) -> TextIter {
-        trace!(
-            "...................choose cursor position {:?}",
-            self.last_op
+        debug!(
+            "...................choose cursor position self.last_op {:?} cursor position {:?} ",
+            self.last_op, self.cursor_position
         );
         let this_pos = buffer.cursor_position();
         let mut iter = buffer.iter_at_offset(this_pos);
-        if let Some(last_op) = &last_op {
-            if let StageOp::Stage(_line_no) = last_op.op {
-                if let Some(unstaged) = &self.unstaged {
-                    if let Some(line_to_go) = unstaged.nearest_line_to_go(iter.line()) {
-                        debug!("i am missied in unstaged, but have line to go!!!!!! {line_to_go}");
-                        debug!("here it need to cleanup op to stop smart choosing line!");
-                        iter.set_line(line_to_go);
-                    } else {
-                        debug!("i am either in unstaged, or there are no place to go in unstaged!");
-                        debug!("how do i know, that it need to clean the op?");
-                        debug!(
-                            "it need to clean the op in operation itself! after the render!!!!!"
-                        );
+        if let Some(last_op) = &self.last_op.get() {
+            // both last_op and cursor_position in it are no longer actual,
+            // cause update and render are already happened.
+            // so, those are snapshot of previous state.
+            // both will be changed right here!
+            match (last_op.op, last_op.cursor_position) {
+                (StageOp::Stage(_), CursorPosition::CursorDiff(diff_kind)) => {
+                    debug!("STAGE operation on whole diff!!!!!!! {:?}", diff_kind);
+                    assert!(diff_kind == DiffKind::Unstaged);
+                    if let Some(diff) = &self.staged {
+                        iter.set_line(diff.view.line_no.get());
+                        self.last_op.take();
                     }
-                } else {
-                    debug!(
-                        "i have no unstaged. lets may be go to staged then? {:?}",
-                        self.staged.is_some()
-                    );
-                    debug!("how do i know, that it need to clean the op?");
-                    debug!("it need to clean the op in operation itself! after the render!!!!!");
+                }
+                (StageOp::Unstage(_), CursorPosition::CursorDiff(diff_kind)) => {
+                    debug!("UNSTAGE operation on whole diff!!!!!!! {:?}", diff_kind);
+                    assert!(diff_kind == DiffKind::Staged);
+                    if let Some(diff) = &self.unstaged {
+                        iter.set_line(diff.view.line_no.get());
+                        self.last_op.take();
+                    }
+                }
+                (op, pos) => {
+                    debug!("----------> NOT COVERED pos and op {:?} {:?}", pos, op)
                 }
             }
+            
+            // if let StageOp::Stage(_line_no) = last_op.op {
+            //     if let Some(unstaged) = &self.unstaged {
+            //         if let Some(line_to_go) = unstaged.nearest_line_to_go(iter.line()) {
+            //             debug!("i am missied in unstaged, but have line to go!!!!!! {line_to_go}");
+            //             debug!("here it need to cleanup op to stop smart choosing line!");
+            //             iter.set_line(line_to_go);
+            //         } else {
+            //             debug!("i am either in unstaged, or there are no place to go in unstaged!");
+            //             debug!("how do i know, that it need to clean the op?");
+            //             debug!(
+            //                 "it need to clean the op in operation itself! after the render!!!!!"
+            //             );
+            //         }
+            //     } else {
+            //         debug!(
+            //             "i have no unstaged. lets may be go to staged then? {:?}",
+            //             self.staged.is_some()
+            //         );
+            //         debug!("how do i know, that it need to clean the op?");
+            //         debug!("it need to clean the op in operation itself! after the render!!!!!");
+            //     }
+            // }
+        } else {
+            debug!("no any last_op....................");
         }
         iter
     }
