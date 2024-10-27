@@ -1177,7 +1177,7 @@ impl Status {
                     }
                 }
                 // ----------------   Ops applied to whole Diff
-                
+
                 // if Diff was updated by StageOp while on file and it files diff is rendered now (was already updated)
                 // and this diff has another files - put cursor on first remaining file
                 (StageOp::Stage(_) | StageOp::Unstage(_)  | StageOp::Kill(_) ,
@@ -1197,6 +1197,7 @@ impl Status {
                         }
                     }
                 }
+                //1
                 // if Diff was updated by StageOp while on hunk and it hunks file is rendered now (was already updated)
                 // and this file has another hunks - put cursor on first remaining hunk
                 (StageOp::Stage(_) | StageOp::Unstage(_)  | StageOp::Kill(_) ,
@@ -1205,16 +1206,26 @@ impl Status {
                     for odiff in [&self.unstaged, &self.staged] {
                         if let Some(diff) = odiff {
                             if diff.kind == render_diff_kind {
-                                for i in (0..file_idx + 1).rev() {
+                                'found: for i in (0..file_idx + 1).rev() {
                                     if let Some(file) = diff.files.get(i) {
-                                        for j in (0..hunk_ids + 1).rev() {
-                                            if let Some(hunk) = file.hunks.get(j) {
-                                                debug!("HUUUUUUUUUUUUUUUUUNK! {:?}", hunk.header);
-                                                iter.set_line(hunk.view.line_no.get());
-                                                self.last_op.take();
-                                                break;
-                                            }
-                                        }
+                                        if file.view.is_expanded() {
+                                            for j in (0..hunk_ids + 1).rev() {
+                                                if let Some(hunk) = file.hunks.get(j) {
+                                                    debug!("HUUUUUUUUUUUUUUUUUNK! {:?} line {:?} rendered {:?}",
+                                                           hunk.header,
+                                                           hunk.view.line_no.get(),
+                                                           hunk.view.is_rendered()
+                                                    );
+                                                    iter.set_line(hunk.view.line_no.get());
+                                                    self.last_op.take();
+                                                    break 'found;
+                                                }
+                                            }  
+                                        }                                        
+                                        debug!("FIIIIIIIIIIIIIIIIIIILE! {:?}", file.path);
+                                        iter.set_line(file.view.line_no.get());
+                                        self.last_op.take();
+                                        break;
                                     }
                                 }
                             }
@@ -1249,6 +1260,7 @@ impl Status {
         end_offset: i32,
         context: &mut StatusRenderContext<'a>,
     ) {
+        //2
         // in fact the content IS already copied to clipboard
         // so, here it need to clean it from status_view artefacts
         let buffer = txt.buffer();
@@ -1310,7 +1322,7 @@ impl Status {
             }
         });
     }
-
+    //3
     pub fn cherry_pick(
         &self,
         window: &impl IsA<Widget>,
