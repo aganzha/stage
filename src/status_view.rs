@@ -1174,11 +1174,13 @@ impl Status {
                     }
                 }
 
-                // ------------------- Op applied to file in Unstaged
+                // ------------------- Stage Op applied to file in Unstaged
                 (StageOp::Stage(_), CursorPosition::CursorFile(DiffKind::Unstaged, file_idx)) => {
                     if let (Some(diff), Some(kind)) = (&self.unstaged, render_diff_kind) {
                         // TODO! compare it not with constant, but with CursorFile DiffKind
                         // and it will be universal for every diff!!!!!!!!
+                        // hm. but it is usefull only for last_op Stage, and DiffKind::Unstaged...
+                        // it is for every op that changes diff!!!
                         if kind == DiffKind::Unstaged {
                             for i in (0..file_idx + 1).rev() {
                                 if let Some(file) = diff.files.get(i) {
@@ -1190,6 +1192,31 @@ impl Status {
                     }
                 }
 
+                // ------------------- Unstage Op applied to file in Staged
+                (StageOp::Unstage(_), CursorPosition::CursorFile(DiffKind::Staged, file_idx)) => {
+                    if let (Some(diff), Some(kind)) = (&self.staged, render_diff_kind) {
+                        // TODO! compare it not with constant, but with CursorFile DiffKind
+                        // and it will be universal for every diff!!!!!!!!
+                        // hm. but it is usefull only for last_op Stage, and DiffKind::Unstaged...
+                        // it is for every op that changes diff!!!
+                        if kind == DiffKind::Staged {
+                            for i in (0..file_idx + 1).rev() {
+                                if let Some(file) = diff.files.get(i) {
+                                    iter.set_line(file.view.line_no.get());
+                                    self.last_op.take();
+                                }
+                            }
+                        }
+                    }
+                }
+                // 2 more: 1 - stage applied to untracked 2 - unstage applied to untracked
+
+                // 2 more: 1 - stage applied to untracked 2 - unstage applied to untracked
+
+
+
+
+                
                 // Op applied to file
                 (StageOp::Stage(_), CursorPosition::CursorFile(diff_kind, _)) => {
                     assert!(diff_kind == DiffKind::Unstaged || diff_kind == DiffKind::Untracked);
