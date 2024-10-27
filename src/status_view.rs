@@ -764,8 +764,9 @@ impl Status {
             }
             self.state.replace(state);
         }
-
+        let mut render_required = false;
         if let Some(rendered) = &mut self.conflicted {
+            render_required = true;
             let buffer = &txt.buffer();
             if let Some(new) = &diff {
                 new.enrich_view(rendered, buffer, context);
@@ -871,7 +872,9 @@ impl Status {
             }
         }
         self.conflicted = diff;
-        self.render(txt, Some(DiffKind::Conflicted), context);
+        if self.conflicted.is_some() || render_required {
+            self.render(txt, Some(DiffKind::Conflicted), context);
+        }
     }
 
     pub fn update_staged<'a>(
@@ -1137,12 +1140,12 @@ impl Status {
         render_diff_kind: Option<DiffKind>
     ) -> TextIter {
         debug!(
-            "...................choose cursor position self.last_op {:?} cursor position {:?} ",
-            self.last_op, self.cursor_position
+            "...................choose cursor position self.last_op {:?} cursor position {:?} render_diff_kind {:?}",
+            self.last_op, self.cursor_position, render_diff_kind
         );
         let this_pos = buffer.cursor_position();
         let mut iter = buffer.iter_at_offset(this_pos);
-        if let Some(last_op) = &self.last_op.get() {
+        if let (Some(last_op), Some(render_diff_kind)) = (&self.last_op.get(), render_diff_kind) {
             // both last_op and cursor_position in it are no longer actual,
             // cause update and render are already happened.
             // so, those are snapshot of previous state.
@@ -1175,40 +1178,64 @@ impl Status {
                 }
 
                 // ------------------- Stage Op applied to file in Unstaged
-                (StageOp::Stage(_), CursorPosition::CursorFile(DiffKind::Unstaged, file_idx)) => {
-                    if let (Some(diff), Some(kind)) = (&self.unstaged, render_diff_kind) {
-                        // TODO! compare it not with constant, but with CursorFile DiffKind
-                        // and it will be universal for every diff!!!!!!!!
-                        // hm. but it is usefull only for last_op Stage, and DiffKind::Unstaged...
-                        // it is for every op that changes diff!!!
-                        if kind == DiffKind::Unstaged {
-                            for i in (0..file_idx + 1).rev() {
-                                if let Some(file) = diff.files.get(i) {
-                                    iter.set_line(file.view.line_no.get());
-                                    self.last_op.take();
+                (StageOp::Stage(_) | StageOp::Unstage(_)  | StageOp::Kill(_) ,
+                 CursorPosition::CursorFile(cursor_diff_kind, file_idx)
+                ) => if cursor_diff_kind == render_diff_kind {
+                    for odiff in [&self.untracked, &self.unstaged, &self.staged] {
+                        if let Some(diff) = odiff {
+                            debug!("?????????????????????? {:?} {:?}", diff.kind, diff.files.len());
+                            if diff.kind == render_diff_kind {
+                                for i in (0..file_idx + 1).rev() {
+                                    if let Some(file) = diff.files.get(i) {
+                                        iter.set_line(file.view.line_no.get());
+                                        debug!("WOOOOOOOOOOOOOOOORKS! op: {:?} RENDER_DIFF_KIND {:?} line {:?} file_name: {:?} file idx {:?} i {:?}",
+                                               self.last_op,
+                                               render_diff_kind,
+                                               iter.line(),
+                                               file.path,
+                                               file_idx,
+                                               i
+                                        );
+                                        self.last_op.take();
+                                        break;
+                                    }
                                 }
                             }
                         }
                     }
+                    // if let (Some(diff), Some(kind)) = (&self.unstaged, render_diff_kind) {
+                    //     // TODO! compare it not with constant, but with CursorFile DiffKind
+                    //     // and it will be universal for every diff!!!!!!!!
+                    //     // hm. but it is usefull only for last_op Stage, and DiffKind::Unstaged...
+                    //     // it is for every op that changes diff!!!
+                    //     if kind == DiffKind::Unstaged {
+                    //         for i in (0..file_idx + 1).rev() {
+                    //             if let Some(file) = diff.files.get(i) {
+                    //                 iter.set_line(file.view.line_no.get());
+                    //                 self.last_op.take();
+                    //             }
+                    //         }
+                    //     }
+                    // }
                 }
 
                 // ------------------- Unstage Op applied to file in Staged
-                (StageOp::Unstage(_), CursorPosition::CursorFile(DiffKind::Staged, file_idx)) => {
-                    if let (Some(diff), Some(kind)) = (&self.staged, render_diff_kind) {
-                        // TODO! compare it not with constant, but with CursorFile DiffKind
-                        // and it will be universal for every diff!!!!!!!!
-                        // hm. but it is usefull only for last_op Stage, and DiffKind::Unstaged...
-                        // it is for every op that changes diff!!!
-                        if kind == DiffKind::Staged {
-                            for i in (0..file_idx + 1).rev() {
-                                if let Some(file) = diff.files.get(i) {
-                                    iter.set_line(file.view.line_no.get());
-                                    self.last_op.take();
-                                }
-                            }
-                        }
-                    }
-                }
+                // (StageOp::Unstage(_), CursorPosition::CursorFile(render_diff_kind, file_idx)) => {
+                //     if let Some(diff) = &self.staged {
+                //         // TODO! compare it not with constant, but with CursorFile DiffKind
+                //         // and it will be universal for every diff!!!!!!!!
+                //         // hm. but it is usefull only for last_op Stage, and DiffKind::Unstaged...
+                //         // it is for every op that changes diff!!!
+                //         if diff.kind == render_diff_kind {
+                //             for i in (0..file_idx + 1).rev() {
+                //                 if let Some(file) = diff.files.get(i) {
+                //                     iter.set_line(file.view.line_no.get());
+                //                     self.last_op.take();
+                //                 }
+                //             }
+                //         }
+                //     }
+                // }
                 // 2 more: 1 - stage applied to untracked 2 - unstage applied to untracked
 
                 // 2 more: 1 - stage applied to untracked 2 - unstage applied to untracked
@@ -1216,7 +1243,7 @@ impl Status {
 
 
 
-                
+
                 // Op applied to file
                 (StageOp::Stage(_), CursorPosition::CursorFile(diff_kind, _)) => {
                     assert!(diff_kind == DiffKind::Unstaged || diff_kind == DiffKind::Untracked);
