@@ -11,7 +11,6 @@ use std::path::PathBuf;
 
 use crate::{stage_untracked, stage_via_apply, DiffKind, Event, StageOp};
 
-//likeme
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
 use libadwaita::prelude::*;
