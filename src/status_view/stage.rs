@@ -110,7 +110,7 @@ impl CursorPosition {
         (None, None, None)
     }
 }
-//om
+
 impl Status {
     pub fn stage(&mut self, op: StageOp, window: &ApplicationWindow, gio_settings: &gio::Settings) {
         let (diff_kind, file_path, hunk_header) =
