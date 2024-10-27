@@ -1146,7 +1146,7 @@ impl Status {
             match (last_op.op, last_op.cursor_position) {
                 (StageOp::Stage(_), CursorPosition::CursorDiff(diff_kind)) => {
                     debug!("STAGE operation on whole diff!!!!!!! {:?}", diff_kind);
-                    assert!(diff_kind == DiffKind::Unstaged);
+                    assert!(diff_kind == DiffKind::Unstaged || diff_kind == DiffKind::Untracked);
                     if let Some(diff) = &self.staged {
                         iter.set_line(diff.view.line_no.get());
                         self.last_op.take();
@@ -1156,6 +1156,17 @@ impl Status {
                     debug!("UNSTAGE operation on whole diff!!!!!!! {:?}", diff_kind);
                     assert!(diff_kind == DiffKind::Staged);
                     if let Some(diff) = &self.unstaged {
+                        iter.set_line(diff.view.line_no.get());
+                        self.last_op.take();
+                    }
+                }
+                (StageOp::Kill(_), CursorPosition::CursorDiff(diff_kind)) => {
+                    debug!("UNSTAGE operation on whole diff!!!!!!! {:?}", diff_kind);
+                    assert!(diff_kind == DiffKind::Unstaged);
+                    if let Some(diff) = &self.staged {
+                        iter.set_line(diff.view.line_no.get());
+                        self.last_op.take();
+                    } else if let Some(diff) = &self.untracked {
                         iter.set_line(diff.view.line_no.get());
                         self.last_op.take();
                     }
