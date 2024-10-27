@@ -105,7 +105,6 @@ pub enum RenderSource {
 
 pub const DUMP_DIR: &str = "stage_dump";
 
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CursorPosition {
     CursorDiff(DiffKind),
@@ -117,7 +116,7 @@ pub enum CursorPosition {
 #[derive(Debug, Clone, Copy)]
 pub struct LastOp {
     op: StageOp,
-    cursor_position: CursorPosition
+    cursor_position: CursorPosition,
 }
 
 impl CursorPosition {
@@ -708,7 +707,6 @@ impl Status {
             untracked = None;
         }
 
-
         let mut render_required = false;
 
         if let Some(rendered) = &mut self.untracked {
@@ -721,7 +719,7 @@ impl Status {
             }
         }
         self.untracked = untracked;
-        if self.untracked.is_some() || render_required{
+        if self.untracked.is_some() || render_required {
             self.render(txt, Some(DiffKind::Untracked), context);
         }
     }
@@ -1137,7 +1135,7 @@ impl Status {
     pub fn choose_cursor_position(
         &self,
         buffer: &TextBuffer,
-        render_diff_kind: Option<DiffKind>
+        render_diff_kind: Option<DiffKind>,
     ) -> TextIter {
         debug!(
             "...................choose cursor position self.last_op {:?} cursor position {:?} render_diff_kind {:?}",
@@ -1180,17 +1178,20 @@ impl Status {
 
                 // if Diff was updated by StageOp while on file and it files diff is rendered now (was already updated)
                 // and this diff has another files - put cursor on first remaining file
-                (StageOp::Stage(_) | StageOp::Unstage(_)  | StageOp::Kill(_) ,
-                 CursorPosition::CursorFile(cursor_diff_kind, file_idx)
-                ) => if cursor_diff_kind == render_diff_kind {
-                    for odiff in [&self.untracked, &self.unstaged, &self.staged] {
-                        if let Some(diff) = odiff {
-                            if diff.kind == render_diff_kind {
-                                for i in (0..file_idx + 1).rev() {
-                                    if let Some(file) = diff.files.get(i) {
-                                        iter.set_line(file.view.line_no.get());
-                                        self.last_op.take();
-                                        break;
+                (
+                    StageOp::Stage(_) | StageOp::Unstage(_) | StageOp::Kill(_),
+                    CursorPosition::CursorFile(cursor_diff_kind, file_idx),
+                ) => {
+                    if cursor_diff_kind == render_diff_kind {
+                        for odiff in [&self.untracked, &self.unstaged, &self.staged] {
+                            if let Some(diff) = odiff {
+                                if diff.kind == render_diff_kind {
+                                    for i in (0..file_idx + 1).rev() {
+                                        if let Some(file) = diff.files.get(i) {
+                                            iter.set_line(file.view.line_no.get());
+                                            self.last_op.take();
+                                            break;
+                                        }
                                     }
                                 }
                             }
@@ -1200,32 +1201,36 @@ impl Status {
                 //1
                 // if Diff was updated by StageOp while on hunk and it hunks file is rendered now (was already updated)
                 // and this file has another hunks - put cursor on first remaining hunk
-                (StageOp::Stage(_) | StageOp::Unstage(_)  | StageOp::Kill(_) ,
-                 CursorPosition::CursorHunk(cursor_diff_kind, file_idx, hunk_ids)
-                ) => if cursor_diff_kind == render_diff_kind {
-                    for odiff in [&self.unstaged, &self.staged] {
-                        if let Some(diff) = odiff {
-                            if diff.kind == render_diff_kind {
-                                'found: for i in (0..file_idx + 1).rev() {
-                                    if let Some(file) = diff.files.get(i) {
-                                        if file.view.is_expanded() {
-                                            for j in (0..hunk_ids + 1).rev() {
-                                                if let Some(hunk) = file.hunks.get(j) {
-                                                    debug!("HUUUUUUUUUUUUUUUUUNK! {:?} line {:?} rendered {:?}",
+                (
+                    StageOp::Stage(_) | StageOp::Unstage(_) | StageOp::Kill(_),
+                    CursorPosition::CursorHunk(cursor_diff_kind, file_idx, hunk_ids)
+                    | CursorPosition::CursorLine(cursor_diff_kind, file_idx, hunk_ids, _),
+                ) => {
+                    if cursor_diff_kind == render_diff_kind {
+                        for odiff in [&self.unstaged, &self.staged] {
+                            if let Some(diff) = odiff {
+                                if diff.kind == render_diff_kind {
+                                    'found: for i in (0..file_idx + 1).rev() {
+                                        if let Some(file) = diff.files.get(i) {
+                                            if file.view.is_expanded() {
+                                                for j in (0..hunk_ids + 1).rev() {
+                                                    if let Some(hunk) = file.hunks.get(j) {
+                                                        debug!("HUUUUUUUUUUUUUUUUUNK! {:?} line {:?} rendered {:?}",
                                                            hunk.header,
                                                            hunk.view.line_no.get(),
                                                            hunk.view.is_rendered()
                                                     );
-                                                    iter.set_line(hunk.view.line_no.get());
-                                                    self.last_op.take();
-                                                    break 'found;
+                                                        iter.set_line(hunk.view.line_no.get());
+                                                        self.last_op.take();
+                                                        break 'found;
+                                                    }
                                                 }
-                                            }  
-                                        }                                        
-                                        debug!("FIIIIIIIIIIIIIIIIIIILE! {:?}", file.path);
-                                        iter.set_line(file.view.line_no.get());
-                                        self.last_op.take();
-                                        break;
+                                            }
+                                            debug!("FIIIIIIIIIIIIIIIIIIILE! {:?}", file.path);
+                                            iter.set_line(file.view.line_no.get());
+                                            self.last_op.take();
+                                            break;
+                                        }
                                     }
                                 }
                             }
