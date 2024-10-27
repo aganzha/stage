@@ -1151,7 +1151,7 @@ impl Status {
             // so, those are snapshot of previous state.
             // both will be changed right here!
             match (last_op.op, last_op.cursor_position) {
-                // ----------------   Op applied to whole Diff
+                // ----------------   Ops applied to whole Diff
                 (StageOp::Stage(_), CursorPosition::CursorDiff(diff_kind)) => {
                     assert!(diff_kind == DiffKind::Unstaged || diff_kind == DiffKind::Untracked);
                     if let Some(diff) = &self.staged {
@@ -1176,26 +1176,19 @@ impl Status {
                         self.last_op.take();
                     }
                 }
-
-                // ------------------- Stage Op applied to file in Unstaged
+                // ----------------   Ops applied to whole Diff
+                
+                // if Diff was updated by StageOp while on file and it files diff is rendered now (was already updated)
+                // and this diff has another files - put cursor on first remaining file
                 (StageOp::Stage(_) | StageOp::Unstage(_)  | StageOp::Kill(_) ,
                  CursorPosition::CursorFile(cursor_diff_kind, file_idx)
                 ) => if cursor_diff_kind == render_diff_kind {
                     for odiff in [&self.untracked, &self.unstaged, &self.staged] {
                         if let Some(diff) = odiff {
-                            debug!("?????????????????????? {:?} {:?}", diff.kind, diff.files.len());
                             if diff.kind == render_diff_kind {
                                 for i in (0..file_idx + 1).rev() {
                                     if let Some(file) = diff.files.get(i) {
                                         iter.set_line(file.view.line_no.get());
-                                        debug!("WOOOOOOOOOOOOOOOORKS! op: {:?} RENDER_DIFF_KIND {:?} line {:?} file_name: {:?} file idx {:?} i {:?}",
-                                               self.last_op,
-                                               render_diff_kind,
-                                               iter.line(),
-                                               file.path,
-                                               file_idx,
-                                               i
-                                        );
                                         self.last_op.take();
                                         break;
                                     }
@@ -1203,81 +1196,29 @@ impl Status {
                             }
                         }
                     }
-                    // if let (Some(diff), Some(kind)) = (&self.unstaged, render_diff_kind) {
-                    //     // TODO! compare it not with constant, but with CursorFile DiffKind
-                    //     // and it will be universal for every diff!!!!!!!!
-                    //     // hm. but it is usefull only for last_op Stage, and DiffKind::Unstaged...
-                    //     // it is for every op that changes diff!!!
-                    //     if kind == DiffKind::Unstaged {
-                    //         for i in (0..file_idx + 1).rev() {
-                    //             if let Some(file) = diff.files.get(i) {
-                    //                 iter.set_line(file.view.line_no.get());
-                    //                 self.last_op.take();
-                    //             }
-                    //         }
-                    //     }
-                    // }
                 }
-
-                // ------------------- Unstage Op applied to file in Staged
-                // (StageOp::Unstage(_), CursorPosition::CursorFile(render_diff_kind, file_idx)) => {
-                //     if let Some(diff) = &self.staged {
-                //         // TODO! compare it not with constant, but with CursorFile DiffKind
-                //         // and it will be universal for every diff!!!!!!!!
-                //         // hm. but it is usefull only for last_op Stage, and DiffKind::Unstaged...
-                //         // it is for every op that changes diff!!!
-                //         if diff.kind == render_diff_kind {
-                //             for i in (0..file_idx + 1).rev() {
-                //                 if let Some(file) = diff.files.get(i) {
-                //                     iter.set_line(file.view.line_no.get());
-                //                     self.last_op.take();
-                //                 }
-                //             }
-                //         }
-                //     }
-                // }
-                // 2 more: 1 - stage applied to untracked 2 - unstage applied to untracked
-
-                // 2 more: 1 - stage applied to untracked 2 - unstage applied to untracked
-
-
-
-
-
-                // Op applied to file
-                (StageOp::Stage(_), CursorPosition::CursorFile(diff_kind, _)) => {
-                    assert!(diff_kind == DiffKind::Unstaged || diff_kind == DiffKind::Untracked);
-
-                    // if there is a file under same index in staged:
-                    // - if file is the same - do nothing
-                    // - if file is different - put cursor on it
-                    // - if there are no file at index - try prev index
-                    // else - go to unstaged....
-                    // the main problem is update comes unordered: staged...unstaged...untracked.
-                    // i could react in any of this, BUT somehow it need to cleanup last op.
-                    // e.g. if unstaged has file at index it need to remain cursor in place.
-                    // BUT it could be the same file which is not yet updated.
-                    // if file is not yet updated - it need to maintain last_op for
-                    // next update. but if not - it need to clean it up.
-                    // if file is present at index, but it is another file,
-                    // then it need to clean ladtop somehow. for now it does not store
-                    // file name. to use Copy and Cell. If introduce FileName it became Heap stored
-                    // value...
-                    // If not cleanup last op it will affect all further choose_cursor_position
-                    // calls...
-                    // cursor could be called either on any render op (updating state etc)
-                    // how to clean it up??? easy. last_op must be cleaned up
-                    // based on what diff is changed. how to check that?
-                    // long ago it was RenderSource!!!!!!!!!!
-                    if let Some(diff) = &self.unstaged {
-                        debug!("----------------> I STILL HAVE UNSTAGED!");
-                        // iter.set_line(diff.view.line_no.get());
-                        // self.last_op.take();
-                    }
-                    if let Some(diff) = &self.staged {
-                        debug!("----------------> I ALREADY HAVE STAGED!");
-                        // iter.set_line(diff.view.line_no.get());
-                        // self.last_op.take();
+                // if Diff was updated by StageOp while on hunk and it hunks file is rendered now (was already updated)
+                // and this file has another hunks - put cursor on first remaining hunk
+                (StageOp::Stage(_) | StageOp::Unstage(_)  | StageOp::Kill(_) ,
+                 CursorPosition::CursorHunk(cursor_diff_kind, file_idx, hunk_ids)
+                ) => if cursor_diff_kind == render_diff_kind {
+                    for odiff in [&self.unstaged, &self.staged] {
+                        if let Some(diff) = odiff {
+                            if diff.kind == render_diff_kind {
+                                for i in (0..file_idx + 1).rev() {
+                                    if let Some(file) = diff.files.get(i) {
+                                        for j in (0..hunk_ids + 1).rev() {
+                                            if let Some(hunk) = file.hunks.get(j) {
+                                                debug!("HUUUUUUUUUUUUUUUUUNK! {:?}", hunk.header);
+                                                iter.set_line(hunk.view.line_no.get());
+                                                self.last_op.take();
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 (op, pos) => {
