@@ -1124,7 +1124,7 @@ impl Status {
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
-        let iter = self.choose_cursor_position(&buffer);
+        let iter = self.choose_cursor_position(&buffer, diff_kind);
         trace!("__________ chused position {:?}", iter.line());
         buffer.place_cursor(&iter);
         // WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
@@ -1134,6 +1134,7 @@ impl Status {
     pub fn choose_cursor_position(
         &self,
         buffer: &TextBuffer,
+        render_diff_kind: Option<DiffKind>
     ) -> TextIter {
         debug!(
             "...................choose cursor position self.last_op {:?} cursor position {:?} ",
@@ -1147,7 +1148,7 @@ impl Status {
             // so, those are snapshot of previous state.
             // both will be changed right here!
             match (last_op.op, last_op.cursor_position) {
-                // Op applied to whole Diff
+                // ----------------   Op applied to whole Diff
                 (StageOp::Stage(_), CursorPosition::CursorDiff(diff_kind)) => {
                     assert!(diff_kind == DiffKind::Unstaged || diff_kind == DiffKind::Untracked);
                     if let Some(diff) = &self.staged {
@@ -1172,10 +1173,27 @@ impl Status {
                         self.last_op.take();
                     }
                 }
+
+                // ------------------- Op applied to file in Unstaged
+                (StageOp::Stage(_), CursorPosition::CursorFile(DiffKind::Unstaged, file_idx)) => {
+                    if let (Some(diff), Some(kind)) = (&self.unstaged, render_diff_kind) {
+                        // TODO! compare it not with constant, but with CursorFile DiffKind
+                        // and it will be universal for every diff!!!!!!!!
+                        if kind == DiffKind::Unstaged {
+                            for i in (0..file_idx + 1).rev() {
+                                if let Some(file) = diff.files.get(i) {
+                                    iter.set_line(file.view.line_no.get());
+                                    self.last_op.take();
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Op applied to file
                 (StageOp::Stage(_), CursorPosition::CursorFile(diff_kind, _)) => {
                     assert!(diff_kind == DiffKind::Unstaged || diff_kind == DiffKind::Untracked);
-                    debug!("oooooooooooooop is applied to file!");
+
                     // if there is a file under same index in staged:
                     // - if file is the same - do nothing
                     // - if file is different - put cursor on it
