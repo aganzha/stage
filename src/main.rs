@@ -112,7 +112,7 @@ fn load_css() {
     style_context_add_provider_for_display(&display, &provider, STYLE_PROVIDER_PRIORITY_USER);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum StageOp {
     Stage(i32),
     Unstage(i32),

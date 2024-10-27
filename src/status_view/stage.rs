@@ -115,6 +115,10 @@ impl Status {
     pub fn stage(&mut self, op: StageOp, window: &ApplicationWindow, gio_settings: &gio::Settings) {
         let (diff_kind, file_path, hunk_header) =
             self.cursor_position.get().resolve_stage_op(self, &op);
+        self.last_op.replace(Some(LastOp {
+            op: op,
+            cursor_position: self.cursor_position.get(),
+        }));
         trace!(
             "stage via apply ----------------------> {:?} {:?} {:?} {:?} === {:?}",
             op,
@@ -204,11 +208,6 @@ impl Status {
                     let window = window.clone();
                     let path = self.path.clone();
                     let sender = self.sender.clone();
-                    self.last_op.replace(LastOp {
-                        op: op.clone(),
-                        file_path: file_path.clone(),
-                        hunk_header: hunk_header.clone(),
-                    });
                     async move {
                         gio::spawn_blocking({
                             move || {
