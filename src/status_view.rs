@@ -108,9 +108,9 @@ pub const DUMP_DIR: &str = "stage_dump";
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CursorPosition {
-    CursorDiff(DiffKind, Option<usize>, Option<usize>, Option<usize>),
-    CursorFile(DiffKind, Option<usize>, Option<usize>, Option<usize>),
-    CursorHunk(DiffKind, Option<usize>, Option<usize>, Option<usize>),
+    CursorDiff(DiffKind),
+    CursorFile(DiffKind, Option<usize>),
+    CursorHunk(DiffKind, Option<usize>, Option<usize>),
     CursorLine(DiffKind, Option<usize>, Option<usize>, Option<usize>),
     None,
 }
@@ -119,7 +119,7 @@ impl CursorPosition {
     pub fn from_context(context: &StatusRenderContext) -> Self {
         match context.cursor_position {
             ContextCursorPosition::CursorDiff(diff) => {
-                return CursorPosition::CursorDiff(diff.kind, None, None, None);
+                return CursorPosition::CursorDiff(diff.kind);
             }
             ContextCursorPosition::CursorFile(f) => {
                 let diff = context.selected_diff.unwrap();
@@ -133,8 +133,6 @@ impl CursorPosition {
                             .position(|f| std::ptr::eq(file, f))
                             .unwrap(),
                     ),
-                    None,
-                    None,
                 );
             }
             ContextCursorPosition::CursorHunk(h) => {
@@ -156,7 +154,6 @@ impl CursorPosition {
                             .position(|h| std::ptr::eq(hunk, h))
                             .unwrap(),
                     ),
-                    None,
                 );
             }
             ContextCursorPosition::CursorLine(line) => {

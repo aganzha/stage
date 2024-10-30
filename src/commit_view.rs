@@ -416,10 +416,8 @@ pub fn show_commit_window(
                                 }
                             };
                             let (body, file_path, hunk_header) = match cursor_position {
-                                CursorPosition::CursorDiff(_, None, None, None) => {
-                                    (oid.to_string(), None, None)
-                                }
-                                CursorPosition::CursorFile(_, Some(file_idx), None, None) => {
+                                CursorPosition::CursorDiff(_) => (oid.to_string(), None, None),
+                                CursorPosition::CursorFile(_, Some(file_idx)) => {
                                     let file = &diff.diff.files[file_idx];
                                     (
                                         format!("File: {}", file.path.to_str().unwrap()),
@@ -427,12 +425,7 @@ pub fn show_commit_window(
                                         None,
                                     )
                                 }
-                                CursorPosition::CursorHunk(
-                                    _,
-                                    Some(file_idx),
-                                    Some(hunk_idx),
-                                    None,
-                                )
+                                CursorPosition::CursorHunk(_, Some(file_idx), Some(hunk_idx))
                                 | CursorPosition::CursorLine(
                                     _,
                                     Some(file_idx),
