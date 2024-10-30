@@ -1192,29 +1192,6 @@ impl Status {
                 }
                 // ----------------   Ops applied to whole Diff
 
-                // if Diff was updated by StageOp while on file and it files diff is rendered now (was already updated)
-                // and this diff has another files - put cursor on first remaining file
-                // (
-                //     StageOp::Stage(_) | StageOp::Unstage(_) | StageOp::Kill(_),
-                //     CursorPosition::CursorFile(cursor_diff_kind, file_idx),
-                // ) => {
-                //     if cursor_diff_kind == render_diff_kind {
-                //         for odiff in [&self.untracked, &self.unstaged, &self.staged] {
-                //             if let Some(diff) = odiff {
-                //                 if diff.kind == render_diff_kind {
-                //                     for i in (0..file_idx + 1).rev() {
-                //                         if let Some(file) = diff.files.get(i) {
-                //                             iter.set_line(file.view.line_no.get());
-                //                             self.last_op.take();
-                //                             break;
-                //                         }
-                //                     }
-                //                 }
-                //             }
-                //         }
-                //     }
-                // }
-                //1
                 // if Diff was updated by StageOp while on hunk and it hunks file is rendered now (was already updated)
                 // and this file has another hunks - put cursor on first remaining hunk
                 (
@@ -1223,7 +1200,9 @@ impl Status {
                 ) if cursor_diff_kind == render_diff_kind => {
                     for odiff in [&self.unstaged, &self.staged, &self.untracked] {
                         if let Some(diff) = odiff {
+                            debug!("enter loop {:?} {:?}", diff.kind, render_diff_kind);
                             if diff.kind == render_diff_kind {
+                                debug!("matched rendered diff! {:?}", render_diff_kind);
                                 for i in (0..file_idx + 1).rev() {
                                     if let Some(file) = diff.files.get(i) {
                                         debug!("1. FIIIIIIIIIIIIIIIIIIILE! {:?}", file.path);
@@ -1233,6 +1212,45 @@ impl Status {
                                     }
                                 }
                             }
+                        }                        
+                    }
+                    // if last_op was not handled.
+                    // this means there is nothing to put
+                    // into changed diff. It need to put cursor
+                    // to opposite diff
+                    // !!!SO. HERE IS THE PROBLEM: last_op got replaced with new cursorposition
+                    // to wait untill it comes and put cursor on it.
+                    // BUT CURRENT POSITION WAS ELIMINATED! WHY IT IS EMPTY?
+                    // because cursor was on Unstaged, and Unstaged got updated before
+                    // Staged come, and self.cursor_position was reset to None!!!!!!!!!!
+                    if let Some(last_op) = self.last_op.get() {
+                        debug!("missing file in original diff++++++++++++++++++++++");
+                        match render_diff_kind {
+                            DiffKind::Unstaged | DiffKind::Untracked => {
+                                if let Some(staged) = &self.staged {
+                                    iter.set_line(staged.view.line_no.get());
+                                    self.last_op.take();
+                                    debug!(
+                                        "STAGED IS HERE. PUST Cursor on itttttttttttttttttttt"
+                                    );
+                                } else {
+                                    let op = last_op.op;
+                                    debug!("wait for fuuuuuuuuuuuuuture");
+                                    self.last_op.replace(Some(LastOp {
+                                        op: op,
+                                        cursor_position: CursorPosition::CursorDiff(
+                                            DiffKind::Staged,
+                                            None,
+                                            None,
+                                            None,
+                                        ),
+                                    }));
+                                }
+                            }
+                            DiffKind::Staged => {
+                                // where to put - unstaged or untracked?
+                            }
+                            _ => {}
                         }
                     }
                 }
