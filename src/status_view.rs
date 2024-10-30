@@ -20,6 +20,7 @@ use crate::git::{
 use core::time::Duration;
 use git2::RepositoryState;
 use render::ViewContainer; // MayBeViewContainer o
+use stage::LastOp;
 use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
@@ -33,8 +34,8 @@ use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, track_changes, Diff, DiffKind, Event, File as GitFile, Head, StageOp,
-    State, StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
+    get_current_repo_status, track_changes, Diff, DiffKind, Event, File as GitFile, Head, State,
+    StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
 };
 use async_channel::Sender;
 
@@ -112,11 +113,6 @@ pub enum CursorPosition {
     CursorHunk(DiffKind, Option<usize>, Option<usize>, Option<usize>),
     CursorLine(DiffKind, Option<usize>, Option<usize>, Option<usize>),
     None,
-}
-#[derive(Debug, Clone, Copy)]
-pub struct LastOp {
-    op: StageOp,
-    cursor_position: CursorPosition,
 }
 
 impl CursorPosition {
@@ -1145,157 +1141,6 @@ impl Status {
         buffer.place_cursor(&iter);
         // WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
-    }
-
-    pub fn choose_cursor_position(
-        &self,
-        buffer: &TextBuffer,
-        render_diff_kind: Option<DiffKind>,
-    ) -> TextIter {
-        debug!(
-            "...................choose cursor position self.last_op {:?} cursor position {:?} render_diff_kind {:?}",
-            self.last_op, self.cursor_position, render_diff_kind
-        );
-        let this_pos = buffer.cursor_position();
-        let mut iter = buffer.iter_at_offset(this_pos);
-        if let (Some(last_op), Some(render_diff_kind)) = (&self.last_op.get(), render_diff_kind) {
-            // both last_op and cursor_position in it are no longer actual,
-            // cause update and render are already happened.
-            // so, those are snapshot of previous state.
-            // both will be changed right here!
-            match (last_op.op, last_op.cursor_position) {
-                // ----------------   Ops applied to whole Diff
-                // TODO! squash in one!
-                (StageOp::Stage(_), CursorPosition::CursorDiff(diff_kind, None, None, None)) => {
-                    assert!(diff_kind == DiffKind::Unstaged || diff_kind == DiffKind::Untracked);
-                    if let Some(diff) = &self.staged {
-                        iter.set_line(diff.view.line_no.get());
-                        self.last_op.take();
-                    }
-                }
-                (StageOp::Unstage(_), CursorPosition::CursorDiff(diff_kind, None, None, None)) => {
-                    assert!(diff_kind == DiffKind::Staged);
-                    if let Some(diff) = &self.unstaged {
-                        iter.set_line(diff.view.line_no.get());
-                        self.last_op.take();
-                    }
-                }
-                (StageOp::Kill(_), CursorPosition::CursorDiff(diff_kind, None, None, None)) => {
-                    assert!(diff_kind == DiffKind::Unstaged);
-                    if let Some(diff) = &self.staged {
-                        iter.set_line(diff.view.line_no.get());
-                        self.last_op.take();
-                    } else if let Some(diff) = &self.untracked {
-                        iter.set_line(diff.view.line_no.get());
-                        self.last_op.take();
-                    }
-                }
-                // ----------------   Ops applied to whole Diff
-
-                // if Diff was updated by StageOp while on hunk and it hunks file is rendered now (was already updated)
-                // and this file has another hunks - put cursor on first remaining hunk
-                (
-                    StageOp::Stage(_) | StageOp::Unstage(_) | StageOp::Kill(_),
-                    CursorPosition::CursorFile(cursor_diff_kind, Some(file_idx), None, _),
-                ) if cursor_diff_kind == render_diff_kind => {
-                    for odiff in [&self.unstaged, &self.staged, &self.untracked] {
-                        if let Some(diff) = odiff {
-                            debug!("enter loop {:?} {:?}", diff.kind, render_diff_kind);
-                            if diff.kind == render_diff_kind {
-                                debug!("matched rendered diff! {:?}", render_diff_kind);
-                                for i in (0..file_idx + 1).rev() {
-                                    if let Some(file) = diff.files.get(i) {
-                                        debug!("1. FIIIIIIIIIIIIIIIIIIILE! {:?}", file.path);
-                                        iter.set_line(file.view.line_no.get());
-                                        self.last_op.take();
-                                        break;
-                                    }
-                                }
-                            }
-                        }                        
-                    }
-                    // if last_op was not handled.
-                    // this means there is nothing to put
-                    // into changed diff. It need to put cursor
-                    // to opposite diff
-                    // !!!SO. HERE IS THE PROBLEM: last_op got replaced with new cursorposition
-                    // to wait untill it comes and put cursor on it.
-                    // BUT CURRENT POSITION WAS ELIMINATED! WHY IT IS EMPTY?
-                    // because cursor was on Unstaged, and Unstaged got updated before
-                    // Staged come, and self.cursor_position was reset to None!!!!!!!!!!
-                    if let Some(last_op) = self.last_op.get() {
-                        debug!("missing file in original diff++++++++++++++++++++++");
-                        match render_diff_kind {
-                            DiffKind::Unstaged | DiffKind::Untracked => {
-                                if let Some(staged) = &self.staged {
-                                    iter.set_line(staged.view.line_no.get());
-                                    self.last_op.take();
-                                    debug!(
-                                        "STAGED IS HERE. PUST Cursor on itttttttttttttttttttt"
-                                    );
-                                } else {
-                                    let op = last_op.op;
-                                    debug!("wait for fuuuuuuuuuuuuuture");
-                                    self.last_op.replace(Some(LastOp {
-                                        op: op,
-                                        cursor_position: CursorPosition::CursorDiff(
-                                            DiffKind::Staged,
-                                            None,
-                                            None,
-                                            None,
-                                        ),
-                                    }));
-                                }
-                            }
-                            DiffKind::Staged => {
-                                // where to put - unstaged or untracked?
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                (
-                    StageOp::Stage(_) | StageOp::Unstage(_) | StageOp::Kill(_),
-                    CursorPosition::CursorHunk(cursor_diff_kind, Some(file_idx), Some(hunk_ids), _)
-                    | CursorPosition::CursorLine(cursor_diff_kind, Some(file_idx), Some(hunk_ids), _),
-                ) if cursor_diff_kind == render_diff_kind => {
-                    for odiff in [&self.unstaged, &self.staged] {
-                        if let Some(diff) = odiff {
-                            if diff.kind == render_diff_kind {
-                                'found: for i in (0..file_idx + 1).rev() {
-                                    if let Some(file) = diff.files.get(i) {
-                                        if file.view.is_expanded() {
-                                            for j in (0..hunk_ids + 1).rev() {
-                                                if let Some(hunk) = file.hunks.get(j) {
-                                                    debug!("HUUUUUUUUUUUUUUUUUNK! {:?} line {:?} rendered {:?}",
-                                                           hunk.header,
-                                                           hunk.view.line_no.get(),
-                                                           hunk.view.is_rendered()
-                                                    );
-                                                    iter.set_line(hunk.view.line_no.get());
-                                                    self.last_op.take();
-                                                    break 'found;
-                                                }
-                                            }
-                                        }
-                                        debug!("2. FIIIIIIIIIIIIIIIIIIILE! {:?}", file.path);
-                                        iter.set_line(file.view.line_no.get());
-                                        self.last_op.take();
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                (op, pos) => {
-                    debug!("----------> NOT COVERED pos and op {:?} {:?}", pos, op)
-                }
-            }
-        } else {
-            debug!("no any last_op....................");
-        }
-        iter
     }
 
     pub fn has_staged(&self) -> bool {
