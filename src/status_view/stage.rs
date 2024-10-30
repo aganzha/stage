@@ -33,16 +33,13 @@ impl CursorPosition {
         // TODO! it is not string! it must be typed HunkHeader!
         // TODO! squash matches as in choose cursor position!
         match (self, op) {
-            (
-                Self::CursorDiff(DiffKind::Unstaged, None, None, None),
-                StageOp::Stage(_) | StageOp::Kill(_),
-            ) => {
+            (Self::CursorDiff(DiffKind::Unstaged), StageOp::Stage(_) | StageOp::Kill(_)) => {
                 if let Some(unstaged) = &status.unstaged {
                     return (Some(unstaged.kind), None, None);
                 }
             }
             (
-                Self::CursorFile(DiffKind::Unstaged, Some(file_idx), None, None),
+                Self::CursorFile(DiffKind::Unstaged, Some(file_idx)),
                 StageOp::Stage(_) | StageOp::Kill(_),
             ) => {
                 if let Some(unstaged) = &status.unstaged {
@@ -51,7 +48,7 @@ impl CursorPosition {
                 }
             }
             (
-                Self::CursorHunk(DiffKind::Unstaged, Some(file_idx), Some(hunk_idx), None)
+                Self::CursorHunk(DiffKind::Unstaged, Some(file_idx), Some(hunk_idx))
                 | Self::CursorLine(DiffKind::Unstaged, Some(file_idx), Some(hunk_idx), _),
                 StageOp::Stage(_) | StageOp::Kill(_),
             ) => {
@@ -65,22 +62,19 @@ impl CursorPosition {
                     );
                 }
             }
-            (Self::CursorDiff(DiffKind::Staged, None, None, None), StageOp::Unstage(_)) => {
+            (Self::CursorDiff(DiffKind::Staged), StageOp::Unstage(_)) => {
                 if let Some(staged) = &status.staged {
                     return (Some(staged.kind), None, None);
                 }
             }
-            (
-                Self::CursorFile(DiffKind::Staged, Some(file_idx), None, None),
-                StageOp::Unstage(_),
-            ) => {
+            (Self::CursorFile(DiffKind::Staged, Some(file_idx)), StageOp::Unstage(_)) => {
                 if let Some(staged) = &status.staged {
                     let file = &staged.files[*file_idx];
                     return (Some(staged.kind), Some(file.path.clone()), None);
                 }
             }
             (
-                Self::CursorHunk(DiffKind::Staged, Some(file_idx), Some(hunk_idx), None)
+                Self::CursorHunk(DiffKind::Staged, Some(file_idx), Some(hunk_idx))
                 | Self::CursorLine(DiffKind::Staged, Some(file_idx), Some(hunk_idx), _),
                 StageOp::Unstage(_),
             ) => {
@@ -94,16 +88,13 @@ impl CursorPosition {
                     );
                 }
             }
-            (
-                Self::CursorDiff(DiffKind::Untracked, None, None, None),
-                StageOp::Stage(_) | StageOp::Kill(_),
-            ) => {
+            (Self::CursorDiff(DiffKind::Untracked), StageOp::Stage(_) | StageOp::Kill(_)) => {
                 if let Some(untracked) = &status.untracked {
                     return (Some(untracked.kind), None, None);
                 }
             }
             (
-                Self::CursorFile(DiffKind::Untracked, Some(file_idx), None, None),
+                Self::CursorFile(DiffKind::Untracked, Some(file_idx)),
                 StageOp::Stage(_) | StageOp::Kill(_),
             ) => {
                 if let Some(untracked) = &status.untracked {
@@ -347,7 +338,7 @@ impl Status {
                 // TODO! squash in one!
                 (LastOp {
                     op: StageOp::Stage(_),
-                    cursor_position: CursorPosition::CursorDiff(diff_kind, None, None, None),
+                    cursor_position: CursorPosition::CursorDiff(diff_kind),
                     desired_diff_kind: _,
                 }) => {
                     assert!(*diff_kind == DiffKind::Unstaged || *diff_kind == DiffKind::Untracked);
@@ -358,7 +349,7 @@ impl Status {
                 }
                 (LastOp {
                     op: StageOp::Unstage(_),
-                    cursor_position: CursorPosition::CursorDiff(diff_kind, None, None, None),
+                    cursor_position: CursorPosition::CursorDiff(diff_kind),
                     desired_diff_kind: _,
                 }) => {
                     assert!(*diff_kind == DiffKind::Staged);
@@ -369,7 +360,7 @@ impl Status {
                 }
                 (LastOp {
                     op: StageOp::Kill(_),
-                    cursor_position: CursorPosition::CursorDiff(diff_kind, None, None, None),
+                    cursor_position: CursorPosition::CursorDiff(diff_kind),
                     desired_diff_kind: _,
                 }) => {
                     assert!(*diff_kind == DiffKind::Unstaged);
@@ -387,8 +378,7 @@ impl Status {
                 // and this file has another hunks - put cursor on first remaining hunk
                 (LastOp {
                     op: _,
-                    cursor_position:
-                        CursorPosition::CursorFile(cursor_diff_kind, Some(file_idx), None, _),
+                    cursor_position: CursorPosition::CursorFile(cursor_diff_kind, Some(file_idx)),
                     desired_diff_kind: desired_diff_kind,
                 }) if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
@@ -418,7 +408,7 @@ impl Status {
                 (LastOp {
                     op: _,
                     cursor_position:
-                        CursorPosition::CursorHunk(cursor_diff_kind, Some(file_idx), Some(hunk_ids), _)
+                        CursorPosition::CursorHunk(cursor_diff_kind, Some(file_idx), Some(hunk_ids))
                         | CursorPosition::CursorLine(cursor_diff_kind, Some(file_idx), Some(hunk_ids), _),
                     desired_diff_kind: desired_diff_kind,
                 }) if *cursor_diff_kind == render_diff_kind
@@ -464,7 +454,7 @@ impl Status {
             match render_diff_kind {
                 DiffKind::Unstaged | DiffKind::Untracked => {
                     if let Some(diff) = &self.staged {
-                        iter.set_line(diff.view.line_no.get());
+                        iter.set_line(diff.files[0].view.line_no.get());
                         self.last_op.take();
                     } else {
                         self.last_op.replace(Some(LastOp {
@@ -475,7 +465,6 @@ impl Status {
                     }
                 }
                 DiffKind::Staged => {
-                    debug!("||||||||||||| where to put cursor - unstaged or untracked?");
                     if let Some(diff) = &self.unstaged {
                         iter.set_line(diff.files[0].view.line_no.get());
                         self.last_op.take();
