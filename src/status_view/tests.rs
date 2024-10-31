@@ -782,7 +782,6 @@ pub fn test_flags() {
 
 #[gtk4::test]
 pub fn test_cursor_position() {
-    debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
     let buffer = initialize();
     let diff = create_diff();
     let mut ctx = StatusRenderContext::new();
