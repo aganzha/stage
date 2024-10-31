@@ -123,7 +123,7 @@ impl CursorPosition {
 }
 
 impl Status {
-    pub fn stage(&mut self, op: StageOp, window: &ApplicationWindow, gio_settings: &gio::Settings) {
+    pub fn stage_op(&mut self, op: StageOp, window: &ApplicationWindow, gio_settings: &gio::Settings) {
         let (diff_kind, file_path, hunk_header) =
             self.cursor_position.get().resolve_stage_op(self, &op);
         self.last_op.replace(Some(LastOp {
@@ -333,36 +333,36 @@ impl Status {
             // cause update and render are already happened.
             // so, those are snapshot of previous state.
             // both will be changed right here!
-            match (last_op) {
+            match last_op {
                 // ----------------   Ops applied to whole Diff
                 // TODO! squash in one!
-                (LastOp {
+                LastOp {
                     op: StageOp::Stage(_),
                     cursor_position: CursorPosition::CursorDiff(diff_kind),
                     desired_diff_kind: _,
-                }) => {
+                } => {
                     assert!(*diff_kind == DiffKind::Unstaged || *diff_kind == DiffKind::Untracked);
                     if let Some(diff) = &self.staged {
                         iter.set_line(diff.view.line_no.get());
                         self.last_op.take();
                     }
                 }
-                (LastOp {
+                LastOp {
                     op: StageOp::Unstage(_),
                     cursor_position: CursorPosition::CursorDiff(diff_kind),
                     desired_diff_kind: _,
-                }) => {
+                } => {
                     assert!(*diff_kind == DiffKind::Staged);
                     if let Some(diff) = &self.unstaged {
                         iter.set_line(diff.view.line_no.get());
                         self.last_op.take();
                     }
                 }
-                (LastOp {
+                LastOp {
                     op: StageOp::Kill(_),
                     cursor_position: CursorPosition::CursorDiff(diff_kind),
                     desired_diff_kind: _,
-                }) => {
+                } => {
                     assert!(*diff_kind == DiffKind::Unstaged);
                     if let Some(diff) = &self.staged {
                         iter.set_line(diff.view.line_no.get());
@@ -376,11 +376,11 @@ impl Status {
 
                 // if Diff was updated by StageOp while on hunk and it hunks file is rendered now (was already updated)
                 // and this file has another hunks - put cursor on first remaining hunk
-                (LastOp {
+                LastOp {
                     op: _,
                     cursor_position: CursorPosition::CursorFile(cursor_diff_kind, Some(file_idx)),
                     desired_diff_kind: desired_diff_kind,
-                }) if *cursor_diff_kind == render_diff_kind
+                } if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
                 {
                     for odiff in [&self.unstaged, &self.staged, &self.untracked] {
@@ -405,13 +405,13 @@ impl Status {
                     // last_op cursor position. BUT IT NEED TO MATCH IT WITH DESIRED DIFF ALSO!
                     self.cursor_on_opposite_diff(render_diff_kind, &mut iter);
                 }
-                (LastOp {
+                LastOp {
                     op: _,
                     cursor_position:
                         CursorPosition::CursorHunk(cursor_diff_kind, Some(file_idx), Some(hunk_ids))
                         | CursorPosition::CursorLine(cursor_diff_kind, Some(file_idx), Some(hunk_ids), _),
                     desired_diff_kind: desired_diff_kind,
-                }) if *cursor_diff_kind == render_diff_kind
+                } if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
                 {
                     for odiff in [&self.unstaged, &self.staged] {
@@ -438,7 +438,7 @@ impl Status {
                     }
                     self.cursor_on_opposite_diff(render_diff_kind, &mut iter);
                 }
-                (op) => {
+                op => {
                     debug!("----------> NOT COVERED LastOp {:?}", op)
                 }
             }

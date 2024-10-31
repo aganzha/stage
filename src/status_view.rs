@@ -7,7 +7,7 @@ pub mod context;
 pub mod headerbar;
 pub mod monitor;
 pub mod render;
-pub mod stage;
+pub mod stage_op;
 pub mod stage_view;
 pub mod tags;
 
@@ -20,7 +20,7 @@ use crate::git::{
 use core::time::Duration;
 use git2::RepositoryState;
 use render::ViewContainer; // MayBeViewContainer o
-use stage::LastOp;
+use stage_op::LastOp;
 use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
@@ -925,17 +925,6 @@ impl Status {
         }
 
         self.unstaged = diff;
-
-        // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cleanup StageOp here!
-        // let mut op: Option<LastOp> = None;
-        // if self.unstaged.is_some() {
-        //     if let Some(last_op) = &self.last_op {
-        //         if let StageOp::Stage(_) = last_op.op {
-        //             op = self.last_op.take();
-        //         }
-        //     }
-        // }
-        // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cleanup StageOp here!
 
         if self.unstaged.is_some() || render_required {
             self.render(txt, Some(DiffKind::Unstaged), context);
