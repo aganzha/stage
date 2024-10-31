@@ -46,7 +46,7 @@ use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, TextBuffer, TextIter, Widget,
+    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, Widget,
     Window as GTKWindow,
 };
 use libadwaita::prelude::*;
