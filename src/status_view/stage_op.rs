@@ -123,7 +123,12 @@ impl CursorPosition {
 }
 
 impl Status {
-    pub fn stage_op(&mut self, op: StageOp, window: &ApplicationWindow, gio_settings: &gio::Settings) {
+    pub fn stage_op(
+        &mut self,
+        op: StageOp,
+        window: &ApplicationWindow,
+        gio_settings: &gio::Settings,
+    ) {
         let (diff_kind, file_path, hunk_header) =
             self.cursor_position.get().resolve_stage_op(self, &op);
         self.last_op.replace(Some(LastOp {
