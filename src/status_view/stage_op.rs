@@ -132,7 +132,7 @@ impl Status {
         let (diff_kind, file_path, hunk_header) =
             self.cursor_position.get().resolve_stage_op(self, &op);
         self.last_op.replace(Some(LastOp {
-            op: op,
+            op,
             cursor_position: self.cursor_position.get(),
             desired_diff_kind: None,
         }));
@@ -384,7 +384,7 @@ impl Status {
                 LastOp {
                     op: _,
                     cursor_position: CursorPosition::CursorFile(cursor_diff_kind, Some(file_idx)),
-                    desired_diff_kind: desired_diff_kind,
+                    desired_diff_kind,
                 } if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
                 {
@@ -415,7 +415,7 @@ impl Status {
                     cursor_position:
                         CursorPosition::CursorHunk(cursor_diff_kind, Some(file_idx), Some(hunk_ids))
                         | CursorPosition::CursorLine(cursor_diff_kind, Some(file_idx), Some(hunk_ids), _),
-                    desired_diff_kind: desired_diff_kind,
+                    desired_diff_kind,
                 } if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
                 {
