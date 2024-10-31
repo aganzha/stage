@@ -797,7 +797,7 @@ pub fn test_cursor_position() {
     diff.cursor(&buffer, diff.view.line_no.get(), false, &mut ctx);
 
     let position = CursorPosition::from_context(&ctx);
-    assert!(position == CursorPosition::CursorDiff(diff.kind, None, None, None));
+    assert!(position == CursorPosition::CursorDiff(diff.kind));
 
     // iterate on files
     for (fi, file) in diff.files.iter().enumerate() {
@@ -805,14 +805,14 @@ pub fn test_cursor_position() {
         // put cursor on each file
         diff.cursor(&buffer, file_line_no, false, &mut ctx);
         let position = CursorPosition::from_context(&ctx);
-        assert!(position == CursorPosition::CursorFile(diff.kind, Some(fi), None, None));
+        assert!(position == CursorPosition::CursorFile(diff.kind, Some(fi)));
 
         for (hi, hunk) in file.hunks.iter().enumerate() {
             let hunk_line_no = hunk.view.line_no.get();
             // put cursor on each hunk
             diff.cursor(&buffer, hunk_line_no, false, &mut ctx);
             let position = CursorPosition::from_context(&ctx);
-            assert!(position == CursorPosition::CursorHunk(diff.kind, Some(fi), Some(hi), None));
+            assert!(position == CursorPosition::CursorHunk(diff.kind, Some(fi), Some(hi)));
 
             for (li, line) in hunk.lines.iter().enumerate() {
                 let line_line_no = line.view.line_no.get();
