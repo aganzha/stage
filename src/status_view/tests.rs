@@ -2,17 +2,19 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::status_view::stage_op::{LastOp, StageDiffs};
 use crate::status_view::tags;
 use crate::status_view::view::{RenderFlags, View};
 use crate::tests::initialize;
 
 use crate::status_view::{CursorPosition, StatusRenderContext, ViewContainer};
-use crate::{Diff, DiffKind, File, Hunk, HunkLineNo, Line, LineKind};
+use crate::{Diff, DiffKind, File, Hunk, HunkLineNo, Line, LineKind, StageOp};
 use git2::DiffLineType;
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
 use log::debug;
 use regex::Regex;
+use std::cell::Cell;
 
 impl Hunk {
     // used in tests only
@@ -824,4 +826,26 @@ pub fn test_cursor_position() {
             }
         }
     }
+}
+
+#[gtk4::test]
+pub fn test_choose_cursor_position() {
+    let buffer = initialize();
+    let unstaged = create_diff();
+    let diff = create_diff();
+    let diffs = StageDiffs {
+        untracked: &None,
+        unstaged: &Some(diff),
+        staged: &None,
+    };
+    let stage_op = StageOp::Stage(0);
+    let cursor_position = CursorPosition::CursorDiff(DiffKind::Staged);
+    let last_op = LastOp {
+        op: stage_op,
+        cursor_position: cursor_position,
+        desired_diff_kind: None,
+    };
+    let iter =
+        diffs.choose_cursor_position(&buffer, Some(DiffKind::Staged), &Cell::new(Some(last_op)));
+    debug!("heeeeeeeeeeeeeeeeeey!");
 }

@@ -20,7 +20,7 @@ use crate::git::{
 use core::time::Duration;
 use git2::RepositoryState;
 use render::ViewContainer; // MayBeViewContainer o
-use stage_op::LastOp;
+use stage_op::{LastOp, StageDiffs};
 use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
@@ -46,8 +46,7 @@ use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, Widget,
-    Window as GTKWindow,
+    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, Widget, Window as GTKWindow,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -1122,7 +1121,15 @@ impl Status {
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
-        let iter = self.choose_cursor_position(&buffer, diff_kind);
+        let diffs = StageDiffs {
+            untracked: &self.untracked,
+            unstaged: &self.unstaged,
+            staged: &self.staged,
+        };
+
+        // let iter = self.choose_cursor_position(&buffer, diff_kind, &self.last_op);
+        let iter = diffs.choose_cursor_position(&buffer, diff_kind, &self.last_op);
+
         trace!("__________ chused position {:?}", iter.line());
         buffer.place_cursor(&iter);
         // WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
