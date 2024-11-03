@@ -837,6 +837,9 @@ pub fn test_choose_cursor_position() {
     let mut ctx = StatusRenderContext::new();
     let mut iter = buffer.iter_at_offset(0);
     diff.render(&buffer, &mut iter, &mut ctx);
+    diff.expand(diff.files[0].view.line_no.get(), &mut ctx);
+    iter.set_line(0);
+    diff.render(&buffer, &mut iter, &mut ctx);
 
     // have only unstaged changes
     // and perform
@@ -910,4 +913,18 @@ pub fn test_choose_cursor_position() {
     );
     assert!(cell.get().is_none());
     debug!("........3! {:?} {:?}", iter.line(), cell);
+
+    // // lets also check hunk and line
+    last_op.cursor_position = CursorPosition::CursorHunk(DiffKind::Unstaged, Some(0), Some(0));
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+    debug!("........HUNK! {:?} {:?}", iter.line(), cell);
+    assert!(
+        iter.line()
+            == diffs.unstaged.as_ref().unwrap().files[0].hunks[0]
+                .view
+                .line_no
+                .get()
+    );
+    assert!(cell.get().is_none());
 }
