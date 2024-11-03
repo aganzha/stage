@@ -6,10 +6,11 @@ use super::{CursorPosition, Status};
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::merge;
 
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::{stage_untracked, stage_via_apply, DiffKind, Event, StageOp};
+use crate::{stage_untracked, stage_via_apply, Diff, DiffKind, Event, StageOp};
 
 use gtk4::prelude::*;
 use gtk4::{gio, glib, TextBuffer, TextIter};
@@ -19,9 +20,16 @@ use log::{debug, info, trace};
 
 #[derive(Debug, Clone, Copy)]
 pub struct LastOp {
-    op: StageOp,
-    cursor_position: CursorPosition,
-    desired_diff_kind: Option<DiffKind>,
+    pub op: StageOp,
+    pub cursor_position: CursorPosition,
+    pub desired_diff_kind: Option<DiffKind>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StageDiffs<'a> {
+    pub untracked: &'a Option<Diff>,
+    pub unstaged: &'a Option<Diff>,
+    pub staged: &'a Option<Diff>,
 }
 
 impl CursorPosition {
@@ -321,24 +329,23 @@ impl Status {
             }
         }
     }
+}
 
+impl StageDiffs<'_> {
     pub fn choose_cursor_position(
         &self,
         buffer: &TextBuffer,
         render_diff_kind: Option<DiffKind>,
+        last_op: &Cell<Option<LastOp>>,
     ) -> TextIter {
-        debug!(
-            "...................choose cursor position self.last_op {:?} cursor position {:?} render_diff_kind {:?}",
-            self.last_op, self.cursor_position, render_diff_kind
-        );
         let this_pos = buffer.cursor_position();
         let mut iter = buffer.iter_at_offset(this_pos);
-        if let (Some(last_op), Some(render_diff_kind)) = (&self.last_op.get(), render_diff_kind) {
+        if let (Some(op), Some(render_diff_kind)) = (&last_op.get(), render_diff_kind) {
             // both last_op and cursor_position in it are no longer actual,
             // cause update and render are already happened.
             // so, those are snapshot of previous state.
             // both will be changed right here!
-            match last_op {
+            match op {
                 // ----------------   Ops applied to whole Diff
                 // TODO! squash in one!
                 LastOp {
@@ -349,7 +356,7 @@ impl Status {
                     assert!(*diff_kind == DiffKind::Unstaged || *diff_kind == DiffKind::Untracked);
                     if let Some(diff) = &self.staged {
                         iter.set_line(diff.view.line_no.get());
-                        self.last_op.take();
+                        last_op.take();
                     }
                 }
                 LastOp {
@@ -360,7 +367,7 @@ impl Status {
                     assert!(*diff_kind == DiffKind::Staged);
                     if let Some(diff) = &self.unstaged {
                         iter.set_line(diff.view.line_no.get());
-                        self.last_op.take();
+                        last_op.take();
                     }
                 }
                 LastOp {
@@ -371,10 +378,10 @@ impl Status {
                     assert!(*diff_kind == DiffKind::Unstaged);
                     if let Some(diff) = &self.staged {
                         iter.set_line(diff.view.line_no.get());
-                        self.last_op.take();
+                        last_op.take();
                     } else if let Some(diff) = &self.untracked {
                         iter.set_line(diff.view.line_no.get());
-                        self.last_op.take();
+                        last_op.take();
                     }
                 }
                 // ----------------   Ops applied to whole Diff
@@ -394,7 +401,7 @@ impl Status {
                                 for i in (0..file_idx + 1).rev() {
                                     if let Some(file) = diff.files.get(i) {
                                         iter.set_line(file.view.line_no.get());
-                                        self.last_op.take();
+                                        last_op.take();
                                         break;
                                     }
                                 }
@@ -408,7 +415,7 @@ impl Status {
                     // BUT! if opposite diff is not here, the next render cycle this
                     // clause will not match! because its condition is to compare render_cursor_diff with
                     // last_op cursor position. BUT IT NEED TO MATCH IT WITH DESIRED DIFF ALSO!
-                    self.cursor_on_opposite_diff(render_diff_kind, &mut iter);
+                    self.cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
                 }
                 LastOp {
                     op: _,
@@ -428,20 +435,20 @@ impl Status {
                                             for j in (0..hunk_ids + 1).rev() {
                                                 if let Some(hunk) = file.hunks.get(j) {
                                                     iter.set_line(hunk.view.line_no.get());
-                                                    self.last_op.take();
+                                                    last_op.take();
                                                     break 'found;
                                                 }
                                             }
                                         }
                                         iter.set_line(file.view.line_no.get());
-                                        self.last_op.take();
+                                        last_op.take();
                                         break;
                                     }
                                 }
                             }
                         }
                     }
-                    self.cursor_on_opposite_diff(render_diff_kind, &mut iter);
+                    self.cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
                 }
                 op => {
                     debug!("----------> NOT COVERED LastOp {:?}", op)
@@ -453,18 +460,23 @@ impl Status {
         iter
     }
 
-    fn cursor_on_opposite_diff(&self, render_diff_kind: DiffKind, iter: &mut TextIter) {
+    fn cursor_on_opposite_diff(
+        &self,
+        render_diff_kind: DiffKind,
+        iter: &mut TextIter,
+        last_op: &Cell<Option<LastOp>>,
+    ) {
         // ONLY IF LAST_OP WAS NOT DROPPED BY PREVIOUS LOOP
-        if let Some(last_op) = self.last_op.get() {
+        if let Some(op) = last_op.get() {
             match render_diff_kind {
                 DiffKind::Unstaged | DiffKind::Untracked => {
                     if let Some(diff) = &self.staged {
                         iter.set_line(diff.files[0].view.line_no.get());
-                        self.last_op.take();
+                        last_op.take();
                     } else {
-                        self.last_op.replace(Some(LastOp {
-                            op: last_op.op,
-                            cursor_position: last_op.cursor_position,
+                        last_op.replace(Some(LastOp {
+                            op: op.op,
+                            cursor_position: op.cursor_position,
                             desired_diff_kind: Some(DiffKind::Staged),
                         }));
                     }
@@ -472,14 +484,14 @@ impl Status {
                 DiffKind::Staged => {
                     if let Some(diff) = &self.unstaged {
                         iter.set_line(diff.files[0].view.line_no.get());
-                        self.last_op.take();
+                        last_op.take();
                     } else if let Some(diff) = &self.untracked {
                         iter.set_line(diff.files[0].view.line_no.get());
-                        self.last_op.take();
+                        last_op.take();
                     } else {
-                        self.last_op.replace(Some(LastOp {
-                            op: last_op.op,
-                            cursor_position: last_op.cursor_position,
+                        last_op.replace(Some(LastOp {
+                            op: op.op,
+                            cursor_position: op.cursor_position,
                             desired_diff_kind: Some(DiffKind::Unstaged),
                         }));
                     }
