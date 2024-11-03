@@ -280,7 +280,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let mut unstaged: Option<TextTag> = None;
     let mut file: Option<TextTag> = None;
     let mut hunk: Option<TextTag> = None;
-    
+
     for tag_name in tags::TEXT_TAGS {
         let text_tag = tags::TxtTag::from_str(tag_name).create();
         table.add(&text_tag);

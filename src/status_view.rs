@@ -7,7 +7,7 @@ pub mod context;
 pub mod headerbar;
 pub mod monitor;
 pub mod render;
-pub mod stage;
+pub mod stage_op;
 pub mod stage_view;
 pub mod tags;
 
@@ -20,6 +20,7 @@ use crate::git::{
 use core::time::Duration;
 use git2::RepositoryState;
 use render::ViewContainer; // MayBeViewContainer o
+use stage_op::{LastOp, StageDiffs};
 use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
@@ -33,8 +34,8 @@ use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, track_changes, Diff, DiffKind, Event, File as GitFile, Head, StageOp,
-    State, StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
+    get_current_repo_status, track_changes, Diff, DiffKind, Event, File as GitFile, Head, State,
+    StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
 };
 use async_channel::Sender;
 
@@ -45,8 +46,7 @@ use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, TextBuffer, TextIter, Widget,
-    Window as GTKWindow,
+    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, Widget, Window as GTKWindow,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -105,19 +105,12 @@ pub enum RenderSource {
 
 pub const DUMP_DIR: &str = "stage_dump";
 
-#[derive(Debug, Clone)]
-pub struct LastOp {
-    op: StageOp,
-    file_path: Option<PathBuf>,
-    hunk_header: Option<String>,
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CursorPosition {
     CursorDiff(DiffKind),
-    CursorFile(DiffKind, usize),
-    CursorHunk(DiffKind, usize, usize),
-    CursorLine(DiffKind, usize, usize, usize),
+    CursorFile(DiffKind, Option<usize>),
+    CursorHunk(DiffKind, Option<usize>, Option<usize>),
+    CursorLine(DiffKind, Option<usize>, Option<usize>, Option<usize>),
     None,
 }
 
@@ -133,10 +126,12 @@ impl CursorPosition {
                 assert!(std::ptr::eq(file, f));
                 return CursorPosition::CursorFile(
                     diff.kind,
-                    diff.files
-                        .iter()
-                        .position(|f| std::ptr::eq(file, f))
-                        .unwrap(),
+                    Some(
+                        diff.files
+                            .iter()
+                            .position(|f| std::ptr::eq(file, f))
+                            .unwrap(),
+                    ),
                 );
             }
             ContextCursorPosition::CursorHunk(h) => {
@@ -146,14 +141,18 @@ impl CursorPosition {
                 assert!(std::ptr::eq(hunk, h));
                 return CursorPosition::CursorHunk(
                     diff.kind,
-                    diff.files
-                        .iter()
-                        .position(|f| std::ptr::eq(file, f))
-                        .unwrap(),
-                    file.hunks
-                        .iter()
-                        .position(|h| std::ptr::eq(hunk, h))
-                        .unwrap(),
+                    Some(
+                        diff.files
+                            .iter()
+                            .position(|f| std::ptr::eq(file, f))
+                            .unwrap(),
+                    ),
+                    Some(
+                        file.hunks
+                            .iter()
+                            .position(|h| std::ptr::eq(hunk, h))
+                            .unwrap(),
+                    ),
                 );
             }
             ContextCursorPosition::CursorLine(line) => {
@@ -162,18 +161,24 @@ impl CursorPosition {
                 let hunk = context.selected_hunk.unwrap();
                 return CursorPosition::CursorLine(
                     diff.kind,
-                    diff.files
-                        .iter()
-                        .position(|f| std::ptr::eq(file, f))
-                        .unwrap(),
-                    file.hunks
-                        .iter()
-                        .position(|h| std::ptr::eq(hunk, h))
-                        .unwrap(),
-                    hunk.lines
-                        .iter()
-                        .position(|l| std::ptr::eq(line, l))
-                        .unwrap(),
+                    Some(
+                        diff.files
+                            .iter()
+                            .position(|f| std::ptr::eq(file, f))
+                            .unwrap(),
+                    ),
+                    Some(
+                        file.hunks
+                            .iter()
+                            .position(|h| std::ptr::eq(hunk, h))
+                            .unwrap(),
+                    ),
+                    Some(
+                        hunk.lines
+                            .iter()
+                            .position(|l| std::ptr::eq(line, l))
+                            .unwrap(),
+                    ),
                 );
             }
             _ => {}
@@ -200,7 +205,7 @@ pub struct Status {
 
     pub monitor_global_lock: Rc<RefCell<bool>>,
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
-    pub last_op: Option<LastOp>,
+    pub last_op: Cell<Option<LastOp>>,
     pub cursor_position: Cell<CursorPosition>,
 }
 
@@ -220,9 +225,10 @@ impl Status {
 
             stashes: None,
             branches: None,
+            // TODO! replace with Cell
             monitor_global_lock: Rc::new(RefCell::new(false)),
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
-            last_op: None,
+            last_op: Cell::new(None),
             cursor_position: Cell::new(CursorPosition::None),
         }
     }
@@ -707,8 +713,9 @@ impl Status {
         if !has_files {
             untracked = None;
         }
-        debug!("update untracked! {:?}", untracked.is_some());
+
         let mut render_required = false;
+
         if let Some(rendered) = &mut self.untracked {
             render_required = true;
             let buffer = &txt.buffer();
@@ -720,7 +727,7 @@ impl Status {
         }
         self.untracked = untracked;
         if self.untracked.is_some() || render_required {
-            self.render(txt, None, context);
+            self.render(txt, Some(DiffKind::Untracked), context);
         }
     }
 
@@ -762,8 +769,9 @@ impl Status {
             }
             self.state.replace(state);
         }
-
+        let mut render_required = false;
         if let Some(rendered) = &mut self.conflicted {
+            render_required = true;
             let buffer = &txt.buffer();
             if let Some(new) = &diff {
                 new.enrich_view(rendered, buffer, context);
@@ -869,7 +877,9 @@ impl Status {
             }
         }
         self.conflicted = diff;
-        self.render(txt, None, context);
+        if self.conflicted.is_some() || render_required {
+            self.render(txt, Some(DiffKind::Conflicted), context);
+        }
     }
 
     pub fn update_staged<'a>(
@@ -890,7 +900,7 @@ impl Status {
         }
         self.staged = diff;
         if self.staged.is_some() || render_required {
-            self.render(txt, None, context);
+            self.render(txt, Some(DiffKind::Staged), context);
         }
     }
 
@@ -915,19 +925,8 @@ impl Status {
 
         self.unstaged = diff;
 
-        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cleanup StageOp here!
-        let mut op: Option<LastOp> = None;
-        if self.unstaged.is_some() {
-            if let Some(last_op) = &self.last_op {
-                if let StageOp::Stage(_) = last_op.op {
-                    op = self.last_op.take();
-                }
-            }
-        }
-        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cleanup StageOp here!
-
         if self.unstaged.is_some() || render_required {
-            self.render(txt, op, context);
+            self.render(txt, Some(DiffKind::Unstaged), context);
         }
     }
 
@@ -1000,7 +999,7 @@ impl Status {
         } else {
             self.unstaged = Some(diff);
         }
-        self.render(txt, None, context);
+        self.render(txt, Some(DiffKind::Unstaged), context);
     }
 
     // TODO! is it still used?
@@ -1060,20 +1059,20 @@ impl Status {
     ) {
         if let Some(conflicted) = &self.conflicted {
             if conflicted.expand(line_no, context).is_some() {
-                self.render(txt, None, context);
+                self.render(txt, Some(DiffKind::Conflicted), context);
                 return;
             }
         }
 
         if let Some(unstaged) = &self.unstaged {
             if unstaged.expand(line_no, context).is_some() {
-                self.render(txt, None, context);
+                self.render(txt, Some(DiffKind::Unstaged), context);
                 return;
             }
         }
         if let Some(staged) = &self.staged {
             if staged.expand(line_no, context).is_some() {
-                self.render(txt, None, context);
+                self.render(txt, Some(DiffKind::Staged), context);
             }
         }
     }
@@ -1081,7 +1080,7 @@ impl Status {
     pub fn render<'a>(
         &'a self,
         txt: &StageView,
-        last_op: Option<LastOp>,
+        diff_kind: Option<DiffKind>,
         context: &mut StatusRenderContext<'a>,
     ) {
         let buffer = txt.buffer();
@@ -1122,49 +1121,19 @@ impl Status {
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
-        let iter = self.choose_cursor_position(&buffer, last_op);
+        let diffs = StageDiffs {
+            untracked: &self.untracked,
+            unstaged: &self.unstaged,
+            staged: &self.staged,
+        };
+
+        // let iter = self.choose_cursor_position(&buffer, diff_kind, &self.last_op);
+        let iter = diffs.choose_cursor_position(&buffer, diff_kind, &self.last_op);
+
         trace!("__________ chused position {:?}", iter.line());
         buffer.place_cursor(&iter);
         // WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
-    }
-
-    pub fn choose_cursor_position(
-        &self,
-        buffer: &TextBuffer,
-        last_op: Option<LastOp>, // context: &mut StatusRenderContext<'a>,
-    ) -> TextIter {
-        trace!(
-            "...................choose cursor position {:?}",
-            self.last_op
-        );
-        let this_pos = buffer.cursor_position();
-        let mut iter = buffer.iter_at_offset(this_pos);
-        if let Some(last_op) = &last_op {
-            if let StageOp::Stage(_line_no) = last_op.op {
-                if let Some(unstaged) = &self.unstaged {
-                    if let Some(line_to_go) = unstaged.nearest_line_to_go(iter.line()) {
-                        debug!("i am missied in unstaged, but have line to go!!!!!! {line_to_go}");
-                        debug!("here it need to cleanup op to stop smart choosing line!");
-                        iter.set_line(line_to_go);
-                    } else {
-                        debug!("i am either in unstaged, or there are no place to go in unstaged!");
-                        debug!("how do i know, that it need to clean the op?");
-                        debug!(
-                            "it need to clean the op in operation itself! after the render!!!!!"
-                        );
-                    }
-                } else {
-                    debug!(
-                        "i have no unstaged. lets may be go to staged then? {:?}",
-                        self.staged.is_some()
-                    );
-                    debug!("how do i know, that it need to clean the op?");
-                    debug!("it need to clean the op in operation itself! after the render!!!!!");
-                }
-            }
-        }
-        iter
     }
 
     pub fn has_staged(&self) -> bool {
@@ -1185,6 +1154,7 @@ impl Status {
         end_offset: i32,
         context: &mut StatusRenderContext<'a>,
     ) {
+        //2
         // in fact the content IS already copied to clipboard
         // so, here it need to clean it from status_view artefacts
         let buffer = txt.buffer();
@@ -1246,7 +1216,7 @@ impl Status {
             }
         });
     }
-
+    //3
     pub fn cherry_pick(
         &self,
         window: &impl IsA<Widget>,
