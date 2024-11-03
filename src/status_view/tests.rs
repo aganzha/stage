@@ -912,13 +912,12 @@ pub fn test_choose_cursor_position() {
                 .get()
     );
     assert!(cell.get().is_none());
-    debug!("........3! {:?} {:?}", iter.line(), cell);
 
     // lets also check hunk (line is the same)
     last_op.cursor_position = CursorPosition::CursorHunk(DiffKind::Unstaged, Some(0), Some(0));
     let cell = Cell::new(Some(last_op));
     let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
-    debug!("........HUNK! {:?} {:?}", iter.line(), cell);
+
     assert!(
         iter.line()
             == diffs.unstaged.as_ref().unwrap().files[0].hunks[0]
@@ -932,7 +931,7 @@ pub fn test_choose_cursor_position() {
     last_op.cursor_position = CursorPosition::CursorHunk(DiffKind::Unstaged, Some(0), Some(100));
     let cell = Cell::new(Some(last_op));
     let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
-    debug!("........LAST HUNK! {:?} {:?}", iter.line(), cell);
+
     assert!(
         iter.line()
             == diffs.unstaged.as_ref().unwrap().files[0]
@@ -944,4 +943,26 @@ pub fn test_choose_cursor_position() {
                 .get()
     );
     assert!(cell.get().is_none());
+
+    // check opposite diff.
+    // render Staged changes (as if we were Unstage whole Diff)
+    // there are no any Staged changes, so cursor must jump to unstaged
+    last_op.op = StageOp::Unstage(0);
+    last_op.cursor_position = CursorPosition::CursorDiff(DiffKind::Staged);
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+
+    assert!(cell.get().is_none());
+
+    // same as above, but for file
+    last_op.cursor_position = CursorPosition::CursorFile(DiffKind::Staged, Some(0));
+    let cell = Cell::new(Some(last_op));
+    // it will not match on rendering Unstaged
+    diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+    assert!(cell.get().is_some());
+    // but sure in will match in Staged render, cause Staged will be rendered any ways!
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Staged), &cell);
+
+    assert!(cell.get().is_none());
+    assert!(iter.line() == diffs.unstaged.as_ref().unwrap().files[0].view.line_no.get());
 }

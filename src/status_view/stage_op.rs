@@ -451,11 +451,11 @@ impl StageDiffs<'_> {
                     self.cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
                 }
                 op => {
-                    debug!("----------> NOT COVERED LastOp {:?}", op)
+                    trace!("----------> NOT COVERED LastOp {:?}", op)
                 }
             }
         } else {
-            debug!("no any last_op....................");
+            trace!("no any last_op....................");
         }
         iter
     }
@@ -483,7 +483,8 @@ impl StageDiffs<'_> {
                 }
                 DiffKind::Staged => {
                     if let Some(diff) = &self.unstaged {
-                        iter.set_line(diff.files[0].view.line_no.get());
+                        let line_no = diff.files[0].view.line_no.get();
+                        iter.set_line(line_no);
                         last_op.take();
                     } else if let Some(diff) = &self.untracked {
                         iter.set_line(diff.files[0].view.line_no.get());
@@ -496,7 +497,9 @@ impl StageDiffs<'_> {
                         }));
                     }
                 }
-                _ => {}
+                _ => {
+                    debug!("does not matched in opposite_diff")
+                }
             }
         }
     }
