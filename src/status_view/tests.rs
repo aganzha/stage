@@ -914,7 +914,7 @@ pub fn test_choose_cursor_position() {
     assert!(cell.get().is_none());
     debug!("........3! {:?} {:?}", iter.line(), cell);
 
-    // // lets also check hunk and line
+    // lets also check hunk (line is the same)
     last_op.cursor_position = CursorPosition::CursorHunk(DiffKind::Unstaged, Some(0), Some(0));
     let cell = Cell::new(Some(last_op));
     let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
@@ -922,6 +922,23 @@ pub fn test_choose_cursor_position() {
     assert!(
         iter.line()
             == diffs.unstaged.as_ref().unwrap().files[0].hunks[0]
+                .view
+                .line_no
+                .get()
+    );
+    assert!(cell.get().is_none());
+
+    // hunk outside of rendered hunks
+    last_op.cursor_position = CursorPosition::CursorHunk(DiffKind::Unstaged, Some(0), Some(100));
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+    debug!("........LAST HUNK! {:?} {:?}", iter.line(), cell);
+    assert!(
+        iter.line()
+            == diffs.unstaged.as_ref().unwrap().files[0]
+                .hunks
+                .last()
+                .unwrap()
                 .view
                 .line_no
                 .get()
