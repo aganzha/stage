@@ -833,19 +833,81 @@ pub fn test_choose_cursor_position() {
     let buffer = initialize();
     let unstaged = create_diff();
     let diff = create_diff();
+
+    let mut ctx = StatusRenderContext::new();
+    let mut iter = buffer.iter_at_offset(0);
+    diff.render(&buffer, &mut iter, &mut ctx);
+
+    // have only unstaged changes
+    // and perform
     let diffs = StageDiffs {
         untracked: &None,
         unstaged: &Some(diff),
         staged: &None,
     };
     let stage_op = StageOp::Stage(0);
-    let cursor_position = CursorPosition::CursorDiff(DiffKind::Staged);
-    let last_op = LastOp {
+    let cursor_position = CursorPosition::CursorDiff(DiffKind::Unstaged);
+    let mut last_op = LastOp {
         op: stage_op,
         cursor_position: cursor_position,
         desired_diff_kind: None,
     };
-    let iter =
-        diffs.choose_cursor_position(&buffer, Some(DiffKind::Staged), &Cell::new(Some(last_op)));
-    debug!("heeeeeeeeeeeeeeeeeey!");
+    // render Unstaged changes
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+
+    // nothing changed. there are no other diff to put cursor onto
+    assert!(cell.get().is_some());
+    debug!("........0! {:?} {:?}", iter.line(), cell);
+
+    // stage first file
+    let FILE_IND: usize = 0;
+    last_op.cursor_position = CursorPosition::CursorFile(DiffKind::Unstaged, Some(FILE_IND));
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+    assert!(
+        iter.line()
+            == diffs.unstaged.as_ref().unwrap().files[FILE_IND]
+                .view
+                .line_no
+                .get()
+    );
+    assert!(cell.get().is_none());
+    debug!("........1! {:?} {:?}", iter.line(), cell);
+
+    // stage second file
+    let FILE_IND: usize = 1;
+    last_op.cursor_position = CursorPosition::CursorFile(DiffKind::Unstaged, Some(FILE_IND));
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+    assert!(
+        iter.line()
+            == diffs.unstaged.as_ref().unwrap().files[FILE_IND]
+                .view
+                .line_no
+                .get()
+    );
+    assert!(cell.get().is_none());
+    debug!("........2! {:?} {:?}", iter.line(), cell);
+
+    // stage file 'outside' of diff
+    let FILE_IND: usize = 100;
+    last_op.cursor_position = CursorPosition::CursorFile(DiffKind::Unstaged, Some(FILE_IND));
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+    assert!(
+        iter.line()
+            == diffs
+                .unstaged
+                .as_ref()
+                .unwrap()
+                .files
+                .last()
+                .unwrap()
+                .view
+                .line_no
+                .get()
+    );
+    assert!(cell.get().is_none());
+    debug!("........3! {:?} {:?}", iter.line(), cell);
 }
