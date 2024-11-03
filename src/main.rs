@@ -112,7 +112,7 @@ fn load_css() {
     style_context_add_provider_for_display(&display, &provider, STYLE_PROVIDER_PRIORITY_USER);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum StageOp {
     Stage(i32),
     Unstage(i32),
@@ -522,7 +522,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Stage(stage_op) => {
                     info!("Stage {:?}", stage_op);
-                    status.stage(stage_op, &window, &settings);
+                    status.stage_op(stage_op, &window, &settings);
                 }
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {}", w);

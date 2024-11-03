@@ -2,17 +2,19 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::status_view::stage_op::{LastOp, StageDiffs};
 use crate::status_view::tags;
 use crate::status_view::view::{RenderFlags, View};
 use crate::tests::initialize;
 
 use crate::status_view::{CursorPosition, StatusRenderContext, ViewContainer};
-use crate::{Diff, DiffKind, File, Hunk, HunkLineNo, Line, LineKind};
+use crate::{Diff, DiffKind, File, Hunk, HunkLineNo, Line, LineKind, StageOp};
 use git2::DiffLineType;
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
 use log::debug;
 use regex::Regex;
+use std::cell::Cell;
 
 impl Hunk {
     // used in tests only
@@ -782,7 +784,6 @@ pub fn test_flags() {
 
 #[gtk4::test]
 pub fn test_cursor_position() {
-    debug!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
     let buffer = initialize();
     let diff = create_diff();
     let mut ctx = StatusRenderContext::new();
@@ -805,22 +806,171 @@ pub fn test_cursor_position() {
         // put cursor on each file
         diff.cursor(&buffer, file_line_no, false, &mut ctx);
         let position = CursorPosition::from_context(&ctx);
-        assert!(position == CursorPosition::CursorFile(diff.kind, fi));
+        assert!(position == CursorPosition::CursorFile(diff.kind, Some(fi)));
 
         for (hi, hunk) in file.hunks.iter().enumerate() {
             let hunk_line_no = hunk.view.line_no.get();
             // put cursor on each hunk
             diff.cursor(&buffer, hunk_line_no, false, &mut ctx);
             let position = CursorPosition::from_context(&ctx);
-            assert!(position == CursorPosition::CursorHunk(diff.kind, fi, hi));
+            assert!(position == CursorPosition::CursorHunk(diff.kind, Some(fi), Some(hi)));
 
             for (li, line) in hunk.lines.iter().enumerate() {
                 let line_line_no = line.view.line_no.get();
                 // put cursor on each line
                 diff.cursor(&buffer, line_line_no, false, &mut ctx);
                 let position = CursorPosition::from_context(&ctx);
-                assert!(position == CursorPosition::CursorLine(diff.kind, fi, hi, li));
+                assert!(
+                    position == CursorPosition::CursorLine(diff.kind, Some(fi), Some(hi), Some(li))
+                );
             }
         }
     }
+}
+
+#[gtk4::test]
+pub fn test_choose_cursor_position() {
+    let buffer = initialize();
+    let unstaged = create_diff();
+    let diff = create_diff();
+
+    let mut ctx = StatusRenderContext::new();
+    let mut iter = buffer.iter_at_offset(0);
+    diff.render(&buffer, &mut iter, &mut ctx);
+    diff.expand(diff.files[0].view.line_no.get(), &mut ctx);
+    iter.set_line(0);
+    diff.render(&buffer, &mut iter, &mut ctx);
+
+    // have only unstaged changes
+    // and perform
+    let diffs = StageDiffs {
+        untracked: &None,
+        unstaged: &Some(diff),
+        staged: &None,
+    };
+    let stage_op = StageOp::Stage(0);
+    let cursor_position = CursorPosition::CursorDiff(DiffKind::Unstaged);
+    let mut last_op = LastOp {
+        op: stage_op,
+        cursor_position: cursor_position,
+        desired_diff_kind: None,
+    };
+    // render Unstaged changes
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+
+    // nothing changed. there are no other diff to put cursor onto
+    assert!(cell.get().is_some());
+    debug!("........0! {:?} {:?}", iter.line(), cell);
+
+    // stage first file
+    let FILE_IND: usize = 0;
+    last_op.cursor_position = CursorPosition::CursorFile(DiffKind::Unstaged, Some(FILE_IND));
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+    assert!(
+        iter.line()
+            == diffs.unstaged.as_ref().unwrap().files[FILE_IND]
+                .view
+                .line_no
+                .get()
+    );
+    assert!(cell.get().is_none());
+    debug!("........1! {:?} {:?}", iter.line(), cell);
+
+    // stage second file
+    let FILE_IND: usize = 1;
+    last_op.cursor_position = CursorPosition::CursorFile(DiffKind::Unstaged, Some(FILE_IND));
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+    assert!(
+        iter.line()
+            == diffs.unstaged.as_ref().unwrap().files[FILE_IND]
+                .view
+                .line_no
+                .get()
+    );
+    assert!(cell.get().is_none());
+
+    // stage file 'outside' of diff
+    let FILE_IND: usize = 100;
+    last_op.cursor_position = CursorPosition::CursorFile(DiffKind::Unstaged, Some(FILE_IND));
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+    assert!(
+        iter.line()
+            == diffs
+                .unstaged
+                .as_ref()
+                .unwrap()
+                .files
+                .last()
+                .unwrap()
+                .view
+                .line_no
+                .get()
+    );
+    assert!(cell.get().is_none());
+
+    // lets also check hunk (line is the same)
+    last_op.cursor_position = CursorPosition::CursorHunk(DiffKind::Unstaged, Some(0), Some(0));
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+
+    assert!(
+        iter.line()
+            == diffs.unstaged.as_ref().unwrap().files[0].hunks[0]
+                .view
+                .line_no
+                .get()
+    );
+    assert!(cell.get().is_none());
+
+    // hunk outside of rendered hunks
+    last_op.cursor_position = CursorPosition::CursorHunk(DiffKind::Unstaged, Some(0), Some(100));
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+
+    assert!(
+        iter.line()
+            == diffs.unstaged.as_ref().unwrap().files[0]
+                .hunks
+                .last()
+                .unwrap()
+                .view
+                .line_no
+                .get()
+    );
+    assert!(cell.get().is_none());
+
+    // check opposite diff.
+    // render Staged changes (as if we were Unstage whole Diff)
+    // there are no any Staged changes, so cursor must jump to unstaged
+    last_op.op = StageOp::Unstage(0);
+    last_op.cursor_position = CursorPosition::CursorDiff(DiffKind::Staged);
+    let cell = Cell::new(Some(last_op));
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+
+    assert!(cell.get().is_none());
+
+    // same as above, but for file
+    last_op.cursor_position = CursorPosition::CursorFile(DiffKind::Staged, Some(0));
+    let cell = Cell::new(Some(last_op));
+    // it will not match on rendering Unstaged
+    diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+    assert!(cell.get().is_some());
+    // but sure in will match in Staged render, cause Staged will be rendered any ways!
+    let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Staged), &cell);
+
+    assert!(cell.get().is_none());
+    assert!(iter.line() == diffs.unstaged.as_ref().unwrap().files[0].view.line_no.get());
+
+    // lets check desired_diff_kind also
+    last_op.cursor_position = CursorPosition::CursorFile(DiffKind::Staged, Some(0));
+    last_op.desired_diff_kind = Some(DiffKind::Unstaged);
+    let cell = Cell::new(Some(last_op));
+    // it will not match on rendering Unstaged, but desired_diff_kind will work!
+    diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
+    assert!(cell.get().is_none());
+    assert!(iter.line() == diffs.unstaged.as_ref().unwrap().files[0].view.line_no.get());
 }

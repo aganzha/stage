@@ -2,20 +2,35 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use super::{CursorPosition, LastOp, Status};
+use super::{CursorPosition, Status};
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::merge;
 
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::{stage_untracked, stage_via_apply, DiffKind, Event, StageOp};
+use crate::{stage_untracked, stage_via_apply, Diff, DiffKind, Event, StageOp};
 
 use gtk4::prelude::*;
-use gtk4::{gio, glib};
+use gtk4::{gio, glib, TextBuffer, TextIter};
 use libadwaita::prelude::*;
 use libadwaita::ApplicationWindow;
 use log::{debug, info, trace};
+
+#[derive(Debug, Clone, Copy)]
+pub struct LastOp {
+    pub op: StageOp,
+    pub cursor_position: CursorPosition,
+    pub desired_diff_kind: Option<DiffKind>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StageDiffs<'a> {
+    pub untracked: &'a Option<Diff>,
+    pub unstaged: &'a Option<Diff>,
+    pub staged: &'a Option<Diff>,
+}
 
 impl CursorPosition {
     fn resolve_stage_op(
@@ -24,6 +39,7 @@ impl CursorPosition {
         op: &StageOp,
     ) -> (Option<DiffKind>, Option<PathBuf>, Option<String>) {
         // TODO! it is not string! it must be typed HunkHeader!
+        // TODO! squash matches as in choose cursor position!
         match (self, op) {
             (Self::CursorDiff(DiffKind::Unstaged), StageOp::Stage(_) | StageOp::Kill(_)) => {
                 if let Some(unstaged) = &status.unstaged {
@@ -31,7 +47,7 @@ impl CursorPosition {
                 }
             }
             (
-                Self::CursorFile(DiffKind::Unstaged, file_idx),
+                Self::CursorFile(DiffKind::Unstaged, Some(file_idx)),
                 StageOp::Stage(_) | StageOp::Kill(_),
             ) => {
                 if let Some(unstaged) = &status.unstaged {
@@ -40,8 +56,8 @@ impl CursorPosition {
                 }
             }
             (
-                Self::CursorHunk(DiffKind::Unstaged, file_idx, hunk_idx)
-                | Self::CursorLine(DiffKind::Unstaged, file_idx, hunk_idx, _),
+                Self::CursorHunk(DiffKind::Unstaged, Some(file_idx), Some(hunk_idx))
+                | Self::CursorLine(DiffKind::Unstaged, Some(file_idx), Some(hunk_idx), _),
                 StageOp::Stage(_) | StageOp::Kill(_),
             ) => {
                 if let Some(unstaged) = &status.unstaged {
@@ -59,15 +75,15 @@ impl CursorPosition {
                     return (Some(staged.kind), None, None);
                 }
             }
-            (Self::CursorFile(DiffKind::Staged, file_idx), StageOp::Unstage(_)) => {
+            (Self::CursorFile(DiffKind::Staged, Some(file_idx)), StageOp::Unstage(_)) => {
                 if let Some(staged) = &status.staged {
                     let file = &staged.files[*file_idx];
                     return (Some(staged.kind), Some(file.path.clone()), None);
                 }
             }
             (
-                Self::CursorHunk(DiffKind::Staged, file_idx, hunk_idx)
-                | Self::CursorLine(DiffKind::Staged, file_idx, hunk_idx, _),
+                Self::CursorHunk(DiffKind::Staged, Some(file_idx), Some(hunk_idx))
+                | Self::CursorLine(DiffKind::Staged, Some(file_idx), Some(hunk_idx), _),
                 StageOp::Unstage(_),
             ) => {
                 if let Some(staged) = &status.staged {
@@ -86,7 +102,7 @@ impl CursorPosition {
                 }
             }
             (
-                Self::CursorFile(DiffKind::Untracked, file_idx),
+                Self::CursorFile(DiffKind::Untracked, Some(file_idx)),
                 StageOp::Stage(_) | StageOp::Kill(_),
             ) => {
                 if let Some(untracked) = &status.untracked {
@@ -94,7 +110,10 @@ impl CursorPosition {
                     return (Some(untracked.kind), Some(file.path.clone()), None);
                 }
             }
-            (Self::CursorLine(DiffKind::Conflicted, file_idx, hunk_idx, _), StageOp::Stage(_)) => {
+            (
+                Self::CursorLine(DiffKind::Conflicted, Some(file_idx), Some(hunk_idx), _),
+                StageOp::Stage(_),
+            ) => {
                 if let Some(conflicted) = &status.conflicted {
                     let file = &conflicted.files[*file_idx];
                     let hunk = &file.hunks[*hunk_idx];
@@ -112,9 +131,19 @@ impl CursorPosition {
 }
 
 impl Status {
-    pub fn stage(&mut self, op: StageOp, window: &ApplicationWindow, gio_settings: &gio::Settings) {
+    pub fn stage_op(
+        &mut self,
+        op: StageOp,
+        window: &ApplicationWindow,
+        gio_settings: &gio::Settings,
+    ) {
         let (diff_kind, file_path, hunk_header) =
             self.cursor_position.get().resolve_stage_op(self, &op);
+        self.last_op.replace(Some(LastOp {
+            op,
+            cursor_position: self.cursor_position.get(),
+            desired_diff_kind: None,
+        }));
         trace!(
             "stage via apply ----------------------> {:?} {:?} {:?} {:?} === {:?}",
             op,
@@ -204,11 +233,6 @@ impl Status {
                     let window = window.clone();
                     let path = self.path.clone();
                     let sender = self.sender.clone();
-                    self.last_op.replace(LastOp {
-                        op: op.clone(),
-                        file_path: file_path.clone(),
-                        hunk_header: hunk_header.clone(),
-                    });
                     async move {
                         gio::spawn_blocking({
                             move || {
@@ -238,9 +262,9 @@ impl Status {
                 match self.cursor_position.get() {
                     CursorPosition::CursorLine(
                         DiffKind::Conflicted,
-                        file_idx,
-                        hunk_idx,
-                        line_idx,
+                        Some(file_idx),
+                        Some(hunk_idx),
+                        Some(line_idx),
                     ) => {
                         let conflicted = self.conflicted.as_ref().unwrap();
                         let file = &conflicted.files[file_idx];
@@ -302,6 +326,180 @@ impl Status {
             }
             _ => {
                 debug!("stage op is not resolved");
+            }
+        }
+    }
+}
+
+impl StageDiffs<'_> {
+    pub fn choose_cursor_position(
+        &self,
+        buffer: &TextBuffer,
+        render_diff_kind: Option<DiffKind>,
+        last_op: &Cell<Option<LastOp>>,
+    ) -> TextIter {
+        let this_pos = buffer.cursor_position();
+        let mut iter = buffer.iter_at_offset(this_pos);
+        if let (Some(op), Some(render_diff_kind)) = (&last_op.get(), render_diff_kind) {
+            // both last_op and cursor_position in it are no longer actual,
+            // cause update and render are already happened.
+            // so, those are snapshot of previous state.
+            // both will be changed right here!
+            match op {
+                // ----------------   Ops applied to whole Diff
+                // TODO! squash in one!
+                LastOp {
+                    op: StageOp::Stage(_),
+                    cursor_position: CursorPosition::CursorDiff(diff_kind),
+                    desired_diff_kind: _,
+                } => {
+                    assert!(*diff_kind == DiffKind::Unstaged || *diff_kind == DiffKind::Untracked);
+                    if let Some(diff) = &self.staged {
+                        iter.set_line(diff.view.line_no.get());
+                        last_op.take();
+                    }
+                }
+                LastOp {
+                    op: StageOp::Unstage(_),
+                    cursor_position: CursorPosition::CursorDiff(diff_kind),
+                    desired_diff_kind: _,
+                } => {
+                    assert!(*diff_kind == DiffKind::Staged);
+                    if let Some(diff) = &self.unstaged {
+                        iter.set_line(diff.view.line_no.get());
+                        last_op.take();
+                    }
+                }
+                LastOp {
+                    op: StageOp::Kill(_),
+                    cursor_position: CursorPosition::CursorDiff(diff_kind),
+                    desired_diff_kind: _,
+                } => {
+                    assert!(*diff_kind == DiffKind::Unstaged);
+                    if let Some(diff) = &self.staged {
+                        iter.set_line(diff.view.line_no.get());
+                        last_op.take();
+                    } else if let Some(diff) = &self.untracked {
+                        iter.set_line(diff.view.line_no.get());
+                        last_op.take();
+                    }
+                }
+                // ----------------   Ops applied to whole Diff
+
+                // if Diff was updated by StageOp while on hunk and it hunks file is rendered now (was already updated)
+                // and this file has another hunks - put cursor on first remaining hunk
+                LastOp {
+                    op: _,
+                    cursor_position: CursorPosition::CursorFile(cursor_diff_kind, Some(file_idx)),
+                    desired_diff_kind,
+                } if *cursor_diff_kind == render_diff_kind
+                    || *desired_diff_kind == Some(render_diff_kind) =>
+                {
+                    for odiff in [&self.unstaged, &self.staged, &self.untracked] {
+                        if let Some(diff) = odiff {
+                            if diff.kind == render_diff_kind {
+                                for i in (0..file_idx + 1).rev() {
+                                    if let Some(file) = diff.files.get(i) {
+                                        iter.set_line(file.view.line_no.get());
+                                        last_op.take();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // if last_op was not handled.
+                    // this means there is nothing to put
+                    // into changed diff. It need to put cursor
+                    // to opposite diff
+                    // BUT! if opposite diff is not here, the next render cycle this
+                    // clause will not match! because its condition is to compare render_cursor_diff with
+                    // last_op cursor position. BUT IT NEED TO MATCH IT WITH DESIRED DIFF ALSO!
+                    self.cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
+                }
+                LastOp {
+                    op: _,
+                    cursor_position:
+                        CursorPosition::CursorHunk(cursor_diff_kind, Some(file_idx), Some(hunk_ids))
+                        | CursorPosition::CursorLine(cursor_diff_kind, Some(file_idx), Some(hunk_ids), _),
+                    desired_diff_kind,
+                } if *cursor_diff_kind == render_diff_kind
+                    || *desired_diff_kind == Some(render_diff_kind) =>
+                {
+                    for odiff in [&self.unstaged, &self.staged] {
+                        if let Some(diff) = odiff {
+                            if diff.kind == render_diff_kind {
+                                'found: for i in (0..file_idx + 1).rev() {
+                                    if let Some(file) = diff.files.get(i) {
+                                        if file.view.is_expanded() {
+                                            for j in (0..hunk_ids + 1).rev() {
+                                                if let Some(hunk) = file.hunks.get(j) {
+                                                    iter.set_line(hunk.view.line_no.get());
+                                                    last_op.take();
+                                                    break 'found;
+                                                }
+                                            }
+                                        }
+                                        iter.set_line(file.view.line_no.get());
+                                        last_op.take();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    self.cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
+                }
+                op => {
+                    trace!("----------> NOT COVERED LastOp {:?}", op)
+                }
+            }
+        } else {
+            trace!("no any last_op....................");
+        }
+        iter
+    }
+
+    fn cursor_on_opposite_diff(
+        &self,
+        render_diff_kind: DiffKind,
+        iter: &mut TextIter,
+        last_op: &Cell<Option<LastOp>>,
+    ) {
+        // ONLY IF LAST_OP WAS NOT DROPPED BY PREVIOUS LOOP
+        if let Some(op) = last_op.get() {
+            match render_diff_kind {
+                DiffKind::Unstaged | DiffKind::Untracked => {
+                    if let Some(diff) = &self.staged {
+                        iter.set_line(diff.files[0].view.line_no.get());
+                        last_op.take();
+                    } else {
+                        last_op.replace(Some(LastOp {
+                            op: op.op,
+                            cursor_position: op.cursor_position,
+                            desired_diff_kind: Some(DiffKind::Staged),
+                        }));
+                    }
+                }
+                DiffKind::Staged => {
+                    if let Some(diff) = &self.unstaged {
+                        let line_no = diff.files[0].view.line_no.get();
+                        iter.set_line(line_no);
+                        last_op.take();
+                    } else if let Some(diff) = &self.untracked {
+                        iter.set_line(diff.files[0].view.line_no.get());
+                        last_op.take();
+                    } else {
+                        last_op.replace(Some(LastOp {
+                            op: op.op,
+                            cursor_position: op.cursor_position,
+                            desired_diff_kind: Some(DiffKind::Unstaged),
+                        }));
+                    }
+                }
+                _ => {
+                    debug!("does not matched in opposite_diff")
+                }
             }
         }
     }
