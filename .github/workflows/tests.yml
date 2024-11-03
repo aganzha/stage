@@ -16,9 +16,9 @@ jobs:
 
     steps:
     - name: Install gtk4
-      run: apt install libgtk-4-dev -y
+      run: sudo -S apt install libgtk-4-dev -y
     - name: Intall libadwaita
-      run: apt install libadwaita-1-dev -y
+      run: sudo -S apt install libadwaita-1-dev -y
     - uses: actions/checkout@v4
     - name: Build
       run: cargo build --verbose
