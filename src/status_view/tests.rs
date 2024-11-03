@@ -891,7 +891,6 @@ pub fn test_choose_cursor_position() {
                 .get()
     );
     assert!(cell.get().is_none());
-    debug!("........2! {:?} {:?}", iter.line(), cell);
 
     // stage file 'outside' of diff
     let FILE_IND: usize = 100;
@@ -963,6 +962,15 @@ pub fn test_choose_cursor_position() {
     // but sure in will match in Staged render, cause Staged will be rendered any ways!
     let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Staged), &cell);
 
+    assert!(cell.get().is_none());
+    assert!(iter.line() == diffs.unstaged.as_ref().unwrap().files[0].view.line_no.get());
+
+    // lets check desired_diff_kind also
+    last_op.cursor_position = CursorPosition::CursorFile(DiffKind::Staged, Some(0));
+    last_op.desired_diff_kind = Some(DiffKind::Unstaged);
+    let cell = Cell::new(Some(last_op));
+    // it will not match on rendering Unstaged, but desired_diff_kind will work!
+    diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
     assert!(cell.get().is_none());
     assert!(iter.line() == diffs.unstaged.as_ref().unwrap().files[0].view.line_no.get());
 }
