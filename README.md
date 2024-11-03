@@ -4,6 +4,8 @@
    <span>Git GUI client for linux desktops inspired by Magit</span>
 </p>
 
+![CI Build/Tests](https://github.com/aganzha/stage/actions/workflows/tests.yml/badge.svg)
+
 ## Installing
 ```sh
 flatpak install -u https://github.com/aganzha/stage/raw/master/stage.flatpakref
