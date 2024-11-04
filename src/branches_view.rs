@@ -979,10 +979,9 @@ pub fn headerbar_factory(
         .can_shrink(true)
         .build();
     log_btn.connect_clicked(clone!(@weak list_view => move |_e| {
-        let (_current_branch, selected_branch) =
-            branches_in_use(&list_view);
-        let oid = selected_branch.oid;
-        sender.send_blocking(crate::Event::Log(Some(oid), Some(selected_branch.name.to_string())))
+        let branch_list = get_branch_list(&list_view);
+        let branch_data = branch_list.get_selected_branch();
+        sender.send_blocking(crate::Event::Log(Some(branch_data.oid), Some(branch_data.name.to_string())))
             .expect("cant send through channel");
         }
     ));
@@ -991,7 +990,7 @@ pub fn headerbar_factory(
         .bind_property("selected-pos", &log_btn, "sensitive")
         .transform_to(set_sensitive)
         .build();
-
+    // aganzha
     hb.set_title_widget(Some(&search));
     hb.pack_end(&new_btn);
     hb.pack_end(&merge_btn);
@@ -1010,19 +1009,6 @@ pub fn get_branch_list(list_view: &ListView) -> BranchList {
     let list_model = single_selection.model().unwrap();
     let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
     branch_list.to_owned()
-}
-
-pub fn branches_in_use(list_view: &ListView) -> (branch::BranchData, branch::BranchData) {
-    let selection_model = list_view.model().unwrap();
-    let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
-    let list_model = single_selection.model().unwrap();
-    let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
-    (
-        branch_list
-            .get_head_branch()
-            .expect("cant get current branch"),
-        branch_list.get_selected_branch(),
-    )
 }
 
 pub fn show_branches_window(
@@ -1131,20 +1117,24 @@ pub fn show_branches_window(
                     branch_list.rebase(repo_path.clone(), &window, sender.clone())
                 }
                 (gdk::Key::l, _) => {
-                    let (_current_branch, selected_branch) = branches_in_use(&list_view);
-                    let oid = selected_branch.oid;
+                    let branch_list = get_branch_list(&list_view);
+                    let branch_data = branch_list.get_selected_branch();
                     sender
                         .send_blocking(crate::Event::Log(
-                            Some(oid),
-                            Some(selected_branch.name.to_string()),
+                            Some(branch_data.oid),
+                            Some(branch_data.name.to_string()),
                         ))
                         .expect("cant send through sender");
                 }
                 (gdk::Key::a, _) => {
-                    let (_current_branch, selected_branch) = branches_in_use(&list_view);
-                    let oid = selected_branch.oid;
+                    let branch_list = get_branch_list(&list_view);
                     sender
-                        .send_blocking(crate::Event::CherryPick(oid, false, None, None))
+                        .send_blocking(crate::Event::CherryPick(
+                            branch_list.get_selected_branch().oid,
+                            false,
+                            None,
+                            None,
+                        ))
                         .expect("cant send through sender");
                 }
                 (gdk::Key::u, _) => {
