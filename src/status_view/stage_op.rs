@@ -38,8 +38,6 @@ impl CursorPosition {
         status: &Status,
         op: &StageOp,
     ) -> (Option<DiffKind>, Option<PathBuf>, Option<String>) {
-        // TODO! it is not string! it must be typed HunkHeader!
-        // TODO! squash matches as in choose cursor position!
         match (self, op) {
             (Self::CursorDiff(DiffKind::Unstaged), StageOp::Stage(_) | StageOp::Kill(_)) => {
                 if let Some(unstaged) = &status.unstaged {
