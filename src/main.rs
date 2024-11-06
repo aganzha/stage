@@ -222,10 +222,13 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     let window = ApplicationWindow::builder()
         .application(app)
-        .default_width(1280)
-        .default_height(480)
         .build();
 
+    settings.bind("width", &window, "default-width").build();
+    settings.bind("height", &window, "default-height").build();
+    settings.bind("is-maximized", &window, "maximized").build();
+    settings.bind("is-fullscreen", &window, "fullscreened").build();
+    
     let action_close = gio::SimpleAction::new("close", None);
     action_close.connect_activate(clone!(@weak window => move |_, _| {
         window.close();
