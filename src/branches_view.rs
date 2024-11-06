@@ -1075,6 +1075,7 @@ pub fn show_branches_window(
 
     let spin = {
         let list_view = list_view.clone();
+        let hb = hb.clone();
         let spinner = spinner.clone();
         let scroll = scroll.clone();
         let mut spinning = false;
@@ -1082,9 +1083,11 @@ pub fn show_branches_window(
             spinning = !spinning;
             if spinning {
                 spinner.start();
+                hb.title_widget().unwrap().set_visible(false);
                 scroll.set_child(Some(&spinner_box));
             } else {
                 spinner.stop();
+                hb.title_widget().unwrap().set_visible(true);
                 scroll.set_child(Some(&list_view));
             }
         }
