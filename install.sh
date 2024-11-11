@@ -11,5 +11,4 @@ install -Dm644 ./icons/128x128/io.github.aganzha.Stage.png -t /app/share/icons/h
 install -Dm644 ./icons/256x256/io.github.aganzha.Stage.png -t /app/share/icons/hicolor/256x256/apps
 install -Dm644 ./icons/512x512/io.github.aganzha.Stage.png -t /app/share/icons/hicolor/512x512/apps
 install -Dm644 ./icons/io.github.aganzha.Stage.svg -t /app/share/icons/hicolor/scalable/apps
-install -Dm644 ./icons/io.github.aganzha.Stage.Devel.svg -t /app/share/icons/hicolor/scalable/apps
 install -Dm644 ./icons/io.github.aganzha.Stage-symbolic.svg -t /app/share/icons/hicolor/symbolic/apps
