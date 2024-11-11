@@ -248,7 +248,11 @@ pub fn push(
         Err(error) if error.message() == PLAIN_PASSWORD => {
             // asks for password
             sender
-                .send_blocking(crate::Event::PushUserPass(remote_ref, tracking_remote))
+                .send_blocking(crate::Event::PushUserPass(
+                    remote_ref,
+                    tracking_remote,
+                    is_tag,
+                ))
                 .expect("cant send through channel");
             return Ok(());
         }

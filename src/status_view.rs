@@ -492,7 +492,7 @@ impl Status {
                     .active(true)
                     .build();
 
-                let input = EntryRow::builder()
+                let remote_branch_name = EntryRow::builder()
                     .title("Remote branch name:")
                     .show_apply_button(true)
                     .css_classes(vec!["input_field"])
@@ -515,24 +515,28 @@ impl Status {
                     "Push",
                 );
 
-                input.connect_apply(clone!(@strong dialog as dialog => move |_| {
+                remote_branch_name.connect_apply(clone!(@strong dialog as dialog => move |_| {
                     // someone pressed enter
                     dialog.response("confirm");
                     dialog.close();
                 }));
-                input.connect_entry_activated(clone!(@strong dialog as dialog => move |_| {
-                    // someone pressed enter
-                    dialog.response("confirm");
-                    dialog.close();
-                }));
+                remote_branch_name.connect_entry_activated(
+                    clone!(@strong dialog as dialog => move |_| {
+                        // someone pressed enter
+                        dialog.response("confirm");
+                        dialog.close();
+                    }),
+                );
                 let mut pass = false;
+                let mut this_is_tag = false;
                 match remote_dialog {
                     None => {
-                        lb.append(&input);
+                        lb.append(&remote_branch_name);
                         lb.append(&upstream);
                     }
-                    Some((remote_branch, track_remote, ask_password)) if ask_password => {
-                        input.set_text(&remote_branch);
+                    Some((remote_branch, track_remote, is_tag)) => {
+                        this_is_tag = is_tag;
+                        remote_branch_name.set_text(&remote_branch);
                         if track_remote {
                             upstream.set_active(true);
                         }
@@ -549,7 +553,7 @@ impl Status {
                 if "confirm" != response {
                     return;
                 }
-                let remote_branch_name = format!("{}", input.text());
+                let remote_branch_name = format!("{}", remote_branch_name.text());
                 let track_remote = upstream.is_active();
                 let mut user_pass: Option<(String, String)> = None;
                 if pass {
@@ -566,7 +570,7 @@ impl Status {
                                     path.expect("no path"),
                                     remote_branch_name,
                                     track_remote,
-                                    false,
+                                    this_is_tag,
                                     sender,
                                     user_pass,
                                 )
