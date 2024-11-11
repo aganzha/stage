@@ -566,6 +566,7 @@ impl Status {
                                     path.expect("no path"),
                                     remote_branch_name,
                                     track_remote,
+                                    false,
                                     sender,
                                     user_pass,
                                 )

@@ -186,19 +186,24 @@ pub const REMOTE: &str = "origin";
 
 pub fn push(
     path: PathBuf,
-    remote_branch: String,
+    remote_ref: String,
     tracking_remote: bool,
+    is_tag: bool,
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
 ) -> Result<(), RemoteResponse> {
-    debug!("remote branch {:?}", remote_branch);
+    debug!("remote branch {:?}", remote_ref);
     let repo = git2::Repository::open(path.clone())?;
 
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
     let head_ref_name = head_ref.name().ok_or("head ref has no name".to_string())?;
 
-    let refspec = format!("{}:refs/heads/{}", head_ref_name, remote_branch);
+    let mut refspec = format!("{}:refs/heads/{}", head_ref_name, remote_ref);
+    if is_tag {
+        refspec = format!("refs/tags/{}:refs/tags/{}", remote_ref, remote_ref);
+    }
+
     trace!("push. refspec {}", refspec);
     let mut branch = git2::Branch::wrap(head_ref);
     let mut remote = repo.find_remote(REMOTE)?; // TODO here is hardcode
@@ -207,7 +212,7 @@ pub fn push(
     let mut callbacks = git2::RemoteCallbacks::new();
 
     callbacks.update_tips({
-        let remote_branch = remote_branch.clone();
+        let remote_ref = remote_ref.clone();
         let sender = sender.clone();
         move |updated_ref, oid1, oid2| {
             debug!(
@@ -216,7 +221,7 @@ pub fn push(
             );
             if tracking_remote {
                 branch
-                    .set_upstream(Some(&format!("{}/{}", REMOTE, &remote_branch)))
+                    .set_upstream(Some(&format!("{}/{}", REMOTE, &remote_ref)))
                     .expect("cant set upstream");
             }
             sender
@@ -243,7 +248,7 @@ pub fn push(
         Err(error) if error.message() == PLAIN_PASSWORD => {
             // asks for password
             sender
-                .send_blocking(crate::Event::PushUserPass(remote_branch, tracking_remote))
+                .send_blocking(crate::Event::PushUserPass(remote_ref, tracking_remote))
                 .expect("cant send through channel");
             return Ok(());
         }

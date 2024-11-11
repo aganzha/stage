@@ -20,7 +20,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::dialogs::{alert, confirm_dialog_factory, DangerDialog, YES};
-use crate::git::tag;
+use crate::git::{remote, tag};
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use log::{debug, trace};
 
@@ -323,6 +323,31 @@ impl TagList {
         let tag_item = item.downcast_ref::<TagItem>().unwrap();
         let name = tag_item.imp().tag.borrow().name.clone();
         (name, pos)
+    }
+
+    pub fn push_tag(&self, repo_path: PathBuf, window: &Window, sender: Sender<crate::Event>) {
+        let (tag_name, _) = self.get_selected_tag();
+        let window = window.clone();
+        glib::spawn_future_local({
+            async move {
+                gio::spawn_blocking({
+                    let sender = sender.clone();
+                    let tag_name = tag_name.clone();
+                    move || remote::push(repo_path, tag_name, false, true, sender, None)
+                })
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(&window);
+                    Ok(())
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(&window);
+                });
+                sender
+                    .send_blocking(crate::Event::Toast(format!("Pushed tag {:?}", tag_name)))
+                    .expect("cant send through sender");
+            }
+        });
     }
 
     pub fn kill_tag(&self, repo_path: PathBuf, window: &Window, sender: Sender<crate::Event>) {
@@ -870,11 +895,31 @@ pub fn headerbar_factory(
         }
     });
 
+    let push_btn = Button::builder()
+        .label("Push")
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Push")
+        .icon_name("send-to-symbolic")
+        .can_shrink(true)
+        //.sensitive(false)
+        .build();
+    push_btn.connect_clicked({
+        let sender = sender.clone();
+        let window = window.clone();
+        let tag_list = tag_list.clone();
+        let repo_path = repo_path.clone();
+        move |_| {
+            tag_list.push_tag(repo_path.clone(), &window, sender.clone());
+        }
+    });
+
     hb.pack_end(&new_btn);
     hb.pack_end(&kill_btn);
     hb.pack_end(&reset_btn);
     hb.pack_end(&cherry_pick_btn);
     hb.pack_end(&revert_btn);
+    hb.pack_end(&push_btn);
     hb
 }
 
@@ -1012,6 +1057,10 @@ pub fn show_tags_window(
                 (gdk::Key::k | gdk::Key::d, _) => {
                     let tag_list = get_tags_list(&list_view);
                     tag_list.kill_tag(repo_path.clone(), &window, main_sender.clone());
+                }
+                (gdk::Key::p, _) => {
+                    let tag_list = get_tags_list(&list_view);
+                    tag_list.push_tag(repo_path.clone(), &window, main_sender.clone());
                 }
                 (key, modifier) => {
                     trace!("key pressed {:?} {:?}", key, modifier);
