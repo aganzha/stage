@@ -32,7 +32,7 @@
       "build-commands": [
          "cargo fetch --manifest-path Cargo.toml --offline --verbose",
          "cargo build --release --verbose --offline",
-         "source install.sh"
+         "source ./install.sh"
       ],
       "sources": [
          {
