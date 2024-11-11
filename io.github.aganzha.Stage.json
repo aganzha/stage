@@ -22,9 +22,6 @@
       "name": "stage",
       "buildsystem": "simple",
       "build-options": {
-         "build-args": [
-            "--share=network"
-         ],
          "env": {
             "CARGO_HOME": "/run/build/stage/cargo"
          }
@@ -42,17 +39,10 @@
             "dest": "."
          },
          {
-            "type": "shell",
-            "commands": [
-               "cargo vendor cargo/vendor/"
-            ]
+            "type": "dir",
+            "path": "."
          },
-         {
-            "type": "inline",
-            "contents": "[source.vendored-sources]\ndirectory = \"cargo/vendor\"\n\n[source.crates-io]\nreplace-with = \"vendored-sources\"\n",
-            "dest": "cargo",
-            "dest-filename": "config"
-         }
+         "cargo-sources.json"
       ]
    }]
 }
