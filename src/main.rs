@@ -155,7 +155,7 @@ pub enum Event {
     Zoom(bool),
     ResetHard(Option<Oid>),
     CommitDiff(commit::CommitDiff),
-    PushUserPass(String, bool),
+    PushUserPass(String, bool, bool),
     PullUserPass,
     LockMonitors(bool),
     StoreSettings(String, String),
@@ -624,8 +624,8 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::CommitDiff(_d) => {
                     panic!("got oid diff in another receiver");
                 }
-                Event::PushUserPass(remote, tracking) => {
-                    status.push(&window, Some((remote, tracking, true)))
+                Event::PushUserPass(remote, tracking, is_tag) => {
+                    status.push(&window, Some((remote, tracking, is_tag)))
                 }
                 Event::PullUserPass => {
                     info!("main. userpass");
