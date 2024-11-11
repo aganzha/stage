@@ -140,7 +140,7 @@ pub enum Event {
     CopyToClipboard(i32, i32),
     Stage(StageOp),
     Commit,
-    Push,
+    Push(bool),
     Pull,
     ShowBranches,
     Branches(Vec<branch::BranchData>),
@@ -155,7 +155,7 @@ pub enum Event {
     Zoom(bool),
     ResetHard(Option<Oid>),
     CommitDiff(commit::CommitDiff),
-    PushUserPass(String, bool),
+    PushUserPass(String, bool, bool),
     PullUserPass,
     LockMonitors(bool),
     StoreSettings(String, String),
@@ -368,9 +368,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     info!("main. untracked");
                     status.update_untracked(untracked, &txt, &settings, &mut ctx);
                 }
-                Event::Push => {
+                Event::Push(is_tag) => {
                     info!("main.push");
-                    status.push(&window, None);
+                    status.push(&window, is_tag, None);
                 }
                 Event::Pull => {
                     info!("main.pull");
@@ -624,8 +624,8 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::CommitDiff(_d) => {
                     panic!("got oid diff in another receiver");
                 }
-                Event::PushUserPass(remote, tracking) => {
-                    status.push(&window, Some((remote, tracking, true)))
+                Event::PushUserPass(remote, tracking, is_tag) => {
+                    status.push(&window, is_tag, Some((remote, tracking, true)))
                 }
                 Event::PullUserPass => {
                     info!("main. userpass");

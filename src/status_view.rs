@@ -475,7 +475,7 @@ impl Status {
         });
     }
 
-    pub fn push(&self, window: &ApplicationWindow, remote_dialog: Option<(String, bool, bool)>) {
+    pub fn push(&self, window: &ApplicationWindow, is_tag: bool, remote_dialog: Option<(String, bool, bool)>) {
         let remote = self.choose_remote();
         glib::spawn_future_local({
             let window = window.clone();
@@ -566,6 +566,7 @@ impl Status {
                                     path.expect("no path"),
                                     remote_branch_name,
                                     track_remote,
+                                    is_tag,
                                     sender,
                                     user_pass,
                                 )
