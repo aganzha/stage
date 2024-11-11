@@ -3,7 +3,9 @@
    "runtime": "org.gnome.Platform",
    "runtime-version": "47",
    "sdk": "org.gnome.Sdk",
-   "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
+   "sdk-extensions": [
+      "org.freedesktop.Sdk.Extension.rust-stable"
+   ],
    "command": "stage",
    "finish-args": [
       "--filesystem=home",
@@ -42,7 +44,7 @@
             "type": "dir",
             "path": "."
          },
-         "cargo-sources.json"
+         "io.github.aganzha.Stage.cargo-sources.json"
       ]
    }]
 }
