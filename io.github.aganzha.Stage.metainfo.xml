@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 -->
 <component type="desktop-application">
   <id>io.github.aganzha.Stage</id>
+  <launchable type="desktop-id">io.github.aganzha.Stage.desktop</launchable>
   <name>Stage</name>
   <summary>Git GUI client inspired by Magit</summary>
   <metadata_license>CC0</metadata_license>
@@ -16,12 +17,22 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </p>
   </description>
 
-  <screenshots>
+  <content_rating type="oars-1.1" />
 
+  <screenshots>
+    <screenshot >
+      <image>https://storage.yandexcloud.net/www.aganzha.online/static/io.github.aganzha.Stage-light.png</image>
+      <caption>Stage light</caption>
+    </screenshot>
+    <screenshot type="default">
+      <image>https://www.aganzha.online/static/io.github.aganzha.Stage-dark.png</image>
+      <caption>Stage dark</caption>
+    </screenshot>
   </screenshots>
 
   <branding>
-
+    <color type="primary" scheme_preference="light">#f4b51c</color>
+    <color type="primary" scheme_preference="dark">#614a11</color>
   </branding>
 
   <url type="homepage">https://github.com/aganzha/stage</url>
