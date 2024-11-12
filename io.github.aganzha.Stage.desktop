@@ -2,7 +2,7 @@
 Name=Stage
 Comment=GUI Git client inspited by Magit
 
-Keywords=GNOME;GTK;Git;Commt;Branch;Push;Pull;Merge;Rebase;Cherry-pick;Revert;
+Keywords=RevisionControl;Development;Utility;IDE;GNOME;GTK;git;
 Categories=Development;Utility;
 
 Exec=stage %U

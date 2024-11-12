@@ -13,12 +13,33 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <project_license>GPL-3.0-or-later</project_license>
   <description>
     <p>
-      Git GUI client inspired by Magit. Main focus is on staging/unstaging changes in git.
-      Also provides usable UI for branching, stashing, rebasing, cherrypicking.
+      Git GUI client inspired by Magit.
+      <ul>
+        <li>Stage individual files and hunks</li>
+        <li>Create, checkout, merge branches easily</li>
+        <li>Cherry-pick, revert everything</li>
+        <li>Manage stashes</li>
+        <li>Resolve conflicts</li>
+      </ul>
     </p>
   </description>
 
   <content_rating type="oars-1.1" />
+
+   <categories>
+    <category>Development</category>
+    <category>Utility</category>
+  </categories>
+
+  <keywords>
+    <keyword>RevisionControl</keyword>
+    <keyword>Development</keyword>
+    <keyword>Utility</keyword>
+    <keyword>IDE</keyword>
+    <keyword>GNOME</keyword>
+    <keyword>GTK</keyword>
+    <keyword>git</keyword>
+  </keywords>
 
   <screenshots>
     <screenshot>
@@ -45,7 +66,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <update_contact>aganzha@yandex.ru</update_contact>
 
   <releases>
-    <release version="0.1.0" date="2024-10-14">
+    <release version="0.1.3" date="2024-11-12">
       <description>
         <p>Application release</p>
       </description>
