@@ -12,16 +12,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <metadata_license>CC0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   <description>
-    <p>
-      Git GUI client inspired by Magit.
-      <ul>
-        <li>Stage individual files and hunks</li>
-        <li>Create, checkout, merge branches easily</li>
-        <li>Cherry-pick, revert everything</li>
-        <li>Manage stashes</li>
-        <li>Resolve conflicts</li>
-      </ul>
-    </p>
+    <p>Git GUI client inspired by Magit.</p>
+    <ul>
+      <li>Stage individual files and hunks</li>
+      <li>Create, checkout, merge branches easily</li>
+      <li>Cherry-pick, revert everything</li>
+      <li>Manage stashes</li>
+      <li>Resolve conflicts</li>
+    </ul>
   </description>
 
   <content_rating type="oars-1.1" />
