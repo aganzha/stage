@@ -617,9 +617,7 @@ pub fn get_current_repo_status(
         if let Some(path) = current_path {
             path
         } else {
-            // todo! cwd!
-            //env::current_exe().expect("cant't get exe path")
-            "/home/aganzha".into()
+            std::env::current_exe().expect("cant't get exe path")
         }
     };
     let repo = Repository::discover(path.clone())?;
