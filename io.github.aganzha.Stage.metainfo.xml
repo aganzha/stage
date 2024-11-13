@@ -64,7 +64,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <update_contact>aganzha@yandex.ru</update_contact>
 
   <releases>
-    <release version="0.1.3" date="2024-11-12">
+    <release version="0.1.4" date="2024-11-13">
       <description>
         <p>Application release</p>
       </description>
