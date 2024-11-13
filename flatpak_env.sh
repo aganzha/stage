@@ -1,2 +1,2 @@
 #!/bin/bash
-flatpak run --command=bash com.github.aganzha.stage
+flatpak run --command=bash io.github.aganzha.Stage
