@@ -17,6 +17,10 @@ jobs:
     steps:
     - name: Install flatpak-builder
       run: sudo -S apt install  flatpak-builder -y
+    - name: Install Gnome runtime 
+      run: flatpak install org.gnome.Sdk/x86_64/47
+    - name: Install Rust extension
+      run: flatpak install org.freedesktop.Sdk.Extension.rust-stable
     - uses: actions/checkout@v4
     - name: Build and run tests
       run: ./flatpak_test.sh
