@@ -15,12 +15,8 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-    - name: Install gtk4
-      run: sudo -S apt install libgtk-4-dev -y
-    - name: Intall libadwaita
-      run: sudo -S apt install libadwaita-1-dev -y
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: ./test.sh
+    - name: Install flatpak-builder
+      run: sudo -S apt install  flatpak-builder -y
+    - name: Build and run tests
+      run: ./flatpak_test.sh
+

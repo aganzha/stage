@@ -1,0 +1,47 @@
+{
+   "app-id": "io.github.aganzha.Stage",
+   "runtime": "org.gnome.Platform",
+   "runtime-version": "47",
+   "sdk": "org.gnome.Sdk",
+   "sdk-extensions": [
+      "org.freedesktop.Sdk.Extension.rust-stable"
+   ],
+   "command": "clippy.sh",
+   "finish-args": [
+      "--filesystem=home",
+      "--share=ipc",
+      "--share=network",
+      "--socket=fallback-x11",
+      "--socket=wayland",
+      "--socket=ssh-auth",
+      "--socket=gpg-agent",
+      "--device=dri"
+   ],
+   "build-options": {
+      "append-path": "/usr/lib/sdk/rust-stable/bin"
+   },
+   "modules": [{
+      "name": "stage",
+      "buildsystem": "simple",
+      "build-options": {
+         "build-args": [
+            "--share=network"
+         ],
+         "env": {
+            "CARGO_HOME": "/run/build/stage/cargo",
+            "RUST_BACKTRACE": 1,
+            "RUST_LOG": "debug"
+         }
+      },
+      "build-commands": [
+         "RUST_BACKTRACE=1 RUST_LOG=debug cargo test -- --nocapture",
+         "install -Dm755 ./clippy.sh -t /app/bin/"
+      ],
+      "sources": [
+         {
+            "type": "dir",
+            "path": "."
+         }
+      ]
+   }]
+}
