@@ -34,7 +34,7 @@ pub fn commit(
                 .build();
             let commit_message = EntryRow::builder()
                 .title("commit message")
-                .show_apply_button(true)
+                .show_apply_button(false)
                 .css_classes(vec!["input_field"])
                 .text("")
                 .build();
