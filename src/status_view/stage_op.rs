@@ -165,11 +165,11 @@ impl Status {
                             })
                             .await
                             .unwrap_or_else(|e| {
-                                alert(format!("{:?}", e)).present(&window);
+                                alert(format!("{:?}", e)).present(Some(&window));
                                 Ok(())
                             })
                             .unwrap_or_else(|e| {
-                                alert(e).present(&window);
+                                alert(e).present(Some(&window));
                             });
                         }
                     });
@@ -245,11 +245,11 @@ impl Status {
                         })
                         .await
                         .unwrap_or_else(|e| {
-                            alert(format!("{:?}", e)).present(&window);
+                            alert(format!("{:?}", e)).present(Some(&window));
                             Ok(())
                         })
                         .unwrap_or_else(|e| {
-                            alert(e).present(&window);
+                            alert(e).present(Some(&window));
                         });
                     }
                 });
@@ -288,11 +288,11 @@ impl Status {
                                     })
                                     .await
                                     .unwrap_or_else(|e| {
-                                        alert(format!("{:?}", e)).present(&window);
+                                        alert(format!("{:?}", e)).present(Some(&window));
                                         Ok(())
                                     })
                                     .unwrap_or_else(|e| {
-                                        alert(e).present(&window);
+                                        alert(e).present(Some(&window));
                                     });
                                 } else {
                                     // this should be never called
@@ -307,11 +307,11 @@ impl Status {
                                     })
                                     .await
                                     .unwrap_or_else(|e| {
-                                        alert(format!("{:?}", e)).present(&window);
+                                        alert(format!("{:?}", e)).present(Some(&window));
                                         Ok(())
                                     })
                                     .unwrap_or_else(|e| {
-                                        alert(e).present(&window);
+                                        alert(e).present(Some(&window));
                                     });
                                 }
                             }
