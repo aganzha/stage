@@ -538,6 +538,7 @@ impl BranchList {
                     .build();
                 let input = EntryRow::builder()
                     .title("New branch name:")
+                    .show_apply_button(false)
                     .css_classes(vec!["input_field"])
                     .build();
                 let checkout = SwitchRow::builder()
@@ -553,6 +554,12 @@ impl BranchList {
                     &title,
                     "Create"
                 );
+                dialog.connect_realize({
+                    let input = input.clone();
+                    move |_| {
+                        input.grab_focus();
+                    }
+                });
 
                 let enter_pressed = Rc::new(Cell::new(false));
                 input.connect_apply({

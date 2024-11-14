@@ -403,6 +403,7 @@ impl TagList {
                     .build();
                 let input = EntryRow::builder()
                     .title("New tag name:")
+                    .show_apply_button(false)
                     .css_classes(vec!["input_field"])
                     .build();
                 let txt = TextView::builder()
@@ -441,8 +442,16 @@ impl TagList {
                 row.set_css_classes(&["hidden_row"]);
                 row.set_focusable(false);
                 lb.append(&lightweight);
+
                 let dialog = confirm_dialog_factory(&window, Some(&lb), "Create new tag", "Create");
-                let mut enter_pressed = Rc::new(Cell::new(false));
+                dialog.connect_realize({
+                    let input = input.clone();
+                    move |_| {
+                        input.grab_focus();
+                    }
+                });
+
+                let enter_pressed = Rc::new(Cell::new(false));
                 input.connect_apply({
                     let dialog = dialog.clone();
                     let enter_pressed = enter_pressed.clone();

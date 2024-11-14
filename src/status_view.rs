@@ -494,7 +494,7 @@ impl Status {
 
                 let remote_branch_name = EntryRow::builder()
                     .title("Remote branch name:")
-                    .show_apply_button(true)
+                    .show_apply_button(false)
                     .css_classes(vec!["input_field"])
                     .text(remote)
                     .build();
@@ -508,12 +508,20 @@ impl Status {
                     .title("Password:")
                     .css_classes(vec!["input_field"])
                     .build();
+
                 let dialog = crate::confirm_dialog_factory(
                     &window,
                     Some(&lb),
                     "Push to remote/origin", // TODO here is harcode
                     "Push",
                 );
+                dialog.connect_realize({
+                    let remote_branch_name = remote_branch_name.clone();
+                    move |_| {
+                        remote_branch_name.grab_focus();
+                    }
+                });
+
                 let enter_pressed = Rc::new(Cell::new(false));
 
                 remote_branch_name.connect_apply({
