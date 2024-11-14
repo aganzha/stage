@@ -19,7 +19,7 @@ jobs:
       run: sudo -S apt install flatpak -y
     - name: Install flatpak-builder
       run: sudo -S apt install flatpak-builder -y
-    - name Add flathub to remotes
+    - name: Add flathub to remotes
       run: flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     - name: Install Gnome runtime
       run: flatpak install org.gnome.Sdk/x86_64/47
