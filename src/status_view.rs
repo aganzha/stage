@@ -452,7 +452,7 @@ impl Status {
                             "Pull from remote/origin", // TODO here is harcode
                             "Pull",
                         );
-                        let response = dialog.choose_future().await;
+                        let response = dialog.choose_future(&window).await;
                         if "confirm" != response {
                             return;
                         }
@@ -514,19 +514,27 @@ impl Status {
                     "Push to remote/origin", // TODO here is harcode
                     "Push",
                 );
+                let enter_pressed = Rc::new(Cell::new(false));
 
-                remote_branch_name.connect_apply(clone!(@strong dialog as dialog => move |_| {
-                    // someone pressed enter
-                    dialog.response("confirm");
-                    dialog.close();
-                }));
-                remote_branch_name.connect_entry_activated(
-                    clone!(@strong dialog as dialog => move |_| {
+                remote_branch_name.connect_apply({
+                    let dialog = dialog.clone();
+                    let enter_pressed = enter_pressed.clone();
+                    move |_| {
                         // someone pressed enter
-                        dialog.response("confirm");
+                        enter_pressed.replace(true);
                         dialog.close();
-                    }),
-                );
+                    }
+                });
+
+                remote_branch_name.connect_entry_activated({
+                    let dialog = dialog.clone();
+                    let enter_pressed = enter_pressed.clone();
+                    move |_| {
+                        // someone pressed enter
+                        enter_pressed.replace(true);
+                        dialog.close();
+                    }
+                });
                 let mut pass = false;
                 let mut this_is_tag = false;
                 match remote_dialog {
@@ -549,8 +557,8 @@ impl Status {
                     }
                 }
 
-                let response = dialog.choose_future().await;
-                if "confirm" != response {
+                let response = dialog.choose_future(&window).await;
+                if !("confirm" == response || enter_pressed.get()) {
                     return;
                 }
                 let remote_branch_name = format!("{}", remote_branch_name.text());

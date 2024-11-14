@@ -22,7 +22,9 @@ use libadwaita::{
 };
 
 use log::{debug, info, trace};
+use std::cell::Cell;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 glib::wrapper! {
     pub struct BranchItem(ObjectSubclass<branch_item::BranchItem>);
@@ -384,7 +386,7 @@ impl BranchList {
                     "Rebase",
                     "Rebase"
                 );
-                let result = dialog.choose_future().await;
+                let result = dialog.choose_future(&window).await;
                 if "confirm" != result {
                     return;
                 }
@@ -424,7 +426,7 @@ impl BranchList {
                     "Merge",
                     "Merge"
                 );
-                let result = dialog.choose_future().await;
+                let result = dialog.choose_future(&window).await;
                 if "confirm" != result {
                     return;
                 }
@@ -551,18 +553,29 @@ impl BranchList {
                     &title,
                     "Create"
                 );
-                input.connect_apply(clone!(@strong dialog as dialog => move |_entry| {
-                    // someone pressed enter
-                    dialog.response("confirm");
-                    dialog.close();
-                }));
-                input.connect_entry_activated(clone!(@strong dialog as dialog => move |_entry| {
-                    // someone pressed enter
-                    dialog.response("confirm");
-                    dialog.close();
-                }));
 
-                if "confirm" != dialog.choose_future().await {
+                let enter_pressed = Rc::new(Cell::new(false));
+                input.connect_apply({
+                    let enter_pressed = enter_pressed.clone();
+                    let dialog = dialog.clone();
+                    move |_entry| {
+                        // someone pressed enter
+                        enter_pressed.replace(true);
+                        dialog.close();
+                    }
+                });
+                input.connect_entry_activated({
+                    let enter_pressed = enter_pressed.clone();
+                    let dialog = dialog.clone();
+                    move |_entry| {
+                        // someone pressed enter
+                        enter_pressed.replace(true);
+                        dialog.close();
+                    }
+                });
+
+                let response = dialog.choose_future(&window).await;
+                if !("confirm" == response || enter_pressed.get()) {
                     return;
                 }
                 let new_branch_name = format!("{}", input.text());
