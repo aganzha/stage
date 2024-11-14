@@ -19,8 +19,7 @@ jobs:
       run: sudo -S apt install  flatpak-builder -y
     - name: Detect current dir 1
       run: pwd
-    - name: Detect current dir 1
-      run: ls -la      
+    - name: Detect current dir 2
+      run: ls -la ..
     - name: Build and run tests
-      run: ./flatpak_test.sh
-
+      run: ../flatpak_test.sh
