@@ -359,7 +359,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     info!("main.commit");
                     if !status.has_staged() {
                         alert(String::from("No changes were staged. Stage by hitting 's'"))
-                            .present(&txt);
+                            .present(Some(&txt));
                     } else {
                         status.commit(&window);
                     }

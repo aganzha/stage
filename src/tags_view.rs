@@ -23,6 +23,7 @@ use crate::dialogs::{alert, confirm_dialog_factory, DangerDialog, YES};
 use crate::git::{remote, tag};
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use log::{debug, trace};
+use std::cell::Cell;
 
 glib::wrapper! {
     pub struct TagItem(ObjectSubclass<tag_item::TagItem>);
@@ -220,11 +221,11 @@ impl TagList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&widget);
+                    alert(format!("{:?}", e)).present(Some(&widget));
                     Ok(Vec::new())
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&widget);
+                    alert(e).present(Some(&widget));
                     Vec::new()
                 });
                 if tags.is_empty() {
@@ -337,11 +338,11 @@ impl TagList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
+                    alert(format!("{:?}", e)).present(Some(&window));
                     Ok(())
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+                    alert(e).present(Some(&window));
                 });
                 sender
                     .send_blocking(crate::Event::Toast(format!("Pushed tag {:?}", tag_name)))
@@ -360,11 +361,11 @@ impl TagList {
                 let result = gio::spawn_blocking(move || tag::kill_tag(repo_path, tg_name, sender))
                     .await
                     .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
+                        alert(format!("{:?}", e)).present(Some(&window));
                         Ok(None)
                     })
                     .unwrap_or_else(|e| {
-                        alert(e).present(&window);
+                        alert(e).present(Some(&window));
                         None
                     });
                 if result.is_none() {
@@ -441,18 +442,28 @@ impl TagList {
                 row.set_focusable(false);
                 lb.append(&lightweight);
                 let dialog = confirm_dialog_factory(&window, Some(&lb), "Create new tag", "Create");
-                input.connect_apply(clone!(@strong dialog as dialog => move |_entry| {
-                    // someone pressed enter
-                    dialog.response("confirm");
-                    dialog.close();
-                }));
-                input.connect_entry_activated(clone!(@strong dialog as dialog => move |_entry| {
-                    // someone pressed enter
-                    dialog.response("confirm");
-                    dialog.close();
-                }));
+                let mut enter_pressed = Rc::new(Cell::new(false));
+                input.connect_apply({
+                    let dialog = dialog.clone();
+                    let enter_pressed = enter_pressed.clone();
+                    move |_entry| {
+                        // someone pressed enter
+                        enter_pressed.replace(true);
+                        dialog.close();
+                    }
+                });
+                input.connect_entry_activated({
+                    let dialog = dialog.clone();
+                    let enter_pressed = enter_pressed.clone();
+                    move |_entry| {
+                        // someone pressed enter
+                        enter_pressed.replace(true);
+                        dialog.close();
+                    }
+                });
 
-                if "confirm" != dialog.choose_future().await {
+                let response = dialog.choose_future(&window).await;
+                if !("confirm" == response || enter_pressed.get()) {
                     return;
                 }
                 let new_tag_name = String::from(input.text());
@@ -476,11 +487,11 @@ impl TagList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
+                    alert(format!("{:?}", e)).present(Some(&window));
                     Ok(None)
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+                    alert(e).present(Some(&window));
                     None
                 });
                 if let Some(created_tag) = created_tag {
@@ -530,11 +541,11 @@ impl TagList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
+                    alert(format!("{:?}", e)).present(Some(&window));
                     Ok(false)
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+                    alert(e).present(Some(&window));
                     false
                 });
                 if result {
@@ -574,7 +585,7 @@ impl TagList {
 
 pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
-    let focus = Rc::new(RefCell::new(false));
+    let focus = Rc::new(Cell::new(false));
     factory.connect_setup(move |_, list_item| {
         let oid_label = Label::builder()
             .label("")
@@ -712,12 +723,12 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
                 let focus = focus.clone();
                 let li = li.clone();
                 move || {
-                    if !*focus.borrow() {
+                    if !focus.get() {
                         let first_child = li.child().unwrap();
                         let first_child = first_child.downcast_ref::<Widget>().unwrap();
                         let row = first_child.parent().unwrap();
                         row.grab_focus();
-                        *focus.borrow_mut() = true;
+                        focus.replace(true);
                     }
                     glib::ControlFlow::Break
                 }
@@ -752,7 +763,7 @@ pub fn headerbar_factory(
         .show_close_button(false)
         .child(&entry)
         .build();
-    let very_first_search = Rc::new(RefCell::new(true));
+    let very_first_search = Rc::new(Cell::new(true));
     let threshold = Rc::new(RefCell::new(String::from("")));
     entry.connect_search_changed(
         clone!(@weak tag_list, @weak list_view, @strong very_first_search, @weak entry, @strong repo_path => move |e| {
@@ -765,7 +776,7 @@ pub fn headerbar_factory(
                 let single_selection =
                     selection_model.downcast_ref::<SingleSelection>().unwrap();
                 single_selection.set_can_unselect(true);
-                if *very_first_search.borrow() {
+                if very_first_search.get() {
                     very_first_search.replace(false);
                 } else {
                     tag_list.reset_search();

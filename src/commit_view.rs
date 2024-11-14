@@ -35,11 +35,11 @@ where
     gio::spawn_blocking(op)
         .await
         .unwrap_or_else(|e| {
-            alert(format!("{:?}", e)).present(&window);
+            alert(format!("{:?}", e)).present(Some(&window));
             Ok(())
         })
         .unwrap_or_else(|e| {
-            alert(e).present(&window);
+            alert(e).present(Some(&window));
         });
 }
 
@@ -314,11 +314,11 @@ pub fn show_commit_window(
             let diff = gio::spawn_blocking(move || commit::get_commit_diff(path, oid))
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
+                    alert(format!("{:?}", e)).present(Some(&window));
                     Ok(commit::CommitDiff::default())
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+                    alert(e).present(Some(&window));
                     commit::CommitDiff::default()
                 });
             sender

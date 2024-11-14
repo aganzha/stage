@@ -7,8 +7,8 @@ authors = ["Aleksey Ganzha <aganzha@yandex.ru>"]
 
 
 [dependencies]
-gtk4 = { version = "0.8.0", features = ["v4_12"] }
-libadwaita = { version = "0.6.0", features = ["gtk_v4_12", "v1_5"] }
+gtk4 = { version = "0.9.4", features = ["gnome_47"] }
+libadwaita = { version = "0.7.1", features = ["v1_6"] }
 git2 = "0.18.1"
 regex = "1.10.2"
 log = "0.4.20"
