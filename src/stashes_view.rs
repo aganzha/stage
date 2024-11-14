@@ -22,8 +22,9 @@ use libadwaita::{
     ActionRow, ApplicationWindow, EntryRow, HeaderBar, PreferencesRow, SwitchRow, ToolbarStyle,
     ToolbarView,
 };
-
 use log::{debug, trace};
+use std::cell::Cell;
+use std::rc::Rc;
 
 glib::wrapper! {
     pub struct OidRow(ObjectSubclass<oid_row::OidRow>)
@@ -120,7 +121,7 @@ impl OidRow {
                     "Drop",
                     "Drop"
                 );
-                let result = dialog.choose_future().await;
+                let result = dialog.choose_future(&window).await;
                 if result == "confirm" {
                     let result = gio::spawn_blocking({
                         let stash = row.imp().stash.borrow().clone();
@@ -159,7 +160,7 @@ impl OidRow {
                     "Apply",
                     "Apply"
                 );
-                let result = dialog.choose_future().await;
+                let result = dialog.choose_future(&window).await;
                 if result == "confirm" {
                     gio::spawn_blocking({
                         let stash = row.imp().stash.borrow().clone();
@@ -225,17 +226,27 @@ pub fn add_stash(
                 "Stash changes",
                 "Stash changes"
             );
-            input.connect_apply(clone!(@strong dialog as dialog => move |_| {
-                // someone pressed enter
-                dialog.response("confirm");
-                dialog.close();
-            }));
-            input.connect_entry_activated(clone!(@strong dialog as dialog => move |_| {
-                // someone pressed enter
-                dialog.response("confirm");
-                dialog.close();
-            }));
-            if "confirm" != dialog.choose_future().await {
+            let enter_pressed = Rc::new(Cell::new(true));
+            input.connect_apply({
+                let dialog = dialog.clone();
+                let enter_pressed = enter_pressed.clone();
+                move |_| {
+                    // someone pressed enter
+                    enter_pressed.replace(true);
+                    dialog.close();
+                }
+            });
+            input.connect_entry_activated({
+                let dialog = dialog.clone();
+                let enter_pressed = enter_pressed.clone();
+                move |_| {
+                    // someone pressed enter
+                    enter_pressed.replace(true);
+                    dialog.close();
+                }
+            });
+            let response = dialog.choose_future(&window).await;
+            if !(response == "confirm" || enter_pressed.get()) {
                 return;
             }
             let stash_message = format!("{}", input.text());

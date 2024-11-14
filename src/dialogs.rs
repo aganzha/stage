@@ -5,7 +5,7 @@
 use crate::git::remote::RemoteResponse;
 
 use libadwaita::prelude::*;
-use libadwaita::{AlertDialog, MessageDialog, ResponseAppearance};
+use libadwaita::{AlertDialog, ResponseAppearance};
 
 use gtk4::{Box, Label, Orientation, ScrolledWindow, TextView, Widget, Window as Gtk4Window};
 
@@ -14,19 +14,16 @@ pub fn confirm_dialog_factory(
     child: Option<&impl IsA<Widget>>,
     heading: &str,
     confirm_title: &str,
-) -> MessageDialog {
+) -> AlertDialog {
     let cancel_response = "cancel";
     let confirm_response = "confirm";
 
-    let dialog = MessageDialog::builder()
+    let dialog = AlertDialog::builder()
         .heading(heading)
-        .transient_for(window)
-        .modal(true)
-        .destroy_with_parent(true)
         .close_response(cancel_response)
         .default_response(confirm_response)
-        .default_width(720)
-        .default_height(120)
+        .width_request(720)
+        .height_request(120)
         .build();
 
     dialog.set_extra_child(child);

@@ -11,9 +11,11 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, EntryRow, StyleManager, SwitchRow};
-use log::debug;
+use log::{debug, trace};
+use std::cell::Cell;
 use std::cell::RefCell;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 pub fn commit(
     path: Option<PathBuf>,
@@ -101,7 +103,7 @@ pub fn commit(
                 let txt = txt.clone();
                 let scroll = scroll.clone();
                 let entry = commit_message.clone();
-                let amend_inserted = RefCell::new(false);
+                let amend_inserted = Cell::new(false);
                 move |_| {
                     if !scroll.get_visible() {
                         // force text view
@@ -116,21 +118,18 @@ pub fn commit(
                             .insert(&mut iter, &amend_message.clone().unwrap());
                         entry.set_visible(false);
                         scroll.set_visible(true);
-                        *amend_inserted.borrow_mut() = true;
+                        amend_inserted.replace(true);
                         // no need to put cursor
                         // lets proceed straight to commit
                         // txt.grab_focus();
                         // txt.buffer().place_cursor(&mut iter);
                     } else {
                         // how do we know if amend message was already inserted???
-                        if !(*amend_inserted.borrow()) {
-                            debug!("insert text");
+                        if !amend_inserted.get() {
                             let mut iter = txt.buffer().end_iter();
                             txt.buffer()
                                 .insert(&mut iter, &amend_message.clone().unwrap());
-                            *amend_inserted.borrow_mut() = true;
-                        } else {
-                            debug!("noooooooooooooo way");
+                            amend_inserted.replace(true);
                         }
                     }
                 }
@@ -151,18 +150,19 @@ pub fn commit(
 
             let dialog =
                 crate::confirm_dialog_factory(&window, Some(&text_view_box), "Commit", "Commit");
-
+            let enter_pressed = Rc::new(Cell::new(false));
             commit_message.connect_entry_activated({
                 let dialog = dialog.clone();
+                let enter_pressed = enter_pressed.clone();
                 move |_| {
                     // someone pressed enter
-                    dialog.response("confirm");
+                    enter_pressed.replace(true);
                     dialog.close();
                 }
             });
 
-            let response = dialog.choose_future().await;
-            if "confirm" != response {
+            let response = dialog.choose_future(&window).await;
+            if !("confirm" == response || enter_pressed.get()) {
                 return;
             }
 
