@@ -22,7 +22,7 @@ jobs:
     - name: Add flathub to remotes
       run: flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     - name: Install Gnome Platform
-      run: flatpak install -y error: org.gnome.Platform/x86_64/47
+      run: flatpak install -y org.gnome.Platform/x86_64/47
     - name: Install Gnome Sdk
       run: flatpak install -y org.gnome.Sdk/x86_64/47
     - name: Install Rust extension
