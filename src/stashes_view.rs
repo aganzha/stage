@@ -210,6 +210,7 @@ pub fn add_stash(
             let input = EntryRow::builder()
                 .title("Stash message:")
                 .css_classes(vec!["input_field"])
+                .show_apply_button(false)
                 .build();
             let staged = SwitchRow::builder()
                 .title("Include staged changes")
@@ -226,6 +227,13 @@ pub fn add_stash(
                 "Stash changes",
                 "Stash changes"
             );
+            dialog.connect_realize({
+                let input = input.clone();
+                move |_| {
+                    input.grab_focus();
+                }
+            });
+
             let enter_pressed = Rc::new(Cell::new(true));
             input.connect_apply({
                 let dialog = dialog.clone();
