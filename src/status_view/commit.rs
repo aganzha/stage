@@ -35,7 +35,6 @@ pub fn commit(
             let commit_message = EntryRow::builder()
                 .title("commit message")
                 .show_apply_button(true)
-                .show_apply_button(false)
                 .css_classes(vec!["input_field"])
                 .text("")
                 .build();
@@ -150,7 +149,16 @@ pub fn commit(
 
             let dialog =
                 crate::confirm_dialog_factory(&window, Some(&text_view_box), "Commit", "Commit");
+
+            dialog.connect_realize({
+                let commit_message = commit_message.clone();
+                move |_| {
+                    commit_message.grab_focus();
+                }
+            });
+
             let enter_pressed = Rc::new(Cell::new(false));
+
             commit_message.connect_entry_activated({
                 let dialog = dialog.clone();
                 let enter_pressed = enter_pressed.clone();
@@ -160,7 +168,6 @@ pub fn commit(
                     dialog.close();
                 }
             });
-
             let response = dialog.choose_future(&window).await;
             if !("confirm" == response || enter_pressed.get()) {
                 return;
