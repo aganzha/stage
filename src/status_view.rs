@@ -1140,10 +1140,8 @@ impl Status {
             staged: &self.staged,
         };
 
-        // let iter = self.choose_cursor_position(&buffer, diff_kind, &self.last_op);
         let iter = diffs.choose_cursor_position(&buffer, diff_kind, &self.last_op);
 
-        trace!("__________ chused position {:?}", iter.line());
         buffer.place_cursor(&iter);
         // WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);

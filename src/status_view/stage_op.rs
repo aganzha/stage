@@ -137,23 +137,17 @@ impl Status {
     ) {
         let (diff_kind, file_path, hunk_header) =
             self.cursor_position.get().resolve_stage_op(self, &op);
-        self.last_op.replace(Some(LastOp {
+
+        let current_op = Some(LastOp {
             op,
             cursor_position: self.cursor_position.get(),
             desired_diff_kind: None,
-        }));
-        trace!(
-            "stage via apply ----------------------> {:?} {:?} {:?} {:?} === {:?}",
-            op,
-            diff_kind,
-            file_path,
-            hunk_header,
-            self.cursor_position
-        );
+        });
 
         match diff_kind {
             Some(DiffKind::Untracked) => match op {
                 StageOp::Stage(_) => {
+                    self.last_op.replace(current_op);
                     glib::spawn_future_local({
                         let path = self.path.clone();
                         let sender = self.sender.clone();
@@ -175,6 +169,7 @@ impl Status {
                     });
                 }
                 StageOp::Kill(_) => {
+                    self.last_op.replace(current_op);
                     glib::spawn_future_local({
                         let window = window.clone();
                         let path = self.path.clone();
@@ -227,6 +222,7 @@ impl Status {
                 }
             },
             Some(DiffKind::Staged) | Some(DiffKind::Unstaged) => {
+                self.last_op.replace(current_op);
                 glib::spawn_future_local({
                     let window = window.clone();
                     let path = self.path.clone();
@@ -257,6 +253,7 @@ impl Status {
             Some(DiffKind::Conflicted) => {
                 // if op is resolved, this means StageOp AND
                 // CursorLine position
+                self.last_op.replace(current_op);
                 match self.cursor_position.get() {
                     CursorPosition::CursorLine(
                         DiffKind::Conflicted,
@@ -318,7 +315,7 @@ impl Status {
                         });
                     }
                     _ => {
-                        panic!("wrong Op resolution");
+                        debug!("wrong Op resolution");
                     }
                 }
             }
@@ -351,7 +348,9 @@ impl StageDiffs<'_> {
                     cursor_position: CursorPosition::CursorDiff(diff_kind),
                     desired_diff_kind: _,
                 } => {
-                    assert!(*diff_kind == DiffKind::Unstaged || *diff_kind == DiffKind::Untracked);
+                    if !(*diff_kind == DiffKind::Unstaged || *diff_kind == DiffKind::Untracked) {
+                        debug!("wrong diff_kind 1 {:?}", diff_kind);
+                    }
                     if let Some(diff) = &self.staged {
                         iter.set_line(diff.view.line_no.get());
                         last_op.take();
@@ -362,7 +361,9 @@ impl StageDiffs<'_> {
                     cursor_position: CursorPosition::CursorDiff(diff_kind),
                     desired_diff_kind: _,
                 } => {
-                    assert!(*diff_kind == DiffKind::Staged);
+                    if !(*diff_kind == DiffKind::Staged) {
+                        debug!("wrong diff_kind 2 {:?}", diff_kind);
+                    }
                     if let Some(diff) = &self.unstaged {
                         iter.set_line(diff.view.line_no.get());
                         last_op.take();
@@ -373,7 +374,9 @@ impl StageDiffs<'_> {
                     cursor_position: CursorPosition::CursorDiff(diff_kind),
                     desired_diff_kind: _,
                 } => {
-                    assert!(*diff_kind == DiffKind::Unstaged);
+                    if !(*diff_kind == DiffKind::Unstaged) {
+                        debug!("wrong diff_kind 3 {:?}", diff_kind);
+                    }
                     if let Some(diff) = &self.staged {
                         iter.set_line(diff.view.line_no.get());
                         last_op.take();
