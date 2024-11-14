@@ -22,9 +22,9 @@ jobs:
     - name: Add flathub to remotes
       run: flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     - name: Install Gnome runtime
-      run: sudo flatpak install --system -y org.gnome.Sdk/x86_64/47
+      run: flatpak install -y org.gnome.Sdk/x86_64/47
     - name: Install Rust extension
-      run: sudo flatpak install --system -y org.freedesktop.Sdk.Extension.rust-stable/x86_64/24.08
+      run: flatpak install -y org.freedesktop.Sdk.Extension.rust-stable/x86_64/24.08
     - uses: actions/checkout@v4
     - name: Build and run tests
       run: ./flatpak_test.sh

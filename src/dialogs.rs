@@ -190,9 +190,10 @@ where
         dialog.set_extra_child(Some(&body));
         let parent = body.parent().unwrap();
         let childs = parent.observe_children();
-        let body_label = childs.item(1).unwrap();
-        let body_label = body_label.downcast_ref::<Label>().unwrap();
-        body_label.set_vexpand(false);
+        if let Some(body_label) = childs.item(1) {
+            let body_label = body_label.downcast_ref::<Label>().unwrap();
+            body_label.set_vexpand(false);
+        }
     }
 
     let mut default_response: Option<&str> = None;
