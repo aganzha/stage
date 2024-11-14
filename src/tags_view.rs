@@ -220,11 +220,11 @@ impl TagList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&widget);
+                    alert(format!("{:?}", e)).present(Some(&widget));
                     Ok(Vec::new())
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&widget);
+                    alert(e).present(Some(&widget));
                     Vec::new()
                 });
                 if tags.is_empty() {
@@ -337,11 +337,11 @@ impl TagList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
+                    alert(format!("{:?}", e)).present(Some(&window));
                     Ok(())
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+                    alert(e).present(Some(&window));
                 });
                 sender
                     .send_blocking(crate::Event::Toast(format!("Pushed tag {:?}", tag_name)))
@@ -360,11 +360,11 @@ impl TagList {
                 let result = gio::spawn_blocking(move || tag::kill_tag(repo_path, tg_name, sender))
                     .await
                     .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
+                        alert(format!("{:?}", e)).present(Some(&window));
                         Ok(None)
                     })
                     .unwrap_or_else(|e| {
-                        alert(e).present(&window);
+                        alert(e).present(Some(&window));
                         None
                     });
                 if result.is_none() {
@@ -476,11 +476,11 @@ impl TagList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
+                    alert(format!("{:?}", e)).present(Some(&window));
                     Ok(None)
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+                    alert(e).present(Some(&window));
                     None
                 });
                 if let Some(created_tag) = created_tag {
@@ -530,11 +530,11 @@ impl TagList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
+                    alert(format!("{:?}", e)).present(Some(&window));
                     Ok(false)
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+                    alert(e).present(Some(&window));
                     false
                 });
                 if result {

@@ -363,11 +363,11 @@ impl Status {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
+                    alert(format!("{:?}", e)).present(Some(&window));
                     Ok(false)
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+                    alert(e).present(Some(&window));
                     false
                 });
             }
@@ -465,11 +465,11 @@ impl Status {
                 gio::spawn_blocking(move || remote::pull(path, sender, user_pass))
                     .await
                     .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(&window);
+                        alert(format!("{:?}", e)).present(Some(&window));
                         Ok(())
                     })
                     .unwrap_or_else(|e| {
-                        alert(e).present(&window);
+                        alert(e).present(Some(&window));
                     });
             }
         });
@@ -578,11 +578,11 @@ impl Status {
                         })
                         .await
                         .unwrap_or_else(|e| {
-                            alert(format!("{:?}", e)).present(&window);
+                            alert(format!("{:?}", e)).present(Some(&window));
                             Ok(())
                         })
                         .unwrap_or_else(|e| {
-                            alert(e).present(&window);
+                            alert(e).present(Some(&window));
                         });
                     }
                 });
@@ -834,11 +834,11 @@ impl Status {
                                     })
                                     .await
                                     .unwrap_or_else(|e| {
-                                        alert(format!("{:?}", e)).present(&window);
+                                        alert(format!("{:?}", e)).present(Some(&window));
                                         Ok(())
                                     })
                                     .unwrap_or_else(|e| {
-                                        alert(e).present(&window);
+                                        alert(e).present(Some(&window));
                                     });
                                 }
                             });
@@ -1275,11 +1275,11 @@ impl Status {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
+                    alert(format!("{:?}", e)).present(Some(&window));
                     Ok(())
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+                    alert(e).present(Some(&window));
                 });
             }
         });

@@ -221,11 +221,11 @@ impl CommitList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&widget);
+                    alert(format!("{:?}", e)).present(Some(&widget));
                     Ok(Vec::new())
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&widget);
+                    alert(e).present(Some(&widget));
                     Vec::new()
                 });
 
@@ -344,11 +344,11 @@ impl CommitList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
+                    alert(format!("{:?}", e)).present(Some(&window));
                     Ok(false)
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+                    alert(e).present(Some(&window));
                     false
                 });
                 if result {

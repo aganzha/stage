@@ -169,11 +169,11 @@ impl OidRow {
                         }
                     }).await
                         .unwrap_or_else(|e| {
-                            alert(format!("{:?}", e)).present(&window);
+                            alert(format!("{:?}", e)).present(Some(&window));
                             Ok(())
                         })
                         .unwrap_or_else(|e| {
-                            alert(e).present(&window);
+                            alert(e).present(Some(&window));
                         });
                     sender
                         .send_blocking(Event::StashesPanel)
@@ -247,11 +247,11 @@ pub fn add_stash(
                 }
             }).await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
+                    alert(format!("{:?}", e)).present(Some(&window));
                     Ok(None)
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+                    alert(e).present(Some(&window));
                     None
                 });
             if let Some(stashes) = result {
