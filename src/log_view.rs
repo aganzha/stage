@@ -19,8 +19,7 @@ use gtk4::{
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
 use log::trace;
-use std::cell::RefCell;
-
+use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -221,11 +220,11 @@ impl CommitList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&widget);
+                    alert(format!("{:?}", e)).present(Some(&widget));
                     Ok(Vec::new())
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&widget);
+                    alert(e).present(Some(&widget));
                     Vec::new()
                 });
 
@@ -344,11 +343,11 @@ impl CommitList {
                 })
                 .await
                 .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(&window);
+                    alert(format!("{:?}", e)).present(Some(&window));
                     Ok(false)
                 })
                 .unwrap_or_else(|e| {
-                    alert(e).present(&window);
+                    alert(e).present(Some(&window));
                     false
                 });
                 if result {
@@ -386,7 +385,7 @@ impl CommitList {
 
 pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
-    let focus = Rc::new(RefCell::new(false));
+    let focus = Rc::new(Cell::new(false));
     factory.connect_setup(move |_, list_item| {
         let oid_label = Label::builder()
             .label("")
@@ -498,12 +497,12 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
                 let focus = focus.clone();
                 let li = li.clone();
                 move || {
-                    if !*focus.borrow() {
+                    if !focus.get() {
                         let first_child = li.child().unwrap();
                         let first_child = first_child.downcast_ref::<Widget>().unwrap();
                         let row = first_child.parent().unwrap();
                         row.grab_focus();
-                        *focus.borrow_mut() = true;
+                        focus.replace(true);
                     }
                     glib::ControlFlow::Break
                 }
@@ -588,7 +587,7 @@ pub fn headerbar_factory(
         .show_close_button(false)
         .child(&entry)
         .build();
-    let very_first_search = Rc::new(RefCell::new(true));
+    let very_first_search = Rc::new(Cell::new(true));
     let threshold = Rc::new(RefCell::new(String::from("")));
     entry.connect_search_changed(
         clone!(@weak commit_list, @weak list_view, @strong very_first_search, @weak entry, @strong repo_path => move |e| {
@@ -601,7 +600,7 @@ pub fn headerbar_factory(
                 let single_selection =
                     selection_model.downcast_ref::<SingleSelection>().unwrap();
                 single_selection.set_can_unselect(true);
-                if *very_first_search.borrow() {
+                if very_first_search.get() {
                     very_first_search.replace(false);
                 } else {
                     commit_list.reset_search();
