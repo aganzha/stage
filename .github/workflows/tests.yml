@@ -21,10 +21,14 @@ jobs:
       run: sudo -S apt install flatpak-builder -y
     - name: Add flathub to remotes
       run: flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-    - name: Install Gnome runtime
+    - name: Install Gnome Platform
+      run: flatpak install -y error: org.gnome.Platform/x86_64/47
+    - name: Install Gnome Sdk
       run: flatpak install -y org.gnome.Sdk/x86_64/47
     - name: Install Rust extension
       run: flatpak install -y org.freedesktop.Sdk.Extension.rust-stable/x86_64/24.08
     - uses: actions/checkout@v4
     - name: Build and run tests
       run: ./flatpak_test.sh
+
+050997
