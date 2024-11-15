@@ -8,7 +8,7 @@
 
 ## Installing
 ```sh
-flatpak install -u https://github.com/aganzha/stage/raw/master/stage.flatpakref
+flatpak install -u flathub io.github.aganzha.Stage
 ```
 
 ## Running
