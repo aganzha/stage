@@ -24,7 +24,7 @@ use git2::{
     DiffFormat, DiffHunk, DiffLine, DiffLineType, DiffOptions, Error, ObjectType, Oid,
     RebaseOptions, Repository, RepositoryState, ResetType, StatusOptions,
 };
-use log::{debug, info, trace};
+use log::{debug, error, info, trace};
 use regex::Regex;
 //use std::time::SystemTime;
 use std::fmt;
@@ -550,7 +550,7 @@ impl Head {
     }
 }
 
-pub fn get_head(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
+pub fn get_head(path: PathBuf) -> Result<Head, Error> {
     let repo = Repository::open(path)?;
     let head_ref = repo.head()?;
     let ob = head_ref.peel(ObjectType::Commit)?;
@@ -563,10 +563,7 @@ pub fn get_head(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error
             head.set_branch(branch_data);
         }
     }
-    sender
-        .send_blocking(crate::Event::Head(head))
-        .expect("Could not send through channel");
-    Ok(())
+    Ok(head)
 }
 
 pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
@@ -696,7 +693,19 @@ pub fn get_current_repo_status(
         let sender = sender.clone();
         let path = path.clone();
         move || {
-            get_head(path.clone(), sender.clone()).expect("cant get head");
+            match get_head(path.clone()) {
+                Ok(head) => {
+                    sender
+                        .send_blocking(crate::Event::Head(Some(head)))
+                        .expect("Could not send through channel");
+                }
+                Err(err) => {
+                    error!("cant get Head {:?}", err);
+                    sender
+                        .send_blocking(crate::Event::Head(None))
+                        .expect("Could not send through channel");
+                }
+            }
             get_upstream(path, sender).expect("cant get upstream");
         }
     });
@@ -720,7 +729,7 @@ pub fn get_current_repo_status(
         let path = path.clone();
         move || {
             let repo = Repository::open(path).expect("can't open repo");
-            let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+            let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse"); // tres
             let current_tree = repo.find_tree(ob.id()).expect("no working tree");
             let git_diff = repo
                 .diff_tree_to_index(Some(&current_tree), None, Some(&mut make_diff_options()))
@@ -921,7 +930,7 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
 
     let opts = opts.include_untracked(true);
 
-    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
+    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse"); // dos
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
 
     let git_diff = repo
