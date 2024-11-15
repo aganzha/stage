@@ -179,7 +179,7 @@ where
     let dialog = AlertDialog::builder()
         .heading_use_markup(true)
         .heading(heading)
-        .width_request(640)
+        .width_request(720)
         .body_use_markup(true)
         .body(&message);
     let dialog = dialog.build();
