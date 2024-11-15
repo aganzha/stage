@@ -5,7 +5,7 @@
 use crate::git::{branch::BranchData, get_upstream, merge, DeferRefresh};
 use async_channel::Sender;
 use git2;
-use log::{debug, trace};
+use log::{debug, error, trace};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -227,7 +227,19 @@ pub fn push(
             sender
                 .send_blocking(crate::Event::Toast(String::from(updated_ref)))
                 .expect("cant send through channel");
-            get_upstream(path.clone(), sender.clone()).expect("cant update tips");
+            match get_upstream(path.clone()) {
+                Ok(head) => {
+                    sender
+                        .send_blocking(crate::Event::Upstream(Some(head)))
+                        .expect("Could not send through channel");
+                }
+                Err(err) => {
+                    error!("cant get Upstream {:?}", err);
+                    sender
+                        .send_blocking(crate::Event::Upstream(None))
+                        .expect("Could not send through channel");
+                }
+            }
             // todo what is this?
             true
         }
@@ -304,7 +316,19 @@ pub fn pull(
             sender
                 .send_blocking(crate::Event::Toast(String::from(updated_ref)))
                 .expect("cant send through channel");
-            get_upstream(path.clone(), sender.clone()).expect("cant update tips");
+            match get_upstream(path.clone()) {
+                Ok(head) => {
+                    sender
+                        .send_blocking(crate::Event::Upstream(Some(head)))
+                        .expect("Could not send through channel");
+                }
+                Err(err) => {
+                    error!("cant get Upstream {:?}", err);
+                    sender
+                        .send_blocking(crate::Event::Upstream(None))
+                        .expect("Could not send through channel");
+                }
+            }
             true
         }
     });

@@ -566,17 +566,22 @@ pub fn get_head(path: PathBuf) -> Result<Head, Error> {
     Ok(head)
 }
 
-pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
+pub fn get_upstream(path: PathBuf) -> Result<Head, Error> {
     trace!("get upstream");
     let repo = Repository::open(path)?;
     let head_ref = repo.head()?;
     if !head_ref.is_branch() {
-        sender
-            .send_blocking(crate::Event::Upstream(None))
-            .expect("Could not send through channel");
-        return Ok(());
+        return Err(git2::Error::from_str(
+            "Head ref is not branch in get_upstream",
+        ));
     }
-    assert!(head_ref.is_branch());
+    // if !head_ref.is_branch() {
+    //     sender
+    //         .send_blocking(crate::Event::Upstream(None))
+    //         .expect("Could not send through channel");
+    //     return Ok(());
+    // }
+    // assert!(head_ref.is_branch());
     let branch = Branch::wrap(head_ref);
     if let Ok(upstream) = branch.upstream() {
         let upstream_ref = upstream.get();
@@ -586,19 +591,20 @@ pub fn get_upstream(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), E
         if let Some(branch_data) = BranchData::from_branch(upstream, git2::BranchType::Remote)? {
             new_upstream.set_branch(branch_data);
         }
-
-        sender
-            .send_blocking(crate::Event::Upstream(Some(new_upstream)))
-            .expect("Could not send through channel");
-    } else {
-        sender
-            .send_blocking(crate::Event::Upstream(None))
-            .expect("Could not send through channel");
-        // todo!("some branches could contain only pushRemote, but no
-        //       origin. There will be no upstream then. It need to lookup
-        //       pushRemote in config and check refs/remotes/<origin>/")
-    };
-    Ok(())
+        return Ok(new_upstream);
+        // sender
+        //     .send_blocking(crate::Event::Upstream(Some(new_upstream)))
+        //     .expect("Could not send through channel");
+    } //  else {
+      //     sender
+      //         .send_blocking(crate::Event::Upstream(None))
+      //         .expect("Could not send through channel");
+      //     // todo!("some branches could contain only pushRemote, but no
+      //     //       origin. There will be no upstream then. It need to lookup
+      //     //       pushRemote in config and check refs/remotes/<origin>/")
+      // };
+      // Ok(())
+    return Err(git2::Error::from_str("No upstream yet"));
 }
 
 pub const CHERRY_PICK_HEAD: &str = "CHERRY_PICK_HEAD";
@@ -706,7 +712,19 @@ pub fn get_current_repo_status(
                         .expect("Could not send through channel");
                 }
             }
-            get_upstream(path, sender).expect("cant get upstream");
+            match get_upstream(path.clone()) {
+                Ok(head) => {
+                    sender
+                        .send_blocking(crate::Event::Upstream(Some(head)))
+                        .expect("Could not send through channel");
+                }
+                Err(err) => {
+                    error!("cant get Upstream {:?}", err);
+                    sender
+                        .send_blocking(crate::Event::Upstream(None))
+                        .expect("Could not send through channel");
+                }
+            }
         }
     });
 
@@ -729,11 +747,16 @@ pub fn get_current_repo_status(
         let path = path.clone();
         move || {
             let repo = Repository::open(path).expect("can't open repo");
-            let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse"); // tres
-            let current_tree = repo.find_tree(ob.id()).expect("no working tree");
-            let git_diff = repo
-                .diff_tree_to_index(Some(&current_tree), None, Some(&mut make_diff_options()))
-                .expect("can't get diff tree to index");
+            let git_diff = {
+                if let Ok(ob) = repo.revparse_single("HEAD^{tree}") {
+                    let tree = repo.find_tree(ob.id()).expect("no working tree");
+                    repo.diff_tree_to_index(Some(&tree), None, Some(&mut make_diff_options()))
+                        .expect("can't get diff tree to index")
+                } else {
+                    repo.diff_tree_to_index(None, None, Some(&mut make_diff_options()))
+                        .expect("can't get diff tree to index")
+                }
+            };
             let diff = make_diff(&git_diff, DiffKind::Staged);
             sender
                 .send_blocking(crate::Event::Staged(if diff.is_empty() {
@@ -930,12 +953,17 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
 
     let opts = opts.include_untracked(true);
 
-    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse"); // dos
-    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    let git_diff = {
+        if let Ok(ob) = repo.revparse_single("HEAD^{tree}") {
+            let tree = repo.find_tree(ob.id()).expect("cant find tree");
+            repo.diff_tree_to_workdir_with_index(Some(&tree), Some(opts))
+                .expect("can't get diff")
+        } else {
+            repo.diff_tree_to_workdir_with_index(None, Some(opts))
+                .expect("can't get diff")
+        }
+    };
 
-    let git_diff = repo
-        .diff_tree_to_workdir_with_index(Some(&current_tree), Some(opts))
-        .expect("can't get diff");
     let mut untracked = Diff::new(DiffKind::Untracked);
 
     let _ = git_diff.foreach(
