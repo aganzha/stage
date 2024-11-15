@@ -130,7 +130,7 @@ pub enum Event {
     Untracked(Option<Diff>),
     TrackedFile(PathBuf, Diff),
     Staged(Option<Diff>),
-    Head(Head),
+    Head(Option<Head>),
     Upstream(Option<Head>),
     State(State),
     OpenFileDialog,
@@ -471,7 +471,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::Head(h) => {
                     info!("main. head");
                     if let Some(upstream) = &status.upstream {
-                        hb_updater(HbUpdateData::Unsynced(h.oid != upstream.oid));
+                        if let Some(head) = &h {
+                            hb_updater(HbUpdateData::Unsynced(head.oid != upstream.oid));
+                        }
                     } else {
                         hb_updater(HbUpdateData::Unsynced(true));
                     }

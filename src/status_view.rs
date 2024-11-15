@@ -644,22 +644,28 @@ impl Status {
 
     pub fn update_head<'a>(
         &'a mut self,
-        mut head: Head,
+        mut head: Option<Head>,
         txt: &StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(current_head) = &self.head {
-            head.enrich_view(current_head, &txt.buffer(), context);
+            if let Some(new_head) = &head {
+                new_head.enrich_view(current_head, &txt.buffer(), context);
+            } else {
+                current_head.erase(&txt.buffer(), context);
+            }
         }
         if let Some(branches) = &mut self.branches {
-            if let Some(head_branch) = head.branch.take() {
-                if let Some(ind) = branches.iter().position(|b| b.is_head) {
-                    trace!("replace branch by index {:?} {:?}", ind, head_branch.name);
-                    branches[ind] = head_branch;
+            if let Some(new_head) = &mut head {
+                if let Some(head_branch) = new_head.branch.take() {
+                    if let Some(ind) = branches.iter().position(|b| b.is_head) {
+                        trace!("replace branch by index {:?} {:?}", ind, head_branch.name);
+                        branches[ind] = head_branch;
+                    }
                 }
             }
         }
-        self.head.replace(head);
+        self.head = head;
         self.render(txt, None, context);
     }
 
@@ -1227,14 +1233,9 @@ impl Status {
     }
 
     pub fn debug<'a>(&'a mut self, _txt: &StageView, _context: &mut StatusRenderContext<'a>) {
-        gio::spawn_blocking({
-            let sender = self.sender.clone();
-            let path = self.path.clone().unwrap();
-            move || {
-                get_head(path, sender).expect("cant get head");
-            }
-        });
+        debug!("debug!");
     }
+
     //3
     pub fn cherry_pick(
         &self,

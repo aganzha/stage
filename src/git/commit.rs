@@ -227,7 +227,10 @@ pub fn create(
                 .expect("Could not send through channel");
         }
     });
-    get_head(path, sender).expect("cant get head");
+    let head = get_head(path).expect("cant get head");
+    sender
+        .send_blocking(crate::Event::Head(Some(head)))
+        .expect("Could not send through channel");
     Ok(())
 }
 
