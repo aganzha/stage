@@ -7,7 +7,7 @@ use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use git2;
 use gtk4::gio;
-use log::info;
+use log::{debug, info};
 use std::path::PathBuf;
 
 pub trait CommitRepr {
@@ -178,21 +178,25 @@ pub fn create(
     let tree_oid = repo.index()?.write_tree()?;
 
     let tree = repo.find_tree(tree_oid)?;
-    let parent_oid = repo.revparse_single("HEAD^{commit}")?.id();
 
-    let parent_commit = repo.find_commit(parent_oid)?;
-    if amend {
-        parent_commit.amend(
-            Some("HEAD"),
-            Some(&me),
-            Some(&me),
-            None, // message encoding
-            Some(&message),
-            Some(&tree),
-        )?;
+    if let Ok(ob) = repo.revparse_single("HEAD^{commit}") {
+        let parent_commit = repo.find_commit(ob.id())?;
+        if amend {
+            parent_commit.amend(
+                Some("HEAD"),
+                Some(&me),
+                Some(&me),
+                None, // message encoding
+                Some(&message),
+                Some(&tree),
+            )?;
+        } else {
+            repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&parent_commit])?;
+        }
     } else {
-        repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[&parent_commit])?;
+        repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[])?;
     }
+
     // update staged changes
     let ob = repo.revparse_single("HEAD^{tree}")?;
     let current_tree = repo.find_tree(ob.id())?;
@@ -227,7 +231,10 @@ pub fn create(
                 .expect("Could not send through channel");
         }
     });
-    get_head(path, sender).expect("cant get head");
+    let head = get_head(path).expect("cant get head");
+    sender
+        .send_blocking(crate::Event::Head(Some(head)))
+        .expect("Could not send through channel");
     Ok(())
 }
 
