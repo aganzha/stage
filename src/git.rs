@@ -1130,9 +1130,12 @@ pub fn stage_via_apply(
         crate::StageOp::Stage(_) => repo.diff_index_to_workdir(None, Some(&mut opts))?,
         crate::StageOp::Unstage(_) => {
             opts.reverse(true);
-            let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-            let current_tree = repo.find_tree(ob.id()).expect("no working tree");
-            repo.diff_tree_to_index(Some(&current_tree), None, Some(&mut opts))?
+            if let Ok(ob) = repo.revparse_single("HEAD^{tree}") {
+                let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+                repo.diff_tree_to_index(Some(&current_tree), None, Some(&mut opts))?
+            } else {
+                repo.diff_tree_to_index(None, None, Some(&mut opts))?
+            }
         }
         crate::StageOp::Kill(_) => {
             opts.reverse(true);
