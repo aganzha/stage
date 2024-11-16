@@ -110,6 +110,12 @@ fn load_css() {
     provider.load_from_string(include_str!("style.css"));
 
     style_context_add_provider_for_display(&display, &provider, STYLE_PROVIDER_PRIORITY_USER);
+
+    gio::resources_register_include!("gresources.compiled").expect("Failed to register resources.");
+    // let xml: Result<gtk4::glib::Bytes, gtk4::glib::Error>= gio::resources_lookup_data(
+    //     "/io/github/aganzha/Stage/io.github.aganzha.Stage.metainfo.xml",
+    //     gio::ResourceLookupFlags::empty()
+    // );
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -186,11 +192,8 @@ fn zoom(dir: bool) {
 }
 
 pub fn get_settings() -> gio::Settings {
-    let mut exe_path = std::env::current_exe().expect("cant get exe path");
-    exe_path.pop();
-    let exe_path = exe_path.as_path();
     let schema_source =
-        gio::SettingsSchemaSource::from_directory(exe_path, None, true).expect("no source");
+        gio::SettingsSchemaSource::from_directory("src/", None, true).expect("no source");
     let schema = schema_source.lookup(APP_ID, false).expect("no schema");
     gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None)
 }
@@ -234,6 +237,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         window.close();
     }));
     window.add_action(&action_close);
+
+    let action_about = gio::SimpleAction::new("about", None);
+    action_about.connect_activate(clone!(@weak window => move |_, _| {
+        info!("aboooooooooooooooooooout");
+    }));
+    window.add_action(&action_about);
 
     let action_open = gio::SimpleAction::new("open", Some(glib::VariantTy::STRING));
     action_open.connect_activate(clone!(@strong sender => move |_, chosen_path| {

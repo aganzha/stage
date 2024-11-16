@@ -3,12 +3,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use libadwaita::prelude::*;
-use libadwaita::{ButtonContent, ColorScheme, HeaderBar, SplitButton, StyleManager, Window};
+use libadwaita::{
+    AboutDialog, ButtonContent, ColorScheme, HeaderBar, SplitButton, StyleManager, Window,
+};
 
 use crate::status_view::context::StatusRenderContext;
 use async_channel::Sender;
 use gtk4::{
-    gio, Align, Box, Button, FileDialog, Label, MenuButton, Orientation, PopoverMenu, ToggleButton,
+    gio, Align, Box, Button, FileDialog, GestureClick, Label, MenuButton, Orientation, PopoverMenu,
+    ToggleButton,
 };
 use log::{debug, info, trace};
 use std::path::PathBuf;
@@ -57,6 +60,7 @@ pub struct MenuItem(String);
 pub const CUSTOM_ATTR: &str = "custom";
 pub const SCHEME_TOKEN: &str = "scheme";
 pub const ZOOM_TOKEN: &str = "zoom";
+pub const ABOUT_TOKEN: &str = "about";
 
 pub fn scheme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> Box {
     let scheme_selector = Box::builder()
@@ -122,6 +126,23 @@ pub fn scheme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> B
         .build();
     bx.append(&scheme_selector);
     bx
+}
+
+pub fn about() -> Label {
+    let gesture_controller = GestureClick::new();
+    let about = Label::new(Some("About Stage"));
+    gesture_controller.connect_released({
+        |_, _, _, _| {
+            let dialog = AboutDialog::from_appdata(
+                "/io/github/aganzha/Stage/io.github.aganzha.Stage.metainfo.xml",
+                None,
+            );
+            dialog.present(None::<&Window>);
+            debug!("rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr");
+        }
+    });
+    about.add_controller(gesture_controller);
+    about
 }
 
 pub fn zoom(
@@ -197,18 +218,32 @@ pub fn burger_menu(stored_scheme: Scheme, sender: Sender<crate::Event>) -> MenuB
 
     let zoom_id = ZOOM_TOKEN.to_variant();
     menu_item.set_attribute_value(CUSTOM_ATTR, Some(&zoom_id));
-    zoom_model.insert_item(1, &menu_item);
+    zoom_model.insert_item(0, &menu_item);
+
+    // about -----------------
+    let about_model = gio::Menu::new();
+    let menu_item = gio::MenuItem::new(Some("About Stage"), Some("win.about"));
+
+    let about_id = ABOUT_TOKEN.to_variant();
+    menu_item.set_attribute_value(CUSTOM_ATTR, Some(&about_id));
+    about_model.insert_item(2, &menu_item);
+    // about -----------------
 
     menu_model.append_section(None, &scheme_model);
     menu_model.append_section(None, &zoom_model);
+    menu_model.append_section(None, &about_model);
 
-    let popover_menu = PopoverMenu::from_model(Some(&menu_model)); // menu_model
+    let popover_menu = PopoverMenu::from_model(Some(&menu_model));
 
     popover_menu.add_child(
         &scheme_selector(stored_scheme, sender.clone()),
         SCHEME_TOKEN,
     );
+
     popover_menu.add_child(&zoom(sender.clone()), ZOOM_TOKEN);
+
+    popover_menu.add_child(&about(), ABOUT_TOKEN);
+
     MenuButton::builder()
         .popover(&popover_menu)
         .icon_name("open-menu-symbolic")

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/io/github/aganzha/Stage">
+    <!-- compressed="true" preprocess="xml-stripblanks" -->
+    <file>io.github.aganzha.Stage.metainfo.xml</file>
+  </gresource>
+</gresources>
