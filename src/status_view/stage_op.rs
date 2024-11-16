@@ -39,14 +39,14 @@ impl CursorPosition {
         op: &StageOp,
     ) -> (Option<DiffKind>, Option<PathBuf>, Option<String>) {
         match (self, op) {
-            (Self::CursorDiff(DiffKind::Unstaged), StageOp::Stage(_) | StageOp::Kill(_)) => {
+            (Self::CursorDiff(DiffKind::Unstaged), StageOp::Stage | StageOp::Kill) => {
                 if let Some(unstaged) = &status.unstaged {
                     return (Some(unstaged.kind), None, None);
                 }
             }
             (
                 Self::CursorFile(DiffKind::Unstaged, Some(file_idx)),
-                StageOp::Stage(_) | StageOp::Kill(_),
+                StageOp::Stage | StageOp::Kill,
             ) => {
                 if let Some(unstaged) = &status.unstaged {
                     let file = &unstaged.files[*file_idx];
@@ -56,7 +56,7 @@ impl CursorPosition {
             (
                 Self::CursorHunk(DiffKind::Unstaged, Some(file_idx), Some(hunk_idx))
                 | Self::CursorLine(DiffKind::Unstaged, Some(file_idx), Some(hunk_idx), _),
-                StageOp::Stage(_) | StageOp::Kill(_),
+                StageOp::Stage | StageOp::Kill,
             ) => {
                 if let Some(unstaged) = &status.unstaged {
                     let file = &unstaged.files[*file_idx];
@@ -68,12 +68,12 @@ impl CursorPosition {
                     );
                 }
             }
-            (Self::CursorDiff(DiffKind::Staged), StageOp::Unstage(_)) => {
+            (Self::CursorDiff(DiffKind::Staged), StageOp::Unstage) => {
                 if let Some(staged) = &status.staged {
                     return (Some(staged.kind), None, None);
                 }
             }
-            (Self::CursorFile(DiffKind::Staged, Some(file_idx)), StageOp::Unstage(_)) => {
+            (Self::CursorFile(DiffKind::Staged, Some(file_idx)), StageOp::Unstage) => {
                 if let Some(staged) = &status.staged {
                     let file = &staged.files[*file_idx];
                     return (Some(staged.kind), Some(file.path.clone()), None);
@@ -82,7 +82,7 @@ impl CursorPosition {
             (
                 Self::CursorHunk(DiffKind::Staged, Some(file_idx), Some(hunk_idx))
                 | Self::CursorLine(DiffKind::Staged, Some(file_idx), Some(hunk_idx), _),
-                StageOp::Unstage(_),
+                StageOp::Unstage,
             ) => {
                 if let Some(staged) = &status.staged {
                     let file = &staged.files[*file_idx];
@@ -94,14 +94,14 @@ impl CursorPosition {
                     );
                 }
             }
-            (Self::CursorDiff(DiffKind::Untracked), StageOp::Stage(_) | StageOp::Kill(_)) => {
+            (Self::CursorDiff(DiffKind::Untracked), StageOp::Stage | StageOp::Kill) => {
                 if let Some(untracked) = &status.untracked {
                     return (Some(untracked.kind), None, None);
                 }
             }
             (
                 Self::CursorFile(DiffKind::Untracked, Some(file_idx)),
-                StageOp::Stage(_) | StageOp::Kill(_),
+                StageOp::Stage | StageOp::Kill,
             ) => {
                 if let Some(untracked) = &status.untracked {
                     let file = &untracked.files[*file_idx];
@@ -110,7 +110,7 @@ impl CursorPosition {
             }
             (
                 Self::CursorLine(DiffKind::Conflicted, Some(file_idx), Some(hunk_idx), _),
-                StageOp::Stage(_),
+                StageOp::Stage,
             ) => {
                 if let Some(conflicted) = &status.conflicted {
                     let file = &conflicted.files[*file_idx];
@@ -146,7 +146,7 @@ impl Status {
 
         match diff_kind {
             Some(DiffKind::Untracked) => match op {
-                StageOp::Stage(_) => {
+                StageOp::Stage => {
                     self.last_op.replace(current_op);
                     glib::spawn_future_local({
                         let path = self.path.clone();
@@ -168,7 +168,7 @@ impl Status {
                         }
                     });
                 }
-                StageOp::Kill(_) => {
+                StageOp::Kill => {
                     self.last_op.replace(current_op);
                     glib::spawn_future_local({
                         let window = window.clone();
@@ -344,7 +344,7 @@ impl StageDiffs<'_> {
                 // ----------------   Ops applied to whole Diff
                 // TODO! squash in one!
                 LastOp {
-                    op: StageOp::Stage(_),
+                    op: StageOp::Stage,
                     cursor_position: CursorPosition::CursorDiff(diff_kind),
                     desired_diff_kind: _,
                 } => {
@@ -357,7 +357,7 @@ impl StageDiffs<'_> {
                     }
                 }
                 LastOp {
-                    op: StageOp::Unstage(_),
+                    op: StageOp::Unstage,
                     cursor_position: CursorPosition::CursorDiff(diff_kind),
                     desired_diff_kind: _,
                 } => {
@@ -370,7 +370,7 @@ impl StageDiffs<'_> {
                     }
                 }
                 LastOp {
-                    op: StageOp::Kill(_),
+                    op: StageOp::Kill,
                     cursor_position: CursorPosition::CursorDiff(diff_kind),
                     desired_diff_kind: _,
                 } => {

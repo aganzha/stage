@@ -848,7 +848,7 @@ pub fn test_choose_cursor_position() {
         unstaged: &Some(diff),
         staged: &None,
     };
-    let stage_op = StageOp::Stage(0);
+    let stage_op = StageOp::Stage;
     let cursor_position = CursorPosition::CursorDiff(DiffKind::Unstaged);
     let mut last_op = LastOp {
         op: stage_op,
@@ -946,7 +946,7 @@ pub fn test_choose_cursor_position() {
     // check opposite diff.
     // render Staged changes (as if we were Unstage whole Diff)
     // there are no any Staged changes, so cursor must jump to unstaged
-    last_op.op = StageOp::Unstage(0);
+    last_op.op = StageOp::Unstage;
     last_op.cursor_position = CursorPosition::CursorDiff(DiffKind::Staged);
     let cell = Cell::new(Some(last_op));
     let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged), &cell);
