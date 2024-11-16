@@ -114,9 +114,9 @@ fn load_css() {
 
 #[derive(Debug, Clone, Copy)]
 pub enum StageOp {
-    Stage(i32),
-    Unstage(i32),
-    Kill(i32),
+    Stage,
+    Unstage,
+    Kill,
 }
 
 #[derive(Debug)]
@@ -656,6 +656,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     }
                 }
             };
+            hb_updater(HbUpdateData::Context(ctx));
         }
     });
 }

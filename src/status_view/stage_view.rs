@@ -355,17 +355,17 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 }
                 (gdk::Key::s | gdk::Key::a | gdk::Key::Return, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::Stage(crate::StageOp::Stage(iter.line())))
+                    sndr.send_blocking(crate::Event::Stage(crate::StageOp::Stage))
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::u, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::Stage(crate::StageOp::Unstage(iter.line())))
+                    sndr.send_blocking(crate::Event::Stage(crate::StageOp::Unstage))
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::k | gdk::Key::Delete | gdk::Key::BackSpace, _) => {
                     let iter = buffer.iter_at_offset(buffer.cursor_position());
-                    sndr.send_blocking(crate::Event::Stage(crate::StageOp::Kill(iter.line())))
+                    sndr.send_blocking(crate::Event::Stage(crate::StageOp::Kill))
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
@@ -486,12 +486,12 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             }
             if n_clicks == 2 && iter.has_tag(&staged) {
                 click_lock.borrow_mut().take();
-                sndr.send_blocking(crate::Event::Stage(crate::StageOp::Unstage(iter.line())))
+                sndr.send_blocking(crate::Event::Stage(crate::StageOp::Unstage))
                     .expect("Could not send through channel");
             }
             if n_clicks == 2 && iter.has_tag(&unstaged) {
                 click_lock.borrow_mut().take();
-                sndr.send_blocking(crate::Event::Stage(crate::StageOp::Stage(iter.line())))
+                sndr.send_blocking(crate::Event::Stage(crate::StageOp::Stage))
                     .expect("Could not send through channel");
             }
         }

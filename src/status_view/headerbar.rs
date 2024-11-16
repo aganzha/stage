@@ -4,22 +4,24 @@
 
 use libadwaita::prelude::*;
 use libadwaita::{ButtonContent, ColorScheme, HeaderBar, SplitButton, StyleManager, Window};
-// use glib::Sender;
-// use std::sync::mpsc::Sender;
 
+use crate::status_view::context::StatusRenderContext;
 use async_channel::Sender;
 use gtk4::{
     gio, Align, Box, Button, FileDialog, Label, MenuButton, Orientation, PopoverMenu, ToggleButton,
 };
+use log::{debug, info, trace};
 use std::path::PathBuf;
 
-pub enum HbUpdateData {
+pub enum HbUpdateData<'a> {
     Path(PathBuf),
     Staged(bool),
     Unsynced(bool),
     RepoOpen,
     RepoPopup,
+    Context(StatusRenderContext<'a>),
 }
+use crate::git::DiffKind;
 
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub struct Scheme(String);
@@ -221,7 +223,7 @@ pub fn factory(
         .label("Stashes")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Stashes")
+        .tooltip_text("Stashes (Z)")
         .icon_name("sidebar-show-symbolic")
         .sensitive(false)
         .can_shrink(true)
@@ -238,7 +240,7 @@ pub fn factory(
         .label("Refresh")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Refresh")
+        .tooltip_text("Refresh view")
         .icon_name("view-refresh-symbolic")
         .can_shrink(true)
         .sensitive(false)
@@ -256,7 +258,7 @@ pub fn factory(
         .label("Branches")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Branches")
+        .tooltip_text("Branches (B)")
         .icon_name("org.gtk.gtk4.NodeEditor-symbolic")
         .can_shrink(true)
         .sensitive(false)
@@ -274,7 +276,7 @@ pub fn factory(
         .label("Push")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Push")
+        .tooltip_text("Push (P)")
         .icon_name("send-to-symbolic")
         .can_shrink(true)
         .sensitive(false)
@@ -291,7 +293,7 @@ pub fn factory(
         .label("Reset hard")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Reset hard")
+        .tooltip_text("Reset hard (X)")
         .icon_name("software-update-urgent-symbolic")
         .can_shrink(true)
         .sensitive(false)
@@ -308,7 +310,7 @@ pub fn factory(
         .label("Log")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Log")
+        .tooltip_text("Log (L)")
         .icon_name("org.gnome.Logs-symbolic")
         .can_shrink(true)
         .sensitive(false)
@@ -326,7 +328,7 @@ pub fn factory(
         .label("Pull")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Pull")
+        .tooltip_text("Pull (F)")
         .icon_name("document-save-symbolic")
         .can_shrink(true)
         .sensitive(false)
@@ -343,10 +345,11 @@ pub fn factory(
         .label("Commit")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Commit")
+        .tooltip_text("Commit (C)")
         .icon_name("object-select-symbolic")
         .can_shrink(true)
         .sensitive(false)
+        .margin_end(25)
         .build();
     commit_btn.connect_clicked({
         let sender = sender.clone();
@@ -373,6 +376,55 @@ pub fn factory(
     repo_selector.set_child(Some(&repo_opener));
     repo_selector.set_popover(Some(&repo_popover));
 
+    let stage_btn = Button::builder()
+        .icon_name("go-bottom-symbolic")
+        .use_underline(true)
+        .tooltip_text("Stage (S)")
+        .sensitive(false)
+        .can_shrink(true)
+        .build();
+    stage_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::Stage(crate::StageOp::Stage))
+                .expect("cant send through channel");
+        }
+    });
+
+    let unstage_btn = Button::builder()
+        .icon_name("go-top-symbolic")
+        .use_underline(true)
+        .tooltip_text("Unstage (U)")
+        .sensitive(false)
+        .can_shrink(true)
+        .build();
+
+    unstage_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::Stage(crate::StageOp::Unstage))
+                .expect("cant send through channel");
+        }
+    });
+
+    let kill_btn = Button::builder()
+        .icon_name("user-trash-symbolic")
+        .use_underline(true)
+        .tooltip_text("Kill (K)")
+        .sensitive(false)
+        .can_shrink(true)
+        .margin_start(45)
+        .build();
+    kill_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::Stage(crate::StageOp::Kill))
+                .expect("cant send through channel");
+        }
+    });
     let updater = {
         let stashes_btn = stashes_btn.clone();
         let refresh_btn = refresh_btn.clone();
@@ -383,6 +435,9 @@ pub fn factory(
         let push_btn = push_btn.clone();
         let log_btn = log_btn.clone();
         let pull_btn = pull_btn.clone();
+        let stage_btn = stage_btn.clone();
+        let unstage_btn = unstage_btn.clone();
+        let kill_btn = kill_btn.clone();
 
         let repo_selector = repo_selector.clone();
         move |data: HbUpdateData| match data {
@@ -436,6 +491,32 @@ pub fn factory(
             HbUpdateData::RepoPopup => {
                 repo_selector.popover().expect("no popover").popup();
             }
+            HbUpdateData::Context(ctx) => {
+                if let Some(diff) = ctx.selected_diff {
+                    match diff.kind {
+                        DiffKind::Staged => {
+                            stage_btn.set_sensitive(false);
+                            unstage_btn.set_sensitive(true);
+                            kill_btn.set_sensitive(false);
+                        }
+                        DiffKind::Unstaged => {
+                            stage_btn.set_sensitive(true);
+                            unstage_btn.set_sensitive(false);
+                            kill_btn.set_sensitive(true);
+                        }
+                        DiffKind::Untracked => {
+                            stage_btn.set_sensitive(true);
+                            unstage_btn.set_sensitive(false);
+                            kill_btn.set_sensitive(true);
+                        }
+                        _ => {}
+                    }
+                } else {
+                    stage_btn.set_sensitive(false);
+                    unstage_btn.set_sensitive(false);
+                    kill_btn.set_sensitive(false);
+                }
+            }
         }
     };
 
@@ -459,7 +540,6 @@ pub fn factory(
     });
     let hb = HeaderBar::new();
     hb.pack_start(&stashes_btn);
-    // hb.pack_start(&refresh_btn);
 
     hb.set_title_widget(Some(&repo_selector));
 
@@ -468,6 +548,10 @@ pub fn factory(
         sender,
     ));
     hb.pack_end(&commit_btn);
+    hb.pack_end(&stage_btn);
+    hb.pack_end(&unstage_btn);
+    hb.pack_end(&kill_btn);
+
     hb.pack_end(&branches_btn);
     hb.pack_end(&push_btn);
     hb.pack_end(&pull_btn);

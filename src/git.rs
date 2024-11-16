@@ -1127,8 +1127,8 @@ pub fn stage_via_apply(
     }
 
     let git_diff = match subject {
-        crate::StageOp::Stage(_) => repo.diff_index_to_workdir(None, Some(&mut opts))?,
-        crate::StageOp::Unstage(_) => {
+        crate::StageOp::Stage => repo.diff_index_to_workdir(None, Some(&mut opts))?,
+        crate::StageOp::Unstage => {
             opts.reverse(true);
             if let Ok(ob) = repo.revparse_single("HEAD^{tree}") {
                 let current_tree = repo.find_tree(ob.id()).expect("no working tree");
@@ -1137,7 +1137,7 @@ pub fn stage_via_apply(
                 repo.diff_tree_to_index(None, None, Some(&mut opts))?
             }
         }
-        crate::StageOp::Kill(_) => {
+        crate::StageOp::Kill => {
             opts.reverse(true);
             repo.diff_index_to_workdir(None, Some(&mut opts))?
         }
@@ -1150,7 +1150,7 @@ pub fn stage_via_apply(
             if let Some(dh) = odh {
                 let header = Hunk::get_header_from(&dh);
                 return match subject {
-                    crate::StageOp::Stage(_) => {
+                    crate::StageOp::Stage => {
                         debug!(
                             "staging? {} {} {}",
                             hunk_header,
@@ -1159,8 +1159,8 @@ pub fn stage_via_apply(
                         );
                         hunk_header == &header
                     }
-                    crate::StageOp::Unstage(_) => hunk_header == &Hunk::reverse_header(&header),
-                    crate::StageOp::Kill(_) => {
+                    crate::StageOp::Unstage => hunk_header == &Hunk::reverse_header(&header),
+                    crate::StageOp::Kill => {
                         let reversed = Hunk::reverse_header(&header);
                         hunk_header == &reversed
                     }
@@ -1180,8 +1180,8 @@ pub fn stage_via_apply(
         true
     });
     let apply_location = match subject {
-        crate::StageOp::Stage(_) | crate::StageOp::Unstage(_) => ApplyLocation::Index,
-        crate::StageOp::Kill(_) => ApplyLocation::WorkDir,
+        crate::StageOp::Stage | crate::StageOp::Unstage => ApplyLocation::Index,
+        crate::StageOp::Kill => ApplyLocation::WorkDir,
     };
 
     sender
