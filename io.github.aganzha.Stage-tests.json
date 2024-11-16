@@ -34,7 +34,7 @@
          }
       },
       "build-commands": [
-         "RUST_BACKTRACE=1 RUST_LOG=debug cargo test -- --nocapture",
+         "RUST_BACKTRACE=1 RUST_LOG=debug OUT_DIR=. cargo test -- --nocapture",
          "install -Dm755 ./clippy.sh -t /app/bin/"
       ],
       "sources": [
