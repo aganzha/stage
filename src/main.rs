@@ -69,7 +69,9 @@ fn main() -> glib::ExitCode {
         .application_id(APP_ID)
         .flags(gio::ApplicationFlags::HANDLES_OPEN)
         .build();
+
     app.connect_startup(|_| load_css());
+    app.connect_startup(|_| register_resources());
 
     let initial_path: Rc<RefCell<Option<PathBuf>>> = Rc::new(RefCell::new(None));
 
@@ -110,7 +112,9 @@ fn load_css() {
     provider.load_from_string(include_str!("style.css"));
 
     style_context_add_provider_for_display(&display, &provider, STYLE_PROVIDER_PRIORITY_USER);
+}
 
+fn register_resources() {
     gio::resources_register_include!("gresources.compiled").expect("Failed to register resources.");
     // let xml: Result<gtk4::glib::Bytes, gtk4::glib::Error>= gio::resources_lookup_data(
     //     "/io/github/aganzha/Stage/io.github.aganzha.Stage.metainfo.xml",
@@ -169,6 +173,7 @@ pub enum Event {
     Tags(Option<Oid>),
     TrackChanges(PathBuf),
     CherryPick(Oid, bool, Option<PathBuf>, Option<String>),
+    Focus,
 }
 
 fn zoom(dir: bool) {
@@ -256,7 +261,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone());
+    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone(), &window.clone());
 
     let txt = stage_factory(sender.clone(), "status_view");
 
@@ -329,6 +334,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     status.update_path(path, monitors.clone(), true, &settings);
                     txt.grab_focus();
                     status.get_status();
+                }
+                Event::Focus => {
+                    txt.grab_focus();
                 }
                 Event::OpenFileDialog => {
                     hb_updater(HbUpdateData::RepoOpen);

@@ -4,7 +4,8 @@
 
 use libadwaita::prelude::*;
 use libadwaita::{
-    AboutDialog, ButtonContent, ColorScheme, HeaderBar, SplitButton, StyleManager, Window,
+    AboutDialog, ApplicationWindow, ButtonContent, ColorScheme, HeaderBar, SplitButton,
+    StyleManager, Window,
 };
 
 use crate::status_view::context::StatusRenderContext;
@@ -128,17 +129,25 @@ pub fn scheme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> B
     bx
 }
 
-pub fn about() -> Label {
+pub fn about(window: &ApplicationWindow, sender: Sender<crate::Event>) -> Label {
     let gesture_controller = GestureClick::new();
     let about = Label::new(Some("About Stage"));
     gesture_controller.connect_released({
-        |_, _, _, _| {
+        let window = window.clone();
+        move |_, _, _, _| {
             let dialog = AboutDialog::from_appdata(
                 "/io/github/aganzha/Stage/io.github.aganzha.Stage.metainfo.xml",
                 None,
             );
-            dialog.present(None::<&Window>);
-            debug!("rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr");
+            dialog.connect_unrealize({
+                let sender = sender.clone();
+                move |_| {
+                    sender
+                        .send_blocking(crate::Event::Focus)
+                        .expect("cant send through channel");
+                }
+            });
+            dialog.present(Some(&window));
         }
     });
     about.add_controller(gesture_controller);
@@ -202,7 +211,11 @@ pub fn zoom(
     bx
 }
 
-pub fn burger_menu(stored_scheme: Scheme, sender: Sender<crate::Event>) -> MenuButton {
+pub fn burger_menu(
+    stored_scheme: Scheme,
+    window: &ApplicationWindow,
+    sender: Sender<crate::Event>,
+) -> MenuButton {
     let menu_model = gio::Menu::new();
 
     let scheme_model = gio::Menu::new();
@@ -242,7 +255,7 @@ pub fn burger_menu(stored_scheme: Scheme, sender: Sender<crate::Event>) -> MenuB
 
     popover_menu.add_child(&zoom(sender.clone()), ZOOM_TOKEN);
 
-    popover_menu.add_child(&about(), ABOUT_TOKEN);
+    popover_menu.add_child(&about(window, sender.clone()), ABOUT_TOKEN);
 
     MenuButton::builder()
         .popover(&popover_menu)
@@ -253,6 +266,7 @@ pub fn burger_menu(stored_scheme: Scheme, sender: Sender<crate::Event>) -> MenuB
 pub fn factory(
     sender: Sender<crate::Event>,
     settings: gio::Settings,
+    window: &ApplicationWindow,
 ) -> (HeaderBar, impl Fn(HbUpdateData)) {
     let stashes_btn = Button::builder()
         .label("Stashes")
@@ -580,6 +594,7 @@ pub fn factory(
 
     hb.pack_end(&burger_menu(
         Scheme::new(settings.get::<String>(SCHEME_TOKEN)),
+        window,
         sender,
     ));
     hb.pack_end(&commit_btn);
