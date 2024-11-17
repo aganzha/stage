@@ -69,7 +69,9 @@ fn main() -> glib::ExitCode {
         .application_id(APP_ID)
         .flags(gio::ApplicationFlags::HANDLES_OPEN)
         .build();
+
     app.connect_startup(|_| load_css());
+    app.connect_startup(|_| register_resources());
 
     let initial_path: Rc<RefCell<Option<PathBuf>>> = Rc::new(RefCell::new(None));
 
@@ -110,6 +112,14 @@ fn load_css() {
     provider.load_from_string(include_str!("style.css"));
 
     style_context_add_provider_for_display(&display, &provider, STYLE_PROVIDER_PRIORITY_USER);
+}
+
+fn register_resources() {
+    gio::resources_register_include!("gresources.compiled").expect("Failed to register resources.");
+    // let xml: Result<gtk4::glib::Bytes, gtk4::glib::Error>= gio::resources_lookup_data(
+    //     "/io/github/aganzha/Stage/io.github.aganzha.Stage.metainfo.xml",
+    //     gio::ResourceLookupFlags::empty()
+    // );
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -163,6 +173,7 @@ pub enum Event {
     Tags(Option<Oid>),
     TrackChanges(PathBuf),
     CherryPick(Oid, bool, Option<PathBuf>, Option<String>),
+    Focus,
 }
 
 fn zoom(dir: bool) {
@@ -186,11 +197,8 @@ fn zoom(dir: bool) {
 }
 
 pub fn get_settings() -> gio::Settings {
-    let mut exe_path = std::env::current_exe().expect("cant get exe path");
-    exe_path.pop();
-    let exe_path = exe_path.as_path();
     let schema_source =
-        gio::SettingsSchemaSource::from_directory(exe_path, None, true).expect("no source");
+        gio::SettingsSchemaSource::from_directory("src/", None, true).expect("no source");
     let schema = schema_source.lookup(APP_ID, false).expect("no schema");
     gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None)
 }
@@ -235,6 +243,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     }));
     window.add_action(&action_close);
 
+    let action_about = gio::SimpleAction::new("about", None);
+    action_about.connect_activate(clone!(@weak window => move |_, _| {
+        info!("aboooooooooooooooooooout");
+    }));
+    window.add_action(&action_about);
+
     let action_open = gio::SimpleAction::new("open", Some(glib::VariantTy::STRING));
     action_open.connect_activate(clone!(@strong sender => move |_, chosen_path| {
         if let Some(path) = chosen_path {
@@ -247,7 +261,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone());
+    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone(), &window.clone());
 
     let txt = stage_factory(sender.clone(), "status_view");
 
@@ -320,6 +334,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     status.update_path(path, monitors.clone(), true, &settings);
                     txt.grab_focus();
                     status.get_status();
+                }
+                Event::Focus => {
+                    txt.grab_focus();
                 }
                 Event::OpenFileDialog => {
                     hb_updater(HbUpdateData::RepoOpen);

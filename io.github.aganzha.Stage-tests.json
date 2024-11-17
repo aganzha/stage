@@ -34,7 +34,8 @@
          }
       },
       "build-commands": [
-         "RUST_BACKTRACE=1 RUST_LOG=debug cargo test -- --nocapture",
+         "glib-compile-resources ./src/io.github.aganzha.Stage.gresource.xml --target ./src/gresources.compiled",
+         "RUST_BACKTRACE=1 RUST_LOG=debug OUT_DIR=. cargo test -- --nocapture",
          "install -Dm755 ./clippy.sh -t /app/bin/"
       ],
       "sources": [

@@ -3,8 +3,12 @@
 export PROJECT_ROOT="$1"
 export PROJECT_SOURCES="$1"/src
 export CARGO_HOME=/run/build/stage/cargo
+export OUT_DIR=.
 
 cargo fetch --manifest-path "$SOURCE_ROOT"/Cargo.toml --offline --verbose
+
+glib-compile-resources "$PROJECT_SOURCES"/io.github.aganzha.Stage.gresource.xml --target "$PROJECT_SOURCES"/gresources.compiled
+
 cargo build --release --verbose --offline
 
 glib-compile-schemas "$PROJECT_SOURCES" && cp "$PROJECT_SOURCES"/gschemas.compiled "$PROJECT_ROOT"/target/release
