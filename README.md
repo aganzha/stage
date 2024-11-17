@@ -7,8 +7,17 @@
 ![CI Build/Tests](https://github.com/aganzha/stage/actions/workflows/tests.yml/badge.svg)
 
 ## Installing
+Add flathub to your remotes
+```sh
+flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+```
+Install app
 ```sh
 flatpak install -u flathub io.github.aganzha.Stage
+```
+To update app to latest version run
+```
+flatpak update io.github.aganzha.Stage
 ```
 
 ## Running
@@ -24,21 +33,6 @@ To create commit, it need "to stage" `Unstaged changes` either all of them or se
 - dark / light theme switcher is in the burger
 
 <picture><source srcset="https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1"><img alt="Stage screenshot" src="https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1"></picture>
-
-> [!NOTE]
-> While running Stage will watch your repository for changes and display them as diff for your commit
-
-
-<div align="center">
-<table width="600">
-  <tr>
-    <td align="center">Editing in Gedit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>                                                                  
-    <td align="center">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Reflected in Stage</td> 
-  </tr>
-</table>
-</div>
-
-https://github.com/user-attachments/assets/d3fe0575-7a0a-444c-938a-40af9e75bceb
 
 
 ### Staging
