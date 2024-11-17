@@ -13,7 +13,7 @@ flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.f
 ```
 Install app
 ```sh
-flatpak install -u flathub io.github.aganzha.Stage
+flatpak install flathub io.github.aganzha.Stage
 ```
 To update app to latest version run
 ```
