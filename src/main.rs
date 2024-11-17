@@ -197,8 +197,11 @@ fn zoom(dir: bool) {
 }
 
 pub fn get_settings() -> gio::Settings {
+    let mut exe_path = std::env::current_exe().expect("cant get exe path");
+    exe_path.pop();
+    let exe_path = exe_path.as_path();
     let schema_source =
-        gio::SettingsSchemaSource::from_directory("src/", None, true).expect("no source");
+        gio::SettingsSchemaSource::from_directory(exe_path, None, true).expect("no source");
     let schema = schema_source.lookup(APP_ID, false).expect("no schema");
     gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None)
 }
