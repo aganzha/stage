@@ -6,20 +6,20 @@
 use crate::status_view::stage_op::{LastOp, StageDiffs};
 #[cfg(test)]
 use crate::status_view::tags;
-use crate::status_view::view::{View};
 #[cfg(test)]
 use crate::status_view::view::RenderFlags;
+use crate::status_view::view::View;
 #[cfg(test)]
 use crate::tests::initialize;
 
-use crate::status_view::{StatusRenderContext, ViewContainer};
-#[cfg(test)]
-use crate::status_view::{CursorPosition};
-use crate::{Hunk};
-#[cfg(test)]
-use crate::{Diff, DiffKind, File, Line, LineKind, StageOp};
 #[cfg(test)]
 use crate::git::HunkLineNo;
+#[cfg(test)]
+use crate::status_view::CursorPosition;
+use crate::status_view::{StatusRenderContext, ViewContainer};
+use crate::Hunk;
+#[cfg(test)]
+use crate::{Diff, DiffKind, File, Line, LineKind, StageOp};
 #[cfg(test)]
 use git2::DiffLineType;
 use gtk4::prelude::*;
