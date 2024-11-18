@@ -22,7 +22,7 @@ use std::rc::Rc;
 use crate::dialogs::{alert, confirm_dialog_factory, DangerDialog, YES};
 use crate::git::{remote, tag};
 use crate::{DARK_CLASS, LIGHT_CLASS};
-use log::{debug, trace};
+use log::{trace};
 use std::cell::Cell;
 
 glib::wrapper! {
@@ -59,6 +59,9 @@ mod tag_item {
 
         #[property(get = Self::get_dt)]
         pub dt: String,
+
+        #[property(get, set)]
+        pub initial_focus: RefCell<bool>,
     }
 
     #[glib::object_subclass]
@@ -254,7 +257,6 @@ impl TagList {
                     tag_list.imp().list.borrow_mut().push(item);
                     added += 1;
                 }
-                debug!("added some tags {:?}", added);
                 if added > 0 {
                     tag_list.items_changed(0, 0, added);
                 }
@@ -382,6 +384,20 @@ impl TagList {
                     .borrow_mut()
                     .retain(|tag| tag.name != tag_name);
                 tags_list.items_changed(selected_pos, 1, 0);
+                let mut pos = selected_pos;
+                loop {
+                    if let Some(item) = tags_list.item(pos) {
+                        let item = item.downcast_ref::<TagItem>().unwrap();
+                        item.set_initial_focus(true);
+                        tags_list.set_selected_pos(0);
+                        tags_list.set_selected_pos(pos);
+                        break;
+                    }
+                    pos -= 1;
+                    if pos <= 0 {
+                        break;
+                    }
+                }
             }
         });
     }
@@ -520,6 +536,10 @@ impl TagList {
             .borrow_mut()
             .insert(0, TagItem::new(created_tag));
         self.items_changed(0, 0, 1);
+        let item = self.item(0).unwrap();
+        let item = item.downcast_ref::<TagItem>().unwrap();
+        item.set_initial_focus(true);
+        self.set_selected_pos(0);
     }
 
     pub fn reset_hard(
@@ -594,7 +614,6 @@ impl TagList {
 
 pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
-    let focus = Rc::new(Cell::new(false));
     factory.connect_setup(move |_, list_item| {
         let oid_label = Label::builder()
             .label("")
@@ -726,22 +745,14 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
         );
         item.chain_property::<TagItem>("dt")
             .bind(&label_dt, "label", Widget::NONE);
-        let focus = focus.clone();
         list_item.connect_selected_notify(move |li: &ListItem| {
-            glib::source::timeout_add_local(Duration::from_millis(300), {
-                let focus = focus.clone();
-                let li = li.clone();
-                move || {
-                    if !focus.get() {
-                        let first_child = li.child().unwrap();
-                        let first_child = first_child.downcast_ref::<Widget>().unwrap();
-                        let row = first_child.parent().unwrap();
-                        row.grab_focus();
-                        focus.replace(true);
-                    }
-                    glib::ControlFlow::Break
+            if let Some(item) = li.item() {
+                let tag_item = item.downcast_ref::<TagItem>().unwrap();
+                if tag_item.initial_focus() {
+                    li.child().unwrap().grab_focus();
+                    tag_item.set_initial_focus(false)
                 }
-            });
+            }
         });
     });
 
@@ -1070,7 +1081,6 @@ pub fn show_tags_window(
                     search_entry.grab_focus();
                 }
                 (gdk::Key::c | gdk::Key::n, _) => {
-                    debug!("create new tag");
                     let tag_list = get_tags_list(&list_view);
                     tag_list.create_tag(
                         repo_path.clone(),
