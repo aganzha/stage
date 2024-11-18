@@ -45,7 +45,7 @@ mod stage_view_internal {
     // f4f4f4 - 244/255
     // const LIGHT_LINES: gdk::RGBA = gdk::RGBA::new(0.961, 0.961, 0.957, 1.0);
     const LIGHT_LINES: gdk::RGBA = gdk::RGBA::new(0.957, 0.957, 0.957, 1.0);
-    const DARK_LINES: gdk::RGBA = gdk::RGBA::new(0.286, 0.286, 0.286, 1.0);
+    const DARK_LINES: gdk::RGBA = gdk::RGBA::new(0.250, 0.250, 0.250, 1.0);
 
     // #deddda/383838 - 221/255 221/255 218/255
     const LIGHT_HUNKS: gdk::RGBA = gdk::RGBA::new(0.871, 0.871, 0.855, 1.0);
@@ -354,17 +354,14 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     return glib::Propagation::Stop;
                 }
                 (gdk::Key::s | gdk::Key::a | gdk::Key::Return, _) => {
-                    let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Stage))
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::u, _) => {
-                    let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Unstage))
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::k | gdk::Key::Delete | gdk::Key::BackSpace, _) => {
-                    let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Kill))
                         .expect("Could not send through channel");
                 }

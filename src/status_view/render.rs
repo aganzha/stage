@@ -49,7 +49,7 @@ pub trait ViewContainer {
     );
 
     // method just for debugging
-    fn get_content_for_debug(&self, _context: &mut StatusRenderContext<'_>) -> String {
+    fn _get_content_for_debug(&self, _context: &mut StatusRenderContext<'_>) -> String {
         String::from("unknown")
     }
 
@@ -430,7 +430,7 @@ impl ViewContainer for Diff {
         &self.view
     }
 
-    fn get_content_for_debug(&self, _context: &mut StatusRenderContext<'_>) -> String {
+    fn _get_content_for_debug(&self, _context: &mut StatusRenderContext<'_>) -> String {
         match self.kind {
             DiffKind::Untracked => "Untracked files".to_string(),
             DiffKind::Staged => "Staged changes".to_string(),
@@ -560,7 +560,7 @@ impl ViewContainer for File {
         &self.view
     }
 
-    fn get_content_for_debug(&self, _context: &mut StatusRenderContext<'_>) -> String {
+    fn _get_content_for_debug(&self, _context: &mut StatusRenderContext<'_>) -> String {
         format!(
             "file: {:?} at line {:?}",
             self.path,
@@ -644,7 +644,7 @@ impl ViewContainer for Hunk {
         false
     }
 
-    fn get_content_for_debug(&self, _context: &mut StatusRenderContext<'_>) -> String {
+    fn _get_content_for_debug(&self, _context: &mut StatusRenderContext<'_>) -> String {
         format!(
             "hunk: {:?} at line {:?}",
             self.header,
@@ -750,7 +750,7 @@ impl ViewContainer for Line {
         Vec::new()
     }
 
-    fn get_content_for_debug(&self, context: &mut StatusRenderContext<'_>) -> String {
+    fn _get_content_for_debug(&self, context: &mut StatusRenderContext<'_>) -> String {
         format!(
             "Line: {:?} at line {:?}",
             self.content(context.current_hunk.unwrap()),
@@ -759,7 +759,7 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn after_cursor<'a>(&'a self, buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
+    fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
         if self.view.is_rendered() {
             // hm. collecting lines for highlight.
             if self.view.is_active() {

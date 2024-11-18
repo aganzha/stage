@@ -423,7 +423,6 @@ impl File {
     }
     pub fn from_diff_file(f: &DiffFile, kind: DiffKind, status: Delta) -> Self {
         let path: PathBuf = f.path().unwrap().into();
-        let len = path.as_os_str().len();
         File {
             view: View::new(),
             path,
@@ -604,7 +603,7 @@ pub fn get_upstream(path: PathBuf) -> Result<Head, Error> {
       //     //       pushRemote in config and check refs/remotes/<origin>/")
       // };
       // Ok(())
-    return Err(git2::Error::from_str("No upstream yet"));
+    Err(git2::Error::from_str("No upstream yet"))
 }
 
 pub const CHERRY_PICK_HEAD: &str = "CHERRY_PICK_HEAD";

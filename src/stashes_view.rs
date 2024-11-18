@@ -4,7 +4,7 @@
 
 use async_channel::Sender;
 use git2::Oid;
-use glib::{clone, Object};
+use glib::Object;
 
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
@@ -109,27 +109,22 @@ impl OidRow {
 
     pub fn kill(&self, path: PathBuf, window: &ApplicationWindow, sender: Sender<Event>) {
         glib::spawn_future_local({
-            clone!(@weak self as row,
-            @strong window as window => async move {
+            let window = window.clone();
+            let row = self.clone();
+            async move {
                 let lbl = {
                     let stash = row.imp().stash.borrow();
                     Label::new(Some(&format!("Drop stash {}", stash.title)))
                 };
-                let dialog = confirm_dialog_factory(
-                    &window,
-                    Some(&lbl),
-                    "Drop",
-                    "Drop"
-                );
+                let dialog = confirm_dialog_factory(Some(&lbl), "Drop", "Drop");
                 let result = dialog.choose_future(&window).await;
                 if result == "confirm" {
                     let result = gio::spawn_blocking({
                         let stash = row.imp().stash.borrow().clone();
                         let sender = sender.clone();
-                        move || {
-                            stash::drop(path.clone(), stash, sender.clone())
-                        }
-                    }).await;
+                        move || stash::drop(path.clone(), stash, sender.clone())
+                    })
+                    .await;
                     if let Ok(stashes) = result {
                         let pa = row.parent().unwrap();
                         let lb = pa.downcast_ref::<ListBox>().unwrap();
@@ -141,46 +136,42 @@ impl OidRow {
                         adopt_stashes(lb, stashes, sender, Some(ind));
                     }
                 }
-            })
+            }
         });
     }
 
     pub fn apply_stash(&self, path: PathBuf, window: &ApplicationWindow, sender: Sender<Event>) {
         trace!("...........apply stash {:?}", self.imp().stash);
         glib::spawn_future_local({
-            clone!(@weak self as row,
-            @strong window as window => async move {
+            let window = window.clone();
+            let row = self.clone();
+
+            async move {
                 let lbl = {
                     let stash = row.imp().stash.borrow();
                     Label::new(Some(&format!("Apply stash {}", stash.title)))
                 };
-                let dialog = confirm_dialog_factory(
-                    &window,
-                    Some(&lbl),
-                    "Apply",
-                    "Apply"
-                );
+                let dialog = confirm_dialog_factory(Some(&lbl), "Apply", "Apply");
                 let result = dialog.choose_future(&window).await;
                 if result == "confirm" {
                     gio::spawn_blocking({
                         let stash = row.imp().stash.borrow().clone();
                         let sender = sender.clone();
-                        move || {
-                            stash::apply(path, stash.num, None, None, sender)
-                        }
-                    }).await
-                        .unwrap_or_else(|e| {
-                            alert(format!("{:?}", e)).present(Some(&window));
-                            Ok(())
-                        })
-                        .unwrap_or_else(|e| {
-                            alert(e).present(Some(&window));
-                        });
+                        move || stash::apply(path, stash.num, None, None, sender)
+                    })
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(Some(&window));
+                        Ok(())
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(Some(&window));
+                    });
                     sender
                         .send_blocking(Event::StashesPanel)
                         .expect("cant send through channel");
                 }
-            })
+            }
         });
     }
 }
@@ -198,14 +189,13 @@ pub fn add_stash(
     sender: Sender<Event>,
 ) {
     glib::spawn_future_local({
-        clone!(@strong window as window,
-        @strong stashes_box as stashes_box,
-        @strong sender as sender => async move {
+        let window = window.clone();
+        let sender = sender.clone();
+        let stashes_box = stashes_box.clone();
+        async move {
             let lb = ListBox::builder()
                 .selection_mode(SelectionMode::None)
-                .css_classes(vec![
-                    String::from("boxed-list"),
-                ])
+                .css_classes(vec![String::from("boxed-list")])
                 .build();
             let input = EntryRow::builder()
                 .title("Stash message:")
@@ -221,12 +211,7 @@ pub fn add_stash(
             lb.append(&input);
             lb.append(&staged);
 
-            let dialog = confirm_dialog_factory(
-                &window,
-                Some(&lb),
-                "Stash changes",
-                "Stash changes"
-            );
+            let dialog = confirm_dialog_factory(Some(&lb), "Stash changes", "Stash changes");
             dialog.connect_realize({
                 let input = input.clone();
                 move |_| {
@@ -261,22 +246,21 @@ pub fn add_stash(
             let stash_staged = staged.is_active();
             let result = gio::spawn_blocking({
                 let sender = sender.clone();
-                move || {
-                    stash::stash(path, stash_message, stash_staged, sender)
-                }
-            }).await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(Some(&window));
-                    Ok(None)
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(Some(&window));
-                    None
-                });
+                move || stash::stash(path, stash_message, stash_staged, sender)
+            })
+            .await
+            .unwrap_or_else(|e| {
+                alert(format!("{:?}", e)).present(Some(&window));
+                Ok(None)
+            })
+            .unwrap_or_else(|e| {
+                alert(e).present(Some(&window));
+                None
+            });
             if let Some(stashes) = result {
                 adopt_stashes(&stashes_box, stashes, sender, None);
             }
-        })
+        }
     });
 }
 

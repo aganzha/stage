@@ -2,13 +2,20 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#[cfg(test)]
 use crate::git::merge::choose_conflict_side_of_blob;
+#[cfg(test)]
 use crate::git::{make_diff, DiffKind, Hunk, HunkLineNo, LineKind, MARKER_OURS, MARKER_THEIRS};
+#[cfg(test)]
 use crate::tests::initialize;
+#[cfg(test)]
 use git2;
+#[cfg(test)]
 use log::debug;
+#[cfg(test)]
 use std::sync::Once;
 
+#[cfg(test)]
 pub const TEST_BLOB: &str = "diff --git a/src/events.py b/src/events.py
 index 7f27a52..8d101d8 100644
 --- a/src/events.py

@@ -7,7 +7,7 @@ use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use git2;
 use gtk4::gio;
-use log::{debug, info};
+use log::info;
 use std::path::PathBuf;
 
 pub trait CommitRepr {

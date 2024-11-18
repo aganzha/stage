@@ -8,7 +8,7 @@ use crate::dialogs::alert;
 use crate::git::{branch, merge, rebase, remote};
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use git2::BranchType;
-use glib::{clone, closure, Object};
+use glib::{closure, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
@@ -88,7 +88,7 @@ mod branch_item {
 }
 
 impl BranchItem {
-    pub fn new(branch: &branch::BranchData, is_dark: bool) -> Self {
+    pub fn new(branch: &branch::BranchData, _is_dark: bool) -> Self {
         let color = if StyleManager::default().is_dark() {
             "#839daf"
         } else {
@@ -231,36 +231,45 @@ impl BranchList {
         window: &Window,
     ) {
         glib::spawn_future_local({
-            clone!(@weak self as branch_list, @weak window => async move {
-                let branches = branches.unwrap_or(gio::spawn_blocking(move || {
-                    branch::get_branches(repo_path)
-                }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(Some(&window));
-                    Ok(Vec::new())
-                }).unwrap_or_else(|e| {
-                    alert(e).present(Some(&window));
-                    Vec::new()
-                }));
+            let branch_list = self.clone();
+            let window = window.clone();
+            async move {
+                let branches = branches.unwrap_or(
+                    gio::spawn_blocking(move || branch::get_branches(repo_path))
+                        .await
+                        .unwrap_or_else(|e| {
+                            alert(format!("{:?}", e)).present(Some(&window));
+                            Ok(Vec::new())
+                        })
+                        .unwrap_or_else(|e| {
+                            alert(e).present(Some(&window));
+                            Vec::new()
+                        }),
+                );
                 if branches.is_empty() {
                     return;
                 }
                 branch_list.imp().original_list.replace(branches);
                 let is_dark = StyleManager::default().is_dark();
                 branch_list.imp().list.replace(
-                    branch_list.imp().original_list.borrow()
+                    branch_list
+                        .imp()
+                        .original_list
+                        .borrow()
                         .iter()
-                        .map(|b|BranchItem::new(b, is_dark))
-                        .collect()
+                        .map(|b| BranchItem::new(b, is_dark))
+                        .collect(),
                 );
                 branch_list.items_changed(0, 0, branch_list.imp().list.borrow().len() as u32);
-
-            })
+            }
         });
     }
 
     pub fn checkout(&self, repo_path: PathBuf, window: &Window, sender: Sender<crate::Event>) {
         glib::spawn_future_local({
-            clone!(@weak self as branch_list, @weak window as window => async move {
+            let branch_list = self.clone();
+            let window = window.clone();
+            async move {
                 let selected_pos = branch_list.selected_pos();
                 let selected_item = branch_list.item(selected_pos).unwrap();
                 let selected_item = selected_item.downcast_ref::<BranchItem>().unwrap();
@@ -268,10 +277,13 @@ impl BranchList {
                 let branch_data = selected_item.imp().branch.borrow().clone();
                 let new_branch_data = gio::spawn_blocking(move || {
                     branch::checkout_branch(repo_path, branch_data, sender)
-                }).await.unwrap_or_else(|e| {
+                })
+                .await
+                .unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(Some(&window));
                     Ok(None)
-                }).unwrap_or_else(|e| {
+                })
+                .unwrap_or_else(|e| {
                     alert(e).present(Some(&window));
                     None
                 });
@@ -281,14 +293,18 @@ impl BranchList {
                     return;
                 }
                 let new_branch_data = new_branch_data.unwrap();
-                if branch_list.imp().original_list.borrow().iter().find(|b| {
-                    b.name == new_branch_data.name
-                }).is_some() {
+                if branch_list
+                    .imp()
+                    .original_list
+                    .borrow()
+                    .iter()
+                    .any(|b| b.name == new_branch_data.name)
+                {
                     branch_list.update_head_branch(new_branch_data);
                 } else {
                     branch_list.add_new_branch_item(new_branch_data, true);
                 };
-            })
+            }
         });
     }
 
@@ -354,13 +370,14 @@ impl BranchList {
         self.items_changed(0, le as u32, 0);
         glib::spawn_future_local({
             let path = repo_path.clone();
-            clone!(@weak self as branch_list, @weak window as window => async move {
-                let _ = gio::spawn_blocking(move || {
-                    remote::update_remote(repo_path, sender, None)
-                }).await;
+            let branch_list = self.clone();
+            let window = window.clone();
+            async move {
+                let _ = gio::spawn_blocking(move || remote::update_remote(repo_path, sender, None))
+                    .await;
                 branch_list.toggle_spinner();
                 branch_list.get_branches(path, None, &window);
-            })
+            }
         });
     }
 
@@ -377,30 +394,30 @@ impl BranchList {
         );
 
         glib::spawn_future_local({
-            clone!(@weak self as branch_list,
-            @weak window as window,
-            @strong selected_branch as branch_data => async move {
+            let window = window.clone();
+            let branch_data = selected_branch.clone();
+            async move {
                 let dialog = crate::confirm_dialog_factory(
-                    &window,
                     Some(&Label::new(Some(&title))),
                     "Rebase",
-                    "Rebase"
+                    "Rebase",
                 );
                 let result = dialog.choose_future(&window).await;
                 if "confirm" != result {
                     return;
                 }
-                gio::spawn_blocking(move || {
-                    rebase(repo_path, branch_data.oid, None, sender)
-                }).await.unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(Some(&window));
-                    Ok(false)
-                }).unwrap_or_else(|e| {
-                    alert(e).present(Some(&window));
-                    false
-                });
+                gio::spawn_blocking(move || rebase(repo_path, branch_data.oid, None, sender))
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(Some(&window));
+                        Ok(false)
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(Some(&window));
+                        false
+                    });
                 window.close();
-            })
+            }
         });
     }
 
@@ -417,14 +434,14 @@ impl BranchList {
         );
 
         glib::spawn_future_local({
-            clone!(@weak self as branch_list,
-            @weak window as window,
-            @strong selected_branch as branch_data => async move {
+            let branch_list = self.clone();
+            let window = window.clone();
+            let branch_data = selected_branch.clone();
+            async move {
                 let dialog = crate::confirm_dialog_factory(
-                    &window,
                     Some(&Label::new(Some(&title))),
                     "Merge",
-                    "Merge"
+                    "Merge",
                 );
                 let result = dialog.choose_future(&window).await;
                 if "confirm" != result {
@@ -432,10 +449,13 @@ impl BranchList {
                 }
                 let branch_data = gio::spawn_blocking(move || {
                     merge::branch(repo_path, branch_data, sender, None)
-                }).await.unwrap_or_else(|e| {
+                })
+                .await
+                .unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(Some(&window));
                     Ok(None)
-                }).unwrap_or_else(|e| {
+                })
+                .unwrap_or_else(|e| {
                     alert(e).present(Some(&window));
                     None
                 });
@@ -444,36 +464,43 @@ impl BranchList {
                     branch_list.update_head_branch(branch_data);
                 }
                 window.close();
-            })
+            }
         });
     }
 
     pub fn kill_branch(&self, repo_path: PathBuf, window: &Window, sender: Sender<crate::Event>) {
         glib::spawn_future_local({
-            clone!(@weak self as branch_list, @weak window as window => async move {
+            let branch_list = self.clone();
+            let window = window.clone();
+            async move {
                 let pos = branch_list.selected_pos();
                 let branch_data = branch_list.get_selected_branch();
                 if branch_data.is_head {
-                    return
+                    return;
                 }
                 let name = branch_data.name.clone();
                 let result = gio::spawn_blocking(move || {
                     branch::kill_branch(repo_path, branch_data, sender)
-                }).await.unwrap_or_else(|e| {
+                })
+                .await
+                .unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(Some(&window));
                     Ok(None)
-                }).unwrap_or_else(|e| {
+                })
+                .unwrap_or_else(|e| {
                     alert(e).present(Some(&window));
                     None
                 });
                 if result.is_none() {
-                    return
+                    return;
                 }
 
                 branch_list.imp().list.borrow_mut().remove(pos as usize);
-                branch_list.imp().original_list.borrow_mut().retain(|bd| {
-                    bd.name != name
-                });
+                branch_list
+                    .imp()
+                    .original_list
+                    .borrow_mut()
+                    .retain(|bd| bd.name != name);
 
                 // --------------------------- very strange piece
 
@@ -504,7 +531,10 @@ impl BranchList {
                     branch_item.set_initial_focus(true);
                     branch_list.set_selected_pos(new_pos);
                 }
-                debug!("call items cganged with pos {:?}. new pos will be {:?}", pos, new_pos);
+                debug!(
+                    "call items cganged with pos {:?}. new pos will be {:?}",
+                    pos, new_pos
+                );
                 branch_list.items_changed(pos, 1, 0);
                 // restore selected position to next one
                 // will will get focus
@@ -515,8 +545,7 @@ impl BranchList {
                 branch_list.set_selected_pos(new_pos);
 
                 // --------------------------- very strange piece
-
-            })
+            }
         });
     }
 
@@ -528,10 +557,10 @@ impl BranchList {
         );
 
         glib::spawn_future_local({
-            clone!(@weak self as branch_list,
-            @strong selected_branch as branch_data,
-            @weak window as window => async move {
-
+            let branch_list = self.clone();
+            let branch_data = selected_branch.clone();
+            let window = window.clone();
+            async move {
                 let lb = ListBox::builder()
                     .selection_mode(SelectionMode::None)
                     .css_classes(vec![String::from("boxed-list")])
@@ -548,12 +577,7 @@ impl BranchList {
                     .build();
                 lb.append(&input);
                 lb.append(&checkout);
-                let dialog = crate::confirm_dialog_factory(
-                    &window,
-                    Some(&lb),
-                    &title,
-                    "Create"
-                );
+                let dialog = crate::confirm_dialog_factory(Some(&lb), &title, "Create");
                 dialog.connect_realize({
                     let input = input.clone();
                     move |_| {
@@ -588,18 +612,27 @@ impl BranchList {
                 let new_branch_name = format!("{}", input.text());
                 let need_checkout = checkout.is_active();
                 let branch_data = gio::spawn_blocking(move || {
-                    branch::create_branch(repo_path, new_branch_name, need_checkout, branch_data, sender)
-                }).await.unwrap_or_else(|e| {
+                    branch::create_branch(
+                        repo_path,
+                        new_branch_name,
+                        need_checkout,
+                        branch_data,
+                        sender,
+                    )
+                })
+                .await
+                .unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(Some(&window));
                     Ok(None)
-                }).unwrap_or_else(|e| {
+                })
+                .unwrap_or_else(|e| {
                     alert(e).present(Some(&window));
                     None
                 });
                 if let Some(branch_data) = branch_data {
                     branch_list.add_new_branch_item(branch_data, need_checkout);
                 }
-            })
+            }
         });
     }
 
@@ -861,20 +894,23 @@ pub fn headerbar_factory(
     });
     let branch_list = get_branch_list(list_view);
 
-    entry.connect_search_changed(clone!(@weak branch_list, @weak list_view => move |e| {
-        let term = e.text();
-        if !term.is_empty() && term.len() < 3 {
-            return;
+    entry.connect_search_changed({
+        let branch_list = branch_list.clone();
+        let list_view = list_view.clone();
+        move |e| {
+            let term = e.text();
+            if !term.is_empty() && term.len() < 3 {
+                return;
+            }
+            let selection_model = list_view.model().unwrap();
+
+            let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
+
+            single_selection.set_can_unselect(false);
+            branch_list.search_new(term.into());
+            single_selection.set_can_unselect(false);
         }
-        let selection_model = list_view.model().unwrap();
-
-        let single_selection =
-            selection_model.downcast_ref::<SingleSelection>().unwrap();
-
-        single_selection.set_can_unselect(false);
-        branch_list.search_new(term.into());
-        single_selection.set_can_unselect(false);
-    }));
+    });
     let search = SearchBar::builder()
         .tooltip_text("search branches")
         .search_mode_enabled(true)
@@ -998,14 +1034,19 @@ pub fn headerbar_factory(
         .icon_name("org.gnome.Logs-symbolic")
         .can_shrink(true)
         .build();
-    log_btn.connect_clicked(clone!(@weak list_view => move |_e| {
-        let (_current_branch, selected_branch) =
-            branches_in_use(&list_view);
-        let oid = selected_branch.oid;
-        sender.send_blocking(crate::Event::Log(Some(oid), Some(selected_branch.name.to_string())))
-            .expect("cant send through channel");
+    log_btn.connect_clicked({
+        let branch_list = branch_list.clone();
+        move |_e| {
+            let selected_branch = branch_list.get_selected_branch();
+            let oid = selected_branch.oid;
+            sender
+                .send_blocking(crate::Event::Log(
+                    Some(oid),
+                    Some(selected_branch.name.to_string()),
+                ))
+                .expect("cant send through channel");
         }
-    ));
+    });
 
     let _ = branch_list
         .bind_property("selected-pos", &log_btn, "sensitive")
@@ -1030,19 +1071,6 @@ pub fn get_branch_list(list_view: &ListView) -> BranchList {
     let list_model = single_selection.model().unwrap();
     let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
     branch_list.to_owned()
-}
-
-pub fn branches_in_use(list_view: &ListView) -> (branch::BranchData, branch::BranchData) {
-    let selection_model = list_view.model().unwrap();
-    let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
-    let list_model = single_selection.model().unwrap();
-    let branch_list = list_model.downcast_ref::<BranchList>().unwrap();
-    (
-        branch_list
-            .get_head_branch()
-            .expect("cant get current branch"),
-        branch_list.get_selected_branch(),
-    )
 }
 
 pub fn show_branches_window(
@@ -1154,7 +1182,8 @@ pub fn show_branches_window(
                     branch_list.rebase(repo_path.clone(), &window, sender.clone())
                 }
                 (gdk::Key::l, _) => {
-                    let (_current_branch, selected_branch) = branches_in_use(&list_view);
+                    let branch_list = get_branch_list(&list_view);
+                    let selected_branch = branch_list.get_selected_branch();
                     let oid = selected_branch.oid;
                     sender
                         .send_blocking(crate::Event::Log(
@@ -1164,7 +1193,8 @@ pub fn show_branches_window(
                         .expect("cant send through sender");
                 }
                 (gdk::Key::a, _) => {
-                    let (_current_branch, selected_branch) = branches_in_use(&list_view);
+                    let branch_list = get_branch_list(&list_view);
+                    let selected_branch = branch_list.get_selected_branch();
                     let oid = selected_branch.oid;
                     sender
                         .send_blocking(crate::Event::CherryPick(oid, false, None, None))
