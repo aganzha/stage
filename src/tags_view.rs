@@ -774,16 +774,21 @@ pub fn headerbar_factory(
         .build();
     let very_first_search = Rc::new(Cell::new(true));
     let threshold = Rc::new(RefCell::new(String::from("")));
-    entry.connect_search_changed(
-        clone!(@weak tag_list, @weak list_view, @strong very_first_search, @weak entry, @strong repo_path => move |e| {
+    entry.connect_search_changed({
+        let tag_list = tag_list.clone();
+        let list_view = list_view.clone();
+        let very_first_search = very_first_search.clone();
+        let entry = entry.clone();
+        let repo_path = repo_path.clone();
+
+        move |e| {
             let term = e.text().to_lowercase();
             if !term.is_empty() && term.len() < 3 {
                 return;
             }
             if term.is_empty() {
                 let selection_model = list_view.model().unwrap();
-                let single_selection =
-                    selection_model.downcast_ref::<SingleSelection>().unwrap();
+                let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
                 single_selection.set_can_unselect(true);
                 if very_first_search.get() {
                     very_first_search.replace(false);
@@ -797,6 +802,8 @@ pub fn headerbar_factory(
                     let entry = entry.clone();
                     let repo_path = repo_path.clone();
                     let threshold = threshold.clone();
+                    let list_view = list_view.clone();
+                    let tag_list = tag_list.clone();
                     move || {
                         let term = entry.text().to_lowercase();
                         if term == *threshold.borrow() {
@@ -806,8 +813,8 @@ pub fn headerbar_factory(
                     }
                 });
             }
-        }),
-    );
+        }
+    });
     let title = Label::builder()
         .margin_start(12)
         .use_markup(true)
