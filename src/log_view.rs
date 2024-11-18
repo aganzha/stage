@@ -673,8 +673,6 @@ pub fn headerbar_factory(
         .build();
     revert_btn.connect_clicked({
         let sender = sender.clone();
-        let path = repo_path.clone();
-        let window = window.clone();
         let commit_list = commit_list.clone();
         move |_btn| {
             sender

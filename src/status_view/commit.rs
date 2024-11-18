@@ -145,8 +145,7 @@ pub fn commit(
             text_view_box.append(&scroll);
             text_view_box.append(&list_box);
 
-            let dialog =
-                crate::confirm_dialog_factory(&window, Some(&text_view_box), "Commit", "Commit");
+            let dialog = crate::confirm_dialog_factory(Some(&text_view_box), "Commit", "Commit");
 
             dialog.connect_realize({
                 let commit_message = commit_message.clone();

@@ -56,7 +56,6 @@ impl Scheme {
     }
 }
 
-pub struct MenuItem(String);
 pub const CUSTOM_ATTR: &str = "custom";
 pub const SCHEME_TOKEN: &str = "scheme";
 pub const ZOOM_TOKEN: &str = "zoom";

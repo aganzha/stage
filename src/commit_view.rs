@@ -258,10 +258,10 @@ pub fn show_commit_window(
 
     let mut diff: Option<commit::CommitDiff> = None;
 
-    const max_width: i32 = 1280;
+    const MAX_WIDTH: i32 = 1280;
     let window = Window::builder()
         .transient_for(app_window)
-        .default_width(max_width)
+        .default_width(MAX_WIDTH)
         .default_height(960)
         .build();
 
@@ -352,7 +352,7 @@ pub fn show_commit_window(
                         );
                         body_label.replace(MultiLineLabel::new(
                             &commit_diff.message,
-                            txt.calc_max_char_width(max_width),
+                            txt.calc_max_char_width(MAX_WIDTH),
                         ));
                         commit_diff.render(
                             &txt,

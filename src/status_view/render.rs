@@ -759,7 +759,7 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn after_cursor<'a>(&'a self, buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
+    fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
         if self.view.is_rendered() {
             // hm. collecting lines for highlight.
             if self.view.is_active() {

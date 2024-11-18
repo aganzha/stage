@@ -88,7 +88,7 @@ mod branch_item {
 }
 
 impl BranchItem {
-    pub fn new(branch: &branch::BranchData, is_dark: bool) -> Self {
+    pub fn new(branch: &branch::BranchData, _is_dark: bool) -> Self {
         let color = if StyleManager::default().is_dark() {
             "#839daf"
         } else {
@@ -398,7 +398,6 @@ impl BranchList {
             let branch_data = selected_branch.clone();
             async move {
                 let dialog = crate::confirm_dialog_factory(
-                    &window,
                     Some(&Label::new(Some(&title))),
                     "Rebase",
                     "Rebase",
@@ -440,7 +439,6 @@ impl BranchList {
             let branch_data = selected_branch.clone();
             async move {
                 let dialog = crate::confirm_dialog_factory(
-                    &window,
                     Some(&Label::new(Some(&title))),
                     "Merge",
                     "Merge",
@@ -579,7 +577,7 @@ impl BranchList {
                     .build();
                 lb.append(&input);
                 lb.append(&checkout);
-                let dialog = crate::confirm_dialog_factory(&window, Some(&lb), &title, "Create");
+                let dialog = crate::confirm_dialog_factory(Some(&lb), &title, "Create");
                 dialog.connect_realize({
                     let input = input.clone();
                     move |_| {
