@@ -2,18 +2,32 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#[cfg(test)]
 use crate::status_view::stage_op::{LastOp, StageDiffs};
+#[cfg(test)]
 use crate::status_view::tags;
-use crate::status_view::view::{RenderFlags, View};
+#[cfg(test)]
+use crate::status_view::view::RenderFlags;
+use crate::status_view::view::View;
+#[cfg(test)]
 use crate::tests::initialize;
 
-use crate::status_view::{CursorPosition, StatusRenderContext, ViewContainer};
-use crate::{Diff, DiffKind, File, Hunk, HunkLineNo, Line, LineKind, StageOp};
+#[cfg(test)]
+use crate::git::HunkLineNo;
+#[cfg(test)]
+use crate::status_view::CursorPosition;
+use crate::status_view::{StatusRenderContext, ViewContainer};
+use crate::Hunk;
+#[cfg(test)]
+use crate::{Diff, DiffKind, File, Line, LineKind, StageOp};
+#[cfg(test)]
 use git2::DiffLineType;
 use gtk4::prelude::*;
 use gtk4::{TextBuffer, TextIter};
+#[cfg(test)]
 use log::debug;
 use regex::Regex;
+#[cfg(test)]
 use std::cell::Cell;
 
 impl Hunk {
@@ -39,6 +53,7 @@ impl Hunk {
     }
 }
 
+#[cfg(test)]
 fn create_line(line_no: u32, from: usize, to: usize) -> Line {
     Line {
         origin: DiffLineType::Context,
@@ -50,6 +65,7 @@ fn create_line(line_no: u32, from: usize, to: usize) -> Line {
     }
 }
 
+#[cfg(test)]
 fn create_hunk(name: &str) -> Hunk {
     let mut hunk = Hunk::new(DiffKind::Unstaged);
     hunk.header = name.to_string();
@@ -62,6 +78,7 @@ fn create_hunk(name: &str) -> Hunk {
     hunk
 }
 
+#[cfg(test)]
 fn create_file(name: &str) -> File {
     let mut file = File::new(DiffKind::Unstaged);
     file.path = name.to_string().into();
@@ -72,6 +89,7 @@ fn create_file(name: &str) -> File {
     file
 }
 
+#[cfg(test)]
 fn create_diff() -> Diff {
     let mut diff = Diff::new(DiffKind::Unstaged);
     for i in 0..3 {
@@ -292,7 +310,7 @@ impl TestViewContainer {
 }
 
 impl ViewContainer for TestViewContainer {
-    fn is_empty(&self, context: &mut StatusRenderContext) -> bool {
+    fn is_empty(&self, _context: &mut StatusRenderContext) -> bool {
         false
     }
 
@@ -307,7 +325,7 @@ impl ViewContainer for TestViewContainer {
         &self,
         iter: &mut TextIter,
         buffer: &TextBuffer,
-        context: &mut StatusRenderContext,
+        _context: &mut StatusRenderContext,
     ) {
         buffer.insert(iter, &self.content);
     }

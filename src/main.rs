@@ -35,8 +35,8 @@ use std::rc::Rc;
 mod git;
 use git::{
     branch, commit, get_current_repo_status, get_directories, reset_hard, stage_untracked,
-    stage_via_apply, stash::Stashes, track_changes, Diff, DiffKind, File, Head, Hunk, HunkLineNo,
-    Line, LineKind, State, MARKER_OURS, MARKER_THEIRS,
+    stage_via_apply, stash::Stashes, track_changes, Diff, DiffKind, File, Head, Hunk, Line,
+    LineKind, State, MARKER_OURS, MARKER_THEIRS,
 };
 use git2::Oid;
 mod dialogs;
@@ -44,7 +44,7 @@ use dialogs::{alert, confirm_dialog_factory};
 
 mod tests;
 use gdk::Display;
-use glib::{clone, ControlFlow};
+use glib::ControlFlow;
 use libadwaita::prelude::*;
 use libadwaita::{
     Application, ApplicationWindow, Banner, OverlaySplitView, StyleManager, Toast, ToastOverlay,
@@ -241,25 +241,27 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         .build();
 
     let action_close = gio::SimpleAction::new("close", None);
-    action_close.connect_activate(clone!(@weak window => move |_, _| {
-        window.close();
-    }));
+    action_close.connect_activate({
+        let window = window.clone();
+        move |_, _| {
+            window.close();
+        }
+    });
     window.add_action(&action_close);
 
-    let action_about = gio::SimpleAction::new("about", None);
-    action_about.connect_activate(clone!(@weak window => move |_, _| {
-        info!("aboooooooooooooooooooout");
-    }));
-    window.add_action(&action_about);
-
     let action_open = gio::SimpleAction::new("open", Some(glib::VariantTy::STRING));
-    action_open.connect_activate(clone!(@strong sender => move |_, chosen_path| {
-        if let Some(path) = chosen_path {
-            let path:String = path.get().expect("cant get path from gvariant");
-            sender.send_blocking(Event::OpenRepo(path.into()))
-                                .expect("Could not send through channel");
+    action_open.connect_activate({
+        let sender = sender.clone();
+        move |_, chosen_path| {
+            if let Some(path) = chosen_path {
+                let path: String = path.get().expect("cant get path from gvariant");
+                sender
+                    .send_blocking(Event::OpenRepo(path.into()))
+                    .expect("Could not send through channel");
+            }
         }
-    }));
+    });
+
     window.add_action(&action_open);
 
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);

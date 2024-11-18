@@ -8,7 +8,7 @@ use crate::{DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
 use core::time::Duration;
 use git2::Oid;
-use glib::{clone, Object};
+use glib::Object;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
@@ -589,16 +589,20 @@ pub fn headerbar_factory(
         .build();
     let very_first_search = Rc::new(Cell::new(true));
     let threshold = Rc::new(RefCell::new(String::from("")));
-    entry.connect_search_changed(
-        clone!(@weak commit_list, @weak list_view, @strong very_first_search, @weak entry, @strong repo_path => move |e| {
+    entry.connect_search_changed({
+        let commit_list = commit_list.clone();
+        let list_view = list_view.clone();
+        let very_first_search = very_first_search.clone();
+        let entry = entry.clone();
+        let repo_path = repo_path.clone();
+        move |e| {
             let term = e.text().to_lowercase();
             if !term.is_empty() && term.len() < 3 {
                 return;
             }
             if term.is_empty() {
                 let selection_model = list_view.model().unwrap();
-                let single_selection =
-                    selection_model.downcast_ref::<SingleSelection>().unwrap();
+                let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
                 single_selection.set_can_unselect(true);
                 if very_first_search.get() {
                     very_first_search.replace(false);
@@ -612,6 +616,8 @@ pub fn headerbar_factory(
                     let entry = entry.clone();
                     let repo_path = repo_path.clone();
                     let threshold = threshold.clone();
+                    let commit_list = commit_list.clone();
+                    let list_view = list_view.clone();
                     move || {
                         let term = entry.text().to_lowercase();
                         if term == *threshold.borrow() {
@@ -621,8 +627,9 @@ pub fn headerbar_factory(
                     }
                 });
             }
-        }),
-    );
+        }
+    });
+
     let title = Label::builder()
         .margin_start(12)
         .use_markup(true)
@@ -666,8 +673,6 @@ pub fn headerbar_factory(
         .build();
     revert_btn.connect_clicked({
         let sender = sender.clone();
-        let path = repo_path.clone();
-        let window = window.clone();
         let commit_list = commit_list.clone();
         move |_btn| {
             sender

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use async_channel::Sender;
-use glib::{clone, Object};
+use glib::Object;
 use libadwaita::prelude::*;
 use libadwaita::{EntryRow, HeaderBar, StyleManager, SwitchRow, ToolbarView, Window};
 
@@ -22,7 +22,7 @@ use std::rc::Rc;
 use crate::dialogs::{alert, confirm_dialog_factory, DangerDialog, YES};
 use crate::git::{remote, tag};
 use crate::{DARK_CLASS, LIGHT_CLASS};
-use log::{debug, trace};
+use log::{trace};
 use std::cell::Cell;
 
 glib::wrapper! {
@@ -59,6 +59,9 @@ mod tag_item {
 
         #[property(get = Self::get_dt)]
         pub dt: String,
+
+        #[property(get, set)]
+        pub initial_focus: RefCell<bool>,
     }
 
     #[glib::object_subclass]
@@ -254,7 +257,6 @@ impl TagList {
                     tag_list.imp().list.borrow_mut().push(item);
                     added += 1;
                 }
-                debug!("added some tags {:?}", added);
                 if added > 0 {
                     tag_list.items_changed(0, 0, added);
                 }
@@ -382,6 +384,20 @@ impl TagList {
                     .borrow_mut()
                     .retain(|tag| tag.name != tag_name);
                 tags_list.items_changed(selected_pos, 1, 0);
+                let mut pos = selected_pos;
+                loop {
+                    if let Some(item) = tags_list.item(pos) {
+                        let item = item.downcast_ref::<TagItem>().unwrap();
+                        item.set_initial_focus(true);
+                        tags_list.set_selected_pos(0);
+                        tags_list.set_selected_pos(pos);
+                        break;
+                    }
+                    pos -= 1;
+                    if pos <= 0 {
+                        break;
+                    }
+                }
             }
         });
     }
@@ -443,7 +459,7 @@ impl TagList {
                 row.set_focusable(false);
                 lb.append(&lightweight);
 
-                let dialog = confirm_dialog_factory(&window, Some(&lb), "Create new tag", "Create");
+                let dialog = confirm_dialog_factory(Some(&lb), "Create new tag", "Create");
                 dialog.connect_realize({
                     let input = input.clone();
                     move |_| {
@@ -520,6 +536,10 @@ impl TagList {
             .borrow_mut()
             .insert(0, TagItem::new(created_tag));
         self.items_changed(0, 0, 1);
+        let item = self.item(0).unwrap();
+        let item = item.downcast_ref::<TagItem>().unwrap();
+        item.set_initial_focus(true);
+        self.set_selected_pos(0);
     }
 
     pub fn reset_hard(
@@ -594,7 +614,6 @@ impl TagList {
 
 pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
     let factory = SignalListItemFactory::new();
-    let focus = Rc::new(Cell::new(false));
     factory.connect_setup(move |_, list_item| {
         let oid_label = Label::builder()
             .label("")
@@ -726,22 +745,14 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
         );
         item.chain_property::<TagItem>("dt")
             .bind(&label_dt, "label", Widget::NONE);
-        let focus = focus.clone();
         list_item.connect_selected_notify(move |li: &ListItem| {
-            glib::source::timeout_add_local(Duration::from_millis(300), {
-                let focus = focus.clone();
-                let li = li.clone();
-                move || {
-                    if !focus.get() {
-                        let first_child = li.child().unwrap();
-                        let first_child = first_child.downcast_ref::<Widget>().unwrap();
-                        let row = first_child.parent().unwrap();
-                        row.grab_focus();
-                        focus.replace(true);
-                    }
-                    glib::ControlFlow::Break
+            if let Some(item) = li.item() {
+                let tag_item = item.downcast_ref::<TagItem>().unwrap();
+                if tag_item.initial_focus() {
+                    li.child().unwrap().grab_focus();
+                    tag_item.set_initial_focus(false)
                 }
-            });
+            }
         });
     });
 
@@ -774,16 +785,21 @@ pub fn headerbar_factory(
         .build();
     let very_first_search = Rc::new(Cell::new(true));
     let threshold = Rc::new(RefCell::new(String::from("")));
-    entry.connect_search_changed(
-        clone!(@weak tag_list, @weak list_view, @strong very_first_search, @weak entry, @strong repo_path => move |e| {
+    entry.connect_search_changed({
+        let tag_list = tag_list.clone();
+        let list_view = list_view.clone();
+        let very_first_search = very_first_search.clone();
+        let entry = entry.clone();
+        let repo_path = repo_path.clone();
+
+        move |e| {
             let term = e.text().to_lowercase();
             if !term.is_empty() && term.len() < 3 {
                 return;
             }
             if term.is_empty() {
                 let selection_model = list_view.model().unwrap();
-                let single_selection =
-                    selection_model.downcast_ref::<SingleSelection>().unwrap();
+                let single_selection = selection_model.downcast_ref::<SingleSelection>().unwrap();
                 single_selection.set_can_unselect(true);
                 if very_first_search.get() {
                     very_first_search.replace(false);
@@ -797,6 +813,8 @@ pub fn headerbar_factory(
                     let entry = entry.clone();
                     let repo_path = repo_path.clone();
                     let threshold = threshold.clone();
+                    let list_view = list_view.clone();
+                    let tag_list = tag_list.clone();
                     move || {
                         let term = entry.text().to_lowercase();
                         if term == *threshold.borrow() {
@@ -806,8 +824,8 @@ pub fn headerbar_factory(
                     }
                 });
             }
-        }),
-    );
+        }
+    });
     let title = Label::builder()
         .margin_start(12)
         .use_markup(true)
@@ -848,8 +866,6 @@ pub fn headerbar_factory(
         .build();
     revert_btn.connect_clicked({
         let sender = sender.clone();
-        let path = repo_path.clone();
-        let window = window.clone();
         let tag_list = tag_list.clone();
         move |_btn| {
             sender
@@ -1065,7 +1081,6 @@ pub fn show_tags_window(
                     search_entry.grab_focus();
                 }
                 (gdk::Key::c | gdk::Key::n, _) => {
-                    debug!("create new tag");
                     let tag_list = get_tags_list(&list_view);
                     tag_list.create_tag(
                         repo_path.clone(),

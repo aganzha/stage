@@ -14,7 +14,6 @@ use gtk4::{
     gio, Align, Box, Button, FileDialog, GestureClick, Label, MenuButton, Orientation, PopoverMenu,
     ToggleButton,
 };
-use log::{debug, info, trace};
 use std::path::PathBuf;
 
 pub enum HbUpdateData<'a> {
@@ -57,7 +56,6 @@ impl Scheme {
     }
 }
 
-pub struct MenuItem(String);
 pub const CUSTOM_ATTR: &str = "custom";
 pub const SCHEME_TOKEN: &str = "scheme";
 pub const ZOOM_TOKEN: &str = "zoom";

@@ -13,8 +13,8 @@ pub mod tags;
 
 use crate::dialogs::{alert, ConfirmWithOptions, DangerDialog, YES};
 use crate::git::{
-    abort_rebase, branch::BranchData, commit as git_commit, continue_rebase, get_head, merge,
-    remote, stash, HunkLineNo,
+    abort_rebase, branch::BranchData, commit as git_commit, continue_rebase, merge, remote, stash,
+    HunkLineNo,
 };
 
 use core::time::Duration;
@@ -42,7 +42,6 @@ use async_channel::Sender;
 use gio::FileMonitor;
 
 use crate::status_view::context::CursorPosition as ContextCursorPosition;
-use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
@@ -95,15 +94,6 @@ impl Label {
         }
     }
 }
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum RenderSource {
-    Git,
-    GitDiff,
-    Expand(i32),
-}
-
-pub const DUMP_DIR: &str = "stage_dump";
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CursorPosition {
@@ -447,7 +437,6 @@ impl Status {
                             .css_classes(vec!["input_field"])
                             .build();
                         let dialog = crate::confirm_dialog_factory(
-                            &window,
                             Some(&lb),
                             "Pull from remote/origin", // TODO here is harcode
                             "Pull",
@@ -510,7 +499,6 @@ impl Status {
                     .build();
 
                 let dialog = crate::confirm_dialog_factory(
-                    &window,
                     Some(&lb),
                     "Push to remote/origin", // TODO here is harcode
                     "Push",
@@ -559,9 +547,6 @@ impl Status {
                         lb.append(&user_name);
                         lb.append(&password);
                         pass = true;
-                    }
-                    _ => {
-                        panic!("unknown case");
                     }
                 }
 
