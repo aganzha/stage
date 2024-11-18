@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use async_channel::Sender;
-use glib::{clone, Object};
+use glib::Object;
 use libadwaita::prelude::*;
 use libadwaita::{EntryRow, HeaderBar, StyleManager, SwitchRow, ToolbarView, Window};
 

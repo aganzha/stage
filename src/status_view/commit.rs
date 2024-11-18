@@ -11,9 +11,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, EntryRow, StyleManager, SwitchRow};
-use log::{debug, trace};
 use std::cell::Cell;
-use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 

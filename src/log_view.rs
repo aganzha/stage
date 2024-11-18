@@ -8,7 +8,7 @@ use crate::{DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
 use core::time::Duration;
 use git2::Oid;
-use glib::{clone, Object};
+use glib::Object;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
