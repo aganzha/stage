@@ -1,2 +1,2 @@
 #/bin/bash
-clear && cargo clippy --fix --bin "stage" --allow-dirty --no-deps
+clear && OUT_DIR=. cargo clippy --fix --bin "stage" --allow-dirty --no-deps

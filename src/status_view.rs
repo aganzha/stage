@@ -13,7 +13,7 @@ pub mod tags;
 
 use crate::dialogs::{alert, ConfirmWithOptions, DangerDialog, YES};
 use crate::git::{
-    abort_rebase, branch::BranchData, commit as git_commit, continue_rebase, get_head, merge,
+    abort_rebase, branch::BranchData, commit as git_commit, continue_rebase, merge,
     remote, stash, HunkLineNo,
 };
 
@@ -42,7 +42,6 @@ use async_channel::Sender;
 use gio::FileMonitor;
 
 use crate::status_view::context::CursorPosition as ContextCursorPosition;
-use glib::clone;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{

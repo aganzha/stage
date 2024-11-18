@@ -44,7 +44,7 @@ use dialogs::{alert, confirm_dialog_factory};
 
 mod tests;
 use gdk::Display;
-use glib::{clone, ControlFlow};
+use glib::ControlFlow;
 use libadwaita::prelude::*;
 use libadwaita::{
     Application, ApplicationWindow, Banner, OverlaySplitView, StyleManager, Toast, ToastOverlay,

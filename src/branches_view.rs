@@ -8,7 +8,7 @@ use crate::dialogs::alert;
 use crate::git::{branch, merge, rebase, remote};
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use git2::BranchType;
-use glib::{clone, closure, Object};
+use glib::{closure, Object};
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
@@ -298,8 +298,7 @@ impl BranchList {
                     .original_list
                     .borrow()
                     .iter()
-                    .find(|b| b.name == new_branch_data.name)
-                    .is_some()
+                    .any(|b| b.name == new_branch_data.name)
                 {
                     branch_list.update_head_branch(new_branch_data);
                 } else {

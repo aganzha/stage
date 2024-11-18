@@ -14,7 +14,6 @@ use gtk4::{
     gio, Align, Box, Button, FileDialog, GestureClick, Label, MenuButton, Orientation, PopoverMenu,
     ToggleButton,
 };
-use log::{debug, info, trace};
 use std::path::PathBuf;
 
 pub enum HbUpdateData<'a> {
