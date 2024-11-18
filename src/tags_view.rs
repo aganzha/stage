@@ -443,7 +443,7 @@ impl TagList {
                 row.set_focusable(false);
                 lb.append(&lightweight);
 
-                let dialog = confirm_dialog_factory(&window, Some(&lb), "Create new tag", "Create");
+                let dialog = confirm_dialog_factory(Some(&lb), "Create new tag", "Create");
                 dialog.connect_realize({
                     let input = input.clone();
                     move |_| {
@@ -855,8 +855,6 @@ pub fn headerbar_factory(
         .build();
     revert_btn.connect_clicked({
         let sender = sender.clone();
-        let path = repo_path.clone();
-        let window = window.clone();
         let tag_list = tag_list.clone();
         move |_btn| {
             sender

@@ -354,17 +354,14 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     return glib::Propagation::Stop;
                 }
                 (gdk::Key::s | gdk::Key::a | gdk::Key::Return, _) => {
-                    let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Stage))
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::u, _) => {
-                    let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Unstage))
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::k | gdk::Key::Delete | gdk::Key::BackSpace, _) => {
-                    let iter = buffer.iter_at_offset(buffer.cursor_position());
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Kill))
                         .expect("Could not send through channel");
                 }

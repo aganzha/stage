@@ -423,7 +423,6 @@ impl File {
     }
     pub fn from_diff_file(f: &DiffFile, kind: DiffKind, status: Delta) -> Self {
         let path: PathBuf = f.path().unwrap().into();
-        let len = path.as_os_str().len();
         File {
             view: View::new(),
             path,

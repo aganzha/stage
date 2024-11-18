@@ -116,7 +116,7 @@ impl OidRow {
                     let stash = row.imp().stash.borrow();
                     Label::new(Some(&format!("Drop stash {}", stash.title)))
                 };
-                let dialog = confirm_dialog_factory(&window, Some(&lbl), "Drop", "Drop");
+                let dialog = confirm_dialog_factory(Some(&lbl), "Drop", "Drop");
                 let result = dialog.choose_future(&window).await;
                 if result == "confirm" {
                     let result = gio::spawn_blocking({
@@ -151,7 +151,7 @@ impl OidRow {
                     let stash = row.imp().stash.borrow();
                     Label::new(Some(&format!("Apply stash {}", stash.title)))
                 };
-                let dialog = confirm_dialog_factory(&window, Some(&lbl), "Apply", "Apply");
+                let dialog = confirm_dialog_factory(Some(&lbl), "Apply", "Apply");
                 let result = dialog.choose_future(&window).await;
                 if result == "confirm" {
                     gio::spawn_blocking({
@@ -211,8 +211,7 @@ pub fn add_stash(
             lb.append(&input);
             lb.append(&staged);
 
-            let dialog =
-                confirm_dialog_factory(&window, Some(&lb), "Stash changes", "Stash changes");
+            let dialog = confirm_dialog_factory(Some(&lb), "Stash changes", "Stash changes");
             dialog.connect_realize({
                 let input = input.clone();
                 move |_| {
