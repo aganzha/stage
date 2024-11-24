@@ -22,7 +22,7 @@ use std::rc::Rc;
 use crate::dialogs::{alert, confirm_dialog_factory, DangerDialog, YES};
 use crate::git::{remote, tag};
 use crate::{DARK_CLASS, LIGHT_CLASS};
-use log::{trace};
+use log::trace;
 use std::cell::Cell;
 
 glib::wrapper! {
