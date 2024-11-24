@@ -142,6 +142,7 @@ pub enum Event {
     Staged(Option<Diff>),
     Head(Option<Head>),
     Upstream(Option<Head>),
+    UpstreamProgress,
     State(State),
     OpenFileDialog,
     RepoPopup,
@@ -392,10 +393,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Push => {
                     info!("main.push");
+                    hb_updater(HbUpdateData::Push);
                     status.push(&window, None);
                 }
                 Event::Pull => {
                     info!("main.pull");
+                    hb_updater(HbUpdateData::Pull);
                     status.pull(&window, None);
                 }
                 Event::Branches(branches) => {
@@ -501,8 +504,13 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     }
                     status.update_head(h, &txt, &mut ctx);
                 }
+                Event::UpstreamProgress => {
+                    info!("main. UpstreamProgress");
+                    hb_updater(HbUpdateData::Upstream);
+                }
                 Event::Upstream(h) => {
                     info!("main. upstream");
+                    hb_updater(HbUpdateData::Upstream);
                     if let (Some(head), Some(upstream)) = (&status.head, &h) {
                         hb_updater(HbUpdateData::Unsynced(head.oid != upstream.oid));
                     }

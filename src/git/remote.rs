@@ -340,7 +340,7 @@ pub fn pull(
 
     assert!(head_ref.is_branch());
     let branch = git2::Branch::wrap(head_ref);
-    let upstream = branch.upstream().unwrap();
+    let upstream = branch.upstream()?;
 
     let branch_data = BranchData::from_branch(upstream, git2::BranchType::Remote)
         .unwrap()

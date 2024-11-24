@@ -2,17 +2,17 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::status_view::context::StatusRenderContext;
+use async_channel::Sender;
+use core::time::Duration;
+use gtk4::{
+    gio, glib, Align, Box, Button, FileDialog, GestureClick, Label, MenuButton, Orientation,
+    Overflow, PopoverMenu, Spinner, ToggleButton, Widget,
+};
 use libadwaita::prelude::*;
 use libadwaita::{
     AboutDialog, ApplicationWindow, ButtonContent, ColorScheme, HeaderBar, SplitButton,
     StyleManager, Window,
-};
-
-use crate::status_view::context::StatusRenderContext;
-use async_channel::Sender;
-use gtk4::{
-    gio, Align, Box, Button, FileDialog, GestureClick, Label, MenuButton, Orientation, PopoverMenu,
-    ToggleButton,
 };
 use std::path::PathBuf;
 
@@ -22,9 +22,13 @@ pub enum HbUpdateData<'a> {
     Unsynced(bool),
     RepoOpen,
     RepoPopup,
+    Pull,
+    Push,
+    Upstream,
     Context(StatusRenderContext<'a>),
 }
 use crate::git::DiffKind;
+use log::{debug, trace};
 
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub struct Scheme(String);
@@ -322,11 +326,9 @@ pub fn factory(
     let push_btn = Button::builder()
         .label("Push")
         .use_underline(true)
-        .can_focus(false)
         .tooltip_text("Push (P)")
         .icon_name("send-to-symbolic")
-        .can_shrink(true)
-        .sensitive(false)
+        .width_request(38)
         .build();
     push_btn.connect_clicked({
         let sender = sender.clone();
@@ -374,15 +376,14 @@ pub fn factory(
     let pull_btn = Button::builder()
         .label("Pull")
         .use_underline(true)
-        .can_focus(false)
         .tooltip_text("Pull (F)")
         .icon_name("document-save-symbolic")
-        .can_shrink(true)
         .sensitive(false)
+        .width_request(38)
         .build();
     pull_btn.connect_clicked({
         let sender = sender.clone();
-        move |_| {
+        move |btn| {
             sender
                 .send_blocking(crate::Event::Pull)
                 .expect("cant send through channel");
@@ -537,6 +538,28 @@ pub fn factory(
             }
             HbUpdateData::RepoPopup => {
                 repo_selector.popover().expect("no popover").popup();
+            }
+            HbUpdateData::Pull | HbUpdateData::Push => {
+                let spinner = Spinner::builder().spinning(true).build();
+                match data {
+                    HbUpdateData::Pull => {
+                        pull_btn.set_child(Some(&spinner));
+                        pull_btn.set_sensitive(false);
+                    }
+                    HbUpdateData::Push => {
+                        push_btn.set_child(Some(&spinner));
+                        push_btn.set_sensitive(false);
+                    }
+                    _ => {}
+                }
+            }
+            HbUpdateData::Upstream => {
+                pull_btn.set_child(None::<&Widget>);
+                pull_btn.set_icon_name("document-save-symbolic");
+                pull_btn.set_sensitive(true);
+                push_btn.set_child(None::<&Widget>);
+                push_btn.set_icon_name("send-to-symbolic");
+                push_btn.set_sensitive(true);
             }
             HbUpdateData::Context(ctx) => {
                 if let Some(diff) = ctx.selected_diff {

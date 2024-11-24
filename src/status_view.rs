@@ -451,15 +451,25 @@ impl Status {
                         ));
                     }
                 }
-                gio::spawn_blocking(move || remote::pull(path, sender, user_pass))
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(Some(&window));
-                        Ok(())
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(Some(&window));
-                    });
+                gio::spawn_blocking({
+                    let sender = sender.clone();
+                    move || remote::pull(path, sender, user_pass)
+                })
+                .await
+                .unwrap_or_else(|e| {
+                    sender
+                        .send_blocking(crate::Event::UpstreamProgress)
+                        .expect("Could not send through channel");
+                    alert(format!("{:?}", e)).present(Some(&window));
+
+                    Ok(())
+                })
+                .unwrap_or_else(|e| {
+                    sender
+                        .send_blocking(crate::Event::UpstreamProgress)
+                        .expect("Could not send through channel");
+                    alert(e).present(Some(&window));
+                });
             }
         });
     }
@@ -551,7 +561,11 @@ impl Status {
                 }
 
                 let response = dialog.choose_future(&window).await;
+
                 if !("confirm" == response || enter_pressed.get()) {
+                    sender
+                        .send_blocking(crate::Event::UpstreamProgress)
+                        .expect("Could not send through channel");
                     return;
                 }
                 let remote_branch_name = format!("{}", remote_branch_name.text());
@@ -566,6 +580,7 @@ impl Status {
                 glib::spawn_future_local({
                     async move {
                         gio::spawn_blocking({
+                            let sender = sender.clone();
                             move || {
                                 remote::push(
                                     path.expect("no path"),
@@ -579,10 +594,16 @@ impl Status {
                         })
                         .await
                         .unwrap_or_else(|e| {
+                            sender
+                                .send_blocking(crate::Event::UpstreamProgress)
+                                .expect("Could not send through channel");
                             alert(format!("{:?}", e)).present(Some(&window));
                             Ok(())
                         })
                         .unwrap_or_else(|e| {
+                            sender
+                                .send_blocking(crate::Event::UpstreamProgress)
+                                .expect("Could not send through channel");
                             alert(e).present(Some(&window));
                         });
                     }
