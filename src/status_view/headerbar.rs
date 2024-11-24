@@ -6,8 +6,8 @@ use crate::status_view::context::StatusRenderContext;
 use async_channel::Sender;
 use core::time::Duration;
 use gtk4::{
-    gio, glib, Align, Box, Button, FileDialog, GestureClick, Label, MenuButton, Orientation,
-    Overflow, PopoverMenu, Spinner, ToggleButton, Widget,
+    gio, glib, Align, Box, Button, CenterBox, FileDialog, GestureClick, Label, MenuButton,
+    Orientation, Overflow, PopoverMenu, Spinner, ToggleButton, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -272,6 +272,7 @@ pub fn factory(
 ) -> (HeaderBar, impl Fn(HbUpdateData)) {
     let stashes_btn = Button::builder()
         .label("Stashes")
+        .halign(Align::Start)
         .use_underline(true)
         .can_focus(false)
         .tooltip_text("Stashes (Z)")
@@ -608,8 +609,24 @@ pub fn factory(
             });
         }
     });
+
+    let remotes_btn = Button::builder()
+        .label("Remotes")
+        .halign(Align::End)
+        .hexpand(true)
+        .use_underline(true)
+        .can_focus(false)
+        .tooltip_text("Remotes")
+        .icon_name("network-server-symbolic")
+        .build();
+
     let hb = HeaderBar::new();
+
     hb.pack_start(&stashes_btn);
+    hb.pack_start(&remotes_btn);
+    let left_controls = remotes_btn.parent().unwrap();
+    left_controls.set_halign(Align::Fill);
+    left_controls.set_hexpand(true);
 
     hb.set_title_widget(Some(&repo_selector));
 
