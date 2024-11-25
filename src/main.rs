@@ -163,6 +163,7 @@ pub enum Event {
     StashesPanel,
     Stashes(Stashes),
     Refresh,
+    RemotesDialog,
     Zoom(bool),
     ResetHard(Option<Oid>),
     CommitDiff(commit::CommitDiff),
@@ -662,6 +663,10 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::PullUserPass => {
                     info!("main. userpass");
                     status.pull(&window, Some(true))
+                }
+                Event::RemotesDialog => {
+                    info!("main. remotes dialog");
+                    status.show_remotes_dialog(&window, sender.clone());
                 }
                 Event::LockMonitors(lock) => {
                     info!("main. lock monitors {}", lock);
