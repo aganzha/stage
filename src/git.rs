@@ -1383,6 +1383,8 @@ pub fn track_changes(
                 .send_blocking(crate::Event::TrackedFile(file_path.into(), diff))
                 .expect("Could not send through channel");
         }
+    } else {
+        get_untracked(path, sender);
     }
 }
 
