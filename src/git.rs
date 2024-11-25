@@ -30,8 +30,8 @@ use regex::Regex;
 use std::fmt;
 use std::num::ParseIntError;
 use std::ops::{Add, Sub};
-use std::path::PathBuf;
-use std::str::FromStr;
+use std::path::{Path, PathBuf};
+use std::str::{from_utf8, FromStr};
 use std::{collections::HashSet, str};
 
 pub fn make_diff_options() -> DiffOptions {
@@ -681,7 +681,7 @@ pub fn get_current_repo_status(
                 // is still merging. Fire Conflicted here to show the banner
                 // TODO! move banner logic to state!, not conflicted!
                 // get rid of banner in update conflicted!
-                let diff = get_conflicted_v1(path, None);
+                let diff = get_conflicted_v1(path, None, sender.clone());
                 sender
                     .send_blocking(crate::Event::Conflicted(diff, Some(state)))
                     .expect("Could not send through channel");
@@ -801,7 +801,7 @@ pub fn get_current_repo_status(
             let path = path.clone();
             let state = repo.state();
             move || {
-                let diff = get_conflicted_v1(path, None);
+                let diff = get_conflicted_v1(path, None, sender.clone());
                 // why do i need state?
                 sender
                     .send_blocking(crate::Event::Conflicted(
@@ -835,7 +835,11 @@ pub fn get_current_repo_status(
     Ok(())
 }
 
-pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Option<Diff> {
+pub fn get_conflicted_v1(
+    path: PathBuf,
+    interhunk: Option<u32>,
+    sender: Sender<crate::Event>,
+) -> Option<Diff> {
     // thought
     // TODO! file path options!
     // it is called now from track_changes, so it need to update only 1 file!
@@ -848,26 +852,42 @@ pub fn get_conflicted_v1(path: PathBuf, interhunk: Option<u32>) -> Option<Diff> 
     // both side: ours and theirs. if those come separated everything
     // will be broken!
     info!(".........get_conflicted_v1");
-    let repo = Repository::open(path).expect("can't open repo");
-    let index = repo.index().expect("cant get index");
+    let repo = Repository::open(path.clone()).expect("can't open repo");
+    let mut index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
     let mut opts = make_diff_options();
 
     if let Some(interhunk) = interhunk {
         opts.interhunk_lines(interhunk);
     }
-
-    let mut has_conflict_paths = false;
+    let mut missing_theirs: Vec<git2::IndexEntry> = Vec::new();
     for conflict in conflicts {
         let conflict = conflict.unwrap();
-        let our = conflict.our.unwrap();
-        let our_path = String::from_utf8(our.path).unwrap();
-        has_conflict_paths = true;
-        opts.pathspec(our_path);
+        if let Some(our) = conflict.our {
+            opts.pathspec(String::from_utf8(our.path).unwrap());
+        } else {
+            missing_theirs.push(conflict.their.unwrap())
+        }
     }
-    if !has_conflict_paths {
-        return None;
+    // file was deleted in current branch (not in merging one)
+    // it will be not displayed. lets just delete it from index
+    // and display as untracked (no other good ways exists yet)
+    for entry in &missing_theirs {
+        let pth = PathBuf::from(from_utf8(&entry.path).unwrap());
+        index.remove_path(&pth).unwrap();
     }
+    if !missing_theirs.is_empty() {
+        debug!("moving file to untracked during conflict");
+        index.write().unwrap();
+        gio::spawn_blocking({
+            let sender = sender.clone();
+            let path = path.clone();
+            move || {
+                get_untracked(path, sender);
+            }
+        });
+    }
+
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
     let git_diff = repo
@@ -1321,7 +1341,7 @@ pub fn track_changes(
                 if file_path == conflict_path {
                     // unwrap is forced here, cause this diff could not
                     // be empty
-                    let diff = get_conflicted_v1(path, interhunk).unwrap();
+                    let diff = get_conflicted_v1(path, interhunk, sender.clone()).unwrap();
                     let event = crate::Event::TrackedFile(file_path.into(), diff);
                     sender
                         .send_blocking(event)
