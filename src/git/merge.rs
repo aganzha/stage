@@ -686,12 +686,12 @@ pub fn cleanup_last_conflict_for_file(
     let repo = git2::Repository::open(path.clone())?;
     let mut index = repo.index()?;
 
-    let diff = get_conflicted_v1(path.clone(), interhunk);
+    let diff = get_conflicted_v1(path.clone(), interhunk, sender.clone());
     // 1 - all conflicts in all files are resolved - update all
     // 2 - only this file is resolved, but have other conflicts - update all
     // 3 - conflicts are remaining in all files - just update conflicted
     let mut update_status = true;
-    if let Some(diff) = get_conflicted_v1(path.clone(), interhunk) {
+    if let Some(diff) = get_conflicted_v1(path.clone(), interhunk, sender.clone()) {
         for file in &diff.files {
             if file.hunks.iter().any(|h| h.conflict_markers_count > 0) {
                 if file.path == file_path {
