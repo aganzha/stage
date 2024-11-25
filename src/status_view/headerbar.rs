@@ -619,7 +619,14 @@ pub fn factory(
         .tooltip_text("Remotes")
         .icon_name("network-server-symbolic")
         .build();
-
+    remotes_btn.connect_clicked({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::Stage(crate::Event::RemotesDialog))
+                .expect("cant send through channel");
+        }
+    });
     let hb = HeaderBar::new();
 
     hb.pack_start(&stashes_btn);

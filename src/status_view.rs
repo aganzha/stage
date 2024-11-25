@@ -1305,4 +1305,6 @@ impl Status {
             }
         });
     }
+
+    fn show_remotes_dialog(&self, window: &ApplicationWindow, sender: Sender<Event>) {}
 }
