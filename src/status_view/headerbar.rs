@@ -623,7 +623,7 @@ pub fn factory(
         let sender = sender.clone();
         move |_| {
             sender
-                .send_blocking(crate::Event::Stage(crate::Event::RemotesDialog))
+                .send_blocking(crate::Event::RemotesDialog)
                 .expect("cant send through channel");
         }
     });
