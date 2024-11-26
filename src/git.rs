@@ -861,10 +861,12 @@ pub fn get_conflicted_v1(
         opts.interhunk_lines(interhunk);
     }
     let mut missing_theirs: Vec<git2::IndexEntry> = Vec::new();
+    let mut has_conflicts = false;
     for conflict in conflicts {
         let conflict = conflict.unwrap();
         if let Some(our) = conflict.our {
             opts.pathspec(String::from_utf8(our.path).unwrap());
+            has_conflicts = true;
         } else {
             missing_theirs.push(conflict.their.unwrap())
         }
@@ -887,7 +889,9 @@ pub fn get_conflicted_v1(
             }
         });
     }
-
+    if !has_conflicts {
+        return None;
+    }
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
     let git_diff = repo
@@ -895,6 +899,7 @@ pub fn get_conflicted_v1(
         .expect("cant get diff");
 
     let mut diff = make_diff(&git_diff, DiffKind::Conflicted);
+
     if diff.is_empty() {
         return None;
     }
