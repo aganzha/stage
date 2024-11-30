@@ -1339,7 +1339,11 @@ impl Status {
                     .icon_name("network-server-symbolic")
                     .build();
                 for remote in &remotes {
-                    let group = PreferencesGroup::builder().title(&remote.name).build();
+                    let del_button = Button::builder().icon_name("user-trash-symbolic").build();
+                    let group = PreferencesGroup::builder()
+                        .title(&remote.name)
+                        .header_suffix(&del_button)
+                        .build();
                     let row = EntryRow::builder()
                         .title("Url")
                         .text(&remote.url)
@@ -1354,22 +1358,28 @@ impl Status {
                             .build();
                         group.add(&row);
                     }
-                    let row = EntryRow::builder()
-                        .title("Push url")
-                        .text(&remote.push_url)
-                        .show_apply_button(true)
-                        .build();
-                    group.add(&row);
-                    for refspec in &remote.push_refspecs {
-                        let row = EntryRow::builder()
-                            .title("Push refspec")
-                            .text(refspec)
-                            .show_apply_button(true)
-                            .build();
-                        group.add(&row);
-                    }
+                    // let row = EntryRow::builder()
+                    //     .title("Push url")
+                    //     .text(&remote.push_url)
+                    //     .show_apply_button(true)
+                    //     .build();
+                    // group.add(&row);
+                    // for refspec in &remote.push_refspecs {
+                    //     let row = EntryRow::builder()
+                    //         .title("Push refspec")
+                    //         .text(refspec)
+                    //         .show_apply_button(true)
+                    //         .build();
+                    //     group.add(&row);
+                    // }
                     page.add(&group);
                 }
+                let add_button = Button::builder().icon_name("list-add-symbolic").build();
+                let adding = PreferencesGroup::builder()
+                    .title("New remote")
+                    .header_suffix(&add_button)
+                    .build();
+                page.add(&adding);
                 dialog.add(&page);
                 dialog.present(Some(&window));
             }
