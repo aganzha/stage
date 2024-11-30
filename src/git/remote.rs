@@ -353,9 +353,9 @@ pub fn pull(
 pub struct RemoteDetail {
     pub name: String,
     pub url: String,
-    pub push_url: String,
+    // pub push_url: String,
     pub refspecs: Vec<String>,
-    pub push_refspecs: Vec<String>,
+    // pub push_refspecs: Vec<String>,
 }
 
 impl From<git2::Remote<'_>> for RemoteDetail {
@@ -367,38 +367,31 @@ impl From<git2::Remote<'_>> for RemoteDetail {
         if let Some(url) = remote.url() {
             rd.url = url.to_string();
         }
+        // if let Some(url) = remote.pushurl() {
+        //     rd.push_url = url.to_string();
+        // }
         for r in remote.refspecs() {
             if let Some(refspec) = r.str() {
                 rd.refspecs.push(refspec.to_string());
             }
         }
-        if let Ok(refspecs) = remote.push_refspecs() {
-            for pr in &refspecs {
-                if let Some(refspec) = pr {
-                    rd.push_refspecs.push(refspec.to_string());
-                }
-            }
-        }
+        // if let Ok(refspecs) = remote.push_refspecs() {
+        //     for pr in &refspecs {
+        //         if let Some(refspec) = pr {
+        //             rd.push_refspecs.push(refspec.to_string());
+        //         }
+        //     }
+        // }
         rd
     }
 }
 
 pub fn list(path: PathBuf, sender: Sender<crate::Event>) -> Result<Vec<RemoteDetail>, git2::Error> {
-    debug!("remote liiiiiiiiiist");
     let repo = git2::Repository::open(path.clone())?;
     let mut remotes: Vec<RemoteDetail> = Vec::new();
     for remote_name in &repo.remotes()? {
         if let Some(remote_name) = remote_name {
             let remote = repo.find_remote(remote_name)?;
-            debug!("remote_name {:?}", remote_name);
-            debug!("remote_url {:?}", remote.url());
-            debug!("remote_push_url {:?}", remote.pushurl());
-            for r in remote.refspecs() {
-                debug!("refspec{:?}", r.str());
-            }
-            for pr in &remote.push_refspecs()? {
-                debug!("refspec{:?}", pr);
-            }
             remotes.push(remote.into());
         }
     }
