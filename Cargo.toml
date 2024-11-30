@@ -1,6 +1,6 @@
 [package]
 name = "stage"
-version = "0.1.11"
+version = "0.1.12"
 edition = "2021"
 license = "GPL-3.0-or-later"
 authors = ["Aleksey Ganzha <aganzha@yandex.ru>"]
