@@ -14,7 +14,7 @@ pub mod tags;
 use crate::dialogs::{alert, ConfirmWithOptions, DangerDialog, YES};
 use crate::git::{
     abort_rebase, branch::BranchData, commit as git_commit, continue_rebase, merge, remote, stash,
-    HunkLineNo,
+    HunkLineNo, track_changes
 };
 
 use core::time::Duration;
@@ -34,7 +34,7 @@ use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, track_changes, Diff, DiffKind, Event, File as GitFile, Head, State,
+    get_current_repo_status, Diff, DiffKind, Event, File as GitFile, Head, State,
     StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
 };
 use async_channel::Sender;
