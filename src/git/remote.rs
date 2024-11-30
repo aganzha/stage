@@ -383,10 +383,7 @@ impl From<git2::Remote<'_>> for RemoteDetail {
     }
 }
 
-pub fn list(
-    path: PathBuf,
-    sender: Sender<crate::Event>,
-) -> Result<(Vec<RemoteDetail>), git2::Error> {
+pub fn list(path: PathBuf, sender: Sender<crate::Event>) -> Result<Vec<RemoteDetail>, git2::Error> {
     debug!("remote liiiiiiiiiist");
     let repo = git2::Repository::open(path.clone())?;
     let mut remotes: Vec<RemoteDetail> = Vec::new();
