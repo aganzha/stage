@@ -35,8 +35,8 @@ use std::rc::Rc;
 mod git;
 use git::{
     branch, commit, get_current_repo_status, get_directories, reset_hard, stage_untracked,
-    stage_via_apply, stash::Stashes, Diff, DiffKind, File, Head, Hunk, Line,
-    LineKind, State, MARKER_OURS, MARKER_THEIRS,
+    stage_via_apply, stash::Stashes, Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
+    MARKER_OURS, MARKER_THEIRS,
 };
 use git2::Oid;
 mod dialogs;

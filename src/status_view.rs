@@ -14,7 +14,7 @@ pub mod tags;
 use crate::dialogs::{alert, ConfirmWithOptions, DangerDialog, YES};
 use crate::git::{
     abort_rebase, branch::BranchData, commit as git_commit, continue_rebase, merge, remote, stash,
-    HunkLineNo, track_changes
+    track_changes, HunkLineNo,
 };
 
 use core::time::Duration;
@@ -49,8 +49,8 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, Banner, ButtonContent, EntryRow, PasswordEntryRow, StatusPage, StyleManager,
-    SwitchRow,
+    ApplicationWindow, Banner, ButtonContent, EntryRow, PasswordEntryRow, PreferencesDialog,
+    PreferencesGroup, PreferencesPage, StatusPage, StyleManager, SwitchRow,
 };
 use log::{debug, trace};
 
@@ -1306,5 +1306,20 @@ impl Status {
         });
     }
 
-    pub fn show_remotes_dialog(&self, window: &ApplicationWindow, sender: Sender<Event>) {}
+    pub fn show_remotes_dialog(&self, window: &ApplicationWindow, sender: Sender<Event>) {
+        let dialog = PreferencesDialog::builder().build();
+        let page = PreferencesPage::builder().build();
+        let group = PreferencesGroup::builder().build();
+        let row = EntryRow::builder().title("test").build();
+        group.add(&row);
+        page.add(&group);
+        dialog.add(&page);
+        dialog.present(Some(window));
+
+        gio::spawn_blocking({
+            let sender = self.sender.clone();
+            let path = self.path.clone().unwrap();
+            move || remote::list(path, sender)
+        });
+    }
 }
