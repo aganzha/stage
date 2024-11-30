@@ -70,6 +70,11 @@ pub fn final_merge_commit(path: PathBuf, sender: Sender<crate::Event>) -> Result
     let mut their_branch: Option<git2::Branch> = None;
     let refs = repo.references()?;
     for r in refs.into_iter().flatten() {
+        if let Some(ref_name) = r.name() {
+            if ref_name.starts_with("refs/tags/") {
+                continue;
+            }
+        }
         if let Some(oid) = r.target() {
             if oid == their_oid {
                 their_branch.replace(git2::Branch::wrap(r));
