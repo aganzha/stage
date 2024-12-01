@@ -14,6 +14,15 @@ use libadwaita::{
 };
 use log::{debug, trace};
 
+impl remote::RemoteDetail {
+    pub fn render(&self) -> PreferencesGroup {
+        PreferencesGroup::builder()
+            .title("&remote.name")
+            //.header_suffix("&:ok")
+            .build()
+    }
+}
+
 impl Status {
     pub fn show_remotes_dialog(&self, window: &ApplicationWindow) {
         let window = window.clone();
@@ -49,17 +58,25 @@ impl Status {
                     .build();
                 for remote in &remotes {
                     let del_button = Button::builder().icon_name("user-trash-symbolic").build();
+                    let group = PreferencesGroup::builder()
+                        .title(&remote.name)
+                        .header_suffix(&del_button)
+                        .build();
                     del_button.connect_clicked({
                         let path = path.clone();
                         let sender = sender.clone();
                         let window = window.clone();
                         let name = remote.name.clone();
+                        let group = group.clone();
+                        let page = page.clone();
                         move |_| {
                             glib::spawn_future_local({
                                 let path = path.clone();
                                 let sender = sender.clone();
                                 let window = window.clone();
                                 let name = name.clone();
+                                let group = group.clone();
+                                let page = page.clone();
                                 async move {
                                     let deleted = gio::spawn_blocking(move || {
                                         remote::delete(path, name, sender)
@@ -74,14 +91,13 @@ impl Status {
                                         false
                                     });
                                     debug!("uuuuuuuuuuuuu DELETED {:?}", deleted);
+                                    if deleted {
+                                        page.remove(&group);
+                                    }                                    
                                 }
                             });
                         }
                     });
-                    let group = PreferencesGroup::builder()
-                        .title(&remote.name)
-                        .header_suffix(&del_button)
-                        .build();
                     let row = EntryRow::builder()
                         .title("Name")
                         .text(&remote.name)
