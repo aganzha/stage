@@ -666,7 +666,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::RemotesDialog => {
                     info!("main. remotes dialog");
-                    status.show_remotes_dialog(&window, sender.clone());
+                    status.show_remotes_dialog(&window);
                 }
                 Event::LockMonitors(lock) => {
                     info!("main. lock monitors {}", lock);
