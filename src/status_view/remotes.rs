@@ -131,6 +131,7 @@ fn remote_adding(
         let sender = sender.clone();
         let window = window.clone();
         let page = page.clone();
+        let adding = adding.clone();
         move |_| {
             let name = adding_name.text();
             let url = adding_url.text();
@@ -146,6 +147,7 @@ fn remote_adding(
                     let sender = sender.clone();
                     let window = window.clone();
                     let page = page.clone();
+                    let adding = adding.clone();
                     async move {
                         let remote = gio::spawn_blocking({
                             let path = path.clone();
@@ -161,9 +163,10 @@ fn remote_adding(
                             alert(e).present(Some(&window));
                             None
                         });
-                        debug!("eeeeeeeeeeeeeeeeeeeeeeeeeee {:?}", remote);
                         if let Some(remote) = remote {
+                            page.remove(&adding);
                             page.add(&remote.render(&page, &path, &window, &sender));
+                            page.add(&remote_adding(&page, &path, &window, &sender));
                         }
                     }
                 });
