@@ -100,8 +100,77 @@ impl remote::RemoteDetail {
     }
 }
 
-fn add_remote() -> {
-    
+fn remote_adding(
+    page: &PreferencesPage,
+    path: &PathBuf,
+    window: &ApplicationWindow,
+    sender: &Sender<Event>,
+) -> PreferencesGroup {
+    let add_button = Button::builder().icon_name("list-add-symbolic").build();
+    let adding = PreferencesGroup::builder()
+        .title("New remote")
+        .header_suffix(&add_button)
+        .build();
+    let adding_name = EntryRow::builder()
+        .title("Name")
+        .show_apply_button(false)
+        .build();
+    adding.add(&adding_name);
+    let adding_url = EntryRow::builder()
+        .title("Url")
+        .show_apply_button(false)
+        .build();
+    adding.add(&adding_url);
+    let adding_refspec = EntryRow::builder()
+        .title("Refspec (optional)")
+        .show_apply_button(false)
+        .build();
+    adding.add(&adding_refspec);
+    add_button.connect_clicked({
+        let path = path.clone();
+        let sender = sender.clone();
+        let window = window.clone();
+        let page = page.clone();
+        move |_| {
+            let name = adding_name.text();
+            let url = adding_url.text();
+            debug!(
+                "add clicked! {:?} {:?} {:?}",
+                adding_name.text(),
+                adding_url.text(),
+                adding_refspec.text()
+            );
+            if name.len() > 0 && url.len() > 0 {
+                glib::spawn_future_local({
+                    let path = path.clone();
+                    let sender = sender.clone();
+                    let window = window.clone();
+                    let page = page.clone();
+                    async move {
+                        let remote = gio::spawn_blocking({
+                            let path = path.clone();
+                            let sender = sender.clone();
+                            move || remote::add(path, name.to_string(), url.to_string(), sender)
+                        })
+                        .await
+                        .unwrap_or_else(|e| {
+                            alert(format!("{:?}", e)).present(Some(&window));
+                            Ok(None)
+                        })
+                        .unwrap_or_else(|e| {
+                            alert(e).present(Some(&window));
+                            None
+                        });
+                        debug!("eeeeeeeeeeeeeeeeeeeeeeeeeee {:?}", remote);
+                        if let Some(remote) = remote {
+                            page.add(&remote.render(&page, &path, &window, &sender));
+                        }
+                    }
+                });
+            }
+        }
+    });
+    adding
 }
 
 impl Status {
@@ -142,63 +211,8 @@ impl Status {
                     page.add(&group);
                 }
 
-                let add_button = Button::builder().icon_name("list-add-symbolic").build();
-                let adding = PreferencesGroup::builder()
-                    .title("New remote")
-                    .header_suffix(&add_button)
-                    .build();
-                let adding_name = EntryRow::builder()
-                    .title("Name")
-                    .show_apply_button(false)
-                    .build();
-                adding.add(&adding_name);
-                let adding_url = EntryRow::builder()
-                    .title("Url")
-                    .show_apply_button(false)
-                    .build();
-                adding.add(&adding_url);
-                let adding_refspec = EntryRow::builder()
-                    .title("Refspec (optional)")
-                    .show_apply_button(false)
-                    .build();
-                adding.add(&adding_refspec);
-                add_button.connect_clicked({
-                    let path = path.clone();
-                    let sender = sender.clone();
-                    let window = window.clone();
-                    move |_| {
-                        let name = adding_name.text();
-                        let url = adding_url.text();
-                        debug!(
-                            "add clicked! {:?} {:?} {:?}",
-                            adding_name.text(),
-                            adding_url.text(),
-                            adding_refspec.text()
-                        );
-                        if name.len() > 0 && url.len() > 0 {
-                            glib::spawn_future_local({
-                                let path = path.clone();
-                                let sender = sender.clone();
-                                let window = window.clone();
-                                async move {
-                                    let added = gio::spawn_blocking(move || {
-                                        remote::add(path, name.to_string(), url.to_string(), sender)
-                                    })
-                                    .await
-                                    .unwrap_or_else(|e| {
-                                        alert(format!("{:?}", e)).present(Some(&window));
-                                        Ok(None)
-                                    })
-                                    .unwrap_or_else(|e| {
-                                        alert(e).present(Some(&window));
-                                        None
-                                    });
-                                    debug!("eeeeeeeeeeeeeeeeeeeeeeeeeee {:?}", added);
-                                }
-                            });
-                        }
-                    }
-                });
+                let adding = remote_adding(&page, &path, &window, &sender);
+
                 page.add(&adding);
                 dialog.add(&page);
                 dialog.present(Some(&window));
