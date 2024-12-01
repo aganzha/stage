@@ -415,6 +415,28 @@ pub fn delete(
     sender: Sender<crate::Event>,
 ) -> Result<bool, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
-    let remote = repo.remote_delete(&name)?;
+    repo.remote_delete(&name)?;
     Ok(true)
+}
+
+pub fn edit(
+    path: PathBuf,
+    name: String,
+    remote: RemoteDetail,
+) -> Result<Option<RemoteDetail>, git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
+    let git_remote = repo.find_remote(&name)?;
+    if let Some(name) = git_remote.name() {
+        if name != remote.name {
+            repo.remote_rename(name, &remote.name)?;
+            return Ok(Some(repo.find_remote(&remote.name)?.into()));
+        }
+        if let Some(url) = git_remote.url() {
+            if url != remote.url {
+                repo.remote_set_url(name, &remote.url)?;
+                return Ok(Some(repo.find_remote(&remote.name)?.into()));
+            }
+        }
+    }
+    Ok(None)
 }

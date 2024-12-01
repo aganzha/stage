@@ -12,8 +12,9 @@ use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, EntryRow, PreferencesDialog, PreferencesGroup, PreferencesPage,
 };
-use log::{debug, trace};
+use std::cell::RefCell;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 impl remote::RemoteDetail {
     fn render(
@@ -23,6 +24,8 @@ impl remote::RemoteDetail {
         window: &ApplicationWindow,
         sender: &Sender<Event>,
     ) -> PreferencesGroup {
+        let remote_name = Rc::new(RefCell::new(self.name.clone()));
+
         let del_button = Button::builder().icon_name("user-trash-symbolic").build();
         let group = PreferencesGroup::builder()
             .title(&self.name)
@@ -32,20 +35,21 @@ impl remote::RemoteDetail {
             let path = path.clone();
             let sender = sender.clone();
             let window = window.clone();
-            let name = self.name.clone();
             let group = group.clone();
             let page = page.clone();
+            let remote_name = remote_name.clone();
             move |_| {
                 glib::spawn_future_local({
                     let path = path.clone();
                     let sender = sender.clone();
                     let window = window.clone();
-                    let name = name.clone();
                     let group = group.clone();
                     let page = page.clone();
+                    let remote_name = remote_name.clone();
                     async move {
+                        let remote_name = (*(remote_name.borrow())).clone();
                         let deleted =
-                            gio::spawn_blocking(move || remote::delete(path, name, sender))
+                            gio::spawn_blocking(move || remote::delete(path, remote_name, sender))
                                 .await
                                 .unwrap_or_else(|e| {
                                     alert(format!("{:?}", e)).present(Some(&window));
@@ -67,18 +71,88 @@ impl remote::RemoteDetail {
             .text(&self.name)
             .show_apply_button(true)
             .build();
+        row.connect_apply({
+            let remote = self.clone();
+            let path = path.clone();
+            let window = window.clone();
+            let remote_name = remote_name.clone();
+            let group = group.clone();
+            move |row| {
+                let mut remote = remote.clone();
+                remote.name = row.text().to_string();
+                glib::spawn_future_local({
+                    let path = path.clone();
+                    let window = window.clone();
+                    let remote_name = remote_name.clone();
+                    let group = group.clone();
+                    async move {
+                        let remote_to_edit = (*(remote_name.borrow())).clone();
+                        let new_remote = gio::spawn_blocking({
+                            let path = path.clone();
+                            move || remote::edit(path, remote_to_edit, remote)
+                        })
+                        .await
+                        .unwrap_or_else(|e| {
+                            alert(format!("{:?}", e)).present(Some(&window));
+                            Ok(None)
+                        })
+                        .unwrap_or_else(|e| {
+                            alert(e).present(Some(&window));
+                            None
+                        });
+                        if let Some(remote) = new_remote {
+                            group.set_title(&remote.name);
+                            remote_name.replace(remote.name);
+                        }
+                    }
+                });
+            }
+        });
+
         group.add(&row);
         let row = EntryRow::builder()
             .title("Url")
             .text(&self.url)
             .show_apply_button(true)
             .build();
+        row.connect_apply({
+            let remote = self.clone();
+            let path = path.clone();
+            let window = window.clone();
+            let remote_name = remote_name.clone();
+            move |row| {
+                let mut edited = remote.clone();
+                edited.url = row.text().to_string();
+                glib::spawn_future_local({
+                    let path = path.clone();
+                    let window = window.clone();
+                    let remote_name = remote_name.clone();
+                    async move {
+                        gio::spawn_blocking({
+                            let path = path.clone();
+                            let remote_to_edit = (*(remote_name.borrow())).clone();
+                            move || remote::edit(path, remote_to_edit, edited)
+                        })
+                        .await
+                        .unwrap_or_else(|e| {
+                            alert(format!("{:?}", e)).present(Some(&window));
+                            Ok(None)
+                        })
+                        .unwrap_or_else(|e| {
+                            alert(e).present(Some(&window));
+                            None
+                        });
+                    }
+                });
+            }
+        });
         group.add(&row);
         for refspec in &self.refspecs {
             let row = EntryRow::builder()
                 .title("Refspec")
                 .text(refspec)
-                .show_apply_button(true)
+                .editable(false)
+                .show_apply_button(false)
                 .build();
             group.add(&row);
         }
@@ -121,11 +195,6 @@ fn remote_adding(
         .show_apply_button(false)
         .build();
     adding.add(&adding_url);
-    let adding_refspec = EntryRow::builder()
-        .title("Refspec (optional)")
-        .show_apply_button(false)
-        .build();
-    adding.add(&adding_refspec);
     add_button.connect_clicked({
         let path = path.clone();
         let sender = sender.clone();
@@ -135,12 +204,6 @@ fn remote_adding(
         move |_| {
             let name = adding_name.text();
             let url = adding_url.text();
-            debug!(
-                "add clicked! {:?} {:?} {:?}",
-                adding_name.text(),
-                adding_url.text(),
-                adding_refspec.text()
-            );
             if name.len() > 0 && url.len() > 0 {
                 glib::spawn_future_local({
                     let path = path.clone();
