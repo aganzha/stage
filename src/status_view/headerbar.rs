@@ -4,10 +4,9 @@
 
 use crate::status_view::context::StatusRenderContext;
 use async_channel::Sender;
-use core::time::Duration;
 use gtk4::{
-    gio, glib, Align, Box, Button, CenterBox, FileDialog, GestureClick, Label, MenuButton,
-    Orientation, Overflow, PopoverMenu, Spinner, ToggleButton, Widget,
+    gio, Align, Box, Button, FileDialog, GestureClick, Label, MenuButton,
+    Orientation, PopoverMenu, Spinner, ToggleButton, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -28,7 +27,6 @@ pub enum HbUpdateData<'a> {
     Context(StatusRenderContext<'a>),
 }
 use crate::git::DiffKind;
-use log::{debug, trace};
 
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub struct Scheme(String);
