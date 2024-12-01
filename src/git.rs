@@ -584,6 +584,13 @@ pub fn get_upstream(path: PathBuf) -> Result<Head, Error> {
     let branch = Branch::wrap(head_ref);
     if let Ok(upstream) = branch.upstream() {
         let upstream_ref = upstream.get();
+        // whwre is my upstream??? aganzha
+        debug!("OOOOOOOOOOOU {:?}", upstream_ref.name());
+        if let Ok(remote_name) = repo.branch_upstream_remote(upstream_ref.name().unwrap()) {
+            debug!(">>>>>>>>>>>>>> {:?}", remote_name.as_str());
+        } else {
+            debug!("nnnnnnnnnnnnnnnnnnnnnnnnnnn");
+        }
         let ob = upstream_ref.peel(ObjectType::Commit)?;
         let commit = ob.peel_to_commit()?;
         let mut new_upstream = Head::new(&commit, true);
