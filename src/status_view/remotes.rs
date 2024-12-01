@@ -13,14 +13,95 @@ use libadwaita::{
     ApplicationWindow, EntryRow, PreferencesDialog, PreferencesGroup, PreferencesPage,
 };
 use log::{debug, trace};
+use std::path::PathBuf;
 
 impl remote::RemoteDetail {
-    pub fn render(&self) -> PreferencesGroup {
-        PreferencesGroup::builder()
-            .title("&remote.name")
-            //.header_suffix("&:ok")
-            .build()
+    fn render(
+        &self,
+        page: &PreferencesPage,
+        path: &PathBuf,
+        window: &ApplicationWindow,
+        sender: &Sender<Event>,
+    ) -> PreferencesGroup {
+        let del_button = Button::builder().icon_name("user-trash-symbolic").build();
+        let group = PreferencesGroup::builder()
+            .title(&self.name)
+            .header_suffix(&del_button)
+            .build();
+        del_button.connect_clicked({
+            let path = path.clone();
+            let sender = sender.clone();
+            let window = window.clone();
+            let name = self.name.clone();
+            let group = group.clone();
+            let page = page.clone();
+            move |_| {
+                glib::spawn_future_local({
+                    let path = path.clone();
+                    let sender = sender.clone();
+                    let window = window.clone();
+                    let name = name.clone();
+                    let group = group.clone();
+                    let page = page.clone();
+                    async move {
+                        let deleted =
+                            gio::spawn_blocking(move || remote::delete(path, name, sender))
+                                .await
+                                .unwrap_or_else(|e| {
+                                    alert(format!("{:?}", e)).present(Some(&window));
+                                    Ok(false)
+                                })
+                                .unwrap_or_else(|e| {
+                                    alert(e).present(Some(&window));
+                                    false
+                                });
+                        if deleted {
+                            page.remove(&group);
+                        }
+                    }
+                });
+            }
+        });
+        let row = EntryRow::builder()
+            .title("Name")
+            .text(&self.name)
+            .show_apply_button(true)
+            .build();
+        group.add(&row);
+        let row = EntryRow::builder()
+            .title("Url")
+            .text(&self.url)
+            .show_apply_button(true)
+            .build();
+        group.add(&row);
+        for refspec in &self.refspecs {
+            let row = EntryRow::builder()
+                .title("Refspec")
+                .text(refspec)
+                .show_apply_button(true)
+                .build();
+            group.add(&row);
+        }
+        // let row = EntryRow::builder()
+        //     .title("Push url")
+        //     .text(&remote.push_url)
+        //     .show_apply_button(true)
+        //     .build();
+        // group.add(&row);
+        // for refspec in &remote.push_refspecs {
+        //     let row = EntryRow::builder()
+        //         .title("Push refspec")
+        //         .text(refspec)
+        //         .show_apply_button(true)
+        //         .build();
+        //     group.add(&row);
+        // }
+        group
     }
+}
+
+fn add_remote() -> {
+    
 }
 
 impl Status {
@@ -57,83 +138,10 @@ impl Status {
                     .icon_name("network-server-symbolic")
                     .build();
                 for remote in &remotes {
-                    let del_button = Button::builder().icon_name("user-trash-symbolic").build();
-                    let group = PreferencesGroup::builder()
-                        .title(&remote.name)
-                        .header_suffix(&del_button)
-                        .build();
-                    del_button.connect_clicked({
-                        let path = path.clone();
-                        let sender = sender.clone();
-                        let window = window.clone();
-                        let name = remote.name.clone();
-                        let group = group.clone();
-                        let page = page.clone();
-                        move |_| {
-                            glib::spawn_future_local({
-                                let path = path.clone();
-                                let sender = sender.clone();
-                                let window = window.clone();
-                                let name = name.clone();
-                                let group = group.clone();
-                                let page = page.clone();
-                                async move {
-                                    let deleted = gio::spawn_blocking(move || {
-                                        remote::delete(path, name, sender)
-                                    })
-                                    .await
-                                    .unwrap_or_else(|e| {
-                                        alert(format!("{:?}", e)).present(Some(&window));
-                                        Ok(false)
-                                    })
-                                    .unwrap_or_else(|e| {
-                                        alert(e).present(Some(&window));
-                                        false
-                                    });
-                                    debug!("uuuuuuuuuuuuu DELETED {:?}", deleted);
-                                    if deleted {
-                                        page.remove(&group);
-                                    }                                    
-                                }
-                            });
-                        }
-                    });
-                    let row = EntryRow::builder()
-                        .title("Name")
-                        .text(&remote.name)
-                        .show_apply_button(true)
-                        .build();
-                    group.add(&row);
-                    let row = EntryRow::builder()
-                        .title("Url")
-                        .text(&remote.url)
-                        .show_apply_button(true)
-                        .build();
-                    group.add(&row);
-                    for refspec in &remote.refspecs {
-                        let row = EntryRow::builder()
-                            .title("Refspec")
-                            .text(refspec)
-                            .show_apply_button(true)
-                            .build();
-                        group.add(&row);
-                    }
-                    // let row = EntryRow::builder()
-                    //     .title("Push url")
-                    //     .text(&remote.push_url)
-                    //     .show_apply_button(true)
-                    //     .build();
-                    // group.add(&row);
-                    // for refspec in &remote.push_refspecs {
-                    //     let row = EntryRow::builder()
-                    //         .title("Push refspec")
-                    //         .text(refspec)
-                    //         .show_apply_button(true)
-                    //         .build();
-                    //     group.add(&row);
-                    // }
+                    let group = remote.render(&page, &path, &window, &sender);
                     page.add(&group);
                 }
+
                 let add_button = Button::builder().icon_name("list-add-symbolic").build();
                 let adding = PreferencesGroup::builder()
                     .title("New remote")
