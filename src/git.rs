@@ -556,9 +556,10 @@ pub fn get_head(path: PathBuf) -> Result<Head, Error> {
     let commit = ob.peel_to_commit()?;
     let mut head = Head::new(&commit, false);
     if head_ref.is_branch() {
-        if let Some(branch_data) =
+        if let Some(mut branch_data) =
             BranchData::from_branch(Branch::wrap(head_ref), git2::BranchType::Local)?
         {
+            branch_data.set_remote_name(&repo);
             head.set_branch(branch_data);
         }
     }
@@ -574,42 +575,19 @@ pub fn get_upstream(path: PathBuf) -> Result<Head, Error> {
             "Head ref is not branch in get_upstream",
         ));
     }
-    // if !head_ref.is_branch() {
-    //     sender
-    //         .send_blocking(crate::Event::Upstream(None))
-    //         .expect("Could not send through channel");
-    //     return Ok(());
-    // }
-    // assert!(head_ref.is_branch());
     let branch = Branch::wrap(head_ref);
     if let Ok(upstream) = branch.upstream() {
         let upstream_ref = upstream.get();
-        // whwre is my upstream??? aganzha
-        debug!("OOOOOOOOOOOU {:?}", upstream_ref.name());
-        if let Ok(remote_name) = repo.branch_upstream_remote(upstream_ref.name().unwrap()) {
-            debug!(">>>>>>>>>>>>>> {:?}", remote_name.as_str());
-        } else {
-            debug!("nnnnnnnnnnnnnnnnnnnnnnnnnnn");
-        }
         let ob = upstream_ref.peel(ObjectType::Commit)?;
         let commit = ob.peel_to_commit()?;
         let mut new_upstream = Head::new(&commit, true);
-        if let Some(branch_data) = BranchData::from_branch(upstream, git2::BranchType::Remote)? {
+        if let Some(mut branch_data) = BranchData::from_branch(upstream, git2::BranchType::Remote)?
+        {
+            branch_data.set_remote_name(&repo);
             new_upstream.set_branch(branch_data);
         }
         return Ok(new_upstream);
-        // sender
-        //     .send_blocking(crate::Event::Upstream(Some(new_upstream)))
-        //     .expect("Could not send through channel");
-    } //  else {
-      //     sender
-      //         .send_blocking(crate::Event::Upstream(None))
-      //         .expect("Could not send through channel");
-      //     // todo!("some branches could contain only pushRemote, but no
-      //     //       origin. There will be no upstream then. It need to lookup
-      //     //       pushRemote in config and check refs/remotes/<origin>/")
-      // };
-      // Ok(())
+    }
     Err(git2::Error::from_str("No upstream yet"))
 }
 

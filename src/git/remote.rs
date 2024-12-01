@@ -342,9 +342,10 @@ pub fn pull(
     let branch = git2::Branch::wrap(head_ref);
     let upstream = branch.upstream()?;
 
-    let branch_data = BranchData::from_branch(upstream, git2::BranchType::Remote)
+    let mut branch_data = BranchData::from_branch(upstream, git2::BranchType::Remote)
         .unwrap()
         .unwrap();
+    branch_data.set_remote_name(&repo);
     merge::branch(path.clone(), branch_data, sender.clone(), Some(defer))?;
     Ok(())
 }

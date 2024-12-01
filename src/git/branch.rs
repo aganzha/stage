@@ -8,7 +8,7 @@ use async_channel::Sender;
 use chrono::{DateTime, FixedOffset};
 use git2;
 use gtk4::gio;
-use log::info;
+use log::{debug, info};
 use std::cmp::Ordering;
 use std::fmt;
 use std::path::PathBuf;
@@ -58,6 +58,7 @@ pub struct BranchData {
     pub log_message: String,
     pub is_head: bool,
     pub commit_dt: DateTime<FixedOffset>,
+    pub remote_name: Option<String>,
 }
 
 impl Default for BranchData {
@@ -70,6 +71,7 @@ impl Default for BranchData {
             log_message: String::from(""),
             is_head: false,
             commit_dt: DateTime::<FixedOffset>::MIN_UTC.into(),
+            remote_name: None,
         }
     }
 }
@@ -87,6 +89,7 @@ impl BranchData {
         let commit = ob.peel_to_commit()?;
         let log_message = commit.log_message();
         let commit_dt = commit.dt();
+        debug!("branch refname.......................> {:?}", refname);
         if let Some(oid) = branch.get().target() {
             Ok(Some(BranchData {
                 name,
@@ -96,9 +99,26 @@ impl BranchData {
                 log_message,
                 is_head,
                 commit_dt,
+                remote_name: None,
             }))
         } else {
             Ok(None)
+        }
+    }
+
+    pub fn set_remote_name(&mut self, repo: &git2::Repository) {
+        match self.branch_type {
+            git2::BranchType::Local => {
+                if let Ok(buf) = repo.branch_upstream_remote(&self.refname) {
+                    self.remote_name = buf.as_str().map(|b| b.to_string());
+                }
+            }
+            git2::BranchType::Remote => {
+                let mut parts = self.refname.split("/");
+                assert!(parts.next().unwrap() == "refs");
+                assert!(parts.next().unwrap() == "remotes");
+                self.remote_name = parts.next().map(|p| p.to_string())
+            }
         }
     }
 }
@@ -109,7 +129,8 @@ pub fn get_branches(path: PathBuf) -> Result<Vec<BranchData>, git2::Error> {
     let branches = repo.branches(None)?;
     branches.for_each(|item| {
         let (branch, branch_type) = item.unwrap();
-        if let Ok(Some(branch_data)) = BranchData::from_branch(branch, branch_type) {
+        if let Ok(Some(mut branch_data)) = BranchData::from_branch(branch, branch_type) {
+            branch_data.set_remote_name(&repo);
             result.push(branch_data);
         }
     });
@@ -169,6 +190,7 @@ pub fn checkout_branch(
             if let Some(new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)?
             {
                 branch_data = new_branch_data;
+                branch_data.set_remote_name(&repo);
             }
         }
     }
@@ -188,7 +210,8 @@ pub fn create_branch(
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(branch_data.oid)?;
     let branch = repo.branch(&new_branch_name, &commit, false)?;
-    if let Some(new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)? {
+    if let Some(mut new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)? {
+        new_branch_data.set_remote_name(&repo);
         if need_checkout {
             return checkout_branch(path, new_branch_data, sender);
         } else {
