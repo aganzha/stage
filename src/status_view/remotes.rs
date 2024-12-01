@@ -7,38 +7,35 @@ use crate::dialogs::alert;
 use crate::git::remote;
 use crate::Event;
 use async_channel::Sender;
-use gtk4::prelude::*;
-use gtk4::{
-    gio, glib, Button,
-};
+use gtk4::{gio, glib, Button};
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, EntryRow, PreferencesDialog,
-    PreferencesGroup, PreferencesPage,
+    ApplicationWindow, EntryRow, PreferencesDialog, PreferencesGroup, PreferencesPage,
 };
+use log::{debug, trace};
 
 impl Status {
-    pub fn show_remotes_dialog(&self, window: &ApplicationWindow, sender: Sender<Event>) {
+    pub fn show_remotes_dialog(&self, window: &ApplicationWindow) {
         let window = window.clone();
         let sender = self.sender.clone();
         let path = self.path.clone().unwrap();
 
         glib::spawn_future_local({
             async move {
-                // let window = window.clone();
-                // let sender = self.sender.clone();
-                // let path = self.path.clone().unwrap();
-
-                let remotes = gio::spawn_blocking(move || remote::list(path, sender))
-                    .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(Some(&window));
-                        Ok(Vec::new())
-                    })
-                    .unwrap_or_else(|e| {
-                        alert(e).present(Some(&window));
-                        Vec::new()
-                    });
+                let remotes = gio::spawn_blocking({
+                    let sender = sender.clone();
+                    let path = path.clone();
+                    move || remote::list(path, sender)
+                })
+                .await
+                .unwrap_or_else(|e| {
+                    alert(format!("{:?}", e)).present(Some(&window));
+                    Ok(Vec::new())
+                })
+                .unwrap_or_else(|e| {
+                    alert(e).present(Some(&window));
+                    Vec::new()
+                });
 
                 let dialog = PreferencesDialog::builder()
                     // when here will be more then one page
@@ -52,6 +49,35 @@ impl Status {
                     .build();
                 for remote in &remotes {
                     let del_button = Button::builder().icon_name("user-trash-symbolic").build();
+                    del_button.connect_clicked({
+                        let path = path.clone();
+                        let sender = sender.clone();
+                        let window = window.clone();
+                        let name = remote.name.clone();
+                        move |_| {
+                            glib::spawn_future_local({
+                                let path = path.clone();
+                                let sender = sender.clone();
+                                let window = window.clone();
+                                let name = name.clone();
+                                async move {
+                                    let deleted = gio::spawn_blocking(move || {
+                                        remote::delete(path, name, sender)
+                                    })
+                                    .await
+                                    .unwrap_or_else(|e| {
+                                        alert(format!("{:?}", e)).present(Some(&window));
+                                        Ok(false)
+                                    })
+                                    .unwrap_or_else(|e| {
+                                        alert(e).present(Some(&window));
+                                        false
+                                    });
+                                    debug!("uuuuuuuuuuuuu DELETED {:?}", deleted);
+                                }
+                            });
+                        }
+                    });
                     let group = PreferencesGroup::builder()
                         .title(&remote.name)
                         .header_suffix(&del_button)
@@ -97,21 +123,58 @@ impl Status {
                     .title("New remote")
                     .header_suffix(&add_button)
                     .build();
-                let row = EntryRow::builder()
+                let adding_name = EntryRow::builder()
                     .title("Name")
-                    .show_apply_button(true)
+                    .show_apply_button(false)
                     .build();
-                adding.add(&row);
-                let row = EntryRow::builder()
+                adding.add(&adding_name);
+                let adding_url = EntryRow::builder()
                     .title("Url")
-                    .show_apply_button(true)
+                    .show_apply_button(false)
                     .build();
-                adding.add(&row);
-                let row = EntryRow::builder()
-                    .title("Refspec")
-                    .show_apply_button(true)
+                adding.add(&adding_url);
+                let adding_refspec = EntryRow::builder()
+                    .title("Refspec (optional)")
+                    .show_apply_button(false)
                     .build();
-                adding.add(&row);
+                adding.add(&adding_refspec);
+                add_button.connect_clicked({
+                    let path = path.clone();
+                    let sender = sender.clone();
+                    let window = window.clone();
+                    move |_| {
+                        let name = adding_name.text();
+                        let url = adding_url.text();
+                        debug!(
+                            "add clicked! {:?} {:?} {:?}",
+                            adding_name.text(),
+                            adding_url.text(),
+                            adding_refspec.text()
+                        );
+                        if name.len() > 0 && url.len() > 0 {
+                            glib::spawn_future_local({
+                                let path = path.clone();
+                                let sender = sender.clone();
+                                let window = window.clone();
+                                async move {
+                                    let added = gio::spawn_blocking(move || {
+                                        remote::add(path, name.to_string(), url.to_string(), sender)
+                                    })
+                                    .await
+                                    .unwrap_or_else(|e| {
+                                        alert(format!("{:?}", e)).present(Some(&window));
+                                        Ok(None)
+                                    })
+                                    .unwrap_or_else(|e| {
+                                        alert(e).present(Some(&window));
+                                        None
+                                    });
+                                    debug!("eeeeeeeeeeeeeeeeeeeeeeeeeee {:?}", added);
+                                }
+                            });
+                        }
+                    }
+                });
                 page.add(&adding);
                 dialog.add(&page);
                 dialog.present(Some(&window));

@@ -397,3 +397,24 @@ pub fn list(path: PathBuf, sender: Sender<crate::Event>) -> Result<Vec<RemoteDet
     }
     Ok(remotes)
 }
+
+pub fn add(
+    path: PathBuf,
+    name: String,
+    url: String,
+    sender: Sender<crate::Event>,
+) -> Result<Option<RemoteDetail>, git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
+    let remote = repo.remote(&name, &url)?;
+    Ok(Some(remote.into()))
+}
+
+pub fn delete(
+    path: PathBuf,
+    name: String,
+    sender: Sender<crate::Event>,
+) -> Result<bool, git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
+    let remote = repo.remote_delete(&name)?;
+    Ok(true)
+}

@@ -50,7 +50,8 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    ApplicationWindow, Banner, ButtonContent, EntryRow, PasswordEntryRow, StatusPage, StyleManager, SwitchRow,
+    ApplicationWindow, Banner, ButtonContent, EntryRow, PasswordEntryRow, StatusPage, StyleManager,
+    SwitchRow,
 };
 use log::{debug, trace};
 
