@@ -30,7 +30,7 @@ use regex::Regex;
 use std::fmt;
 use std::num::ParseIntError;
 use std::ops::{Add, Sub};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::{from_utf8, FromStr};
 use std::{collections::HashSet, str};
 
