@@ -407,12 +407,12 @@ impl Status {
     fn choose_remote_branch_name(&self) -> String {
         if let Some(upstream) = &self.upstream {
             if let Some(name) = &upstream.branch_name {
-                return name.to_string()
+                return name.to_local();
             }
         }
         if let Some(head) = &self.head {
             if let Some(name) = &head.branch_name {
-                return name.to_string()
+                return name.to_string();
             }
         }
         "".to_string()

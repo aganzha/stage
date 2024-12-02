@@ -20,6 +20,9 @@ impl BranchName {
     pub fn to_str(&self) -> &str {
         &self.0
     }
+    pub fn to_local(&self) -> String {
+        return self.0.split("/").last().unwrap().to_string();
+    }
 }
 
 impl fmt::Display for BranchName {
@@ -30,7 +33,8 @@ impl fmt::Display for BranchName {
 
 impl From<&git2::Branch<'_>> for BranchName {
     fn from(branch: &git2::Branch) -> BranchName {
-        BranchName(branch.name().unwrap().unwrap().to_string())
+        let bname = branch.name().unwrap().unwrap().to_string();
+        BranchName(bname)
     }
 }
 
@@ -105,14 +109,6 @@ impl BranchData {
             }
         }
     }
-
-    pub fn remote_name(&self) -> String {
-        if let Some(remote_name) = &self.remote_name {
-            return format!("{}/{}", remote_name, self.name);
-        }
-        format!("origin/{}", self.name)
-    }
-
 }
 
 pub fn get_branches(path: PathBuf) -> Result<Vec<BranchData>, git2::Error> {
@@ -171,14 +167,14 @@ pub fn checkout_branch(
     match branch_data.branch_type {
         git2::BranchType::Local => {}
         git2::BranchType::Remote => {
-            let created = repo.branch(&branch_data.name.to_string(), &commit, false);
+            let created = repo.branch(&branch_data.name.to_local(), &commit, false);
             let mut branch = match created {
                 Ok(branch) => branch,
                 Err(_) => {
-                    repo.find_branch(&branch_data.name.to_string(), git2::BranchType::Local)?
+                    repo.find_branch(&branch_data.name.to_local(), git2::BranchType::Local)?
                 }
             };
-            branch.set_upstream(Some(&branch_data.remote_name()))?;
+            branch.set_upstream(Some(&branch_data.name.to_string()))?;
             if let Some(new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)?
             {
                 branch_data = new_branch_data;
