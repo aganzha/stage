@@ -394,7 +394,7 @@ impl TagList {
                         break;
                     }
                     pos -= 1;
-                    if pos <= 0 {
+                    if pos == 0 {
                         break;
                     }
                 }

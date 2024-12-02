@@ -5,8 +5,6 @@
 use super::Status;
 use crate::dialogs::alert;
 use crate::git::remote;
-use crate::Event;
-use async_channel::Sender;
 use gtk4::{gio, glib, Button, ListBox, SelectionMode, StringList};
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -14,16 +12,15 @@ use libadwaita::{
     PreferencesPage, SwitchRow,
 };
 use std::cell::{Cell, RefCell};
-use std::path::PathBuf;
+use std::path::Path;
 use std::rc::Rc;
 
 impl remote::RemoteDetail {
     fn render(
         &self,
         page: &PreferencesPage,
-        path: &PathBuf,
+        path: &Path,
         window: &ApplicationWindow,
-        sender: &Sender<Event>,
     ) -> PreferencesGroup {
         let remote_name = Rc::new(RefCell::new(self.name.clone()));
 
@@ -33,8 +30,7 @@ impl remote::RemoteDetail {
             .header_suffix(&del_button)
             .build();
         del_button.connect_clicked({
-            let path = path.clone();
-            let sender = sender.clone();
+            let path = path.to_path_buf();
             let window = window.clone();
             let group = group.clone();
             let page = page.clone();
@@ -42,24 +38,24 @@ impl remote::RemoteDetail {
             move |_| {
                 glib::spawn_future_local({
                     let path = path.clone();
-                    let sender = sender.clone();
                     let window = window.clone();
                     let group = group.clone();
                     let page = page.clone();
                     let remote_name = remote_name.clone();
                     async move {
                         let remote_name = (*(remote_name.borrow())).clone();
-                        let deleted =
-                            gio::spawn_blocking(move || remote::delete(path, remote_name, sender))
-                                .await
-                                .unwrap_or_else(|e| {
-                                    alert(format!("{:?}", e)).present(Some(&window));
-                                    Ok(false)
-                                })
-                                .unwrap_or_else(|e| {
-                                    alert(e).present(Some(&window));
-                                    false
-                                });
+                        let deleted = gio::spawn_blocking(move || {
+                            remote::delete(path.to_path_buf(), remote_name)
+                        })
+                        .await
+                        .unwrap_or_else(|e| {
+                            alert(format!("{:?}", e)).present(Some(&window));
+                            Ok(false)
+                        })
+                        .unwrap_or_else(|e| {
+                            alert(e).present(Some(&window));
+                            false
+                        });
                         if deleted {
                             page.remove(&group);
                         }
@@ -74,7 +70,7 @@ impl remote::RemoteDetail {
             .build();
         row.connect_apply({
             let remote = self.clone();
-            let path = path.clone();
+            let path = path.to_path_buf();
             let window = window.clone();
             let remote_name = remote_name.clone();
             let group = group.clone();
@@ -90,7 +86,7 @@ impl remote::RemoteDetail {
                         let remote_to_edit = (*(remote_name.borrow())).clone();
                         let new_remote = gio::spawn_blocking({
                             let path = path.clone();
-                            move || remote::edit(path, remote_to_edit, remote)
+                            move || remote::edit(path.to_path_buf(), remote_to_edit, remote)
                         })
                         .await
                         .unwrap_or_else(|e| {
@@ -118,7 +114,7 @@ impl remote::RemoteDetail {
             .build();
         row.connect_apply({
             let remote = self.clone();
-            let path = path.clone();
+            let path = path.to_path_buf();
             let window = window.clone();
             let remote_name = remote_name.clone();
             move |row| {
@@ -132,7 +128,7 @@ impl remote::RemoteDetail {
                         gio::spawn_blocking({
                             let path = path.clone();
                             let remote_to_edit = (*(remote_name.borrow())).clone();
-                            move || remote::edit(path, remote_to_edit, edited)
+                            move || remote::edit(path.to_path_buf(), remote_to_edit, edited)
                         })
                         .await
                         .unwrap_or_else(|e| {
@@ -177,9 +173,8 @@ impl remote::RemoteDetail {
 
 fn remote_adding(
     page: &PreferencesPage,
-    path: &PathBuf,
+    path: &Path,
     window: &ApplicationWindow,
-    sender: &Sender<Event>,
 ) -> PreferencesGroup {
     let add_button = Button::builder().icon_name("list-add-symbolic").build();
     let adding = PreferencesGroup::builder()
@@ -197,8 +192,7 @@ fn remote_adding(
         .build();
     adding.add(&adding_url);
     add_button.connect_clicked({
-        let path = path.clone();
-        let sender = sender.clone();
+        let path = path.to_path_buf();
         let window = window.clone();
         let page = page.clone();
         let adding = adding.clone();
@@ -208,15 +202,13 @@ fn remote_adding(
             if name.len() > 0 && url.len() > 0 {
                 glib::spawn_future_local({
                     let path = path.clone();
-                    let sender = sender.clone();
                     let window = window.clone();
                     let page = page.clone();
                     let adding = adding.clone();
                     async move {
                         let remote = gio::spawn_blocking({
                             let path = path.clone();
-                            let sender = sender.clone();
-                            move || remote::add(path, name.to_string(), url.to_string(), sender)
+                            move || remote::add(path, name.to_string(), url.to_string())
                         })
                         .await
                         .unwrap_or_else(|e| {
@@ -229,8 +221,8 @@ fn remote_adding(
                         });
                         if let Some(remote) = remote {
                             page.remove(&adding);
-                            page.add(&remote.render(&page, &path, &window, &sender));
-                            page.add(&remote_adding(&page, &path, &window, &sender));
+                            page.add(&remote.render(&page, &path, &window));
+                            page.add(&remote_adding(&page, &path, &window));
                         }
                     }
                 });
@@ -254,9 +246,8 @@ impl Status {
                     .build();
 
                 let remotes = gio::spawn_blocking({
-                    let sender = sender.clone();
                     let path = path.clone();
-                    move || remote::list(path, sender)
+                    move || remote::list(path)
                 })
                 .await
                 .unwrap_or_else(|e| {
@@ -410,20 +401,24 @@ impl Status {
                 return name.to_local();
             }
         }
-        self.head.as_ref().unwrap().branch_name.as_ref().unwrap().to_string()
+        self.head
+            .as_ref()
+            .unwrap()
+            .branch_name
+            .as_ref()
+            .unwrap()
+            .to_string()
     }
 
     pub fn show_remotes_dialog(&self, window: &ApplicationWindow) {
         let window = window.clone();
-        let sender = self.sender.clone();
         let path = self.path.clone().unwrap();
 
         glib::spawn_future_local({
             async move {
                 let remotes = gio::spawn_blocking({
-                    let sender = sender.clone();
                     let path = path.clone();
-                    move || remote::list(path, sender)
+                    move || remote::list(path)
                 })
                 .await
                 .unwrap_or_else(|e| {
@@ -446,11 +441,11 @@ impl Status {
                     .icon_name("network-server-symbolic")
                     .build();
                 for remote in &remotes {
-                    let group = remote.render(&page, &path, &window, &sender);
+                    let group = remote.render(&page, &path, &window);
                     page.add(&group);
                 }
 
-                let adding = remote_adding(&page, &path, &window, &sender);
+                let adding = remote_adding(&page, &path, &window);
 
                 page.add(&adding);
                 dialog.add(&page);
