@@ -410,12 +410,7 @@ impl Status {
                 return name.to_local();
             }
         }
-        if let Some(head) = &self.head {
-            if let Some(name) = &head.branch_name {
-                return name.to_string();
-            }
-        }
-        "".to_string()
+        self.head.as_ref().unwrap().branch_name.as_ref().unwrap().to_string()
     }
 
     pub fn show_remotes_dialog(&self, window: &ApplicationWindow) {
