@@ -171,13 +171,7 @@ pub fn branch(
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
     let branch = git2::Branch::wrap(head_ref);
-    let mut r_o_branch_data = BranchData::from_branch(branch, git2::BranchType::Local);
-    if let Ok(ref mut o_branch_data) = r_o_branch_data {
-        if let Some(ref mut branch_data) = o_branch_data {
-            branch_data.set_remote_name(&repo);
-        }
-    }
-    r_o_branch_data
+    BranchData::from_branch(branch, git2::BranchType::Local)
 }
 
 pub fn abort(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {

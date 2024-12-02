@@ -342,10 +342,9 @@ pub fn pull(
     let branch = git2::Branch::wrap(head_ref);
     let upstream = branch.upstream()?;
 
-    let mut branch_data = BranchData::from_branch(upstream, git2::BranchType::Remote)
+    let branch_data = BranchData::from_branch(upstream, git2::BranchType::Remote)
         .unwrap()
         .unwrap();
-    branch_data.set_remote_name(&repo);
     merge::branch(path.clone(), branch_data, sender.clone(), Some(defer))?;
     Ok(())
 }
@@ -387,7 +386,7 @@ impl From<git2::Remote<'_>> for RemoteDetail {
     }
 }
 
-pub fn list(path: PathBuf, sender: Sender<crate::Event>) -> Result<Vec<RemoteDetail>, git2::Error> {
+pub fn list(path: PathBuf) -> Result<Vec<RemoteDetail>, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let mut remotes: Vec<RemoteDetail> = Vec::new();
     for remote_name in &repo.remotes()? {
@@ -399,22 +398,13 @@ pub fn list(path: PathBuf, sender: Sender<crate::Event>) -> Result<Vec<RemoteDet
     Ok(remotes)
 }
 
-pub fn add(
-    path: PathBuf,
-    name: String,
-    url: String,
-    sender: Sender<crate::Event>,
-) -> Result<Option<RemoteDetail>, git2::Error> {
+pub fn add(path: PathBuf, name: String, url: String) -> Result<Option<RemoteDetail>, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let remote = repo.remote(&name, &url)?;
     Ok(Some(remote.into()))
 }
 
-pub fn delete(
-    path: PathBuf,
-    name: String,
-    sender: Sender<crate::Event>,
-) -> Result<bool, git2::Error> {
+pub fn delete(path: PathBuf, name: String) -> Result<bool, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     repo.remote_delete(&name)?;
     Ok(true)
