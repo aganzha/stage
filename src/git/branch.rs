@@ -8,7 +8,7 @@ use async_channel::Sender;
 use chrono::{DateTime, FixedOffset};
 use git2;
 use gtk4::gio;
-use log::{debug, info};
+use log::info;
 use std::cmp::Ordering;
 use std::fmt;
 use std::path::PathBuf;
@@ -20,10 +20,6 @@ impl BranchName {
     pub fn to_str(&self) -> &str {
         &self.0
     }
-
-    // pub fn to_string(&self) -> String {
-    //     self.0.clone()
-    // }
 
     pub fn local_name(&self) -> String {
         self.0.replace("origin/", "")
@@ -39,13 +35,9 @@ impl fmt::Display for BranchName {
     }
 }
 
-pub trait NamedBranch {
-    fn branch_name(&self) -> BranchName;
-}
-
-impl NamedBranch for git2::Branch<'_> {
-    fn branch_name(&self) -> BranchName {
-        BranchName(self.name().unwrap().unwrap().to_string())
+impl From<&git2::Branch<'_>> for BranchName {
+    fn from(branch: &git2::Branch) -> BranchName {
+        BranchName(branch.name().unwrap().unwrap().to_string())
     }
 }
 
@@ -81,7 +73,7 @@ impl BranchData {
         branch: git2::Branch,
         branch_type: git2::BranchType,
     ) -> Result<Option<Self>, git2::Error> {
-        let name = branch.branch_name();
+        let name = (&branch).into();
         let is_head = branch.is_head();
         let bref = branch.get();
         let refname = bref.name().unwrap().to_string();
@@ -89,7 +81,6 @@ impl BranchData {
         let commit = ob.peel_to_commit()?;
         let log_message = commit.log_message();
         let commit_dt = commit.dt();
-        debug!("branch refname.......................> {:?}", refname);
         if let Some(oid) = branch.get().target() {
             Ok(Some(BranchData {
                 name,
