@@ -148,15 +148,15 @@ impl remote::RemoteDetail {
             }
         });
         group.add(&row);
-        for refspec in &self.refspecs {
-            let row = EntryRow::builder()
-                .title("Refspec")
-                .text(refspec)
-                .editable(false)
-                .show_apply_button(false)
-                .build();
-            group.add(&row);
-        }
+        // for refspec in &self.refspecs {
+        //     let row = EntryRow::builder()
+        //         .title("Refspec")
+        //         .text(refspec)
+        //         .editable(false)
+        //         .show_apply_button(false)
+        //         .build();
+        //     group.add(&row);
+        // }
         // let row = EntryRow::builder()
         //     .title("Push url")
         //     .text(&remote.push_url)
