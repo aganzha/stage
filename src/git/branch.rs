@@ -20,13 +20,6 @@ impl BranchName {
     pub fn to_str(&self) -> &str {
         &self.0
     }
-
-    pub fn local_name(&self) -> String {
-        self.0.replace("origin/", "")
-    }
-    pub fn remote_name(&self) -> String {
-        format!("origin/{}", self.0.replace("origin/", ""))
-    }
 }
 
 impl fmt::Display for BranchName {
@@ -112,6 +105,14 @@ impl BranchData {
             }
         }
     }
+
+    pub fn remote_name(&self) -> String {
+        if let Some(remote_name) = &self.remote_name {
+            return format!("{}/{}", remote_name, self.name);
+        }
+        format!("origin/{}", self.name)
+    }
+
 }
 
 pub fn get_branches(path: PathBuf) -> Result<Vec<BranchData>, git2::Error> {
@@ -170,14 +171,14 @@ pub fn checkout_branch(
     match branch_data.branch_type {
         git2::BranchType::Local => {}
         git2::BranchType::Remote => {
-            let created = repo.branch(&branch_data.name.local_name(), &commit, false);
+            let created = repo.branch(&branch_data.name.to_string(), &commit, false);
             let mut branch = match created {
                 Ok(branch) => branch,
                 Err(_) => {
-                    repo.find_branch(&branch_data.name.local_name(), git2::BranchType::Local)?
+                    repo.find_branch(&branch_data.name.to_string(), git2::BranchType::Local)?
                 }
             };
-            branch.set_upstream(Some(&branch_data.name.remote_name()))?;
+            branch.set_upstream(Some(&branch_data.remote_name()))?;
             if let Some(new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)?
             {
                 branch_data = new_branch_data;
@@ -236,7 +237,7 @@ pub fn kill_branch(
                 set_remote_callbacks(&mut callbacks, &None);
                 opts.remote_callbacks(callbacks);
 
-                let refspec = format!(":refs/heads/{}", name.local_name());
+                let refspec = format!(":refs/heads/{}", name);
                 remote
                     .push(&[refspec], Some(&mut opts))
                     .expect("cant push to remote");

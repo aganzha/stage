@@ -242,11 +242,11 @@ fn remote_adding(
 
 impl Status {
     pub fn push(&self, window: &ApplicationWindow, remote_dialog: Option<(String, bool, bool)>) {
-        let (remote_name, remote_branch_name) = self.choose_remote();
         glib::spawn_future_local({
             let window = window.clone();
             let path = self.path.clone().unwrap();
             let sender = self.sender.clone();
+            let remote_branch_name = self.choose_remote_branch_name();
             async move {
                 let lb = ListBox::builder()
                     .selection_mode(SelectionMode::None)
@@ -404,19 +404,20 @@ impl Status {
         });
     }
 
-    pub fn choose_remote(&self) -> (String, String) {
+    fn choose_remote_branch_name(&self) -> String {
         if let Some(upstream) = &self.upstream {
-            if let Some(branch_name) = &upstream.branch_name {
-                return ("".to_string(), branch_name.local_name());
+            if let Some(name) = &upstream.branch_name {
+                return name.to_string()
             }
         }
         if let Some(head) = &self.head {
-            if let Some(branch_name) = &head.branch_name {
-                return ("".to_string(), branch_name.to_string());
+            if let Some(name) = &head.branch_name {
+                return name.to_string()
             }
         }
-        ("".to_string(), "".to_string())
+        "".to_string()
     }
+
     pub fn show_remotes_dialog(&self, window: &ApplicationWindow) {
         let window = window.clone();
         let sender = self.sender.clone();
