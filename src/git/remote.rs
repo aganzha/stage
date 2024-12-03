@@ -70,15 +70,12 @@ pub fn set_remote_callbacks(
     callbacks.transfer_progress(move |progress| {
         let bytes = progress.received_bytes();
         if let Some(cnt) = progress_counts.get(&bytes) {
-            if cnt > &100000 {
-                panic!("infinite loop in progress");
-            }
             progress_counts.insert(bytes, cnt + 1);
         } else {
             progress_counts.insert(bytes, 1);
         }
         // progress_counts[] = 1;
-        debug!("transfer progress {:?}", bytes);
+        trace!("transfer progress {:?}", bytes);
         true
     });
 
