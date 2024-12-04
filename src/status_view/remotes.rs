@@ -11,6 +11,8 @@ use libadwaita::{
     ApplicationWindow, ComboRow, EntryRow, PasswordEntryRow, PreferencesDialog, PreferencesGroup,
     PreferencesPage, SwitchRow,
 };
+#[allow(clippy::unused_imports)]
+use log::debug;
 use std::cell::{Cell, RefCell};
 use std::path::Path;
 use std::rc::Rc;
@@ -238,7 +240,12 @@ impl Status {
             let window = window.clone();
             let path = self.path.clone().unwrap();
             let sender = self.sender.clone();
-            let (remote_name, remote_branch_name) = self.choose_remote_branch_name();
+            let mut remote_name: Option<String> = None;
+            let mut remote_branch_name = "".to_string();
+            if let Some((o_remote_name, o_remote_branch_name)) = self.choose_remote_branch_name() {
+                remote_name = o_remote_name;
+                remote_branch_name = o_remote_branch_name;
+            }
             async move {
                 let lb = ListBox::builder()
                     .selection_mode(SelectionMode::None)
@@ -402,17 +409,21 @@ impl Status {
         });
     }
 
-    fn choose_remote_branch_name(&self) -> (Option<String>, String) {
+    fn choose_remote_branch_name(&self) -> Option<(Option<String>, String)> {
         if let Some(upstream) = &self.upstream {
             if let Some(branch_data) = &upstream.branch {
-                return (branch_data.remote_name.clone(), branch_data.name.to_local());
+                return Some((branch_data.remote_name.clone(), branch_data.name.to_local()));
             }
         }
-        let branch_data = self.head.as_ref().unwrap().branch.as_ref().unwrap();
-        (
-            branch_data.remote_name.clone(),
-            branch_data.name.to_string(),
-        )
+        if let Some(head) = &self.head {
+            if let Some(branch_data) = &head.branch {
+                return Some((
+                    branch_data.remote_name.clone(),
+                    branch_data.name.to_string(),
+                ));
+            }
+        }
+        None
     }
 
     pub fn show_remotes_dialog(&self, window: &ApplicationWindow) {
