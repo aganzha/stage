@@ -1032,11 +1032,18 @@ impl ViewContainer for Head {
         buffer: &TextBuffer,
         _context: &mut StatusRenderContext<'_>,
     ) {
-        let title = if let Some(branch_name) = &self.branch_name {
-            branch_name.to_string()
-        } else {
-            "Detached head".to_string()
+        let title = {
+            if let Some(branch_data) = &self.branch {
+                branch_data.name.to_string()
+            } else {
+                "Detached head".to_string()
+            }
         };
+        // let title = if let Some(branch_name) = &self.branch_name {
+        //     branch_name.to_string()
+        // } else {
+        //     "Detached head".to_string()
+        // };
         let short = self.oid.to_string()[..7].to_string();
         let color = if StyleManager::default().is_dark() {
             "#839daf"
