@@ -238,7 +238,7 @@ impl Status {
             let window = window.clone();
             let path = self.path.clone().unwrap();
             let sender = self.sender.clone();
-            let remote_branch_name = self.choose_remote_branch_name();
+            let (remote_name, remote_branch_name) = self.choose_remote_branch_name();
             async move {
                 let lb = ListBox::builder()
                     .selection_mode(SelectionMode::None)
@@ -263,9 +263,16 @@ impl Status {
                     remotes_list.append(&remote.name);
                 }
 
+                let mut selected: u32 = 0;
+                if let Some(remote_name) = remote_name {
+                    if let Some(pos) = remotes.iter().position(|r| r.name == remote_name) {
+                        selected = pos as u32;
+                    }
+                }
                 let remotes = ComboRow::builder()
                     .title("Remote")
                     .model(&remotes_list)
+                    .selected(selected)
                     .build();
                 let upstream = SwitchRow::builder()
                     .title("Set upstream")
@@ -395,19 +402,17 @@ impl Status {
         });
     }
 
-    fn choose_remote_branch_name(&self) -> String {
+    fn choose_remote_branch_name(&self) -> (Option<String>, String) {
         if let Some(upstream) = &self.upstream {
-            if let Some(name) = &upstream.branch_name {
-                return name.to_local();
+            if let Some(branch_data) = &upstream.branch {
+                return (branch_data.remote_name.clone(), branch_data.name.to_local());
             }
         }
-        self.head
-            .as_ref()
-            .unwrap()
-            .branch_name
-            .as_ref()
-            .unwrap()
-            .to_string()
+        let branch_data = self.head.as_ref().unwrap().branch.as_ref().unwrap();
+        (
+            branch_data.remote_name.clone(),
+            branch_data.name.to_string(),
+        )
     }
 
     pub fn show_remotes_dialog(&self, window: &ApplicationWindow) {
