@@ -539,7 +539,7 @@ impl Status {
         }
         if let Some(branches) = &mut self.branches {
             if let Some(upstream) = &mut upstream {
-                if let Some(upstream_branch) = upstream.branch.take() {
+                if let Some(upstream_branch) = upstream.branch.clone() {
                     if let Some(ind) = branches.iter().position(|b| {
                         b.name == upstream_branch.name
                             && b.branch_type == upstream_branch.branch_type
