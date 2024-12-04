@@ -10,7 +10,7 @@ pub mod remote;
 pub mod stash;
 pub mod tag;
 pub mod test_merge;
-use crate::branch::{BranchData, BranchName};
+use crate::branch::BranchData;
 use crate::commit::CommitRepr;
 use crate::gio;
 use crate::status_view::view::View;
@@ -521,7 +521,8 @@ impl State {
 #[derive(Debug, Clone)]
 pub struct Head {
     pub oid: Oid,
-    pub branch_name: Option<BranchName>,
+    // TODO! get rid of it!
+    // pub branch_name: Option<BranchName>,
     pub is_upstream: bool,
     pub log_message: String,
     pub raw_message: String,
@@ -535,7 +536,7 @@ impl Head {
         Self {
             oid: commit.id(),
             is_upstream,
-            branch_name: None,
+            // branch_name: None,
             log_message: commit.log_message(),
             raw_message: commit.raw_message(),
             view: View::new(),
@@ -544,7 +545,7 @@ impl Head {
         }
     }
     pub fn set_branch(&mut self, branch: BranchData) {
-        self.branch_name = Some(branch.name.clone());
+        // self.branch_name = Some(branch.name.clone());
         self.branch.replace(branch);
     }
 }

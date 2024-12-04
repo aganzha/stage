@@ -279,8 +279,8 @@ impl Status {
 
     pub fn head_name(&self) -> String {
         if let Some(head) = &self.head {
-            if let Some(branch_name) = &head.branch_name {
-                return branch_name.to_string();
+            if let Some(branch_data) = &head.branch {
+                return branch_data.name.to_string();
             }
         }
         "Detached head".to_string()
