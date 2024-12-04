@@ -238,11 +238,10 @@ impl TagList {
                 let mut last_added_oid: Option<Oid> = None;
                 for item in tags
                     .into_iter()
-                    .map(|tag| {
+                    .inspect(|tag| {
                         if search_term.is_none() {
                             tag_list.imp().original_list.borrow_mut().push(tag.clone());
                         }
-                        tag
                     })
                     .map(TagItem::new)
                 {
