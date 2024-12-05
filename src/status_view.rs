@@ -512,7 +512,7 @@ impl Status {
         }
         if let Some(branches) = &mut self.branches {
             if let Some(new_head) = &mut head {
-                if let Some(head_branch) = new_head.branch.take() {
+                if let Some(head_branch) = new_head.branch.clone() {
                     if let Some(ind) = branches.iter().position(|b| b.is_head) {
                         trace!("replace branch by index {:?} {:?}", ind, head_branch.name);
                         branches[ind] = head_branch;
