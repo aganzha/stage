@@ -179,8 +179,6 @@ pub fn update_remote(
     Ok(())
 }
 
-pub const REMOTE: &str = "origin";
-
 pub fn push(
     path: PathBuf,
     remote_ref: String,
@@ -203,7 +201,11 @@ pub fn push(
 
     trace!("push. refspec {}", refspec);
     let mut branch = git2::Branch::wrap(head_ref);
-    let mut remote = repo.find_remote(REMOTE)?; // TODO here is hardcode
+    let err = "No remote to push to";
+    let branch_data = BranchData::from_branch(&branch, git2::BranchType::Local)?
+        .ok_or(git2::Error::from_str(err))?;
+    let remote_name = branch_data.remote_name.ok_or(git2::Error::from_str(err))?;
+    let mut remote = repo.find_remote(&remote_name)?; // TODO here is hardcode
 
     let mut opts = git2::PushOptions::new();
     let mut callbacks = git2::RemoteCallbacks::new();
@@ -218,7 +220,7 @@ pub fn push(
             );
             if tracking_remote {
                 branch
-                    .set_upstream(Some(&format!("{}/{}", REMOTE, &remote_ref)))
+                    .set_upstream(Some(&format!("{}/{}", remote_name, &remote_ref)))
                     .expect("cant set upstream");
             }
             sender
@@ -293,9 +295,14 @@ pub fn pull(
 ) -> Result<(), git2::Error> {
     let defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
-    // TODO here is hardcode
-    let mut remote = repo.find_remote("origin")?;
+
     let head_ref = repo.head()?;
+    let branch = git2::Branch::wrap(head_ref);
+    let err = "No remote to pull from";
+    let branch_data = BranchData::from_branch(&branch, git2::BranchType::Local)?
+        .ok_or(git2::Error::from_str(err))?;
+    let remote_name = branch_data.remote_name.ok_or(git2::Error::from_str(err))?;
+    let mut remote = repo.find_remote(&remote_name)?;
 
     let mut opts = git2::FetchOptions::new();
     let mut callbacks = git2::RemoteCallbacks::new();
@@ -333,13 +340,11 @@ pub fn pull(
     set_remote_callbacks(&mut callbacks, &user_pass);
     opts.remote_callbacks(callbacks);
 
-    remote.fetch(&[head_ref.name().unwrap()], Some(&mut opts), None)?;
+    remote.fetch(&[branch_data.name.to_local()], Some(&mut opts), None)?;
 
-    assert!(head_ref.is_branch());
-    let branch = git2::Branch::wrap(head_ref);
     let upstream = branch.upstream()?;
 
-    let branch_data = BranchData::from_branch(upstream, git2::BranchType::Remote)
+    let branch_data = BranchData::from_branch(&upstream, git2::BranchType::Remote)
         .unwrap()
         .unwrap();
     merge::branch(path.clone(), branch_data, sender.clone(), Some(defer))?;

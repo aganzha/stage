@@ -171,7 +171,7 @@ pub fn branch(
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
     let branch = git2::Branch::wrap(head_ref);
-    BranchData::from_branch(branch, git2::BranchType::Local)
+    BranchData::from_branch(&branch, git2::BranchType::Local)
 }
 
 pub fn abort(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {
