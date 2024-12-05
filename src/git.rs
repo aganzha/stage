@@ -558,7 +558,7 @@ pub fn get_head(path: PathBuf) -> Result<Head, Error> {
     let mut head = Head::new(&commit, false);
     if head_ref.is_branch() {
         if let Some(branch_data) =
-            BranchData::from_branch(Branch::wrap(head_ref), git2::BranchType::Local)?
+            BranchData::from_branch(&Branch::wrap(head_ref), git2::BranchType::Local)?
         {
             head.set_branch(branch_data);
         }
@@ -581,7 +581,7 @@ pub fn get_upstream(path: PathBuf) -> Result<Head, Error> {
         let ob = upstream_ref.peel(ObjectType::Commit)?;
         let commit = ob.peel_to_commit()?;
         let mut new_upstream = Head::new(&commit, true);
-        if let Some(branch_data) = BranchData::from_branch(upstream, git2::BranchType::Remote)? {
+        if let Some(branch_data) = BranchData::from_branch(&upstream, git2::BranchType::Remote)? {
             new_upstream.set_branch(branch_data);
         }
         return Ok(new_upstream);

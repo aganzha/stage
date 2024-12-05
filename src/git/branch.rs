@@ -70,10 +70,10 @@ impl Default for BranchData {
 
 impl BranchData {
     pub fn from_branch(
-        branch: git2::Branch,
+        branch: &git2::Branch,
         branch_type: git2::BranchType,
     ) -> Result<Option<Self>, git2::Error> {
-        let name: BranchName = (&branch).into();
+        let name: BranchName = (branch).into();
         let is_head = branch.is_head();
         let bref = branch.get();
         let refname = bref.name().unwrap().to_string();
@@ -107,22 +107,6 @@ impl BranchData {
             Ok(None)
         }
     }
-
-    // pub fn set_remote_name(&mut self, repo: &git2::Repository) {
-    //     match self.branch_type {
-    //         git2::BranchType::Local => {
-    //             if let Ok(buf) = repo.branch_upstream_remote(&self.refname) {
-    //                 self.remote_name = buf.as_str().map(|b| b.to_string());
-    //             }
-    //         }
-    //         git2::BranchType::Remote => {
-    //             let mut parts = self.refname.split("/");
-    //             assert!(parts.next().unwrap() == "refs");
-    //             assert!(parts.next().unwrap() == "remotes");
-    //             self.remote_name = parts.next().map(|p| p.to_string())
-    //         }
-    //     }
-    // }
 }
 
 pub fn get_branches(path: PathBuf) -> Result<Vec<BranchData>, git2::Error> {
@@ -131,7 +115,7 @@ pub fn get_branches(path: PathBuf) -> Result<Vec<BranchData>, git2::Error> {
     let branches = repo.branches(None)?;
     branches.for_each(|item| {
         let (branch, branch_type) = item.unwrap();
-        if let Ok(Some(branch_data)) = BranchData::from_branch(branch, branch_type) {
+        if let Ok(Some(branch_data)) = BranchData::from_branch(&branch, branch_type) {
             result.push(branch_data);
         }
     });
@@ -188,7 +172,8 @@ pub fn checkout_branch(
                 }
             };
             branch.set_upstream(Some(&branch_data.name.to_string()))?;
-            if let Some(new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)?
+            if let Some(new_branch_data) =
+                BranchData::from_branch(&branch, git2::BranchType::Local)?
             {
                 branch_data = new_branch_data;
             }
@@ -210,7 +195,7 @@ pub fn create_branch(
     let repo = git2::Repository::open(path.clone())?;
     let commit = repo.find_commit(branch_data.oid)?;
     let branch = repo.branch(&new_branch_name, &commit, false)?;
-    if let Some(new_branch_data) = BranchData::from_branch(branch, git2::BranchType::Local)? {
+    if let Some(new_branch_data) = BranchData::from_branch(&branch, git2::BranchType::Local)? {
         if need_checkout {
             return checkout_branch(path, new_branch_data, sender);
         } else {

@@ -5,13 +5,13 @@
 use super::Status;
 use crate::dialogs::alert;
 use crate::git::remote;
-use log::debug;
 use gtk4::{gio, glib, Button, ListBox, SelectionMode, StringList};
 use libadwaita::prelude::*;
 use libadwaita::{
     ApplicationWindow, ComboRow, EntryRow, PasswordEntryRow, PreferencesDialog, PreferencesGroup,
     PreferencesPage, SwitchRow,
 };
+use log::debug;
 use std::cell::{Cell, RefCell};
 use std::path::Path;
 use std::rc::Rc;
