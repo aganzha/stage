@@ -332,10 +332,21 @@ impl TagList {
         let window = window.clone();
         glib::spawn_future_local({
             async move {
+                todo!("choose remote!");
                 gio::spawn_blocking({
                     let sender = sender.clone();
                     let tag_name = tag_name.clone();
-                    move || remote::push(repo_path, tag_name, false, true, sender, None)
+                    move || {
+                        remote::push(
+                            repo_path,
+                            "origin".to_string(),
+                            tag_name,
+                            false,
+                            true,
+                            sender,
+                            None,
+                        )
+                    }
                 })
                 .await
                 .unwrap_or_else(|e| {

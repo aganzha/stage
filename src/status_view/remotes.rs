@@ -365,6 +365,8 @@ impl Status {
                     return;
                 }
                 let remote_branch_name = format!("{}", remote_branch_name.text());
+                let remote_selected = remotes.selected();
+                let remote_name = remotes_list.string(remote_selected).unwrap();
                 let track_remote = upstream.is_active();
                 let mut user_pass: Option<(String, String)> = None;
                 if pass {
@@ -380,6 +382,7 @@ impl Status {
                             move || {
                                 remote::push(
                                     path,
+                                    remote_name.to_string(),
                                     remote_branch_name,
                                     track_remote,
                                     this_is_tag,

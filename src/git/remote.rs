@@ -181,6 +181,7 @@ pub fn update_remote(
 
 pub fn push(
     path: PathBuf,
+    remote_name: String,
     remote_ref: String,
     tracking_remote: bool,
     is_tag: bool,
@@ -202,9 +203,9 @@ pub fn push(
     trace!("push. refspec {}", refspec);
     let mut branch = git2::Branch::wrap(head_ref);
     let err = "No remote to push to";
-    let branch_data = BranchData::from_branch(&branch, git2::BranchType::Local)?
-        .ok_or(git2::Error::from_str(err))?;
-    let remote_name = branch_data.remote_name.ok_or(git2::Error::from_str(err))?;
+    // let branch_data = BranchData::from_branch(&branch, git2::BranchType::Local)?
+    //     .ok_or(git2::Error::from_str(err))?;
+    // let remote_name = branch_data.remote_name.ok_or(git2::Error::from_str(err))?;
     let mut remote = repo.find_remote(&remote_name)?; // TODO here is hardcode
 
     let mut opts = git2::PushOptions::new();
