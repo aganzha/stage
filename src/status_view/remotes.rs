@@ -431,7 +431,10 @@ impl Status {
     pub fn show_remotes_dialog(&self, window: &ApplicationWindow) {
         let window = window.clone();
         let path = self.path.clone().unwrap();
-
+        let mut current_remote_name = None;
+        if let Some((o_remote_name, _)) = self.choose_remote_branch_name() {
+            current_remote_name = o_remote_name;
+        }
         glib::spawn_future_local({
             async move {
                 let remotes = gio::spawn_blocking({
