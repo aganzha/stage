@@ -2,10 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::git::{
-    branch::BranchData,
-    get_upstream, merge, DeferRefresh,
-};
+use crate::git::{branch::BranchData, get_upstream, merge, DeferRefresh};
 use async_channel::Sender;
 use git2;
 use log::{debug, error, trace};

@@ -429,7 +429,7 @@ impl Status {
                 let remote_branch_name = format!("{}", remote_branch_name.text());
                 let remote_selected = remotes.selected();
                 if remotes_list.string(remote_selected).is_none() {
-                    alert(format!("Set up remote first")).present(Some(&window));
+                    alert("Set up remote first".to_string()).present(Some(&window));
                     return;
                 }
                 let remote_name = remotes_list.string(remote_selected).unwrap();
@@ -477,7 +477,7 @@ impl Status {
         });
     }
 
-    fn choose_remote_branch_name(&self) -> Option<(Option<String>, String)> {
+    pub fn choose_remote_branch_name(&self) -> Option<(Option<String>, String)> {
         if let Some(upstream) = &self.upstream {
             if let Some(branch_data) = &upstream.branch {
                 return Some((branch_data.remote_name.clone(), branch_data.name.to_local()));
