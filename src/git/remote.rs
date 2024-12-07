@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::git::{
-    branch::{BranchData, BranchName},
+    branch::BranchData,
     get_upstream, merge, DeferRefresh,
 };
 use async_channel::Sender;
@@ -218,11 +218,11 @@ pub fn push(
 
     trace!("push. refspec {}", refspec);
     let mut branch = git2::Branch::wrap(head_ref);
-    let err = "No remote to push to";
+    // let err = "No remote to push to";
     // let branch_data = BranchData::from_branch(&branch, git2::BranchType::Local)?
     //     .ok_or(git2::Error::from_str(err))?;
     // let remote_name = branch_data.remote_name.ok_or(git2::Error::from_str(err))?;
-    let mut remote = repo.find_remote(&remote_name)?; // TODO here is hardcode
+    let mut remote = repo.find_remote(&remote_name)?;
 
     let mut opts = git2::PushOptions::new();
     let mut callbacks = git2::RemoteCallbacks::new();
@@ -413,9 +413,6 @@ pub fn list(path: PathBuf) -> Result<Vec<RemoteDetail>, git2::Error> {
     for remote_name in &repo.remotes()? {
         if let Some(remote_name) = remote_name {
             let remote = repo.find_remote(remote_name)?;
-            for spec in remote.refspecs() {
-                debug!("---------------------> {:?}", spec.str());
-            }
             remotes.push(remote.into());
         }
     }
