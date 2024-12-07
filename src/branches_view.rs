@@ -644,15 +644,10 @@ impl BranchList {
     }
 
     fn add_new_branch_item(&self, branch_data: branch::BranchData, need_checkout: bool) {
-        debug!(
-            "add_new_branch_item {:?} {:?}",
-            branch_data.is_head, branch_data.name
-        );
         self.imp()
             .original_list
             .borrow_mut()
             .insert(0, branch_data.clone());
-        debug!("inserted in original list!");
         self.imp().list.borrow_mut().insert(
             0,
             BranchItem::new(
