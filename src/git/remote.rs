@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::git::{branch::BranchData, get_upstream, merge, DeferRefresh};
+use crate::git::{
+    branch::{BranchData, BranchName},
+    get_upstream, merge, DeferRefresh,
+};
 use async_channel::Sender;
 use git2;
 use log::{debug, error, trace};
@@ -179,6 +182,19 @@ pub fn update_remote(
     Ok(())
 }
 
+// pub fn setup_remote_for_current_branch(
+//     path: PathBuf,
+//     remote_name: String,
+// ) -> Result<(), git2::Error> {
+//     let repo = git2::Repository::open(path.clone())?;
+//     let head_ref = repo.head()?;
+//     assert!(head_ref.is_branch());
+//     let mut branch = git2::Branch::wrap(head_ref);
+//     let branch_name:BranchName = (&branch).into();
+//     branch.set_upstream(Some(&format!("{}/{}", remote_name, branch_name.to_local())))?;
+//     Ok(())
+// }
+
 pub fn push(
     path: PathBuf,
     remote_name: String,
@@ -220,8 +236,9 @@ pub fn push(
                 updated_ref, oid1, oid2
             );
             if tracking_remote {
+                let refspec = format!("{}/{}", remote_name, &remote_ref);
                 branch
-                    .set_upstream(Some(&format!("{}/{}", remote_name, &remote_ref)))
+                    .set_upstream(Some(&refspec))
                     .expect("cant set upstream");
             }
             sender

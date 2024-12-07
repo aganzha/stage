@@ -20,8 +20,9 @@ impl remote::RemoteDetail {
     fn render(
         &self,
         page: &PreferencesPage,
-        switches: Rc<RefCell<Vec<SwitchRow>>>,
-        toggle_lock: Rc<Cell<bool>>,
+        // switches: Rc<RefCell<Vec<SwitchRow>>>,
+        // toggle_lock: Rc<Cell<bool>>,
+        current_remote_name: Option<String>,
         path: &Path,
         window: &ApplicationWindow,
     ) -> PreferencesGroup {
@@ -147,48 +148,74 @@ impl remote::RemoteDetail {
             }
         });
         group.add(&row);
-        let upstream = SwitchRow::builder()
-            .title("Upstream")
-            .name((*remote_name.borrow()).clone())
-            .css_classes(vec!["input_field"])
-            .active(false)
-            .build();
-        upstream.connect_active_notify({
-            let switches = switches.clone();
-            let toggle_lock = toggle_lock.clone();
-            move |row| {
-                if toggle_lock.get() {
-                    return;
-                }
-                toggle_lock.replace(true);
-                if row.is_active() {
-                    for el in switches.borrow().iter() {
-                        if el.widget_name() != row.widget_name() {
-                            debug!("switch off row {:?}", el.widget_name());
-                            el.set_active(false)
-                        }
-                    }
-                } else {
-                    for el in switches.borrow().iter() {
-                        if el.widget_name() == "origin" {
-                            debug!("force origin");
-                            el.set_active(true);
-                        }
-                    }
-                }
-                toggle_lock.replace(false);
-            }
-        });
-        group.add(&upstream);
-        switches.borrow_mut().push(upstream);
+        // let this_remote_name = (*remote_name.borrow()).clone();
+        // let upstream = SwitchRow::builder()
+        //     .title("Upstream")
+        //     .name(this_remote_name.clone())
+        //     .css_classes(vec!["input_field"])
+        //     .active(current_remote_name == Some(this_remote_name))
+        //     .build();
+        // upstream.connect_active_notify({
+        //     let switches = switches.clone();
+        //     let toggle_lock = toggle_lock.clone();
+        //     let path = path.to_path_buf();
+        //     let window = window.clone();
+        //     move |row| {
+        //         let mut remote_name: Option<String> = None;
+        //         if toggle_lock.get() {
+        //             return;
+        //         }
+        //         toggle_lock.replace(true);
+        //         if row.is_active() {
+        //             remote_name.replace(row.widget_name().to_string());
+        //             for el in switches.borrow().iter() {
+        //                 if el.widget_name() != row.widget_name() {
+        //                     el.set_active(false)
+        //                 }
+        //             }
+        //         } else {
+        //             for el in switches.borrow().iter() {
+        //                 if el.widget_name() == "origin" {
+        //                     el.set_active(true);
+        //                     remote_name.replace(el.widget_name().to_string());
+        //                 }
+        //             }
+        //         }
+        //         if let Some(remote_name) = remote_name {
+        //             glib::spawn_future_local({
+        //                 let path = path.clone();
+        //                 let window = window.clone();
+        //                 async move {
+        //                     gio::spawn_blocking({
+        //                         let path = path.clone();
+        //                         move || remote::setup_remote_for_current_branch(path, remote_name)
+        //                     })
+        //                         .await
+        //                         .unwrap_or_else(|e| {
+        //                             alert(format!("{:?}", e)).present(Some(&window));
+        //                             Ok(())
+        //                         })
+        //                         .unwrap_or_else(|e| {
+        //                             alert(format!("{:?}", e)).present(Some(&window));
+        //                             ()
+        //                         })
+        //                 }
+        //             });
+        //         }
+        //         toggle_lock.replace(false);
+        //     }
+        // });
+        // group.add(&upstream);
+        // switches.borrow_mut().push(upstream);
         group
     }
 }
 
 fn remote_adding(
     page: &PreferencesPage,
-    switches: Rc<RefCell<Vec<SwitchRow>>>,
-    toggle_lock: Rc<Cell<bool>>,
+    //switches: Rc<RefCell<Vec<SwitchRow>>>,
+    //toggle_lock: Rc<Cell<bool>>,
+    current_remote_name: Option<String>,
     path: &Path,
     window: &ApplicationWindow,
 ) -> PreferencesGroup {
@@ -212,7 +239,8 @@ fn remote_adding(
         let window = window.clone();
         let page = page.clone();
         let adding = adding.clone();
-        let switches = switches.clone();
+        // let switches = switches.clone();
+        let current_remote_name = current_remote_name.clone();
         move |_| {
             let name = adding_name.text();
             let url = adding_url.text();
@@ -222,8 +250,9 @@ fn remote_adding(
                     let window = window.clone();
                     let page = page.clone();
                     let adding = adding.clone();
-                    let switches = switches.clone();
-                    let toggle_lock = toggle_lock.clone();
+                    // let switches = switches.clone();
+                    // let toggle_lock = toggle_lock.clone();
+                    let current_remote_name = current_remote_name.clone();
                     async move {
                         let remote = gio::spawn_blocking({
                             let path = path.clone();
@@ -242,16 +271,18 @@ fn remote_adding(
                             page.remove(&adding);
                             let group = remote.render(
                                 &page,
-                                switches.clone(),
-                                toggle_lock.clone(),
+                                // switches.clone(),
+                                // toggle_lock.clone(),
+                                current_remote_name.clone(),
                                 &path,
                                 &window,
                             );
                             page.add(&group);
                             page.add(&remote_adding(
                                 &page,
-                                switches.clone(),
-                                toggle_lock.clone(),
+                                // switches.clone(),
+                                // toggle_lock.clone(),
+                                current_remote_name,
                                 &path,
                                 &window,
                             ));
@@ -397,6 +428,10 @@ impl Status {
                 }
                 let remote_branch_name = format!("{}", remote_branch_name.text());
                 let remote_selected = remotes.selected();
+                if remotes_list.string(remote_selected).is_none() {
+                    alert(format!("Set up remote first")).present(Some(&window));
+                    return;
+                }
                 let remote_name = remotes_list.string(remote_selected).unwrap();
                 let track_remote = upstream.is_active();
                 let mut user_pass: Option<(String, String)> = None;
@@ -450,6 +485,7 @@ impl Status {
         }
         if let Some(head) = &self.head {
             if let Some(branch_data) = &head.branch {
+                debug!("???????????????????? {:?}", &branch_data.remote_name);
                 return Some((
                     branch_data.remote_name.clone(),
                     branch_data.name.to_string(),
@@ -498,8 +534,9 @@ impl Status {
                 for remote in &remotes {
                     let group = remote.render(
                         &page,
-                        upstream_switches.clone(),
-                        toggle_lock.clone(),
+                        // upstream_switches.clone(),
+                        // toggle_lock.clone(),
+                        current_remote_name.clone(),
                         &path,
                         &window,
                     );
@@ -508,8 +545,9 @@ impl Status {
 
                 let adding = remote_adding(
                     &page,
-                    upstream_switches.clone(),
-                    toggle_lock.clone(),
+                    // upstream_switches.clone(),
+                    // toggle_lock.clone(),
+                    current_remote_name,
                     &path,
                     &window,
                 );
