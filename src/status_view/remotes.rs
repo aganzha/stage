@@ -528,9 +528,9 @@ impl Status {
                     .title("Remotes")
                     .icon_name("network-server-symbolic")
                     .build();
-                let switches: Vec<SwitchRow> = Vec::new();
-                let upstream_switches = Rc::new(RefCell::new(switches));
-                let toggle_lock = Rc::new(Cell::new(false));
+                // let switches: Vec<SwitchRow> = Vec::new();
+                // let upstream_switches = Rc::new(RefCell::new(switches));
+                // let toggle_lock = Rc::new(Cell::new(false));
                 for remote in &remotes {
                     let group = remote.render(
                         &page,

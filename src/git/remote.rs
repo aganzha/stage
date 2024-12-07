@@ -136,46 +136,83 @@ pub fn update_remote(
     path: PathBuf,
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
-) -> Result<(), ()> {
+) -> Result<(), git2::Error> {
     let _updater = DeferRefresh::new(path.clone(), sender, true, true);
-    let repo = git2::Repository::open(path).expect("can't open repo");
-    let mut remote = repo
-        .find_remote("origin") // TODO here is hardcode
-        .expect("no remote");
+    let repo = git2::Repository::open(path)?;
+    let mut errors: HashMap<&str, Vec<git2::Error>> = HashMap::new();
 
-    let mut callbacks = git2::RemoteCallbacks::new();
-    set_remote_callbacks(&mut callbacks, &user_pass);
+    let remotes = repo.remotes()?;
+    for remote_name in &remotes {
+        let remote_name = remote_name.unwrap();
 
-    remote
-        .connect_auth(git2::Direction::Fetch, Some(callbacks), None)
-        .expect("cant connect");
-    let mut callbacks = git2::RemoteCallbacks::new();
-    set_remote_callbacks(&mut callbacks, &user_pass);
+        match repo.find_remote(remote_name) {
+            Ok(mut remote) => {
+                let mut callbacks = git2::RemoteCallbacks::new();
+                set_remote_callbacks(&mut callbacks, &user_pass);
+                if let Err(err) = remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None) {
+                    errors.entry(remote_name).or_default().push(err);
+                    continue;
+                }
 
-    remote.prune(Some(callbacks)).expect("cant prune");
+                let mut callbacks = git2::RemoteCallbacks::new();
+                set_remote_callbacks(&mut callbacks, &user_pass);
 
-    let mut callbacks = git2::RemoteCallbacks::new();
-    set_remote_callbacks(&mut callbacks, &user_pass);
+                if let Err(err) = remote.prune(Some(callbacks)) {
+                    errors.entry(remote_name).or_default().push(err);
+                    continue;
+                }
 
-    callbacks.update_tips({
-        move |updated_ref, oid1, oid2| {
-            debug!("updat tips {:?} {:?} {:?}", updated_ref, oid1, oid2);
-            true
+                let mut callbacks = git2::RemoteCallbacks::new();
+                set_remote_callbacks(&mut callbacks, &user_pass);
+
+                callbacks.update_tips({
+                    move |updated_ref, oid1, oid2| {
+                        debug!(
+                            "updat tips {:?} {:?} {:?} {:?}",
+                            remote_name, updated_ref, oid1, oid2
+                        );
+                        true
+                    }
+                });
+
+                let mut opts = git2::FetchOptions::new();
+                opts.remote_callbacks(callbacks);
+                let refs: [String; 0] = [];
+
+                if let Err(err) = remote.fetch(&refs, Some(&mut opts), None) {
+                    errors.entry(remote_name).or_default().push(err);
+                    continue;
+                }
+
+                let mut callbacks = git2::RemoteCallbacks::new();
+                set_remote_callbacks(&mut callbacks, &user_pass);
+
+                if let Err(err) = remote.update_tips(
+                    Some(&mut callbacks),
+                    true,
+                    git2::AutotagOption::Auto,
+                    None,
+                ) {
+                    errors.entry(remote_name).or_default().push(err);
+                    continue;
+                }
+            }
+            Err(err) => {
+                errors.entry(remote_name).or_default().push(err);
+            }
         }
-    });
-
-    let mut opts = git2::FetchOptions::new();
-    opts.remote_callbacks(callbacks);
-    let refs: [String; 0] = [];
-    remote
-        .fetch(&refs, Some(&mut opts), None)
-        .expect("cant fetch");
-    let mut callbacks = git2::RemoteCallbacks::new();
-    set_remote_callbacks(&mut callbacks, &user_pass);
-    remote
-        .update_tips(Some(&mut callbacks), true, git2::AutotagOption::Auto, None)
-        .expect("cant update");
-
+    }
+    if !errors.is_empty() {
+        let mut message = String::new();
+        for (k, v) in &errors {
+            message.push_str(&format!("Errors for remote {:}\n", k));
+            for err in v {
+                message.push_str(&format!("{}\n", err.message()));
+            }
+            message.push('\n');
+        }
+        return Err(git2::Error::from_str(&message));
+    }
     Ok(())
 }
 
