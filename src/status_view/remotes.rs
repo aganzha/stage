@@ -429,6 +429,9 @@ impl Status {
                 let remote_branch_name = format!("{}", remote_branch_name.text());
                 let remote_selected = remotes.selected();
                 if remotes_list.string(remote_selected).is_none() {
+                    sender
+                        .send_blocking(crate::Event::UpstreamProgress)
+                        .expect("Could not send through channel");
                     alert("Set up remote first".to_string()).present(Some(&window));
                     return;
                 }
@@ -485,7 +488,6 @@ impl Status {
         }
         if let Some(head) = &self.head {
             if let Some(branch_data) = &head.branch {
-                debug!("???????????????????? {:?}", &branch_data.remote_name);
                 return Some((
                     branch_data.remote_name.clone(),
                     branch_data.name.to_string(),
