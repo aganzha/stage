@@ -245,7 +245,7 @@ pub fn kill_branch(
             move || {
                 let repo = git2::Repository::open(path.clone()).expect("can't open repo");
                 let mut remote = repo
-                    .find_remote("origin") // TODO here is hardcode
+                    .find_remote(&branch_data.remote_name.expect("no remote name"))
                     .expect("no remote");
                 let mut opts = git2::PushOptions::new();
                 let mut callbacks = git2::RemoteCallbacks::new();

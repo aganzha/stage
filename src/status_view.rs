@@ -419,6 +419,12 @@ impl Status {
             let path = self.path.clone().expect("no path");
             let sender = self.sender.clone();
             let window = window.clone();
+            let mut remote_name: Option<String> = None;
+            if ask_pass.is_some() {
+                let (o_remote_name, _remote_branch_name) =
+                    self.choose_remote_branch_name().unwrap();
+                remote_name = o_remote_name;
+            }
             async move {
                 let mut user_pass: Option<(String, String)> = None;
                 if let Some(ask) = ask_pass {
@@ -439,7 +445,7 @@ impl Status {
                             .build();
                         let dialog = crate::confirm_dialog_factory(
                             Some(&lb),
-                            "Pull from remote/origin", // TODO here is harcode
+                            &format!("Pull from {}", remote_name.unwrap_or("".to_string())),
                             "Pull",
                         );
                         let response = dialog.choose_future(&window).await;
