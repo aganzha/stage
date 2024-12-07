@@ -235,7 +235,7 @@ impl CommitList {
                 let mut last_added_oid: Option<Oid> = None;
                 for item in commits
                     .into_iter()
-                    .map(|commit| {
+                    .inspect(|commit| {
                         if search_term.is_none() {
                             commit_list
                                 .imp()
@@ -243,7 +243,6 @@ impl CommitList {
                                 .borrow_mut()
                                 .push(commit.clone());
                         }
-                        commit
                     })
                     .map(CommitItem::new)
                 {

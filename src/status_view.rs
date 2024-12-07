@@ -6,6 +6,7 @@ pub mod commit;
 pub mod context;
 pub mod headerbar;
 pub mod monitor;
+pub mod remotes;
 pub mod render;
 pub mod stage_op;
 pub mod stage_view;
@@ -14,7 +15,7 @@ pub mod tags;
 use crate::dialogs::{alert, ConfirmWithOptions, DangerDialog, YES};
 use crate::git::{
     abort_rebase, branch::BranchData, commit as git_commit, continue_rebase, merge, remote, stash,
-    HunkLineNo, track_changes
+    track_changes, HunkLineNo,
 };
 
 use core::time::Duration;
@@ -278,8 +279,8 @@ impl Status {
 
     pub fn head_name(&self) -> String {
         if let Some(head) = &self.head {
-            if let Some(branch_name) = &head.branch_name {
-                return branch_name.to_string();
+            if let Some(branch_data) = &head.branch {
+                return branch_data.name.to_string();
             }
         }
         "Detached head".to_string()
@@ -418,6 +419,12 @@ impl Status {
             let path = self.path.clone().expect("no path");
             let sender = self.sender.clone();
             let window = window.clone();
+            let mut remote_name: Option<String> = None;
+            if ask_pass.is_some() {
+                let (o_remote_name, _remote_branch_name) =
+                    self.choose_remote_branch_name().unwrap();
+                remote_name = o_remote_name;
+            }
             async move {
                 let mut user_pass: Option<(String, String)> = None;
                 if let Some(ask) = ask_pass {
@@ -438,7 +445,7 @@ impl Status {
                             .build();
                         let dialog = crate::confirm_dialog_factory(
                             Some(&lb),
-                            "Pull from remote/origin", // TODO here is harcode
+                            &format!("Pull from {}", remote_name.unwrap_or("".to_string())),
                             "Pull",
                         );
                         let response = dialog.choose_future(&window).await;
@@ -472,158 +479,6 @@ impl Status {
                 });
             }
         });
-    }
-
-    pub fn push(&self, window: &ApplicationWindow, remote_dialog: Option<(String, bool, bool)>) {
-        let remote = self.choose_remote();
-        glib::spawn_future_local({
-            let window = window.clone();
-            let path = self.path.clone();
-            let sender = self.sender.clone();
-            async move {
-                let lb = ListBox::builder()
-                    .selection_mode(SelectionMode::None)
-                    .css_classes(vec![String::from("boxed-list")])
-                    .build();
-                let upstream = SwitchRow::builder()
-                    .title("Set upstream")
-                    .css_classes(vec!["input_field"])
-                    .active(true)
-                    .build();
-
-                let remote_branch_name = EntryRow::builder()
-                    .title("Remote branch name:")
-                    .show_apply_button(false)
-                    .css_classes(vec!["input_field"])
-                    .text(remote)
-                    .build();
-
-                let user_name = EntryRow::builder()
-                    .title("User name:")
-                    .show_apply_button(true)
-                    .css_classes(vec!["input_field"])
-                    .build();
-                let password = PasswordEntryRow::builder()
-                    .title("Password:")
-                    .css_classes(vec!["input_field"])
-                    .build();
-
-                let dialog = crate::confirm_dialog_factory(
-                    Some(&lb),
-                    "Push to remote/origin", // TODO here is harcode
-                    "Push",
-                );
-                dialog.connect_realize({
-                    let remote_branch_name = remote_branch_name.clone();
-                    move |_| {
-                        remote_branch_name.grab_focus();
-                    }
-                });
-
-                let enter_pressed = Rc::new(Cell::new(false));
-
-                remote_branch_name.connect_apply({
-                    let dialog = dialog.clone();
-                    let enter_pressed = enter_pressed.clone();
-                    move |_| {
-                        // someone pressed enter
-                        enter_pressed.replace(true);
-                        dialog.close();
-                    }
-                });
-
-                remote_branch_name.connect_entry_activated({
-                    let dialog = dialog.clone();
-                    let enter_pressed = enter_pressed.clone();
-                    move |_| {
-                        // someone pressed enter
-                        enter_pressed.replace(true);
-                        dialog.close();
-                    }
-                });
-                let mut pass = false;
-                let mut this_is_tag = false;
-                match remote_dialog {
-                    None => {
-                        lb.append(&remote_branch_name);
-                        lb.append(&upstream);
-                    }
-                    Some((remote_branch, track_remote, is_tag)) => {
-                        this_is_tag = is_tag;
-                        remote_branch_name.set_text(&remote_branch);
-                        if track_remote {
-                            upstream.set_active(true);
-                        }
-                        lb.append(&user_name);
-                        lb.append(&password);
-                        pass = true;
-                    }
-                }
-
-                let response = dialog.choose_future(&window).await;
-
-                if !("confirm" == response || enter_pressed.get()) {
-                    sender
-                        .send_blocking(crate::Event::UpstreamProgress)
-                        .expect("Could not send through channel");
-                    return;
-                }
-                let remote_branch_name = format!("{}", remote_branch_name.text());
-                let track_remote = upstream.is_active();
-                let mut user_pass: Option<(String, String)> = None;
-                if pass {
-                    user_pass.replace((
-                        format!("{}", user_name.text()),
-                        format!("{}", password.text()),
-                    ));
-                }
-                glib::spawn_future_local({
-                    async move {
-                        gio::spawn_blocking({
-                            let sender = sender.clone();
-                            move || {
-                                remote::push(
-                                    path.expect("no path"),
-                                    remote_branch_name,
-                                    track_remote,
-                                    this_is_tag,
-                                    sender,
-                                    user_pass,
-                                )
-                            }
-                        })
-                        .await
-                        .unwrap_or_else(|e| {
-                            sender
-                                .send_blocking(crate::Event::UpstreamProgress)
-                                .expect("Could not send through channel");
-                            alert(format!("{:?}", e)).present(Some(&window));
-                            Ok(())
-                        })
-                        .unwrap_or_else(|e| {
-                            sender
-                                .send_blocking(crate::Event::UpstreamProgress)
-                                .expect("Could not send through channel");
-                            alert(e).present(Some(&window));
-                        });
-                    }
-                });
-            }
-        });
-    }
-
-    pub fn choose_remote(&self) -> String {
-        if let Some(upstream) = &self.upstream {
-            if let Some(branch_name) = &upstream.branch_name {
-                return branch_name.local_name();
-            }
-        }
-        if let Some(head) = &self.head {
-            if let Some(branch_name) = &head.branch_name {
-                return branch_name.to_string();
-            }
-        }
-        "".to_string()
     }
 
     pub fn commit(
@@ -663,7 +518,7 @@ impl Status {
         }
         if let Some(branches) = &mut self.branches {
             if let Some(new_head) = &mut head {
-                if let Some(head_branch) = new_head.branch.take() {
+                if let Some(head_branch) = new_head.branch.clone() {
                     if let Some(ind) = branches.iter().position(|b| b.is_head) {
                         trace!("replace branch by index {:?} {:?}", ind, head_branch.name);
                         branches[ind] = head_branch;
@@ -690,7 +545,7 @@ impl Status {
         }
         if let Some(branches) = &mut self.branches {
             if let Some(upstream) = &mut upstream {
-                if let Some(upstream_branch) = upstream.branch.take() {
+                if let Some(upstream_branch) = upstream.branch.clone() {
                     if let Some(ind) = branches.iter().position(|b| {
                         b.name == upstream_branch.name
                             && b.branch_type == upstream_branch.branch_type

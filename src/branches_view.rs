@@ -373,8 +373,16 @@ impl BranchList {
             let branch_list = self.clone();
             let window = window.clone();
             async move {
-                let _ = gio::spawn_blocking(move || remote::update_remote(repo_path, sender, None))
-                    .await;
+                gio::spawn_blocking(move || remote::update_remote(repo_path, sender, None))
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(Some(&window));
+                        Ok(())
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(Some(&window));
+                    });
+
                 branch_list.toggle_spinner();
                 branch_list.get_branches(path, None, &window);
             }
@@ -491,6 +499,7 @@ impl BranchList {
                     alert(e).present(Some(&window));
                     None
                 });
+                debug!("_just deleted branch {:?} {:?}", result, pos);
                 if result.is_none() {
                     return;
                 }
@@ -502,10 +511,8 @@ impl BranchList {
                     .borrow_mut()
                     .retain(|bd| bd.name != name);
 
-                // --------------------------- very strange piece
-
                 let shifted_item = branch_list.item(pos);
-                debug!("branches. removed item at pos {:?}", pos);
+                debug!("removed item at pos {:?}", pos);
                 let mut new_pos = pos;
                 if let Some(item) = shifted_item {
                     debug!("branches.shift item");
@@ -518,18 +525,18 @@ impl BranchList {
                     // during items_changed
                     branch_list.set_selected_pos(0);
                 } else {
-                    new_pos = {
-                        if pos > 1 {
-                            pos - 1
-                        } else {
-                            0
-                        }
-                    };
-                    debug!("branches.got last item. decrement pos {:?}", new_pos);
-                    let prev_item = branch_list.item(new_pos).unwrap();
-                    let branch_item = prev_item.downcast_ref::<BranchItem>().unwrap();
-                    branch_item.set_initial_focus(true);
-                    branch_list.set_selected_pos(new_pos);
+                    // no more items at this position
+                    // it either has previous item
+                    // or it was last one, e.g. delete branch
+                    // durung search.
+                    if pos > 0 {
+                        debug!("branches.got last item. decrement pos {:?}", new_pos);
+                        new_pos = pos - 1;
+                        let prev_item = branch_list.item(new_pos).unwrap();
+                        let branch_item = prev_item.downcast_ref::<BranchItem>().unwrap();
+                        branch_item.set_initial_focus(true);
+                        branch_list.set_selected_pos(new_pos);
+                    }
                 }
                 debug!(
                     "call items cganged with pos {:?}. new pos will be {:?}",
@@ -637,15 +644,10 @@ impl BranchList {
     }
 
     fn add_new_branch_item(&self, branch_data: branch::BranchData, need_checkout: bool) {
-        debug!(
-            "add_new_branch_item {:?} {:?}",
-            branch_data.is_head, branch_data.name
-        );
         self.imp()
             .original_list
             .borrow_mut()
             .insert(0, branch_data.clone());
-        debug!("inserted in original list!");
         self.imp().list.borrow_mut().insert(
             0,
             BranchItem::new(

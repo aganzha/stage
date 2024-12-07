@@ -70,15 +70,12 @@ pub fn set_remote_callbacks(
     callbacks.transfer_progress(move |progress| {
         let bytes = progress.received_bytes();
         if let Some(cnt) = progress_counts.get(&bytes) {
-            if cnt > &100000 {
-                panic!("infinite loop in progress");
-            }
             progress_counts.insert(bytes, cnt + 1);
         } else {
             progress_counts.insert(bytes, 1);
         }
         // progress_counts[] = 1;
-        debug!("transfer progress {:?}", bytes);
+        trace!("transfer progress {:?}", bytes);
         true
     });
 
@@ -139,53 +136,100 @@ pub fn update_remote(
     path: PathBuf,
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
-) -> Result<(), ()> {
+) -> Result<(), git2::Error> {
     let _updater = DeferRefresh::new(path.clone(), sender, true, true);
-    let repo = git2::Repository::open(path).expect("can't open repo");
-    let mut remote = repo
-        .find_remote("origin") // TODO here is hardcode
-        .expect("no remote");
+    let repo = git2::Repository::open(path)?;
+    let mut errors: HashMap<&str, Vec<git2::Error>> = HashMap::new();
 
-    let mut callbacks = git2::RemoteCallbacks::new();
-    set_remote_callbacks(&mut callbacks, &user_pass);
+    let remotes = repo.remotes()?;
+    for remote_name in &remotes {
+        let remote_name = remote_name.unwrap();
 
-    remote
-        .connect_auth(git2::Direction::Fetch, Some(callbacks), None)
-        .expect("cant connect");
-    let mut callbacks = git2::RemoteCallbacks::new();
-    set_remote_callbacks(&mut callbacks, &user_pass);
+        match repo.find_remote(remote_name) {
+            Ok(mut remote) => {
+                let mut callbacks = git2::RemoteCallbacks::new();
+                set_remote_callbacks(&mut callbacks, &user_pass);
+                if let Err(err) = remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None)
+                {
+                    errors.entry(remote_name).or_default().push(err);
+                    continue;
+                }
 
-    remote.prune(Some(callbacks)).expect("cant prune");
+                let mut callbacks = git2::RemoteCallbacks::new();
+                set_remote_callbacks(&mut callbacks, &user_pass);
 
-    let mut callbacks = git2::RemoteCallbacks::new();
-    set_remote_callbacks(&mut callbacks, &user_pass);
+                if let Err(err) = remote.prune(Some(callbacks)) {
+                    errors.entry(remote_name).or_default().push(err);
+                    continue;
+                }
 
-    callbacks.update_tips({
-        move |updated_ref, oid1, oid2| {
-            debug!("updat tips {:?} {:?} {:?}", updated_ref, oid1, oid2);
-            true
+                let mut callbacks = git2::RemoteCallbacks::new();
+                set_remote_callbacks(&mut callbacks, &user_pass);
+
+                callbacks.update_tips({
+                    move |updated_ref, oid1, oid2| {
+                        debug!(
+                            "updat tips {:?} {:?} {:?} {:?}",
+                            remote_name, updated_ref, oid1, oid2
+                        );
+                        true
+                    }
+                });
+
+                let mut opts = git2::FetchOptions::new();
+                opts.remote_callbacks(callbacks);
+                let refs: [String; 0] = [];
+
+                if let Err(err) = remote.fetch(&refs, Some(&mut opts), None) {
+                    errors.entry(remote_name).or_default().push(err);
+                    continue;
+                }
+
+                let mut callbacks = git2::RemoteCallbacks::new();
+                set_remote_callbacks(&mut callbacks, &user_pass);
+
+                if let Err(err) =
+                    remote.update_tips(Some(&mut callbacks), true, git2::AutotagOption::Auto, None)
+                {
+                    errors.entry(remote_name).or_default().push(err);
+                    continue;
+                }
+            }
+            Err(err) => {
+                errors.entry(remote_name).or_default().push(err);
+            }
         }
-    });
-
-    let mut opts = git2::FetchOptions::new();
-    opts.remote_callbacks(callbacks);
-    let refs: [String; 0] = [];
-    remote
-        .fetch(&refs, Some(&mut opts), None)
-        .expect("cant fetch");
-    let mut callbacks = git2::RemoteCallbacks::new();
-    set_remote_callbacks(&mut callbacks, &user_pass);
-    remote
-        .update_tips(Some(&mut callbacks), true, git2::AutotagOption::Auto, None)
-        .expect("cant update");
-
+    }
+    if !errors.is_empty() {
+        let mut message = String::new();
+        for (k, v) in &errors {
+            message.push_str(&format!("Errors for remote {:}\n", k));
+            for err in v {
+                message.push_str(&format!("{}\n", err.message()));
+            }
+            message.push('\n');
+        }
+        return Err(git2::Error::from_str(&message));
+    }
     Ok(())
 }
 
-pub const REMOTE: &str = "origin";
+// pub fn setup_remote_for_current_branch(
+//     path: PathBuf,
+//     remote_name: String,
+// ) -> Result<(), git2::Error> {
+//     let repo = git2::Repository::open(path.clone())?;
+//     let head_ref = repo.head()?;
+//     assert!(head_ref.is_branch());
+//     let mut branch = git2::Branch::wrap(head_ref);
+//     let branch_name:BranchName = (&branch).into();
+//     branch.set_upstream(Some(&format!("{}/{}", remote_name, branch_name.to_local())))?;
+//     Ok(())
+// }
 
 pub fn push(
     path: PathBuf,
+    remote_name: String,
     remote_ref: String,
     tracking_remote: bool,
     is_tag: bool,
@@ -206,7 +250,11 @@ pub fn push(
 
     trace!("push. refspec {}", refspec);
     let mut branch = git2::Branch::wrap(head_ref);
-    let mut remote = repo.find_remote(REMOTE)?; // TODO here is hardcode
+    // let err = "No remote to push to";
+    // let branch_data = BranchData::from_branch(&branch, git2::BranchType::Local)?
+    //     .ok_or(git2::Error::from_str(err))?;
+    // let remote_name = branch_data.remote_name.ok_or(git2::Error::from_str(err))?;
+    let mut remote = repo.find_remote(&remote_name)?;
 
     let mut opts = git2::PushOptions::new();
     let mut callbacks = git2::RemoteCallbacks::new();
@@ -220,8 +268,9 @@ pub fn push(
                 updated_ref, oid1, oid2
             );
             if tracking_remote {
+                let refspec = format!("{}/{}", remote_name, &remote_ref);
                 branch
-                    .set_upstream(Some(&format!("{}/{}", REMOTE, &remote_ref)))
+                    .set_upstream(Some(&refspec))
                     .expect("cant set upstream");
             }
             sender
@@ -296,9 +345,14 @@ pub fn pull(
 ) -> Result<(), git2::Error> {
     let defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
-    // TODO here is hardcode
-    let mut remote = repo.find_remote("origin")?;
+
     let head_ref = repo.head()?;
+    let branch = git2::Branch::wrap(head_ref);
+    let err = "No remote to pull from";
+    let branch_data = BranchData::from_branch(&branch, git2::BranchType::Local)?
+        .ok_or(git2::Error::from_str(err))?;
+    let remote_name = branch_data.remote_name.ok_or(git2::Error::from_str(err))?;
+    let mut remote = repo.find_remote(&remote_name)?;
 
     let mut opts = git2::FetchOptions::new();
     let mut callbacks = git2::RemoteCallbacks::new();
@@ -336,15 +390,97 @@ pub fn pull(
     set_remote_callbacks(&mut callbacks, &user_pass);
     opts.remote_callbacks(callbacks);
 
-    remote.fetch(&[head_ref.name().unwrap()], Some(&mut opts), None)?;
+    remote.fetch(&[branch_data.name.to_local()], Some(&mut opts), None)?;
 
-    assert!(head_ref.is_branch());
-    let branch = git2::Branch::wrap(head_ref);
     let upstream = branch.upstream()?;
 
-    let branch_data = BranchData::from_branch(upstream, git2::BranchType::Remote)
+    let branch_data = BranchData::from_branch(&upstream, git2::BranchType::Remote)
         .unwrap()
         .unwrap();
     merge::branch(path.clone(), branch_data, sender.clone(), Some(defer))?;
     Ok(())
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct RemoteDetail {
+    pub name: String,
+    pub url: String,
+    // pub push_url: String,
+    pub refspecs: Vec<String>,
+    // pub push_refspecs: Vec<String>,
+}
+
+impl From<git2::Remote<'_>> for RemoteDetail {
+    fn from(remote: git2::Remote) -> RemoteDetail {
+        let mut rd = RemoteDetail::default();
+        if let Some(name) = remote.name() {
+            rd.name = name.to_string();
+        }
+        if let Some(url) = remote.url() {
+            rd.url = url.to_string();
+        }
+        // if let Some(url) = remote.pushurl() {
+        //     rd.push_url = url.to_string();
+        // }
+        for r in remote.refspecs() {
+            if let Some(refspec) = r.str() {
+                rd.refspecs.push(refspec.to_string());
+            }
+        }
+        // if let Ok(refspecs) = remote.push_refspecs() {
+        //     for pr in &refspecs {
+        //         if let Some(refspec) = pr {
+        //             rd.push_refspecs.push(refspec.to_string());
+        //         }
+        //     }
+        // }
+        rd
+    }
+}
+
+// , current_remote_name: Option<String>
+pub fn list(path: PathBuf) -> Result<Vec<RemoteDetail>, git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
+    let mut remotes: Vec<RemoteDetail> = Vec::new();
+    for remote_name in &repo.remotes()? {
+        if let Some(remote_name) = remote_name {
+            let remote = repo.find_remote(remote_name)?;
+            remotes.push(remote.into());
+        }
+    }
+    Ok(remotes)
+}
+
+pub fn add(path: PathBuf, name: String, url: String) -> Result<Option<RemoteDetail>, git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
+    let remote = repo.remote(&name, &url)?;
+    Ok(Some(remote.into()))
+}
+
+pub fn delete(path: PathBuf, name: String) -> Result<bool, git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
+    repo.remote_delete(&name)?;
+    Ok(true)
+}
+
+pub fn edit(
+    path: PathBuf,
+    name: String,
+    remote: RemoteDetail,
+) -> Result<Option<RemoteDetail>, git2::Error> {
+    let repo = git2::Repository::open(path.clone())?;
+    let git_remote = repo.find_remote(&name)?;
+    if let Some(name) = git_remote.name() {
+        if name != remote.name {
+            repo.remote_rename(name, &remote.name)?;
+            return Ok(Some(repo.find_remote(&remote.name)?.into()));
+        }
+        if let Some(url) = git_remote.url() {
+            if url != remote.url {
+                repo.remote_set_url(name, &remote.url)?;
+                return Ok(Some(repo.find_remote(&remote.name)?.into()));
+            }
+        }
+    }
+    Ok(None)
 }
