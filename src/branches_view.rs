@@ -373,8 +373,17 @@ impl BranchList {
             let branch_list = self.clone();
             let window = window.clone();
             async move {
-                let _ = gio::spawn_blocking(move || remote::update_remote(repo_path, sender, None))
-                    .await;
+                gio::spawn_blocking(move || remote::update_remote(repo_path, sender, None))
+                    .await
+                    .unwrap_or_else(|e| {
+                        alert(format!("{:?}", e)).present(Some(&window));
+                        Ok(())
+                    })
+                    .unwrap_or_else(|e| {
+                        alert(e).present(Some(&window));
+                        
+                    });
+
                 branch_list.toggle_spinner();
                 branch_list.get_branches(path, None, &window);
             }
