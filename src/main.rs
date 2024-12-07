@@ -432,12 +432,17 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Tags(ooid) => {
                     let oid = ooid.unwrap_or(status.head_oid());
+                    let mut remote_name: Option<String> = None;
+                    if let Some((o_remote_name, _)) = status.choose_remote_branch_name() {
+                        remote_name = o_remote_name;
+                    }
                     let w = {
                         if let Some(stack) = window_stack.borrow().last() {
                             show_tags_window(
                                 status.path.clone().expect("no path"),
                                 stack,
                                 oid,
+                                remote_name,
                                 sender.clone(),
                             )
                         } else {
@@ -445,6 +450,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                                 status.path.clone().expect("no path"),
                                 &window,
                                 oid,
+                                remote_name,
                                 sender.clone(),
                             )
                         }
