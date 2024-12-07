@@ -149,7 +149,8 @@ pub fn update_remote(
             Ok(mut remote) => {
                 let mut callbacks = git2::RemoteCallbacks::new();
                 set_remote_callbacks(&mut callbacks, &user_pass);
-                if let Err(err) = remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None) {
+                if let Err(err) = remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None)
+                {
                     errors.entry(remote_name).or_default().push(err);
                     continue;
                 }
@@ -187,12 +188,9 @@ pub fn update_remote(
                 let mut callbacks = git2::RemoteCallbacks::new();
                 set_remote_callbacks(&mut callbacks, &user_pass);
 
-                if let Err(err) = remote.update_tips(
-                    Some(&mut callbacks),
-                    true,
-                    git2::AutotagOption::Auto,
-                    None,
-                ) {
+                if let Err(err) =
+                    remote.update_tips(Some(&mut callbacks), true, git2::AutotagOption::Auto, None)
+                {
                     errors.entry(remote_name).or_default().push(err);
                     continue;
                 }
