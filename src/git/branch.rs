@@ -235,9 +235,9 @@ pub fn kill_branch(
 ) -> Result<Option<()>, git2::Error> {
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
-    let name = &branch_data.name;
+    let name = &branch_data.name.to_local();
     let kind = branch_data.branch_type;
-    let mut branch = repo.find_branch(name.to_str(), kind)?;
+    let mut branch = repo.find_branch(branch_data.name.to_str(), kind)?;
     if kind == git2::BranchType::Remote {
         gio::spawn_blocking({
             let path = path.clone();
