@@ -10,7 +10,7 @@ pub mod remote;
 pub mod stash;
 pub mod tag;
 pub mod test_merge;
-use crate::branch::{BranchData, BranchName};
+use crate::branch::BranchData;
 use crate::commit::CommitRepr;
 use crate::gio;
 use crate::status_view::view::View;
@@ -30,7 +30,7 @@ use regex::Regex;
 use std::fmt;
 use std::num::ParseIntError;
 use std::ops::{Add, Sub};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::{from_utf8, FromStr};
 use std::{collections::HashSet, str};
 
@@ -521,7 +521,8 @@ impl State {
 #[derive(Debug, Clone)]
 pub struct Head {
     pub oid: Oid,
-    pub branch_name: Option<BranchName>,
+    // TODO! get rid of it!
+    // pub branch_name: Option<BranchName>,
     pub is_upstream: bool,
     pub log_message: String,
     pub raw_message: String,
@@ -535,7 +536,7 @@ impl Head {
         Self {
             oid: commit.id(),
             is_upstream,
-            branch_name: None,
+            // branch_name: None,
             log_message: commit.log_message(),
             raw_message: commit.raw_message(),
             view: View::new(),
@@ -544,7 +545,7 @@ impl Head {
         }
     }
     pub fn set_branch(&mut self, branch: BranchData) {
-        self.branch_name = Some(branch.name.clone());
+        // self.branch_name = Some(branch.name.clone());
         self.branch.replace(branch);
     }
 }
@@ -557,7 +558,7 @@ pub fn get_head(path: PathBuf) -> Result<Head, Error> {
     let mut head = Head::new(&commit, false);
     if head_ref.is_branch() {
         if let Some(branch_data) =
-            BranchData::from_branch(Branch::wrap(head_ref), git2::BranchType::Local)?
+            BranchData::from_branch(&Branch::wrap(head_ref), git2::BranchType::Local)?
         {
             head.set_branch(branch_data);
         }
@@ -574,35 +575,17 @@ pub fn get_upstream(path: PathBuf) -> Result<Head, Error> {
             "Head ref is not branch in get_upstream",
         ));
     }
-    // if !head_ref.is_branch() {
-    //     sender
-    //         .send_blocking(crate::Event::Upstream(None))
-    //         .expect("Could not send through channel");
-    //     return Ok(());
-    // }
-    // assert!(head_ref.is_branch());
     let branch = Branch::wrap(head_ref);
     if let Ok(upstream) = branch.upstream() {
         let upstream_ref = upstream.get();
         let ob = upstream_ref.peel(ObjectType::Commit)?;
         let commit = ob.peel_to_commit()?;
         let mut new_upstream = Head::new(&commit, true);
-        if let Some(branch_data) = BranchData::from_branch(upstream, git2::BranchType::Remote)? {
+        if let Some(branch_data) = BranchData::from_branch(&upstream, git2::BranchType::Remote)? {
             new_upstream.set_branch(branch_data);
         }
         return Ok(new_upstream);
-        // sender
-        //     .send_blocking(crate::Event::Upstream(Some(new_upstream)))
-        //     .expect("Could not send through channel");
-    } //  else {
-      //     sender
-      //         .send_blocking(crate::Event::Upstream(None))
-      //         .expect("Could not send through channel");
-      //     // todo!("some branches could contain only pushRemote, but no
-      //     //       origin. There will be no upstream then. It need to lookup
-      //     //       pushRemote in config and check refs/remotes/<origin>/")
-      // };
-      // Ok(())
+    }
     Err(git2::Error::from_str("No upstream yet"))
 }
 

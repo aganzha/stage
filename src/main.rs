@@ -35,8 +35,8 @@ use std::rc::Rc;
 mod git;
 use git::{
     branch, commit, get_current_repo_status, get_directories, reset_hard, stage_untracked,
-    stage_via_apply, stash::Stashes, Diff, DiffKind, File, Head, Hunk, Line,
-    LineKind, State, MARKER_OURS, MARKER_THEIRS,
+    stage_via_apply, stash::Stashes, Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
+    MARKER_OURS, MARKER_THEIRS,
 };
 use git2::Oid;
 mod dialogs;
@@ -163,6 +163,7 @@ pub enum Event {
     StashesPanel,
     Stashes(Stashes),
     Refresh,
+    RemotesDialog,
     Zoom(bool),
     ResetHard(Option<Oid>),
     CommitDiff(commit::CommitDiff),
@@ -431,12 +432,17 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Tags(ooid) => {
                     let oid = ooid.unwrap_or(status.head_oid());
+                    let mut remote_name: Option<String> = None;
+                    if let Some((o_remote_name, _)) = status.choose_remote_branch_name() {
+                        remote_name = o_remote_name;
+                    }
                     let w = {
                         if let Some(stack) = window_stack.borrow().last() {
                             show_tags_window(
                                 status.path.clone().expect("no path"),
                                 stack,
                                 oid,
+                                remote_name,
                                 sender.clone(),
                             )
                         } else {
@@ -444,6 +450,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                                 status.path.clone().expect("no path"),
                                 &window,
                                 oid,
+                                remote_name,
                                 sender.clone(),
                             )
                         }
@@ -662,6 +669,10 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::PullUserPass => {
                     info!("main. userpass");
                     status.pull(&window, Some(true))
+                }
+                Event::RemotesDialog => {
+                    info!("main. remotes dialog");
+                    status.show_remotes_dialog(&window);
                 }
                 Event::LockMonitors(lock) => {
                     info!("main. lock monitors {}", lock);

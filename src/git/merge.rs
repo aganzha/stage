@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::git::{
-    branch::NamedBranch, get_conflicted_v1, get_current_repo_status, make_diff_options, BranchData,
+    branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff_options, BranchData,
     DeferRefresh, Hunk, Line, State, MARKER_DIFF_A, MARKER_DIFF_B, MARKER_HUNK, MARKER_OURS,
     MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
 };
@@ -88,8 +88,8 @@ pub fn final_merge_commit(path: PathBuf, sender: Sender<crate::Event>) -> Result
     let my_branch = git2::Branch::wrap(head_ref);
     let message = format!(
         "merge branch {} into {}",
-        their_branch.branch_name().to_str(),
-        my_branch.branch_name().to_str()
+        BranchName::from(&their_branch),
+        BranchName::from(&my_branch)
     );
 
     let tree_oid = repo.index()?.write_tree()?;
@@ -176,7 +176,7 @@ pub fn branch(
     let head_ref = repo.head()?;
     assert!(head_ref.is_branch());
     let branch = git2::Branch::wrap(head_ref);
-    BranchData::from_branch(branch, git2::BranchType::Local)
+    BranchData::from_branch(&branch, git2::BranchType::Local)
 }
 
 pub fn abort(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {

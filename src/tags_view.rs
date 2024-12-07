@@ -238,11 +238,10 @@ impl TagList {
                 let mut last_added_oid: Option<Oid> = None;
                 for item in tags
                     .into_iter()
-                    .map(|tag| {
+                    .inspect(|tag| {
                         if search_term.is_none() {
                             tag_list.imp().original_list.borrow_mut().push(tag.clone());
                         }
-                        tag
                     })
                     .map(TagItem::new)
                 {
@@ -328,7 +327,13 @@ impl TagList {
         (name, pos)
     }
 
-    pub fn push_tag(&self, repo_path: PathBuf, window: &Window, sender: Sender<crate::Event>) {
+    pub fn push_tag(
+        &self,
+        repo_path: PathBuf,
+        remote_name: String,
+        window: &Window,
+        sender: Sender<crate::Event>,
+    ) {
         let (tag_name, _) = self.get_selected_tag();
         let window = window.clone();
         glib::spawn_future_local({
@@ -336,7 +341,9 @@ impl TagList {
                 gio::spawn_blocking({
                     let sender = sender.clone();
                     let tag_name = tag_name.clone();
-                    move || remote::push(repo_path, tag_name, false, true, sender, None)
+                    move || {
+                        remote::push(repo_path, remote_name, tag_name, false, true, sender, None)
+                    }
                 })
                 .await
                 .unwrap_or_else(|e| {
@@ -394,7 +401,7 @@ impl TagList {
                         break;
                     }
                     pos -= 1;
-                    if pos <= 0 {
+                    if pos == 0 {
                         break;
                     }
                 }
@@ -765,6 +772,7 @@ pub fn headerbar_factory(
     sender: Sender<crate::Event>,
     repo_path: PathBuf,
     target_oid: git2::Oid,
+    remote_name: Option<String>,
 ) -> HeaderBar {
     let entry = SearchEntry::builder()
         .search_delay(300)
@@ -936,6 +944,7 @@ pub fn headerbar_factory(
         .use_underline(true)
         .can_focus(false)
         .tooltip_text("Push")
+        .sensitive(remote_name.is_some())
         .icon_name("send-to-symbolic")
         .can_shrink(true)
         //.sensitive(false)
@@ -945,8 +954,14 @@ pub fn headerbar_factory(
         let window = window.clone();
         let tag_list = tag_list.clone();
         let repo_path = repo_path.clone();
+        //let remote_name = remote_name.clone();
         move |_| {
-            tag_list.push_tag(repo_path.clone(), &window, sender.clone());
+            tag_list.push_tag(
+                repo_path.clone(),
+                remote_name.clone().unwrap(),
+                &window,
+                sender.clone(),
+            );
         }
     });
 
@@ -1013,6 +1028,7 @@ pub fn show_tags_window(
     repo_path: PathBuf,
     app_window: &impl IsA<Gtk4Window>,
     target_oid: git2::Oid,
+    remote_name: Option<String>,
     main_sender: Sender<crate::Event>,
 ) -> Window {
     let window = Window::builder()
@@ -1053,6 +1069,7 @@ pub fn show_tags_window(
         main_sender.clone(),
         repo_path.clone(),
         target_oid,
+        remote_name.clone(),
     );
 
     tb.add_top_bar(&hb);
@@ -1064,6 +1081,7 @@ pub fn show_tags_window(
         let list_view = list_view.clone();
         let main_sender = main_sender.clone();
         let repo_path = repo_path.clone();
+        let remote_name = remote_name.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::w, gdk::ModifierType::CONTROL_MASK) => {
@@ -1094,8 +1112,15 @@ pub fn show_tags_window(
                     tag_list.kill_tag(repo_path.clone(), &window, main_sender.clone());
                 }
                 (gdk::Key::p, _) => {
-                    let tag_list = get_tags_list(&list_view);
-                    tag_list.push_tag(repo_path.clone(), &window, main_sender.clone());
+                    if let Some(remote_name) = remote_name.clone() {
+                        let tag_list = get_tags_list(&list_view);
+                        tag_list.push_tag(
+                            repo_path.clone(),
+                            remote_name,
+                            &window,
+                            main_sender.clone(),
+                        );
+                    }
                 }
                 (key, modifier) => {
                     trace!("key pressed {:?} {:?}", key, modifier);
