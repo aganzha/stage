@@ -9,9 +9,11 @@ use chrono::{DateTime, FixedOffset};
 use git2;
 use gtk4::gio;
 use log::info;
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::fmt;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct BranchName(String);
@@ -150,7 +152,23 @@ pub fn checkout_branch(
     let commit = repo.find_commit(branch_data.oid)?;
 
     let mut builder = git2::build::CheckoutBuilder::new();
-    let opts = builder.safe();
+    let conflict_paths = Rc::new(RefCell::new(String::new()));
+    let opts = builder
+        .notify_on(git2::CheckoutNotificationType::CONFLICT)
+        .notify({
+            let conflict_paths = conflict_paths.clone();
+            move |nt, op, _odf1, _odf2, _odf3| {
+                if nt.is_conflict() {
+                    if let Some(path) = op {
+                        conflict_paths
+                            .borrow_mut()
+                            .push_str(&format!("{}\n", path.display()));
+                    }
+                }
+                true
+            }
+        })
+        .safe();
 
     sender
         .send_blocking(crate::Event::LockMonitors(true))
@@ -159,7 +177,12 @@ pub fn checkout_branch(
     let checkout_error = repo.checkout_tree(commit.as_object(), Some(opts)).err();
 
     if let Some(checkout_error) = checkout_error {
-        return Err(checkout_error);
+        return Err(git2::Error::from_str(&format!(
+            "{}\n{}",
+            checkout_error.message(),
+            conflict_paths.borrow()
+        )));
+        //return Err(checkout_error);
     }
     match branch_data.branch_type {
         git2::BranchType::Local => {}
