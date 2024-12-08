@@ -1198,4 +1198,15 @@ impl Diff {
         );
         self.last_visible_line() >= line_no
     }
+
+    pub fn try_auto_expand(&self, free_visible_lines: i32) {
+        for file in &self.files {
+            for hunk in &file.hunks {
+                if hunk.lines.len() as i32 <= free_visible_lines {
+                    hunk.view.expand(true);
+                    file.view.expand(true);
+                }
+            }
+        }
+    }
 }

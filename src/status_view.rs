@@ -809,6 +809,10 @@ impl Status {
             } else {
                 rendered.erase(buffer, context);
             }
+        } else {
+            if let (Some(new), Some(free_lines)) = (&diff, txt.free_visible_lines()) {
+                new.try_auto_expand(free_lines);
+            }
         }
 
         self.unstaged = diff;

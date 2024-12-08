@@ -15,7 +15,7 @@ use gtk4::{
     GestureDrag, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::trace;
+use log::{debug, trace};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -253,6 +253,30 @@ impl StageView {
             window_width
         };
         width / (x_after - x_before)
+    }
+
+    pub fn free_visible_lines(&self) -> Option<i32> {
+        let rect = self.visible_rect();
+        // let (_, y) = self.window_to_buffer_coords(
+        //     TextWindowType::Text,
+        //     0,
+        //     (rect.y() + rect.height()) as i32,
+        // );
+        debug!("rrrrrrrrrrrrrrrrrrrrrr {:?}", rect);
+        let buffer = self.buffer();
+        if self.iter_at_location(0, rect.y()).is_none() {
+            let max_line = buffer.line_count();
+            let iter = buffer.iter_at_line(max_line - 1).unwrap();
+            let (y_from, line_height) = self.line_yrange(&iter);
+            if line_height == 0 {
+                debug!("noooooooooooooo way {:?} {:?} {:?} visible offset {:?}", y_from, line_height, iter.line(), self.visible_offset());
+                return None
+            }
+            // magic 1 and 2: there are 2 empty lines at the bottom
+            // but when Expand file and hunk will also accomodate 2 lines
+            return Some((rect.y() - y_from - line_height) / line_height);
+        }
+        None
     }
 }
 
