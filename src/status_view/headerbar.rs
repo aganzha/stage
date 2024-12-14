@@ -5,14 +5,15 @@
 use crate::status_view::context::StatusRenderContext;
 use async_channel::Sender;
 use gtk4::{
-    gio, Align, Box, Button, FileDialog, GestureClick, Label, MenuButton, Orientation, PopoverMenu,
-    Spinner, ToggleButton, Widget,
+    gio, glib, Align, Box, Button, FileDialog, GestureClick, Label, MenuButton, Orientation,
+    PopoverMenu, Spinner, ToggleButton, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
     AboutDialog, ApplicationWindow, ButtonContent, ColorScheme, HeaderBar, SplitButton,
     StyleManager, Window,
 };
+use log::{debug, info, trace};
 use std::path::PathBuf;
 
 pub enum HbUpdateData<'a> {
@@ -129,31 +130,6 @@ pub fn scheme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> B
     bx
 }
 
-pub fn about(window: &ApplicationWindow, sender: Sender<crate::Event>) -> Label {
-    let gesture_controller = GestureClick::new();
-    let about = Label::new(Some("About Stage"));
-    gesture_controller.connect_released({
-        let window = window.clone();
-        move |_, _, _, _| {
-            let dialog = AboutDialog::from_appdata(
-                "/io/github/aganzha/Stage/io.github.aganzha.Stage.metainfo.xml",
-                None,
-            );
-            dialog.connect_unrealize({
-                let sender = sender.clone();
-                move |_| {
-                    sender
-                        .send_blocking(crate::Event::Focus)
-                        .expect("cant send through channel");
-                }
-            });
-            dialog.present(Some(&window));
-        }
-    });
-    about.add_controller(gesture_controller);
-    about
-}
-
 pub fn zoom(
     // stored_size: Scheme,
     sender: Sender<crate::Event>,
@@ -219,32 +195,21 @@ pub fn burger_menu(
     let menu_model = gio::Menu::new();
 
     let scheme_model = gio::Menu::new();
-
-    let menu_item = gio::MenuItem::new(Some(SCHEME_TOKEN), Some("win.menu::1"));
-
+    let scheme_item = gio::MenuItem::new(Some(SCHEME_TOKEN), Some("menu.choose_scheme"));
     let scheme_id = SCHEME_TOKEN.to_variant();
-    menu_item.set_attribute_value(CUSTOM_ATTR, Some(&scheme_id));
-    scheme_model.insert_item(0, &menu_item);
+    scheme_item.set_attribute_value(CUSTOM_ATTR, Some(&scheme_id));
+    scheme_model.insert_item(0, &scheme_item);
+    menu_model.append_section(None, &scheme_model);
 
     let zoom_model = gio::Menu::new();
-    let menu_item = gio::MenuItem::new(Some(ZOOM_TOKEN), Some("win.menu::2"));
-
+    let zoom_item = gio::MenuItem::new(Some(ZOOM_TOKEN), Some("menu.zoom"));
     let zoom_id = ZOOM_TOKEN.to_variant();
-    menu_item.set_attribute_value(CUSTOM_ATTR, Some(&zoom_id));
-    zoom_model.insert_item(0, &menu_item);
-
-    // about -----------------
-    let about_model = gio::Menu::new();
-    let menu_item = gio::MenuItem::new(Some("About Stage"), Some("win.about"));
-
-    let about_id = ABOUT_TOKEN.to_variant();
-    menu_item.set_attribute_value(CUSTOM_ATTR, Some(&about_id));
-    about_model.insert_item(2, &menu_item);
-    // about -----------------
-
-    menu_model.append_section(None, &scheme_model);
+    zoom_item.set_attribute_value(CUSTOM_ATTR, Some(&zoom_id));
+    zoom_model.insert_item(0, &zoom_item);
     menu_model.append_section(None, &zoom_model);
-    menu_model.append_section(None, &about_model);
+
+    let menu_item = gio::MenuItem::new(Some("About Stage"), Some("menu.about"));
+    menu_model.append_item(&menu_item);
 
     let popover_menu = PopoverMenu::from_model(Some(&menu_model));
 
@@ -252,10 +217,33 @@ pub fn burger_menu(
         &scheme_selector(stored_scheme, sender.clone()),
         SCHEME_TOKEN,
     );
-
     popover_menu.add_child(&zoom(sender.clone()), ZOOM_TOKEN);
 
-    popover_menu.add_child(&about(window, sender.clone()), ABOUT_TOKEN);
+    let ag = gio::SimpleActionGroup::new();
+
+    let about_action = gio::SimpleAction::new("about", None);
+    about_action.connect_activate({
+        let window = window.clone();
+        move |_, _| {
+            let dialog = AboutDialog::from_appdata(
+                "/io/github/aganzha/Stage/io.github.aganzha.Stage.metainfo.xml",
+                None,
+            );
+            dialog.connect_unrealize({
+                let sender = sender.clone();
+                move |_| {
+                    sender
+                        .send_blocking(crate::Event::Focus)
+                        .expect("cant send through channel");
+                }
+            });
+            dialog.present(Some(&window));
+        }
+    });
+
+    ag.add_action(&about_action);
+
+    popover_menu.insert_action_group("menu", Some(&ag));
 
     MenuButton::builder()
         .popover(&popover_menu)
