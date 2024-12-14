@@ -5,13 +5,14 @@
 use crate::status_view::context::StatusRenderContext;
 use async_channel::Sender;
 use gtk4::{
-    gio, glib, Align, Box, Button, FileDialog, GestureClick, Label, MenuButton, Orientation,
-    PopoverMenu, Spinner, ToggleButton, Widget,
+    gio, glib, Align, Box, Button, FileDialog, Label, MenuButton, Orientation,
+    PopoverMenu, Spinner, ToggleButton, Widget, ShortcutsWindow, ShortcutsGroup,
+    ShortcutsSection, ShortcutsShortcut, ListBoxRow, ListBox
 };
 use libadwaita::prelude::*;
 use libadwaita::{
     AboutDialog, ApplicationWindow, ButtonContent, ColorScheme, HeaderBar, SplitButton,
-    StyleManager, Window,
+    StyleManager, Window, Dialog, ToolbarView,
 };
 use log::{debug, info, trace};
 use std::path::PathBuf;
@@ -62,7 +63,6 @@ impl Scheme {
 pub const CUSTOM_ATTR: &str = "custom";
 pub const SCHEME_TOKEN: &str = "scheme";
 pub const ZOOM_TOKEN: &str = "zoom";
-pub const ABOUT_TOKEN: &str = "about";
 
 pub fn scheme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> Box {
     let scheme_selector = Box::builder()
@@ -187,6 +187,31 @@ pub fn zoom(
     bx
 }
 
+
+pub fn keybinding_dialog() -> Dialog {
+    let lb  = ListBox::builder().build();
+
+    let bx = Box::builder().orientation(Orientation::Horizontal).build();
+    bx.append(&Button::builder().label("s").build());
+    bx.append(&Label::new(Some("Stage")));
+
+    let row = ListBoxRow::builder()
+        .child(&bx)
+        .build();
+    lb.append(&row);
+    
+    let hb = HeaderBar::new();
+    let tb = ToolbarView::builder()
+        .content(&lb)
+        .build();
+    tb.add_top_bar(&hb);
+    let dialog = Dialog::builder()
+        .title("Key bindings")
+        .child(&tb)
+        .build();
+    dialog
+}
+
 pub fn burger_menu(
     stored_scheme: Scheme,
     window: &ApplicationWindow,
@@ -208,8 +233,12 @@ pub fn burger_menu(
     zoom_model.insert_item(0, &zoom_item);
     menu_model.append_section(None, &zoom_model);
 
-    let menu_item = gio::MenuItem::new(Some("About Stage"), Some("menu.about"));
-    menu_model.append_item(&menu_item);
+
+    let shortcuts_item = gio::MenuItem::new(Some("Key bindings"), Some("menu.shortcuts"));
+    menu_model.append_item(&shortcuts_item);
+
+    let about_item = gio::MenuItem::new(Some("About Stage"), Some("menu.about"));
+    menu_model.append_item(&about_item);
 
     let popover_menu = PopoverMenu::from_model(Some(&menu_model));
 
@@ -242,6 +271,17 @@ pub fn burger_menu(
     });
 
     ag.add_action(&about_action);
+
+
+    let shortcuts_action = gio::SimpleAction::new("shortcuts", None);
+    shortcuts_action.connect_activate({
+        let window = window.clone();
+        move |_, _| {
+            &keybinding_dialog().present(Some(&window));
+        }
+    });
+
+    ag.add_action(&shortcuts_action);
 
     popover_menu.insert_action_group("menu", Some(&ag));
 
