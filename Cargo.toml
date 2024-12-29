@@ -9,6 +9,7 @@ authors = ["Aleksey Ganzha <aganzha@yandex.ru>"]
 [dependencies]
 gtk4 = { version = "0.9.4", features = ["gnome_47"] }
 libadwaita = { version = "0.7.1", features = ["v1_6"] }
+sourceview5 = "0.9.1"
 git2 = "0.18.1"
 regex = "1.10.2"
 log = "0.4.20"
