@@ -272,7 +272,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone(), &window.clone());
 
-    let txt = stage_factory(sender.clone(), "status_view");
+    let (txt, map) = stage_factory(sender.clone(), "status_view");
 
     let scroll = ScrolledWindow::builder()
         .vexpand(true)
@@ -305,8 +305,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         .hexpand_set(true)
         .orientation(Orientation::Horizontal)
         .build();
-    let map = GtkSourceViewMap::new();
-    map.set_view(&txt);
     map_box.append(&scroll);
     map_box.append(&map);
 

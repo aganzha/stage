@@ -275,7 +275,7 @@ pub fn show_commit_window(
         stash_num,
     );
 
-    let txt = crate::stage_factory(sender.clone(), "commit_view");
+    let (txt, map) = crate::stage_factory(sender.clone(), "commit_view");
 
     scroll.set_child(Some(&txt));
 

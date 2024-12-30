@@ -262,7 +262,93 @@ impl StageView {
     }
 }
 
-pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
+// pub trait GtkSourceViewMapImpl {}
+
+// unsafe impl<T: GtkSourceViewMapImpl> glib::subclass::types::IsSubclassable<T> for GtkSourceViewMap {
+//     fn class_init(class: &mut glib::Class<Self>) {
+//         Self::parent_class_init::<T>(class);
+//         // let klass = class.as_mut();
+//         // klass.line_mark_activated = Some(view_line_mark_activated::<T>);
+//         // klass.show_completion = Some(view_show_completion::<T>);
+//         // klass.move_lines = Some(view_move_lines::<T>);
+//         // klass.move_words = Some(view_move_words::<T>);
+//         // klass.push_snippet = Some(view_push_snippet::<T>);
+//     }
+// }
+
+glib::wrapper! {
+    pub struct StageViewMap(ObjectSubclass<stage_view_map_internal::StageViewMap>)
+        @extends GtkSourceViewMap, TextView, Widget,
+        @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
+}
+
+unsafe impl glib::subclass::types::IsSubclassable<stage_view_map_internal::StageViewMap>
+    for GtkSourceViewMap
+{
+}
+
+mod stage_view_map_internal {
+    use gtk4::prelude::*;
+    use gtk4::{gdk, glib, graphene, Snapshot, TextView, TextViewLayer};
+    use sourceview5::subclass::prelude::ViewImpl as GtkSourceViewImpl;
+    use sourceview5::Map as GtkSourceViewMap;
+    use std::cell::{Cell, RefCell};
+
+    use gtk4::subclass::prelude::*;
+
+    const DARK_BF_FILL: gdk::RGBA = gdk::RGBA::new(0.139, 0.139, 0.139, 1.0);
+    const LIGHT_BG_FILL: gdk::RGBA = gdk::RGBA::new(1.0, 1.0, 1.0, 1.0);
+
+    #[derive(Default)]
+    pub struct StageViewMap {
+        pub is_dark: Cell<bool>,
+        pub is_dark_set: Cell<bool>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for StageViewMap {
+        const NAME: &'static str = "StageViewMap";
+        type Type = super::StageViewMap;
+        type ParentType = GtkSourceViewMap;
+    }
+
+    impl StageViewMap {}
+
+    impl GtkSourceViewImpl for StageViewMap {}
+    //impl super::GtkSourceViewMapImpl for StageViewMap {}
+
+    impl TextViewImpl for StageViewMap {
+        fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
+            if layer == TextViewLayer::BelowText {
+                let rect = self.obj().visible_rect();
+                let bg_fill = if true { &DARK_BF_FILL } else { &LIGHT_BG_FILL };
+                snapshot.append_color(
+                    bg_fill,
+                    &graphene::Rect::new(
+                        rect.x() as f32,
+                        rect.y() as f32,
+                        rect.width() as f32,
+                        rect.height() as f32,
+                    ),
+                );
+            }
+        }
+    }
+
+    impl ObjectImpl for StageViewMap {}
+    impl WidgetImpl for StageViewMap {}
+}
+
+impl StageViewMap {
+    pub fn new() -> Self {
+        let me: Self = glib::Object::builder().build();
+        //me.set_cursor_highlight(true);
+        me
+    }
+}
+
+pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageViewMap) {
+    // GtkSourceViewMap
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
@@ -271,7 +357,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     txt.set_show_line_numbers(true);
     txt.set_margin_start(12);
     txt.set_widget_name(name);
-    txt.set_margin_end(12);
     txt.set_margin_top(12);
     txt.set_margin_bottom(12);
     txt.set_is_dark(is_dark, true);
@@ -280,6 +365,12 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     } else {
         txt.set_css_classes(&[LIGHT_CLASS]);
     }
+    // let map = GtkSourceViewMap::builder()
+    //     .margin_end(12)
+    //     .highlight_current_line(true)
+    //     .build();
+    let map = StageViewMap::new();
+    map.set_view(&txt);
 
     let buffer = txt.buffer();
     let table = buffer.tag_table();
@@ -570,7 +661,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
     txt.set_monospace(true);
     txt.set_editable(false);
-    txt
+    (txt, map)
 }
 
 pub fn cursor_to_line_offset(buffer: &TextBuffer, line_offset: i32) {
