@@ -19,10 +19,12 @@ use log::trace;
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use sourceview5::{View as GtkSourceView};
+use sourceview5::prelude::*;
 
 glib::wrapper! {
     pub struct StageView(ObjectSubclass<stage_view_internal::StageView>)
-        @extends TextView, Widget,
+        @extends GtkSourceView, TextView, Widget,
         @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
 }
 
@@ -30,6 +32,8 @@ mod stage_view_internal {
 
     use gtk4::prelude::*;
     use gtk4::{gdk, glib, graphene, Snapshot, TextView, TextViewLayer};
+    use sourceview5::{View as GtkSourceView};
+    use sourceview5::subclass::prelude::{ViewImpl as GtkSourceViewImpl};
     use std::cell::{Cell, RefCell};
 
     use gtk4::subclass::prelude::*;
@@ -71,11 +75,14 @@ mod stage_view_internal {
     impl ObjectSubclass for StageView {
         const NAME: &'static str = "StageView";
         type Type = super::StageView;
-        type ParentType = TextView;
+        type ParentType = GtkSourceView;//TextView
     }
 
     impl StageView {}
 
+    impl GtkSourceViewImpl for StageView {
+    }
+    
     impl TextViewImpl for StageView {
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
             if layer == TextViewLayer::BelowText {
@@ -261,6 +268,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let is_dark = manager.is_dark();
 
     let txt = StageView::new();
+    txt.set_show_line_numbers(true);
     txt.set_margin_start(12);
     txt.set_widget_name(name);
     txt.set_margin_end(12);
