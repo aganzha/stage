@@ -32,6 +32,8 @@ use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use sourceview5::prelude::*;
+use sourceview5::{Map as GtkSourceViewMap, View as GtkSourceView};
 mod git;
 use git::{
     branch, commit, get_current_repo_status, get_directories, reset_hard, stage_untracked,
@@ -52,8 +54,8 @@ use libadwaita::{
 };
 
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider, Orientation,
-    ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
+    gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider, Label,
+    Orientation, ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
 };
 
 use log::{info, trace};
@@ -281,7 +283,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     scroll.set_child(Some(&status.get_empty_view()));
 
-    let bx = Box::builder()
+    let banner_box = Box::builder()
         .hexpand(true)
         .vexpand(true)
         .vexpand_set(true)
@@ -294,13 +296,26 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     let banner_button = gizmo.last_child().unwrap();
     let banner_button_handler_id = banner.connect_button_clicked(|_| {});
     let banner_button_clicked = Rc::new(RefCell::new(Some(banner_button_handler_id)));
-    bx.append(&banner);
-    bx.append(&scroll);
+    banner_box.append(&banner);
+
+    let map_box = Box::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .vexpand_set(true)
+        .hexpand_set(true)
+        .orientation(Orientation::Horizontal)
+        .build();
+    let map = GtkSourceViewMap::new();
+    map.set_view(&txt);
+    map_box.append(&scroll);
+    map_box.append(&map);
+
+    banner_box.append(&map_box);
 
     let toast_lock: Rc<Cell<bool>> = Rc::new(Cell::new(false));
 
     let toast_overlay = ToastOverlay::new();
-    toast_overlay.set_child(Some(&bx));
+    toast_overlay.set_child(Some(&banner_box));
 
     let split = OverlaySplitView::builder()
         .content(&toast_overlay)
