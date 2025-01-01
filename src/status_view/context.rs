@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::status_view::ChildWidgets;
+use crate::status_view::{ChildWidget, TextChildAnchor};
 use crate::{Diff, File, Hunk, Line};
 
 #[derive(Debug, Clone)]
@@ -48,7 +48,7 @@ pub struct StatusRenderContext<'a> {
     pub current_file: Option<&'a File>,
     pub current_hunk: Option<&'a Hunk>,
     pub current_line: Option<&'a Line>,
-    pub child_widgets: Vec<ChildWidgets>,
+    pub child_widgets: Vec<(TextChildAnchor, ChildWidget)>,
 }
 
 impl Default for StatusRenderContext<'_> {

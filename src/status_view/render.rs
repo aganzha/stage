@@ -906,7 +906,7 @@ impl ViewContainer for Line {
 
         context
             .child_widgets
-            .push(ChildWidgets::new(anchor, vec![ChildWidget::Label(lbl)]));
+            .push((anchor, ChildWidget::Label(lbl)));
 
         let content = self.content(context.current_hunk.unwrap());
         if content.is_empty() {
@@ -1146,22 +1146,11 @@ pub enum ChildWidget {
     Label(gtk4::Label),
 }
 
-#[derive(Debug, Clone)]
-pub struct ChildWidgets {
-    pub anchor: TextChildAnchor,
-    pub widgets: Vec<ChildWidget>,
-}
-
-impl ChildWidgets {
-    pub fn new(anchor: TextChildAnchor, widgets: Vec<ChildWidget>) -> Self {
-        ChildWidgets { anchor, widgets }
-    }
-    pub fn render(&self, txt: &StageView) {
-        for widget in &self.widgets {
-            match widget {
-                ChildWidget::Button(w) => txt.add_child_at_anchor(w, &self.anchor),
-                ChildWidget::Label(w) => txt.add_child_at_anchor(w, &self.anchor),
-            }
+impl ChildWidget {
+    pub fn render(&self, txt: &StageView, anchor: &TextChildAnchor) {
+        match self {
+            ChildWidget::Button(w) => txt.add_child_at_anchor(w, anchor),
+            ChildWidget::Label(w) => txt.add_child_at_anchor(w, anchor),
         }
     }
 }

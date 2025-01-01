@@ -20,7 +20,7 @@ use crate::git::{
 
 use core::time::Duration;
 use git2::RepositoryState;
-use render::{ChildWidgets, ViewContainer};
+use render::{ChildWidget, ViewContainer};
 use stage_op::{LastOp, StageDiffs};
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -46,7 +46,8 @@ use crate::status_view::context::CursorPosition as ContextCursorPosition;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, Widget, Window as GTKWindow,
+    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, TextChildAnchor, Widget,
+    Window as GTKWindow,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -1006,8 +1007,8 @@ impl Status {
             staged.render(&buffer, &mut iter, context);
         }
         // render child widgets
-        for child in &context.child_widgets {
-            child.render(txt);
+        for (anchor, child) in &context.child_widgets {
+            child.render(txt, anchor);
         }
 
         // first place is here
