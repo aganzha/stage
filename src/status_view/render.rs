@@ -665,9 +665,14 @@ impl ViewContainer for Hunk {
         context: &mut StatusRenderContext<'_>,
     ) {
         let anchor = iter.child_anchor().unwrap_or(buffer.create_child_anchor(iter));
-        let lbl = GtkLabel::new(Some("hey!"));
+        let lbl = GtkLabel::new(Some("1  "));
+        //lbl.set_margin_top(10);
+        let lbl1 = GtkLabel::new(Some(" 2 "));
+        //lbl1.set_margin_top(10);
+        let lbl2 = GtkLabel::new(Some("  3"));
+        //lbl2.set_margin_top(10);
         // self.fill_anchor_widgets(anchor);
-        context.child_widgets.push(ChildWidgets::new(anchor, vec![lbl]));
+        context.child_widgets.push(ChildWidgets::new(anchor, vec![lbl, lbl1, lbl2]));
         // if iter.child_anchor().is_none(){
         //     buffer.create_child_anchor(iter);
         // }
@@ -1239,9 +1244,24 @@ impl ChildWidgets {
     }
 
     pub fn render(&self, txt: &StageView) {
+        let lm = txt.layout_manager();
+        if lm.is_none() {
+            let bx = gtk4::GridLayout::new();//gtk4::BoxLayout::new(gtk4::Orientation::Vertical);
+            txt.set_layout_manager(Some(bx));
+            //txt.set_layout_manager_type();
+        }
+        debug!("++++++++++++++++ {:?}", lm);
+        let lm = txt.layout_manager().unwrap();
+        let mut i: i32 = 1;
         for widget in &self.widgets {
             debug!("???????????????????????? {:?} {:?}", widget, self.anchor);
             txt.add_child_at_anchor(widget, &self.anchor);
+            let lm_child = lm.layout_child(widget);
+            let lm_child_grid = lm_child.downcast_ref::<gtk4::GridLayoutChild>().unwrap();
+            lm_child_grid.set_row(i);
+            lm_child_grid.set_column(i);
+            debug!("--------------------- row {:?} col {:?}", lm_child_grid.row(), lm_child_grid.column());
+            i += 1;
         }
     }
 }
