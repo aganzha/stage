@@ -22,9 +22,9 @@ use crate::{
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
-use gtk4::{Label as GtkLabel, TextBuffer, TextChildAnchor, TextIter, TextView, Widget};
+use gtk4::{Label as GtkLabel, TextBuffer, TextChildAnchor, TextIter};
 use libadwaita::StyleManager;
-use log::{debug, trace};
+use log::trace;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
@@ -907,8 +907,9 @@ impl ViewContainer for Line {
         context
             .child_widgets
             .push(ChildWidgets::new(anchor, vec![ChildWidget::Label(lbl)]));
+
         let content = self.content(context.current_hunk.unwrap());
-        if content == "" {
+        if content.is_empty() {
             buffer.insert(iter, " ");
         } else {
             buffer.insert(iter, content);
@@ -1139,12 +1140,6 @@ impl Diff {
     }
 }
 
-impl Hunk {
-    fn get_child_widgets(&self) -> Vec<impl IsA<Widget>> {
-        vec![GtkLabel::new(Some("ass"))]
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum ChildWidget {
     Button(gtk4::Button),
@@ -1159,10 +1154,7 @@ pub struct ChildWidgets {
 
 impl ChildWidgets {
     pub fn new(anchor: TextChildAnchor, widgets: Vec<ChildWidget>) -> Self {
-        ChildWidgets {
-            anchor: anchor,
-            widgets: widgets,
-        }
+        ChildWidgets { anchor, widgets }
     }
     pub fn render(&self, txt: &StageView) {
         for widget in &self.widgets {

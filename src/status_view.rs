@@ -46,8 +46,7 @@ use crate::status_view::context::CursorPosition as ContextCursorPosition;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Align, Button, FileDialog, Label as GtkLabel, ListBox, SelectionMode, Widget,
-    Window as GTKWindow,
+    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, Widget, Window as GTKWindow,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -1040,20 +1039,6 @@ impl Status {
 
     pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
         debug!("debug!");
-        let pos = txt.buffer().cursor_position();
-        let mut iter = txt.buffer().iter_at_offset(pos);
-        let anchor: gtk4::TextChildAnchor = txt.buffer().create_child_anchor(&mut iter);
-
-        // does not work
-        // let overlay = Overlay::new();
-        // overlay.set_child(Some(&GtkLabel::new(Some("HEY"))));
-
-        // works i relative, but moves text. copy is only text
-        txt.add_child_at_anchor(&GtkLabel::new(Some("HEY")), &anchor);
-
-        // works in absolute
-        // let y = txt.line_yrange(&iter).0;
-        // txt.add_overlay(&GtkLabel::new(Some("HEY")), 0, y);
     }
 
     //3

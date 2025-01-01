@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::status_view::{ChildWidgets, ViewContainer};
+use crate::status_view::ChildWidgets;
 use crate::{Diff, File, Hunk, Line};
 
 #[derive(Debug, Clone)]

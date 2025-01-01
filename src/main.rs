@@ -280,7 +280,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     scroll.set_child(Some(&status.get_empty_view()));
 
-    let bx = Box::builder()
+    let banner_box = Box::builder()
         .hexpand(true)
         .vexpand(true)
         .vexpand_set(true)
@@ -293,13 +293,13 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     let banner_button = gizmo.last_child().unwrap();
     let banner_button_handler_id = banner.connect_button_clicked(|_| {});
     let banner_button_clicked = Rc::new(RefCell::new(Some(banner_button_handler_id)));
-    bx.append(&banner);
-    bx.append(&scroll);
+    banner_box.append(&banner);
+    banner_box.append(&scroll);
 
     let toast_lock: Rc<Cell<bool>> = Rc::new(Cell::new(false));
 
     let toast_overlay = ToastOverlay::new();
-    toast_overlay.set_child(Some(&bx));
+    toast_overlay.set_child(Some(&banner_box));
 
     let split = OverlaySplitView::builder()
         .content(&toast_overlay)
