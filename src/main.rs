@@ -148,7 +148,6 @@ pub enum Event {
     RepoPopup,
     Expand(i32, i32),
     Cursor(i32, i32),
-    CopyToClipboard(i32, i32),
     Stage(StageOp),
     Commit,
     Push,
@@ -557,10 +556,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::Cursor(offset, line_no) => {
                     trace!("Cursor");
                     status.cursor(&txt, line_no, offset, &mut ctx);
-                }
-                Event::CopyToClipboard(start_offset, end_offset) => {
-                    info!("CopyToClipboard");
-                    status.copy_to_clipboard(&txt, start_offset, end_offset, &mut ctx);
                 }
                 Event::Stage(stage_op) => {
                     info!("Stage {:?}", stage_op);

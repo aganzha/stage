@@ -896,16 +896,23 @@ impl ViewContainer for Line {
 
         let lbl = GtkLabel::builder()
             .use_markup(true)
-            .label(format!("<sub>{}</sub>", line_no))
-            .valign(gtk4::Align::End)
+            .label(format!(
+                "<span size=\"small\" line_height=\"0.5\">{}</span>",
+                line_no
+            ))
             .opacity(0.3)
             .css_classes(["line_no"])
             .build();
 
         context
             .child_widgets
-            .push(ChildWidgets::new(anchor, vec![lbl]));
-        buffer.insert(iter, self.content(context.current_hunk.unwrap()));
+            .push(ChildWidgets::new(anchor, vec![ChildWidget::Label(lbl)]));
+        let content = self.content(context.current_hunk.unwrap());
+        if content == "" {
+            buffer.insert(iter, " ");
+        } else {
+            buffer.insert(iter, content);
+        }
     }
 
     // Line
@@ -920,22 +927,6 @@ impl ViewContainer for Line {
                 self.add_tag(buffer, t);
             }
         }
-        // ---------------------------------------
-
-        // line_no tag
-        // let line_no_tag = match self.origin {
-        //     DiffLineType::Addition => make_tag(tags::LINE_NO_ADDED),
-        //     DiffLineType::Deletion => make_tag(tags::LINE_NO_REMOVED),
-        //     _ => make_tag(tags::LINE_NO_CONTEXT),
-        // };
-
-        // if !self.view.tag_is_added(&line_no_tag) {
-        //     let (start_iter, mut end_iter) = self.start_end_iters(buffer, self.view.line_no.get());
-        //     end_iter.set_line_offset(0);
-        //     end_iter.forward_chars(LINE_NO_SPACE);
-        //     buffer.apply_tag_by_name(line_no_tag.name(), &start_iter, &end_iter);
-        //     self.view.tag_added(&line_no_tag);
-        // }
 
         // highlight spaces
         let content = self.content(context.current_hunk.unwrap());
@@ -1146,54 +1137,6 @@ impl Diff {
     pub fn dump(&self) -> String {
         String::from("dump")
     }
-
-    pub fn nearest_line_to_go(&self, cursor_line_no: i32) -> Option<i32> {
-        if !self.view.is_rendered() {
-            return None;
-        }
-        let my_line = self.view.line_no.get();
-        debug!(
-            "................nearest_line_to_go_1. my line {:?} cursor line {:?}",
-            my_line, cursor_line_no
-        );
-        if my_line >= cursor_line_no {
-            return Some(my_line);
-        }
-        let last_line = self.last_visible_line();
-        debug!(
-            "................nearest_line_to_go_2. my line {:?} cursor line {:?}",
-            my_line, cursor_line_no
-        );
-        if last_line >= cursor_line_no {
-            // no need to move anywhere
-            // cursor is already within
-            return None;
-        }
-        debug!("last lineeeeeeeeeeeeeeeeeee! {:?}", last_line);
-        Some(last_line)
-    }
-
-    pub fn has_view_on(&self, line_no: i32) -> bool {
-        if !self.view.is_rendered() {
-            return false;
-        }
-        let my_line = self.view.line_no.get();
-        debug!(
-            "................has view on. my line {:?} cursor line {:?}",
-            my_line, line_no
-        );
-        if my_line > line_no {
-            return false;
-        }
-        if my_line == line_no {
-            return true;
-        }
-        debug!(
-            "~~~~~~~~~~~last visible_line {:?}",
-            self.last_visible_line()
-        );
-        self.last_visible_line() >= line_no
-    }
 }
 
 impl Hunk {
@@ -1203,13 +1146,19 @@ impl Hunk {
 }
 
 #[derive(Debug, Clone)]
+pub enum ChildWidget {
+    Button(gtk4::Button),
+    Label(gtk4::Label),
+}
+
+#[derive(Debug, Clone)]
 pub struct ChildWidgets {
     pub anchor: TextChildAnchor,
-    pub widgets: Vec<GtkLabel>,
+    pub widgets: Vec<ChildWidget>,
 }
 
 impl ChildWidgets {
-    pub fn new(anchor: TextChildAnchor, widgets: Vec<GtkLabel>) -> Self {
+    pub fn new(anchor: TextChildAnchor, widgets: Vec<ChildWidget>) -> Self {
         ChildWidgets {
             anchor: anchor,
             widgets: widgets,
@@ -1217,7 +1166,10 @@ impl ChildWidgets {
     }
     pub fn render(&self, txt: &StageView) {
         for widget in &self.widgets {
-            txt.add_child_at_anchor(widget, &self.anchor);
+            match widget {
+                ChildWidget::Button(w) => txt.add_child_at_anchor(w, &self.anchor),
+                ChildWidget::Label(w) => txt.add_child_at_anchor(w, &self.anchor),
+            }
         }
     }
 }
