@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::status_view::context::CursorPosition;
-use crate::status_view::stage_view::cursor_to_line_offset;
+use std::fmt;
+use crate::status_view::context::{CursorPosition};
+use crate::status_view::stage_view::{cursor_to_line_offset, StageView};
 use crate::status_view::tags;
 use crate::status_view::view::{View, ViewState};
 use crate::status_view::Label;
@@ -22,7 +23,7 @@ use crate::{
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
-use gtk4::{TextBuffer, TextIter};
+use gtk4::{TextView, TextBuffer, TextIter, Widget, Label as GtkLabel, TextChildAnchor};
 use libadwaita::StyleManager;
 use log::{debug, trace};
 use std::collections::{HashMap, HashSet};
@@ -177,14 +178,10 @@ pub trait ViewContainer {
 
                 view.line_no.replace(line_no);
                 view.render(true);
-                // moved to cursor
-                // self.apply_tags(buffer, context);
             }
             ViewState::TagsModified => {
                 // todo!("whats the case?");
                 trace!("..render MATCH TagsModified {:?}", line_no);
-                // moved to cursor
-                // self.apply_tags(buffer, context);
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
                 }
@@ -213,8 +210,6 @@ pub trait ViewContainer {
                 }
                 view.cleanup_tags();
                 self.write_content(iter, buffer, context);
-                // moved to cursor
-                // self.apply_tags(buffer, context);
 
                 self.force_forward(buffer, iter);
             }
@@ -237,6 +232,7 @@ pub trait ViewContainer {
         }
         self.get_view().child_dirty(false);
     }
+
 
     fn find_cursor_position<'a>(
         &'a self,
@@ -418,6 +414,16 @@ pub trait ViewContainer {
             child.prepare_context(context);
             child.collect_clean_content(from, to, content, context)
         }
+    }
+
+}
+
+impl fmt::Debug for dyn ViewContainer {
+   fn fmt(& self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ViewContainer")
+         // .field("x", &self.x)
+         // .field("y", &self.y)
+         .finish()
     }
 }
 
@@ -656,8 +662,15 @@ impl ViewContainer for Hunk {
         &self,
         iter: &mut TextIter,
         buffer: &TextBuffer,
-        _context: &mut StatusRenderContext<'_>,
+        context: &mut StatusRenderContext<'_>,
     ) {
+        let anchor = iter.child_anchor().unwrap_or(buffer.create_child_anchor(iter));
+        let lbl = GtkLabel::new(Some("hey!"));
+        // self.fill_anchor_widgets(anchor);
+        context.child_widgets.push(ChildWidgets::new(anchor, vec![lbl]));
+        // if iter.child_anchor().is_none(){
+        //     buffer.create_child_anchor(iter);
+        // }
         let parts: Vec<&str> = self.header.split("@@").collect();
         let scope = parts.last().unwrap();
         buffer.insert(iter, "Line ");
@@ -732,7 +745,9 @@ impl ViewContainer for Hunk {
     fn fill_under_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         ctx.selected_hunk = Some(self);
     }
+
 }
+
 
 impl ViewContainer for Line {
     fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool {
@@ -759,7 +774,7 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
+    fn after_cursor<'a>(&'a self, buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
         if self.view.is_rendered() {
             // hm. collecting lines for highlight.
             if self.view.is_active() {
@@ -881,34 +896,34 @@ impl ViewContainer for Line {
         buffer: &TextBuffer,
         context: &mut StatusRenderContext<'_>,
     ) {
-        let line_no = format!(
-            "{}",
-            self.new_line_no
-                .map(|num| num.as_u32())
-                .unwrap_or(self.old_line_no.map(|num| num.as_u32()).unwrap_or(0))
-        );
-        match line_no.len() {
-            1 => {
-                buffer.insert(iter, "   ");
-                buffer.insert(iter, &line_no);
-            }
-            2 => {
-                buffer.insert(iter, "  ");
-                buffer.insert(iter, &line_no);
-            }
-            3 => {
-                buffer.insert(iter, " ");
-                buffer.insert(iter, &line_no);
-            }
-            4 => {
-                buffer.insert(iter, &line_no);
-            }
-            _ => {
-                buffer.insert(iter, "..");
-                buffer.insert(iter, &line_no[line_no.len() - 2..]);
-            }
-        }
-        buffer.insert(iter, "  ");
+        // let line_no = format!(
+        //     "{}",
+        //     self.new_line_no
+        //         .map(|num| num.as_u32())
+        //         .unwrap_or(self.old_line_no.map(|num| num.as_u32()).unwrap_or(0))
+        // );
+        // match line_no.len() {
+        //     1 => {
+        //         buffer.insert(iter, "   ");
+        //         buffer.insert(iter, &line_no);
+        //     }
+        //     2 => {
+        //         buffer.insert(iter, "  ");
+        //         buffer.insert(iter, &line_no);
+        //     }
+        //     3 => {
+        //         buffer.insert(iter, " ");
+        //         buffer.insert(iter, &line_no);
+        //     }
+        //     4 => {
+        //         buffer.insert(iter, &line_no);
+        //     }
+        //     _ => {
+        //         buffer.insert(iter, "..");
+        //         buffer.insert(iter, &line_no[line_no.len() - 2..]);
+        //     }
+        // }
+        // buffer.insert(iter, "  ");
         buffer.insert(iter, self.content(context.current_hunk.unwrap()));
     }
 
@@ -926,20 +941,20 @@ impl ViewContainer for Line {
         }
         // ---------------------------------------
 
-        // line_no
-        let line_no_tag = match self.origin {
-            DiffLineType::Addition => make_tag(tags::LINE_NO_ADDED),
-            DiffLineType::Deletion => make_tag(tags::LINE_NO_REMOVED),
-            _ => make_tag(tags::LINE_NO_CONTEXT),
-        };
+        // line_no tag
+        // let line_no_tag = match self.origin {
+        //     DiffLineType::Addition => make_tag(tags::LINE_NO_ADDED),
+        //     DiffLineType::Deletion => make_tag(tags::LINE_NO_REMOVED),
+        //     _ => make_tag(tags::LINE_NO_CONTEXT),
+        // };
 
-        if !self.view.tag_is_added(&line_no_tag) {
-            let (start_iter, mut end_iter) = self.start_end_iters(buffer, self.view.line_no.get());
-            end_iter.set_line_offset(0);
-            end_iter.forward_chars(LINE_NO_SPACE);
-            buffer.apply_tag_by_name(line_no_tag.name(), &start_iter, &end_iter);
-            self.view.tag_added(&line_no_tag);
-        }
+        // if !self.view.tag_is_added(&line_no_tag) {
+        //     let (start_iter, mut end_iter) = self.start_end_iters(buffer, self.view.line_no.get());
+        //     end_iter.set_line_offset(0);
+        //     end_iter.forward_chars(LINE_NO_SPACE);
+        //     buffer.apply_tag_by_name(line_no_tag.name(), &start_iter, &end_iter);
+        //     self.view.tag_added(&line_no_tag);
+        // }
 
         // highlight spaces
         let content = self.content(context.current_hunk.unwrap());
@@ -1197,5 +1212,36 @@ impl Diff {
             self.last_visible_line()
         );
         self.last_visible_line() >= line_no
+    }
+}
+
+
+impl Hunk {
+    fn get_child_widgets(&self) -> Vec<impl IsA<Widget>> {
+        vec![GtkLabel::new(Some("ass"))]
+    }
+}
+
+
+
+#[derive(Debug, Clone)]
+pub struct ChildWidgets {
+    pub anchor: TextChildAnchor,
+    pub widgets: Vec<GtkLabel>
+}
+
+impl ChildWidgets {
+    pub fn new(anchor: TextChildAnchor, widgets: Vec<GtkLabel>) -> Self {
+        ChildWidgets {
+            anchor: anchor,
+            widgets: widgets
+        }
+    }
+
+    pub fn render(&self, txt: &StageView) {
+        for widget in &self.widgets {
+            debug!("???????????????????????? {:?} {:?}", widget, self.anchor);
+            txt.add_child_at_anchor(widget, &self.anchor);
+        }
     }
 }

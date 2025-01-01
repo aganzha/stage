@@ -20,7 +20,7 @@ use crate::git::{
 
 use core::time::Duration;
 use git2::RepositoryState;
-use render::ViewContainer; // MayBeViewContainer o
+use render::{ViewContainer, ChildWidgets};
 use stage_op::{LastOp, StageDiffs};
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -47,6 +47,7 @@ use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
     gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, Widget, Window as GTKWindow,
+    Label as GtkLabel
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -1005,7 +1006,12 @@ impl Status {
         if let Some(staged) = &self.staged {
             staged.render(&buffer, &mut iter, context);
         }
+        // render child widgets
+        for child in &context.child_widgets {
+            child.render(txt);
+        }
 
+        
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
@@ -1040,6 +1046,7 @@ impl Status {
         end_offset: i32,
         context: &mut StatusRenderContext<'a>,
     ) {
+        return;
         //2
         // in fact the content IS already copied to clipboard
         // so, here it need to clean it from status_view artefacts
@@ -1093,8 +1100,22 @@ impl Status {
         };
     }
 
-    pub fn debug<'a>(&'a mut self, _txt: &StageView, _context: &mut StatusRenderContext<'a>) {
+    pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
         debug!("debug!");
+        let pos = txt.buffer().cursor_position();
+        let mut iter = txt.buffer().iter_at_offset(pos);
+        let anchor: gtk4::TextChildAnchor = txt.buffer().create_child_anchor(&mut iter);
+
+        // does not work
+        // let overlay = Overlay::new();
+        // overlay.set_child(Some(&GtkLabel::new(Some("HEY"))));
+
+        // works i relative, but moves text. copy is only text
+        txt.add_child_at_anchor(&GtkLabel::new(Some("HEY")), &anchor);
+
+        // works in absolute
+        // let y = txt.line_yrange(&iter).0;
+        // txt.add_overlay(&GtkLabel::new(Some("HEY")), 0, y);
     }
 
     //3

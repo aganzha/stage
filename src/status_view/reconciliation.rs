@@ -31,7 +31,7 @@ impl Hunk {
             .iter()
             .zip(rendered.lines.iter())
             .for_each(|lines: (&Line, &Line)| {
-                trace!("zip on lines {:?} {:?}", context, lines);
+                //trace!("zip on lines {:?} {:?}", context, lines);
                 lines.0.enrich_view(lines.1, buffer, context);
                 if (lines.0.origin != lines.1.origin)
                     || (lines.0.content(self) != lines.1.content(rendered))
@@ -295,7 +295,7 @@ impl Diff {
             .iter()
             .filter(|f| !replaces_by_new.contains(&f.path))
             .for_each(|f| {
-                trace!("context on final lines of diff render view {:?}", context);
+                //trace!("context on final lines of diff render view {:?}", context);
                 f.erase(buffer, context)
             });
     }

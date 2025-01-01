@@ -396,7 +396,7 @@ pub fn show_commit_window(
                         txt.bind_highlights(&ctx);
                     }
                     Event::TextViewResize(w) => {
-                        info!("TextViewResize {} {:?}", w, ctx);
+                        //info!("TextViewResize {} {:?}", w, ctx);
                     }
                     Event::TextCharVisibleWidth(w) => {
                         info!("TextCharVisibleWidth {}", w);
