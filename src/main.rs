@@ -269,7 +269,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone(), &window.clone());
 
-    let txt = stage_factory(sender.clone(), "status_view");
+    let (txt, map) = stage_factory(sender.clone(), "status_view");
 
     let scroll = ScrolledWindow::builder()
         .vexpand(true)
@@ -294,7 +294,18 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     let banner_button_handler_id = banner.connect_button_clicked(|_| {});
     let banner_button_clicked = Rc::new(RefCell::new(Some(banner_button_handler_id)));
     banner_box.append(&banner);
-    banner_box.append(&scroll);
+
+    let map_box = Box::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .vexpand_set(true)
+        .hexpand_set(true)
+        .orientation(Orientation::Horizontal)
+        .build();
+    map_box.append(&scroll);
+    map_box.append(&map);
+
+    banner_box.append(&map_box);
 
     let toast_lock: Rc<Cell<bool>> = Rc::new(Cell::new(false));
 

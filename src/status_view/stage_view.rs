@@ -246,7 +246,7 @@ impl StageView {
     }
 }
 
-pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
+pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView) {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
@@ -257,6 +257,22 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     txt.set_margin_top(12);
     txt.set_margin_bottom(12);
     txt.set_is_dark(is_dark, true);
+    txt.set_monospace(true);
+    txt.set_editable(false);
+    
+    let map = StageView::new();
+    map.set_vexpand(true);
+    map.set_hexpand(true);
+    map.set_margin_end(5);
+    map.set_margin_top(5);
+
+    map.set_is_dark(is_dark, true);
+
+    map.set_monospace(true);
+    map.set_editable(false);
+    
+    map.set_buffer(Some(&txt.buffer()));
+
     if is_dark {
         txt.set_css_classes(&[DARK_CLASS]);
     } else {
@@ -536,9 +552,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     });
     txt.add_controller(motion_controller);
 
-    txt.set_monospace(true);
-    txt.set_editable(false);
-    txt
+    (txt, map)
 }
 
 pub fn cursor_to_line_offset(buffer: &TextBuffer, line_offset: i32) {
