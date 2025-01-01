@@ -15,7 +15,7 @@ use gtk4::{
     GestureDrag, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::trace;
+use log::{debug, trace};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -58,8 +58,6 @@ mod stage_view_internal {
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
 
-        pub known_line_height: Cell<i32>,
-
         // TODO! put it here!
         pub is_dark: Cell<bool>,
         pub is_dark_set: Cell<bool>,
@@ -97,6 +95,9 @@ mod stage_view_internal {
 
                 let buffer = self.obj().buffer();
                 let mut iter = buffer.iter_at_offset(0);
+
+                let known_line_height = self.obj().line_yrange(&iter).1;
+
                 let (line_from, line_to) = self.active_lines.get();
 
                 if line_from > 0 && line_to > 0 {
@@ -156,19 +157,8 @@ mod stage_view_internal {
                 iter.set_offset(buffer.cursor_position());
 
                 let (mut y_from, mut y_to) = self.obj().line_yrange(&iter);
-
-                if self.double_height_line.get() {
-                    // hack for diff labels
-                    y_to /= 2;
-                    y_from += y_to;
-                } else {
-                    // huck for broken highlight
-                    // during different switches
-                    let known = self.known_line_height.get();
-                    if known > 0 && y_to > known {
-                        y_to = known;
-                    }
-                }
+                y_from = y_from + y_to - known_line_height;
+                y_to = known_line_height;
 
                 snapshot.append_color(
                     if self.show_cursor.get() {

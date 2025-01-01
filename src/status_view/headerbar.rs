@@ -5,7 +5,7 @@
 use crate::status_view::context::StatusRenderContext;
 use async_channel::Sender;
 use gtk4::{
-    gio, glib, Align, Box, Button, FileDialog, GestureClick, Label, MenuButton, Orientation,
+    gio, Align, Box, Button, FileDialog, Label, MenuButton, Orientation,
     PopoverMenu, Spinner, ToggleButton, Widget,
 };
 use libadwaita::prelude::*;
@@ -13,7 +13,6 @@ use libadwaita::{
     AboutDialog, ApplicationWindow, ButtonContent, ColorScheme, HeaderBar, SplitButton,
     StyleManager, Window,
 };
-use log::{debug, info, trace};
 use std::path::PathBuf;
 
 pub enum HbUpdateData<'a> {
