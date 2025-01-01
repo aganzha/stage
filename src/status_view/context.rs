@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::status_view::{ChildWidgets, ViewContainer};
 use crate::{Diff, File, Hunk, Line};
-use crate::status_view::{ViewContainer, ChildWidgets};
-
 
 #[derive(Debug, Clone)]
 pub enum CursorPosition<'a> {
@@ -25,7 +24,6 @@ impl CursorPosition<'_> {
         }
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
@@ -50,7 +48,7 @@ pub struct StatusRenderContext<'a> {
     pub current_file: Option<&'a File>,
     pub current_hunk: Option<&'a Hunk>,
     pub current_line: Option<&'a Line>,
-    pub child_widgets: Vec<ChildWidgets>
+    pub child_widgets: Vec<ChildWidgets>,
 }
 
 impl Default for StatusRenderContext<'_> {
@@ -79,7 +77,7 @@ impl StatusRenderContext<'_> {
                 // it is useless. rendering_x is sliding variable during render
                 // and there is nothing to render after line
                 current_line: None,
-                child_widgets: Vec::new()
+                child_widgets: Vec::new(),
             }
         }
     }

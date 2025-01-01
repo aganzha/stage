@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::fmt;
-use crate::status_view::context::{CursorPosition};
+use crate::status_view::context::CursorPosition;
 use crate::status_view::stage_view::{cursor_to_line_offset, StageView};
 use crate::status_view::tags;
 use crate::status_view::view::{View, ViewState};
@@ -23,10 +22,11 @@ use crate::{
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
-use gtk4::{TextView, TextBuffer, TextIter, Widget, Label as GtkLabel, TextChildAnchor};
+use gtk4::{Label as GtkLabel, TextBuffer, TextChildAnchor, TextIter, TextView, Widget};
 use libadwaita::StyleManager;
 use log::{debug, trace};
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 pub const LINE_NO_SPACE: i32 = 6;
 
@@ -233,7 +233,6 @@ pub trait ViewContainer {
         self.get_view().child_dirty(false);
     }
 
-
     fn find_cursor_position<'a>(
         &'a self,
         line_no: i32,
@@ -415,15 +414,14 @@ pub trait ViewContainer {
             child.collect_clean_content(from, to, content, context)
         }
     }
-
 }
 
 impl fmt::Debug for dyn ViewContainer {
-   fn fmt(& self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ViewContainer")
-         // .field("x", &self.x)
-         // .field("y", &self.y)
-         .finish()
+            // .field("x", &self.x)
+            // .field("y", &self.y)
+            .finish()
     }
 }
 
@@ -664,18 +662,6 @@ impl ViewContainer for Hunk {
         buffer: &TextBuffer,
         context: &mut StatusRenderContext<'_>,
     ) {
-        let anchor = iter.child_anchor().unwrap_or(buffer.create_child_anchor(iter));
-        let lbl = GtkLabel::new(Some("1  "));
-        //lbl.set_margin_top(10);
-        let lbl1 = GtkLabel::new(Some(" 2 "));
-        //lbl1.set_margin_top(10);
-        let lbl2 = GtkLabel::new(Some("  3"));
-        //lbl2.set_margin_top(10);
-        // self.fill_anchor_widgets(anchor);
-        context.child_widgets.push(ChildWidgets::new(anchor, vec![lbl, lbl1, lbl2]));
-        // if iter.child_anchor().is_none(){
-        //     buffer.create_child_anchor(iter);
-        // }
         let parts: Vec<&str> = self.header.split("@@").collect();
         let scope = parts.last().unwrap();
         buffer.insert(iter, "Line ");
@@ -750,9 +736,7 @@ impl ViewContainer for Hunk {
     fn fill_under_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
         ctx.selected_hunk = Some(self);
     }
-
 }
-
 
 impl ViewContainer for Line {
     fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool {
@@ -901,34 +885,26 @@ impl ViewContainer for Line {
         buffer: &TextBuffer,
         context: &mut StatusRenderContext<'_>,
     ) {
-        // let line_no = format!(
-        //     "{}",
-        //     self.new_line_no
-        //         .map(|num| num.as_u32())
-        //         .unwrap_or(self.old_line_no.map(|num| num.as_u32()).unwrap_or(0))
-        // );
-        // match line_no.len() {
-        //     1 => {
-        //         buffer.insert(iter, "   ");
-        //         buffer.insert(iter, &line_no);
-        //     }
-        //     2 => {
-        //         buffer.insert(iter, "  ");
-        //         buffer.insert(iter, &line_no);
-        //     }
-        //     3 => {
-        //         buffer.insert(iter, " ");
-        //         buffer.insert(iter, &line_no);
-        //     }
-        //     4 => {
-        //         buffer.insert(iter, &line_no);
-        //     }
-        //     _ => {
-        //         buffer.insert(iter, "..");
-        //         buffer.insert(iter, &line_no[line_no.len() - 2..]);
-        //     }
-        // }
-        // buffer.insert(iter, "  ");
+        let anchor = iter
+            .child_anchor()
+            .unwrap_or(buffer.create_child_anchor(iter));
+
+        let line_no = self
+            .new_line_no
+            .map(|num| num.as_u32())
+            .unwrap_or(self.old_line_no.map(|num| num.as_u32()).unwrap_or(0));
+
+        let lbl = GtkLabel::builder()
+            .use_markup(true)
+            .label(format!("<sub>{}</sub>", line_no))
+            .valign(gtk4::Align::End)
+            .opacity(0.3)
+            .css_classes(["line_no"])
+            .build();
+
+        context
+            .child_widgets
+            .push(ChildWidgets::new(anchor, vec![lbl]));
         buffer.insert(iter, self.content(context.current_hunk.unwrap()));
     }
 
@@ -1220,48 +1196,28 @@ impl Diff {
     }
 }
 
-
 impl Hunk {
     fn get_child_widgets(&self) -> Vec<impl IsA<Widget>> {
         vec![GtkLabel::new(Some("ass"))]
     }
 }
 
-
-
 #[derive(Debug, Clone)]
 pub struct ChildWidgets {
     pub anchor: TextChildAnchor,
-    pub widgets: Vec<GtkLabel>
+    pub widgets: Vec<GtkLabel>,
 }
 
 impl ChildWidgets {
     pub fn new(anchor: TextChildAnchor, widgets: Vec<GtkLabel>) -> Self {
         ChildWidgets {
             anchor: anchor,
-            widgets: widgets
+            widgets: widgets,
         }
     }
-
     pub fn render(&self, txt: &StageView) {
-        let lm = txt.layout_manager();
-        if lm.is_none() {
-            let bx = gtk4::GridLayout::new();//gtk4::BoxLayout::new(gtk4::Orientation::Vertical);
-            txt.set_layout_manager(Some(bx));
-            //txt.set_layout_manager_type();
-        }
-        debug!("++++++++++++++++ {:?}", lm);
-        let lm = txt.layout_manager().unwrap();
-        let mut i: i32 = 1;
         for widget in &self.widgets {
-            debug!("???????????????????????? {:?} {:?}", widget, self.anchor);
             txt.add_child_at_anchor(widget, &self.anchor);
-            let lm_child = lm.layout_child(widget);
-            let lm_child_grid = lm_child.downcast_ref::<gtk4::GridLayoutChild>().unwrap();
-            lm_child_grid.set_row(i);
-            lm_child_grid.set_column(i);
-            debug!("--------------------- row {:?} col {:?}", lm_child_grid.row(), lm_child_grid.column());
-            i += 1;
         }
     }
 }

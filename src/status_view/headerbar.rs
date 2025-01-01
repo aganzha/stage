@@ -5,8 +5,8 @@
 use crate::status_view::context::StatusRenderContext;
 use async_channel::Sender;
 use gtk4::{
-    gio, Align, Box, Button, FileDialog, Label, MenuButton, Orientation,
-    PopoverMenu, Spinner, ToggleButton, Widget,
+    gio, Align, Box, Button, FileDialog, Label, MenuButton, Orientation, PopoverMenu, Spinner,
+    ToggleButton, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
