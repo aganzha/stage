@@ -47,7 +47,7 @@ use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
     gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, TextChildAnchor, Widget,
-    Window as GTKWindow,
+    Window as GTKWindow, Label as GtkLabel
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -893,19 +893,19 @@ impl Status {
 
     // TODO! is it still used?
     pub fn resize_highlights<'a>(&'a mut self, txt: &StageView, ctx: &mut StatusRenderContext<'a>) {
-        let buffer = txt.buffer();
-        let iter = buffer.iter_at_offset(buffer.cursor_position());
-        self.cursor(txt, iter.line(), iter.offset(), ctx);
-        glib::source::timeout_add_local(Duration::from_millis(10), {
-            let txt = txt.clone();
-            let mut context = StatusRenderContext::new();
-            context.highlight_lines = ctx.highlight_lines;
-            context.highlight_hunks.clone_from(&ctx.highlight_hunks);
-            move || {
-                txt.bind_highlights(&context);
-                glib::ControlFlow::Break
-            }
-        });
+        // let buffer = txt.buffer();
+        // let iter = buffer.iter_at_offset(buffer.cursor_position());
+        // self.cursor(txt, iter.line(), iter.offset(), ctx);
+        // glib::source::timeout_add_local(Duration::from_millis(10), {
+        //     let txt = txt.clone();
+        //     let mut context = StatusRenderContext::new();
+        //     context.highlight_lines = ctx.highlight_lines;
+        //     context.highlight_hunks.clone_from(&ctx.highlight_hunks);
+        //     move || {
+        //         txt.bind_highlights(&context);
+        //         glib::ControlFlow::Break
+        //     }
+        // });
     }
 
     /// cursor does not change structure, but changes highlights
@@ -1010,7 +1010,13 @@ impl Status {
         for (anchor, child) in &context.child_widgets {
             child.render(txt, anchor);
         }
-
+        // this is required to maintain proper line height
+        if let Some(map) = context.map {
+            for (anchor, _child) in &context.child_widgets {
+                let mock = GtkLabel::new(None);
+                ChildWidget::Label(mock).render(&map, anchor);
+            }
+        }
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 

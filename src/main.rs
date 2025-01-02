@@ -343,7 +343,8 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
             let mut ctx = StatusRenderContext::new();
-
+            ctx.stage = Some(&txt);
+            ctx.map = Some(&map);
             match event {
                 Event::OpenRepo(path) => {
                     info!("info.open repo {:?}", path);
@@ -570,12 +571,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Expand(offset, line_no) => {
                     info!("Expand");
-                    status.expand(&txt, line_no, offset, &mut ctx);
-                    for (anchor, _child) in &ctx.child_widgets {
-                        let mock = Label::new(None);
-                        ChildWidget::Label(mock).render(&map, anchor);
-                        // child.render(&map, anchor);
-                    }
+                    status.expand(&txt, line_no, offset, &mut ctx);                    
                 }
                 Event::Cursor(offset, line_no) => {
                     trace!("Cursor");
