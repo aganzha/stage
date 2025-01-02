@@ -1040,6 +1040,11 @@ impl Status {
 
     pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
         debug!("debug!");
+        let pos = txt.buffer().cursor_position();
+        let iter = txt.buffer().iter_at_offset(pos);
+        if let Some(anchor) = iter.child_anchor() {
+            debug!("~~~~~~~~~~~~~~ {:?}", anchor.widgets());
+        }
     }
 
     //3

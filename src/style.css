@@ -6,9 +6,15 @@
 
 
 
-#status_view.dark, #commit_view.dark {
+#status_view.dark, #commit_view.dark, #status_view_map.dark, #commit_view_map.dark {
     color: #d6d5d2;/* @light_3; */
 }
+
+#status_view_map, #commit_view_map {
+    /* font-size: 50%; */
+    font-size: 50%;
+}
+
 listview.dark {
     background-color: #232323;
     color: #d6d5d2;/* @light_3; */
@@ -83,5 +89,5 @@ button.no_bg {
 
 .line_no {
     padding-left: 5px;
-    padding-right: 5px;
+    padding-right: 15px;
 }

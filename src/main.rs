@@ -9,7 +9,7 @@ use status_view::{
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
     stage_view::factory as stage_factory,
-    Status,
+    Status, render::ChildWidget
 };
 
 mod branches_view;
@@ -48,12 +48,12 @@ use glib::ControlFlow;
 use libadwaita::prelude::*;
 use libadwaita::{
     Application, ApplicationWindow, Banner, OverlaySplitView, StyleManager, Toast, ToastOverlay,
-    ToolbarStyle, ToolbarView, Window,
+    ToolbarStyle, ToolbarView, Window
 };
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider, Orientation,
-    ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
+    ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER, Label,
 };
 
 use log::{info, trace};
@@ -270,7 +270,15 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone(), &window.clone());
 
     let (txt, map) = stage_factory(sender.clone(), "status_view");
+    // let pango_ctx = map.pango_context();
+    // let mut context_string = "ass";
+    // let pango_layout = map.create_pango_layout(Some(context_string));
+    // pango_layout.set_line_spacing(0.1);
+    // pango_layout.set_width(10);
 
+    // if let Some(font_descr) = pango_ctx.font_description() {
+    //     info!("++++++++++++++++++++++ {:?} {:?} spacing {:?}", font_descr.to_str(), font_descr.size(), pango_layout.line_spacing());
+    // }
     let scroll = ScrolledWindow::builder()
         .vexpand(true)
         .vexpand_set(true)
@@ -563,6 +571,11 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::Expand(offset, line_no) => {
                     info!("Expand");
                     status.expand(&txt, line_no, offset, &mut ctx);
+                    for (anchor, _child) in &ctx.child_widgets {
+                        let mock = Label::new(None);
+                        ChildWidget::Label(mock).render(&map, anchor);
+                        // child.render(&map, anchor);
+                    }
                 }
                 Event::Cursor(offset, line_no) => {
                     trace!("Cursor");

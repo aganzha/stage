@@ -15,7 +15,7 @@ use gtk4::{
     GestureDrag, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::trace;
+use log::{debug, trace};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -54,7 +54,7 @@ mod stage_view_internal {
     #[derive(Default)]
     pub struct StageView {
         pub show_cursor: Cell<bool>,
-        pub double_height_line: Cell<bool>,
+        //pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
 
@@ -181,7 +181,8 @@ mod stage_view_internal {
         }
     }
     impl ObjectImpl for StageView {}
-    impl WidgetImpl for StageView {}
+    impl WidgetImpl for StageView {
+    }
 }
 
 impl Default for StageView {
@@ -212,10 +213,10 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-        match context.cursor_position {
-            CursorPosition::CursorDiff(_) => self.imp().double_height_line.replace(true),
-            _ => self.imp().double_height_line.replace(false),
-        };
+        // match context.cursor_position {
+        //     CursorPosition::CursorDiff(_) => self.imp().double_height_line.replace(true),
+        //     _ => self.imp().double_height_line.replace(false),
+        // };
 
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
@@ -259,10 +260,13 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
     txt.set_is_dark(is_dark, true);
     txt.set_monospace(true);
     txt.set_editable(false);
-    
+
+    debug!("~~~~~~~~~~~~~~~~~~~~~ {:?}", name);
+
     let map = StageView::new();
+    map.set_widget_name(&format!("{}_map", name));
     map.set_vexpand(true);
-    map.set_hexpand(true);
+    map.set_hexpand(false);
     map.set_margin_end(5);
     map.set_margin_top(5);
 
@@ -270,13 +274,16 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
 
     map.set_monospace(true);
     map.set_editable(false);
-    
+
+    map.set_width_request(300);
     map.set_buffer(Some(&txt.buffer()));
 
     if is_dark {
         txt.set_css_classes(&[DARK_CLASS]);
+        map.set_css_classes(&[DARK_CLASS]);
     } else {
         txt.set_css_classes(&[LIGHT_CLASS]);
+        map.set_css_classes(&[LIGHT_CLASS]);
     }
 
     let buffer = txt.buffer();
