@@ -53,7 +53,7 @@ use libadwaita::{
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider, Orientation,
-    ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER, Label,
+    ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER, Label, Overflow
 };
 
 use log::{info, trace};
@@ -306,8 +306,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     let map_box = Box::builder()
         .hexpand(true)
         .vexpand(true)
-        .vexpand_set(true)
+        .vexpand_set(false)// >>>>
         .hexpand_set(true)
+        .overflow(Overflow::Hidden)
         .orientation(Orientation::Horizontal)
         .build();
     map_box.append(&scroll);
@@ -574,7 +575,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     status.expand(&txt, line_no, offset, &mut ctx);                    
                 }
                 Event::Cursor(offset, line_no) => {
-                    trace!("Cursor");
+                    info!("Cursor");
                     status.cursor(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Stage(stage_op) => {

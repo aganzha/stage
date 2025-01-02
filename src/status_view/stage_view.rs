@@ -13,6 +13,7 @@ use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, glib, EventControllerKey, EventControllerMotion, EventSequenceState, GestureClick,
     GestureDrag, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget,
+    PropagationPhase
 };
 use libadwaita::StyleManager;
 use log::{debug, trace};
@@ -53,6 +54,9 @@ mod stage_view_internal {
 
     #[derive(Default)]
     pub struct StageView {
+
+        pub is_map: Cell<bool>,
+
         pub show_cursor: Cell<bool>,
         //pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
@@ -76,6 +80,9 @@ mod stage_view_internal {
 
     impl TextViewImpl for StageView {
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
+            if self.is_map.get() {
+                return;
+            }
             if layer == TextViewLayer::BelowText {
                 let rect = self.obj().visible_rect();
                 let bg_fill = if self.is_dark.get() {
@@ -187,13 +194,14 @@ mod stage_view_internal {
 
 impl Default for StageView {
     fn default() -> Self {
-        Self::new()
+        Self::new(false)
     }
 }
 
 impl StageView {
-    pub fn new() -> Self {
+    pub fn new(is_map: bool) -> Self {
         let me: Self = glib::Object::builder().build();
+        me.imp().is_map.replace(is_map);
         me.set_cursor_highlight(true);
         me
     }
@@ -209,6 +217,7 @@ impl StageView {
     }
 
     pub fn set_cursor_highlight(&self, value: bool) {
+        // why use method here? just to not expose imp()?
         self.imp().show_cursor.replace(value);
     }
 
@@ -247,11 +256,64 @@ impl StageView {
     }
 }
 
+pub fn make_map(name: &str, is_dark: bool) -> StageView {
+    let map = StageView::new(true);
+    map.set_widget_name(&format!("{}_map", name));
+    map.set_vexpand(false);// ??? do it needed?
+    map.set_hexpand(false);
+    map.set_margin_end(5);
+    map.set_margin_top(5);
+
+    map.set_cursor_visible(false);
+    map.set_focusable(false);
+    map.set_focus_on_click(false);
+    map.set_can_focus(false);
+    map.set_cursor(None);
+    
+    map.set_is_dark(is_dark, true);
+
+    map.set_monospace(true);
+    map.set_editable(false);
+
+    map.set_width_request(300);
+    let drag = GestureDrag::new();
+    drag.set_propagation_phase(PropagationPhase::Capture);
+    drag.connect_drag_begin({
+        |drag, x: f64, y: f64| {
+            drag.set_state(EventSequenceState::Claimed);
+            debug!("......................DRAG BEGIN {:?} {:?}", x, y);
+        }
+    });
+    drag.connect_drag_update({
+        |drag, x: f64, y: f64| {
+            drag.set_state(EventSequenceState::Claimed);
+            debug!("+++++++++++++++++++DRAG UPDATE {:?} {:?}", x, y);
+        }
+        });
+    drag.connect_drag_end({
+        |drag, x: f64, y: f64| {
+            drag.set_state(EventSequenceState::Claimed);
+            debug!("____________________DRAG END {:?} {:?}", x, y);
+        }
+    });
+    map.add_controller(drag);
+    let click = GestureClick::new();
+    click.set_propagation_phase(PropagationPhase::Capture);
+    click.connect_pressed({
+        |click, _n_clicks: i32, x: f64, y: f64| {
+            click.set_state(EventSequenceState::Claimed);
+            debug!("nooooooooooooooo");
+        }
+    });
+    map.add_controller(click);
+    map
+}
+
 pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView) {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
-    let txt = StageView::new();
+    let txt = StageView::new(false);
     txt.set_margin_start(12);
     txt.set_widget_name(name);
     txt.set_margin_end(12);
@@ -261,21 +323,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
     txt.set_monospace(true);
     txt.set_editable(false);
 
-    debug!("~~~~~~~~~~~~~~~~~~~~~ {:?}", name);
-
-    let map = StageView::new();
-    map.set_widget_name(&format!("{}_map", name));
-    map.set_vexpand(true);
-    map.set_hexpand(false);
-    map.set_margin_end(5);
-    map.set_margin_top(5);
-
-    map.set_is_dark(is_dark, true);
-
-    map.set_monospace(true);
-    map.set_editable(false);
-
-    map.set_width_request(300);
+    let map = make_map(name, is_dark);
     map.set_buffer(Some(&txt.buffer()));
 
     if is_dark {
@@ -475,6 +523,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
             txt.set_cursor_highlight(true);
             let pos = txt.buffer().cursor_position();
             let iter = txt.buffer().iter_at_offset(pos);
+            debug!("11111111111111111111111");
             sndr.send_blocking(crate::Event::Cursor(iter.offset(), iter.line()))
                 .expect("Cant send through channel");
             if n_clicks == 1 && (iter.has_tag(&file) || iter.has_tag(&hunk)) {
@@ -537,6 +586,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
             }
             let current_line = start_iter.line();
             if line_before != current_line {
+                debug!("2222222222222222222222222");
                 sndr.send_blocking(crate::Event::Cursor(start_iter.offset(), current_line))
                     .expect("Could not send through channel");
             }
