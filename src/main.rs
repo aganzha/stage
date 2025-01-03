@@ -8,8 +8,9 @@ use status_view::{
     context::StatusRenderContext,
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
+    render::ChildWidget,
     stage_view::factory as stage_factory,
-    Status, render::ChildWidget
+    Status,
 };
 
 mod branches_view;
@@ -48,12 +49,12 @@ use glib::ControlFlow;
 use libadwaita::prelude::*;
 use libadwaita::{
     Application, ApplicationWindow, Banner, OverlaySplitView, StyleManager, Toast, ToastOverlay,
-    ToolbarStyle, ToolbarView, Window
+    ToolbarStyle, ToolbarView, Window,
 };
 
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider, Orientation,
-    ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER, Label, Overflow
+    gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider, Label,
+    Orientation, Overflow, ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
 };
 
 use log::{info, trace};
@@ -306,7 +307,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     let map_box = Box::builder()
         .hexpand(true)
         .vexpand(true)
-        .vexpand_set(false)// >>>>
+        .vexpand_set(false) // >>>>
         .hexpand_set(true)
         .overflow(Overflow::Hidden)
         .orientation(Orientation::Horizontal)
@@ -572,7 +573,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Expand(offset, line_no) => {
                     info!("Expand");
-                    status.expand(&txt, line_no, offset, &mut ctx);                    
+                    status.expand(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Cursor(offset, line_no) => {
                     info!("Cursor");

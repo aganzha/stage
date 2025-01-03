@@ -46,8 +46,8 @@ use crate::status_view::context::CursorPosition as ContextCursorPosition;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, TextChildAnchor, Widget,
-    Window as GTKWindow, Label as GtkLabel
+    gio, glib, Align, Button, FileDialog, Label as GtkLabel, ListBox, SelectionMode,
+    TextChildAnchor, Widget, Window as GTKWindow,
 };
 use libadwaita::prelude::*;
 use libadwaita::{

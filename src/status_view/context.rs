@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::status_view::{ChildWidget, TextChildAnchor, StageView};
+use crate::status_view::{ChildWidget, StageView, TextChildAnchor};
 use crate::{Diff, File, Hunk, Line};
 
 #[derive(Debug, Clone)]
@@ -27,12 +27,11 @@ impl CursorPosition<'_> {
 
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
-
     pub stage: Option<&'a StageView>,
     pub map: Option<&'a StageView>,
-    
+
     pub erase_counter: i32,
-    
+
     /// same for hunks and line ranges
     pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>,
@@ -66,7 +65,7 @@ impl StatusRenderContext<'_> {
         {
             Self {
                 stage: None,
-                map: None, 
+                map: None,
                 erase_counter: 0,
 
                 highlight_lines: None,

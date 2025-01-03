@@ -12,8 +12,8 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, glib, EventControllerKey, EventControllerMotion, EventSequenceState, GestureClick,
-    GestureDrag, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget,
-    PropagationPhase
+    GestureDrag, MovementStep, PropagationPhase, TextBuffer, TextTag, TextView, TextWindowType,
+    Widget,
 };
 use libadwaita::StyleManager;
 use log::{debug, trace};
@@ -39,7 +39,7 @@ mod stage_view_internal {
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
     const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.137, 0.216, 0.310, 1.0);
 
-    const DARK_BF_FILL: gdk::RGBA = gdk::RGBA::new(0.139, 0.139, 0.139, 1.0);
+    const DARK_BG_FILL: gdk::RGBA = gdk::RGBA::new(0.139, 0.139, 0.139, 1.0);
     const LIGHT_BG_FILL: gdk::RGBA = gdk::RGBA::new(1.0, 1.0, 1.0, 1.0);
     // color #f6f5f4/494949 - 246/255 245/255 244/255
     // f3f3f3 - 243/255
@@ -54,9 +54,9 @@ mod stage_view_internal {
 
     #[derive(Default)]
     pub struct StageView {
-
         pub is_map: Cell<bool>,
-
+        pub map_slider_start: Cell<f64>,
+        pub map_slider_diff: Cell<f64>,
         pub show_cursor: Cell<bool>,
         //pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
@@ -76,17 +76,59 @@ mod stage_view_internal {
         type ParentType = TextView;
     }
 
-    impl StageView {}
+    impl StageView {
+        fn snapshot_layer_map(&self, layer: TextViewLayer, snapshot: Snapshot) {
+
+            let rect = self.obj().visible_rect();
+            let bg_fill = if self.is_dark.get() {
+                &DARK_BG_FILL
+            } else {
+                &LIGHT_BG_FILL
+            };
+            snapshot.append_color(
+                bg_fill,
+                &graphene::Rect::new(
+                    rect.x() as f32,
+                    rect.y() as f32,
+                    rect.width() as f32,
+                    rect.height() as f32,
+                ),
+            );
+
+            let slider_fill = if self.is_dark.get() {
+                &LIGHT_BG_FILL 
+            } else {
+                &DARK_BG_FILL
+            };
+            let y = self.map_slider_start.get() + self.map_slider_diff.get();
+
+            snapshot.append_color(
+                slider_fill,
+                &graphene::Rect::new(0 as f32, y as f32, 300 as f32, (y + 50.0) as f32),
+            );
+            snapshot.append_color(
+                bg_fill,
+                &graphene::Rect::new(
+                    rect.x() as f32,
+                    (y + 50.0) as f32,
+                    rect.width() as f32,
+                    rect.height() as f32,
+                ),
+            );
+
+        }
+    }
 
     impl TextViewImpl for StageView {
-        fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
-            if self.is_map.get() {
-                return;
-            }
+        fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {            
             if layer == TextViewLayer::BelowText {
+                if self.is_map.get() {
+                    self.snapshot_layer_map(layer, snapshot);
+                    return;
+                }
                 let rect = self.obj().visible_rect();
                 let bg_fill = if self.is_dark.get() {
-                    &DARK_BF_FILL
+                    &DARK_BG_FILL
                 } else {
                     &LIGHT_BG_FILL
                 };
@@ -188,8 +230,7 @@ mod stage_view_internal {
         }
     }
     impl ObjectImpl for StageView {}
-    impl WidgetImpl for StageView {
-    }
+    impl WidgetImpl for StageView {}
 }
 
 impl Default for StageView {
@@ -202,6 +243,8 @@ impl StageView {
     pub fn new(is_map: bool) -> Self {
         let me: Self = glib::Object::builder().build();
         me.imp().is_map.replace(is_map);
+        me.imp().map_slider_start.replace(0.0);
+        me.imp().map_slider_diff.replace(0.0);
         me.set_cursor_highlight(true);
         me
     }
@@ -259,7 +302,7 @@ impl StageView {
 pub fn make_map(name: &str, is_dark: bool) -> StageView {
     let map = StageView::new(true);
     map.set_widget_name(&format!("{}_map", name));
-    map.set_vexpand(false);// ??? do it needed?
+    map.set_vexpand(false); // ??? do it needed?
     map.set_hexpand(false);
     map.set_margin_end(5);
     map.set_margin_top(5);
@@ -269,7 +312,7 @@ pub fn make_map(name: &str, is_dark: bool) -> StageView {
     map.set_focus_on_click(false);
     map.set_can_focus(false);
     map.set_cursor(None);
-    
+
     map.set_is_dark(is_dark, true);
 
     map.set_monospace(true);
@@ -279,21 +322,37 @@ pub fn make_map(name: &str, is_dark: bool) -> StageView {
     let drag = GestureDrag::new();
     drag.set_propagation_phase(PropagationPhase::Capture);
     drag.connect_drag_begin({
-        |drag, x: f64, y: f64| {
+        let map = map.clone();
+        move |drag, x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
-            debug!("......................DRAG BEGIN {:?} {:?}", x, y);
+            let current_y = map.imp().map_slider_start.get();
+            if y > current_y - 10.0 && y < current_y + 60.0 {
+                debug!("...................... START UNCHANGED was {:?} become {:?}", current_y, y);            
+            } else {
+                debug!("...................... START DRAG was {:?} become {:?}", current_y, y);            
+                map.imp().map_slider_start.replace(y);
+            }
         }
     });
     drag.connect_drag_update({
-        |drag, x: f64, y: f64| {
+        let map = map.clone();
+        move |drag, x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
-            debug!("+++++++++++++++++++DRAG UPDATE {:?} {:?}", x, y);
+            map.imp().map_slider_diff.replace(y);
+            debug!("+++++++++++++++++++DRAG UPDATE start {:?} y (diff) {:?}", map.imp().map_slider_start.get(), y);
         }
-        });
+    });
     drag.connect_drag_end({
-        |drag, x: f64, y: f64| {
+        let map = map.clone();
+        move |drag, x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
-            debug!("____________________DRAG END {:?} {:?}", x, y);
+            let current_y = map.imp().map_slider_start.get();
+            map.imp().map_slider_start.replace(current_y + y);
+            map.imp().map_slider_diff.replace(0.0);
+            debug!("____________________DRAG END y {:?} start {:?} diff {:?}", y,
+                   map.imp().map_slider_start.get(),
+                   map.imp().map_slider_diff.get(),
+            );
         }
     });
     map.add_controller(drag);
@@ -523,7 +582,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
             txt.set_cursor_highlight(true);
             let pos = txt.buffer().cursor_position();
             let iter = txt.buffer().iter_at_offset(pos);
-            debug!("11111111111111111111111");
             sndr.send_blocking(crate::Event::Cursor(iter.offset(), iter.line()))
                 .expect("Cant send through channel");
             if n_clicks == 1 && (iter.has_tag(&file) || iter.has_tag(&hunk)) {
@@ -586,7 +644,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
             }
             let current_line = start_iter.line();
             if line_before != current_line {
-                debug!("2222222222222222222222222");
                 sndr.send_blocking(crate::Event::Cursor(start_iter.offset(), current_line))
                     .expect("Could not send through channel");
             }

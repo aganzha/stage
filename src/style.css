@@ -8,6 +8,7 @@
 
 #status_view.dark, #commit_view.dark, #status_view_map.dark, #commit_view_map.dark {
     color: #d6d5d2;/* @light_3; */
+    background-color: #232323;
 }
 
 #status_view_map, #commit_view_map {
