@@ -12,8 +12,7 @@
 }
 
 #status_view_map, #commit_view_map {
-    /* font-size: 50%; */
-    font-size: 50%;
+    font-size: 20%;
 }
 
 listview.dark {

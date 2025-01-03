@@ -27,6 +27,8 @@ glib::wrapper! {
         @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
 }
 
+const MAP_WIDTH: i32 = 150;
+
 mod stage_view_internal {
 
     use gtk4::prelude::*;
@@ -52,6 +54,9 @@ mod stage_view_internal {
     const LIGHT_HUNKS: gdk::RGBA = gdk::RGBA::new(0.871, 0.871, 0.855, 1.0);
     const DARK_HUNKS: gdk::RGBA = gdk::RGBA::new(0.22, 0.22, 0.22, 1.0);
 
+    const SLIDER_HEIGHT: f32 = 50.0;
+    const SLIDER_MARGIN: f32 = 10.0;
+    
     #[derive(Default)]
     pub struct StageView {
         pub is_map: Cell<bool>,
@@ -103,13 +108,13 @@ mod stage_view_internal {
 
             snapshot.append_color(
                 slider_fill,
-                &graphene::Rect::new(0 as f32, y as f32, 300 as f32, (y + 50.0) as f32),
+                &graphene::Rect::new(0 as f32, y as f32, super::MAP_WIDTH as f32, y as f32 + SLIDER_HEIGHT),
             );
             snapshot.append_color(
                 bg_fill,
                 &graphene::Rect::new(
                     rect.x() as f32,
-                    (y + 50.0) as f32,
+                    y as f32 + SLIDER_HEIGHT,
                     rect.width() as f32,
                     rect.height() as f32,
                 ),
@@ -315,7 +320,7 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool) -> StageView {
     map.set_monospace(true);
     map.set_editable(false);
 
-    map.set_width_request(300);
+    map.set_width_request(MAP_WIDTH);
     
 
     let drag = GestureDrag::new();
@@ -668,7 +673,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
         }
     });
 
-    // what is this?
     let motion_controller = EventControllerMotion::new();
     motion_controller.connect_motion({
         let txt = txt.clone();
@@ -676,10 +680,8 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
             let (x, y) = txt.window_to_buffer_coords(TextWindowType::Text, x as i32, y as i32);
             if let Some(iter) = txt.iter_at_location(x, y) {
                 if iter.has_tag(&pointer) {
-                    debug!("poooooooointer!");
                     txt.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
                 } else {
-                    debug!("texxxxxxxxxxxxxxxxxt");
                     txt.set_cursor(Some(&gdk::Cursor::from_name("text", None).unwrap()));
                 }
             }
