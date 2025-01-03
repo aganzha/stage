@@ -78,7 +78,7 @@ mod stage_view_internal {
 
     impl StageView {
         fn snapshot_layer_map(&self, layer: TextViewLayer, snapshot: Snapshot) {
-
+            println!("======================================================================== SNAPSHOT LAYER");
             let rect = self.obj().visible_rect();
             let bg_fill = if self.is_dark.get() {
                 &DARK_BG_FILL
@@ -340,6 +340,7 @@ pub fn make_map(name: &str, is_dark: bool) -> StageView {
             drag.set_state(EventSequenceState::Claimed);
             map.imp().map_slider_diff.replace(y);
             debug!("+++++++++++++++++++DRAG UPDATE start {:?} y (diff) {:?}", map.imp().map_slider_start.get(), y);
+            map.queue_draw();
         }
     });
     drag.connect_drag_end({
