@@ -78,7 +78,6 @@ mod stage_view_internal {
 
     impl StageView {
         fn snapshot_layer_map(&self, layer: TextViewLayer, snapshot: Snapshot) {
-            println!("======================================================================== SNAPSHOT LAYER");
             let rect = self.obj().visible_rect();
             let bg_fill = if self.is_dark.get() {
                 &DARK_BG_FILL
@@ -265,10 +264,6 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-        // match context.cursor_position {
-        //     CursorPosition::CursorDiff(_) => self.imp().double_height_line.replace(true),
-        //     _ => self.imp().double_height_line.replace(false),
-        // };
 
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
@@ -299,7 +294,7 @@ impl StageView {
     }
 }
 
-pub fn make_map(name: &str, is_dark: bool) -> StageView {
+pub fn make_map(stage: &StageView, name: &str, is_dark: bool) -> StageView {
     let map = StageView::new(true);
     map.set_widget_name(&format!("{}_map", name));
     map.set_vexpand(false); // ??? do it needed?
@@ -311,8 +306,8 @@ pub fn make_map(name: &str, is_dark: bool) -> StageView {
     map.set_focusable(false);
     map.set_focus_on_click(false);
     map.set_can_focus(false);
-    map.set_cursor(None);
-
+    // map.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
+    
     map.set_is_dark(is_dark, true);
 
     map.set_monospace(true);
@@ -327,33 +322,49 @@ pub fn make_map(name: &str, is_dark: bool) -> StageView {
             drag.set_state(EventSequenceState::Claimed);
             let current_y = map.imp().map_slider_start.get();
             if y > current_y - 10.0 && y < current_y + 60.0 {
-                debug!("...................... START UNCHANGED was {:?} become {:?}", current_y, y);            
             } else {
-                debug!("...................... START DRAG was {:?} become {:?}", current_y, y);            
                 map.imp().map_slider_start.replace(y);
             }
         }
     });
     drag.connect_drag_update({
         let map = map.clone();
+        let stage = stage.clone();
         move |drag, x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
             map.imp().map_slider_diff.replace(y);
-            debug!("+++++++++++++++++++DRAG UPDATE start {:?} y (diff) {:?}", map.imp().map_slider_start.get(), y);
             map.queue_draw();
+            let (_, y) = map.window_to_buffer_coords(
+                TextWindowType::Text,
+                0,
+                (map.imp().map_slider_start.get() + map.imp().map_slider_diff.get()) as i32
+            );
+            if let Some(iter) = map.iter_at_location(0, y) {
+                if let Some(mut stage_iter) = stage.buffer().iter_at_line(iter.line()) {
+                    stage.scroll_to_iter(&mut stage_iter, 0.0, true, 0.0, 0.0);
+                    stage.queue_draw();
+                }
+            }
         }
     });
     drag.connect_drag_end({
         let map = map.clone();
+        let stage = stage.clone();
         move |drag, x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
             let current_y = map.imp().map_slider_start.get();
             map.imp().map_slider_start.replace(current_y + y);
             map.imp().map_slider_diff.replace(0.0);
-            debug!("____________________DRAG END y {:?} start {:?} diff {:?}", y,
-                   map.imp().map_slider_start.get(),
-                   map.imp().map_slider_diff.get(),
+            let (_, y) = map.window_to_buffer_coords(
+                TextWindowType::Text,
+                0,
+                map.imp().map_slider_start.get() as i32
             );
+            if let Some(iter) = map.iter_at_location(0, y) {
+                if let Some(mut stage_iter) = stage.buffer().iter_at_line(iter.line()) {
+                    stage.scroll_to_iter(&mut stage_iter, 0.0, true, 0.0, 0.0);
+                }
+            }
         }
     });
     map.add_controller(drag);
@@ -362,7 +373,6 @@ pub fn make_map(name: &str, is_dark: bool) -> StageView {
     click.connect_pressed({
         |click, _n_clicks: i32, x: f64, y: f64| {
             click.set_state(EventSequenceState::Claimed);
-            debug!("nooooooooooooooo");
         }
     });
     map.add_controller(click);
@@ -383,7 +393,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
     txt.set_monospace(true);
     txt.set_editable(false);
 
-    let map = make_map(name, is_dark);
+    let map = make_map(&txt, name, is_dark);
     map.set_buffer(Some(&txt.buffer()));
 
     if is_dark {
@@ -651,6 +661,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
         }
     });
 
+    // what is this?
     let motion_controller = EventControllerMotion::new();
     motion_controller.connect_motion({
         let txt = txt.clone();
