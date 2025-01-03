@@ -95,9 +95,9 @@ mod stage_view_internal {
             );
 
             let slider_fill = if self.is_dark.get() {
-                &LIGHT_BG_FILL 
+                &LIGHT_BG_FILL.with_alpha(0.2) 
             } else {
-                &DARK_BG_FILL
+                &DARK_BG_FILL.with_alpha(0.2)
             };
             let y = self.map_slider_start.get() + self.map_slider_diff.get();
 
@@ -292,6 +292,12 @@ impl StageView {
         };
         width / (x_after - x_before)
     }
+
+    pub fn after_window_present(&self) {
+        if self.imp().is_map.get() {
+            self.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
+        }
+    }
 }
 
 pub fn make_map(stage: &StageView, name: &str, is_dark: bool) -> StageView {
@@ -302,11 +308,7 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool) -> StageView {
     map.set_margin_end(5);
     map.set_margin_top(5);
 
-    map.set_cursor_visible(false);
-    map.set_focusable(false);
-    map.set_focus_on_click(false);
-    map.set_can_focus(false);
-    // map.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
+    map.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
     
     map.set_is_dark(is_dark, true);
 
@@ -314,11 +316,13 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool) -> StageView {
     map.set_editable(false);
 
     map.set_width_request(300);
+    
+
     let drag = GestureDrag::new();
     drag.set_propagation_phase(PropagationPhase::Capture);
     drag.connect_drag_begin({
         let map = map.clone();
-        move |drag, x: f64, y: f64| {
+        move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
             let current_y = map.imp().map_slider_start.get();
             if y > current_y - 10.0 && y < current_y + 60.0 {
@@ -330,7 +334,7 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool) -> StageView {
     drag.connect_drag_update({
         let map = map.clone();
         let stage = stage.clone();
-        move |drag, x: f64, y: f64| {
+        move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
             map.imp().map_slider_diff.replace(y);
             map.queue_draw();
@@ -350,7 +354,7 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool) -> StageView {
     drag.connect_drag_end({
         let map = map.clone();
         let stage = stage.clone();
-        move |drag, x: f64, y: f64| {
+        move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
             let current_y = map.imp().map_slider_start.get();
             map.imp().map_slider_start.replace(current_y + y);
@@ -371,11 +375,14 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool) -> StageView {
     let click = GestureClick::new();
     click.set_propagation_phase(PropagationPhase::Capture);
     click.connect_pressed({
-        |click, _n_clicks: i32, x: f64, y: f64| {
+        let map = map.clone();
+        move |click, _n_clicks: i32, _x: f64, _y: f64| {
+            debug!("CLICK!!!!!!!!!! {:?}", map.cursor().unwrap().name());
             click.set_state(EventSequenceState::Claimed);
         }
     });
     map.add_controller(click);
+    debug!("?????????????????? {:?}", map.cursor().unwrap().name());
     map
 }
 
@@ -669,8 +676,10 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
             let (x, y) = txt.window_to_buffer_coords(TextWindowType::Text, x as i32, y as i32);
             if let Some(iter) = txt.iter_at_location(x, y) {
                 if iter.has_tag(&pointer) {
+                    debug!("poooooooointer!");
                     txt.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
                 } else {
+                    debug!("texxxxxxxxxxxxxxxxxt");
                     txt.set_cursor(Some(&gdk::Cursor::from_name("text", None).unwrap()));
                 }
             }

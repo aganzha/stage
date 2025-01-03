@@ -313,8 +313,10 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         .orientation(Orientation::Horizontal)
         .build();
     map_box.append(&scroll);
-    map_box.append(&map);
 
+    map_box.append(&map);
+    
+    
     banner_box.append(&map_box);
 
     let toast_lock: Rc<Cell<bool>> = Rc::new(Cell::new(false));
@@ -338,8 +340,10 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     let mut stage_set = false;
     status.get_status();
-    window.present();
 
+    window.present();
+    map.after_window_present();
+    
     let window_stack: Rc<RefCell<Vec<Window>>> = Rc::new(RefCell::new(Vec::new()));
 
     glib::spawn_future_local(async move {
