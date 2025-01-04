@@ -55,6 +55,7 @@ use libadwaita::{
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider, Label,
     Orientation, Overflow, ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
+    EventControllerScroll
 };
 
 use log::{info, trace};
@@ -271,22 +272,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone(), &window.clone());
 
     let (txt, map) = stage_factory(sender.clone(), "status_view");
-    // let pango_ctx = map.pango_context();
-    // let mut context_string = "ass";
-    // let pango_layout = map.create_pango_layout(Some(context_string));
-    // pango_layout.set_line_spacing(0.1);
-    // pango_layout.set_width(10);
-
-    // if let Some(font_descr) = pango_ctx.font_description() {
-    //     info!("++++++++++++++++++++++ {:?} {:?} spacing {:?}", font_descr.to_str(), font_descr.size(), pango_layout.line_spacing());
-    // }
     let scroll = ScrolledWindow::builder()
         .vexpand(true)
         .vexpand_set(true)
         .hexpand(true)
         .hexpand_set(true)
         .build();
-
     scroll.set_child(Some(&status.get_empty_view()));
 
     let banner_box = Box::builder()
@@ -312,6 +303,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         .overflow(Overflow::Hidden)
         .orientation(Orientation::Horizontal)
         .build();
+    
     map_box.append(&scroll);
 
     map_box.append(&map);
@@ -381,6 +373,13 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     if !stage_set {
                         scroll.set_child(Some(&txt));
                         txt.grab_focus();
+                        scroll.vadjustment().connect_changed({
+                            let txt = txt.clone();
+                            let map = map.clone();
+                            move |_| {
+                                txt.adjust_map(&map);
+                            }
+                        });
                         stage_set = true;
                     }
                     hb_updater(HbUpdateData::Path(path.clone()));
@@ -580,7 +579,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     status.expand(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Cursor(offset, line_no) => {
-                    info!("Cursor");
+                    trace!("Cursor");
                     status.cursor(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Stage(stage_op) => {

@@ -11,7 +11,7 @@ use core::time::Duration;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, glib, EventControllerKey, EventControllerMotion, EventSequenceState, GestureClick,
+    gdk, glib, EventControllerKey, EventControllerMotion, EventControllerScroll, EventSequenceState, GestureClick,
     GestureDrag, MovementStep, PropagationPhase, TextBuffer, TextTag, TextView, TextWindowType,
     Widget,
 };
@@ -303,6 +303,24 @@ impl StageView {
             self.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
         }
     }
+
+    pub fn adjust_map(&self, map: &StageView) {
+        let rect = self.visible_rect();
+        let (_, y) = self.window_to_buffer_coords(
+            TextWindowType::Text,
+            0,
+            rect.y()
+        );
+        if let Some(iter) = self.iter_at_location(0, y) {
+            let line = iter.line();
+            debug!("LINE IN STAGE {:?}", line);
+            if let Some(iter) = map.buffer().iter_at_line(line) {
+                let map_y = map.line_yrange(&iter).0;
+                map.imp().map_slider_start.replace(map_y.into());
+                map.queue_draw();                
+            }
+        }
+    }
 }
 
 pub fn make_map(stage: &StageView, name: &str, is_dark: bool) -> StageView {
@@ -382,12 +400,18 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool) -> StageView {
     click.connect_pressed({
         let map = map.clone();
         move |click, _n_clicks: i32, _x: f64, _y: f64| {
-            debug!("CLICK!!!!!!!!!! {:?}", map.cursor().unwrap().name());
             click.set_state(EventSequenceState::Claimed);
         }
     });
     map.add_controller(click);
-    debug!("?????????????????? {:?}", map.cursor().unwrap().name());
+    let scroll = EventControllerScroll::builder().build();
+    scroll.connect_scroll({
+        |_self, x: f64, y: f64| {
+            debug!(">>>>>>>>>>>>>>>>>>> {:?} {:?}", x, y);
+            return glib::Propagation::Proceed;
+        }
+    });
+    stage.add_controller(scroll);
     map
 }
 
