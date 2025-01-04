@@ -312,7 +312,8 @@ impl TxtTag {
             DIFF => {
                 // TODO! get it from line_yrange!
                 tag.set_weight(700);
-                tag.set_pixels_above_lines(32);
+                // tag.set_pixels_above_lines(32);
+                tag.set_line_height(2.0);
                 if is_dark {
                     tag.set_foreground(Some("#a78a44"));
                 } else {
@@ -330,7 +331,7 @@ impl TxtTag {
         }
     }
 
-    pub fn create(&self) -> TextTag {
+    pub fn make_table_tag(&self) -> TextTag {
         let tag = TextTag::new(Some(&self.0));
         let manager = StyleManager::default();
         let is_dark = manager.is_dark();

@@ -11,14 +11,14 @@ use core::time::Duration;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, glib, EventControllerKey, EventControllerMotion, EventControllerScroll, EventSequenceState, GestureClick,
+    gdk, glib, pango, EventControllerKey, EventControllerMotion, EventControllerScroll, EventSequenceState, GestureClick,
     GestureDrag, MovementStep, PropagationPhase, TextBuffer, TextTag, TextView, TextWindowType,
     Widget, ScrolledWindow
 };
 use libadwaita::StyleManager;
 use log::{debug, trace};
 
-use std::cell::RefCell;
+use std::cell::{RefCell, Cell};
 use std::rc::Rc;
 
 glib::wrapper! {
@@ -56,12 +56,12 @@ mod stage_view_internal {
 
     const SLIDER_HEIGHT: f32 = 50.0;
     const SLIDER_MARGIN: f32 = 10.0;
-    
+
     #[derive(Default)]
     pub struct StageView {
         pub is_map: Cell<bool>,
         pub map_slider_start: Cell<f64>,
-        pub map_slider_diff: Cell<f64>,
+        //pub map_slider_diff: Cell<f64>,
         pub show_cursor: Cell<bool>,
         //pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
@@ -100,11 +100,11 @@ mod stage_view_internal {
             );
 
             let slider_fill = if self.is_dark.get() {
-                &LIGHT_BG_FILL.with_alpha(0.2) 
+                &LIGHT_BG_FILL.with_alpha(0.2)
             } else {
                 &DARK_BG_FILL.with_alpha(0.2)
             };
-            let y = self.map_slider_start.get() + self.map_slider_diff.get();
+            let y = self.map_slider_start.get();
 
             snapshot.append_color(
                 slider_fill,
@@ -124,7 +124,7 @@ mod stage_view_internal {
     }
 
     impl TextViewImpl for StageView {
-        fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {            
+        fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
             if layer == TextViewLayer::BelowText {
                 if self.is_map.get() {
                     self.snapshot_layer_map(layer, snapshot);
@@ -147,10 +147,9 @@ mod stage_view_internal {
                 );
 
                 let buffer = self.obj().buffer();
-                let mut iter = buffer.iter_at_offset(0);
-
-                let known_line_height = self.obj().line_yrange(&iter).1;
-
+                let mut iter = buffer.iter_at_offset(0);                
+                let common_line_height = self.obj().line_yrange(&iter).1;
+                
                 let (line_from, line_to) = self.active_lines.get();
 
                 if line_from > 0 && line_to > 0 {
@@ -210,8 +209,14 @@ mod stage_view_internal {
                 iter.set_offset(buffer.cursor_position());
 
                 let (mut y_from, mut y_to) = self.obj().line_yrange(&iter);
-                y_from = y_from + y_to - known_line_height;
-                y_to = known_line_height;
+                
+                println!("HIGHLIGHT CURSOR {:?} {:?} {:?}", y_from, y_to, common_line_height);
+                if y_to > common_line_height {
+                    y_from += common_line_height / 2;
+                    y_to = common_line_height;
+                }
+                // y_from = y_from + y_to - known_line_height;
+                // y_to = known_line_height;
 
                 snapshot.append_color(
                     if self.show_cursor.get() {
@@ -248,7 +253,6 @@ impl StageView {
         let me: Self = glib::Object::builder().build();
         me.imp().is_map.replace(is_map);
         me.imp().map_slider_start.replace(0.0);
-        me.imp().map_slider_diff.replace(0.0);
         me.set_cursor_highlight(true);
         me
     }
@@ -315,8 +319,9 @@ impl StageView {
             let line = iter.line();
             if let Some(iter) = map.buffer().iter_at_line(line) {
                 let map_y = map.line_yrange(&iter).0;
+                debug!("1111 {:?}", map_y);
                 map.imp().map_slider_start.replace(map_y.into());
-                map.queue_draw();                
+                map.queue_draw();
             }
         }
     }
@@ -325,30 +330,43 @@ impl StageView {
 pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledWindow) -> StageView {
     let map = StageView::new(true);
     map.set_widget_name(&format!("{}_map", name));
-    map.set_vexpand(false); // ??? do it needed?
+    map.set_vexpand(false);
     map.set_hexpand(false);
     map.set_margin_end(5);
     map.set_margin_top(5);
 
     map.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
-    
+
     map.set_is_dark(is_dark, true);
 
     map.set_monospace(true);
     map.set_editable(false);
 
     map.set_width_request(MAP_WIDTH);
+    // weird. it limits whole left scroll window!
+    // map.set_height_request(500);
     
+    let scroll_lock = Rc::new(Cell::new(false));
 
     let drag = GestureDrag::new();
     drag.set_propagation_phase(PropagationPhase::Capture);
     drag.connect_drag_begin({
+        let stage = stage.clone();
         let map = map.clone();
+        let scroll_lock = scroll_lock.clone();
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
             let current_y = map.imp().map_slider_start.get();
             if y > current_y - 10.0 && y < current_y + 60.0 {
             } else {
+                debug!(".....drag START current y {:?}, diff !!! {:?}, new y {:?} scroll_lock BEFORE {:?}",
+                       current_y,
+                       y,
+                       current_y + y,
+                       scroll_lock
+                );
+                scroll_lock.replace(true);
+                debug!("222222222 {:?}", y);
                 map.imp().map_slider_start.replace(y);
             }
         }
@@ -356,14 +374,25 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
     drag.connect_drag_update({
         let map = map.clone();
         let stage = stage.clone();
+        let scroll_lock = scroll_lock.clone();
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
-            map.imp().map_slider_diff.replace(y);
+            let current_y = map.imp().map_slider_start.get();
+            debug!(">>>>>> DRAG UPDATE current y {:?}, diff {:?}, new y {:?} scroll_lock BEFORE {:?}",
+                   current_y,
+                   y,
+                   current_y + y,
+                   scroll_lock
+            );
+            scroll_lock.replace(true);
+            let new_start = current_y + y;
+            debug!("3333333333 {:?}", new_start);
+            map.imp().map_slider_start.replace(new_start);
             map.queue_draw();
             let (_, y) = map.window_to_buffer_coords(
                 TextWindowType::Text,
                 0,
-                (map.imp().map_slider_start.get() + map.imp().map_slider_diff.get()) as i32
+                new_start as i32
             );
             if let Some(iter) = map.iter_at_location(0, y) {
                 if let Some(mut stage_iter) = stage.buffer().iter_at_line(iter.line()) {
@@ -376,11 +405,27 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
     drag.connect_drag_end({
         let map = map.clone();
         let stage = stage.clone();
+        let scroll_lock = scroll_lock.clone();
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
             let current_y = map.imp().map_slider_start.get();
+            debug!("44444444 {:?}", current_y + y);
             map.imp().map_slider_start.replace(current_y + y);
-            map.imp().map_slider_diff.replace(0.0);
+            debug!("DRAG END current y {:?}, diff {:?}, new y {:?} scroll_lock BEFORE {:?}",
+                   current_y,
+                   y,
+                   current_y + y,
+                   scroll_lock
+            );
+            scroll_lock.replace(true);
+            glib::source::timeout_add_local(Duration::from_millis(500), {
+                let scroll_lock = scroll_lock.clone();
+                move || {
+                    scroll_lock.replace(false);
+                    debug!("cleanup lock on timeout_add_local");
+                    return glib::ControlFlow::Break;
+                }
+            });
             let (_, y) = map.window_to_buffer_coords(
                 TextWindowType::Text,
                 0,
@@ -397,7 +442,6 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
     let click = GestureClick::new();
     click.set_propagation_phase(PropagationPhase::Capture);
     click.connect_pressed({
-        let map = map.clone();
         move |click, _n_clicks: i32, _x: f64, _y: f64| {
             click.set_state(EventSequenceState::Claimed);
         }
@@ -406,10 +450,18 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
     scroll.vadjustment().connect_changed({
         let stage = stage.clone();
         let map = map.clone();
+        let scroll_lock = scroll_lock.clone();
         move |_| {
+            let y = map.imp().map_slider_start.get();
+            debug!("before scroll :::::::::::::::::::: {:?} {:?}", scroll_lock, y);
+            if scroll_lock.get() {
+                debug!("noooooooooooooooo way");
+                return;
+            }
+            debug!("ddddddddddddddddo scroll {:?}", y);
             stage.adjust_map(&map);
         }
-    });        
+    });
     map
 }
 
@@ -417,28 +469,38 @@ pub fn make_stage(sndr: Sender<crate::Event>, name: &str, scroll: &ScrolledWindo
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
-    let txt = StageView::new(false);
-    txt.set_margin_start(12);
-    txt.set_widget_name(name);
-    txt.set_margin_end(12);
-    txt.set_margin_top(12);
-    txt.set_margin_bottom(12);
-    txt.set_is_dark(is_dark, true);
-    txt.set_monospace(true);
-    txt.set_editable(false);
+    let stage = StageView::new(false);
+    let buffer = stage.buffer();
+    let pango = stage.pango_context();
+    let font_descr = pango.font_description().unwrap();
+    let font_size = font_descr.size() / pango::SCALE;
+    debug!("_______________________ {:?} {:?} {:?}", pango, font_descr.to_string(), font_size);
+    stage.set_margin_start(12);
+    stage.set_widget_name(name);
+    stage.set_margin_end(12);
+    stage.set_margin_top(12);
+    stage.set_margin_bottom(12);
+    stage.set_is_dark(is_dark, true);
+    stage.set_monospace(true);
+    stage.set_editable(false);
 
-    let map = make_map(&txt, name, is_dark, scroll);
-    map.set_buffer(Some(&txt.buffer()));
+    let map = make_map(&stage, name, is_dark, scroll);
+    map.set_buffer(Some(&buffer));
 
+    let pango = map.pango_context();
+    let font_descr = pango.font_description().unwrap();
+    let font_size = font_descr.size() / pango::SCALE;
+    debug!("_______MAP________________ {:?} {:?} {:?} {:?}", pango, font_descr.to_string(), font_size, font_descr.is_size_absolute());
+    
     if is_dark {
-        txt.set_css_classes(&[DARK_CLASS]);
+        stage.set_css_classes(&[DARK_CLASS]);
         map.set_css_classes(&[DARK_CLASS]);
     } else {
-        txt.set_css_classes(&[LIGHT_CLASS]);
+        stage.set_css_classes(&[LIGHT_CLASS]);
         map.set_css_classes(&[LIGHT_CLASS]);
     }
 
-    let buffer = txt.buffer();
+    let buffer = stage.buffer();
     let table = buffer.tag_table();
     let mut pointer: Option<TextTag> = None;
     let mut staged: Option<TextTag> = None;
@@ -447,33 +509,33 @@ pub fn make_stage(sndr: Sender<crate::Event>, name: &str, scroll: &ScrolledWindo
     let mut hunk: Option<TextTag> = None;
 
     for tag_name in tags::TEXT_TAGS {
-        let text_tag = tags::TxtTag::from_str(tag_name).create();
-        table.add(&text_tag);
+        let table_tag = tags::TxtTag::from_str(tag_name).make_table_tag();
+        table.add(&table_tag);
         match tag_name {
             tags::POINTER => {
-                pointer.replace(text_tag);
+                pointer.replace(table_tag);
             }
             tags::STAGED => {
-                staged.replace(text_tag);
+                staged.replace(table_tag);
             }
             tags::UNSTAGED => {
-                unstaged.replace(text_tag);
+                unstaged.replace(table_tag);
             }
             tags::FILE => {
-                file.replace(text_tag);
+                file.replace(table_tag);
             }
             tags::HUNK => {
-                hunk.replace(text_tag);
+                hunk.replace(table_tag);
             }
             _ => {}
         };
     }
 
     manager.connect_color_scheme_notify({
-        let txt = txt.clone();
+        let stage = stage.clone();
         move |manager| {
             let is_dark = manager.is_dark();
-            let classes = txt.css_classes();
+            let classes = stage.css_classes();
             let mut new_classes = classes
                 .iter()
                 .map(|gs| gs.as_str())
@@ -490,7 +552,7 @@ pub fn make_stage(sndr: Sender<crate::Event>, name: &str, scroll: &ScrolledWindo
             } else {
                 new_classes.push(LIGHT_CLASS);
             }
-            txt.set_css_classes(&new_classes);
+            stage.set_css_classes(&new_classes);
             table.foreach(|tt| {
                 if let Some(name) = tt.name() {
                     let t = tags::TxtTag::unknown_tag(name.to_string());
@@ -606,27 +668,27 @@ pub fn make_stage(sndr: Sender<crate::Event>, name: &str, scroll: &ScrolledWindo
             glib::Propagation::Proceed
         }
     });
-    txt.add_controller(key_controller);
+    stage.add_controller(key_controller);
 
     let gesture_controller = GestureDrag::new();
     gesture_controller.connect_drag_update({
-        let txt = txt.clone();
+        let stage = stage.clone();
         move |_, _, _| {
-            txt.set_cursor_highlight(false);
+            stage.set_cursor_highlight(false);
         }
     });
-    txt.add_controller(gesture_controller);
+    stage.add_controller(gesture_controller);
 
     let gesture_controller = GestureClick::new();
     let click_lock: Rc<RefCell<Option<bool>>> = Rc::new(RefCell::new(None));
     gesture_controller.connect_released({
         let sndr = sndr.clone();
-        let txt = txt.clone();
+        let stage = stage.clone();
         move |gesture, n_clicks, _wx, _wy| {
             gesture.set_state(EventSequenceState::Claimed);
-            txt.set_cursor_highlight(true);
-            let pos = txt.buffer().cursor_position();
-            let iter = txt.buffer().iter_at_offset(pos);
+            stage.set_cursor_highlight(true);
+            let pos = stage.buffer().cursor_position();
+            let iter = stage.buffer().iter_at_offset(pos);
             sndr.send_blocking(crate::Event::Cursor(iter.offset(), iter.line()))
                 .expect("Cant send through channel");
             if n_clicks == 1 && (iter.has_tag(&file) || iter.has_tag(&hunk)) {
@@ -659,9 +721,9 @@ pub fn make_stage(sndr: Sender<crate::Event>, name: &str, scroll: &ScrolledWindo
         }
     });
 
-    txt.add_controller(gesture_controller);
+    stage.add_controller(gesture_controller);
 
-    txt.connect_move_cursor({
+    stage.connect_move_cursor({
         let sndr = sndr.clone();
         move |view: &StageView, step, count, _selection| {
             view.set_cursor_highlight(true);
@@ -697,21 +759,21 @@ pub fn make_stage(sndr: Sender<crate::Event>, name: &str, scroll: &ScrolledWindo
 
     let motion_controller = EventControllerMotion::new();
     motion_controller.connect_motion({
-        let txt = txt.clone();
+        let stage = stage.clone();
         move |_c, x, y| {
-            let (x, y) = txt.window_to_buffer_coords(TextWindowType::Text, x as i32, y as i32);
-            if let Some(iter) = txt.iter_at_location(x, y) {
+            let (x, y) = stage.window_to_buffer_coords(TextWindowType::Text, x as i32, y as i32);
+            if let Some(iter) = stage.iter_at_location(x, y) {
                 if iter.has_tag(&pointer) {
-                    txt.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
+                    stage.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
                 } else {
-                    txt.set_cursor(Some(&gdk::Cursor::from_name("text", None).unwrap()));
+                    stage.set_cursor(Some(&gdk::Cursor::from_name("text", None).unwrap()));
                 }
             }
         }
     });
-    txt.add_controller(motion_controller);
+    stage.add_controller(motion_controller);
 
-    (txt, map)
+    (stage, map)
 }
 
 pub fn cursor_to_line_offset(buffer: &TextBuffer, line_offset: i32) {

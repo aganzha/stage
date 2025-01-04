@@ -55,7 +55,7 @@ use libadwaita::{
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider, Label,
     Orientation, Overflow, ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
-    EventControllerScroll
+    EventControllerScroll, PolicyType
 };
 
 use log::{info, trace};
@@ -273,9 +273,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     let scroll = ScrolledWindow::builder()
         .vexpand(true)
-        .vexpand_set(true)
         .hexpand(true)
-        .hexpand_set(true)
         .build();
     
     let (txt, map) = make_stage(sender.clone(), "status_view", &scroll);
@@ -300,19 +298,25 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     let map_box = Box::builder()
         .hexpand(true)
         .vexpand(true)
-        .vexpand_set(false) // >>>>
-        .hexpand_set(true)
         .overflow(Overflow::Hidden)
         .orientation(Orientation::Horizontal)
         .build();
     
     map_box.append(&scroll);
-
-    map_box.append(&map);
-    
+    // map_box.append(&map);    
+    let map_scroll = ScrolledWindow::builder()
+        .hexpand(false)
+        .vexpand(false)
+        .hscrollbar_policy(PolicyType::Never)
+        .vscrollbar_policy(PolicyType::External)
+        //.min_content_height(10)
+        .overflow(Overflow::Hidden)
+        .build();
+    map_scroll.set_child(Some(&map));    
+    map_box.append(&map_scroll);
     
     banner_box.append(&map_box);
-
+    
     let toast_lock: Rc<Cell<bool>> = Rc::new(Cell::new(false));
 
     let toast_overlay = ToastOverlay::new();
