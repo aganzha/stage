@@ -31,6 +31,9 @@ const MAP_WIDTH: i32 = 150;
 
 mod stage_view_internal {
 
+    use crate::glib::Properties;
+    use log::{debug, trace};
+
     use gtk4::prelude::*;
     use gtk4::{gdk, glib, graphene, Snapshot, TextView, TextViewLayer};
     use std::cell::{Cell, RefCell};
@@ -57,7 +60,8 @@ mod stage_view_internal {
     const SLIDER_HEIGHT: f32 = 50.0;
     const SLIDER_MARGIN: f32 = 10.0;
 
-    #[derive(Default)]
+    #[derive(Properties, Default)]
+    #[properties(wrapper_type = super::StageView)]
     pub struct StageView {
         pub is_map: Cell<bool>,
         pub map_slider_start: Cell<f64>,
@@ -70,6 +74,10 @@ mod stage_view_internal {
         // TODO! put it here!
         pub is_dark: Cell<bool>,
         pub is_dark_set: Cell<bool>,
+
+        #[property(get, set = Self::set_visible_line)]
+        pub visible_line: Cell<i32>,
+
         // #[property(get, set)]
         // pub current_line: RefCell<i32>,
     }
@@ -104,22 +112,55 @@ mod stage_view_internal {
             } else {
                 &DARK_BG_FILL.with_alpha(0.2)
             };
-            let y = self.map_slider_start.get();
 
-            snapshot.append_color(
-                slider_fill,
-                &graphene::Rect::new(0 as f32, y as f32, super::MAP_WIDTH as f32, y as f32 + SLIDER_HEIGHT),
-            );
-            snapshot.append_color(
-                bg_fill,
-                &graphene::Rect::new(
-                    rect.x() as f32,
-                    y as f32 + SLIDER_HEIGHT,
-                    rect.width() as f32,
-                    rect.height() as f32,
-                ),
-            );
+            let line_no = self.visible_line.get();
+            if let Some(iter) = self.obj().buffer().iter_at_line(line_no) {
+                let y = self.obj().line_yrange(&iter).0;
+                debug!("highlight slider at line_y {:?}, y_is {:?}", line_no, y);
+                snapshot.append_color(
+                    slider_fill,
+                    &graphene::Rect::new(
+                        0 as f32,
+                        y as f32,
+                        rect.width() as f32,
+                        y as f32 + SLIDER_HEIGHT
+                    ),
+                );
+                snapshot.append_color(
+                    bg_fill,
+                    &graphene::Rect::new(
+                        0 as f32,
+                        y as f32 + SLIDER_HEIGHT,
+                        rect.width() as f32,
+                        rect.height() as f32,
+                    ),
+                );
+                debug!("wtf???????????????????????? {:?} {:?} {:?}",  y, y as f32 + SLIDER_HEIGHT, rect.height());
+            }
+        }
 
+        pub fn set_visible_line(&self, line_no: i32) {
+            // edge always should come with buffer coords!
+            if self.is_map.get() {
+                // stage sets visible_edge for slider
+                // in its vertical adjustment
+                debug!("set visible_line in MAP. should be called by stage scroll via adjustment line_no {:?}",
+                       line_no);
+                self.visible_line.replace(line_no);
+                // all will be done in snapshot_layer_map
+                self.obj().queue_draw();
+
+            } else {
+                // slider sets visible_edge for stage
+                // in its drag events. i am stage!
+                debug!("set visible_line in STAGE. should be called by slider drag line_no {:?}",
+                       line_no);
+                if let Some(mut iter) = self.obj().buffer().iter_at_line(line_no) {
+                    debug!("sssssssssssssssssset in stage");
+                    self.visible_line.replace(line_no);
+                    self.obj().scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
+                }
+            }
         }
     }
 
@@ -147,9 +188,9 @@ mod stage_view_internal {
                 );
 
                 let buffer = self.obj().buffer();
-                let mut iter = buffer.iter_at_offset(0);                
+                let mut iter = buffer.iter_at_offset(0);
                 let common_line_height = self.obj().line_yrange(&iter).1;
-                
+
                 let (line_from, line_to) = self.active_lines.get();
 
                 if line_from > 0 && line_to > 0 {
@@ -209,8 +250,7 @@ mod stage_view_internal {
                 iter.set_offset(buffer.cursor_position());
 
                 let (mut y_from, mut y_to) = self.obj().line_yrange(&iter);
-                
-                println!("HIGHLIGHT CURSOR {:?} {:?} {:?}", y_from, y_to, common_line_height);
+
                 if y_to > common_line_height {
                     y_from += common_line_height / 2;
                     y_to = common_line_height;
@@ -238,7 +278,10 @@ mod stage_view_internal {
             }
         }
     }
+
+    #[glib::derived_properties]
     impl ObjectImpl for StageView {}
+
     impl WidgetImpl for StageView {}
 }
 
@@ -308,23 +351,23 @@ impl StageView {
         }
     }
 
-    pub fn adjust_map(&self, map: &StageView) {
-        let rect = self.visible_rect();
-        let (_, y) = self.window_to_buffer_coords(
-            TextWindowType::Text,
-            0,
-            rect.y()
-        );
-        if let Some(iter) = self.iter_at_location(0, y) {
-            let line = iter.line();
-            if let Some(iter) = map.buffer().iter_at_line(line) {
-                let map_y = map.line_yrange(&iter).0;
-                debug!("1111 {:?}", map_y);
-                map.imp().map_slider_start.replace(map_y.into());
-                map.queue_draw();
-            }
-        }
-    }
+    // pub fn adjust_map(&self, map: &StageView) {
+    //     let rect = self.visible_rect();
+    //     let (_, y) = self.window_to_buffer_coords(
+    //         TextWindowType::Text,
+    //         0,
+    //         rect.y()
+    //     );
+    //     if let Some(iter) = self.iter_at_location(0, y) {
+    //         let line = iter.line();
+    //         if let Some(iter) = map.buffer().iter_at_line(line) {
+    //             let map_y = map.line_yrange(&iter).0;
+    //             debug!("1111 {:?}", map_y);
+    //             map.imp().map_slider_start.replace(map_y.into());
+    //             map.queue_draw();
+    //         }
+    //     }
+    // }
 }
 
 pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledWindow) -> StageView {
@@ -345,7 +388,7 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
     map.set_width_request(MAP_WIDTH);
     // weird. it limits whole left scroll window!
     // map.set_height_request(500);
-    
+
     let scroll_lock = Rc::new(Cell::new(false));
 
     let drag = GestureDrag::new();
@@ -357,7 +400,7 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
             let current_y = map.imp().map_slider_start.get();
-            if y > current_y - 10.0 && y < current_y + 60.0 {
+            if false { // y > current_y - 10.0 && y < current_y + 60.0
             } else {
                 debug!(".....drag START current y {:?}, diff !!! {:?}, new y {:?} scroll_lock BEFORE {:?}",
                        current_y,
@@ -366,7 +409,6 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
                        scroll_lock
                 );
                 scroll_lock.replace(true);
-                debug!("222222222 {:?}", y);
                 map.imp().map_slider_start.replace(y);
             }
         }
@@ -374,32 +416,46 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
     drag.connect_drag_update({
         let map = map.clone();
         let stage = stage.clone();
-        let scroll_lock = scroll_lock.clone();
+        //let scroll_lock = scroll_lock.clone();
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
-            let current_y = map.imp().map_slider_start.get();
-            debug!(">>>>>> DRAG UPDATE current y {:?}, diff {:?}, new y {:?} scroll_lock BEFORE {:?}",
-                   current_y,
-                   y,
-                   current_y + y,
-                   scroll_lock
-            );
-            scroll_lock.replace(true);
-            let new_start = current_y + y;
-            debug!("3333333333 {:?}", new_start);
-            map.imp().map_slider_start.replace(new_start);
-            map.queue_draw();
-            let (_, y) = map.window_to_buffer_coords(
+            // it need to calculate result line!
+            let new_y = map.imp().map_slider_start.get() + y;
+            let (_, new_y) = map.window_to_buffer_coords(
                 TextWindowType::Text,
                 0,
-                new_start as i32
+                new_y as i32
             );
-            if let Some(iter) = map.iter_at_location(0, y) {
-                if let Some(mut stage_iter) = stage.buffer().iter_at_line(iter.line()) {
-                    stage.scroll_to_iter(&mut stage_iter, 0.0, true, 0.0, 0.0);
-                    stage.queue_draw();
-                }
+            if let Some(iter) = map.iter_at_location(0, new_y) {
+                debug!("set visible_line in drag update FOR BOTH! {:?}", iter.line());
+                let line_no = iter.line();
+                stage.set_visible_line(line_no);
+                map.set_visible_line(line_no);
             }
+            //scroll_lock.replace(true);
+            // let current_y = map.imp().map_slider_start.get();
+            // debug!(">>>>>> DRAG UPDATE current y {:?}, y {:?}, current_y + y {:?} scroll_lock BEFORE {:?}",
+            //        current_y,
+            //        y,
+            //        current_y + y,
+            //        scroll_lock
+            // );
+            // scroll_lock.replace(true);
+            // let new_start = current_y + y;
+            // debug!("3333333333 {:?}", new_start);
+            // map.imp().map_slider_start.replace(new_start);
+            // map.queue_draw();
+            // let (_, y) = map.window_to_buffer_coords(
+            //     TextWindowType::Text,
+            //     0,
+            //     new_start as i32
+            // );
+            // if let Some(iter) = map.iter_at_location(0, y) {
+            //     if let Some(mut stage_iter) = stage.buffer().iter_at_line(iter.line()) {
+            //         stage.scroll_to_iter(&mut stage_iter, 0.0, true, 0.0, 0.0);
+            //         stage.queue_draw();
+            //     }
+            // }
         }
     });
     drag.connect_drag_end({
@@ -408,37 +464,62 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
         let scroll_lock = scroll_lock.clone();
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
-            let current_y = map.imp().map_slider_start.get();
-            debug!("44444444 {:?}", current_y + y);
-            map.imp().map_slider_start.replace(current_y + y);
-            debug!("DRAG END current y {:?}, diff {:?}, new y {:?} scroll_lock BEFORE {:?}",
-                   current_y,
-                   y,
-                   current_y + y,
-                   scroll_lock
+            // it need to calculate result line!
+            let new_y = map.imp().map_slider_start.get() + y;
+            debug!("set final slider y for map in end of drug {:?}", new_y);
+            map.imp().map_slider_start.replace(new_y);
+            let (_, new_y) = map.window_to_buffer_coords(
+                TextWindowType::Text,
+                0,
+                new_y as i32
             );
-            scroll_lock.replace(true);
-            glib::source::timeout_add_local(Duration::from_millis(500), {
+            if let Some(iter) = map.iter_at_location(0, new_y) {
+                debug!("set visible_line in drag FOR BOTH END END {:?}", iter.line());
+                let line_no = iter.line();
+                stage.set_visible_line(line_no);
+                map.set_visible_line(line_no);
+            }
+            glib::source::timeout_add_local(Duration::from_millis(200), {
                 let scroll_lock = scroll_lock.clone();
                 move || {
+                    debug!("release scroll lock in drag end!");
                     scroll_lock.replace(false);
                     debug!("cleanup lock on timeout_add_local");
                     return glib::ControlFlow::Break;
                 }
             });
-            let (_, y) = map.window_to_buffer_coords(
-                TextWindowType::Text,
-                0,
-                map.imp().map_slider_start.get() as i32
-            );
-            if let Some(iter) = map.iter_at_location(0, y) {
-                if let Some(mut stage_iter) = stage.buffer().iter_at_line(iter.line()) {
-                    stage.scroll_to_iter(&mut stage_iter, 0.0, true, 0.0, 0.0);
-                }
-            }
+            // let current_y = map.imp().map_slider_start.get();
+            // debug!("44444444 {:?}", current_y + y);
+            // map.imp().map_slider_start.replace(current_y + y);
+            // debug!("DRAG END current y {:?}, diff {:?}, new y {:?} scroll_lock BEFORE {:?}",
+            //        current_y,
+            //        y,
+            //        current_y + y,
+            //        scroll_lock
+            // );
+            // scroll_lock.replace(true);
+            // glib::source::timeout_add_local(Duration::from_millis(500), {
+            //     let scroll_lock = scroll_lock.clone();
+            //     move || {
+            //         scroll_lock.replace(false);
+            //         debug!("cleanup lock on timeout_add_local");
+            //         return glib::ControlFlow::Break;
+            //     }
+            // });
+            // let (_, y) = map.window_to_buffer_coords(
+            //     TextWindowType::Text,
+            //     0,
+            //     map.imp().map_slider_start.get() as i32
+            // );
+            // if let Some(iter) = map.iter_at_location(0, y) {
+            //     if let Some(mut stage_iter) = stage.buffer().iter_at_line(iter.line()) {
+            //         stage.scroll_to_iter(&mut stage_iter, 0.0, true, 0.0, 0.0);
+            //     }
+            // }
         }
     });
     map.add_controller(drag);
+
     let click = GestureClick::new();
     click.set_propagation_phase(PropagationPhase::Capture);
     click.connect_pressed({
@@ -447,19 +528,24 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
         }
     });
     map.add_controller(click);
+
     scroll.vadjustment().connect_changed({
         let stage = stage.clone();
         let map = map.clone();
         let scroll_lock = scroll_lock.clone();
         move |_| {
-            let y = map.imp().map_slider_start.get();
-            debug!("before scroll :::::::::::::::::::: {:?} {:?}", scroll_lock, y);
+            debug!("before scroll :::::::::::::::::::: in stage");
             if scroll_lock.get() {
                 debug!("noooooooooooooooo way");
                 return;
             }
-            debug!("ddddddddddddddddo scroll {:?}", y);
-            stage.adjust_map(&map);
+            debug!("ddddddddddddddddo scroll");
+            let y = stage.visible_rect().y();
+            if let Some(iter) = stage.iter_at_location(0, y) {
+                debug!("got stage iter in stage scroll at visible rec at line_no {:?}", iter.line());
+                map.set_visible_line(iter.line());
+            }
+            // stage.adjust_map(&map);
         }
     });
     map
@@ -491,7 +577,7 @@ pub fn make_stage(sndr: Sender<crate::Event>, name: &str, scroll: &ScrolledWindo
     let font_descr = pango.font_description().unwrap();
     let font_size = font_descr.size() / pango::SCALE;
     debug!("_______MAP________________ {:?} {:?} {:?} {:?}", pango, font_descr.to_string(), font_size, font_descr.is_size_absolute());
-    
+
     if is_dark {
         stage.set_css_classes(&[DARK_CLASS]);
         map.set_css_classes(&[DARK_CLASS]);
