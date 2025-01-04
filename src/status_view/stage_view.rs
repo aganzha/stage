@@ -11,14 +11,14 @@ use core::time::Duration;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, glib, pango, EventControllerKey, EventControllerMotion, EventControllerScroll, EventSequenceState, GestureClick,
-    GestureDrag, MovementStep, PropagationPhase, TextBuffer, TextTag, TextView, TextWindowType,
-    Widget, ScrolledWindow
+    gdk, glib, pango, EventControllerKey, EventControllerMotion, EventControllerScroll,
+    EventSequenceState, GestureClick, GestureDrag, MovementStep, PropagationPhase, ScrolledWindow,
+    TextBuffer, TextTag, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
 use log::{debug, trace};
 
-use std::cell::{RefCell, Cell};
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 glib::wrapper! {
@@ -77,7 +77,6 @@ mod stage_view_internal {
 
         #[property(get, set = Self::set_visible_line)]
         pub visible_line: Cell<i32>,
-
         // #[property(get, set)]
         // pub current_line: RefCell<i32>,
     }
@@ -116,14 +115,14 @@ mod stage_view_internal {
             let line_no = self.visible_line.get();
             if let Some(iter) = self.obj().buffer().iter_at_line(line_no) {
                 let y = self.obj().line_yrange(&iter).0;
-                debug!("highlight slider at line_y {:?}, y_is {:?}", line_no, y);
+                trace!("highlight slider at line_y {:?}, y_is {:?}", line_no, y);
                 snapshot.append_color(
                     slider_fill,
                     &graphene::Rect::new(
                         0 as f32,
                         y as f32,
                         rect.width() as f32,
-                        y as f32 + SLIDER_HEIGHT
+                        y as f32 + SLIDER_HEIGHT,
                     ),
                 );
                 snapshot.append_color(
@@ -135,7 +134,6 @@ mod stage_view_internal {
                         rect.height() as f32,
                     ),
                 );
-                debug!("wtf???????????????????????? {:?} {:?} {:?}",  y, y as f32 + SLIDER_HEIGHT, rect.height());
             }
         }
 
@@ -144,19 +142,20 @@ mod stage_view_internal {
             if self.is_map.get() {
                 // stage sets visible_edge for slider
                 // in its vertical adjustment
-                debug!("set visible_line in MAP. should be called by stage scroll via adjustment line_no {:?}",
+                trace!("set visible_line in MAP. should be called by stage scroll via adjustment line_no {:?}",
                        line_no);
                 self.visible_line.replace(line_no);
                 // all will be done in snapshot_layer_map
                 self.obj().queue_draw();
-
             } else {
                 // slider sets visible_edge for stage
                 // in its drag events. i am stage!
-                debug!("set visible_line in STAGE. should be called by slider drag line_no {:?}",
-                       line_no);
+                trace!(
+                    "set visible_line in STAGE. should be called by slider drag line_no {:?}",
+                    line_no
+                );
                 if let Some(mut iter) = self.obj().buffer().iter_at_line(line_no) {
-                    debug!("sssssssssssssssssset in stage");
+                    trace!("sssssssssssssssssset in stage");
                     self.visible_line.replace(line_no);
                     self.obj().scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
                 }
@@ -316,7 +315,6 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
         } else {
@@ -350,27 +348,14 @@ impl StageView {
             self.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
         }
     }
-
-    // pub fn adjust_map(&self, map: &StageView) {
-    //     let rect = self.visible_rect();
-    //     let (_, y) = self.window_to_buffer_coords(
-    //         TextWindowType::Text,
-    //         0,
-    //         rect.y()
-    //     );
-    //     if let Some(iter) = self.iter_at_location(0, y) {
-    //         let line = iter.line();
-    //         if let Some(iter) = map.buffer().iter_at_line(line) {
-    //             let map_y = map.line_yrange(&iter).0;
-    //             debug!("1111 {:?}", map_y);
-    //             map.imp().map_slider_start.replace(map_y.into());
-    //             map.queue_draw();
-    //         }
-    //     }
-    // }
 }
 
-pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledWindow) -> StageView {
+pub fn make_map(
+    stage: &StageView,
+    name: &str,
+    is_dark: bool,
+    scroll: &ScrolledWindow,
+) -> StageView {
     let map = StageView::new(true);
     map.set_widget_name(&format!("{}_map", name));
     map.set_vexpand(false);
@@ -394,7 +379,7 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
     let drag = GestureDrag::new();
     drag.set_propagation_phase(PropagationPhase::Capture);
     drag.connect_drag_begin({
-        let stage = stage.clone();
+        // let stage = stage.clone();
         let map = map.clone();
         let scroll_lock = scroll_lock.clone();
         move |drag, _x: f64, y: f64| {
@@ -402,7 +387,7 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
             let current_y = map.imp().map_slider_start.get();
             if false { // y > current_y - 10.0 && y < current_y + 60.0
             } else {
-                debug!(".....drag START current y {:?}, diff !!! {:?}, new y {:?} scroll_lock BEFORE {:?}",
+                trace!(".....drag START current y {:?}, diff !!! {:?}, new y {:?} scroll_lock BEFORE {:?}",
                        current_y,
                        y,
                        current_y + y,
@@ -416,46 +401,20 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
     drag.connect_drag_update({
         let map = map.clone();
         let stage = stage.clone();
-        //let scroll_lock = scroll_lock.clone();
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
             // it need to calculate result line!
             let new_y = map.imp().map_slider_start.get() + y;
-            let (_, new_y) = map.window_to_buffer_coords(
-                TextWindowType::Text,
-                0,
-                new_y as i32
-            );
+            let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, new_y as i32);
             if let Some(iter) = map.iter_at_location(0, new_y) {
-                debug!("set visible_line in drag update FOR BOTH! {:?}", iter.line());
+                trace!(
+                    "set visible_line in drag update FOR BOTH! {:?}",
+                    iter.line()
+                );
                 let line_no = iter.line();
                 stage.set_visible_line(line_no);
                 map.set_visible_line(line_no);
             }
-            //scroll_lock.replace(true);
-            // let current_y = map.imp().map_slider_start.get();
-            // debug!(">>>>>> DRAG UPDATE current y {:?}, y {:?}, current_y + y {:?} scroll_lock BEFORE {:?}",
-            //        current_y,
-            //        y,
-            //        current_y + y,
-            //        scroll_lock
-            // );
-            // scroll_lock.replace(true);
-            // let new_start = current_y + y;
-            // debug!("3333333333 {:?}", new_start);
-            // map.imp().map_slider_start.replace(new_start);
-            // map.queue_draw();
-            // let (_, y) = map.window_to_buffer_coords(
-            //     TextWindowType::Text,
-            //     0,
-            //     new_start as i32
-            // );
-            // if let Some(iter) = map.iter_at_location(0, y) {
-            //     if let Some(mut stage_iter) = stage.buffer().iter_at_line(iter.line()) {
-            //         stage.scroll_to_iter(&mut stage_iter, 0.0, true, 0.0, 0.0);
-            //         stage.queue_draw();
-            //     }
-            // }
         }
     });
     drag.connect_drag_end({
@@ -466,15 +425,14 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
             drag.set_state(EventSequenceState::Claimed);
             // it need to calculate result line!
             let new_y = map.imp().map_slider_start.get() + y;
-            debug!("set final slider y for map in end of drug {:?}", new_y);
+            trace!("set final slider y for map in end of drug {:?}", new_y);
             map.imp().map_slider_start.replace(new_y);
-            let (_, new_y) = map.window_to_buffer_coords(
-                TextWindowType::Text,
-                0,
-                new_y as i32
-            );
+            let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, new_y as i32);
             if let Some(iter) = map.iter_at_location(0, new_y) {
-                debug!("set visible_line in drag FOR BOTH END END {:?}", iter.line());
+                trace!(
+                    "set visible_line in drag FOR BOTH END END {:?}",
+                    iter.line()
+                );
                 let line_no = iter.line();
                 stage.set_visible_line(line_no);
                 map.set_visible_line(line_no);
@@ -488,34 +446,6 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
                     return glib::ControlFlow::Break;
                 }
             });
-            // let current_y = map.imp().map_slider_start.get();
-            // debug!("44444444 {:?}", current_y + y);
-            // map.imp().map_slider_start.replace(current_y + y);
-            // debug!("DRAG END current y {:?}, diff {:?}, new y {:?} scroll_lock BEFORE {:?}",
-            //        current_y,
-            //        y,
-            //        current_y + y,
-            //        scroll_lock
-            // );
-            // scroll_lock.replace(true);
-            // glib::source::timeout_add_local(Duration::from_millis(500), {
-            //     let scroll_lock = scroll_lock.clone();
-            //     move || {
-            //         scroll_lock.replace(false);
-            //         debug!("cleanup lock on timeout_add_local");
-            //         return glib::ControlFlow::Break;
-            //     }
-            // });
-            // let (_, y) = map.window_to_buffer_coords(
-            //     TextWindowType::Text,
-            //     0,
-            //     map.imp().map_slider_start.get() as i32
-            // );
-            // if let Some(iter) = map.iter_at_location(0, y) {
-            //     if let Some(mut stage_iter) = stage.buffer().iter_at_line(iter.line()) {
-            //         stage.scroll_to_iter(&mut stage_iter, 0.0, true, 0.0, 0.0);
-            //     }
-            // }
         }
     });
     map.add_controller(drag);
@@ -529,29 +459,46 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledW
     });
     map.add_controller(click);
 
+    scroll.vadjustment().connect_value_changed({
+        |adj| {
+            // this works at any adjustment change.
+            // adj.get_value() returns pixels.
+            // it should be good to redraw if adj.get_value() % known_line_height/common_line_height == 0
+            // the handler below does not react on holding and pressing 'down', for example.
+            // it will trigger only once, after releasing 'down' button, though stage window
+            // will scroll. means during such scrll slider will not react. it will be moved
+            // only after release!
+        }
+    });
     scroll.vadjustment().connect_changed({
         let stage = stage.clone();
         let map = map.clone();
         let scroll_lock = scroll_lock.clone();
         move |_| {
-            debug!("before scroll :::::::::::::::::::: in stage");
+            trace!("before scroll :::::::::::::::::::: in stage");
             if scroll_lock.get() {
-                debug!("noooooooooooooooo way");
+                trace!("noooooooooooooooo way");
                 return;
             }
-            debug!("ddddddddddddddddo scroll");
+            trace!("ddddddddddddddddo scroll");
             let y = stage.visible_rect().y();
             if let Some(iter) = stage.iter_at_location(0, y) {
-                debug!("got stage iter in stage scroll at visible rec at line_no {:?}", iter.line());
+                trace!(
+                    "got stage iter in stage scroll at visible rec at line_no {:?}",
+                    iter.line()
+                );
                 map.set_visible_line(iter.line());
             }
-            // stage.adjust_map(&map);
         }
     });
     map
 }
 
-pub fn make_stage(sndr: Sender<crate::Event>, name: &str, scroll: &ScrolledWindow) -> (StageView, StageView) {
+pub fn make_stage(
+    sndr: Sender<crate::Event>,
+    name: &str,
+    scroll: &ScrolledWindow,
+) -> (StageView, StageView) {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
@@ -560,7 +507,12 @@ pub fn make_stage(sndr: Sender<crate::Event>, name: &str, scroll: &ScrolledWindo
     let pango = stage.pango_context();
     let font_descr = pango.font_description().unwrap();
     let font_size = font_descr.size() / pango::SCALE;
-    debug!("_______________________ {:?} {:?} {:?}", pango, font_descr.to_string(), font_size);
+    debug!(
+        "_______________________ {:?} {:?} {:?}",
+        pango,
+        font_descr.to_string(),
+        font_size
+    );
     stage.set_margin_start(12);
     stage.set_widget_name(name);
     stage.set_margin_end(12);
@@ -576,7 +528,13 @@ pub fn make_stage(sndr: Sender<crate::Event>, name: &str, scroll: &ScrolledWindo
     let pango = map.pango_context();
     let font_descr = pango.font_description().unwrap();
     let font_size = font_descr.size() / pango::SCALE;
-    debug!("_______MAP________________ {:?} {:?} {:?} {:?}", pango, font_descr.to_string(), font_size, font_descr.is_size_absolute());
+    debug!(
+        "_______MAP________________ {:?} {:?} {:?} {:?}",
+        pango,
+        font_descr.to_string(),
+        font_size,
+        font_descr.is_size_absolute()
+    );
 
     if is_dark {
         stage.set_css_classes(&[DARK_CLASS]);

@@ -53,9 +53,9 @@ use libadwaita::{
 };
 
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider, Label,
-    Orientation, Overflow, ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
-    EventControllerScroll, PolicyType
+    gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider,
+    EventControllerScroll, Label, Orientation, Overflow, PolicyType, ScrolledWindow, Settings,
+    STYLE_PROVIDER_PRIORITY_USER,
 };
 
 use log::{info, trace};
@@ -275,7 +275,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         .vexpand(true)
         .hexpand(true)
         .build();
-    
+
     let (txt, map) = make_stage(sender.clone(), "status_view", &scroll);
 
     scroll.set_child(Some(&status.get_empty_view()));
@@ -301,9 +301,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         .overflow(Overflow::Hidden)
         .orientation(Orientation::Horizontal)
         .build();
-    
+
     map_box.append(&scroll);
-    // map_box.append(&map);    
+    // map_box.append(&map);
     let map_scroll = ScrolledWindow::builder()
         .hexpand(false)
         .vexpand(false)
@@ -312,11 +312,11 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         //.min_content_height(10)
         .overflow(Overflow::Hidden)
         .build();
-    map_scroll.set_child(Some(&map));    
+    map_scroll.set_child(Some(&map));
     map_box.append(&map_scroll);
-    
+
     banner_box.append(&map_box);
-    
+
     let toast_lock: Rc<Cell<bool>> = Rc::new(Cell::new(false));
 
     let toast_overlay = ToastOverlay::new();
@@ -341,7 +341,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     window.present();
     map.after_window_present();
-    
+
     let window_stack: Rc<RefCell<Vec<Window>>> = Rc::new(RefCell::new(Vec::new()));
 
     glib::spawn_future_local(async move {
@@ -378,7 +378,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     info!("info.CurrentRepo {:?}", path);
                     if !stage_set {
                         scroll.set_child(Some(&txt));
-                        txt.grab_focus();                        
+                        txt.grab_focus();
                         stage_set = true;
                     }
                     hb_updater(HbUpdateData::Path(path.clone()));
