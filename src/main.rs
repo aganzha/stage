@@ -9,7 +9,7 @@ use status_view::{
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
     render::ChildWidget,
-    stage_view::factory as stage_factory,
+    stage_view::make_stage,
     Status,
 };
 
@@ -271,13 +271,15 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone(), &window.clone());
 
-    let (txt, map) = stage_factory(sender.clone(), "status_view");
     let scroll = ScrolledWindow::builder()
         .vexpand(true)
         .vexpand_set(true)
         .hexpand(true)
         .hexpand_set(true)
         .build();
+    
+    let (txt, map) = make_stage(sender.clone(), "status_view", &scroll);
+
     scroll.set_child(Some(&status.get_empty_view()));
 
     let banner_box = Box::builder()
@@ -372,14 +374,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     info!("info.CurrentRepo {:?}", path);
                     if !stage_set {
                         scroll.set_child(Some(&txt));
-                        txt.grab_focus();
-                        scroll.vadjustment().connect_changed({
-                            let txt = txt.clone();
-                            let map = map.clone();
-                            move |_| {
-                                txt.adjust_map(&map);
-                            }
-                        });
+                        txt.grab_focus();                        
                         stage_set = true;
                     }
                     hb_updater(HbUpdateData::Path(path.clone()));

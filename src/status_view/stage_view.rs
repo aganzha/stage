@@ -13,7 +13,7 @@ use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, glib, EventControllerKey, EventControllerMotion, EventControllerScroll, EventSequenceState, GestureClick,
     GestureDrag, MovementStep, PropagationPhase, TextBuffer, TextTag, TextView, TextWindowType,
-    Widget,
+    Widget, ScrolledWindow
 };
 use libadwaita::StyleManager;
 use log::{debug, trace};
@@ -313,7 +313,6 @@ impl StageView {
         );
         if let Some(iter) = self.iter_at_location(0, y) {
             let line = iter.line();
-            debug!("LINE IN STAGE {:?}", line);
             if let Some(iter) = map.buffer().iter_at_line(line) {
                 let map_y = map.line_yrange(&iter).0;
                 map.imp().map_slider_start.replace(map_y.into());
@@ -323,7 +322,7 @@ impl StageView {
     }
 }
 
-pub fn make_map(stage: &StageView, name: &str, is_dark: bool) -> StageView {
+pub fn make_map(stage: &StageView, name: &str, is_dark: bool, scroll: &ScrolledWindow) -> StageView {
     let map = StageView::new(true);
     map.set_widget_name(&format!("{}_map", name));
     map.set_vexpand(false); // ??? do it needed?
@@ -404,18 +403,17 @@ pub fn make_map(stage: &StageView, name: &str, is_dark: bool) -> StageView {
         }
     });
     map.add_controller(click);
-    let scroll = EventControllerScroll::builder().build();
-    scroll.connect_scroll({
-        |_self, x: f64, y: f64| {
-            debug!(">>>>>>>>>>>>>>>>>>> {:?} {:?}", x, y);
-            return glib::Propagation::Proceed;
+    scroll.vadjustment().connect_changed({
+        let stage = stage.clone();
+        let map = map.clone();
+        move |_| {
+            stage.adjust_map(&map);
         }
-    });
-    stage.add_controller(scroll);
+    });        
     map
 }
 
-pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView) {
+pub fn make_stage(sndr: Sender<crate::Event>, name: &str, scroll: &ScrolledWindow) -> (StageView, StageView) {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
@@ -429,7 +427,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> (StageView, StageView)
     txt.set_monospace(true);
     txt.set_editable(false);
 
-    let map = make_map(&txt, name, is_dark);
+    let map = make_map(&txt, name, is_dark, scroll);
     map.set_buffer(Some(&txt.buffer()));
 
     if is_dark {
