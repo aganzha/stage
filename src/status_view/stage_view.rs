@@ -60,11 +60,13 @@ mod stage_view_internal {
     const SLIDER_HEIGHT: f32 = 50.0;
     const SLIDER_MARGIN: f32 = 10.0;
 
-    #[derive(Properties, Default)]
-    #[properties(wrapper_type = super::StageView)]
+    #[derive(Default)]
     pub struct StageView {
         pub is_map: Cell<bool>,
         pub map_slider_start: Cell<f64>,
+
+        pub drag_diff: Cell<i32>,
+
         //pub map_slider_diff: Cell<f64>,
         pub show_cursor: Cell<bool>,
         //pub double_height_line: Cell<bool>,
@@ -75,10 +77,7 @@ mod stage_view_internal {
         pub is_dark: Cell<bool>,
         pub is_dark_set: Cell<bool>,
 
-        #[property(get, set = Self::set_visible_line)]
-        pub visible_line: Cell<i32>,
-        // #[property(get, set)]
-        // pub current_line: RefCell<i32>,
+        pub visible_line_interval: Cell<(i32, i32)>,
     }
 
     #[glib::object_subclass]
@@ -89,7 +88,7 @@ mod stage_view_internal {
     }
 
     impl StageView {
-        fn snapshot_layer_map(&self, layer: TextViewLayer, snapshot: Snapshot) {
+        fn snapshot_layer_map(&self, snapshot: Snapshot) {
             let rect = self.obj().visible_rect();
             let bg_fill = if self.is_dark.get() {
                 &DARK_BG_FILL
@@ -107,58 +106,34 @@ mod stage_view_internal {
             );
 
             let slider_fill = if self.is_dark.get() {
-                &LIGHT_BG_FILL.with_alpha(0.2)
+                &LIGHT_BG_FILL.with_alpha(0.1)
             } else {
-                &DARK_BG_FILL.with_alpha(0.2)
+                &DARK_BG_FILL.with_alpha(0.1)
             };
 
-            let line_no = self.visible_line.get();
-            if let Some(iter) = self.obj().buffer().iter_at_line(line_no) {
-                let y = self.obj().line_yrange(&iter).0;
-                trace!("highlight slider at line_y {:?}, y_is {:?}", line_no, y);
+            let (line_no_start, line_no_end) = self.visible_line_interval.get();
+            if let Some(mut iter) = self.obj().buffer().iter_at_line(line_no_start) {
+                let y_from = self.obj().line_yrange(&iter).0;
+                iter.set_line(line_no_end);
+                let y_to = self.obj().line_yrange(&iter).0;
+                trace!(
+                    "highlight slider at line_y {:?}, y_is {:?}",
+                    line_no_start,
+                    y_from
+                );
                 snapshot.append_color(
                     slider_fill,
-                    &graphene::Rect::new(
-                        0 as f32,
-                        y as f32,
-                        rect.width() as f32,
-                        y as f32 + SLIDER_HEIGHT,
-                    ),
+                    &graphene::Rect::new(0 as f32, y_from as f32, rect.width() as f32, y_to as f32),
                 );
                 snapshot.append_color(
                     bg_fill,
                     &graphene::Rect::new(
                         0 as f32,
-                        y as f32 + SLIDER_HEIGHT,
+                        y_to as f32,
                         rect.width() as f32,
                         rect.height() as f32,
                     ),
                 );
-            }
-        }
-
-        pub fn set_visible_line(&self, line_no: i32) {
-            // edge always should come with buffer coords!
-            if self.is_map.get() {
-                // stage sets visible_edge for slider
-                // in its vertical adjustment
-                trace!("set visible_line in MAP. should be called by stage scroll via adjustment line_no {:?}",
-                       line_no);
-                self.visible_line.replace(line_no);
-                // all will be done in snapshot_layer_map
-                self.obj().queue_draw();
-            } else {
-                // slider sets visible_edge for stage
-                // in its drag events. i am stage!
-                trace!(
-                    "set visible_line in STAGE. should be called by slider drag line_no {:?}",
-                    line_no
-                );
-                if let Some(mut iter) = self.obj().buffer().iter_at_line(line_no) {
-                    trace!("sssssssssssssssssset in stage");
-                    self.visible_line.replace(line_no);
-                    self.obj().scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
-                }
             }
         }
     }
@@ -167,7 +142,7 @@ mod stage_view_internal {
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
             if layer == TextViewLayer::BelowText {
                 if self.is_map.get() {
-                    self.snapshot_layer_map(layer, snapshot);
+                    self.snapshot_layer_map(snapshot);
                     return;
                 }
                 let rect = self.obj().visible_rect();
@@ -278,7 +253,6 @@ mod stage_view_internal {
         }
     }
 
-    #[glib::derived_properties]
     impl ObjectImpl for StageView {}
 
     impl WidgetImpl for StageView {}
@@ -288,6 +262,10 @@ impl Default for StageView {
     fn default() -> Self {
         Self::new(false)
     }
+}
+
+pub trait Convert<T> {
+    fn ys_to_lines(&self, ys: (T, T)) -> (i32, i32);
 }
 
 impl StageView {
@@ -348,6 +326,47 @@ impl StageView {
             self.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
         }
     }
+
+    pub fn set_visible_line_interval(&self, line_no: (i32, i32)) {
+        self.imp()
+            .visible_line_interval
+            .replace((line_no.0, line_no.1));
+        self.queue_draw();
+    }
+}
+
+impl Convert<i32> for StageView {
+    fn ys_to_lines(&self, ys: (i32, i32)) -> (i32, i32) {
+        if ys.0 == 0 && ys.1 == 0 {
+            return (0, 0);
+        }
+        if let Some(mut start_iter) = self.iter_at_location(0, ys.0) {
+            let from_line = start_iter.line();
+            trace!("at least i have start iter {:?}", from_line);
+            let to_line = if let Some(iter) = self.iter_at_location(0, ys.1) {
+                trace!("......CORRECT from_line {:?} to line {:?} line_diff {:?} from_y {:?} to_y {:?} diff {:?}", from_line, iter.line(), iter.line() - from_line, ys.0, ys.1, ys.1 - ys.0);
+                iter.line()
+            } else {
+                let mut to_line = from_line;
+                while start_iter.forward_lines(1) {
+                    to_line += 1;
+                    if self.line_yrange(&start_iter).0 >= ys.1 {
+                        break;
+                    }
+                }
+                debug!("TO LINE from LOOOOP {:?}", to_line);
+                to_line
+            };
+            return (from_line, to_line);
+        }
+        debug!("no start iter");
+        return (0, 0);
+    }
+}
+impl Convert<f64> for StageView {
+    fn ys_to_lines(&self, ys: (f64, f64)) -> (i32, i32) {
+        return self.ys_to_lines((ys.0 as i32, ys.1 as i32));
+    }
 }
 
 pub fn make_map(
@@ -371,30 +390,55 @@ pub fn make_map(
     map.set_editable(false);
 
     map.set_width_request(MAP_WIDTH);
-    // weird. it limits whole left scroll window!
-    // map.set_height_request(500);
-
-    let scroll_lock = Rc::new(Cell::new(false));
 
     let drag = GestureDrag::new();
     drag.set_propagation_phase(PropagationPhase::Capture);
     drag.connect_drag_begin({
-        // let stage = stage.clone();
+        let stage = stage.clone();
         let map = map.clone();
-        let scroll_lock = scroll_lock.clone();
+
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
-            let current_y = map.imp().map_slider_start.get();
-            if false { // y > current_y - 10.0 && y < current_y + 60.0
-            } else {
-                trace!(".....drag START current y {:?}, diff !!! {:?}, new y {:?} scroll_lock BEFORE {:?}",
-                       current_y,
-                       y,
-                       current_y + y,
-                       scroll_lock
+            // let current_y = map.imp().map_slider_start.get();
+            //scroll_lock.replace(true);
+            debug!("START SLIDING {:?}", y);
+            // map.imp().map_slider_start.replace(y);
+            // there are 2 cases for start dragging.
+            // lets call 'start dragging' a 'click'.
+            // a click either inside slider itself
+            // or it is outside.
+            // 1. click inside slider. just do nothing.
+            // we will wait for drag update. here new y will
+            // arrive and it will be exactly the diff on which it need
+            // to move top edge of stage (stage then will paint its visible rect on map).
+            // 2. click outside slider - it need to scroll directly to that line: e.g.
+            // move stage top edge to that line.
+            // IMPORTANT! buffer coords of map and stage are the same, cuase buffer is the same!
+            let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
+            let may_be_iter = map.iter_at_location(0, new_y);
+            if may_be_iter.is_none() {
+                return;
+            }
+            let mut new_y_iter = may_be_iter.unwrap();
+            let new_y_line = new_y_iter.line();
+            let rect = stage.visible_rect();
+            let stage_rect_lines = stage.ys_to_lines((rect.y(), rect.y() + rect.height()));
+            if new_y_line >= stage_rect_lines.0 && new_y_line <= stage_rect_lines.1 {
+                debug!(
+                    "click WITHIN SLIDER. STORE START POINT {:?} {:?}",
+                    new_y, rect
                 );
-                scroll_lock.replace(true);
-                map.imp().map_slider_start.replace(y);
+                stage
+                    .imp()
+                    .drag_diff
+                    .replace(new_y_line - stage_rect_lines.0);
+                // click inside slider. store start point. update will move slider later.
+            } else {
+                debug!(
+                    "click OUTSIDE SLIDER. SCROLL to {:?} (visible lines {:?})",
+                    new_y_line, stage_rect_lines
+                );
+                stage.scroll_to_iter(&mut new_y_iter, 0.0, true, 0.0, 0.0);
             }
         }
     });
@@ -403,49 +447,56 @@ pub fn make_map(
         let stage = stage.clone();
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
-            // it need to calculate result line!
-            let new_y = map.imp().map_slider_start.get() + y;
-            let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, new_y as i32);
-            if let Some(iter) = map.iter_at_location(0, new_y) {
-                trace!(
-                    "set visible_line in drag update FOR BOTH! {:?}",
+            // see explanation in drug start.
+            // to add - here it just need to move stage top visible edge
+            // by DIFF of y.
+            let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
+            if new_y == 0 {
+                debug!("empty update....");
+                return;
+            }
+            // let top_edge_stage_y = new_y - stage.imp().drag_diff.get();
+            // here we are in buffer coords and they are the same among stage and map!
+            if let Some(mut iter) = map.iter_at_location(0, new_y) {
+                let line_diff = stage.imp().drag_diff.get();
+                if line_diff != 0 {
+                    iter.forward_lines(line_diff);
+                }
+                debug!(
+                    "DRAG UPDATE new_y {:?} line_diff {:?} line >>>>>>>> {:?}",
+                    new_y,
+                    line_diff,
                     iter.line()
                 );
-                let line_no = iter.line();
-                stage.set_visible_line(line_no);
-                map.set_visible_line(line_no);
+                stage.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
             }
         }
     });
     drag.connect_drag_end({
         let map = map.clone();
         let stage = stage.clone();
-        let scroll_lock = scroll_lock.clone();
+        //let scroll_lock = scroll_lock.clone();
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
-            // it need to calculate result line!
-            let new_y = map.imp().map_slider_start.get() + y;
-            trace!("set final slider y for map in end of drug {:?}", new_y);
-            map.imp().map_slider_start.replace(new_y);
-            let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, new_y as i32);
-            if let Some(iter) = map.iter_at_location(0, new_y) {
-                trace!(
-                    "set visible_line in drag FOR BOTH END END {:?}",
+
+            let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
+            if new_y == 0 {
+                debug!("empty end drag....");
+                return;
+            }
+            if let Some(mut iter) = map.iter_at_location(0, new_y) {
+                let line_diff = stage.imp().drag_diff.get();
+                if line_diff != 0 {
+                    iter.forward_lines(line_diff);
+                }
+                debug!(
+                    "DRAG END new_y {:?} line_diff {:?} line ~~~~~~~~~~> {:?}",
+                    new_y,
+                    line_diff,
                     iter.line()
                 );
-                let line_no = iter.line();
-                stage.set_visible_line(line_no);
-                map.set_visible_line(line_no);
+                stage.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
             }
-            glib::source::timeout_add_local(Duration::from_millis(200), {
-                let scroll_lock = scroll_lock.clone();
-                move || {
-                    debug!("release scroll lock in drag end!");
-                    scroll_lock.replace(false);
-                    debug!("cleanup lock on timeout_add_local");
-                    return glib::ControlFlow::Break;
-                }
-            });
         }
     });
     map.add_controller(drag);
@@ -460,35 +511,23 @@ pub fn make_map(
     map.add_controller(click);
 
     scroll.vadjustment().connect_value_changed({
-        |adj| {
-            // this works at any adjustment change.
-            // adj.get_value() returns pixels.
-            // it should be good to redraw if adj.get_value() % known_line_height/common_line_height == 0
-            // the handler below does not react on holding and pressing 'down', for example.
-            // it will trigger only once, after releasing 'down' button, though stage window
-            // will scroll. means during such scrll slider will not react. it will be moved
-            // only after release!
+        let stage = stage.clone();
+        let map = map.clone();
+        move |_| {
+            trace!("before scroll :::::::::::::::::::: in stage");
+            let rect = stage.visible_rect();
+            let (line_from, line_to) = stage.ys_to_lines((rect.y(), rect.y() + rect.height()));
+            debug!(
+                "STAGE WAS SCROLLED. paint slider on map {:?} {:?} rect {:?}",
+                line_from, line_to, rect
+            );
+            map.set_visible_line_interval((line_from, line_to));
         }
     });
     scroll.vadjustment().connect_changed({
         let stage = stage.clone();
         let map = map.clone();
-        let scroll_lock = scroll_lock.clone();
         move |_| {
-            trace!("before scroll :::::::::::::::::::: in stage");
-            if scroll_lock.get() {
-                trace!("noooooooooooooooo way");
-                return;
-            }
-            trace!("ddddddddddddddddo scroll");
-            let y = stage.visible_rect().y();
-            if let Some(iter) = stage.iter_at_location(0, y) {
-                trace!(
-                    "got stage iter in stage scroll at visible rec at line_no {:?}",
-                    iter.line()
-                );
-                map.set_visible_line(iter.line());
-            }
         }
     });
     map
