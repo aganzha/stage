@@ -65,7 +65,7 @@ mod stage_view_internal {
         pub is_map: Cell<bool>,
         pub map_slider_start: Cell<f64>,
 
-        pub drag_diff: Cell<i32>,
+        pub drag_diff: Cell<(i32, i32)>,
 
         //pub map_slider_diff: Cell<f64>,
         pub show_cursor: Cell<bool>,
@@ -431,7 +431,7 @@ pub fn make_map(
                 stage
                     .imp()
                     .drag_diff
-                    .replace(new_y_line - stage_rect_lines.0);
+                    .replace((new_y, new_y_line - stage_rect_lines.0));
                 // click inside slider. store start point. update will move slider later.
             } else {
                 debug!(
@@ -457,11 +457,9 @@ pub fn make_map(
             }
             // let top_edge_stage_y = new_y - stage.imp().drag_diff.get();
             // here we are in buffer coords and they are the same among stage and map!
-            if let Some(mut iter) = map.iter_at_location(0, new_y) {
-                let line_diff = stage.imp().drag_diff.get();
-                if line_diff != 0 {
-                    iter.forward_lines(line_diff);
-                }
+            let (drag_start, line_diff) = stage.imp().drag_diff.get();
+            if let Some(mut iter) = map.iter_at_location(0, drag_start + new_y) {
+                iter.forward_lines(0 - line_diff);
                 debug!(
                     "DRAG UPDATE new_y {:?} line_diff {:?} line >>>>>>>> {:?}",
                     new_y,
@@ -469,6 +467,8 @@ pub fn make_map(
                     iter.line()
                 );
                 stage.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
+            } else {
+                debug!("hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
             }
         }
     });
@@ -484,11 +484,10 @@ pub fn make_map(
                 debug!("empty end drag....");
                 return;
             }
-            if let Some(mut iter) = map.iter_at_location(0, new_y) {
-                let line_diff = stage.imp().drag_diff.get();
-                if line_diff != 0 {
-                    iter.forward_lines(line_diff);
-                }
+            let (drag_start, line_diff) = stage.imp().drag_diff.get();
+            if let Some(mut iter) = map.iter_at_location(0, drag_start + new_y) {
+                iter.forward_lines(0 - line_diff);
+
                 debug!(
                     "DRAG END new_y {:?} line_diff {:?} line ~~~~~~~~~~> {:?}",
                     new_y,
@@ -496,6 +495,8 @@ pub fn make_map(
                     iter.line()
                 );
                 stage.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
+            } else {
+                debug!("END hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
             }
         }
     });
@@ -513,13 +514,18 @@ pub fn make_map(
     scroll.vadjustment().connect_value_changed({
         let stage = stage.clone();
         let map = map.clone();
-        move |_| {
-            trace!("before scroll :::::::::::::::::::: in stage");
+        move |adj| {
+            trace!(
+                "before scroll :::::::::::::::::::: in stage {:?}",
+                adj.value()
+            );
             let rect = stage.visible_rect();
             let (line_from, line_to) = stage.ys_to_lines((rect.y(), rect.y() + rect.height()));
-            debug!(
+            trace!(
                 "STAGE WAS SCROLLED. paint slider on map {:?} {:?} rect {:?}",
-                line_from, line_to, rect
+                line_from,
+                line_to,
+                rect
             );
             map.set_visible_line_interval((line_from, line_to));
         }
@@ -527,8 +533,7 @@ pub fn make_map(
     scroll.vadjustment().connect_changed({
         let stage = stage.clone();
         let map = map.clone();
-        move |_| {
-        }
+        move |_| {}
     });
     map
 }
