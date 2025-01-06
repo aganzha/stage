@@ -354,7 +354,7 @@ impl Convert<i32> for StageView {
                         break;
                     }
                 }
-                debug!("TO LINE from LOOOOP {:?}", to_line);
+                trace!("TO LINE from LOOOOP {:?}", to_line);
                 to_line
             };
             return (from_line, to_line);
@@ -401,7 +401,7 @@ pub fn make_map(
             drag.set_state(EventSequenceState::Claimed);
             // let current_y = map.imp().map_slider_start.get();
             //scroll_lock.replace(true);
-            debug!("START SLIDING {:?}", y);
+            trace!("START SLIDING {:?}", y);
             // map.imp().map_slider_start.replace(y);
             // there are 2 cases for start dragging.
             // lets call 'start dragging' a 'click'.
@@ -424,7 +424,7 @@ pub fn make_map(
             let rect = stage.visible_rect();
             let stage_rect_lines = stage.ys_to_lines((rect.y(), rect.y() + rect.height()));
             if new_y_line >= stage_rect_lines.0 && new_y_line <= stage_rect_lines.1 {
-                debug!(
+                trace!(
                     "click WITHIN SLIDER. STORE START POINT {:?} {:?}",
                     new_y, rect
                 );
@@ -434,7 +434,7 @@ pub fn make_map(
                     .replace((new_y, new_y_line - stage_rect_lines.0));
                 // click inside slider. store start point. update will move slider later.
             } else {
-                debug!(
+                trace!(
                     "click OUTSIDE SLIDER. SCROLL to {:?} (visible lines {:?})",
                     new_y_line, stage_rect_lines
                 );
@@ -452,7 +452,7 @@ pub fn make_map(
             // by DIFF of y.
             let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
             if new_y == 0 {
-                debug!("empty update....");
+                trace!("empty update....");
                 return;
             }
             // let top_edge_stage_y = new_y - stage.imp().drag_diff.get();
@@ -460,7 +460,7 @@ pub fn make_map(
             let (drag_start, line_diff) = stage.imp().drag_diff.get();
             if let Some(mut iter) = map.iter_at_location(0, drag_start + new_y) {
                 iter.forward_lines(0 - line_diff);
-                debug!(
+                trace!(
                     "DRAG UPDATE new_y {:?} line_diff {:?} line >>>>>>>> {:?}",
                     new_y,
                     line_diff,
@@ -468,7 +468,7 @@ pub fn make_map(
                 );
                 stage.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
             } else {
-                debug!("hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
+                trace!("hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
             }
         }
     });
@@ -481,14 +481,14 @@ pub fn make_map(
 
             let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
             if new_y == 0 {
-                debug!("empty end drag....");
+                trace!("empty end drag....");
                 return;
             }
             let (drag_start, line_diff) = stage.imp().drag_diff.get();
             if let Some(mut iter) = map.iter_at_location(0, drag_start + new_y) {
                 iter.forward_lines(0 - line_diff);
 
-                debug!(
+                trace!(
                     "DRAG END new_y {:?} line_diff {:?} line ~~~~~~~~~~> {:?}",
                     new_y,
                     line_diff,
@@ -496,7 +496,7 @@ pub fn make_map(
                 );
                 stage.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
             } else {
-                debug!("END hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
+                trace!("END hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
             }
         }
     });
@@ -548,15 +548,15 @@ pub fn make_stage(
 
     let stage = StageView::new(false);
     let buffer = stage.buffer();
-    let pango = stage.pango_context();
-    let font_descr = pango.font_description().unwrap();
-    let font_size = font_descr.size() / pango::SCALE;
-    debug!(
-        "_______________________ {:?} {:?} {:?}",
-        pango,
-        font_descr.to_string(),
-        font_size
-    );
+    // let pango = stage.pango_context();
+    // let font_descr = pango.font_description().unwrap();
+    // let font_size = font_descr.size() / pango::SCALE;
+    // debug!(
+    //     "_______________________ {:?} {:?} {:?}",
+    //     pango,
+    //     font_descr.to_string(),
+    //     font_size
+    // );
     stage.set_margin_start(12);
     stage.set_widget_name(name);
     stage.set_margin_end(12);
@@ -569,16 +569,16 @@ pub fn make_stage(
     let map = make_map(&stage, name, is_dark, scroll);
     map.set_buffer(Some(&buffer));
 
-    let pango = map.pango_context();
-    let font_descr = pango.font_description().unwrap();
-    let font_size = font_descr.size() / pango::SCALE;
-    debug!(
-        "_______MAP________________ {:?} {:?} {:?} {:?}",
-        pango,
-        font_descr.to_string(),
-        font_size,
-        font_descr.is_size_absolute()
-    );
+    // let pango = map.pango_context();
+    // let font_descr = pango.font_description().unwrap();
+    // let font_size = font_descr.size() / pango::SCALE;
+    // debug!(
+    //     "_______MAP________________ {:?} {:?} {:?} {:?}",
+    //     pango,
+    //     font_descr.to_string(),
+    //     font_size,
+    //     font_descr.is_size_absolute()
+    // );
 
     if is_dark {
         stage.set_css_classes(&[DARK_CLASS]);
