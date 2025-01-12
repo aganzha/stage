@@ -426,7 +426,8 @@ pub fn make_map(
             if new_y_line >= stage_rect_lines.0 && new_y_line <= stage_rect_lines.1 {
                 trace!(
                     "click WITHIN SLIDER. STORE START POINT {:?} {:?}",
-                    new_y, rect
+                    new_y,
+                    rect
                 );
                 stage
                     .imp()
@@ -436,7 +437,8 @@ pub fn make_map(
             } else {
                 trace!(
                     "click OUTSIDE SLIDER. SCROLL to {:?} (visible lines {:?})",
-                    new_y_line, stage_rect_lines
+                    new_y_line,
+                    stage_rect_lines
                 );
                 stage.scroll_to_iter(&mut new_y_iter, 0.0, true, 0.0, 0.0);
             }
@@ -530,11 +532,9 @@ pub fn make_map(
             map.set_visible_line_interval((line_from, line_to));
         }
     });
-    scroll.vadjustment().connect_changed({
-        let stage = stage.clone();
-        let map = map.clone();
-        move |_| {}
-    });
+    // scroll.vadjustment().connect_changed({
+    //     move |_| {}
+    // });
     map
 }
 
@@ -548,15 +548,7 @@ pub fn make_stage(
 
     let stage = StageView::new(false);
     let buffer = stage.buffer();
-    // let pango = stage.pango_context();
-    // let font_descr = pango.font_description().unwrap();
-    // let font_size = font_descr.size() / pango::SCALE;
-    // debug!(
-    //     "_______________________ {:?} {:?} {:?}",
-    //     pango,
-    //     font_descr.to_string(),
-    //     font_size
-    // );
+
     stage.set_margin_start(12);
     stage.set_widget_name(name);
     stage.set_margin_end(12);
@@ -568,17 +560,6 @@ pub fn make_stage(
 
     let map = make_map(&stage, name, is_dark, scroll);
     map.set_buffer(Some(&buffer));
-
-    // let pango = map.pango_context();
-    // let font_descr = pango.font_description().unwrap();
-    // let font_size = font_descr.size() / pango::SCALE;
-    // debug!(
-    //     "_______MAP________________ {:?} {:?} {:?} {:?}",
-    //     pango,
-    //     font_descr.to_string(),
-    //     font_size,
-    //     font_descr.is_size_absolute()
-    // );
 
     if is_dark {
         stage.set_css_classes(&[DARK_CLASS]);

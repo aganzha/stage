@@ -303,15 +303,15 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         .build();
 
     map_box.append(&scroll);
-    // map_box.append(&map);
+
     let map_scroll = ScrolledWindow::builder()
         .hexpand(false)
         .vexpand(false)
         .hscrollbar_policy(PolicyType::Never)
         .vscrollbar_policy(PolicyType::External)
-        //.min_content_height(10)
         .overflow(Overflow::Hidden)
         .build();
+
     map_scroll.set_child(Some(&map));
     map_box.append(&map_scroll);
 

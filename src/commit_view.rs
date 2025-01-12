@@ -15,8 +15,8 @@ use git2::Oid;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, TextBuffer, TextIter,
-    Widget, Window as Gtk4Window,
+    gdk, gio, glib, Box, Button, EventControllerKey, Label, Orientation, Overflow, PolicyType,
+    ScrolledWindow, TextBuffer, TextIter, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -243,9 +243,10 @@ impl commit::CommitDiff {
             buffer.place_cursor(&iter);
         }
 
-        // render child widgets
+        //render child widgets
         for (anchor, child) in &ctx.child_widgets {
             child.render(txt, anchor);
+            //child.clone().render(map, anchor);
         }
 
         self.diff.cursor(&txt.buffer(), iter.line(), true, ctx);
@@ -271,7 +272,10 @@ pub fn show_commit_window(
         .default_height(960)
         .build();
 
-    let scroll = ScrolledWindow::new();
+    let scroll = ScrolledWindow::builder()
+        .vexpand(true)
+        .hexpand(true)
+        .build();
 
     let hb = headerbar_factory(
         repo_path.clone(),
@@ -285,7 +289,26 @@ pub fn show_commit_window(
 
     scroll.set_child(Some(&txt));
 
-    let tb = ToolbarView::builder().content(&scroll).build();
+    let map_box = Box::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .overflow(Overflow::Hidden)
+        .orientation(Orientation::Horizontal)
+        .build();
+
+    map_box.append(&scroll);
+
+    let map_scroll = ScrolledWindow::builder()
+        .hexpand(false)
+        .vexpand(false)
+        .hscrollbar_policy(PolicyType::Never)
+        .vscrollbar_policy(PolicyType::External)
+        .overflow(Overflow::Hidden)
+        .build();
+    map_scroll.set_child(Some(&map));
+    map_box.append(&map_scroll);
+
+    let tb = ToolbarView::builder().content(&map_box).build();
     tb.add_top_bar(&hb);
 
     window.set_content(Some(&tb));
@@ -388,6 +411,7 @@ pub fn show_commit_window(
                                 // render child widgets
                                 for (anchor, child) in &ctx.child_widgets {
                                     child.render(&txt, anchor);
+                                    map.add_child_at_anchor(&Label::new(None), anchor);
                                 }
                                 // it should be called after cursor in ViewContainer
                                 let iter = buffer.iter_at_offset(buffer.cursor_position());
