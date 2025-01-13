@@ -23,7 +23,8 @@ impl BranchName {
         &self.0
     }
     pub fn to_local(&self) -> String {
-        return self.0.split("/").last().unwrap().to_string();
+        let local_name_parts: Vec<&str> = self.0.split("/").skip(1).collect();
+        return local_name_parts.join("/");
     }
     pub fn remote_name(&self) -> String {
         return self.0.split("/").next().unwrap().to_string();
