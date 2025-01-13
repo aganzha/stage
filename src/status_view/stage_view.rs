@@ -31,6 +31,7 @@ const MAP_WIDTH: i32 = 150;
 
 mod stage_view_internal {
 
+    use super::Convert;
     use crate::glib::Properties;
     use log::{debug, trace};
 
@@ -60,7 +61,8 @@ mod stage_view_internal {
     const SLIDER_HEIGHT: f32 = 50.0;
     const SLIDER_MARGIN: f32 = 10.0;
 
-    #[derive(Default)]
+    #[derive(Properties, Default)]
+    #[properties(wrapper_type = super::StageView)]
     pub struct StageView {
         pub is_map: Cell<bool>,
         pub map_slider_start: Cell<f64>,
@@ -77,7 +79,11 @@ mod stage_view_internal {
         pub is_dark: Cell<bool>,
         pub is_dark_set: Cell<bool>,
 
-        pub visible_line_interval: Cell<(i32, i32)>,
+        #[property(get, set)]
+        pub visible_start_line: Cell<i32>,
+
+        #[property(get, set)]
+        pub visible_end_line: Cell<i32>,
     }
 
     #[glib::object_subclass]
@@ -111,7 +117,8 @@ mod stage_view_internal {
                 &DARK_BG_FILL.with_alpha(0.1)
             };
 
-            let (line_no_start, line_no_end) = self.visible_line_interval.get();
+            let line_no_start = self.obj().visible_start_line();
+            let line_no_end = self.obj().visible_end_line();
             if let Some(mut iter) = self.obj().buffer().iter_at_line(line_no_start) {
                 let y_from = self.obj().line_yrange(&iter).0;
                 iter.set_line(line_no_end);
@@ -141,11 +148,29 @@ mod stage_view_internal {
     impl TextViewImpl for StageView {
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
             if layer == TextViewLayer::BelowText {
+                trace!(
+                    "snapshot_layer am i map? {:?} my visible end {:?}",
+                    self.is_map.get(),
+                    self.visible_end_line.get()
+                );
                 if self.is_map.get() {
                     self.snapshot_layer_map(snapshot);
                     return;
                 }
                 let rect = self.obj().visible_rect();
+                let (line_from, line_to) =
+                    self.obj().ys_to_lines((rect.y(), rect.y() + rect.height()));
+
+                self.obj().set_visible_start_line(line_from);
+                self.obj().set_visible_end_line(line_to);
+
+                trace!(
+                    "highlight stage ................. {:?} {:?} prtops vs values {:?} {:?}",
+                    self.obj().visible_start_line(),
+                    self.obj().visible_end_line(),
+                    line_from,
+                    line_to
+                );
                 let bg_fill = if self.is_dark.get() {
                     &DARK_BG_FILL
                 } else {
@@ -252,7 +277,7 @@ mod stage_view_internal {
             }
         }
     }
-
+    #[glib::derived_properties]
     impl ObjectImpl for StageView {}
 
     impl WidgetImpl for StageView {}
@@ -325,13 +350,6 @@ impl StageView {
         if self.imp().is_map.get() {
             self.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
         }
-    }
-
-    pub fn set_visible_line_interval(&self, line_no: (i32, i32)) {
-        self.imp()
-            .visible_line_interval
-            .replace((line_no.0, line_no.1));
-        self.queue_draw();
     }
 }
 
@@ -444,6 +462,7 @@ pub fn make_map(
             }
         }
     });
+
     drag.connect_drag_update({
         let map = map.clone();
         let stage = stage.clone();
@@ -514,27 +533,17 @@ pub fn make_map(
     map.add_controller(click);
 
     scroll.vadjustment().connect_value_changed({
-        let stage = stage.clone();
         let map = map.clone();
         move |adj| {
-            trace!(
-                "before scroll :::::::::::::::::::: in stage {:?}",
-                adj.value()
-            );
-            let rect = stage.visible_rect();
-            let (line_from, line_to) = stage.ys_to_lines((rect.y(), rect.y() + rect.height()));
-            trace!(
-                "STAGE WAS SCROLLED. paint slider on map {:?} {:?} rect {:?}",
-                line_from,
-                line_to,
-                rect
-            );
-            map.set_visible_line_interval((line_from, line_to));
+            map.queue_draw();
         }
     });
-    // scroll.vadjustment().connect_changed({
-    //     move |_| {}
-    // });
+    let _ = stage
+        .bind_property("visible-start-line", &map, "visible-start-line")
+        .build();
+    let _ = stage
+        .bind_property("visible-end-line", &map, "visible-end-line")
+        .build();
     map
 }
 
