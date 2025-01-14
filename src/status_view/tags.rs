@@ -310,12 +310,10 @@ impl TxtTag {
             POINTER => {}
             STAGED | UNSTAGED => {}
             DIFF => {
-                // TODO! get it from line_yrange!
                 tag.set_weight(700);
-                // tag.set_pixels_above_lines(32);
                 tag.set_line_height(2.0);
                 if is_dark {
-                    tag.set_foreground(Some("#a78a44"));
+                    tag.set_foreground(Some("#ffad29")); //#a78a44
                 } else {
                     tag.set_foreground(Some("#8b6508"));
                 }

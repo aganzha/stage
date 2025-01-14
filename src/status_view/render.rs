@@ -1034,7 +1034,7 @@ impl ViewContainer for Head {
         // };
         let short = self.oid.to_string()[..7].to_string();
         let color = if StyleManager::default().is_dark() {
-            "#839daf"
+            "#34cae2" // #839daf
         } else {
             "#4a708b"
         };

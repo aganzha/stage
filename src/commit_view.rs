@@ -19,7 +19,7 @@ use gtk4::{
     ScrolledWindow, TextBuffer, TextIter, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, ToolbarView, Window};
+use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
 use log::{info, trace};
 
 use std::path::PathBuf;
@@ -355,9 +355,17 @@ pub fn show_commit_window(
                 .expect("Could not send through channel");
         }
     });
-
+    let manager = StyleManager::default();
+    let color = if manager.is_dark() {
+        "#34cae2"
+    } else {
+        "#4a708b"
+    };
     let mut labels: [TextViewLabel; 3] = [
-        TextViewLabel::from_string(&format!("commit: <span color=\"#4a708b\">{:?}</span>", oid)),
+        TextViewLabel::from_string(&format!(
+            "commit: <span color=\"{}\">{:?}</span>",
+            color, oid
+        )),
         TextViewLabel::from_string(""),
         TextViewLabel::from_string(""),
     ];
@@ -372,12 +380,12 @@ pub fn show_commit_window(
                         info!("CommitDiff");
 
                         labels[1].content = format!(
-                            "Author: <span color=\"#4a708b\">{}</span>",
-                            commit_diff.author
+                            "Author: <span color=\"{}\">{}</span>",
+                            color, commit_diff.author
                         );
                         labels[2].content = format!(
-                            "Date: <span color=\"#4a708b\">{}</span>",
-                            commit_diff.commit_dt
+                            "Date: <span color=\"{}\">{}</span>",
+                            color, commit_diff.commit_dt
                         );
                         body_label.replace(MultiLineLabel::new(
                             &commit_diff.message,
