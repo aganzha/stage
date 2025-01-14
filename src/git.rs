@@ -914,11 +914,16 @@ pub fn get_conflicted_v1(
                     (Some(_), None) => {
                         panic!("imposible case");
                     }
-                    (Some(m), _) if m == MARKER_THEIRS || m == MARKER_VS => {
+                    (Some(first), Some(last)) if first == MARKER_THEIRS || first == MARKER_VS => {
                         // hunk is not started with ours
                         // store prev hunk last line and this hunk start to join em
                         hunks_to_join.push((prev_conflict_line.unwrap(), hunk.old_start));
-                        prev_conflict_line = None;
+                        if last == MARKER_OURS {
+                            prev_conflict_line
+                                .replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
+                        } else {
+                            prev_conflict_line = None;
+                        }
                     }
                     (_, Some(m)) if m != MARKER_THEIRS => {
                         // hunk is not ended with theirs
