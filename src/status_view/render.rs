@@ -22,7 +22,7 @@ use crate::{
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
-use gtk4::{Label as GtkLabel, TextBuffer, TextChildAnchor, TextIter, Widget};
+use gtk4::{glib, Label as GtkLabel, TextBuffer, TextChildAnchor, TextIter, Widget};
 use libadwaita::StyleManager;
 use log::{debug, trace};
 use std::collections::{HashMap, HashSet};
@@ -905,29 +905,46 @@ impl ViewContainer for Line {
                 l.clone()
             } else {
                 if let Some(map) = context.map {
-                    map.add_child_at_anchor(&GtkLabel::new(None), &anchor);             
+                    glib::spawn_future_local({
+                        let map = map.clone();
+                        let anchor = anchor.clone();
+                        async move {
+                            map.add_child_at_anchor(&GtkLabel::new(None), &anchor);
+                        }
+                    });
                 }
                 GtkLabel::builder()
                     .use_markup(true)
                     .label(line_no_text)
                     .opacity(0.3)
                     .css_classes(["line_no"])
-                    .build().into()
+                    .build()
+                    .into()
             };
-            stage.add_child_at_anchor(&lbl, &anchor);         
+            let iter_line = iter.line();
+            if iter_line >= stage.visible_start_line() && iter_line <= stage.visible_end_line() {
+                // debug!(
+                //     "DIRECT.............adding child {:?} BETWEEN {:?} {:?}",
+                //     iter_line,
+                //     stage.visible_start_line(),
+                //     stage.visible_end_line()
+                // );
+                stage.add_child_at_anchor(&lbl, &anchor);
+            } else {
+                glib::spawn_future_local({
+                    let stage = stage.clone();
+                    async move {
+                        // debug!(
+                        //     "ASYNC.............adding child {:?} OUTSIDE {:?} {:?}",
+                        //     iter_line,
+                        //     stage.visible_start_line(),
+                        //     stage.visible_end_line()
+                        // );
+                        stage.add_child_at_anchor(&lbl, &anchor);
+                    }
+                });
+            }
         }
-        // if let Some(map) = context.map {
-        //     let anchor = iter
-        //         .child_anchor()
-        //         .unwrap_or(buffer.create_child_anchor(iter));
-        //     if anchor.widgets().is_empty() {
-        //         map.add_child_at_anchor(&GtkLabel::new(None), &anchor);
-        //     }
-        // }
-        // context
-        //     .child_widgets
-        //     .push((anchor, ChildWidget::Label(lbl)));
-
         let content = self.content(context.current_hunk.unwrap());
         if content.is_empty() {
             buffer.insert(iter, " ");

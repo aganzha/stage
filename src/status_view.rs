@@ -1044,13 +1044,25 @@ impl Status {
         self.head.as_ref().unwrap().oid
     }
 
-    pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
+    pub fn debug<'a>(&'a mut self, txt: &StageView, context: &mut StatusRenderContext<'a>) {
         debug!("debug!");
-        let pos = txt.buffer().cursor_position();
-        let iter = txt.buffer().iter_at_offset(pos);
-        if let Some(anchor) = iter.child_anchor() {
-            debug!("~~~~~~~~~~~~~~ {:?}", anchor.widgets());
+        if let Some(map) = context.map {
+            debug!("map visible lines {:?} {:?}",
+                   map.visible_start_line(),
+                   map.visible_end_line()
+            );
         }
+        if let Some(stage) = context.stage {
+            debug!("map visible lines {:?} {:?}",
+                   stage.visible_start_line(),
+                   stage.visible_end_line()
+            );
+        }
+        // let pos = txt.buffer().cursor_position();
+        // let iter = txt.buffer().iter_at_offset(pos);
+        // if let Some(anchor) = iter.child_anchor() {
+        //     debug!("~~~~~~~~~~~~~~ {:?}", anchor.widgets());
+        // }
     }
 
     //3
