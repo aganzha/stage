@@ -121,7 +121,7 @@ fn register_resources() {
     // let xml: Result<gtk4::glib::Bytes, gtk4::glib::Error>= gio::resources_lookup_data(
     //     "/io/github/aganzha/Stage/io.github.aganzha.Stage.metainfo.xml",
     //     gio::ResourceLookupFlags::empty()
-    // );
+    // ); and check pull
 }
 
 #[derive(Debug, Clone, Copy)]
