@@ -399,7 +399,7 @@ impl Status {
     pub fn choose_remote_branch_name(&self) -> Option<(Option<String>, String)> {
         if let Some(upstream) = &self.upstream {
             if let Some(branch_data) = &upstream.branch {
-                return Some((branch_data.remote_name.clone(), branch_data.name.to_local()));
+                return Some((branch_data.remote_name.clone(), branch_data.local_name()));
             }
         }
         if let Some(head) = &self.head {
