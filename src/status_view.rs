@@ -1006,17 +1006,17 @@ impl Status {
         if let Some(staged) = &self.staged {
             staged.render(&buffer, &mut iter, context);
         }
-        // render child widgets
-        for (anchor, child) in &context.child_widgets {
-            child.render(txt, anchor);
-        }
+        // // render child widgets
+        // for (anchor, child) in &context.child_widgets {
+        //     child.render(txt, anchor);
+        // }
         // this is required to maintain proper line height
-        if let Some(map) = context.map {
-            for (anchor, _child) in &context.child_widgets {
-                let mock = GtkLabel::new(None);
-                ChildWidget::Label(mock).render(&map, anchor);
-            }
-        }
+        // if let Some(map) = context.map {
+        //     for (anchor, _child) in &context.child_widgets {
+        //         let mock = GtkLabel::new(None);
+        //         ChildWidget::Label(mock).render(&map, anchor);
+        //     }
+        // }
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 

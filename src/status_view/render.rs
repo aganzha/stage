@@ -22,7 +22,7 @@ use crate::{
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
-use gtk4::{Label as GtkLabel, TextBuffer, TextChildAnchor, TextIter};
+use gtk4::{Label as GtkLabel, TextBuffer, TextChildAnchor, TextIter, Widget};
 use libadwaita::StyleManager;
 use log::{debug, trace};
 use std::collections::{HashMap, HashSet};
@@ -885,28 +885,48 @@ impl ViewContainer for Line {
         buffer: &TextBuffer,
         context: &mut StatusRenderContext<'_>,
     ) {
-        let anchor = iter
-            .child_anchor()
-            .unwrap_or(buffer.create_child_anchor(iter));
+        if let Some(stage) = context.stage {
+            let anchor = iter
+                .child_anchor()
+                .unwrap_or(buffer.create_child_anchor(iter));
 
-        let line_no = self
-            .new_line_no
-            .map(|num| num.as_u32())
-            .unwrap_or(self.old_line_no.map(|num| num.as_u32()).unwrap_or(0));
-
-        let lbl = GtkLabel::builder()
-            .use_markup(true)
-            .label(format!(
+            let line_no = self
+                .new_line_no
+                .map(|num| num.as_u32())
+                .unwrap_or(self.old_line_no.map(|num| num.as_u32()).unwrap_or(0));
+            let line_no_text = format!(
                 "<span size=\"small\" line_height=\"0.5\">{}</span>",
                 line_no
-            ))
-            .opacity(0.3)
-            .css_classes(["line_no"])
-            .build();
-
-        context
-            .child_widgets
-            .push((anchor, ChildWidget::Label(lbl)));
+            );
+            let lbl: GtkLabel = if !anchor.widgets().is_empty() {
+                let w = &anchor.widgets()[0];
+                let l = w.downcast_ref::<GtkLabel>().unwrap();
+                l.set_label(&line_no_text);
+                l.clone()
+            } else {
+                if let Some(map) = context.map {
+                    map.add_child_at_anchor(&GtkLabel::new(None), &anchor);             
+                }
+                GtkLabel::builder()
+                    .use_markup(true)
+                    .label(line_no_text)
+                    .opacity(0.3)
+                    .css_classes(["line_no"])
+                    .build().into()
+            };
+            stage.add_child_at_anchor(&lbl, &anchor);         
+        }
+        // if let Some(map) = context.map {
+        //     let anchor = iter
+        //         .child_anchor()
+        //         .unwrap_or(buffer.create_child_anchor(iter));
+        //     if anchor.widgets().is_empty() {
+        //         map.add_child_at_anchor(&GtkLabel::new(None), &anchor);
+        //     }
+        // }
+        // context
+        //     .child_widgets
+        //     .push((anchor, ChildWidget::Label(lbl)));
 
         let content = self.content(context.current_hunk.unwrap());
         if content.is_empty() {
