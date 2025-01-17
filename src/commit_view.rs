@@ -9,7 +9,7 @@ use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
-use crate::Event;
+use crate::{Event, DiffKind};
 use async_channel::Sender;
 use git2::Oid;
 
@@ -20,7 +20,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
-use log::{info, trace};
+use log::{info, trace, debug};
 
 use std::path::PathBuf;
 
@@ -393,27 +393,18 @@ pub fn show_commit_window(
                             &mut ctx,
                             &mut labels,
                             body_label.as_mut().unwrap(),
-                        );
+                        );                        
                         // it should be called after cursor in ViewContainer
-                        txt.bind_highlights(&ctx);
                         diff.replace(commit_diff);
                     }
                     Event::Expand(_offset, line_no) => {
                         info!("Expand {}", line_no);
                         if let Some(d) = &mut diff {
-                            let mut need_render = false;
-                            for file in &mut d.diff.files {
-                                need_render =
-                                    need_render || file.expand(line_no, &mut ctx).is_some();
-                                if need_render {
-                                    break;
-                                }
-                            }
-                            let buffer = &txt.buffer();
-                            let mut iter = buffer.iter_at_line(d.diff.view.line_no.get()).unwrap();
-                            if need_render {
+                            debug!(".................{:?}", d.diff.view.line_no);
+                            if d.diff.expand(line_no, &mut ctx).is_some() {
+                                let buffer = &txt.buffer();
+                                let mut iter = buffer.iter_at_line(d.diff.view.line_no.get()).unwrap();
                                 d.diff.render(buffer, &mut iter, &mut ctx);
-                                // it should be called after cursor in ViewContainer
                                 let iter = buffer.iter_at_offset(buffer.cursor_position());
                                 d.diff.cursor(buffer, iter.line(), true, &mut ctx);
                                 txt.bind_highlights(&ctx);
