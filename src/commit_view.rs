@@ -323,6 +323,7 @@ pub fn show_commit_window(
     window.add_controller(event_controller);
 
     window.present();
+    map.after_window_present();
 
     let mut body_label: Option<MultiLineLabel> = None;
 
