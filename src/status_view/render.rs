@@ -1187,18 +1187,3 @@ impl Diff {
         String::from("dump")
     }
 }
-
-#[derive(Debug, Clone)]
-pub enum ChildWidget {
-    Button(gtk4::Button),
-    Label(gtk4::Label),
-}
-
-impl ChildWidget {
-    pub fn render(&self, txt: &StageView, anchor: &TextChildAnchor) {
-        match self {
-            ChildWidget::Button(w) => txt.add_child_at_anchor(w, anchor),
-            ChildWidget::Label(w) => txt.add_child_at_anchor(w, anchor),
-        }
-    }
-}

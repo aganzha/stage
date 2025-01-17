@@ -8,7 +8,6 @@ use status_view::{
     context::StatusRenderContext,
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
-    render::ChildWidget,
     stage_view::make_stage,
     Status,
 };

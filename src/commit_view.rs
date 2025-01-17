@@ -243,12 +243,6 @@ impl commit::CommitDiff {
             buffer.place_cursor(&iter);
         }
 
-        //render child widgets
-        for (anchor, child) in &ctx.child_widgets {
-            child.render(txt, anchor);
-            //child.clone().render(map, anchor);
-        }
-
         self.diff.cursor(&txt.buffer(), iter.line(), true, ctx);
         txt.bind_highlights(ctx);
     }
@@ -375,6 +369,8 @@ pub fn show_commit_window(
         async move {
             while let Ok(event) = receiver.recv().await {
                 let mut ctx = crate::StatusRenderContext::new();
+                ctx.stage = Some(&txt);
+                ctx.map = Some(&map);
                 match event {
                     Event::CommitDiff(mut commit_diff) => {
                         info!("CommitDiff");
@@ -416,11 +412,6 @@ pub fn show_commit_window(
                             let mut iter = buffer.iter_at_line(d.diff.view.line_no.get()).unwrap();
                             if need_render {
                                 d.diff.render(buffer, &mut iter, &mut ctx);
-                                // render child widgets
-                                for (anchor, child) in &ctx.child_widgets {
-                                    child.render(&txt, anchor);
-                                    map.add_child_at_anchor(&Label::new(None), anchor);
-                                }
                                 // it should be called after cursor in ViewContainer
                                 let iter = buffer.iter_at_offset(buffer.cursor_position());
                                 d.diff.cursor(buffer, iter.line(), true, &mut ctx);
@@ -445,10 +436,6 @@ pub fn show_commit_window(
                         // is this still required?
                         if let Some(d) = &mut diff {
                             d.render(&txt, &mut ctx, &mut labels, body_label.as_mut().unwrap());
-                            // render child widgets
-                            for (anchor, child) in &ctx.child_widgets {
-                                child.render(&txt, anchor);
-                            }
                         }
                     }
                     Event::Stage(_) | Event::RepoPopup => {

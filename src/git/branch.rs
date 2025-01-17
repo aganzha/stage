@@ -22,7 +22,7 @@ impl BranchName {
     pub fn to_str(&self) -> &str {
         &self.0
     }
-    pub fn to_local(&self, remote_name: Option<&str>) -> String {        
+    pub fn to_local(&self, remote_name: Option<&str>) -> String {
         match remote_name {
             Some(name) => {
                 let local_name_parts: Vec<&str> = self.0.split("/").collect();
@@ -32,12 +32,10 @@ impl BranchName {
                     self.0.clone()
                 }
             }
-            None => {
-                self.0.clone()
-            }
+            None => self.0.clone(),
         }
     }
-    
+
     pub fn name_of_remote(&self) -> String {
         return self.0.split("/").next().unwrap().to_string();
     }
@@ -124,7 +122,7 @@ impl BranchData {
     }
 
     pub fn local_name(&self) -> String {
-        return self.name.to_local(self.remote_name.as_deref())
+        return self.name.to_local(self.remote_name.as_deref());
     }
 }
 
@@ -207,9 +205,7 @@ pub fn checkout_branch(
             let created = repo.branch(&branch_data.local_name(), &commit, false);
             let mut branch = match created {
                 Ok(branch) => branch,
-                Err(_) => {
-                    repo.find_branch(&branch_data.local_name(), git2::BranchType::Local)?
-                }
+                Err(_) => repo.find_branch(&branch_data.local_name(), git2::BranchType::Local)?,
             };
             branch.set_upstream(Some(&branch_data.name.to_string()))?;
             if let Some(new_branch_data) =

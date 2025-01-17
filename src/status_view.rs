@@ -17,10 +17,9 @@ use crate::git::{
     abort_rebase, branch::BranchData, commit as git_commit, continue_rebase, merge, remote, stash,
     track_changes, HunkLineNo,
 };
-
 use core::time::Duration;
 use git2::RepositoryState;
-use render::{ChildWidget, ViewContainer};
+use render::ViewContainer;
 use stage_op::{LastOp, StageDiffs};
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -1006,17 +1005,6 @@ impl Status {
         if let Some(staged) = &self.staged {
             staged.render(&buffer, &mut iter, context);
         }
-        // // render child widgets
-        // for (anchor, child) in &context.child_widgets {
-        //     child.render(txt, anchor);
-        // }
-        // this is required to maintain proper line height
-        // if let Some(map) = context.map {
-        //     for (anchor, _child) in &context.child_widgets {
-        //         let mock = GtkLabel::new(None);
-        //         ChildWidget::Label(mock).render(&map, anchor);
-        //     }
-        // }
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
@@ -1047,22 +1035,19 @@ impl Status {
     pub fn debug<'a>(&'a mut self, txt: &StageView, context: &mut StatusRenderContext<'a>) {
         debug!("debug!");
         if let Some(map) = context.map {
-            debug!("map visible lines {:?} {:?}",
-                   map.visible_start_line(),
-                   map.visible_end_line()
+            debug!(
+                "map visible lines {:?} {:?}",
+                map.visible_start_line(),
+                map.visible_end_line()
             );
         }
         if let Some(stage) = context.stage {
-            debug!("map visible lines {:?} {:?}",
-                   stage.visible_start_line(),
-                   stage.visible_end_line()
+            debug!(
+                "map visible lines {:?} {:?}",
+                stage.visible_start_line(),
+                stage.visible_end_line()
             );
         }
-        // let pos = txt.buffer().cursor_position();
-        // let iter = txt.buffer().iter_at_offset(pos);
-        // if let Some(anchor) = iter.child_anchor() {
-        //     debug!("~~~~~~~~~~~~~~ {:?}", anchor.widgets());
-        // }
     }
 
     //3
