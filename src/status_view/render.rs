@@ -894,9 +894,19 @@ impl ViewContainer for Line {
                 .new_line_no
                 .map(|num| num.as_u32())
                 .unwrap_or(self.old_line_no.map(|num| num.as_u32()).unwrap_or(0));
+            let le = format!("{}", line_no).len();
+            let mut spaces = "";
+            if le == 1 {
+                spaces = "   "
+            } else if le == 2 {
+                spaces = "  ";
+            } else if le == 3 {
+                spaces = " ";
+            }
+
             let line_no_text = format!(
-                "<span size=\"small\" line_height=\"0.5\">{}</span>",
-                line_no
+                "<span size=\"small\" line_height=\"0.5\">{}{}</span>",
+                spaces, line_no
             );
             let lbl: GtkLabel = if !anchor.widgets().is_empty() {
                 let w = &anchor.widgets()[0];
@@ -916,6 +926,7 @@ impl ViewContainer for Line {
                 GtkLabel::builder()
                     .use_markup(true)
                     .label(line_no_text)
+                    .width_chars(4)
                     .opacity(0.3)
                     .css_classes(["line_no"])
                     .build()
