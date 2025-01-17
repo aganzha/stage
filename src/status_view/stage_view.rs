@@ -117,17 +117,16 @@ mod stage_view_internal {
                 &DARK_BG_FILL.with_alpha(0.1)
             };
 
+            let buffer = self.obj().buffer();
+            let mut iter = buffer.iter_at_offset(0);
+
             let line_no_start = self.obj().visible_start_line();
             let line_no_end = self.obj().visible_end_line();
             if let Some(mut iter) = self.obj().buffer().iter_at_line(line_no_start) {
                 let y_from = self.obj().line_yrange(&iter).0;
                 iter.set_line(line_no_end);
                 let y_to = self.obj().line_yrange(&iter).0;
-                trace!(
-                    "highlight slider at line_y {:?}, y_is {:?}",
-                    line_no_start,
-                    y_from
-                );
+
                 snapshot.append_color(
                     slider_fill,
                     &graphene::Rect::new(0 as f32, y_from as f32, rect.width() as f32, y_to as f32),
@@ -139,6 +138,24 @@ mod stage_view_internal {
                         y_to as f32,
                         rect.width() as f32,
                         rect.height() as f32,
+                    ),
+                );
+            }
+            // highlight hunks -----------------------------------
+            for line in self.hunks.borrow().iter() {
+                iter.set_line(*line);
+                let (y_from, y_to) = self.obj().line_yrange(&iter);
+                snapshot.append_color(
+                    if self.is_dark.get() {
+                        &DARK_HUNKS
+                    } else {
+                        &LIGHT_HUNKS
+                    },
+                    &graphene::Rect::new(
+                        rect.x() as f32,
+                        y_from as f32,
+                        rect.width() as f32,
+                        y_to as f32,
                     ),
                 );
             }
