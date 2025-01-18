@@ -230,7 +230,8 @@ pub trait ViewContainer {
                 child.render(buffer, iter, context);
             }
         }
-        self.get_view().child_dirty(false);
+        // self.get_view()
+        view.child_dirty(false);
     }
 
     fn find_cursor_position<'a>(

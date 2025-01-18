@@ -1020,6 +1020,9 @@ impl Status {
         let iter = diffs.choose_cursor_position(&buffer, diff_kind, &self.last_op);
 
         buffer.place_cursor(&iter);
+        // lets try to intercept map rendering here.
+        // the buffer is filled by lines.
+        // so...
         // WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
     }
@@ -1043,14 +1046,17 @@ impl Status {
                 map.visible_start_line(),
                 map.visible_end_line()
             );
+            let buffer = map.buffer();
+            let iter = buffer.iter_at_offset(0);
+            debug!("line yrange {:?}", map.line_yrange(&iter).1);
         }
-        if let Some(stage) = context.stage {
-            debug!(
-                "map visible lines {:?} {:?}",
-                stage.visible_start_line(),
-                stage.visible_end_line()
-            );
-        }
+        // if let Some(stage) = context.stage {
+        //     debug!(
+        //         "map visible lines {:?} {:?}",
+        //         stage.visible_start_line(),
+        //         stage.visible_end_line()
+        //     );
+        // }
     }
 
     //3

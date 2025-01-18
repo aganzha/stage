@@ -12,7 +12,25 @@
 }
 
 #status_view_map, #commit_view_map {
-    font-size: 20%;
+    /* font-size: 20%; */
+}
+#status_view_map.percent50, #commit_view_map.percent50 {
+    font-size: 50%;
+}
+#status_view_map.percent25, #commit_view_map.percent25 {
+    font-size: 25%;
+}
+#status_view_map.percent10, #commit_view_map.percent10 {
+    font-size: 10%;
+}
+#status_view_map.percent5, #commit_view_map.percent5 {
+    font-size: 5%;
+}
+#status_view_map.percent2, #commit_view_map.percent2 {
+    font-size: 2%;
+}
+#status_view_map.percent1, #commit_view_map.percent1 {
+    font-size: 1%;
 }
 
 listview.dark {

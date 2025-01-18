@@ -15,8 +15,8 @@ use git2::Oid;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Box, Button, EventControllerKey, Label, Orientation, Overflow, PolicyType,
-    ScrolledWindow, TextBuffer, TextIter, Widget, Window as Gtk4Window,
+    gdk, gio, glib, pango, Box, Button, EventControllerKey, Label, Orientation, Overflow,
+    PolicyType, ScrolledWindow, TextBuffer, TextIter, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
@@ -378,7 +378,19 @@ pub fn show_commit_window(
                 match event {
                     Event::CommitDiff(mut commit_diff) => {
                         info!("CommitDiff");
-
+                        let mut line_count = 10; // double height of diff line
+                        for file in &commit_diff.diff.files {
+                            line_count += 1;
+                            for hunk in &file.hunks {
+                                line_count += 1 + hunk.lines.len();
+                            }
+                        }
+                        // TODO! there are 3 lines on top of each commit
+                        // + 2 spacer lines + 2 lines at bottom + COMMIT MESSAGE
+                        // so its better to call all that after render
+                        // to know lines amout in multilabel of COMMIT MESSAGE
+                        debug!("line count-------------------------> {:?}", line_count);
+                        map.adjust_height(line_count);
                         labels[1].content = format!(
                             "Author: <span color=\"{}\">{}</span>",
                             color, commit_diff.author
@@ -415,6 +427,10 @@ pub fn show_commit_window(
                                 if let Some(map) = ctx.map {
                                     map.bind_highlights(&ctx);
                                 }
+                                debug!(
+                                    "CommitView............... end of render AFTER EXPAND {:?}",
+                                    buffer.line_count()
+                                );
                             }
                         }
                     }
@@ -538,6 +554,33 @@ pub fn show_commit_window(
                             }
                         }
                     }
+                    Event::Debug => {
+                        info!("Debug");
+                        debug!(
+                            "map visible lines {:?} {:?}",
+                            map.visible_start_line(),
+                            map.visible_end_line()
+                        );
+                        let buffer = map.buffer();
+                        let iter = buffer.iter_at_offset(0);
+                        let pango_ctx = map.ltr_context();
+                        let metrics = pango_ctx.metrics(None, None);
+                        debug!(
+                            "font_metrics!!!!!!!!! {:?} scaled {:.2} asc and desc {:?} {:?}",
+                            metrics.height(),
+                            metrics.height() as f32 / pango::SCALE as f32,
+                            metrics.ascent(),
+                            metrics.descent()
+                        );
+                        // if let Some(font_metrics) = metrics {
+                        //     debug!("font_metrics!!!!!!!!! {:?}", font_metrics.height());
+                        // }
+                        debug!("line yrange {:?}", map.line_yrange(&iter).1);
+                        if let Some(mut descr) = pango_ctx.font_description() {
+                            debug!("oooooooooooooooooooo {:?}", descr.size());
+                        }
+                    }
+
                     _ => {
                         trace!("unhandled event in commit_view {:?}", event);
                     }

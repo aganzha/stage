@@ -368,6 +368,75 @@ impl StageView {
             self.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
         }
     }
+
+    pub fn adjust_height(&self, line_count: usize) {
+        debug!("IIIIIIIIIIIIIIIIIIII adjust");
+        let buffer = self.buffer();
+        let iter = buffer.iter_at_offset(0);
+        let current_height = self.line_yrange(&iter).1 as f32;
+        let rect = self.visible_rect();
+        let desired_height = (rect.height() as usize / line_count) as f32;
+        let mut ratio = desired_height / current_height;
+
+        debug!(
+            ">>>>> current_height {:?} desired_height {:?} ratio {:?}",
+            current_height, desired_height, ratio
+        );
+
+        let pango_ctx = self.ltr_context();
+        let metrics = pango_ctx.metrics(None, None);
+        let pango_height = metrics.height();
+        let desired_pango_height = pango_height as f32 * ratio;
+
+        debug!(
+            "~~~~ current_pango_height {:?} desired_pango_height {:?} ratio {:?}",
+            pango_height, desired_pango_height, ratio
+        );
+        if let Some(mut descr) = pango_ctx.font_description() {
+            let size = descr.size();
+            loop {
+                let desired_size = size as f32 * ratio;
+                descr.set_size(desired_size as i32);
+                let metrics = pango_ctx.metrics(Some(&descr), None);
+                debug!(
+                    "loooooooooooooooooooooop. metrics height {:?} desired_pango_height {:?} {:?}. descr size {:?} descr desired_size {:?}",
+                    metrics.height(),
+                    desired_pango_height,
+                    ratio,
+                    size,
+                    desired_size
+                );
+                if metrics.height() as f32 > desired_pango_height {
+                    ratio -= 0.01;
+                    if ratio <= 0.0 {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            debug!("looop is over. here is the ration {:?}", ratio);
+        }
+        let css_class = {
+            if ratio >= 1.0 {
+                debug!(">>>>>>>>>>>>>>> hide map!!!!!!!!!!!");
+                ""
+            } else if ratio < 1.0 && ratio >= 0.5 {
+                "percent50"
+            } else if ratio < 0.50 && ratio >= 0.25 {
+                "percent25"
+            } else if ratio < 0.25 && ratio >= 0.10 {
+                "percent10"
+            } else if ratio < 0.10 && ratio >= 0.05 {
+                "percent5"
+            } else if ratio < 0.05 && ratio >= 0.02 {
+                "percent2"
+            } else {
+                "percent1"
+            }
+        };
+        self.add_css_class(css_class);
+    }
 }
 
 impl Convert<i32> for StageView {
