@@ -12,8 +12,8 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, glib, pango, EventControllerKey, EventControllerMotion, EventControllerScroll,
-    EventSequenceState, GestureClick, GestureDrag, MovementStep, PropagationPhase, ScrolledWindow,
-    TextBuffer, TextTag, TextView, TextWindowType, Widget,
+    EventSequenceState, GestureClick, GestureDrag, MovementStep, PropagationPhase, ScrollStep,
+    ScrolledWindow, TextBuffer, TextTag, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
 use log::{debug, trace};
@@ -373,9 +373,11 @@ impl StageView {
     }
 
     pub fn set_possible_line_count(&self, line_count: usize) {
-        self.imp().possible_line_count.replace(Some(line_count as i32));
+        self.imp()
+            .possible_line_count
+            .replace(Some(line_count as i32));
     }
-    
+
     pub fn adjust_height(&self) {
         if self.imp().possible_line_count.get().is_none() {
             return;
@@ -481,7 +483,7 @@ impl StageView {
             self.set_visible(true);
             self.add_css_class(css_class);
         }
-        self.imp().possible_line_count.replace(None);        
+        self.imp().possible_line_count.replace(None);
     }
 }
 
@@ -551,7 +553,7 @@ pub fn make_map(
             drag.set_state(EventSequenceState::Claimed);
             // let current_y = map.imp().map_slider_start.get();
             //scroll_lock.replace(true);
-            trace!("START SLIDING {:?}", y);
+            debug!("START SLIDING {:?}", y);
             // map.imp().map_slider_start.replace(y);
             // there are 2 cases for start dragging.
             // lets call 'start dragging' a 'click'.
@@ -574,10 +576,9 @@ pub fn make_map(
             let rect = stage.visible_rect();
             let stage_rect_lines = stage.ys_to_lines((rect.y(), rect.y() + rect.height()));
             if new_y_line >= stage_rect_lines.0 && new_y_line <= stage_rect_lines.1 {
-                trace!(
+                debug!(
                     "click WITHIN SLIDER. STORE START POINT {:?} {:?}",
-                    new_y,
-                    rect
+                    new_y, rect
                 );
                 stage
                     .imp()
@@ -585,10 +586,9 @@ pub fn make_map(
                     .replace((new_y, new_y_line - stage_rect_lines.0));
                 // click inside slider. store start point. update will move slider later.
             } else {
-                trace!(
+                debug!(
                     "click OUTSIDE SLIDER. SCROLL to {:?} (visible lines {:?})",
-                    new_y_line,
-                    stage_rect_lines
+                    new_y_line, stage_rect_lines
                 );
                 new_y_iter.set_line_offset(0);
                 stage.scroll_to_iter(&mut new_y_iter, 0.0, true, 0.0, 0.0);
@@ -604,9 +604,18 @@ pub fn make_map(
             // see explanation in drug start.
             // to add - here it just need to move stage top visible edge
             // by DIFF of y.
-            let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
+            if y == 0.0 {
+                debug!("empty update by y....");
+                return;
+            }
+            // let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
+            let new_y = y as i32;
+            debug!(
+                "~~~~~~~~~~~~~~~~~~~~~~ drag update y (event) {:?} and new_y (to buffer) {:?}",
+                y, new_y
+            );
             if new_y == 0 {
-                trace!("empty update....");
+                debug!("empty update....");
                 return;
             }
             // let top_edge_stage_y = new_y - stage.imp().drag_diff.get();
@@ -614,7 +623,7 @@ pub fn make_map(
             let (drag_start, line_diff) = stage.imp().drag_diff.get();
             if let Some(mut iter) = map.iter_at_location(0, drag_start + new_y) {
                 iter.forward_lines(0 - line_diff);
-                trace!(
+                debug!(
                     "DRAG UPDATE new_y {:?} line_diff {:?} line >>>>>>>> {:?}",
                     new_y,
                     line_diff,
@@ -622,8 +631,10 @@ pub fn make_map(
                 );
                 iter.set_line_offset(0);
                 stage.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
+                // also it need to scroll map accordingly!
+                // map.emit_move_viewport(ScrollStep::Steps, 1);
             } else {
-                trace!("hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
+                debug!("hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
             }
         }
     });
@@ -633,17 +644,22 @@ pub fn make_map(
         //let scroll_lock = scroll_lock.clone();
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
-
-            let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
+            if y == 0.0 {
+                debug!("empty end by y....");
+                return;
+            }
+            // let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
+            let new_y = y as i32;
+            debug!("__________________________________ drug end {:?}", new_y);
             if new_y == 0 {
-                trace!("empty end drag....");
+                debug!("empty end drag....");
                 return;
             }
             let (drag_start, line_diff) = stage.imp().drag_diff.get();
             if let Some(mut iter) = map.iter_at_location(0, drag_start + new_y) {
                 iter.forward_lines(0 - line_diff);
 
-                trace!(
+                debug!(
                     "DRAG END new_y {:?} line_diff {:?} line ~~~~~~~~~~> {:?}",
                     new_y,
                     line_diff,
@@ -651,8 +667,10 @@ pub fn make_map(
                 );
                 iter.set_line_offset(0);
                 stage.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
+                // also it need to scroll map accordingly!
+                // map.emit_move_viewport(ScrollStep::Steps, 1);
             } else {
-                trace!("END hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
+                debug!("END hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
             }
         }
     });

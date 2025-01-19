@@ -314,7 +314,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     map_scroll.set_child(Some(&map));
     map_box.append(&map_scroll);
     //map_box.append(&map);
-    
+
     banner_box.append(&map_box);
 
     let toast_lock: Rc<Cell<bool>> = Rc::new(Cell::new(false));

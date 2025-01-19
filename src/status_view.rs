@@ -45,7 +45,7 @@ use crate::status_view::context::CursorPosition as ContextCursorPosition;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{
-    gio, glib, Align, Button, FileDialog, Label as GtkLabel, ListBox, SelectionMode,
+    gio, glib, Align, Button, FileDialog, Label as GtkLabel, ListBox, ScrollStep, SelectionMode,
     TextChildAnchor, Widget, Window as GTKWindow,
 };
 use libadwaita::prelude::*;
@@ -1085,30 +1085,35 @@ impl Status {
 
     pub fn debug<'a>(&'a mut self, txt: &StageView, context: &mut StatusRenderContext<'a>) {
         debug!("debug!");
-        
-        
 
         let buffer = txt.buffer();
-        debug!("..............{:?} {:?} {:?}", buffer.line_count(), self.get_line_count(), txt.visible_rect());
+        debug!(
+            "..............{:?} {:?} {:?}",
+            buffer.line_count(),
+            self.get_line_count(),
+            txt.visible_rect()
+        );
         if let Some(map) = context.map {
-            debug!(
-                "map visible lines {:?} {:?}",
-                map.visible_start_line(),
-                map.visible_end_line()
-            );
-            let buffer = map.buffer();
-            let iter = buffer.iter_at_offset(0);
-            debug!("line yrange {:?}", map.line_yrange(&iter).1);
+            map.emit_move_viewport(ScrollStep::Steps, 1);
+            debug!("???????????????");
+            // debug!(
+            //     "map visible lines {:?} {:?}",
+            //     map.visible_start_line(),
+            //     map.visible_end_line()
+            // );
+            // let buffer = map.buffer();
+            // let iter = buffer.iter_at_offset(0);
+            // debug!("line yrange {:?}", map.line_yrange(&iter).1);
 
-            let pango_ctx = map.ltr_context();
-            let metrics = pango_ctx.metrics(None, None);
-            let pango_height = metrics.height();
-            if let Some(descr) = pango_ctx.font_description() {
-                let size = descr.size();
-                let iter = buffer.iter_at_offset(0);
-                let yrange = map.line_yrange(&iter).1 as f32;
-                debug!("height and size {:?} ________ {:?} map rect {:?} yrange {:?}", pango_height, size, map.visible_rect(), yrange);
-            }
+            // let pango_ctx = map.ltr_context();
+            // let metrics = pango_ctx.metrics(None, None);
+            // let pango_height = metrics.height();
+            // if let Some(descr) = pango_ctx.font_description() {
+            //     let size = descr.size();
+            //     let iter = buffer.iter_at_offset(0);
+            //     let yrange = map.line_yrange(&iter).1 as f32;
+            //     debug!("height and size {:?} ________ {:?} map rect {:?} yrange {:?}", pango_height, size, map.visible_rect(), yrange);
+            // }
         }
         // if let Some(stage) = context.stage {
         //     debug!(

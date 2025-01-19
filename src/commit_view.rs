@@ -16,7 +16,7 @@ use git2::Oid;
 use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, Box, Button, EventControllerKey, Label, Orientation, Overflow,
-    PolicyType, ScrolledWindow, TextBuffer, TextIter, Widget, Window as Gtk4Window,
+    PolicyType, ScrollStep, ScrolledWindow, TextBuffer, TextIter, Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
@@ -292,7 +292,7 @@ pub fn show_commit_window(
         .overflow(Overflow::Hidden)
         .orientation(Orientation::Horizontal)
         .build();
-    
+
     map_box.append(&scroll);
 
     let map_scroll = ScrolledWindow::builder()
@@ -304,8 +304,8 @@ pub fn show_commit_window(
         .build();
     map_scroll.set_child(Some(&map));
     map_box.append(&map_scroll);
-    //map_box.append(&map);
-    
+    // map_box.append(&map);
+
     let tb = ToolbarView::builder().content(&map_box).build();
     tb.add_top_bar(&hb);
 
@@ -556,29 +556,32 @@ pub fn show_commit_window(
                     }
                     Event::Debug => {
                         info!("Debug");
-                        debug!(
-                            "map visible lines {:?} {:?}",
-                            map.visible_start_line(),
-                            map.visible_end_line()
-                        );
-                        let buffer = map.buffer();
-                        let iter = buffer.iter_at_offset(0);
-                        let pango_ctx = map.ltr_context();
-                        let metrics = pango_ctx.metrics(None, None);
-                        debug!(
-                            "font_metrics!!!!!!!!! {:?} scaled {:.2} asc and desc {:?} {:?}",
-                            metrics.height(),
-                            metrics.height() as f32 / pango::SCALE as f32,
-                            metrics.ascent(),
-                            metrics.descent()
-                        );
-                        // if let Some(font_metrics) = metrics {
-                        //     debug!("font_metrics!!!!!!!!! {:?}", font_metrics.height());
+                        map.emit_move_viewport(ScrollStep::Steps, 1);
+                        debug!("???????????????");
+
+                        // debug!(
+                        //     "map visible lines {:?} {:?}",
+                        //     map.visible_start_line(),
+                        //     map.visible_end_line()
+                        // );
+                        // let buffer = map.buffer();
+                        // let iter = buffer.iter_at_offset(0);
+                        // let pango_ctx = map.ltr_context();
+                        // let metrics = pango_ctx.metrics(None, None);
+                        // debug!(
+                        //     "font_metrics!!!!!!!!! {:?} scaled {:.2} asc and desc {:?} {:?}",
+                        //     metrics.height(),
+                        //     metrics.height() as f32 / pango::SCALE as f32,
+                        //     metrics.ascent(),
+                        //     metrics.descent()
+                        // );
+                        // // if let Some(font_metrics) = metrics {
+                        // //     debug!("font_metrics!!!!!!!!! {:?}", font_metrics.height());
+                        // // }
+                        // debug!("line yrange {:?}", map.line_yrange(&iter).1);
+                        // if let Some(mut descr) = pango_ctx.font_description() {
+                        //     debug!("oooooooooooooooooooo {:?}", descr.size());
                         // }
-                        debug!("line yrange {:?}", map.line_yrange(&iter).1);
-                        if let Some(mut descr) = pango_ctx.font_description() {
-                            debug!("oooooooooooooooooooo {:?}", descr.size());
-                        }
                     }
 
                     _ => {
