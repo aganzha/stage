@@ -435,7 +435,10 @@ impl StageView {
                 "percent1"
             }
         };
-        self.add_css_class(css_class);
+        debug!("kkkkkkkkkkkkkklass {:?}", css_class);
+        if !css_class.is_empty() {
+            self.add_css_class(css_class);
+        }
     }
 }
 
