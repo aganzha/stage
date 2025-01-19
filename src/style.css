@@ -12,19 +12,56 @@
 }
 
 #status_view_map, #commit_view_map {
-    /* font-size: 20%; */
+ 
 }
 #status_view_map.percent50, #commit_view_map.percent50 {
     font-size: 50%;
 }
+
+#status_view_map.percent25, #commit_view_map.percent25 {
+    font-size: 30%;
+}
 #status_view_map.percent25, #commit_view_map.percent25 {
     font-size: 25%;
+}
+#status_view_map.percent20, #commit_view_map.percent20 {
+    font-size: 20%;
+}
+#status_view_map.percent18, #commit_view_map.percent18 {
+    font-size: 18%;
+}
+#status_view_map.percent16, #commit_view_map.percent16 {
+    font-size: 16%;
+}
+#status_view_map.percent14, #commit_view_map.percent14 {
+    font-size: 14%;
+}
+#status_view_map.percent12, #commit_view_map.percent12 {
+    font-size: 12%;
 }
 #status_view_map.percent10, #commit_view_map.percent10 {
     font-size: 10%;
 }
+#status_view_map.percent9, #commit_view_map.percent9 {
+    font-size: 9%;
+}
+#status_view_map.percent8, #commit_view_map.percent8 {
+    font-size: 8%;
+}
+#status_view_map.percent7, #commit_view_map.percent7 {
+    font-size: 7%;
+}
+#status_view_map.percent6, #commit_view_map.percent6 {
+    font-size: 6%;
+}
 #status_view_map.percent5, #commit_view_map.percent5 {
     font-size: 5%;
+}
+#status_view_map.percent4, #commit_view_map.percent4 {
+    font-size: 4%;
+}
+#status_view_map.percent3, #commit_view_map.percent3 {
+    font-size: 3%;
 }
 #status_view_map.percent2, #commit_view_map.percent2 {
     font-size: 2%;

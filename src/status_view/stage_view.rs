@@ -423,14 +423,40 @@ impl StageView {
                 ""
             } else if ratio < 1.0 && ratio >= 0.5 {
                 "percent50"
-            } else if ratio < 0.50 && ratio >= 0.25 {
+            } else if ratio < 0.50 && ratio >= 0.30 {
+                "percent30"
+            } else if ratio < 0.30 && ratio >= 0.25 {
                 "percent25"
-            } else if ratio < 0.25 && ratio >= 0.10 {
+            } else if ratio < 0.25 && ratio >= 0.20 {
+                "percent20"
+            } else if ratio < 0.20 && ratio >= 0.18 {
+                "percent18"
+            } else if ratio < 0.18 && ratio >= 0.16 {
+                "percent16"
+            } else if ratio < 0.16 && ratio >= 0.14 {
+                "percent14"
+            } else if ratio < 0.14 && ratio >= 0.12 {
+                "percent12"
+            } else if ratio < 0.12 && ratio >= 0.10 {
                 "percent10"
-            } else if ratio < 0.10 && ratio >= 0.05 {
+            } else if ratio < 0.10 && ratio >= 0.9 {
+                "percent9"
+            } else if ratio < 0.9 && ratio >= 0.08 {
+                "percent8"
+            } else if ratio < 0.08 && ratio >= 0.07 {
+                "percent7"
+            } else if ratio < 0.07 && ratio >= 0.06 {
+                "percent6"
+            } else if ratio < 0.06 && ratio >= 0.05 {
                 "percent5"
-            } else if ratio < 0.05 && ratio >= 0.02 {
+            } else if ratio < 0.05 && ratio >= 0.04 {
+                "percent4"
+            } else if ratio < 0.04 && ratio >= 0.03 {
+                "percent3"
+            } else if ratio < 0.03 && ratio >= 0.02 {
                 "percent2"
+            } else if ratio < 0.02 && ratio >= 0.01 {
+                "percent1"
             } else {
                 "percent1"
             }
