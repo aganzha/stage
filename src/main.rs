@@ -313,7 +313,8 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     map_scroll.set_child(Some(&map));
     map_box.append(&map_scroll);
-
+    //map_box.append(&map);
+    
     banner_box.append(&map_box);
 
     let toast_lock: Rc<Cell<bool>> = Rc::new(Cell::new(false));
@@ -378,6 +379,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     if !stage_set {
                         scroll.set_child(Some(&txt));
                         txt.grab_focus();
+                        info!("+++++++++++++++++++++++++++++++++++++");
                         stage_set = true;
                     }
                     hb_updater(HbUpdateData::Path(path.clone()));

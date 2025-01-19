@@ -84,6 +84,8 @@ mod stage_view_internal {
 
         #[property(get, set)]
         pub visible_end_line: Cell<i32>,
+
+        pub possible_line_count: Cell<Option<i32>>,
     }
 
     #[glib::object_subclass]
@@ -95,6 +97,7 @@ mod stage_view_internal {
 
     impl StageView {
         fn snapshot_layer_map(&self, snapshot: Snapshot) {
+            self.obj().adjust_height();
             let rect = self.obj().visible_rect();
             let bg_fill = if self.is_dark.get() {
                 &DARK_BG_FILL
@@ -369,57 +372,67 @@ impl StageView {
         }
     }
 
-    pub fn adjust_height(&self, line_count: usize) {
-        debug!("IIIIIIIIIIIIIIIIIIII adjust");
+    pub fn set_possible_line_count(&self, line_count: usize) {
+        self.imp().possible_line_count.replace(Some(line_count as i32));
+    }
+    
+    pub fn adjust_height(&self) {
+        if self.imp().possible_line_count.get().is_none() {
+            return;
+        }
+        let line_count = self.imp().possible_line_count.get().unwrap();
         let buffer = self.buffer();
         let iter = buffer.iter_at_offset(0);
         let current_height = self.line_yrange(&iter).1 as f32;
+        debug!(
+            "IIIIIIIIIIIIIIIIIIII y_range {:?} MAP IS MAPPED? {:?} vs {:?}",
+            current_height,
+            self.is_mapped(),
+            self.is_realized()
+        );
         let rect = self.visible_rect();
-        let desired_height = (rect.height() as usize / line_count) as f32;
+        let desired_height = (rect.height() / line_count) as f32;
         let mut ratio = desired_height / current_height;
-
         debug!(
-            ">>>>> current_height {:?} desired_height {:?} ratio {:?}",
-            current_height, desired_height, ratio
+            ">>>>> current_height(yrange) {:?} desired_height {:?} ratio {:?} rect {:?}",
+            current_height, desired_height, ratio, rect
         );
+        if ratio < 1.0 {
+            let pango_ctx = self.ltr_context();
+            let metrics = pango_ctx.metrics(None, None);
+            let pango_height = metrics.height();
+            let desired_pango_height = pango_height as f32 * ratio;
 
-        let pango_ctx = self.ltr_context();
-        let metrics = pango_ctx.metrics(None, None);
-        let pango_height = metrics.height();
-        let desired_pango_height = pango_height as f32 * ratio;
-
-        debug!(
-            "~~~~ current_pango_height {:?} desired_pango_height {:?} ratio {:?}",
-            pango_height, desired_pango_height, ratio
-        );
-        if let Some(mut descr) = pango_ctx.font_description() {
-            let size = descr.size();
-            loop {
-                let desired_size = size as f32 * ratio;
-                descr.set_size(desired_size as i32);
-                let metrics = pango_ctx.metrics(Some(&descr), None);
-                debug!(
-                    "loooooooooooooooooooooop. metrics height {:?} desired_pango_height {:?} {:?}. descr size {:?} descr desired_size {:?}",
-                    metrics.height(),
-                    desired_pango_height,
-                    ratio,
-                    size,
-                    desired_size
-                );
-                if metrics.height() as f32 > desired_pango_height {
-                    ratio -= 0.01;
-                    if ratio <= 0.0 {
+            if let Some(mut descr) = pango_ctx.font_description() {
+                let size = descr.size();
+                loop {
+                    let desired_size = size as f32 * ratio;
+                    // set desired font size and get metrics for it.
+                    // if metrics height is less then desired - decrement ratio and repeat.
+                    descr.set_size(desired_size as i32);
+                    let metrics = pango_ctx.metrics(Some(&descr), None);
+                    debug!(
+                        "loooooooooooooooooooooop. metrics height {:?} desired_pango_height {:?} {:?}. descr size {:?} descr desired_size {:?}",
+                        metrics.height(),
+                        desired_pango_height,
+                        ratio,
+                        size,
+                        desired_size
+                    );
+                    if metrics.height() as f32 > desired_pango_height {
+                        ratio -= 0.01;
+                        if ratio <= 0.0 {
+                            break;
+                        }
+                    } else {
                         break;
                     }
-                } else {
-                    break;
                 }
+                debug!("looop is over. here is the ration {:?}", ratio);
             }
-            debug!("looop is over. here is the ration {:?}", ratio);
         }
         let css_class = {
             if ratio >= 1.0 {
-                debug!(">>>>>>>>>>>>>>> hide map!!!!!!!!!!!");
                 ""
             } else if ratio < 1.0 && ratio >= 0.5 {
                 "percent50"
@@ -461,10 +474,14 @@ impl StageView {
                 "percent1"
             }
         };
-        debug!("kkkkkkkkkkkkkklass {:?}", css_class);
-        if !css_class.is_empty() {
+        debug!("css_class finally {:?}", css_class);
+        if css_class.is_empty() {
+            self.set_visible(false);
+        } else {
+            self.set_visible(true);
             self.add_css_class(css_class);
         }
+        self.imp().possible_line_count.replace(None);        
     }
 }
 
@@ -573,6 +590,7 @@ pub fn make_map(
                     new_y_line,
                     stage_rect_lines
                 );
+                new_y_iter.set_line_offset(0);
                 stage.scroll_to_iter(&mut new_y_iter, 0.0, true, 0.0, 0.0);
             }
         }
@@ -602,6 +620,7 @@ pub fn make_map(
                     line_diff,
                     iter.line()
                 );
+                iter.set_line_offset(0);
                 stage.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
             } else {
                 trace!("hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
@@ -630,6 +649,7 @@ pub fn make_map(
                     line_diff,
                     iter.line()
                 );
+                iter.set_line_offset(0);
                 stage.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
             } else {
                 trace!("END hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);

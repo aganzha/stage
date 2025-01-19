@@ -295,16 +295,16 @@ pub fn show_commit_window(
     
     map_box.append(&scroll);
 
-    // let map_scroll = ScrolledWindow::builder()
-    //     .hexpand(false)
-    //     .vexpand(false)
-    //     .hscrollbar_policy(PolicyType::Never)
-    //     .vscrollbar_policy(PolicyType::External)
-    //     .overflow(Overflow::Hidden)
-    //     .build();
-    // map_scroll.set_child(Some(&map));
-    // map_box.append(&map_scroll);
-    map_box.append(&map);
+    let map_scroll = ScrolledWindow::builder()
+        .hexpand(false)
+        .vexpand(false)
+        .hscrollbar_policy(PolicyType::Never)
+        .vscrollbar_policy(PolicyType::External)
+        .overflow(Overflow::Hidden)
+        .build();
+    map_scroll.set_child(Some(&map));
+    map_box.append(&map_scroll);
+    //map_box.append(&map);
     
     let tb = ToolbarView::builder().content(&map_box).build();
     tb.add_top_bar(&hb);
@@ -390,8 +390,7 @@ pub fn show_commit_window(
                         // + 2 spacer lines + 2 lines at bottom + COMMIT MESSAGE
                         // so its better to call all that after render
                         // to know lines amout in multilabel of COMMIT MESSAGE
-                        debug!("line count-------------------------> {:?}", line_count);
-                        map.adjust_height(line_count);
+                        map.set_possible_line_count(line_count);
                         labels[1].content = format!(
                             "Author: <span color=\"{}\">{}</span>",
                             color, commit_diff.author

@@ -616,6 +616,9 @@ impl Status {
         self.untracked = untracked;
         if self.untracked.is_some() || render_required {
             self.render(txt, Some(DiffKind::Untracked), context);
+            if let Some(map) = context.map {
+                map.set_possible_line_count(self.get_line_count());
+            }
         }
     }
 
@@ -766,6 +769,9 @@ impl Status {
         }
         self.conflicted = diff;
         if self.conflicted.is_some() || render_required {
+            if let Some(map) = context.map {
+                map.set_possible_line_count(self.get_line_count());
+            }
             self.render(txt, Some(DiffKind::Conflicted), context);
         }
     }
@@ -789,6 +795,9 @@ impl Status {
         self.staged = diff;
         if self.staged.is_some() || render_required {
             self.render(txt, Some(DiffKind::Staged), context);
+            if let Some(map) = context.map {
+                map.set_possible_line_count(self.get_line_count());
+            }
         }
     }
 
@@ -815,6 +824,19 @@ impl Status {
 
         if self.unstaged.is_some() || render_required {
             self.render(txt, Some(DiffKind::Unstaged), context);
+            let buffer = txt.buffer();
+            let iter = buffer.iter_at_offset(0);
+            let current_height = txt.line_yrange(&iter).1 as f32;
+            debug!(
+                "oooooooooooooooooooooooooooo {:?} buffer current_yrange {:?} TXT IS MAPPED? {:?} vs {:?}",
+                txt.visible_rect(),
+                current_height,
+                txt.is_mapped(),
+                txt.is_realized()
+            );
+            if let Some(map) = context.map {
+                map.set_possible_line_count(self.get_line_count());
+            }
         }
     }
 
@@ -888,6 +910,29 @@ impl Status {
             self.unstaged = Some(diff);
         }
         self.render(txt, Some(DiffKind::Unstaged), context);
+        if let Some(map) = context.map {
+            map.set_possible_line_count(self.get_line_count());
+        }
+    }
+
+    pub fn get_line_count(&self) -> usize {
+        let mut line_count = 5; // head + upstream + state + 2 spacers
+        if let Some(diff) = &self.untracked {
+            line_count += 2 + diff.files.len();
+        }
+        if let Some(diff) = &self.unstaged {
+            line_count += 2 + diff.files.iter().fold(0, |acc, f| {
+                acc + f.hunks.iter().fold(1, |acc, h| acc + 1 + h.lines.len())
+            });
+        }
+        // if let Some(diff) = self.untracked {
+        //     line_count += diff.files.len();
+        // }
+        // if let Some(diff) = self.untracked {
+        //     line_count += diff.files.len();
+        // }
+        debug!("StatusView .............line_count {:?}", line_count);
+        line_count
     }
 
     // TODO! is it still used?
@@ -1040,6 +1085,11 @@ impl Status {
 
     pub fn debug<'a>(&'a mut self, txt: &StageView, context: &mut StatusRenderContext<'a>) {
         debug!("debug!");
+        
+        
+
+        let buffer = txt.buffer();
+        debug!("..............{:?} {:?} {:?}", buffer.line_count(), self.get_line_count(), txt.visible_rect());
         if let Some(map) = context.map {
             debug!(
                 "map visible lines {:?} {:?}",
@@ -1049,6 +1099,16 @@ impl Status {
             let buffer = map.buffer();
             let iter = buffer.iter_at_offset(0);
             debug!("line yrange {:?}", map.line_yrange(&iter).1);
+
+            let pango_ctx = map.ltr_context();
+            let metrics = pango_ctx.metrics(None, None);
+            let pango_height = metrics.height();
+            if let Some(descr) = pango_ctx.font_description() {
+                let size = descr.size();
+                let iter = buffer.iter_at_offset(0);
+                let yrange = map.line_yrange(&iter).1 as f32;
+                debug!("height and size {:?} ________ {:?} map rect {:?} yrange {:?}", pango_height, size, map.visible_rect(), yrange);
+            }
         }
         // if let Some(stage) = context.stage {
         //     debug!(
