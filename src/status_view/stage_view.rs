@@ -13,7 +13,7 @@ use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, glib, pango, EventControllerKey, EventControllerMotion, EventControllerScroll,
     EventSequenceState, GestureClick, GestureDrag, MovementStep, PropagationPhase, ScrollStep,
-    ScrolledWindow, TextBuffer, TextTag, TextView, TextWindowType, Widget,
+    ScrolledWindow, TextBuffer, TextTag, TextView, TextWindowType, Widget, Adjustment
 };
 use libadwaita::StyleManager;
 use log::{debug, trace};
@@ -688,6 +688,22 @@ pub fn make_map(
     scroll.vadjustment().connect_value_changed({
         let map = map.clone();
         move |adj| {
+            debug!("adjjjjjjjjjjj----------------------> {:?} {:?} {:?}", adj.value(), adj.upper(), adj.lower());
+            let map_scroll_ob = map.parent().unwrap();
+            let map_scroll = map_scroll_ob.downcast_ref::<ScrolledWindow>().unwrap();
+            let map_adj = map_scroll.vadjustment();
+            let ratio = adj.value() / adj.upper();
+            let map_adj_value = map_adj.upper() * ratio;
+            let new_map_adj = Adjustment::new(
+                map_adj_value,
+                map_adj.lower(),
+                map_adj.upper(),
+                map_adj.step_increment(),
+                map_adj.page_increment(),
+                map_adj.page_size()
+            );
+            map_scroll.set_vadjustment(Some(&new_map_adj));
+            debug!("...................{:?} {:?} {:?}", map_adj.value(), map_adj.upper(), map_adj.lower());
             map.queue_draw();
         }
     });
