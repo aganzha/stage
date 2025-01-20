@@ -475,8 +475,9 @@ impl StageView {
             } else {
                 "percent1"
             }
-        };
+        };        
         debug!("css_class finally {:?}", css_class);
+        //let css_class = "";
         if css_class.is_empty() {
             self.set_visible(false);
         } else {
@@ -687,23 +688,23 @@ pub fn make_map(
 
     scroll.vadjustment().connect_value_changed({
         let map = map.clone();
-        move |adj| {
-            debug!("adjjjjjjjjjjj----------------------> {:?} {:?} {:?}", adj.value(), adj.upper(), adj.lower());
-            let map_scroll_ob = map.parent().unwrap();
-            let map_scroll = map_scroll_ob.downcast_ref::<ScrolledWindow>().unwrap();
-            let map_adj = map_scroll.vadjustment();
-            let ratio = adj.value() / adj.upper();
-            let map_adj_value = map_adj.upper() * ratio;
-            let new_map_adj = Adjustment::new(
-                map_adj_value,
-                map_adj.lower(),
-                map_adj.upper(),
-                map_adj.step_increment(),
-                map_adj.page_increment(),
-                map_adj.page_size()
-            );
-            map_scroll.set_vadjustment(Some(&new_map_adj));
-            debug!("...................{:?} {:?} {:?}", map_adj.value(), map_adj.upper(), map_adj.lower());
+        move |_adj| {
+            // debug!("adjjjjjjjjjjj----------------------> {:?} {:?} {:?}", adj.value(), adj.upper(), adj.lower());
+            // let map_scroll_ob = map.parent().unwrap();
+            // let map_scroll = map_scroll_ob.downcast_ref::<ScrolledWindow>().unwrap();
+            // let map_adj = map_scroll.vadjustment();
+            // let ratio = adj.value() / adj.upper();
+            // let map_adj_value = map_adj.upper() * ratio;
+            // let new_map_adj = Adjustment::new(
+            //     map_adj_value,
+            //     map_adj.lower(),
+            //     map_adj.upper(),
+            //     map_adj.step_increment(),
+            //     map_adj.page_increment(),
+            //     map_adj.page_size()
+            // );
+            // debug!("...................{:?} {:?} ===={:?} {:?} {:?}", map_adj_value, ratio, new_map_adj.value(), map_adj.upper(), map_adj.lower());
+            // map_scroll.set_vadjustment(Some(&new_map_adj));
             map.queue_draw();
         }
     });

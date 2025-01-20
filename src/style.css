@@ -12,7 +12,7 @@
 }
 
 #status_view_map, #commit_view_map {
-    border: 1px solid red;
+
 }
 #status_view_map.percent50, #commit_view_map.percent50 {
     font-size: 50%;

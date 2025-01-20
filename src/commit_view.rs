@@ -12,7 +12,7 @@ use crate::status_view::{
 use crate::{DiffKind, Event};
 use async_channel::Sender;
 use git2::Oid;
-
+use std::time::Duration;
 use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, Box, Button, EventControllerKey, Label, Orientation, Overflow,
@@ -295,16 +295,16 @@ pub fn show_commit_window(
 
     map_box.append(&scroll);
 
-    let map_scroll = ScrolledWindow::builder()
-        .hexpand(false)
-        .vexpand(false)
-        .hscrollbar_policy(PolicyType::Never)
-        .vscrollbar_policy(PolicyType::External)
-        .overflow(Overflow::Hidden)
-        .build();
-    map_scroll.set_child(Some(&map));
-    map_box.append(&map_scroll);
-    // map_box.append(&map);
+    // let map_scroll = ScrolledWindow::builder()
+    //     .hexpand(false)
+    //     .vexpand(false)
+    //     .hscrollbar_policy(PolicyType::Never)
+    //     .vscrollbar_policy(PolicyType::External)
+    //     .overflow(Overflow::Hidden)
+    //     .build();
+    // map_scroll.set_child(Some(&map));
+    // map_box.append(&map_scroll);
+    map_box.append(&map);
 
     let tb = ToolbarView::builder().content(&map_box).build();
     tb.add_top_bar(&hb);
@@ -386,11 +386,7 @@ pub fn show_commit_window(
                                 line_count += 1 + hunk.lines.len();
                             }
                         }
-                        // TODO! there are 3 lines on top of each commit
-                        // + 2 spacer lines + 2 lines at bottom + COMMIT MESSAGE
-                        // so its better to call all that after render
-                        // to know lines amout in multilabel of COMMIT MESSAGE
-                        map.set_possible_line_count(line_count);
+                        
                         labels[1].content = format!(
                             "Author: <span color=\"{}\">{}</span>",
                             color, commit_diff.author
@@ -411,6 +407,21 @@ pub fn show_commit_window(
                         );
                         // it should be called after cursor in ViewContainer
                         diff.replace(commit_diff);
+
+                        // TODO! there are 3 lines on top of each commit
+                        // + 2 spacer lines + 2 lines at bottom + COMMIT MESSAGE
+                        // so its better to call all that after render
+                        // to know lines amout in multilabel of COMMIT MESSAGE
+                        map.set_possible_line_count(line_count);
+                        map.adjust_height();
+                        // glib::source::timeout_add_local(Duration::from_millis(1), {
+                        //     let map = map.clone();
+                        //     move || {
+                        //         map.set_possible_line_count(line_count);
+                        //         glib::ControlFlow::Break
+                        //     }
+                        // });
+
                     }
                     Event::Expand(_offset, line_no) => {
                         info!("Expand {}", line_no);
