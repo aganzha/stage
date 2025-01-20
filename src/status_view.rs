@@ -616,9 +616,9 @@ impl Status {
         self.untracked = untracked;
         if self.untracked.is_some() || render_required {
             self.render(txt, Some(DiffKind::Untracked), context);
-            if let Some(map) = context.map {
-                map.set_possible_line_count(self.get_line_count());
-            }
+            // if let Some(map) = context.map {
+            //     map.set_possible_line_count(self.get_line_count());
+            // }
         }
     }
 
@@ -769,9 +769,9 @@ impl Status {
         }
         self.conflicted = diff;
         if self.conflicted.is_some() || render_required {
-            if let Some(map) = context.map {
-                map.set_possible_line_count(self.get_line_count());
-            }
+            // if let Some(map) = context.map {
+            //     map.set_possible_line_count(self.get_line_count());
+            // }
             self.render(txt, Some(DiffKind::Conflicted), context);
         }
     }
@@ -795,9 +795,9 @@ impl Status {
         self.staged = diff;
         if self.staged.is_some() || render_required {
             self.render(txt, Some(DiffKind::Staged), context);
-            if let Some(map) = context.map {
-                map.set_possible_line_count(self.get_line_count());
-            }
+            // if let Some(map) = context.map {
+            //     map.set_possible_line_count(self.get_line_count());
+            // }
         }
     }
 
@@ -834,9 +834,9 @@ impl Status {
                 txt.is_mapped(),
                 txt.is_realized()
             );
-            if let Some(map) = context.map {
-                map.set_possible_line_count(self.get_line_count());
-            }
+            // if let Some(map) = context.map {
+            //     map.set_possible_line_count(self.get_line_count());
+            // }
         }
     }
 
@@ -910,9 +910,9 @@ impl Status {
             self.unstaged = Some(diff);
         }
         self.render(txt, Some(DiffKind::Unstaged), context);
-        if let Some(map) = context.map {
-            map.set_possible_line_count(self.get_line_count());
-        }
+        // if let Some(map) = context.map {
+        //     map.set_possible_line_count(self.get_line_count());
+        // }
     }
 
     pub fn get_line_count(&self) -> usize {
@@ -1053,6 +1053,13 @@ impl Status {
         if let Some(staged) = &self.staged {
             staged.render(&buffer, &mut iter, context);
         }
+
+
+        // adjust map
+        if let Some(map) = context.map {
+            map.set_possible_line_count(self.get_line_count());
+        }
+        
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
