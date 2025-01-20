@@ -577,7 +577,7 @@ pub fn make_map(
             let rect = stage.visible_rect();
             let stage_rect_lines = stage.ys_to_lines((rect.y(), rect.y() + rect.height()));
             if new_y_line >= stage_rect_lines.0 && new_y_line <= stage_rect_lines.1 {
-                debug!(
+                trace!(
                     "click WITHIN SLIDER. STORE START POINT {:?} {:?}",
                     new_y, rect
                 );
@@ -587,7 +587,7 @@ pub fn make_map(
                     .replace((new_y, new_y_line - stage_rect_lines.0));
                 // click inside slider. store start point. update will move slider later.
             } else {
-                debug!(
+                trace!(
                     "click OUTSIDE SLIDER. SCROLL to {:?} (visible lines {:?})",
                     new_y_line, stage_rect_lines
                 );
@@ -606,17 +606,17 @@ pub fn make_map(
             // to add - here it just need to move stage top visible edge
             // by DIFF of y.
             if y == 0.0 {
-                debug!("empty update by y....");
+                trace!("empty update by y....");
                 return;
             }
             // let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
             let new_y = y as i32;
-            debug!(
+            trace!(
                 "~~~~~~~~~~~~~~~~~~~~~~ drag update y (event) {:?} and new_y (to buffer) {:?}",
                 y, new_y
             );
             if new_y == 0 {
-                debug!("empty update....");
+                trace!("empty update....");
                 return;
             }
             // let top_edge_stage_y = new_y - stage.imp().drag_diff.get();
@@ -624,7 +624,7 @@ pub fn make_map(
             let (drag_start, line_diff) = stage.imp().drag_diff.get();
             if let Some(mut iter) = map.iter_at_location(0, drag_start + new_y) {
                 iter.forward_lines(0 - line_diff);
-                debug!(
+                trace!(
                     "DRAG UPDATE new_y {:?} line_diff {:?} line >>>>>>>> {:?}",
                     new_y,
                     line_diff,
@@ -635,7 +635,7 @@ pub fn make_map(
                 // also it need to scroll map accordingly!
                 // map.emit_move_viewport(ScrollStep::Steps, 1);
             } else {
-                debug!("hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
+                trace!("hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
             }
         }
     });
@@ -646,21 +646,21 @@ pub fn make_map(
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
             if y == 0.0 {
-                debug!("empty end by y....");
+                trace!("empty end by y....");
                 return;
             }
             // let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
             let new_y = y as i32;
-            debug!("__________________________________ drug end {:?}", new_y);
+            trace!("__________________________________ drug end {:?}", new_y);
             if new_y == 0 {
-                debug!("empty end drag....");
+                trace!("empty end drag....");
                 return;
             }
             let (drag_start, line_diff) = stage.imp().drag_diff.get();
             if let Some(mut iter) = map.iter_at_location(0, drag_start + new_y) {
                 iter.forward_lines(0 - line_diff);
 
-                debug!(
+                trace!(
                     "DRAG END new_y {:?} line_diff {:?} line ~~~~~~~~~~> {:?}",
                     new_y,
                     line_diff,
@@ -671,7 +671,7 @@ pub fn make_map(
                 // also it need to scroll map accordingly!
                 // map.emit_move_viewport(ScrollStep::Steps, 1);
             } else {
-                debug!("END hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
+                trace!("END hmmmmmmmmmmmmmmmmmmmmmm {:?} {:?}", y, new_y);
             }
         }
     });
@@ -688,12 +688,17 @@ pub fn make_map(
 
     scroll.vadjustment().connect_value_changed({
         let map = map.clone();
-        move |_adj| {
-            // debug!("adjjjjjjjjjjj----------------------> {:?} {:?} {:?}", adj.value(), adj.upper(), adj.lower());
+        move |adj| {
+            debug!("adjjjjjjjjjjj----------------------> {:?} {:?} {:?}", adj.value(), adj.upper(), adj.lower());            
             // let map_scroll_ob = map.parent().unwrap();
             // let map_scroll = map_scroll_ob.downcast_ref::<ScrolledWindow>().unwrap();
             // let map_adj = map_scroll.vadjustment();
-            // let ratio = adj.value() / adj.upper();
+            let ratio = adj.value() / adj.upper();
+            let buffer = map.buffer();
+            let line_to = (buffer.line_count() as f64 * ratio) as i32;
+            debug!("scroll maaaaaaaaaaaaaaaaaaaaaap {:?} {:?} {:?}", buffer.line_count(), ratio, line_to);
+            let mut iter = buffer.iter_at_line(line_to).unwrap();
+            map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
             // let map_adj_value = map_adj.upper() * ratio;
             // let new_map_adj = Adjustment::new(
             //     map_adj_value,
