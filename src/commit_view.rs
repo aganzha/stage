@@ -300,6 +300,7 @@ pub fn show_commit_window(
         .vexpand(false)
         .hscrollbar_policy(PolicyType::Never)
         .vscrollbar_policy(PolicyType::External)
+        .kinetic_scrolling(false)
         .overflow(Overflow::Hidden)
         .build();
     map_scroll.set_child(Some(&map));

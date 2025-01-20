@@ -25,7 +25,7 @@ use std::rc::Rc;
 glib::wrapper! {
     pub struct StageView(ObjectSubclass<stage_view_internal::StageView>)
         @extends TextView, Widget,
-        @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
+        @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Scrollable;
 }
 
 const MAP_WIDTH: i32 = 150;
@@ -89,6 +89,7 @@ mod stage_view_internal {
         pub map_visible_start_line: Cell<i32>,
         pub map_visible_end_line: Cell<i32>,
 
+        pub last_scrolled_line: Cell<Option<i32>>,
         pub possible_line_count: Cell<Option<i32>>,
     }
 
@@ -647,7 +648,9 @@ pub fn make_map(
                 return;
             }
             // let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
-            let new_y = y as i32;
+            // SEE HERE!
+            let new_y = (y * 3.0) as i32;
+            // let new_y = y as i32;
             trace!(
                 "~~~~~~~~~~~~~~~~~~~~~~ drag update y (event) {:?} and new_y (to buffer) {:?}",
                 y,
@@ -728,127 +731,47 @@ pub fn make_map(
         let map = map.clone();
         move |adj| {
             // ok, i want to scroll map also!
-            let ratio = adj.value() / adj.upper();
+            // let ratio = adj.value() / adj.upper();
             // ratio is the position from 0 to 1
             // on which map slider is started.
             // so, stage_visible_line_start is edge on each ratio is calculated.
             // at the top i want 0 lines behind slider.
             // at the bottom i want map.visible_line_end() - map.visible_line_start() lines behind slider
-            let visible_lines_required_behind_slider = ((map.imp().map_visible_end_line.get()
-                - map.imp().map_visible_start_line.get())
-                as f64
-                * ratio) as i32;
-            let line_scroll_to =
-                map.stage_visible_start_line() - visible_lines_required_behind_slider;
-            let buffer = map.buffer();
-            let mut iter = buffer.iter_at_line(line_scroll_to).unwrap();
-            debug!(
-                "========= stage visible {:?} {:?} map visible {:} {:} scroll to {:?}",
-                map.stage_visible_start_line(),
-                map.stage_visible_end_line(),
-                map.imp().map_visible_start_line.get(),
-                map.imp().map_visible_end_line.get(),
-                line_scroll_to
-            );
-            map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
-            // primary purpose is to display "visible part" of stage in map.
-            // this "visible part" in map is shadowed "area" which is used for drag
-            // (see handlers above)
-            // the area itself is calculated during stage layer_snapshot and translated
-            // to map via properties stage_visible_start_line and stage_visible_end_line,
-            // so nothing is required here. But what is required: if
-            // map is not tall enough to accomodate all content, it will be wrapped
-            // by scroll window. And during drag, it need to scroll map in such a way, that
-            // "area" is always visible.
-            // -----------------------------------
-            // suppose i have visible area 20 lines.
-            // whole map is 300 lines. 1 page down is 18 lines.
-            // i have to press multiple times page down.
-            // actually 300 / 18 ~ 16 times
-            // during those 16 steps i have to pass 300 lines in stage
-            // and x lines in map. how many in map? those 20 are inside area.
-            // "behind" the map. at the end all 300 will be behind. each step 20 will be behind.
-            // but how many if them should be 'visible' behind?
-            // anyways i need map coords!
+            // well. it works bu the drag is ugly
+            // btw, source view just sets adjustment!
+            // let visible_lines_required_behind_slider = ((map.imp().map_visible_end_line.get()
+            //     - map.imp().map_visible_start_line.get())
+            //     as f64
+            //     * ratio) as i32;
+            // let line_scroll_to =
+            //     map.stage_visible_start_line() - visible_lines_required_behind_slider;
 
-            // let ratio = adj.value() / adj.upper();
-            // let buffer = map.buffer();
-            // let all_lines = buffer.line_count();
-            // const DELTA: i32 = 20;
-            // let mut line_to_scroll = (all_lines as f64 * ratio) as i32;
-            // if line_to_scroll < DELTA {
-            //     line_to_scroll = 0
-            // } else {
-            //     line_to_scroll -= 20
+            // if let Some(last) = map.imp().last_scrolled_line.get() {
+            //     if last ==  line_scroll_to {
+            //         return;
+            //     }
             // }
-            // let mut iter = buffer.iter_at_line(line_to_scroll).unwrap();
-            // trace!(
-            //     "adjjjjjjjjjjj----------------------> value {:?} upper {:?} lower {:?} ratio {:?} visible line start{:?} line to scroll {:?}",
-            //     adj.value(),
-            //     adj.upper(),
-            //     adj.lower(),
-            //     ratio,
-            //     map.stage_visible_start_line(),
-            //     line_to_scroll,
-            // );
+            // map.imp().last_scrolled_line.replace(Some(line_scroll_to));
 
-            // map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
-
-            // what i have:
-            // relative position - ratio - of "area" via adj.value()/adj.upper() in whole map window 0 - start 1 - end
-            // it need to scroll map in such a way, that during single drag user will see all content.
-            // the path for drag is constant: it is visible window part. from stage_visible_start_line to stage_visible_end_line.
-            // so, in general it need to scroll to line proportionally to all lines.
-
-            // so, it need to scroll line to some visible point between start/end which will compensate... what?
-            // 0 --------------------------------- 900 px
-            // <start area end> line 0 value                  l 0 v 0 s 0
-            // 0 --------------------------------- 900 px
-
-            // 0 --------------------------------- 900 px
-            //      <start area end>                          l 100 v 2500 s 764
-            // 0 --------------------------------- 900 px
-
-            // 0 --------------------------------- 900 px
-            //             <start area end>                   l 300 v 8000
-            // 0 --------------------------------- 900 px
-
-            // 0 --------------------------------- 900 px
-            //                    <start area end>            l 700 v 17700
-            // 0 --------------------------------- 900 px
-
-            // ratio is changed from 0 to 1. when 1 - area must be fully down.
-            // when ratio is 0 - fully up
-
-            // ???
-            // So, when user drag "area" in X lines (X*stage_line_height px or X*map_line_height)
-            // actually it need to drag for X / ratio
-
-            // let map_scroll_ob = map.parent().unwrap();
-            // let map_scroll = map_scroll_ob.downcast_ref::<ScrolledWindow>().unwrap();
-            // let map_adj = map_scroll.vadjustment();
-
+            // IT WORKS! except dragging. i want to drag faster.
+            debug!("???????????????????????????????????? {:?}", map.vadjustment());
+            if let Some(m_adj) = map.vadjustment() {
+                debug!("BEFORE SET ???????????????????????????????????? {:?}", m_adj.value());
+                m_adj.set_value(adj.value() / 20.0);
+                debug!("SET ???????????????????????????????????? {:?}", m_adj.value());
+            }
+            
             // let buffer = map.buffer();
-            // let line_to = (buffer.line_count() as f64 * ratio) as i32;
+            // let mut iter = buffer.iter_at_line(line_scroll_to).unwrap();
             // trace!(
-            //     "scroll maaaaaaaaaaaaaaaaaaaaaap {:?} {:?} {:?}",
-            //     buffer.line_count(),
-            //     ratio,
-            //     line_to
+            //     "========= stage visible {:?} {:?} map visible {:} {:} scroll to {:?}",
+            //     map.stage_visible_start_line(),
+            //     map.stage_visible_end_line(),
+            //     map.imp().map_visible_start_line.get(),
+            //     map.imp().map_visible_end_line.get(),
+            //     line_scroll_to
             // );
-            // let mut iter = buffer.iter_at_line(line_to).unwrap();
-            //map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
-            // let map_adj_value = map_adj.upper() * ratio;
-            // let new_map_adj = Adjustment::new(
-            //     map_adj_value,
-            //     map_adj.lower(),
-            //     map_adj.upper(),
-            //     map_adj.step_increment(),
-            //     map_adj.page_increment(),
-            //     map_adj.page_size()
-            // );
-            // debug!("...................{:?} {:?} ===={:?} {:?} {:?}", map_adj_value, ratio, new_map_adj.value(), map_adj.upper(), map_adj.lower());
-            // map_scroll.set_vadjustment(Some(&new_map_adj));
+            // map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
             map.queue_draw();
         }
     });
