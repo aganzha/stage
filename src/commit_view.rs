@@ -12,7 +12,6 @@ use crate::status_view::{
 use crate::{DiffKind, Event};
 use async_channel::Sender;
 use git2::Oid;
-use std::time::Duration;
 use gtk4::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, Box, Button, EventControllerKey, Label, Orientation, Overflow,
@@ -21,6 +20,7 @@ use gtk4::{
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
 use log::{debug, info, trace};
+use std::time::Duration;
 
 use std::path::PathBuf;
 
@@ -386,7 +386,7 @@ pub fn show_commit_window(
                                 line_count += 1 + hunk.lines.len();
                             }
                         }
-                        
+
                         labels[1].content = format!(
                             "Author: <span color=\"{}\">{}</span>",
                             color, commit_diff.author
@@ -421,7 +421,6 @@ pub fn show_commit_window(
                         //         glib::ControlFlow::Break
                         //     }
                         // });
-
                     }
                     Event::Expand(_offset, line_no) => {
                         info!("Expand {}", line_no);
@@ -570,10 +569,7 @@ pub fn show_commit_window(
                         // map.emit_move_viewport(ScrollStep::Steps, 1);
                         debug!("???????????????");
 
-                        debug!(
-                            "map visible rect {:?}",
-                            map.visible_rect(),
-                        );
+                        debug!("map visible rect {:?}", map.visible_rect(),);
                         // let buffer = map.buffer();
                         // let iter = buffer.iter_at_offset(0);
                         // let pango_ctx = map.ltr_context();

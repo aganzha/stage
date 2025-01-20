@@ -11,9 +11,10 @@ use core::time::Duration;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, glib, pango, Adjustment, EventControllerKey, EventControllerMotion, EventControllerScroll,
-    EventSequenceState, GestureClick, GestureDrag, MovementStep, PropagationPhase, ScrollStep,
-    ScrolledWindow, TextBuffer, TextTag, TextView, TextWindowType, Widget, Box
+    gdk, glib, pango, Adjustment, Box, EventControllerKey, EventControllerMotion,
+    EventControllerScroll, EventSequenceState, GestureClick, GestureDrag, MovementStep,
+    PropagationPhase, ScrollStep, ScrolledWindow, TextBuffer, TextTag, TextView, TextWindowType,
+    Widget,
 };
 use libadwaita::StyleManager;
 use log::{debug, trace};
@@ -391,7 +392,7 @@ impl StageView {
         //     current_height,
         //     self.is_mapped(),
         //     self.is_realized()
-        // );        
+        // );
         // let parent = self.parent().unwrap();
         // let scroll = parent.downcast::<ScrolledWindow>().unwrap();
         // let adj = scroll.vadjustment();
@@ -497,11 +498,9 @@ impl StageView {
             }
         };
         debug!("css_class finally {:?}", css_class);
-        //let css_class = "";
         if css_class.is_empty() {
             let mut found = false;
             for klass in self.css_classes() {
-                debug!("kkkkkkklass {:?} {:?}", klass, klass.contains("percent"));
                 if klass.contains("percent") {
                     found = true;
                 }
@@ -721,26 +720,74 @@ pub fn make_map(
     scroll.vadjustment().connect_value_changed({
         let map = map.clone();
         move |adj| {
+            // primary purpose is to display "visible part" of stage in map.
+            // this "visible part" in map is shadowed "area" which is used for drag
+            // (see handlers above)
+            // the area itself is calculated during stage layer_snapshot and translated
+            // to map via properties visible_start_line and visible_end_line,
+            // so nothing is required here. But what is required: if 
+            // map is not tall enough to accomodate all content, it will be wrapped
+            // by scroll window. And during drag, it need to scroll map in such a way, that
+            // "area" is always visible.
+            let ratio = adj.value() / adj.upper();
+            let buffer = map.buffer();
+            let all_lines = buffer.line_count();
+            let line_to_scroll = (all_lines as f64 * ratio) as i32;
+            let mut iter = buffer.iter_at_line(line_to_scroll).unwrap();
             debug!(
-                "adjjjjjjjjjjj----------------------> {:?} {:?} {:?}",
+                "adjjjjjjjjjjj----------------------> value {:?} upper {:?} lower {:?} ratio {:?} visible line start{:?} line to scroll {:?}",
                 adj.value(),
                 adj.upper(),
-                adj.lower()
+                adj.lower(),
+                ratio,
+                map.visible_start_line(),
+                line_to_scroll,
             );
+            map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
+            // what i have:
+            // relative position - ratio - of "area" via adj.value()/adj.upper() in whole map window 0 - start 1 - end
+            // it need to scroll map in such a way, that during single drag user will see all content.
+            // the path for drag is constant: it is visible window part. from visible_start_line to visible_end_line.
+            // so, in general it need to scroll to line proportionally to all lines.
+            
+            // so, it need to scroll line to some visible point between start/end which will compensate... what?
+            // 0 --------------------------------- 900 px
+            // <start area end> line 0 value                  l 0 v 0 s 0
+            // 0 --------------------------------- 900 px 
+
+            // 0 --------------------------------- 900 px
+            //      <start area end>                          l 100 v 2500 s 764
+            // 0 --------------------------------- 900 px 
+
+            // 0 --------------------------------- 900 px
+            //             <start area end>                   l 300 v 8000
+            // 0 --------------------------------- 900 px 
+
+            // 0 --------------------------------- 900 px
+            //                    <start area end>            l 700 v 17700
+            // 0 --------------------------------- 900 px 
+
+            // ratio is changed from 0 to 1. when 1 - area must be fully down.
+            // when ratio is 0 - fully up
+            
+            // ???
+            // So, when user drag "area" in X lines (X*stage_line_height px or X*map_line_height)
+            // actually it need to drag for X / ratio
+            
             // let map_scroll_ob = map.parent().unwrap();
             // let map_scroll = map_scroll_ob.downcast_ref::<ScrolledWindow>().unwrap();
             // let map_adj = map_scroll.vadjustment();
-            let ratio = adj.value() / adj.upper();
-            let buffer = map.buffer();
-            let line_to = (buffer.line_count() as f64 * ratio) as i32;
-            debug!(
-                "scroll maaaaaaaaaaaaaaaaaaaaaap {:?} {:?} {:?}",
-                buffer.line_count(),
-                ratio,
-                line_to
-            );
-            let mut iter = buffer.iter_at_line(line_to).unwrap();
-            map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
+
+            // let buffer = map.buffer();
+            // let line_to = (buffer.line_count() as f64 * ratio) as i32;
+            // trace!(
+            //     "scroll maaaaaaaaaaaaaaaaaaaaaap {:?} {:?} {:?}",
+            //     buffer.line_count(),
+            //     ratio,
+            //     line_to
+            // );
+            // let mut iter = buffer.iter_at_line(line_to).unwrap();
+            //map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
             // let map_adj_value = map_adj.upper() * ratio;
             // let new_map_adj = Adjustment::new(
             //     map_adj_value,

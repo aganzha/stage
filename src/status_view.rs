@@ -1054,12 +1054,11 @@ impl Status {
             staged.render(&buffer, &mut iter, context);
         }
 
-
         // adjust map
         if let Some(map) = context.map {
             map.set_possible_line_count(self.get_line_count());
         }
-        
+
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
