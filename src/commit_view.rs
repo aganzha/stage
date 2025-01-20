@@ -567,14 +567,13 @@ pub fn show_commit_window(
                     }
                     Event::Debug => {
                         info!("Debug");
-                        map.emit_move_viewport(ScrollStep::Steps, 1);
+                        // map.emit_move_viewport(ScrollStep::Steps, 1);
                         debug!("???????????????");
 
-                        // debug!(
-                        //     "map visible lines {:?} {:?}",
-                        //     map.visible_start_line(),
-                        //     map.visible_end_line()
-                        // );
+                        debug!(
+                            "map visible rect {:?}",
+                            map.visible_rect(),
+                        );
                         // let buffer = map.buffer();
                         // let iter = buffer.iter_at_offset(0);
                         // let pango_ctx = map.ltr_context();

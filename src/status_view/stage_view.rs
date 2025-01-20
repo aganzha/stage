@@ -11,9 +11,9 @@ use core::time::Duration;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, glib, pango, EventControllerKey, EventControllerMotion, EventControllerScroll,
+    gdk, glib, pango, Adjustment, EventControllerKey, EventControllerMotion, EventControllerScroll,
     EventSequenceState, GestureClick, GestureDrag, MovementStep, PropagationPhase, ScrollStep,
-    ScrolledWindow, TextBuffer, TextTag, TextView, TextWindowType, Widget, Adjustment
+    ScrolledWindow, TextBuffer, TextTag, TextView, TextWindowType, Widget, Box
 };
 use libadwaita::StyleManager;
 use log::{debug, trace};
@@ -386,18 +386,38 @@ impl StageView {
         let buffer = self.buffer();
         let iter = buffer.iter_at_offset(0);
         let current_height = self.line_yrange(&iter).1 as f32;
-        debug!(
-            "IIIIIIIIIIIIIIIIIIII y_range {:?} MAP IS MAPPED? {:?} vs {:?}",
-            current_height,
-            self.is_mapped(),
-            self.is_realized()
-        );
+        // debug!(
+        //     "IIIIIIIIIIIIIIIIIIII y_range {:?} MAP IS MAPPED? {:?} vs {:?}",
+        //     current_height,
+        //     self.is_mapped(),
+        //     self.is_realized()
+        // );        
+        // let parent = self.parent().unwrap();
+        // let scroll = parent.downcast::<ScrolledWindow>().unwrap();
+        // let adj = scroll.vadjustment();
+        // let parent = scroll.parent().unwrap();
+        // let bx = parent.downcast::<Box>().unwrap();
+        // debug!(
+        //     "\\\\\\\\\\\\\\\\ {:?} {:?} max h {:?} sh {:?} h {:?} b h {:?}",
+        //     adj.upper(),
+        //     adj.lower(),
+        //     scroll.max_content_height(),
+        //     scroll.height(),
+        //     self.height(),
+        //     bx.height()
+        // );
+
         let rect = self.visible_rect();
         let desired_height = (rect.height() / line_count) as f32;
+        if desired_height == 0.0 {
+            // its to early to adjust
+            // self.set_visible(false);
+            return;
+        }
         let mut ratio = desired_height / current_height;
         debug!(
-            ">>>>> current_height(yrange) {:?} desired_height {:?} ratio {:?} rect {:?}",
-            current_height, desired_height, ratio, rect
+            ">>>>> current_height(yrange) {:?} desired_height {:?} ratio {:?} rect {:?} possible lines {:?}",
+            current_height, desired_height, ratio, rect, self.imp().possible_line_count.get()
         );
         if ratio < 1.0 {
             let pango_ctx = self.ltr_context();
@@ -475,11 +495,20 @@ impl StageView {
             } else {
                 "percent1"
             }
-        };        
+        };
         debug!("css_class finally {:?}", css_class);
         //let css_class = "";
         if css_class.is_empty() {
-            self.set_visible(false);
+            let mut found = false;
+            for klass in self.css_classes() {
+                debug!("kkkkkkklass {:?} {:?}", klass, klass.contains("percent"));
+                if klass.contains("percent") {
+                    found = true;
+                }
+            }
+            if !found {
+                self.set_visible(false);
+            }
         } else {
             self.set_visible(true);
             self.add_css_class(css_class);
@@ -579,7 +608,8 @@ pub fn make_map(
             if new_y_line >= stage_rect_lines.0 && new_y_line <= stage_rect_lines.1 {
                 trace!(
                     "click WITHIN SLIDER. STORE START POINT {:?} {:?}",
-                    new_y, rect
+                    new_y,
+                    rect
                 );
                 stage
                     .imp()
@@ -589,7 +619,8 @@ pub fn make_map(
             } else {
                 trace!(
                     "click OUTSIDE SLIDER. SCROLL to {:?} (visible lines {:?})",
-                    new_y_line, stage_rect_lines
+                    new_y_line,
+                    stage_rect_lines
                 );
                 new_y_iter.set_line_offset(0);
                 stage.scroll_to_iter(&mut new_y_iter, 0.0, true, 0.0, 0.0);
@@ -613,7 +644,8 @@ pub fn make_map(
             let new_y = y as i32;
             trace!(
                 "~~~~~~~~~~~~~~~~~~~~~~ drag update y (event) {:?} and new_y (to buffer) {:?}",
-                y, new_y
+                y,
+                new_y
             );
             if new_y == 0 {
                 trace!("empty update....");
@@ -689,14 +721,24 @@ pub fn make_map(
     scroll.vadjustment().connect_value_changed({
         let map = map.clone();
         move |adj| {
-            debug!("adjjjjjjjjjjj----------------------> {:?} {:?} {:?}", adj.value(), adj.upper(), adj.lower());            
+            debug!(
+                "adjjjjjjjjjjj----------------------> {:?} {:?} {:?}",
+                adj.value(),
+                adj.upper(),
+                adj.lower()
+            );
             // let map_scroll_ob = map.parent().unwrap();
             // let map_scroll = map_scroll_ob.downcast_ref::<ScrolledWindow>().unwrap();
             // let map_adj = map_scroll.vadjustment();
             let ratio = adj.value() / adj.upper();
             let buffer = map.buffer();
             let line_to = (buffer.line_count() as f64 * ratio) as i32;
-            debug!("scroll maaaaaaaaaaaaaaaaaaaaaap {:?} {:?} {:?}", buffer.line_count(), ratio, line_to);
+            debug!(
+                "scroll maaaaaaaaaaaaaaaaaaaaaap {:?} {:?} {:?}",
+                buffer.line_count(),
+                ratio,
+                line_to
+            );
             let mut iter = buffer.iter_at_line(line_to).unwrap();
             map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
             // let map_adj_value = map_adj.upper() * ratio;
