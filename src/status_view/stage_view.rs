@@ -81,10 +81,13 @@ mod stage_view_internal {
         pub is_dark_set: Cell<bool>,
 
         #[property(get, set)]
-        pub visible_start_line: Cell<i32>,
+        pub stage_visible_start_line: Cell<i32>,
 
         #[property(get, set)]
-        pub visible_end_line: Cell<i32>,
+        pub stage_visible_end_line: Cell<i32>,
+
+        pub map_visible_start_line: Cell<i32>,
+        pub map_visible_end_line: Cell<i32>,
 
         pub possible_line_count: Cell<Option<i32>>,
     }
@@ -100,6 +103,10 @@ mod stage_view_internal {
         fn snapshot_layer_map(&self, snapshot: Snapshot) {
             self.obj().adjust_height();
             let rect = self.obj().visible_rect();
+            let (line_from, line_to) = self.obj().ys_to_lines((rect.y(), rect.y() + rect.height()));
+            self.map_visible_start_line.replace(line_from);
+            self.map_visible_end_line.replace(line_to);
+
             let bg_fill = if self.is_dark.get() {
                 &DARK_BG_FILL
             } else {
@@ -124,8 +131,8 @@ mod stage_view_internal {
             let buffer = self.obj().buffer();
             let mut iter = buffer.iter_at_offset(0);
 
-            let line_no_start = self.obj().visible_start_line();
-            let line_no_end = self.obj().visible_end_line();
+            let line_no_start = self.obj().stage_visible_start_line();
+            let line_no_end = self.obj().stage_visible_end_line();
             if let Some(mut iter) = self.obj().buffer().iter_at_line(line_no_start) {
                 let y_from = self.obj().line_yrange(&iter).0;
                 iter.set_line(line_no_end);
@@ -172,7 +179,7 @@ mod stage_view_internal {
                 trace!(
                     "snapshot_layer am i map? {:?} my visible end {:?}",
                     self.is_map.get(),
-                    self.visible_end_line.get()
+                    self.stage_visible_end_line.get()
                 );
                 if self.is_map.get() {
                     self.snapshot_layer_map(snapshot);
@@ -182,13 +189,13 @@ mod stage_view_internal {
                 let (line_from, line_to) =
                     self.obj().ys_to_lines((rect.y(), rect.y() + rect.height()));
 
-                self.obj().set_visible_start_line(line_from);
-                self.obj().set_visible_end_line(line_to);
+                self.obj().set_stage_visible_start_line(line_from);
+                self.obj().set_stage_visible_end_line(line_to);
 
                 trace!(
                     "highlight stage ................. {:?} {:?} prtops vs values {:?} {:?}",
-                    self.obj().visible_start_line(),
-                    self.obj().visible_end_line(),
+                    self.obj().stage_visible_start_line(),
+                    self.obj().stage_visible_end_line(),
                     line_from,
                     line_to
                 );
@@ -720,60 +727,103 @@ pub fn make_map(
     scroll.vadjustment().connect_value_changed({
         let map = map.clone();
         move |adj| {
+            // ok, i want to scroll map also!
+            let ratio = adj.value() / adj.upper();
+            // ratio is the position from 0 to 1
+            // on which map slider is started.
+            // so, stage_visible_line_start is edge on each ratio is calculated.
+            // at the top i want 0 lines behind slider.
+            // at the bottom i want map.visible_line_end() - map.visible_line_start() lines behind slider
+            let visible_lines_required_behind_slider = ((map.imp().map_visible_end_line.get()
+                - map.imp().map_visible_start_line.get())
+                as f64
+                * ratio) as i32;
+            let line_scroll_to =
+                map.stage_visible_start_line() - visible_lines_required_behind_slider;
+            let buffer = map.buffer();
+            let mut iter = buffer.iter_at_line(line_scroll_to).unwrap();
+            debug!(
+                "========= stage visible {:?} {:?} map visible {:} {:} scroll to {:?}",
+                map.stage_visible_start_line(),
+                map.stage_visible_end_line(),
+                map.imp().map_visible_start_line.get(),
+                map.imp().map_visible_end_line.get(),
+                line_scroll_to
+            );
+            map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
             // primary purpose is to display "visible part" of stage in map.
             // this "visible part" in map is shadowed "area" which is used for drag
             // (see handlers above)
             // the area itself is calculated during stage layer_snapshot and translated
-            // to map via properties visible_start_line and visible_end_line,
-            // so nothing is required here. But what is required: if 
+            // to map via properties stage_visible_start_line and stage_visible_end_line,
+            // so nothing is required here. But what is required: if
             // map is not tall enough to accomodate all content, it will be wrapped
             // by scroll window. And during drag, it need to scroll map in such a way, that
             // "area" is always visible.
-            let ratio = adj.value() / adj.upper();
-            let buffer = map.buffer();
-            let all_lines = buffer.line_count();
-            let line_to_scroll = (all_lines as f64 * ratio) as i32;
-            let mut iter = buffer.iter_at_line(line_to_scroll).unwrap();
-            debug!(
-                "adjjjjjjjjjjj----------------------> value {:?} upper {:?} lower {:?} ratio {:?} visible line start{:?} line to scroll {:?}",
-                adj.value(),
-                adj.upper(),
-                adj.lower(),
-                ratio,
-                map.visible_start_line(),
-                line_to_scroll,
-            );
-            map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
+            // -----------------------------------
+            // suppose i have visible area 20 lines.
+            // whole map is 300 lines. 1 page down is 18 lines.
+            // i have to press multiple times page down.
+            // actually 300 / 18 ~ 16 times
+            // during those 16 steps i have to pass 300 lines in stage
+            // and x lines in map. how many in map? those 20 are inside area.
+            // "behind" the map. at the end all 300 will be behind. each step 20 will be behind.
+            // but how many if them should be 'visible' behind?
+            // anyways i need map coords!
+
+            // let ratio = adj.value() / adj.upper();
+            // let buffer = map.buffer();
+            // let all_lines = buffer.line_count();
+            // const DELTA: i32 = 20;
+            // let mut line_to_scroll = (all_lines as f64 * ratio) as i32;
+            // if line_to_scroll < DELTA {
+            //     line_to_scroll = 0
+            // } else {
+            //     line_to_scroll -= 20
+            // }
+            // let mut iter = buffer.iter_at_line(line_to_scroll).unwrap();
+            // trace!(
+            //     "adjjjjjjjjjjj----------------------> value {:?} upper {:?} lower {:?} ratio {:?} visible line start{:?} line to scroll {:?}",
+            //     adj.value(),
+            //     adj.upper(),
+            //     adj.lower(),
+            //     ratio,
+            //     map.stage_visible_start_line(),
+            //     line_to_scroll,
+            // );
+
+            // map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
+
             // what i have:
             // relative position - ratio - of "area" via adj.value()/adj.upper() in whole map window 0 - start 1 - end
             // it need to scroll map in such a way, that during single drag user will see all content.
-            // the path for drag is constant: it is visible window part. from visible_start_line to visible_end_line.
+            // the path for drag is constant: it is visible window part. from stage_visible_start_line to stage_visible_end_line.
             // so, in general it need to scroll to line proportionally to all lines.
-            
+
             // so, it need to scroll line to some visible point between start/end which will compensate... what?
             // 0 --------------------------------- 900 px
             // <start area end> line 0 value                  l 0 v 0 s 0
-            // 0 --------------------------------- 900 px 
+            // 0 --------------------------------- 900 px
 
             // 0 --------------------------------- 900 px
             //      <start area end>                          l 100 v 2500 s 764
-            // 0 --------------------------------- 900 px 
+            // 0 --------------------------------- 900 px
 
             // 0 --------------------------------- 900 px
             //             <start area end>                   l 300 v 8000
-            // 0 --------------------------------- 900 px 
+            // 0 --------------------------------- 900 px
 
             // 0 --------------------------------- 900 px
             //                    <start area end>            l 700 v 17700
-            // 0 --------------------------------- 900 px 
+            // 0 --------------------------------- 900 px
 
             // ratio is changed from 0 to 1. when 1 - area must be fully down.
             // when ratio is 0 - fully up
-            
+
             // ???
             // So, when user drag "area" in X lines (X*stage_line_height px or X*map_line_height)
             // actually it need to drag for X / ratio
-            
+
             // let map_scroll_ob = map.parent().unwrap();
             // let map_scroll = map_scroll_ob.downcast_ref::<ScrolledWindow>().unwrap();
             // let map_adj = map_scroll.vadjustment();
@@ -803,10 +853,10 @@ pub fn make_map(
         }
     });
     let _ = stage
-        .bind_property("visible-start-line", &map, "visible-start-line")
+        .bind_property("stage-visible-start-line", &map, "stage-visible-start-line")
         .build();
     let _ = stage
-        .bind_property("visible-end-line", &map, "visible-end-line")
+        .bind_property("stage-visible-end-line", &map, "stage-visible-end-line")
         .build();
     map
 }

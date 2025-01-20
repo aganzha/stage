@@ -934,7 +934,7 @@ impl ViewContainer for Line {
                     .into()
             };
             let iter_line = iter.line();
-            if iter_line >= stage.visible_start_line() && iter_line <= stage.visible_end_line() {
+            if iter_line >= stage.stage_visible_start_line() && iter_line <= stage.stage_visible_end_line() {
                 // debug!(
                 //     "DIRECT.............adding child {:?} BETWEEN {:?} {:?}",
                 //     iter_line,
