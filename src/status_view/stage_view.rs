@@ -89,7 +89,6 @@ mod stage_view_internal {
         pub map_visible_start_line: Cell<i32>,
         pub map_visible_end_line: Cell<i32>,
 
-        pub last_scrolled_line: Cell<Option<i32>>,
         pub possible_line_count: Cell<Option<i32>>,
 
         pub pre_last_adj_value: Cell<f64>,
@@ -616,10 +615,9 @@ pub fn make_map(
             let rect = stage.visible_rect();
             let stage_rect_lines = stage.ys_to_lines((rect.y(), rect.y() + rect.height()));
             if new_y_line >= stage_rect_lines.0 && new_y_line <= stage_rect_lines.1 {
-                trace!(
+                debug!(
                     "click WITHIN SLIDER. STORE START POINT {:?} {:?}",
-                    new_y,
-                    rect
+                    new_y, rect
                 );
                 stage
                     .imp()
@@ -650,9 +648,9 @@ pub fn make_map(
                 trace!("empty update by y....");
                 return;
             }
-            // let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
+            let (_, new_y) = map.window_to_buffer_coords(TextWindowType::Text, 0, y as i32);
             // SEE HERE!
-            let new_y = (y * 3.0) as i32;
+            // let new_y = (y * 3.0) as i32;
             // let new_y = y as i32;
             trace!(
                 "~~~~~~~~~~~~~~~~~~~~~~ drag update y (event) {:?} and new_y (to buffer) {:?}",
@@ -689,6 +687,7 @@ pub fn make_map(
         //let scroll_lock = scroll_lock.clone();
         move |drag, _x: f64, y: f64| {
             drag.set_state(EventSequenceState::Claimed);
+            return;
             if y == 0.0 {
                 trace!("empty end by y....");
                 return;
@@ -734,15 +733,8 @@ pub fn make_map(
         let map = map.clone();
         let stage = stage.clone();
         move |adj| {
-            // debug!(
-            //     ".................... v {:?} l {:?} u {:?} si {:?} pi {:} ps {:?}",
-            //     adj.value(),
-            //     adj.lower(),
-            //     adj.upper(),
-            //     adj.step_increment(),
-            //     adj.page_increment(),
-            //     adj.page_size()
-            // );
+            // map.queue_draw();
+            // return;
             let map_adj = map.vadjustment().unwrap();
             let stage_last = stage.imp().last_adj_value.get();
             let stage_pre_last = stage.imp().pre_last_adj_value.get();
@@ -793,13 +785,7 @@ pub fn make_map(
             // so, stage_visible_line_start is edge on each ratio is calculated.
             // at the top i want 0 lines behind slider.
             // at the bottom i want map.visible_line_end() - map.visible_line_start() lines behind slider
-            // well. it works bu the drag is ugly
-            // btw, source view just sets adjustment!
-            // debug!(
-            //     "11111111111111111 last values {:?} vs {:?}",
-            //     stage.imp().last_adj_value.get(),
-            //     map.imp().last_adj_value.get()
-            // );
+            // well
             let visible_lines_required_behind_slider = ((map.imp().map_visible_end_line.get()
                 - map.imp().map_visible_start_line.get())
                 as f64
@@ -827,7 +813,9 @@ pub fn make_map(
                     map.imp().last_adj_value.replace(new_map_adj_value);
                     trace!(
                         "33333333333333333333333 no way map {:?} {:?} {:?}",
-                        map_pre_last, map_last, new_map_adj_value
+                        map_pre_last,
+                        map_last,
+                        new_map_adj_value
                     );
                     return;
                 }
@@ -842,18 +830,14 @@ pub fn make_map(
                     map.imp().last_adj_value.replace(new_map_adj_value);
                     trace!(
                         "44444444444444444444 no way map {:?} {:?} {:?}",
-                        map_pre_last, map_last, new_map_adj_value
+                        map_pre_last,
+                        map_last,
+                        new_map_adj_value
                     );
                     return;
                 }
             }
 
-            // debug!(
-            //     "~~~~~~~~~~~~~~~~~~~~~~~~ line {:?} current {:?} will set {:?}",
-            //     line_scroll_to,
-            //     map_adj.value(),
-            //     new_map_adj_value
-            // );
             map_adj.set_value(new_map_adj_value);
 
             map.imp()
@@ -866,25 +850,7 @@ pub fn make_map(
 
             map.imp().last_adj_value.replace(new_map_adj_value);
             stage.imp().last_adj_value.replace(adj.value());
-            // IT WORKS! except dragging. i want to drag faster.
-            // debug!("???????????????????????????????????? {:?}", map.vadjustment());
-            // if let Some(m_adj) = map.vadjustment() {
-            //     debug!("BEFORE SET ???????????????????????????????????? {:?}", m_adj.value());
-            //     m_adj.set_value(adj.value() / 10.0);
-            //     debug!("SET ???????????????????????????????????? {:?}", m_adj.value());
-            // }
 
-            // let buffer = map.buffer();
-            // let mut iter = buffer.iter_at_line(line_scroll_to).unwrap();
-            // trace!(
-            //     "========= stage visible {:?} {:?} map visible {:} {:} scroll to {:?}",
-            //     map.stage_visible_start_line(),
-            //     map.stage_visible_end_line(),
-            //     map.imp().map_visible_start_line.get(),
-            //     map.imp().map_visible_end_line.get(),
-            //     line_scroll_to
-            // );
-            // map.scroll_to_iter(&mut iter, 0.0, true, 0.0, 0.0);
             map.queue_draw();
         }
     });
