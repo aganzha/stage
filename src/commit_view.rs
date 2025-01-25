@@ -337,7 +337,7 @@ pub fn show_commit_window(
         let window = window.clone();
         async move {
             while let Ok(event) = receiver.recv().await {
-                let mut ctx = crate::StatusRenderContext::new();
+                let mut ctx = crate::StatusRenderContext::new(&txt);
                 match event {
                     Event::CommitDiff(mut commit_diff) => {
                         info!("CommitDiff");

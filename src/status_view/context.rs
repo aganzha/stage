@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::status_view::StageView;
 use crate::{Diff, File, Hunk, Line};
 
 #[derive(Debug, Clone)]
@@ -26,6 +27,8 @@ impl CursorPosition<'_> {
 
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
+    pub stage: &'a StageView,
+
     pub erase_counter: i32,
 
     /// same for hunks and line ranges
@@ -49,16 +52,17 @@ pub struct StatusRenderContext<'a> {
     pub current_line: Option<&'a Line>,
 }
 
-impl Default for StatusRenderContext<'_> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// impl Default for StatusRenderContext<'_> {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
 
-impl StatusRenderContext<'_> {
-    pub fn new() -> Self {
+impl<'a> StatusRenderContext<'a> {
+    pub fn new(stage: &'a StageView) -> Self {
         {
             Self {
+                stage,
                 erase_counter: 0,
 
                 highlight_lines: None,

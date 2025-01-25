@@ -15,7 +15,7 @@ use gtk4::{
     GestureDrag, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::{debug, trace};
+use log::trace;
 
 use std::cell::RefCell;
 use std::rc::Rc;

@@ -18,7 +18,6 @@ use crate::git::{
     track_changes, HunkLineNo,
 };
 
-use core::time::Duration;
 use git2::RepositoryState;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_op::{LastOp, StageDiffs};
@@ -892,19 +891,19 @@ impl Status {
 
     // TODO! is it still used?
     pub fn resize_highlights<'a>(&'a mut self, txt: &StageView, ctx: &mut StatusRenderContext<'a>) {
-        let buffer = txt.buffer();
-        let iter = buffer.iter_at_offset(buffer.cursor_position());
-        self.cursor(txt, iter.line(), iter.offset(), ctx);
-        glib::source::timeout_add_local(Duration::from_millis(10), {
-            let txt = txt.clone();
-            let mut context = StatusRenderContext::new();
-            context.highlight_lines = ctx.highlight_lines;
-            context.highlight_hunks.clone_from(&ctx.highlight_hunks);
-            move || {
-                txt.bind_highlights(&context);
-                glib::ControlFlow::Break
-            }
-        });
+        // let buffer = txt.buffer();
+        // let iter = buffer.iter_at_offset(buffer.cursor_position());
+        // self.cursor(txt, iter.line(), iter.offset(), ctx);
+        // glib::source::timeout_add_local(Duration::from_millis(10), {
+        //     let txt = txt.clone();
+        //     let mut context = StatusRenderContext::new();
+        //     context.highlight_lines = ctx.highlight_lines;
+        //     context.highlight_hunks.clone_from(&ctx.highlight_hunks);
+        //     move || {
+        //         txt.bind_highlights(&context);
+        //         glib::ControlFlow::Break
+        //     }
+        // });
     }
 
     /// cursor does not change structure, but changes highlights
