@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+
 #[cfg(test)]
 use crate::status_view::stage_op::{LastOp, StageDiffs};
 #[cfg(test)]
@@ -101,8 +102,10 @@ fn create_diff() -> Diff {
 #[gtk4::test]
 pub fn test_file_active() {
     let buffer = initialize();
+    let stage = StageView::new();
+    stage.set_buffer(Some(&buffer));
     let diff = create_diff();
-    let mut context = StatusRenderContext::new();
+    let mut context = StatusRenderContext::new(&stage);
     let mut iter = buffer.iter_at_offset(0);
     diff.render(&buffer, &mut iter, &mut context);
 
@@ -161,7 +164,9 @@ pub fn test_file_active() {
 pub fn test_expand() {
     let buffer = initialize();
     let diff = create_diff();
-    let mut ctx = StatusRenderContext::new();
+    let stage = StageView::new();
+    stage.set_buffer(Some(&buffer));
+    let mut ctx = StatusRenderContext::new(&stage);
     let mut iter = buffer.iter_at_line(0).unwrap();
     diff.render(&buffer, &mut iter, &mut ctx);
 
@@ -345,7 +350,9 @@ fn test_render_view() {
     let vc2 = TestViewContainer::new(view2, "test2");
     let vc3 = TestViewContainer::new(view3, "test3");
 
-    let mut ctx = StatusRenderContext::new();
+    let stage = StageView::new();
+    stage.set_buffer(Some(&buffer));
+    let mut ctx = StatusRenderContext::new(&stage);
 
     vc1.render(&buffer, &mut iter, &mut ctx);
     vc2.render(&buffer, &mut iter, &mut ctx);
@@ -426,7 +433,11 @@ fn test_expand_line() {
     buffer.insert(&mut iter, "begin\n");
 
     let diff = create_diff();
-    let mut ctx = StatusRenderContext::new();
+
+    let stage = StageView::new();
+    stage.set_buffer(Some(&buffer));
+
+    let mut ctx = StatusRenderContext::new(&stage);
     diff.render(&buffer, &mut iter, &mut ctx);
     let first_file_line = diff.files[0].view.line_no.get();
     diff.cursor(&buffer, 1, false, &mut ctx);
@@ -490,7 +501,10 @@ fn test_expand_line() {
 fn test_reconciliation_new() {
     let buffer = initialize();
 
-    let mut context = StatusRenderContext::new();
+    let stage = StageView::new();
+    stage.set_buffer(Some(&buffer));
+
+    let mut context = StatusRenderContext::new(&stage);
 
     let mut iter = buffer.iter_at_line(0).unwrap();
 
@@ -804,7 +818,11 @@ pub fn test_flags() {
 pub fn test_cursor_position() {
     let buffer = initialize();
     let diff = create_diff();
-    let mut ctx = StatusRenderContext::new();
+
+    let stage = StageView::new();
+    stage.set_buffer(Some(&buffer));
+
+    let mut ctx = StatusRenderContext::new(&stage);
     let mut iter = buffer.iter_at_offset(0);
     diff.render(&buffer, &mut iter, &mut ctx);
 
@@ -852,7 +870,10 @@ pub fn test_choose_cursor_position() {
     let unstaged = create_diff();
     let diff = create_diff();
 
-    let mut ctx = StatusRenderContext::new();
+    let stage = StageView::new();
+    stage.set_buffer(Some(&buffer));
+
+    let mut ctx = StatusRenderContext::new(&stage);
     let mut iter = buffer.iter_at_offset(0);
     diff.render(&buffer, &mut iter, &mut ctx);
     diff.expand(diff.files[0].view.line_no.get(), &mut ctx);

@@ -324,7 +324,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     glib::spawn_future_local(async move {
         while let Ok(event) = receiver.recv().await {
-            let mut ctx = StatusRenderContext::new();
+            let mut ctx = StatusRenderContext::new(&txt);
 
             match event {
                 Event::OpenRepo(path) => {
