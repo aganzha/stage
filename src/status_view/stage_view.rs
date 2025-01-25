@@ -91,6 +91,9 @@ mod stage_view_internal {
 
         pub last_scrolled_line: Cell<Option<i32>>,
         pub possible_line_count: Cell<Option<i32>>,
+
+        pub pre_last_adj_value: Cell<f64>,
+        pub last_adj_value: Cell<f64>,
     }
 
     #[glib::object_subclass]
@@ -729,9 +732,62 @@ pub fn make_map(
 
     scroll.vadjustment().connect_value_changed({
         let map = map.clone();
+        let stage = stage.clone();
         move |adj| {
-            // ok, i want to scroll map also!
-            // let ratio = adj.value() / adj.upper();
+            // debug!(
+            //     ".................... v {:?} l {:?} u {:?} si {:?} pi {:} ps {:?}",
+            //     adj.value(),
+            //     adj.lower(),
+            //     adj.upper(),
+            //     adj.step_increment(),
+            //     adj.page_increment(),
+            //     adj.page_size()
+            // );
+            let map_adj = map.vadjustment().unwrap();
+            let stage_last = stage.imp().last_adj_value.get();
+            let stage_pre_last = stage.imp().pre_last_adj_value.get();
+            let this_diff = adj.value() - stage_last;
+            if this_diff < 1.0 && this_diff > -1.0 {
+                return;
+            }
+            if stage_last > stage_pre_last {
+                // scroll down
+                if adj.value() <= stage_last {
+                    // ops. wrong direction
+                    stage
+                        .imp()
+                        .pre_last_adj_value
+                        .replace(stage.imp().last_adj_value.get());
+                    stage.imp().last_adj_value.replace(adj.value());
+                    debug!(
+                        "no way stage 111111111111111111  {:?} {:?} {:?}",
+                        stage_pre_last,
+                        stage_last,
+                        adj.value()
+                    );
+                    return;
+                }
+            }
+            if stage_last < stage_pre_last {
+                // scroll down
+                if adj.value() >= stage_last {
+                    // ops. wrong direction
+                    debug!(
+                        "no way stage 222222222222222222222 {:?} {:?} {:?}",
+                        stage_pre_last,
+                        stage_last,
+                        adj.value()
+                    );
+                    stage
+                        .imp()
+                        .pre_last_adj_value
+                        .replace(stage.imp().last_adj_value.get());
+                    stage.imp().last_adj_value.replace(adj.value());
+                    return;
+                }
+            }
+
+            let ratio = adj.value() / adj.upper();
             // ratio is the position from 0 to 1
             // on which map slider is started.
             // so, stage_visible_line_start is edge on each ratio is calculated.
@@ -739,28 +795,85 @@ pub fn make_map(
             // at the bottom i want map.visible_line_end() - map.visible_line_start() lines behind slider
             // well. it works bu the drag is ugly
             // btw, source view just sets adjustment!
-            // let visible_lines_required_behind_slider = ((map.imp().map_visible_end_line.get()
-            //     - map.imp().map_visible_start_line.get())
-            //     as f64
-            //     * ratio) as i32;
-            // let line_scroll_to =
-            //     map.stage_visible_start_line() - visible_lines_required_behind_slider;
+            // debug!(
+            //     "11111111111111111 last values {:?} vs {:?}",
+            //     stage.imp().last_adj_value.get(),
+            //     map.imp().last_adj_value.get()
+            // );
+            let visible_lines_required_behind_slider = ((map.imp().map_visible_end_line.get()
+                - map.imp().map_visible_start_line.get())
+                as f64
+                * ratio) as i32;
+            let line_scroll_to =
+                map.stage_visible_start_line() - visible_lines_required_behind_slider;
 
-            // if let Some(last) = map.imp().last_scrolled_line.get() {
-            //     if last ==  line_scroll_to {
-            //         return;
-            //     }
-            // }
-            // map.imp().last_scrolled_line.replace(Some(line_scroll_to));
+            let new_map_adj_value =
+                line_scroll_to as f64 / map.buffer().line_count() as f64 * map_adj.upper();
 
-            // IT WORKS! except dragging. i want to drag faster.
-            debug!("???????????????????????????????????? {:?}", map.vadjustment());
-            if let Some(m_adj) = map.vadjustment() {
-                debug!("BEFORE SET ???????????????????????????????????? {:?}", m_adj.value());
-                m_adj.set_value(adj.value() / 20.0);
-                debug!("SET ???????????????????????????????????? {:?}", m_adj.value());
+            let map_last = map.imp().last_adj_value.get();
+            let map_pre_last = map.imp().pre_last_adj_value.get();
+            let this_diff = new_map_adj_value - map_last;
+            if this_diff < 1.0 && this_diff > -1.0 {
+                return;
             }
-            
+
+            if map_last > map_pre_last {
+                // scroll down
+                if new_map_adj_value <= map_last {
+                    // ops. wrong direction
+                    map.imp()
+                        .pre_last_adj_value
+                        .replace(map.imp().last_adj_value.get());
+                    map.imp().last_adj_value.replace(new_map_adj_value);
+                    trace!(
+                        "33333333333333333333333 no way map {:?} {:?} {:?}",
+                        map_pre_last, map_last, new_map_adj_value
+                    );
+                    return;
+                }
+            }
+            if map_last < map_pre_last {
+                // scroll down
+                if new_map_adj_value >= map_last {
+                    // ops. wrong direction
+                    map.imp()
+                        .pre_last_adj_value
+                        .replace(map.imp().last_adj_value.get());
+                    map.imp().last_adj_value.replace(new_map_adj_value);
+                    trace!(
+                        "44444444444444444444 no way map {:?} {:?} {:?}",
+                        map_pre_last, map_last, new_map_adj_value
+                    );
+                    return;
+                }
+            }
+
+            // debug!(
+            //     "~~~~~~~~~~~~~~~~~~~~~~~~ line {:?} current {:?} will set {:?}",
+            //     line_scroll_to,
+            //     map_adj.value(),
+            //     new_map_adj_value
+            // );
+            map_adj.set_value(new_map_adj_value);
+
+            map.imp()
+                .pre_last_adj_value
+                .replace(map.imp().last_adj_value.get());
+            stage
+                .imp()
+                .pre_last_adj_value
+                .replace(stage.imp().last_adj_value.get());
+
+            map.imp().last_adj_value.replace(new_map_adj_value);
+            stage.imp().last_adj_value.replace(adj.value());
+            // IT WORKS! except dragging. i want to drag faster.
+            // debug!("???????????????????????????????????? {:?}", map.vadjustment());
+            // if let Some(m_adj) = map.vadjustment() {
+            //     debug!("BEFORE SET ???????????????????????????????????? {:?}", m_adj.value());
+            //     m_adj.set_value(adj.value() / 10.0);
+            //     debug!("SET ???????????????????????????????????? {:?}", m_adj.value());
+            // }
+
             // let buffer = map.buffer();
             // let mut iter = buffer.iter_at_line(line_scroll_to).unwrap();
             // trace!(
