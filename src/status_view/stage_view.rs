@@ -15,10 +15,11 @@ use gtk4::{
     GestureDrag, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::trace;
+use log::{trace, debug};
 
-use std::cell::RefCell;
+use std::cell::{RefCell, Cell};
 use std::rc::Rc;
+
 
 glib::wrapper! {
     pub struct StageView(ObjectSubclass<stage_view_internal::StageView>)
@@ -68,6 +69,8 @@ mod stage_view_internal {
         pub is_dark_set: Cell<bool>,
         // #[property(get, set)]
         // pub current_line: RefCell<i32>,
+
+        pub anchor_filler: RefCell<Option<super::AnchorFiller>>,
     }
 
     #[glib::object_subclass]
@@ -183,8 +186,8 @@ mod stage_view_internal {
                     ),
                 );
             }
-        }        
-    }    
+        }
+    }
     impl ObjectImpl for StageView {}
     impl WidgetImpl for StageView {}
 
@@ -250,8 +253,68 @@ impl StageView {
         };
         width / (x_after - x_before)
     }
+
+    pub fn adopt_child(&self, lbl: &gtk4::Label, anchor: &gtk4::TextChildAnchor) {
+        glib::spawn_future_local({
+            let stage = self.clone();
+            let lbl = lbl.clone();
+            let anchor = anchor.clone();
+            async move {
+                if let Some(filler) = stage.imp().anchor_filler.take() {
+                    debug!("goooooooooooooooooooooooooo before await");        
+                    filler.await;
+                };
+                stage.imp().anchor_filler.replace(Some(AnchorFiller::new(stage.clone(), lbl, anchor)));
+            }
+        });
+    }
 }
 
+
+#[derive(Default, Debug, Clone)]
+pub struct AnchorFillerState {
+    pub idled: bool,
+    pub waker: Option<std::task::Waker>
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct AnchorFiller {
+    pub state: Rc<RefCell<AnchorFillerState>>
+}
+
+impl std::future::Future for AnchorFiller {
+    type Output = bool;
+    fn poll (mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> std::task::Poll<bool> {
+        debug!("ppppppppppppppppppppppppol! {:?} {:?}", self.state, cx);
+        if self.state.borrow().idled {
+            std::task::Poll::Ready(true)
+        } else {
+            self.state.replace(AnchorFillerState{idled: false, waker: Some(cx.waker().clone())});
+            std::task::Poll::Pending
+        }
+    }
+}
+
+impl AnchorFiller {
+    pub fn new(stage: StageView, label: gtk4::Label, anchor: gtk4::TextChildAnchor) -> Self {
+        let state = Rc::new(RefCell::new(AnchorFillerState::default()));
+        glib::idle_add_local_once({
+            let state = state.clone();
+            let stage = stage.clone();
+            let label = label.clone();
+            let anchor = anchor.clone();
+            move || {
+                debug!("call in idle loop! {:?}", state);
+                stage.add_child_at_anchor(&label, &anchor);
+                state.borrow_mut().idled = true;
+                if let Some(waker) = state.borrow_mut().waker.take() {
+                    waker.wake();
+                }
+            }
+        });
+        return Self{state: state};
+    }
+}
 
 glib::wrapper! {
     pub struct StageLayoutManager(ObjectSubclass<stage_layout_manager_internal::StageLayoutManager>)

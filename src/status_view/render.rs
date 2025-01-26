@@ -917,7 +917,10 @@ impl ViewContainer for Line {
                 .into();
             // let lm = StageLayoutManager::new();
             // lbl.set_layout_manager(Some(lm));
+            // let lm = StageLayoutManager::new();
+            // anchor.set_layout_manager(Some(lm));
             context.stage.add_child_at_anchor(&lbl, &anchor);
+            //context.stage.adopt_child(&lbl, &anchor);
         }
 
         let content = self.content(context.current_hunk.unwrap());
