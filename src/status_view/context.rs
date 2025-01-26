@@ -50,13 +50,10 @@ pub struct StatusRenderContext<'a> {
     pub current_file: Option<&'a File>,
     pub current_hunk: Option<&'a Hunk>,
     pub current_line: Option<&'a Line>,
-}
 
-// impl Default for StatusRenderContext<'_> {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
+    // used in fn cursor to check if view is changed during fn cursor
+    pub was_current: bool,
+}
 
 impl<'a> StatusRenderContext<'a> {
     pub fn new(stage: &'a StageView) -> Self {
@@ -79,6 +76,8 @@ impl<'a> StatusRenderContext<'a> {
                 // it is useless. rendering_x is sliding variable during render
                 // and there is nothing to render after line
                 current_line: None,
+
+                was_current: false,
             }
         }
     }
