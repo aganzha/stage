@@ -36,7 +36,12 @@ mod stage_view_internal {
 
     // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
-    const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.137, 0.216, 0.310, 1.0);
+
+    // super bright!
+    // const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.101, 0.294, 0.526, 1.0);
+    // also bright
+    // const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.166, 0.329, 0.525, 1.0);
+    const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.094, 0.257, 0.454, 1.0);
 
     const DARK_BF_FILL: gdk::RGBA = gdk::RGBA::new(0.139, 0.139, 0.139, 1.0);
     const LIGHT_BG_FILL: gdk::RGBA = gdk::RGBA::new(1.0, 1.0, 1.0, 1.0);
