@@ -21,7 +21,7 @@ use crate::git::{
 use git2::RepositoryState;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_op::{LastOp, StageDiffs};
-use stage_view::{cursor_to_line_offset, StageView};
+use stage_view::{cursor_to_line_offset, StageView, StageLayoutManager};
 
 pub mod reconciliation;
 pub mod tests;
@@ -1092,8 +1092,15 @@ impl Status {
         };
     }
 
-    pub fn debug<'a>(&'a mut self, _txt: &StageView, _context: &mut StatusRenderContext<'a>) {
+    pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
         debug!("debug!");
+        if txt.layout_manager().is_some() {
+            debug!("kiiiiiiiiiiiiiilllll custom layout");
+            txt.set_layout_manager(None::<StageLayoutManager>);
+        } else {
+            debug!("set custom layout!");
+            txt.set_layout_manager(Some(StageLayoutManager::new()));
+        }
     }
 
     //3

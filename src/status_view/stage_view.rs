@@ -183,10 +183,11 @@ mod stage_view_internal {
                     ),
                 );
             }
-        }
-    }
+        }        
+    }    
     impl ObjectImpl for StageView {}
     impl WidgetImpl for StageView {}
+
 }
 
 impl Default for StageView {
@@ -251,11 +252,95 @@ impl StageView {
     }
 }
 
+
+glib::wrapper! {
+    pub struct StageLayoutManager(ObjectSubclass<stage_layout_manager_internal::StageLayoutManager>)
+        @extends gtk4::LayoutManager;
+}
+
+mod stage_layout_manager_internal {
+
+    use gtk4::prelude::*;
+    use gtk4::subclass::prelude::*;
+    use gtk4::{gdk, glib, LayoutManager, Widget, LayoutChild};
+
+    #[derive(Default)]
+    pub struct StageLayoutManager {
+
+    }
+    #[glib::object_subclass]
+    impl ObjectSubclass for StageLayoutManager {
+        const NAME: &'static str = "StageLayoutManager";
+        type Type = super::StageLayoutManager;
+        type ParentType = LayoutManager;
+    }
+    impl ObjectImpl for StageLayoutManager {}
+    impl LayoutManagerImpl for StageLayoutManager {
+        // fn create_layout_child(&self, widget: &Widget, child: &Widget) -> LayoutChild {
+        //     LayoutChild::new()
+        // }
+
+        fn allocate(&self,
+                    widget: &Widget,
+                    width: i32,
+                    height: i32,
+                    baseline: i32) {
+            //println!("++++++++++++++++++++++++++++++++ {:?} {:?} {:?} {:?}", widget, width, height, baseline);
+            //widget.size_allocate(width, height, baseline);
+        }
+        // fn measure(&self, widget: &gtk4::Widget, orientation: gtk4::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
+        //     //println!("mmmmmmmmmmmmmmeasure {:?} {:?} {:?}", widget, orientation, for_size);
+        //     return (0, 0, 0, 0)
+        // }
+    }
+}
+
+impl StageLayoutManager {
+    pub fn new() -> Self {
+        glib::Object::builder().build()
+    }
+}
+
+// #[derive(Default)]
+// pub struct SLM {
+// }
+
+// impl SML {
+//     fn allocate(&self, widget: &impl IsA<Widget>, width: i32, height: i32, baseline: i32) {
+//     }
+
+//     fn layout_child(&self, child: &impl IsA<Widget>) -> gtk4::LayoutChild {
+//         gtk4::LayoutChild::new()
+//     }
+
+//     fn request_mode(&self) -> gtk4::SizeRequestMode {
+
+//     }
+
+//     fn widget(&self) -> Option<Widget> {
+//         None
+//     }
+
+//     fn layout_changed(&self) {
+//     }
+
+//     fn measure(
+//         &self,
+//         widget: &impl IsA<Widget>,
+//         orientation: Orientation,
+//         for_size: i32,
+//     ) -> (i32, i32, i32, i32) {
+//         (1, 1, 1, 1)
+//     }
+// }
+
 pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
     let txt = StageView::new();
+    // txt.set_accessible_role(gtk4::AccessibleRole::None);
+
     txt.set_margin_start(12);
     txt.set_widget_name(name);
     txt.set_margin_end(12);

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::status_view::context::CursorPosition;
-use crate::status_view::stage_view::cursor_to_line_offset;
+use crate::status_view::stage_view::{cursor_to_line_offset, StageLayoutManager};
 use crate::status_view::tags;
 use crate::status_view::view::{View, ViewState};
 use crate::status_view::Label;
@@ -915,6 +915,8 @@ impl ViewContainer for Line {
                 .css_classes(["line_no"])
                 .build()
                 .into();
+            // let lm = StageLayoutManager::new();
+            // lbl.set_layout_manager(Some(lm));
             context.stage.add_child_at_anchor(&lbl, &anchor);
         }
 
