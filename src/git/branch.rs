@@ -22,10 +22,23 @@ impl BranchName {
     pub fn to_str(&self) -> &str {
         &self.0
     }
-    pub fn to_local(&self) -> String {
-        return self.0.split("/").last().unwrap().to_string();
+    pub fn to_local(&self, remote_name: Option<&str>) -> String {        
+        match remote_name {
+            Some(name) => {
+                let local_name_parts: Vec<&str> = self.0.split("/").collect();
+                if local_name_parts[0] == name {
+                    local_name_parts[1..].join("/")
+                } else {
+                    self.0.clone()
+                }
+            }
+            None => {
+                self.0.clone()
+            }
+        }
     }
-    pub fn remote_name(&self) -> String {
+    
+    pub fn name_of_remote(&self) -> String {
         return self.0.split("/").next().unwrap().to_string();
     }
 }
@@ -86,12 +99,12 @@ impl BranchData {
         let remote_name = match branch_type {
             git2::BranchType::Local => {
                 if let Ok(ref upstream) = branch.upstream() {
-                    Some(BranchName::from(upstream).remote_name())
+                    Some(BranchName::from(upstream).name_of_remote())
                 } else {
                     None
                 }
             }
-            git2::BranchType::Remote => Some(name.remote_name()),
+            git2::BranchType::Remote => Some(name.name_of_remote()),
         };
 
         if let Some(oid) = branch.get().target() {
@@ -108,6 +121,10 @@ impl BranchData {
         } else {
             Ok(None)
         }
+    }
+
+    pub fn local_name(&self) -> String {
+        return self.name.to_local(self.remote_name.as_deref())
     }
 }
 
@@ -187,11 +204,11 @@ pub fn checkout_branch(
     match branch_data.branch_type {
         git2::BranchType::Local => {}
         git2::BranchType::Remote => {
-            let created = repo.branch(&branch_data.name.to_local(), &commit, false);
+            let created = repo.branch(&branch_data.local_name(), &commit, false);
             let mut branch = match created {
                 Ok(branch) => branch,
                 Err(_) => {
-                    repo.find_branch(&branch_data.name.to_local(), git2::BranchType::Local)?
+                    repo.find_branch(&branch_data.local_name(), git2::BranchType::Local)?
                 }
             };
             branch.set_upstream(Some(&branch_data.name.to_string()))?;
@@ -235,7 +252,7 @@ pub fn kill_branch(
 ) -> Result<Option<()>, git2::Error> {
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
-    let name = &branch_data.name.to_local();
+    let name = &branch_data.local_name();
     let kind = branch_data.branch_type;
     let mut branch = repo.find_branch(branch_data.name.to_str(), kind)?;
     if kind == git2::BranchType::Remote {
