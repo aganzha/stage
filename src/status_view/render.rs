@@ -979,8 +979,8 @@ impl ViewContainer for Line {
             if !self.view.tag_is_added(&spaces_tag) {
                 let (mut start_iter, end_iter) =
                     self.start_end_iters(buffer, self.view.line_no.get());
-                start_iter.forward_chars(stripped_len as i32);
-
+                // magic 1 is for label
+                start_iter.forward_chars(stripped_len as i32 + 1);
                 buffer.apply_tag_by_name(spaces_tag.name(), &start_iter, &end_iter);
                 self.view.tag_added(&spaces_tag);
             }
