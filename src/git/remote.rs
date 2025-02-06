@@ -352,7 +352,10 @@ pub fn pull(
     let branch_data = BranchData::from_branch(&branch, git2::BranchType::Local)?
         .ok_or(git2::Error::from_str(err))?;
     let cloned = branch_data.clone();
-    let remote_name = branch_data.remote_name.clone().ok_or(git2::Error::from_str(err))?;
+    let remote_name = branch_data
+        .remote_name
+        .clone()
+        .ok_or(git2::Error::from_str(err))?;
     let mut remote = repo.find_remote(&remote_name)?;
 
     let mut opts = git2::FetchOptions::new();
@@ -391,7 +394,13 @@ pub fn pull(
     set_remote_callbacks(&mut callbacks, &user_pass);
     opts.remote_callbacks(callbacks);
 
-    debug!("...................... FETCH {:?} {:?} == {:?} {:?}", &cloned.name.to_str(), cloned.local_name(), &remote_name, &cloned);
+    debug!(
+        "...................... FETCH {:?} {:?} == {:?} {:?}",
+        &cloned.name.to_str(),
+        cloned.local_name(),
+        &remote_name,
+        &cloned
+    );
     remote.fetch(&[&branch_data.local_name()], Some(&mut opts), None)?;
 
     let upstream = branch.upstream()?;

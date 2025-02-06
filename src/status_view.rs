@@ -21,7 +21,7 @@ use crate::git::{
 use git2::RepositoryState;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_op::{LastOp, StageDiffs};
-use stage_view::{cursor_to_line_offset, StageView};
+use stage_view::{cursor_to_line_offset, EmptyLayoutManager, StageView};
 
 pub mod reconciliation;
 pub mod tests;
@@ -937,6 +937,18 @@ impl Status {
         changed
     }
 
+    pub fn toggle_empty_layout_manager(&self, txt: &StageView, on: bool) {
+        if on {
+            if txt.layout_manager().is_some() {
+                debug!("kiiiiiiiiiiiiiilllll custom layout");
+                txt.set_layout_manager(None::<EmptyLayoutManager>);
+            }
+        } else {
+            debug!("set custom layout!");
+            txt.set_layout_manager(Some(EmptyLayoutManager::new()));
+        }
+    }
+
     pub fn expand<'a>(
         &'a mut self,
         txt: &StageView,
@@ -944,6 +956,7 @@ impl Status {
         _offset: i32,
         context: &mut StatusRenderContext<'a>,
     ) {
+        self.toggle_empty_layout_manager(txt, true);
         if let Some(conflicted) = &self.conflicted {
             if conflicted.expand(line_no, context).is_some() {
                 self.render(txt, Some(DiffKind::Conflicted), context);
@@ -962,6 +975,7 @@ impl Status {
                 self.render(txt, Some(DiffKind::Staged), context);
             }
         }
+        self.toggle_empty_layout_manager(txt, false);
     }
 
     pub fn render<'a>(
@@ -1092,8 +1106,15 @@ impl Status {
         };
     }
 
-    pub fn debug<'a>(&'a mut self, _txt: &StageView, _context: &mut StatusRenderContext<'a>) {
+    pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
         debug!("debug!");
+        if txt.layout_manager().is_some() {
+            debug!("kiiiiiiiiiiiiiilllll custom layout");
+            txt.set_layout_manager(None::<EmptyLayoutManager>);
+        } else {
+            debug!("set custom layout!");
+            txt.set_layout_manager(Some(EmptyLayoutManager::new()));
+        }
     }
 
     //3
