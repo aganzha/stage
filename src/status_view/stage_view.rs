@@ -251,11 +251,45 @@ impl StageView {
     }
 }
 
+glib::wrapper! {
+    pub struct EmptyLayoutManager(ObjectSubclass<empty_layout_manager_internal::EmptyLayoutManager>)
+        @extends gtk4::LayoutManager;
+}
+
+mod empty_layout_manager_internal {
+
+    use gtk4::subclass::prelude::*;
+    use gtk4::{glib, LayoutManager, Widget};
+
+    #[derive(Default)]
+    pub struct EmptyLayoutManager {}
+    #[glib::object_subclass]
+    impl ObjectSubclass for EmptyLayoutManager {
+        const NAME: &'static str = "EmptyLayoutManager";
+        type Type = super::EmptyLayoutManager;
+        type ParentType = LayoutManager;
+    }
+    impl ObjectImpl for EmptyLayoutManager {}
+    impl LayoutManagerImpl for EmptyLayoutManager {
+        fn allocate(&self, _widget: &Widget, _width: i32, _height: i32, _baseline: i32) {
+            // just an empty method
+        }
+    }
+}
+
+impl EmptyLayoutManager {
+    pub fn new() -> Self {
+        glib::Object::builder().build()
+    }
+}
+
 pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
     let txt = StageView::new();
+    // txt.set_accessible_role(gtk4::AccessibleRole::None);
+
     txt.set_margin_start(12);
     txt.set_widget_name(name);
     txt.set_margin_end(12);

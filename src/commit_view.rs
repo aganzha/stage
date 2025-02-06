@@ -9,7 +9,7 @@ use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
-use crate::{Event, DiffKind};
+use crate::{DiffKind, Event};
 use async_channel::Sender;
 use git2::Oid;
 
@@ -20,7 +20,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
-use log::{info, trace, debug};
+use log::{debug, info, trace};
 
 use std::path::PathBuf;
 
@@ -359,7 +359,7 @@ pub fn show_commit_window(
                             &mut ctx,
                             &mut labels,
                             body_label.as_mut().unwrap(),
-                        );                        
+                        );
                         // it should be called after cursor in ViewContainer
                         diff.replace(commit_diff);
                     }
