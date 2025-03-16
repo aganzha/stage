@@ -7,6 +7,7 @@ use async_channel::Sender;
 use git2;
 use log::{debug, info};
 use similar;
+use std::io::prelude::*;
 use std::{fs, io, path, str};
 
 pub fn write_conflict_diff<'a>(
@@ -20,11 +21,7 @@ pub fn write_conflict_diff<'a>(
     );
     io::Write::write(bytes, format!("--- \"a/{}\"\n", path).as_bytes());
     io::Write::write(bytes, format!("+++ \"b/{}\"\n", path).as_bytes());
-    // let text_diff = u_diff.diff;
-    // for change in u_diff.iter_all_changes() {
-    //     debug!("zzzzzzzzzzzzzzz {:?}", change);
-    // }
-    // let mut writing = false;
+
     let mut hunk: Vec<(bool, &str)> = Vec::new();
     let mut hunk_old_start = 0;
     let mut hunk_new_start = 0;
@@ -32,11 +29,9 @@ pub fn write_conflict_diff<'a>(
     let mut count_new = 0;
     let mut total_new = 0;
     let mut op = "";
-    // let mut collect_ours = false;
-    // let mut collect_theirs = false;
 
     for change in similar_diff.iter_all_changes() {
-        debug!("[[[[ {:?}", change);
+        // debug!("[[[[ {:?}", change);
         let value = change.value();
         let prefix: String = value.chars().take(7).collect();
         match (change.tag(), op, &prefix[..]) {
@@ -49,7 +44,8 @@ pub fn write_conflict_diff<'a>(
                 count_new += 1;
 
                 // hunk_old_start = change.old_index().unwrap();
-                hunk_new_start = change.new_index().unwrap();
+                hunk_new_start = change.new_index().unwrap() + 1;
+                debug!("STORE HUNK START {:?}", &change);
                 if let Some(old_start) = change.old_index() {
                     panic!("STOP");
                 } else {
@@ -66,22 +62,33 @@ pub fn write_conflict_diff<'a>(
                 assert!(op == "collect_theirs");
                 count_new += 1;
                 hunk.push((true, value));
-                let header = format!(
-                    "@@ -{},{} +{},{} @@\n",
-                    hunk_old_start,
-                    count_old,
-                    hunk_new_start,
-                    count_old + count_new
-                );
-                hunk[0] = (false, &header);
-                for (plus, line) in hunk {
-                    if plus {
-                        io::Write::write(bytes, &[b'+']);
+                // let header = format!(
+                //     "@@ -{},{} +{},{} @@\n",
+                //     hunk_old_start,
+                //     count_old,
+                //     hunk_new_start,
+                //     count_old + count_new
+                // );
+                // hunk[0] = (false, &header);
+                for (i, (plus, line)) in hunk.into_iter().enumerate() {
+                    if i == 0 {
+                        let header = format!(
+                            "@@ -{},{} +{},{} @@\n",
+                            hunk_old_start,
+                            count_old,
+                            hunk_new_start,
+                            count_old + count_new
+                        );
+                        io::Write::write(bytes, header.as_bytes());
+                        continue;
+                    } else {
+                        if plus {
+                            io::Write::write(bytes, &[b'+']);
+                        } else {
+                            io::Write::write(bytes, &[b' ']);
+                        }
                     }
-                    io::Write::write(
-                        bytes,
-                        line.as_bytes(), //format!("{}\n", line).as_bytes(),
-                    );
+                    io::Write::write(bytes, line.as_bytes());
                 }
                 hunk = Vec::new();
                 op = "";
@@ -178,8 +185,8 @@ pub fn get_diff(
     let mut patch = patch.unwrap();
     let patch_str = patch.to_buf().unwrap();
     let patch_str = patch_str.as_str().unwrap();
-    for line in patch_str.lines() {
-        debug!("_____{:?}", line);
+    for (i, line) in patch_str.lines().enumerate() {
+        debug!("{}_____{:?}", i, line);
     }
     for path in conflict_paths {
         let abs_file_path = repo.path().parent().unwrap().join(path::Path::new(&path));
@@ -196,9 +203,12 @@ pub fn get_diff(
         // what do i want here: implement custom to_writer
         // method, which will iterate not over hunks, but
         // over conflict markers!
+
         // let mut unified_diff = text_diff.unified_diff();
         // unified_diff.context_radius(3);
         // unified_diff.header(&format!("\"a/{}\"", path), &format!("\"b/{}\"", path));
+        // let mut file = fs::File::create("/tmp/unified.diff").unwrap();
+        // unified_diff.to_writer(&mut file);
 
         //debug!("____________________________ {}", unified_diff);
         let mut bytes: Vec<u8> = Vec::new();
@@ -207,17 +217,20 @@ pub fn get_diff(
         //     format!("diff --git \"a/{}\" \"b/{}\"\n", path, path).as_bytes(),
         // );
         // unified_diff.to_writer(&mut bytes);
+
         write_conflict_diff(&mut bytes, &path, text_diff);
 
-        debug!("oooooooooooooooooooooooooooooooo {:?}", bytes.len());
-        let body = String::from_utf8_lossy(&bytes);
-        for line in body.lines() {
-            debug!("__________{:?}", line);
-        }
+        // let body = String::from_utf8_lossy(&bytes);
+        // for (i, line) in body.lines().enumerate() {
+        //     debug!("{i}^^^^^^^^^{:?}", line);
+        // }
+        let mut file = fs::File::create("/tmp/stage.patch").unwrap();
+        file.write_all(&bytes);
+
         // debug!("................. {:?}", String::from_utf8_lossy(&bytes));
         let another_git_diff = git2::Diff::from_buffer(&bytes).unwrap();
         //debug!("??????????????????? {:?} {:?}", path, another_git_diff.is_ok());
-        let mut another_diff = make_diff(&another_git_diff, DiffKind::Staged);
+        // let mut another_diff = make_diff(&another_git_diff, DiffKind::Staged);
         return Some(make_diff(&another_git_diff, DiffKind::Conflicted));
         // debug!("____________________________ {}", another_diff);
     }
