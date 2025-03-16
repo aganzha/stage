@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::git::{
-    branch::BranchName, get_conflicted_v1, get_current_repo_status, make_diff_options, BranchData,
+    branch::BranchName, conflict, get_current_repo_status, make_diff_options, BranchData,
     DeferRefresh, Hunk, Line, State, MARKER_DIFF_A, MARKER_DIFF_B, MARKER_HUNK, MARKER_OURS,
     MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
 };
@@ -581,9 +581,9 @@ pub fn choose_conflict_side_of_hunk(
     };
     let raw = buff.as_str().unwrap();
     debug!("OLD body BEFORE patch ___________________");
-    for line in raw.lines() {
-        debug!("{}", line);
-    }
+    // for line in raw.lines() {
+    //     debug!("{}", line);
+    // }
     let ours_choosed = line.is_our_side_of_conflict();
     let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
 
@@ -598,10 +598,10 @@ pub fn choose_conflict_side_of_hunk(
         &reversed_header,
         ours_choosed,
     );
-    debug!("new body for patch ___________________");
-    for line in new_body.lines() {
-        debug!("{}", line);
-    }
+    // debug!("new body for patch ___________________");
+    // for line in new_body.lines() {
+    //     debug!("{}", line);
+    // }
 
     // so. not only new lines are changed. new_start are changed also!!!!!!
     // it need to add delta of prev hunk int new start of next hunk!!!!!!!!
@@ -691,12 +691,12 @@ pub fn cleanup_last_conflict_for_file(
     let repo = git2::Repository::open(path.clone())?;
     let mut index = repo.index()?;
 
-    let diff = get_conflicted_v1(path.clone(), interhunk, sender.clone());
+    let diff = conflict::get_diff(path.clone(), interhunk, sender.clone());
     // 1 - all conflicts in all files are resolved - update all
     // 2 - only this file is resolved, but have other conflicts - update all
     // 3 - conflicts are remaining in all files - just update conflicted
     let mut update_status = true;
-    if let Some(diff) = get_conflicted_v1(path.clone(), interhunk, sender.clone()) {
+    if let Some(diff) = conflict::get_diff(path.clone(), interhunk, sender.clone()) {
         for file in &diff.files {
             if file.hunks.iter().any(|h| h.conflict_markers_count > 0) {
                 if file.path == file_path {
