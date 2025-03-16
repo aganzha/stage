@@ -1,10 +1,106 @@
 use crate::gio;
-use crate::git::{get_untracked, make_diff, make_diff_options, Diff, DiffKind};
+use crate::git::{
+    get_untracked, make_diff, make_diff_options, Diff, DiffKind, MARKER_OURS, MARKER_THEIRS,
+    MARKER_VS,
+};
 use async_channel::Sender;
 use git2;
 use log::{debug, info};
 use similar;
 use std::{fs, io, path, str};
+
+pub fn write_conflict_diff<'a>(
+    bytes: &mut Vec<u8>,
+    path: &str,
+    similar_diff: similar::TextDiff<'a, 'a, 'a, str>,
+) {
+    io::Write::write(
+        bytes,
+        format!("diff --git \"a/{}\" \"b/{}\"\n", path, path).as_bytes(),
+    );
+    io::Write::write(bytes, format!("--- \"a/{}\"\n", path).as_bytes());
+    io::Write::write(bytes, format!("+++ \"b/{}\"\n", path).as_bytes());
+    // let text_diff = u_diff.diff;
+    // for change in u_diff.iter_all_changes() {
+    //     debug!("zzzzzzzzzzzzzzz {:?}", change);
+    // }
+    // let mut writing = false;
+    let mut hunk: Vec<(bool, &str)> = Vec::new();
+    let mut hunk_old_start = 0;
+    let mut hunk_new_start = 0;
+    let mut count_old = 0;
+    let mut count_new = 0;
+    let mut total_new = 0;
+    let mut op = "";
+    // let mut collect_ours = false;
+    // let mut collect_theirs = false;
+
+    for change in similar_diff.iter_all_changes() {
+        debug!("[[[[ {:?}", change);
+        let value = change.value();
+        let prefix: String = value.chars().take(7).collect();
+        match (change.tag(), op, &prefix[..]) {
+            (similar::ChangeTag::Insert, _, MARKER_OURS) => {
+                assert!(op == "");
+                hunk.push((false, "header"));
+                //let val = format!("+{}", &value);
+                hunk.push((true, value));
+                op = "collect_ours";
+                count_new += 1;
+
+                // hunk_old_start = change.old_index().unwrap();
+                hunk_new_start = change.new_index().unwrap();
+                if let Some(old_start) = change.old_index() {
+                    panic!("STOP");
+                } else {
+                    hunk_old_start = hunk_new_start - total_new;
+                }
+            }
+            (similar::ChangeTag::Insert, _, MARKER_VS) => {
+                assert!(op == "collect_ours");
+                hunk.push((true, value));
+                op = "collect_theirs";
+                count_new += 1;
+            }
+            (similar::ChangeTag::Insert, _, MARKER_THEIRS) => {
+                assert!(op == "collect_theirs");
+                count_new += 1;
+                hunk.push((true, value));
+                let header = format!(
+                    "@@ -{},{} +{},{} @@\n",
+                    hunk_old_start,
+                    count_old,
+                    hunk_new_start,
+                    count_old + count_new
+                );
+                hunk[0] = (false, &header);
+                for (plus, line) in hunk {
+                    if plus {
+                        io::Write::write(bytes, &[b'+']);
+                    }
+                    io::Write::write(
+                        bytes,
+                        line.as_bytes(), //format!("{}\n", line).as_bytes(),
+                    );
+                }
+                hunk = Vec::new();
+                op = "";
+                total_new += count_new;
+                count_new = 0;
+                count_old = 0;
+            }
+            (_, "collect_ours", _) => {
+                hunk.push((false, value));
+                count_old += 1;
+            }
+            (_, "collect_theirs", _) => {
+                hunk.push((true, value));
+                count_new += 1;
+            }
+            (_, _, _) => {}
+        }
+    }
+}
 
 pub fn get_diff(
     path: path::PathBuf,
@@ -97,18 +193,22 @@ pub fn get_diff(
         let file_bytes = fs::read(abs_file_path).expect("no file");
         let workdir_content = String::from_utf8_lossy(&file_bytes);
         let text_diff = similar::TextDiff::from_lines(&tree_content, &workdir_content);
-
-        let mut unified_diff = text_diff.unified_diff();
-        unified_diff.context_radius(3);
-        unified_diff.header(&format!("\"a/{}\"", path), &format!("\"b/{}\"", path));
+        // what do i want here: implement custom to_writer
+        // method, which will iterate not over hunks, but
+        // over conflict markers!
+        // let mut unified_diff = text_diff.unified_diff();
+        // unified_diff.context_radius(3);
+        // unified_diff.header(&format!("\"a/{}\"", path), &format!("\"b/{}\"", path));
 
         //debug!("____________________________ {}", unified_diff);
-        let mut bytes: Vec<u8> = Vec::new(); //BytesWriter::default();
-        io::Write::write(
-            &mut bytes,
-            format!("diff --git \"a/{}\" \"b/{}\"\n", path, path).as_bytes(),
-        );
-        unified_diff.to_writer(&mut bytes);
+        let mut bytes: Vec<u8> = Vec::new();
+        // io::Write::write(
+        //     &mut bytes,
+        //     format!("diff --git \"a/{}\" \"b/{}\"\n", path, path).as_bytes(),
+        // );
+        // unified_diff.to_writer(&mut bytes);
+        write_conflict_diff(&mut bytes, &path, text_diff);
+
         debug!("oooooooooooooooooooooooooooooooo {:?}", bytes.len());
         let body = String::from_utf8_lossy(&bytes);
         for line in body.lines() {
