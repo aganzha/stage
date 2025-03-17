@@ -622,19 +622,15 @@ impl Status {
         gio::spawn_blocking({
             let path = self.path.clone().unwrap();
             let sender = sender.clone();
-            let mut interhunk = None;
             let mut has_conflicted = false;
             if let Some(diff) = &self.conflicted {
-                if let Some(stored_interhunk) = diff.interhunk {
-                    interhunk.replace(stored_interhunk);
-                }
                 for file in &diff.files {
                     if file.path == file_path {
                         has_conflicted = true;
                     }
                 }
             }
-            move || track_changes(path, file_path, interhunk, has_conflicted, sender)
+            move || track_changes(path, file_path, has_conflicted, sender)
         });
     }
 

@@ -491,14 +491,12 @@ pub fn choose_conflict_side_of_hunk(
     file_path: PathBuf,
     hunk: Hunk,
     line: Line,
-    interhunk: Option<u32>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     debug!(
-        "choose_conflict_side_of_hunk {:?} Line: {:?} Interhunk: {:?}",
+        "choose_conflict_side_of_hunk {:?} Line: {:?}",
         hunk.header,
-        line.content(&hunk),
-        interhunk
+        line.content(&hunk)
     );
     let repo = git2::Repository::open(path.clone())?;
     let mut index = repo.index()?;
@@ -552,9 +550,6 @@ pub fn choose_conflict_side_of_hunk(
 
     let mut opts = make_diff_options();
     let mut opts = opts.pathspec(&file_path).reverse(true);
-    if let Some(ih) = interhunk {
-        opts.interhunk_lines(ih);
-    }
 
     let git_diff = match repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts)) {
         Ok(gd) => gd,
@@ -678,25 +673,24 @@ pub fn choose_conflict_side_of_hunk(
         return Err(error);
     }
 
-    cleanup_last_conflict_for_file(path, file_path.clone(), interhunk, sender)?;
+    cleanup_last_conflict_for_file(path, file_path.clone(), sender)?;
     Ok(())
 }
 
 pub fn cleanup_last_conflict_for_file(
     path: PathBuf,
     file_path: PathBuf,
-    interhunk: Option<u32>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let mut index = repo.index()?;
 
-    let diff = conflict::get_diff(path.clone(), interhunk, sender.clone());
+    let diff = conflict::get_diff(path.clone(), sender.clone());
     // 1 - all conflicts in all files are resolved - update all
     // 2 - only this file is resolved, but have other conflicts - update all
     // 3 - conflicts are remaining in all files - just update conflicted
     let mut update_status = true;
-    if let Some(diff) = conflict::get_diff(path.clone(), interhunk, sender.clone()) {
+    if let Some(diff) = conflict::get_diff(path.clone(), sender.clone()) {
         for file in &diff.files {
             if file.hunks.iter().any(|h| h.conflict_markers_count > 0) {
                 if file.path == file_path {

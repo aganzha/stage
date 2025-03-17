@@ -272,14 +272,13 @@ impl Status {
                             let hunk = hunk.clone();
                             let line = line.clone();
                             let window = window.clone();
-                            let interhunk = conflicted.interhunk;
                             async move {
                                 if hunk.conflict_markers_count > 0 && line.is_side_of_conflict() {
                                     info!("choose_conflict_side_of_hunk");
                                     gio::spawn_blocking({
                                         move || {
                                             merge::choose_conflict_side_of_hunk(
-                                                path, file_path, hunk, line, interhunk, sender,
+                                                path, file_path, hunk, line, sender,
                                             )
                                         }
                                     })
@@ -298,7 +297,7 @@ impl Status {
                                     gio::spawn_blocking({
                                         move || {
                                             merge::cleanup_last_conflict_for_file(
-                                                path, file_path, interhunk, sender,
+                                                path, file_path, sender,
                                             )
                                         }
                                     })
