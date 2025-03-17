@@ -453,9 +453,6 @@ pub struct Diff {
     pub files: Vec<File>,
     pub view: View,
     pub kind: DiffKind,
-    /// option for diff if it differs
-    /// from the common obtained by make_diff_options
-    pub interhunk: Option<u32>,
 }
 
 impl Diff {
@@ -467,7 +464,6 @@ impl Diff {
             files: Vec::new(),
             view,
             kind,
-            interhunk: None,
         }
     }
 
@@ -666,7 +662,7 @@ pub fn get_current_repo_status(
                 // is still merging. Fire Conflicted here to show the banner
                 // TODO! move banner logic to state!, not conflicted!
                 // get rid of banner in update conflicted!
-                let diff = conflict::get_diff(path, None, sender.clone());
+                let diff = conflict::get_diff(path, sender.clone());
                 sender
                     .send_blocking(crate::Event::Conflicted(diff, Some(state)))
                     .expect("Could not send through channel");
@@ -786,7 +782,7 @@ pub fn get_current_repo_status(
             let path = path.clone();
             let state = repo.state();
             move || {
-                let diff = conflict::get_diff(path, None, sender.clone());
+                let diff = conflict::get_diff(path, sender.clone());
                 // why do i need state?
                 sender
                     .send_blocking(crate::Event::Conflicted(
@@ -1161,7 +1157,6 @@ pub fn get_directories(path: PathBuf) -> HashSet<String> {
 pub fn track_changes(
     path: PathBuf,
     file_path: PathBuf,
-    interhunk: Option<u32>,
     has_conflicted: bool,
     sender: Sender<crate::Event>,
 ) {
@@ -1195,7 +1190,7 @@ pub fn track_changes(
                 if file_path == conflict_path {
                     // unwrap is forced here, cause this diff could not
                     // be empty
-                    let diff = conflict::get_diff(path, interhunk, sender.clone()).unwrap();
+                    let diff = conflict::get_diff(path, sender.clone()).unwrap();
                     let event = crate::Event::TrackedFile(file_path.into(), diff);
                     sender
                         .send_blocking(event)

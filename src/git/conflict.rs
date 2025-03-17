@@ -99,16 +99,7 @@ pub fn write_conflict_diff<'a>(
     }
 }
 
-pub fn get_diff(
-    path: path::PathBuf,
-    interhunk: Option<u32>,
-    sender: Sender<crate::Event>,
-) -> Option<Diff> {
-    // thought
-    // TODO! file path options!
-    // it is called now from track_changes, so it need to update only 1 file!
-    // thought
-
+pub fn get_diff(path: path::PathBuf, sender: Sender<crate::Event>) -> Option<Diff> {
     // so, when file is in conflict during merge, this means nothing
     // was staged to that file, cause merging in such state is PROHIBITED!
 
@@ -119,11 +110,7 @@ pub fn get_diff(
     let repo = git2::Repository::open(path.clone()).expect("can't open repo");
     let mut index = repo.index().expect("cant get index");
     let conflicts = index.conflicts().expect("no conflicts");
-    let mut opts = make_diff_options();
 
-    if let Some(interhunk) = interhunk {
-        opts.interhunk_lines(interhunk);
-    }
     let mut missing_theirs: Vec<git2::IndexEntry> = Vec::new();
     let mut has_conflicts = false;
     let mut conflict_paths = Vec::new();
@@ -131,7 +118,6 @@ pub fn get_diff(
         let conflict = conflict.unwrap();
         if let Some(our) = conflict.our {
             let pth = String::from_utf8(our.path).unwrap();
-            opts.pathspec(pth.clone());
             conflict_paths.push(pth);
             has_conflicts = true;
         } else {
