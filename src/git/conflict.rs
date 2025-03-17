@@ -18,9 +18,10 @@ pub fn write_conflict_diff<'a>(
     io::Write::write(
         bytes,
         format!("diff --git \"a/{}\" \"b/{}\"\n", path, path).as_bytes(),
-    );
-    io::Write::write(bytes, format!("--- \"a/{}\"\n", path).as_bytes());
-    io::Write::write(bytes, format!("+++ \"b/{}\"\n", path).as_bytes());
+    )
+    .expect("cant write bytes");
+    io::Write::write(bytes, format!("--- \"a/{}\"\n", path).as_bytes()).expect("cant write bytes");
+    io::Write::write(bytes, format!("+++ \"b/{}\"\n", path).as_bytes()).expect("cant write bytes");
 
     let mut hunk: Vec<(bool, &str)> = Vec::new();
     let mut hunk_old_start = 0;
@@ -31,21 +32,18 @@ pub fn write_conflict_diff<'a>(
     let mut op = "";
 
     for change in similar_diff.iter_all_changes() {
-        // debug!("[[[[ {:?}", change);
         let value = change.value();
         let prefix: String = value.chars().take(7).collect();
         match (change.tag(), op, &prefix[..]) {
             (similar::ChangeTag::Insert, _, MARKER_OURS) => {
                 assert!(op == "");
                 hunk.push((false, "header"));
-                //let val = format!("+{}", &value);
                 hunk.push((true, value));
                 op = "collect_ours";
                 count_new += 1;
 
-                // hunk_old_start = change.old_index().unwrap();
+                // magic 1/perhaps similar counts from 0?
                 hunk_new_start = change.new_index().unwrap() + 1;
-                debug!("STORE HUNK START {:?}", &change);
                 if let Some(old_start) = change.old_index() {
                     panic!("STOP");
                 } else {
@@ -62,14 +60,6 @@ pub fn write_conflict_diff<'a>(
                 assert!(op == "collect_theirs");
                 count_new += 1;
                 hunk.push((true, value));
-                // let header = format!(
-                //     "@@ -{},{} +{},{} @@\n",
-                //     hunk_old_start,
-                //     count_old,
-                //     hunk_new_start,
-                //     count_old + count_new
-                // );
-                // hunk[0] = (false, &header);
                 for (i, (plus, line)) in hunk.into_iter().enumerate() {
                     if i == 0 {
                         let header = format!(
@@ -79,16 +69,16 @@ pub fn write_conflict_diff<'a>(
                             hunk_new_start,
                             count_old + count_new
                         );
-                        io::Write::write(bytes, header.as_bytes());
+                        io::Write::write(bytes, header.as_bytes()).expect("cant write bytes");
                         continue;
                     } else {
                         if plus {
-                            io::Write::write(bytes, &[b'+']);
+                            io::Write::write(bytes, &[b'+']).expect("cant write bytes");
                         } else {
-                            io::Write::write(bytes, &[b' ']);
+                            io::Write::write(bytes, &[b' ']).expect("cant write bytes");
                         }
                     }
-                    io::Write::write(bytes, line.as_bytes());
+                    io::Write::write(bytes, line.as_bytes()).expect("cant write bytes");
                 }
                 hunk = Vec::new();
                 op = "";
@@ -172,22 +162,8 @@ pub fn get_diff(
 
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
     let current_tree = repo.find_tree(ob.id()).expect("no working tree");
-    let git_diff = repo
-        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
-        .expect("cant get diff");
 
-    let mut diff = make_diff(&git_diff, DiffKind::Conflicted);
-
-    if diff.is_empty() {
-        return None;
-    }
-    let patch = git2::Patch::from_diff(&git_diff, 0).unwrap();
-    let mut patch = patch.unwrap();
-    let patch_str = patch.to_buf().unwrap();
-    let patch_str = patch_str.as_str().unwrap();
-    for (i, line) in patch_str.lines().enumerate() {
-        debug!("{}_____{:?}", i, line);
-    }
+    let mut bytes: Vec<u8> = Vec::new();
     for path in conflict_paths {
         let abs_file_path = repo.path().parent().unwrap().join(path::Path::new(&path));
         debug!("file path of conflict {:?}", abs_file_path);
@@ -200,110 +176,11 @@ pub fn get_diff(
         let file_bytes = fs::read(abs_file_path).expect("no file");
         let workdir_content = String::from_utf8_lossy(&file_bytes);
         let text_diff = similar::TextDiff::from_lines(&tree_content, &workdir_content);
-        // what do i want here: implement custom to_writer
-        // method, which will iterate not over hunks, but
-        // over conflict markers!
-
-        // let mut unified_diff = text_diff.unified_diff();
-        // unified_diff.context_radius(3);
-        // unified_diff.header(&format!("\"a/{}\"", path), &format!("\"b/{}\"", path));
-        // let mut file = fs::File::create("/tmp/unified.diff").unwrap();
-        // unified_diff.to_writer(&mut file);
-
-        //debug!("____________________________ {}", unified_diff);
-        let mut bytes: Vec<u8> = Vec::new();
-        // io::Write::write(
-        //     &mut bytes,
-        //     format!("diff --git \"a/{}\" \"b/{}\"\n", path, path).as_bytes(),
-        // );
-        // unified_diff.to_writer(&mut bytes);
-
         write_conflict_diff(&mut bytes, &path, text_diff);
-
-        // let body = String::from_utf8_lossy(&bytes);
-        // for (i, line) in body.lines().enumerate() {
-        //     debug!("{i}^^^^^^^^^{:?}", line);
-        // }
-        let mut file = fs::File::create("/tmp/stage.patch").unwrap();
-        file.write_all(&bytes);
-
-        // debug!("................. {:?}", String::from_utf8_lossy(&bytes));
-        let another_git_diff = git2::Diff::from_buffer(&bytes).unwrap();
-        //debug!("??????????????????? {:?} {:?}", path, another_git_diff.is_ok());
-        // let mut another_diff = make_diff(&another_git_diff, DiffKind::Staged);
-        return Some(make_diff(&another_git_diff, DiffKind::Conflicted));
-        // debug!("____________________________ {}", another_diff);
     }
-    // // if intehunk is unknown it need to check missing hunks
-    // // (either ours or theirs could go to separate hunk)
-    // // and recreate diff to accomodate both ours and theirs in single hunk
-    // if let Some(interhunk) = interhunk {
-    //     diff.interhunk.replace(interhunk);
-    // } else {
-    //     // this vec store tuples with last line_no of prev hunk
-    //     // and first line_no of next hunk
-    //     let mut hunks_to_join = Vec::new();
-    //     let mut prev_conflict_line: Option<HunkLineNo> = None;
-    //     for file in &diff.files {
-    //         for hunk in &file.hunks {
-    //             let (first_marker, last_marker) =
-    //                 hunk.lines.iter().fold((None, None), |acc, line| {
-    //                     match (acc.0, acc.1, &line.kind) {
-    //                         (None, _, LineKind::ConflictMarker(m)) => (Some(m), Some(m)),
-    //                         (Some(_), _, LineKind::ConflictMarker(m)) => (acc.0, Some(m)),
-    //                         _ => acc,
-    //                     }
-    //                 });
-    //             match (first_marker, last_marker) {
-    //                 (None, _) => {
-    //                     // hunk without conflicts?
-    //                     // just skip it
-    //                 }
-    //                 (Some(_), None) => {
-    //                     panic!("imposible case");
-    //                 }
-    //                 (Some(first), Some(last)) if first == MARKER_THEIRS || first == MARKER_VS => {
-    //                     // hunk is not started with ours
-    //                     // store prev hunk last line and this hunk start to join em
-    //                     hunks_to_join.push((prev_conflict_line.unwrap(), hunk.old_start));
-    //                     if last == MARKER_OURS {
-    //                         prev_conflict_line
-    //                             .replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-    //                     } else {
-    //                         prev_conflict_line = None;
-    //                     }
-    //                 }
-    //                 (_, Some(m)) if m != MARKER_THEIRS => {
-    //                     // hunk is not ended with theirs
-    //                     // store prev hunk last line and this hunk start to join em
-    //                     assert!(prev_conflict_line.is_none());
-    //                     prev_conflict_line
-    //                         .replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-    //                 }
-    //                 (Some(start), Some(end)) => {
-    //                     assert!(start == MARKER_OURS);
-    //                     assert!(end == MARKER_THEIRS);
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     if !hunks_to_join.is_empty() {
-    //         let interhunk = hunks_to_join
-    //             .iter()
-    //             .fold(HunkLineNo::new(0), |acc, from_to| {
-    //                 if acc < from_to.1 - from_to.0 {
-    //                     return from_to.1 - from_to.0;
-    //                 }
-    //                 acc
-    //             });
-    //         opts.interhunk_lines(interhunk.as_u32());
-    //         let git_diff = repo
-    //             .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
-    //             .expect("cant get diff");
-    //         diff = make_diff(&git_diff, DiffKind::Conflicted);
-    //         diff.interhunk.replace(interhunk.as_u32());
-    //     }
-    // }
-    panic!("STOP");
-    Some(diff)
+    if bytes.len() == 0 {
+        return None;
+    }
+    let git_diff = git2::Diff::from_buffer(&bytes).unwrap();
+    Some(make_diff(&git_diff, DiffKind::Conflicted))
 }
