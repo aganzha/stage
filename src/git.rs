@@ -180,6 +180,12 @@ pub struct Hunk {
     pub buf: String,
 }
 
+impl fmt::Display for Hunk {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.header)
+    }
+}
+
 impl Hunk {
     pub fn new(kind: DiffKind) -> Self {
         let view = View::new();
@@ -387,20 +393,20 @@ impl Hunk {
         this_kind
     }
 
-    /// by given Line inside conflict returns
-    /// the conflict offset from hunk start
-    pub fn get_conflict_offset_by_line(&self, line: &Line) -> i32 {
-        let mut conflict_offset_inside_hunk: i32 = 0;
-        for (i, l) in self.lines.iter().enumerate() {
-            if l.content(self).starts_with(MARKER_OURS) {
-                conflict_offset_inside_hunk = i as i32;
-            }
-            if l == line {
-                break;
-            }
-        }
-        conflict_offset_inside_hunk
-    }
+    // /// by given Line inside conflict returns
+    // /// the conflict offset from hunk start
+    // pub fn get_conflict_offset_by_line(&self, line: &Line) -> i32 {
+    //     let mut conflict_offset_inside_hunk: i32 = 0;
+    //     for (i, l) in self.lines.iter().enumerate() {
+    //         if l.content(self).starts_with(MARKER_OURS) {
+    //             conflict_offset_inside_hunk = i as i32;
+    //         }
+    //         if l == line {
+    //             break;
+    //         }
+    //     }
+    //     conflict_offset_inside_hunk
+    // }
 }
 
 #[derive(Debug, Clone)]

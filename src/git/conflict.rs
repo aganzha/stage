@@ -1,10 +1,10 @@
 use crate::git::{
-    MARKER_OURS, MARKER_THEIRS,
-    MARKER_VS,
+    Hunk, Line, LineKind, MARKER_DIFF_A, MARKER_DIFF_B, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS,
+    MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
 };
 use anyhow::{Context, Error, Result};
 use git2;
-use log::{debug, info};
+use log::{debug, info, trace};
 use similar;
 use std::io::prelude::*;
 use std::{fs, io, path, str};
@@ -125,6 +125,7 @@ pub fn get_diff<'a>(
             paths.push(path);
         }
     }
+    debug!(">>>>>>>>>>>>>>>> conflict::get_diff {has_conflicts} {conflict_paths:?}");
     if !has_conflicts {
         return Ok(None);
     }
@@ -153,4 +154,45 @@ pub fn get_diff<'a>(
         return Err(Error::msg("no bytes in conflict"));
     }
     Ok(Some(git2::Diff::from_buffer(&bytes)?))
+}
+
+pub fn choose_conflict_side_of_hunk(
+    file_path: &path::Path,
+    hunk: &Hunk,
+    ours: bool,
+    bytes: &mut Vec<u8>,
+) -> Result<()> {
+    let pth = file_path.as_os_str().as_encoded_bytes();
+    bytes.write("diff --git \"a/".as_bytes())?;
+    bytes.write(pth)?;
+    bytes.write("\" \"b/".as_bytes())?;
+    bytes.write(pth)?;
+    bytes.write("\"\n".as_bytes())?;
+    bytes.write("--- \"a/".as_bytes())?;
+    bytes.write(pth)?;
+    bytes.write("\"\n".as_bytes())?;
+    bytes.write("+++ \"b/".as_bytes())?;
+    bytes.write(pth)?;
+    bytes.write("\"\n".as_bytes())?;
+
+    if ours {
+        // it need to invert all signs in hunk. just kill theirs
+        // hunk header must be reversed!
+        bytes.write(Hunk::reverse_header(&hunk.header).as_bytes())?;
+        bytes.write("\n".as_bytes())?;
+        for line in &hunk.lines {
+            let content = line.content(&hunk);
+            match line.kind {
+                LineKind::Ours(_) => {
+                    bytes.write(SPACE.as_bytes())?;
+                }
+                _ => {
+                    bytes.write(MINUS.as_bytes())?;
+                }
+            }
+            bytes.write(content.as_bytes())?;
+            bytes.write("\n".as_bytes())?;
+        }
+    }
+    Ok(())
 }
