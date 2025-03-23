@@ -464,22 +464,27 @@ pub fn cleanup_last_conflict_for_file(
     file_path: PathBuf,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
+    debug!("cleanup_last_conflict_for_file");
     let repo = git2::Repository::open(path.clone())?;
-    let mut index = repo.index()?;
+    //let mut index = repo.index()?;
 
     // 1 - all conflicts in all files are resolved - update all
     // 2 - only this file is resolved, but have other conflicts - update all
     // 3 - conflicts are remaining in all files - just update conflicted
     let mut update_status = true;
-    if let Some(git_diff) = conflict::get_diff(&repo, &mut None).unwrap() {
+    let mut cleanup = Vec::new();
+    if let Some(git_diff) = conflict::get_diff(&repo, &mut Some(&mut cleanup)).unwrap() {
+        debug!("muuuuuuuuuuuuuuuuuuuuuuuu");
         let diff = make_diff(&git_diff, DiffKind::Conflicted);
         for file in &diff.files {
+            debug!("FIIIIIIIIIIIILE IN DIFF! {:?}", file.path);
             if file.hunks.iter().any(|h| h.conflict_markers_count > 0) {
                 if file.path == file_path {
                     update_status = false;
                 }
             } else if file.path == file_path {
                 // cleanup conflicts only for this file
+                let mut index = repo.index()?;
                 index.remove_path(Path::new(&file_path))?;
                 index.add_path(Path::new(&file_path))?;
                 index.write()?;
@@ -494,7 +499,9 @@ pub fn cleanup_last_conflict_for_file(
                 .expect("Could not send through channel");
         }
     } else {
-        trace!("cleanup_last_conflict_for_file. no mor conflicts! restore file in index!");
+        debug!("cleanup_last_conflict_for_file. no mor conflicts! restore file in index!");
+        debug!("++++++++++ {file_path:?} {cleanup:?}");
+        let mut index = repo.index()?;
         index.remove_path(Path::new(&file_path))?;
         index.add_path(Path::new(&file_path))?;
         index.write()?;
