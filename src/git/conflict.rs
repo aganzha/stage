@@ -1,10 +1,8 @@
-use crate::gio;
 use crate::git::{
-    get_untracked, make_diff, make_diff_options, Diff, DiffKind, MARKER_OURS, MARKER_THEIRS,
+    MARKER_OURS, MARKER_THEIRS,
     MARKER_VS,
 };
 use anyhow::{Context, Error, Result};
-use async_channel::Sender;
 use git2;
 use log::{debug, info};
 use similar;
@@ -37,7 +35,7 @@ pub fn write_conflict_diff<'a>(
         let prefix: String = value.chars().take(7).collect();
         match (change.tag(), op, &prefix[..]) {
             (similar::ChangeTag::Insert, _, MARKER_OURS) => {
-                assert!(op == "");
+                assert!(op.is_empty());
                 hunk.push((false, "header"));
                 hunk.push((true, value));
                 op = "collect_ours";
@@ -72,12 +70,10 @@ pub fn write_conflict_diff<'a>(
                         );
                         io::Write::write(bytes, header.as_bytes()).expect("cant write bytes");
                         continue;
+                    } else if plus {
+                        io::Write::write(bytes, &[b'+']).expect("cant write bytes");
                     } else {
-                        if plus {
-                            io::Write::write(bytes, &[b'+']).expect("cant write bytes");
-                        } else {
-                            io::Write::write(bytes, &[b' ']).expect("cant write bytes");
-                        }
+                        io::Write::write(bytes, &[b' ']).expect("cant write bytes");
                     }
                     io::Write::write(bytes, line.as_bytes()).expect("cant write bytes");
                 }
@@ -123,33 +119,12 @@ pub fn get_diff<'a>(
             let pth = String::from_utf8(our.path).unwrap();
             conflict_paths.push(pth);
             has_conflicts = true;
-        } else {
-            if let Some(paths) = paths_to_clean {
-                let entry = conflict.their.unwrap();
-                let path = path::PathBuf::from(str::from_utf8(&entry.path)?);
-                paths.push(path);
-            }
+        } else if let Some(paths) = paths_to_clean {
+            let entry = conflict.their.unwrap();
+            let path = path::PathBuf::from(str::from_utf8(&entry.path)?);
+            paths.push(path);
         }
     }
-    // file was deleted in current branch (not in merging one)
-    // it will be not displayed. lets just delete it from index
-    // and display as untracked (no other good ways exists yet)
-    // for entry in &missing_theirs {
-    //     let pth = path::PathBuf::from(str::from_utf8(&entry.path)?);
-    //     index.remove_path(&pth).unwrap();
-    // }
-    // aganzha TODO!
-    // if !missing_theirs.is_empty() {
-    //     debug!("moving file to untracked during conflict");
-    //     index.write()?;
-    //     gio::spawn_blocking({
-    //         let sender = sender.clone();
-    //         let path = path.clone();
-    //         move || {
-    //             get_untracked(path, sender);
-    //         }
-    //     });
-    // }
     if !has_conflicts {
         return Ok(None);
     }
@@ -166,7 +141,7 @@ pub fn get_diff<'a>(
             .join(path::Path::new(&path));
         debug!("file path of conflict {:?}", abs_file_path);
         let entry = current_tree.get_path(path::Path::new(&path))?;
-        let ob = entry.to_object(&repo)?;
+        let ob = entry.to_object(repo)?;
         let blob = ob.as_blob().context("cant get blob")?;
         let tree_content = String::from_utf8_lossy(blob.content());
         let file_bytes = fs::read(abs_file_path)?;
@@ -174,7 +149,7 @@ pub fn get_diff<'a>(
         let text_diff = similar::TextDiff::from_lines(&tree_content, &workdir_content);
         write_conflict_diff(&mut bytes, &path, text_diff);
     }
-    if bytes.len() == 0 {
+    if bytes.is_empty() {
         return Err(Error::msg("no bytes in conflict"));
     }
     Ok(Some(git2::Diff::from_buffer(&bytes)?))

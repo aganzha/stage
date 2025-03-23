@@ -9,7 +9,6 @@ use crate::status_view::tags;
 #[cfg(test)]
 use crate::status_view::view::RenderFlags;
 use crate::status_view::view::View;
-use crate::status_view::StageView;
 #[cfg(test)]
 use crate::tests::initialize;
 

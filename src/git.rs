@@ -31,8 +31,8 @@ use std::fmt;
 use std::io::Write;
 use std::num::ParseIntError;
 use std::ops::{Add, Sub};
-use std::path::{Path, PathBuf};
-use std::str::{from_utf8, FromStr};
+use std::path::PathBuf;
+use std::str::FromStr;
 use std::{collections::HashSet, str};
 
 pub fn make_diff_options() -> DiffOptions {
@@ -41,7 +41,6 @@ pub fn make_diff_options() -> DiffOptions {
     opts.minimal(true);
     opts
 }
-use similar::TextDiff;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct HunkLineNo(u32);
