@@ -765,59 +765,36 @@ pub fn get_current_repo_status(
         }
     });
 
+    // bugs in libgit2
     // https://github.com/libgit2/libgit2/issues/6232
     // this one is for staging killed hunk
     // https://github.com/libgit2/libgit2/issues/6643
 
-    let index = repo.index()?;
-
-    if index.has_conflicts() {
-        // https://github.com/libgit2/libgit2/issues/6232
-        // this one is for staging killed hunk
-        // https://github.com/libgit2/libgit2/issues/6643
-        gio::spawn_blocking({
-            let sender = sender.clone();
-            let path = path.clone();
+    // get conflicted
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        let path = path.clone();
+        move || {
+            let repo = Repository::open(path.clone()).expect("can't open repo");
             let state = repo.state();
-            move || {
-                let repo = git2::Repository::open(path.clone()).expect("cant open repo");
-                let git_diff = conflict::get_diff(&repo).unwrap();
-                let diff = make_diff(&git_diff, DiffKind::Conflicted);
-                sender
-                    .send_blocking(crate::Event::Conflicted(
-                        Some(diff),
-                        Some(State::new(state, "".to_string())),
-                    ))
-                    .expect("Could not send through channel");
-                // if let Ok(git_diff) = conflict::get_diff(&repo) {
-                //     let diff = make_diff(&git_diff, DiffKind::Conflicted);
-                //     // why do i need state?
-                //     sender
-                //         .send_blocking(crate::Event::Conflicted(
-                //             Some(diff),
-                //             Some(State::new(state, "".to_string())),
-                //         ))
-                //         .expect("Could not send through channel");
-                // } else {
-                //     sender
-                //         .send_blocking(crate::Event::Conflicted(
-                //             None,
-                //             Some(State::new(state, "".to_string())),
-                //         ))
-                //         .expect("Could not send through channel");
-                // };
+            let mut cleanup = Vec::new();
+            let conflicted = conflict::get_diff(&repo, &mut Some(&mut cleanup))
+                .ok()
+                .flatten()
+                .map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted));
+            if !cleanup.is_empty() {
+                let mut index = repo.index().expect("cant get index");
+                for pth in cleanup {
+                    index.remove_path(&pth).expect("cant remove from index");
+                }
+                get_untracked(path, sender.clone());
             }
-        });
-    } else {
-        // cleanup conflicts while switching repo
-        let state = repo.state();
-        sender
-            .send_blocking(crate::Event::Conflicted(
-                None,
+            sender.send_blocking(crate::Event::Conflicted(
+                conflicted,
                 Some(State::new(state, "".to_string())),
             ))
-            .expect("Could not send through channel");
-    }
+        }
+    });
 
     // get_unstaged
     let git_diff = repo.diff_index_to_workdir(None, Some(&mut make_diff_options()))?;
@@ -1170,6 +1147,7 @@ pub fn get_directories(path: PathBuf) -> HashSet<String> {
     directories
 }
 
+// TODO! get rid of it. just call get_current_repo_status!
 pub fn track_changes(
     path: PathBuf,
     file_path: PathBuf,
@@ -1206,7 +1184,7 @@ pub fn track_changes(
                 if file_path == conflict_path {
                     // unwrap is forced here, cause this diff could not
                     // be empty
-                    let git_diff = conflict::get_diff(&repo).unwrap();
+                    let git_diff = conflict::get_diff(&repo, &mut None).unwrap().unwrap();
                     let event = crate::Event::TrackedFile(
                         file_path.into(),
                         make_diff(&git_diff, DiffKind::Conflicted),
