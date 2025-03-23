@@ -14,14 +14,7 @@ pub fn write_conflict_diff<'a>(
     path: &str,
     similar_diff: similar::TextDiff<'a, 'a, 'a, str>,
 ) {
-    io::Write::write(
-        bytes,
-        format!("diff --git \"a/{}\" \"b/{}\"\n", path, path).as_bytes(),
-    )
-    .expect("cant write bytes");
-    io::Write::write(bytes, format!("--- \"a/{}\"\n", path).as_bytes()).expect("cant write bytes");
-    io::Write::write(bytes, format!("+++ \"b/{}\"\n", path).as_bytes()).expect("cant write bytes");
-
+    let mut file_header_written = false;
     let mut hunk: Vec<(bool, &str)> = Vec::new();
     let mut hunk_old_start = 0;
     let mut hunk_new_start = 0;
@@ -36,6 +29,18 @@ pub fn write_conflict_diff<'a>(
         match (change.tag(), op, &prefix[..]) {
             (similar::ChangeTag::Insert, _, MARKER_OURS) => {
                 assert!(op.is_empty());
+                if !file_header_written {
+                    bytes
+                        .write(format!("diff --git \"a/{}\" \"b/{}\"\n", path, path).as_bytes())
+                        .expect("cant write bytes");
+                    bytes
+                        .write(format!("--- \"a/{}\"\n", path).as_bytes())
+                        .expect("cant write bytes");
+                    bytes
+                        .write(format!("+++ \"b/{}\"\n", path).as_bytes())
+                        .expect("cant write bytes");
+                    file_header_written = true;
+                }
                 hunk.push((false, "header"));
                 hunk.push((true, value));
                 op = "collect_ours";
@@ -114,13 +119,13 @@ pub fn get_diff<'a>(
     let mut has_conflicts = false;
     let mut conflict_paths = Vec::new();
     for conflict in conflicts {
-        let conflict = conflict.unwrap();
+        let conflict = conflict?;
         if let Some(our) = conflict.our {
-            let pth = String::from_utf8(our.path).unwrap();
+            let pth = String::from_utf8(our.path)?;
             conflict_paths.push(pth);
             has_conflicts = true;
         } else if let Some(paths) = paths_to_clean {
-            let entry = conflict.their.unwrap();
+            let entry = conflict.their.context("no theirs")?;
             let path = path::PathBuf::from(str::from_utf8(&entry.path)?);
             paths.push(path);
         }
@@ -130,8 +135,8 @@ pub fn get_diff<'a>(
         return Ok(None);
     }
 
-    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
+    let ob = repo.revparse_single("HEAD^{tree}")?;
+    let current_tree = repo.find_tree(ob.id())?;
 
     let mut bytes: Vec<u8> = Vec::new();
     for path in conflict_paths {
@@ -148,11 +153,29 @@ pub fn get_diff<'a>(
         let file_bytes = fs::read(abs_file_path)?;
         let workdir_content = String::from_utf8_lossy(&file_bytes);
         let text_diff = similar::TextDiff::from_lines(&tree_content, &workdir_content);
+        let ratio = text_diff.ratio();
+        debug!("oooooooooooooooo ratio {ratio}");
+        let before = bytes.len();
         write_conflict_diff(&mut bytes, &path, text_diff);
+        if bytes.len() == before || ratio == 1.0 {
+            if let Some(paths) = paths_to_clean {
+                let path_to_clean = path::PathBuf::from(path);
+                paths.push(path_to_clean);
+            }
+        }
+        debug!(
+            "meeeeeeeeeeeeeeeeeeeee before: {} after: {}",
+            before,
+            bytes.len()
+        );
     }
     if bytes.is_empty() {
-        return Err(Error::msg("no bytes in conflict"));
+        return Ok(None);
     }
+    debug!("^^^^^^^^^^path_to_clean {paths_to_clean:?}");
+    // for line in String::from_utf8(bytes.clone())?.lines() {
+    //     debug!("|{line}");
+    // }
     Ok(Some(git2::Diff::from_buffer(&bytes)?))
 }
 
@@ -179,7 +202,10 @@ pub fn choose_conflict_side_of_hunk(
         // it need to invert all signs in hunk. just kill theirs
         // hunk header must be reversed!
         let reversed_header = Hunk::reverse_header(&hunk.header);
-        debug!("befooooooooore {reversed_header} {:?} {:?}", hunk.old_start, hunk.new_start);
+        debug!(
+            "befooooooooore {reversed_header} {:?} {:?}",
+            hunk.old_start, hunk.new_start
+        );
         let start_delta = hunk.new_start.as_i32() - hunk.old_start.as_i32();
         debug!("start_delta {start_delta}");
         let reversed_header = Hunk::shift_new_start(&reversed_header, start_delta);
