@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::git::{
-    branch::BranchName, conflict, get_current_repo_status, make_diff_options, BranchData,
-    DeferRefresh, Hunk, Line, State, MARKER_DIFF_A, MARKER_DIFF_B, MARKER_HUNK, MARKER_OURS,
-    MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
+    branch::BranchName, conflict, get_current_repo_status, make_diff, make_diff_options,
+    BranchData, DeferRefresh, DiffKind, Hunk, Line, State, MARKER_DIFF_A, MARKER_DIFF_B,
+    MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
 };
 use async_channel::Sender;
 use git2;
@@ -685,12 +685,12 @@ pub fn cleanup_last_conflict_for_file(
     let repo = git2::Repository::open(path.clone())?;
     let mut index = repo.index()?;
 
-    let diff = conflict::get_diff(path.clone(), sender.clone());
     // 1 - all conflicts in all files are resolved - update all
     // 2 - only this file is resolved, but have other conflicts - update all
     // 3 - conflicts are remaining in all files - just update conflicted
     let mut update_status = true;
-    if let Some(diff) = conflict::get_diff(path.clone(), sender.clone()) {
+    if let Ok(git_diff) = conflict::get_diff(&repo) {
+        let diff = make_diff(&git_diff, DiffKind::Conflicted);
         for file in &diff.files {
             if file.hunks.iter().any(|h| h.conflict_markers_count > 0) {
                 if file.path == file_path {
@@ -702,6 +702,14 @@ pub fn cleanup_last_conflict_for_file(
                 index.add_path(Path::new(&file_path))?;
                 index.write()?;
             }
+        }
+        if !update_status {
+            sender
+                .send_blocking(crate::Event::Conflicted(
+                    Some(diff),
+                    Some(State::new(repo.state(), "".to_string())),
+                ))
+                .expect("Could not send through channel");
         }
     } else {
         trace!("cleanup_last_conflict_for_file. no mor conflicts! restore file in index!");
@@ -717,11 +725,5 @@ pub fn cleanup_last_conflict_for_file(
         });
         return Ok(());
     }
-    sender
-        .send_blocking(crate::Event::Conflicted(
-            diff,
-            Some(State::new(repo.state(), "".to_string())),
-        ))
-        .expect("Could not send through channel");
     Ok(())
 }

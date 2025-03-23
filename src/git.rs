@@ -654,23 +654,21 @@ pub fn get_current_repo_status(
                     // case 2. Conflicted will be fired
                     // in another clause
                     debug!("i am getting state here. conflicted will be running later");
-                    require_conflicted = false;
+                } else {
+                    // case 1. all conflicts are resolved, but state
+                    // is still merging. Fire Conflicted here to show the banner
+                    // TODO! move banner logic to state!, not conflicted!
+                    // get rid of banner in update conflicted!
+                    debug!("call conflicted instead of state to display/hide banner");
+                    sender
+                        .send_blocking(crate::Event::Conflicted(None, Some(state)))
+                        .expect("Could not send through channel");
+                    return;
                 }
             }
-            if require_conflicted {
-                // case 1. all conflicts are resolved, but state
-                // is still merging. Fire Conflicted here to show the banner
-                // TODO! move banner logic to state!, not conflicted!
-                // get rid of banner in update conflicted!
-                let diff = conflict::get_diff(path, sender.clone());
-                sender
-                    .send_blocking(crate::Event::Conflicted(diff, Some(state)))
-                    .expect("Could not send through channel");
-            } else {
-                sender
-                    .send_blocking(crate::Event::State(state))
-                    .expect("Could not send through channel");
-            }
+            sender
+                .send_blocking(crate::Event::Conflicted(None, Some(state)))
+                .expect("Could not send through channel");
         }
     });
 
@@ -782,14 +780,32 @@ pub fn get_current_repo_status(
             let path = path.clone();
             let state = repo.state();
             move || {
-                let diff = conflict::get_diff(path, sender.clone());
-                // why do i need state?
+                let repo = git2::Repository::open(path.clone()).expect("cant open repo");
+                let git_diff = conflict::get_diff(&repo).unwrap();
+                let diff = make_diff(&git_diff, DiffKind::Conflicted);
                 sender
                     .send_blocking(crate::Event::Conflicted(
-                        diff,
+                        Some(diff),
                         Some(State::new(state, "".to_string())),
                     ))
                     .expect("Could not send through channel");
+                // if let Ok(git_diff) = conflict::get_diff(&repo) {
+                //     let diff = make_diff(&git_diff, DiffKind::Conflicted);
+                //     // why do i need state?
+                //     sender
+                //         .send_blocking(crate::Event::Conflicted(
+                //             Some(diff),
+                //             Some(State::new(state, "".to_string())),
+                //         ))
+                //         .expect("Could not send through channel");
+                // } else {
+                //     sender
+                //         .send_blocking(crate::Event::Conflicted(
+                //             None,
+                //             Some(State::new(state, "".to_string())),
+                //         ))
+                //         .expect("Could not send through channel");
+                // };
             }
         });
     } else {
@@ -1190,8 +1206,11 @@ pub fn track_changes(
                 if file_path == conflict_path {
                     // unwrap is forced here, cause this diff could not
                     // be empty
-                    let diff = conflict::get_diff(path, sender.clone()).unwrap();
-                    let event = crate::Event::TrackedFile(file_path.into(), diff);
+                    let git_diff = conflict::get_diff(&repo).unwrap();
+                    let event = crate::Event::TrackedFile(
+                        file_path.into(),
+                        make_diff(&git_diff, DiffKind::Conflicted),
+                    );
                     sender
                         .send_blocking(event)
                         .expect("Could not send through channel");
