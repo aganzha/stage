@@ -282,12 +282,13 @@ impl Hunk {
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
         // "@@ -20,10 +24,11 @@ STAGING LINE..." -> "@@ -24,11 +20,10 @@ STAGING LINE..."
         // "@@ -54,7 +59,6 @@ do not call..." -> "@@ -59,6 +54,7 @@ do not call..."
-        let re = Regex::new(r"@@ [+-]([0-9].*,[0-9]*) [+-]([0-9].*,[0-9].*) @@").unwrap();
+        let re = Regex::new(r"@@ [+-]([0-9]+,[0-9]+) [+-]([0-9]+,[0-9]+) @@").unwrap();
         if let Some((whole, [nums1, nums2])) = re.captures_iter(header).map(|c| c.extract()).next()
         {
             // for (whole, [nums1, nums2]) in re.captures_iter(&header).map(|c| c.extract()) {
+            debug!("RRRRRRRRRRRRRRRR {nums1} {nums2}");
             let result = whole
-                .replace(nums1, "mock")
+                .replacen(nums1, "mock", 1)
                 .replace(nums2, nums1)
                 .replace("mock", nums2);
             return header.replace(whole, &result);

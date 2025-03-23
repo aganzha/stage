@@ -203,8 +203,8 @@ pub fn choose_conflict_side_of_hunk(
         // hunk header must be reversed!
         let reversed_header = Hunk::reverse_header(&hunk.header);
         debug!(
-            "befooooooooore {reversed_header} {:?} {:?}",
-            hunk.old_start, hunk.new_start
+            "befooooooooore {:?} {reversed_header} {:?} {:?}",
+            &hunk.header, hunk.old_start, hunk.new_start
         );
         let start_delta = hunk.new_start.as_i32() - hunk.old_start.as_i32();
         debug!("start_delta {start_delta}");

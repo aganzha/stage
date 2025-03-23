@@ -455,13 +455,12 @@ pub fn choose_conflict_side_of_hunk(
         return Err(error.into());
     }
 
-    cleanup_last_conflict_for_file(path, file_path.clone(), sender)?;
+    try_finalize_conflict(path, sender)?;
     Ok(())
 }
 
-pub fn cleanup_last_conflict_for_file(
+pub fn try_finalize_conflict(
     path: PathBuf,
-    file_path: PathBuf,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     debug!("cleanup_last_conflict_for_file");
@@ -469,41 +468,27 @@ pub fn cleanup_last_conflict_for_file(
     //let mut index = repo.index()?;
 
     // 1 - all conflicts in all files are resolved - update all
+    //   - remove all from conflict@index
     // 2 - only this file is resolved, but have other conflicts - update all
+    //     - remove this file from conflict@index
     // 3 - conflicts are remaining in all files - just update conflicted
+    //     - do not touch conflict@index
     let mut update_status = true;
     let mut cleanup = Vec::new();
+    let mut index = repo.index()?;
     if let Some(git_diff) = conflict::get_diff(&repo, &mut Some(&mut cleanup)).unwrap() {
-        debug!("muuuuuuuuuuuuuuuuuuuuuuuu");
         let diff = make_diff(&git_diff, DiffKind::Conflicted);
-        for file in &diff.files {
-            debug!("FIIIIIIIIIIIILE IN DIFF! {:?}", file.path);
-            if file.hunks.iter().any(|h| h.conflict_markers_count > 0) {
-                if file.path == file_path {
-                    update_status = false;
-                }
-            } else if file.path == file_path {
-                // cleanup conflicts only for this file
-                let mut index = repo.index()?;
-                index.remove_path(Path::new(&file_path))?;
-                index.add_path(Path::new(&file_path))?;
-                index.write()?;
-            }
-        }
-        if !update_status {
-            sender
-                .send_blocking(crate::Event::Conflicted(
-                    Some(diff),
-                    Some(State::new(repo.state(), "".to_string())),
-                ))
-                .expect("Could not send through channel");
-        }
-    } else {
-        debug!("cleanup_last_conflict_for_file. no mor conflicts! restore file in index!");
-        debug!("++++++++++ {file_path:?} {cleanup:?}");
-        let mut index = repo.index()?;
-        index.remove_path(Path::new(&file_path))?;
-        index.add_path(Path::new(&file_path))?;
+        sender
+            .send_blocking(crate::Event::Conflicted(
+                Some(diff),
+                Some(State::new(repo.state(), "".to_string())),
+            ))
+            .expect("Could not send through channel");
+        update_status = false;
+    }
+    for path in cleanup {
+        index.remove_path(Path::new(&path))?;
+        index.add_path(Path::new(&path))?;
         index.write()?;
     }
     if update_status {
@@ -512,7 +497,48 @@ pub fn cleanup_last_conflict_for_file(
                 get_current_repo_status(Some(path), sender).expect("cant get status");
             }
         });
-        return Ok(());
     }
     Ok(())
+    // if let Some(git_diff) = conflict::get_diff(&repo, &mut Some(&mut cleanup)).unwrap() {
+    //     debug!("muuuuuuuuuuuuuuuuuuuuuuuu");
+    //     let diff = make_diff(&git_diff, DiffKind::Conflicted);
+    //     for file in &diff.files {
+    //         debug!("FIIIIIIIIIIIILE IN DIFF! {:?}", file.path);
+    //         if file.hunks.iter().any(|h| h.conflict_markers_count > 0) {
+    //             if file.path == file_path {
+    //                 update_status = false;
+    //             }
+    //         } else if file.path == file_path {
+    //             // cleanup conflicts only for this file
+    //             let mut index = repo.index()?;
+    //             index.remove_path(Path::new(&file_path))?;
+    //             index.add_path(Path::new(&file_path))?;
+    //             index.write()?;
+    //         }
+    //     }
+    //     if !update_status {
+    //         sender
+    //             .send_blocking(crate::Event::Conflicted(
+    //                 Some(diff),
+    //                 Some(State::new(repo.state(), "".to_string())),
+    //             ))
+    //             .expect("Could not send through channel");
+    //     }
+    // } else {
+    //     debug!("cleanup_last_conflict_for_file. no mor conflicts! restore file in index!");
+    //     debug!("++++++++++ {file_path:?} {cleanup:?}");
+    //     let mut index = repo.index()?;
+    //     index.remove_path(Path::new(&file_path))?;
+    //     index.add_path(Path::new(&file_path))?;
+    //     index.write()?;
+    // }
+    // if update_status {
+    //     gio::spawn_blocking({
+    //         move || {
+    //             get_current_repo_status(Some(path), sender).expect("cant get status");
+    //         }
+    //     });
+    //     return Ok(());
+    // }
+    // Ok(())
 }
