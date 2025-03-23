@@ -689,7 +689,7 @@ pub fn cleanup_last_conflict_for_file(
     // 2 - only this file is resolved, but have other conflicts - update all
     // 3 - conflicts are remaining in all files - just update conflicted
     let mut update_status = true;
-    if let Ok(git_diff) = conflict::get_diff(&repo) {
+    if let Some(git_diff) = conflict::get_diff(&repo, &mut None).unwrap() {
         let diff = make_diff(&git_diff, DiffKind::Conflicted);
         for file in &diff.files {
             if file.hunks.iter().any(|h| h.conflict_markers_count > 0) {

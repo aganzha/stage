@@ -100,7 +100,10 @@ pub fn write_conflict_diff<'a>(
     }
 }
 
-pub fn get_diff<'a>(repo: &'a git2::Repository) -> Result<git2::Diff<'a>> {
+pub fn get_diff<'a>(
+    repo: &'a git2::Repository,
+    paths_to_clean: &mut Option<&mut Vec<path::PathBuf>>,
+) -> Result<Option<git2::Diff<'a>>> {
     // so, when file is in conflict during merge, this means nothing
     // was staged to that file, cause merging in such state is PROHIBITED!
 
@@ -108,10 +111,10 @@ pub fn get_diff<'a>(repo: &'a git2::Repository) -> Result<git2::Diff<'a>> {
     // both side: ours and theirs. if those come separated everything
     // will be broken!
     info!(".........git.conflict.get_diff");
-    let mut index = repo.index()?;
+    let index = repo.index()?;
     let conflicts = index.conflicts()?;
 
-    let mut missing_theirs: Vec<git2::IndexEntry> = Vec::new();
+    // let mut missing_theirs: Vec<git2::IndexEntry> = Vec::new();
     let mut has_conflicts = false;
     let mut conflict_paths = Vec::new();
     for conflict in conflicts {
@@ -121,16 +124,20 @@ pub fn get_diff<'a>(repo: &'a git2::Repository) -> Result<git2::Diff<'a>> {
             conflict_paths.push(pth);
             has_conflicts = true;
         } else {
-            missing_theirs.push(conflict.their.unwrap())
+            if let Some(paths) = paths_to_clean {
+                let entry = conflict.their.unwrap();
+                let path = path::PathBuf::from(str::from_utf8(&entry.path)?);
+                paths.push(path);
+            }
         }
     }
     // file was deleted in current branch (not in merging one)
     // it will be not displayed. lets just delete it from index
     // and display as untracked (no other good ways exists yet)
-    for entry in &missing_theirs {
-        let pth = path::PathBuf::from(str::from_utf8(&entry.path)?);
-        index.remove_path(&pth).unwrap();
-    }
+    // for entry in &missing_theirs {
+    //     let pth = path::PathBuf::from(str::from_utf8(&entry.path)?);
+    //     index.remove_path(&pth).unwrap();
+    // }
     // aganzha TODO!
     // if !missing_theirs.is_empty() {
     //     debug!("moving file to untracked during conflict");
@@ -144,7 +151,7 @@ pub fn get_diff<'a>(repo: &'a git2::Repository) -> Result<git2::Diff<'a>> {
     //     });
     // }
     if !has_conflicts {
-        return Err(Error::msg("cant find conflicts"));
+        return Ok(None);
     }
 
     let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
@@ -170,5 +177,5 @@ pub fn get_diff<'a>(repo: &'a git2::Repository) -> Result<git2::Diff<'a>> {
     if bytes.len() == 0 {
         return Err(Error::msg("no bytes in conflict"));
     }
-    Ok(git2::Diff::from_buffer(&bytes)?)
+    Ok(Some(git2::Diff::from_buffer(&bytes)?))
 }
