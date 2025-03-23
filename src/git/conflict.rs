@@ -178,7 +178,13 @@ pub fn choose_conflict_side_of_hunk(
     if ours {
         // it need to invert all signs in hunk. just kill theirs
         // hunk header must be reversed!
-        bytes.write(Hunk::reverse_header(&hunk.header).as_bytes())?;
+        let reversed_header = Hunk::reverse_header(&hunk.header);
+        debug!("befooooooooore {reversed_header} {:?} {:?}", hunk.old_start, hunk.new_start);
+        let start_delta = hunk.new_start.as_i32() - hunk.old_start.as_i32();
+        debug!("start_delta {start_delta}");
+        let reversed_header = Hunk::shift_new_start(&reversed_header, start_delta);
+        debug!("afterrrrrrrr {}", reversed_header);
+        bytes.write(reversed_header.as_bytes())?;
         bytes.write("\n".as_bytes())?;
         for line in &hunk.lines {
             let content = line.content(&hunk);
