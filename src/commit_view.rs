@@ -9,7 +9,7 @@ use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
-use crate::{DiffKind, Event};
+use crate::Event;
 use async_channel::Sender;
 use git2::Oid;
 
@@ -19,7 +19,7 @@ use gtk4::{
     Widget, Window as Gtk4Window,
 };
 use libadwaita::prelude::*;
-use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
+use libadwaita::{HeaderBar, ToolbarView, Window};
 use log::{debug, info, trace};
 
 use std::path::PathBuf;

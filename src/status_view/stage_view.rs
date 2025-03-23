@@ -277,6 +277,12 @@ mod empty_layout_manager_internal {
     }
 }
 
+impl Default for EmptyLayoutManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EmptyLayoutManager {
     pub fn new() -> Self {
         glib::Object::builder().build()

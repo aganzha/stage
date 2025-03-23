@@ -913,8 +913,7 @@ impl ViewContainer for Line {
                 .xalign(0.0)
                 .opacity(0.3)
                 .css_classes(["line_no"])
-                .build()
-                .into();
+                .build();
             context.stage.add_child_at_anchor(&lbl, &anchor);
         }
 
