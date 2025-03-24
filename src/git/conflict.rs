@@ -198,33 +198,60 @@ pub fn choose_conflict_side_of_hunk(
     bytes.write(pth)?;
     bytes.write("\"\n".as_bytes())?;
 
-    if ours {
-        // it need to invert all signs in hunk. just kill theirs
-        // hunk header must be reversed!
-        let reversed_header = Hunk::reverse_header(&hunk.header);
-        debug!(
-            "befooooooooore {:?} {reversed_header} {:?} {:?}",
-            &hunk.header, hunk.old_start, hunk.new_start
-        );
-        let start_delta = hunk.new_start.as_i32() - hunk.old_start.as_i32();
-        debug!("start_delta {start_delta}");
-        let reversed_header = Hunk::shift_new_start(&reversed_header, start_delta);
-        debug!("afterrrrrrrr {}", reversed_header);
-        bytes.write(reversed_header.as_bytes())?;
-        bytes.write("\n".as_bytes())?;
-        for line in &hunk.lines {
-            let content = line.content(&hunk);
-            match line.kind {
-                LineKind::Ours(_) => {
+    // it need to invert all signs in hunk. just kill theirs
+    // hunk header must be reversed!
+    let reversed_header = Hunk::reverse_header(&hunk.header);
+    debug!(
+        "befooooooooore {:?} {reversed_header} {:?} {:?}",
+        &hunk.header, hunk.old_start, hunk.new_start
+    );
+    let start_delta = hunk.new_start.as_i32() - hunk.old_start.as_i32();
+    let lines_delta = if ours {
+        // in case of ours its not needed to change lines count, cause it is the same
+        // original: @@ -16,40 +16,18 @@
+        // 40 lines in tree in git. 18 lines in workdir. choosing ours means we get version from tree
+        0
+    } else {
+        // in case of theirs it need manually to count theirs, cause in workdir there are both: ours and teirs
+        let their_lines = hunk
+            .lines
+            .iter()
+            .filter(|l| match l.kind {
+                LineKind::Theirs(_) => true,
+                _ => false,
+            })
+            .count();
+        (their_lines - hunk.old_lines as usize) as i32
+    };
+    debug!("start_delta {start_delta} lines_delta {lines_delta}");
+    let reversed_header =
+        Hunk::shift_new_start_and_lines(&reversed_header, start_delta, lines_delta);
+    debug!("new header in conflict {}", &reversed_header);
+    bytes.write(reversed_header.as_bytes())?;
+    bytes.write("\n".as_bytes())?;
+    for line in &hunk.lines {
+        let content = line.content(&hunk);
+        match line.kind {
+            LineKind::Ours(_) => {
+                if ours {
                     bytes.write(SPACE.as_bytes())?;
-                }
-                _ => {
+                } else {
                     bytes.write(MINUS.as_bytes())?;
                 }
             }
-            bytes.write(content.as_bytes())?;
-            bytes.write("\n".as_bytes())?;
+            LineKind::Theirs(_) => {
+                if ours {
+                    bytes.write(MINUS.as_bytes())?;
+                } else {
+                    bytes.write(SPACE.as_bytes())?;
+                }
+            }
+            _ => {
+                bytes.write(MINUS.as_bytes())?;
+            }
         }
+        bytes.write(content.as_bytes())?;
+        bytes.write("\n".as_bytes())?;
     }
     Ok(())
 }
