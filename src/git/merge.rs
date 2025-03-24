@@ -484,7 +484,7 @@ pub fn try_finalize_conflict(
                 Some(State::new(repo.state(), "".to_string())),
             ))
             .expect("Could not send through channel");
-        update_status = false;
+        update_status = !cleanup.is_empty();
     }
     for path in cleanup {
         index.remove_path(Path::new(&path))?;
