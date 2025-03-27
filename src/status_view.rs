@@ -940,7 +940,7 @@ impl Status {
                 txt.set_layout_manager(None::<EmptyLayoutManager>);
             }
         } else {
-            debug!("set custom layout!");
+            debug!("set custom layout 1.!");
             txt.set_layout_manager(Some(EmptyLayoutManager::new()));
         }
     }
@@ -952,7 +952,8 @@ impl Status {
         _offset: i32,
         context: &mut StatusRenderContext<'a>,
     ) {
-        self.toggle_empty_layout_manager(txt, true);
+        // debug!("TOOGLE ON");
+        //self.toggle_empty_layout_manager(txt, true);
         if let Some(conflicted) = &self.conflicted {
             if conflicted.expand(line_no, context).is_some() {
                 self.render(txt, Some(DiffKind::Conflicted), context);
@@ -971,7 +972,8 @@ impl Status {
                 self.render(txt, Some(DiffKind::Staged), context);
             }
         }
-        self.toggle_empty_layout_manager(txt, false);
+        //debug!("TOOGLE BACK");
+        //self.toggle_empty_layout_manager(txt, false);
     }
 
     pub fn render<'a>(
@@ -1108,7 +1110,7 @@ impl Status {
             debug!("kiiiiiiiiiiiiiilllll custom layout");
             txt.set_layout_manager(None::<EmptyLayoutManager>);
         } else {
-            debug!("set custom layout!");
+            debug!("set custom layout 2.!");
             txt.set_layout_manager(Some(EmptyLayoutManager::new()));
         }
     }
