@@ -4,14 +4,13 @@
 
 use crate::git::{
     branch::BranchName, conflict, get_current_repo_status, make_diff, make_diff_options,
-    BranchData, DeferRefresh, DiffKind, Hunk, Line, State, MARKER_DIFF_A, MARKER_DIFF_B,
-    MARKER_HUNK, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
+    BranchData, DeferRefresh, DiffKind, Hunk, Line, State,
 };
-use anyhow::{Context, Error, Result};
+use anyhow::Result;
 use async_channel::Sender;
 use git2;
 use gtk4::gio;
-use log::{debug, info, trace};
+use log::{debug, info};
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
