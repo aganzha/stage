@@ -25,6 +25,7 @@ pub fn write_conflict_diff<'a>(
 
     for change in similar_diff.iter_all_changes() {
         let value = change.value();
+        debug!("~~~~~~~~~~~~~~~~~ {} tag: {}", value, change.tag());
         let prefix: String = value.chars().take(7).collect();
         match (change.tag(), op, &prefix[..]) {
             (similar::ChangeTag::Insert, _, MARKER_OURS) => {
@@ -221,7 +222,13 @@ pub fn choose_conflict_side_of_hunk(
                 _ => false,
             })
             .count();
-        (their_lines - hunk.old_lines as usize) as i32
+        debug!(
+            "++++++++++++++++ {} - {} ======= {}",
+            their_lines,
+            hunk.old_lines,
+            (their_lines as i32 - hunk.old_lines as i32)
+        );
+        (their_lines as i32 - hunk.old_lines as i32)
     };
     debug!("start_delta {start_delta} lines_delta {lines_delta}");
     let reversed_header =
