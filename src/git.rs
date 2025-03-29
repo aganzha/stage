@@ -10,7 +10,7 @@ pub mod merge;
 pub mod remote;
 pub mod stash;
 pub mod tag;
-pub mod test_merge;
+pub mod test_conflict;
 use crate::branch::BranchData;
 use crate::commit::CommitRepr;
 use crate::gio;
