@@ -28,7 +28,6 @@ use log::{debug, error, info, trace};
 use regex::Regex;
 //use std::time::SystemTime;
 use std::fmt;
-use std::io::Write;
 use std::num::ParseIntError;
 use std::ops::{Add, Sub};
 use std::path::PathBuf;
@@ -158,13 +157,9 @@ impl Line {
 pub const MARKER_OURS: &str = "<<<<<<<";
 pub const MARKER_VS: &str = "=======";
 pub const MARKER_THEIRS: &str = ">>>>>>>";
-pub const MARKER_HUNK: &str = "@@";
-pub const MARKER_DIFF_B: &str = "---"; // --- b/client/ServiceWork/Order/document/_models/WorksNomModel.ts
-pub const MARKER_DIFF_A: &str = "+++"; // +++ a/client/ServiceWork/Order/document/_models/WorksNomModel.ts
-pub const PLUS: &str = "+";
+
 pub const MINUS: &str = "-";
 pub const SPACE: &str = " ";
-pub const NEW_LINE: &str = "\n";
 
 #[derive(Debug, Clone)]
 pub struct Hunk {

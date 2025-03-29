@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #[cfg(test)]
-use crate::tests::initialize;
-#[cfg(test)]
 use crate::git::conflict;
 #[cfg(test)]
-use log::debug;
+use crate::git::{make_diff, DiffKind, DiffLineType, LineKind};
 #[cfg(test)]
-use crate::git::{LineKind, DiffLineType, DiffKind, make_diff};
+use crate::tests::initialize;
+#[cfg(test)]
+use log::debug;
 #[cfg(test)]
 use std::path;
 

@@ -61,7 +61,6 @@ impl Scheme {
 pub const CUSTOM_ATTR: &str = "custom";
 pub const SCHEME_TOKEN: &str = "scheme";
 pub const ZOOM_TOKEN: &str = "zoom";
-pub const ABOUT_TOKEN: &str = "about";
 
 pub fn scheme_selector(stored_scheme: Scheme, sender: Sender<crate::Event>) -> Box {
     let scheme_selector = Box::builder()

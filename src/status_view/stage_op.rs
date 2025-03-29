@@ -391,15 +391,17 @@ impl StageDiffs<'_> {
                 } if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
                 {
-                    for odiff in [&self.unstaged, &self.staged, &self.untracked] {
-                        if let Some(diff) = odiff {
-                            if diff.kind == render_diff_kind {
-                                for i in (0..file_idx + 1).rev() {
-                                    if let Some(file) = diff.files.get(i) {
-                                        iter.set_line(file.view.line_no.get());
-                                        last_op.take();
-                                        break;
-                                    }
+                    for diff in ([&self.unstaged, &self.staged, &self.untracked])
+                        .into_iter()
+                        .copied()
+                        .flatten()
+                    {
+                        if diff.kind == render_diff_kind {
+                            for i in (0..file_idx + 1).rev() {
+                                if let Some(file) = diff.files.get(i) {
+                                    iter.set_line(file.view.line_no.get());
+                                    last_op.take();
+                                    break;
                                 }
                             }
                         }
@@ -422,24 +424,26 @@ impl StageDiffs<'_> {
                 } if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
                 {
-                    for odiff in [&self.unstaged, &self.staged] {
-                        if let Some(diff) = odiff {
-                            if diff.kind == render_diff_kind {
-                                'found: for i in (0..file_idx + 1).rev() {
-                                    if let Some(file) = diff.files.get(i) {
-                                        if file.view.is_expanded() {
-                                            for j in (0..hunk_ids + 1).rev() {
-                                                if let Some(hunk) = file.hunks.get(j) {
-                                                    iter.set_line(hunk.view.line_no.get());
-                                                    last_op.take();
-                                                    break 'found;
-                                                }
+                    for diff in ([&self.unstaged, &self.staged])
+                        .into_iter()
+                        .copied()
+                        .flatten()
+                    {
+                        if diff.kind == render_diff_kind {
+                            'found: for i in (0..file_idx + 1).rev() {
+                                if let Some(file) = diff.files.get(i) {
+                                    if file.view.is_expanded() {
+                                        for j in (0..hunk_ids + 1).rev() {
+                                            if let Some(hunk) = file.hunks.get(j) {
+                                                iter.set_line(hunk.view.line_no.get());
+                                                last_op.take();
+                                                break 'found;
                                             }
                                         }
-                                        iter.set_line(file.view.line_no.get());
-                                        last_op.take();
-                                        break;
                                     }
+                                    iter.set_line(file.view.line_no.get());
+                                    last_op.take();
+                                    break;
                                 }
                             }
                         }
