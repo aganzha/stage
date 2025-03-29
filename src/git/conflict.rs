@@ -1,10 +1,10 @@
 use crate::git::{
-    Hunk, Line, LineKind, MARKER_DIFF_A, MARKER_DIFF_B, MARKER_HUNK, MARKER_OURS, MARKER_THEIRS,
-    MARKER_VS, MINUS, NEW_LINE, PLUS, SPACE,
+    Hunk, LineKind, MARKER_OURS, MARKER_THEIRS,
+    MARKER_VS, MINUS, SPACE,
 };
-use anyhow::{Context, Error, Result};
+use anyhow::{Context, Result};
 use git2;
-use log::{debug, info, trace};
+use log::{debug, info};
 use similar;
 use std::io::prelude::*;
 use std::{fs, io, path, str};
@@ -228,7 +228,7 @@ pub fn choose_conflict_side_of_hunk(
             hunk.old_lines,
             (their_lines as i32 - hunk.old_lines as i32)
         );
-        (their_lines as i32 - hunk.old_lines as i32)
+        their_lines as i32 - hunk.old_lines as i32
     };
     debug!("start_delta {start_delta} lines_delta {lines_delta}");
     let reversed_header =
@@ -237,7 +237,7 @@ pub fn choose_conflict_side_of_hunk(
     bytes.write(reversed_header.as_bytes())?;
     bytes.write("\n".as_bytes())?;
     for line in &hunk.lines {
-        let content = line.content(&hunk);
+        let content = line.content(hunk);
         match line.kind {
             LineKind::Ours(_) => {
                 if ours {
