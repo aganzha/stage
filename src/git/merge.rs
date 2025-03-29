@@ -424,7 +424,7 @@ pub fn choose_conflict_side_of_hunk(
     for line in new_body.lines() {
         debug!("{}", line);
     }
-    let git_diff = match git2::Diff::from_buffer(&mut bytes) {
+    let git_diff = match git2::Diff::from_buffer(&bytes) {
         Ok(gd) => gd,
         Err(error) => {
             debug!("PPPPPPPPPPPPPPPP {error}");

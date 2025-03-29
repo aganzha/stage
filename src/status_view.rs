@@ -886,7 +886,11 @@ impl Status {
     }
 
     // TODO! is it still used?
-    pub fn resize_highlights<'a>(&'a mut self, txt: &StageView, ctx: &mut StatusRenderContext<'a>) {
+    pub fn resize_highlights<'a>(
+        &'a mut self,
+        _txt: &StageView,
+        _ctx: &mut StatusRenderContext<'a>,
+    ) {
         // let buffer = txt.buffer();
         // let iter = buffer.iter_at_offset(buffer.cursor_position());
         // self.cursor(txt, iter.line(), iter.offset(), ctx);

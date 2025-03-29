@@ -453,11 +453,9 @@ impl From<git2::Remote<'_>> for RemoteDetail {
 pub fn list(path: PathBuf) -> Result<Vec<RemoteDetail>, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let mut remotes: Vec<RemoteDetail> = Vec::new();
-    for remote_name in &repo.remotes()? {
-        if let Some(remote_name) = remote_name {
-            let remote = repo.find_remote(remote_name)?;
-            remotes.push(remote.into());
-        }
+    for remote_name in (&repo.remotes()?).into_iter().flatten() {
+        let remote = repo.find_remote(remote_name)?;
+        remotes.push(remote.into());
     }
     Ok(remotes)
 }

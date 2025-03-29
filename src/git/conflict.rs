@@ -1,7 +1,4 @@
-use crate::git::{
-    Hunk, LineKind, MARKER_OURS, MARKER_THEIRS,
-    MARKER_VS, MINUS, SPACE,
-};
+use crate::git::{Hunk, LineKind, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, SPACE};
 use anyhow::{Context, Result};
 use git2;
 use log::{debug, info};
@@ -32,13 +29,13 @@ pub fn write_conflict_diff<'a>(
                 assert!(op.is_empty());
                 if !file_header_written {
                     bytes
-                        .write(format!("diff --git \"a/{}\" \"b/{}\"\n", path, path).as_bytes())
+                        .write_all(format!("diff --git \"a/{}\" \"b/{}\"\n", path, path).as_bytes())
                         .expect("cant write bytes");
                     bytes
-                        .write(format!("--- \"a/{}\"\n", path).as_bytes())
+                        .write_all(format!("--- \"a/{}\"\n", path).as_bytes())
                         .expect("cant write bytes");
                     bytes
-                        .write(format!("+++ \"b/{}\"\n", path).as_bytes())
+                        .write_all(format!("+++ \"b/{}\"\n", path).as_bytes())
                         .expect("cant write bytes");
                     file_header_written = true;
                 }
@@ -49,7 +46,7 @@ pub fn write_conflict_diff<'a>(
 
                 // magic 1/perhaps similar counts from 0?
                 hunk_new_start = change.new_index().unwrap() + 1;
-                if let Some(old_start) = change.old_index() {
+                if let Some(_old_start) = change.old_index() {
                     panic!("STOP");
                 } else {
                     hunk_old_start = hunk_new_start - total_new;
@@ -187,17 +184,17 @@ pub fn choose_conflict_side_of_hunk(
     bytes: &mut Vec<u8>,
 ) -> Result<()> {
     let pth = file_path.as_os_str().as_encoded_bytes();
-    bytes.write("diff --git \"a/".as_bytes())?;
-    bytes.write(pth)?;
-    bytes.write("\" \"b/".as_bytes())?;
-    bytes.write(pth)?;
-    bytes.write("\"\n".as_bytes())?;
-    bytes.write("--- \"a/".as_bytes())?;
-    bytes.write(pth)?;
-    bytes.write("\"\n".as_bytes())?;
-    bytes.write("+++ \"b/".as_bytes())?;
-    bytes.write(pth)?;
-    bytes.write("\"\n".as_bytes())?;
+    bytes.write_all("diff --git \"a/".as_bytes())?;
+    bytes.write_all(pth)?;
+    bytes.write_all("\" \"b/".as_bytes())?;
+    bytes.write_all(pth)?;
+    bytes.write_all("\"\n".as_bytes())?;
+    bytes.write_all("--- \"a/".as_bytes())?;
+    bytes.write_all(pth)?;
+    bytes.write_all("\"\n".as_bytes())?;
+    bytes.write_all("+++ \"b/".as_bytes())?;
+    bytes.write_all(pth)?;
+    bytes.write_all("\"\n".as_bytes())?;
 
     // it need to invert all signs in hunk. just kill theirs
     // hunk header must be reversed!
@@ -217,10 +214,7 @@ pub fn choose_conflict_side_of_hunk(
         let their_lines = hunk
             .lines
             .iter()
-            .filter(|l| match l.kind {
-                LineKind::Theirs(_) => true,
-                _ => false,
-            })
+            .filter(|l| matches!(l.kind, LineKind::Theirs(_)))
             .count();
         debug!(
             "++++++++++++++++ {} - {} ======= {}",
@@ -234,31 +228,31 @@ pub fn choose_conflict_side_of_hunk(
     let reversed_header =
         Hunk::shift_new_start_and_lines(&reversed_header, start_delta, lines_delta);
     debug!("new header in conflict {}", &reversed_header);
-    bytes.write(reversed_header.as_bytes())?;
-    bytes.write("\n".as_bytes())?;
+    bytes.write_all(reversed_header.as_bytes())?;
+    bytes.write_all("\n".as_bytes())?;
     for line in &hunk.lines {
         let content = line.content(hunk);
         match line.kind {
             LineKind::Ours(_) => {
                 if ours {
-                    bytes.write(SPACE.as_bytes())?;
+                    bytes.write_all(SPACE.as_bytes())?;
                 } else {
-                    bytes.write(MINUS.as_bytes())?;
+                    bytes.write_all(MINUS.as_bytes())?;
                 }
             }
             LineKind::Theirs(_) => {
                 if ours {
-                    bytes.write(MINUS.as_bytes())?;
+                    bytes.write_all(MINUS.as_bytes())?;
                 } else {
-                    bytes.write(SPACE.as_bytes())?;
+                    bytes.write_all(SPACE.as_bytes())?;
                 }
             }
             _ => {
-                bytes.write(MINUS.as_bytes())?;
+                bytes.write_all(MINUS.as_bytes())?;
             }
         }
-        bytes.write(content.as_bytes())?;
-        bytes.write("\n".as_bytes())?;
+        bytes.write_all(content.as_bytes())?;
+        bytes.write_all("\n".as_bytes())?;
     }
     Ok(())
 }
