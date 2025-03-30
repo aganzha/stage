@@ -25,6 +25,16 @@ pub struct LastOp {
     pub desired_diff_kind: Option<DiffKind>,
 }
 
+impl LastOp {
+    fn desire(&self, diff_kind: DiffKind) -> LastOp {
+        LastOp {
+            op: self.op,
+            cursor_position: self.cursor_position,
+            desired_diff_kind: Some(diff_kind),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct StageDiffs<'a> {
     pub untracked: &'a Option<Diff>,
@@ -413,7 +423,7 @@ impl StageDiffs<'_> {
                     // BUT! if opposite diff is not here, the next render cycle this
                     // clause will not match! because its condition is to compare render_cursor_diff with
                     // last_op cursor position. BUT IT NEED TO MATCH IT WITH DESIRED DIFF ALSO!
-                    self.cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
+                    self.put_cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
                 }
                 LastOp {
                     op: _,
@@ -448,7 +458,7 @@ impl StageDiffs<'_> {
                             }
                         }
                     }
-                    self.cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
+                    self.put_cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
                 }
                 op => {
                     trace!("----------> NOT COVERED LastOp {:?}", op)
@@ -460,7 +470,7 @@ impl StageDiffs<'_> {
         iter
     }
 
-    fn cursor_on_opposite_diff(
+    fn put_cursor_on_opposite_diff(
         &self,
         render_diff_kind: DiffKind,
         iter: &mut TextIter,
@@ -474,11 +484,7 @@ impl StageDiffs<'_> {
                         iter.set_line(diff.files[0].view.line_no.get());
                         last_op.take();
                     } else {
-                        last_op.replace(Some(LastOp {
-                            op: op.op,
-                            cursor_position: op.cursor_position,
-                            desired_diff_kind: Some(DiffKind::Staged),
-                        }));
+                        last_op.replace(Some(op.desire(DiffKind::Staged)));
                     }
                 }
                 DiffKind::Staged => {
@@ -490,11 +496,7 @@ impl StageDiffs<'_> {
                         iter.set_line(diff.files[0].view.line_no.get());
                         last_op.take();
                     } else {
-                        last_op.replace(Some(LastOp {
-                            op: op.op,
-                            cursor_position: op.cursor_position,
-                            desired_diff_kind: Some(DiffKind::Unstaged),
-                        }));
+                        last_op.replace(Some(op.desire(DiffKind::Unstaged)));
                     }
                 }
                 _ => {
