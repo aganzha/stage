@@ -22,7 +22,6 @@ pub fn write_conflict_diff<'a>(
 
     for change in similar_diff.iter_all_changes() {
         let value = change.value();
-        debug!("~~~~~~~~~~~~~~~~~ {} tag: {}", value, change.tag());
         let prefix: String = value.chars().take(7).collect();
         match (change.tag(), op, &prefix[..]) {
             (similar::ChangeTag::Insert, _, MARKER_OURS) => {
@@ -128,7 +127,7 @@ pub fn get_diff<'a>(
             paths.push(path);
         }
     }
-    debug!(">>>>>>>>>>>>>>>> conflict::get_diff {has_conflicts} {conflict_paths:?}");
+
     if !has_conflicts {
         return Ok(None);
     }
@@ -143,7 +142,6 @@ pub fn get_diff<'a>(
             .parent()
             .context("no parent dir")?
             .join(path::Path::new(&path));
-        debug!("file path of conflict {:?}", abs_file_path);
         let entry = current_tree.get_path(path::Path::new(&path))?;
         let ob = entry.to_object(repo)?;
         let blob = ob.as_blob().context("cant get blob")?;
@@ -152,7 +150,6 @@ pub fn get_diff<'a>(
         let workdir_content = String::from_utf8_lossy(&file_bytes);
         let text_diff = similar::TextDiff::from_lines(&tree_content, &workdir_content);
         let ratio = text_diff.ratio();
-        debug!("oooooooooooooooo ratio {ratio}");
         let before = bytes.len();
         write_conflict_diff(&mut bytes, &path, text_diff);
         if bytes.len() == before || ratio == 1.0 {
@@ -161,19 +158,10 @@ pub fn get_diff<'a>(
                 paths.push(path_to_clean);
             }
         }
-        debug!(
-            "meeeeeeeeeeeeeeeeeeeee before: {} after: {}",
-            before,
-            bytes.len()
-        );
     }
     if bytes.is_empty() {
         return Ok(None);
     }
-    debug!("^^^^^^^^^^path_to_clean {paths_to_clean:?}");
-    // for line in String::from_utf8(bytes.clone())?.lines() {
-    //     debug!("|{line}");
-    // }
     Ok(Some(git2::Diff::from_buffer(&bytes)?))
 }
 
@@ -199,10 +187,6 @@ pub fn choose_conflict_side_of_hunk(
     // it need to invert all signs in hunk. just kill theirs
     // hunk header must be reversed!
     let reversed_header = Hunk::reverse_header(&hunk.header);
-    debug!(
-        "befooooooooore {:?} {reversed_header} {:?} {:?}",
-        &hunk.header, hunk.old_start, hunk.new_start
-    );
     let start_delta = hunk.new_start.as_i32() - hunk.old_start.as_i32();
     let lines_delta = if ours {
         // in case of ours its not needed to change lines count, cause it is the same
@@ -216,18 +200,10 @@ pub fn choose_conflict_side_of_hunk(
             .iter()
             .filter(|l| matches!(l.kind, LineKind::Theirs(_)))
             .count();
-        debug!(
-            "++++++++++++++++ {} - {} ======= {}",
-            their_lines,
-            hunk.old_lines,
-            (their_lines as i32 - hunk.old_lines as i32)
-        );
         their_lines as i32 - hunk.old_lines as i32
     };
-    debug!("start_delta {start_delta} lines_delta {lines_delta}");
     let reversed_header =
         Hunk::shift_new_start_and_lines(&reversed_header, start_delta, lines_delta);
-    debug!("new header in conflict {}", &reversed_header);
     bytes.write_all(reversed_header.as_bytes())?;
     bytes.write_all("\n".as_bytes())?;
     for line in &hunk.lines {
