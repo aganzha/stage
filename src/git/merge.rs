@@ -325,13 +325,14 @@ pub fn choose_conflict_side_of_hunk(
         return Err(error.into());
     }
 
-    try_finalize_conflict(path, sender)?;
+    try_finalize_conflict(path, sender, false)?;
     Ok(())
 }
 
 pub fn try_finalize_conflict(
     path: PathBuf,
     sender: Sender<crate::Event>,
+    call_from_status: bool,
 ) -> Result<(), git2::Error> {
     debug!("cleanup_last_conflict_for_file");
     let repo = git2::Repository::open(path.clone())?;
@@ -346,23 +347,24 @@ pub fn try_finalize_conflict(
     let mut update_status = true;
     let mut cleanup = Vec::new();
     let mut index = repo.index()?;
-    if let Some(git_diff) = conflict::get_diff(&repo, &mut Some(&mut cleanup)).unwrap() {
-        let diff = make_diff(&git_diff, DiffKind::Conflicted);
-        debug!("for sure conflicted IS SOME");
-        sender
-            .send_blocking(crate::Event::Conflicted(
-                Some(diff),
-                Some(State::new(repo.state(), "".to_string())),
-            ))
-            .expect("Could not send through channel");
-        update_status = !cleanup.is_empty();
-    }
+    let conflicted = conflict::get_diff(&repo, &mut Some(&mut cleanup))
+        .ok()
+        .flatten()
+        .map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted));
+    sender
+        .send_blocking(crate::Event::Conflicted(
+            conflicted,
+            Some(State::new(repo.state(), "".to_string())),
+        ))
+        .expect("Could not send through channel");
+
     for path in cleanup {
+        update_status = true;
         index.remove_path(Path::new(&path))?;
         index.add_path(Path::new(&path))?;
         index.write()?;
     }
-    if update_status {
+    if update_status && !call_from_status {
         gio::spawn_blocking({
             move || {
                 get_current_repo_status(Some(path), sender).expect("cant get status");

@@ -138,7 +138,6 @@ pub enum Event {
     Conflicted(Option<Diff>, Option<State>),
     Unstaged(Option<Diff>),
     Untracked(Option<Diff>),
-    //TrackedFile(PathBuf, Diff),
     Staged(Option<Diff>),
     Head(Option<Head>),
     Upstream(Option<Head>),
@@ -173,7 +172,6 @@ pub enum Event {
     StoreSettings(String, String),
     OpenEditor,
     Tags(Option<Oid>),
-    //TrackChanges(PathBuf),
     CherryPick(Oid, bool, Option<PathBuf>, Option<String>),
     Focus,
 }

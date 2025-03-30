@@ -813,40 +813,12 @@ pub fn get_current_repo_status(
         let sender = sender.clone();
         let path = path.clone();
         move || {
-            let repo = Repository::open(path.clone()).expect("can't open repo");
-            let state = repo.state();
-            let mut cleanup = Vec::new();
-            let conflicted = conflict::get_diff(&repo, &mut Some(&mut cleanup))
-                .ok()
-                .flatten()
-                .map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted));
-            if !cleanup.is_empty() {
-                // DANGER: modify index while get conflicted!
-                let mut index = repo.index().expect("cant get index");
-                for pth in cleanup {
-                    index.remove_path(&pth).expect("cant remove from index");
-                }
-                get_untracked(path, sender.clone());
-            }
-            debug!("GET REGULAR CONFLICTED {:?}", conflicted.is_some());
-            sender.send_blocking(crate::Event::Conflicted(
-                conflicted,
-                Some(State::new(state, "".to_string())),
-            ))
+            merge::try_finalize_conflict(path, sender, true).unwrap();
         }
     });
 
-    // get_unstaged
     get_unstaged(&repo, sender.clone());
-    // let git_diff = repo.diff_index_to_workdir(None, Some(&mut make_diff_options()))?;
-    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
-    // sender
-    //     .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
-    //         None
-    //     } else {
-    //         Some(diff)
-    //     }))
-    //     .expect("Could not send through channel");
+
     Ok(())
 }
 
@@ -1225,9 +1197,6 @@ pub fn track_changes(
             break;
         }
     }
-    // if has_conflicted {
-    //     assert!(is_tracked);
-    // }
     // conflicts could be resolved right in this file change manually
     // but it need to update conflicted anyways if we had them!
     // see else below!
@@ -1237,96 +1206,17 @@ pub fn track_changes(
             if let Some(our) = conflict.our {
                 let conflict_path = String::from_utf8(our.path.clone()).unwrap();
                 if file_path == conflict_path {
-                    merge::try_finalize_conflict(path.clone(), sender.clone()).unwrap();
-                    // // if conflicts are resolved manually
-                    // // here will be empty diff!     aganzha
-                    // let git_diff = conflict::get_diff(&repo, &mut None).unwrap().unwrap();
-                    // let event = crate::Event::TrackedFile(
-                    //     file_path.into(),
-                    //     make_diff(&git_diff, DiffKind::Conflicted),
-                    // );
-                    // sender
-                    //     .send_blocking(event)
-                    //     .expect("Could not send through channel");
-                    // return;
+                    merge::try_finalize_conflict(path.clone(), sender.clone(), false).unwrap();
                 }
             }
         }
     }
     if is_tracked {
         get_unstaged(&repo, sender.clone());
-        // if has_conflicted {
-        //     // this means file was in conflicted but now it is fixed manually!
-        //     // PERHAPS it is no longer in index conflicts.
-        //     // it must be in staged or unstaged then
-        //     // get_current_repo_status(Some(path), sender).expect("cant get status");
-        //     merge::try_finalize_conflict(path, sender).unwrap();
-        //     return;
-        // }
-        // let mut opts = make_diff_options();
-        // opts.pathspec(&file_path);
-        // let git_diff = repo
-        //     .diff_index_to_workdir(Some(&index), Some(&mut opts))
-        //     .expect("cant' get diff index to workdir");
-        // let diff = make_diff(&git_diff, DiffKind::Unstaged);
-
-        // if diff.is_empty() {
-        //     let git_diff = repo
-        //         .diff_index_to_workdir(None, Some(&mut make_diff_options()))
-        //         .expect("cant' get diff index to workdir");
-        //     let diff = make_diff(&git_diff, DiffKind::Unstaged);
-        //     sender
-        //         .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
-        //             None
-        //         } else {
-        //             Some(diff)
-        //         }))
-        //         .expect("Could not send through channel");
-        // } else {
-        //     sender
-        //         .send_blocking(crate::Event::TrackedFile(file_path.into(), diff))
-        //         .expect("Could not send through channel");
-        // }
     } else {
         get_untracked(path, sender);
     }
 }
-
-// pub fn checkout_oid(
-//     path: PathBuf,
-//     sender: Sender<crate::Event>,
-//     oid: Oid,
-//     ref_log_msg: Option<String>,
-// ) {
-//     // DANGEROUS! see in status_view!
-//     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
-//     let repo = Repository::open(path.clone()).expect("can't open repo");
-//     let commit = repo.find_commit(oid).expect("can't find commit");
-//     let head_ref = repo.head().expect("can't get head");
-//     assert!(head_ref.is_branch());
-//     let branch = Branch::wrap(head_ref);
-//     let log_message = match ref_log_msg {
-//         None => {
-//             format!("HEAD -> {}, {}", branch.name().unwrap().unwrap(), oid)
-//         }
-//         Some(msg) => msg,
-//     };
-//     let mut builder = CheckoutBuilder::new();
-//     let builder = builder.safe().allow_conflicts(true);
-
-//     sender
-//         .send_blocking(crate::Event::LockMonitors(true))
-//         .expect("can send through channel");
-//     let result = repo.checkout_tree(commit.as_object(), Some(builder));
-
-//     if result.is_err() {
-//         panic!("{:?}", result);
-//     }
-//     let mut head_ref = repo.head().expect("can't get head");
-//     head_ref
-//         .set_target(oid, &log_message)
-//         .expect("cant set target");
-// }
 
 pub fn abort_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
     let _updater = DeferRefresh::new(path.clone(), sender, true, true);
