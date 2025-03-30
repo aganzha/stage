@@ -306,7 +306,7 @@ impl Status {
                                     // conflicts are resolved in branch above
                                     info!("cleanup_last_conflict_for_file");
                                     gio::spawn_blocking({
-                                        move || merge::try_finalize_conflict(path, sender)
+                                        move || merge::try_finalize_conflict(path, sender, false)
                                     })
                                     .await
                                     .unwrap_or_else(|e| {

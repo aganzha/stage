@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::{get_directories, git::track_changes, Event, Status};
+use crate::{get_directories, git::track_changes, Status};
 use core::time::Duration;
 use gio::{Cancellable, File, FileMonitor, FileMonitorEvent, FileMonitorFlags};
 use gtk4::prelude::*;

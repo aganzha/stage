@@ -624,22 +624,6 @@ impl Status {
         }
     }
 
-    // pub fn track_changes(&self, file_path: PathBuf, sender: Sender<Event>) {
-    //     gio::spawn_blocking({
-    //         let path = self.path.clone().unwrap();
-    //         let sender = sender.clone();
-    //         let mut has_conflicted = false;
-    //         if let Some(diff) = &self.conflicted {
-    //             for file in &diff.files {
-    //                 if file.path == file_path {
-    //                     has_conflicted = true;
-    //                 }
-    //             }
-    //         }
-    //         move || track_changes(path, file_path, has_conflicted, sender)
-    //     });
-    // }
-
     pub fn update_conflicted<'a>(
         &'a mut self,
         diff: Option<Diff>,
@@ -822,78 +806,6 @@ impl Status {
         }
     }
 
-    // pub fn update_tracked_file<'a>(
-    //     &'a mut self,
-    //     file_path: PathBuf,
-    //     diff: Diff,
-    //     txt: &StageView,
-    //     context: &mut StatusRenderContext<'a>,
-    // ) {
-    //     // this method is called only if there is something to
-    //     // update in unstaged/conflicted and they will remain after!
-    //     // if tracked file is returning to original state
-    //     // and it must be removed from unstaged/conflicted and this is
-    //     // ONLY file in unstaged/conflicted, then another event will raise and diff
-    //     // will be removed completelly
-    //     let mine = if diff.kind == DiffKind::Conflicted {
-    //         &mut self.conflicted
-    //     } else {
-    //         &mut self.unstaged
-    //     };
-    //     if let Some(rendered) = mine {
-    //         // so. it need to find file in rendered.
-    //         // if it is there - enrich new one by it and replace
-    //         // if it is not there - insert
-    //         // if it is there and new is empty - erase it
-
-    //         let updated_file = diff.files.into_iter().find(|f| f.path == file_path);
-    //         let buffer = &txt.buffer();
-    //         let mut ind = 0;
-    //         let mut insert_ind: Option<usize> = None;
-    //         debug!(
-    //             "track 1 file. rendered files are {:}",
-    //             &rendered.files.len()
-    //         );
-    //         rendered.files.retain_mut(|f| {
-    //             ind += 1;
-    //             if f.path == file_path {
-    //                 insert_ind = Some(ind);
-    //                 if let Some(file) = &updated_file {
-    //                     file.enrich_view(f, buffer, context);
-    //                 } else {
-    //                     debug!("ERASE rendered file!!!!!!!!!");
-    //                     f.erase(buffer, context);
-    //                 }
-    //                 false
-    //             } else {
-    //                 true
-    //             }
-    //         });
-
-    //         if let Some(file) = updated_file {
-    //             if let Some(ind) = insert_ind {
-    //                 rendered.files.insert(ind - 1, file);
-    //             } else {
-    //                 // insert alphabetically
-    //                 let mut ind = 0;
-    //                 for rendered_file in &rendered.files {
-    //                     if file.path.to_str().unwrap() < rendered_file.path.to_str().unwrap() {
-    //                         break;
-    //                     }
-    //                     ind += 1
-    //                 }
-    //                 rendered.files.insert(ind, file);
-    //             }
-    //             debug!("just inserted new file...........");
-    //         }
-    //     } else if diff.kind == DiffKind::Conflicted {
-    //         self.conflicted = Some(diff);
-    //     } else {
-    //         self.unstaged = Some(diff);
-    //     }
-    //     self.render(txt, Some(DiffKind::Unstaged), context);
-    // }
-
     // TODO! is it still used?
     pub fn resize_highlights<'a>(
         &'a mut self,
@@ -1019,11 +931,6 @@ impl Status {
         }
 
         if let Some(conflicted) = &self.conflicted {
-            debug!(
-                "rrrrrrrrrrrrrrrrrrrrrrrrrender {:?} {:?}",
-                conflicted.files.len(),
-                diff_kind
-            );
             conflicted.render(&buffer, &mut iter, context);
         }
 
