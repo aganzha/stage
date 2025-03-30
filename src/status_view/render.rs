@@ -1167,32 +1167,6 @@ impl Diff {
         String::from("dump")
     }
 
-    pub fn nearest_line_to_go(&self, cursor_line_no: i32) -> Option<i32> {
-        if !self.view.is_rendered() {
-            return None;
-        }
-        let my_line = self.view.line_no.get();
-        debug!(
-            "................nearest_line_to_go_1. my line {:?} cursor line {:?}",
-            my_line, cursor_line_no
-        );
-        if my_line >= cursor_line_no {
-            return Some(my_line);
-        }
-        let last_line = self.last_visible_line();
-        debug!(
-            "................nearest_line_to_go_2. my line {:?} cursor line {:?}",
-            my_line, cursor_line_no
-        );
-        if last_line >= cursor_line_no {
-            // no need to move anywhere
-            // cursor is already within
-            return None;
-        }
-        debug!("last lineeeeeeeeeeeeeeeeeee! {:?}", last_line);
-        Some(last_line)
-    }
-
     pub fn has_view_on(&self, line_no: i32) -> bool {
         if !self.view.is_rendered() {
             return false;

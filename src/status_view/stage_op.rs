@@ -340,14 +340,20 @@ impl StageDiffs<'_> {
     ) -> TextIter {
         let this_pos = buffer.cursor_position();
         let mut iter = buffer.iter_at_offset(this_pos);
+        debug!(
+            "LINE BEFOOOOOOOOOOOORE CHOOSE {:?} {:?}",
+            iter.line(),
+            render_diff_kind
+        );
         if let (Some(op), Some(render_diff_kind)) = (&last_op.get(), render_diff_kind) {
             // both last_op and cursor_position in it are no longer actual,
             // cause update and render are already happened.
             // so, those are snapshot of previous state.
             // both will be changed right here!
+            debug!("CHOOOOOOOSE POS {op:?} {render_diff_kind:?}");
             match op {
-                // ----------------   Ops applied to whole Diff
                 // TODO! squash in one!
+                // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv Ops applied to whole Diff
                 LastOp {
                     op: StageOp::Stage,
                     cursor_position: CursorPosition::CursorDiff(diff_kind),
@@ -390,7 +396,7 @@ impl StageDiffs<'_> {
                         last_op.take();
                     }
                 }
-                // ----------------   Ops applied to whole Diff
+                // ^^^^^^^^^^^^^^^^^^^^  Ops applied to whole Diff
 
                 // if Diff was updated by StageOp while on hunk and it hunks file is rendered now (was already updated)
                 // and this file has another hunks - put cursor on first remaining hunk
@@ -434,6 +440,7 @@ impl StageDiffs<'_> {
                 } if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
                 {
+                    debug!("I AM HERE!");
                     for diff in ([&self.unstaged, &self.staged])
                         .into_iter()
                         .copied()
@@ -451,6 +458,7 @@ impl StageDiffs<'_> {
                                             }
                                         }
                                     }
+                                    debug!("set LINE");
                                     iter.set_line(file.view.line_no.get());
                                     last_op.take();
                                     break;
@@ -458,6 +466,7 @@ impl StageDiffs<'_> {
                             }
                         }
                     }
+                    debug!("AFTER LOOOOOOOOOOOOP");
                     self.put_cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
                 }
                 op => {
@@ -500,7 +509,7 @@ impl StageDiffs<'_> {
                     }
                 }
                 _ => {
-                    debug!("does not matched in opposite_diff")
+                    debug!("put_cursor_on_opposite_diff: exhausted")
                 }
             }
         }

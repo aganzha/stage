@@ -1031,7 +1031,7 @@ impl Status {
         };
 
         let iter = diffs.choose_cursor_position(&buffer, diff_kind, &self.last_op);
-
+        debug!("LINE AFTER CHOOSE {:?} {:?}", iter.line(), diff_kind);
         buffer.place_cursor(&iter);
         // WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
