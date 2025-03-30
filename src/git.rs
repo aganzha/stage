@@ -517,6 +517,28 @@ impl State {
     pub fn need_rebase_continue(&self) -> bool {
         matches!(self.state, RepositoryState::RebaseMerge)
     }
+
+    fn from_git_state(state: git2::RepositoryState, path: PathBuf) -> State {
+        let mut subject = String::from("");
+        if let Some(path_to_read_subject) = match state {
+            RepositoryState::CherryPick => {
+                let mut pth = path.clone();
+                pth.push(CHERRY_PICK_HEAD);
+                Some(pth)
+            }
+            RepositoryState::Revert => {
+                let mut pth = path.clone();
+                pth.push(REVERT_HEAD);
+                Some(pth)
+            }
+            _ => None,
+        } {
+            subject = std::fs::read_to_string(path_to_read_subject)
+                .expect("Should have been able to read the file")
+                .replace('\n', "");
+        }
+        State::new(state, subject)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -619,61 +641,74 @@ pub fn get_current_repo_status(
         move || {
             let repo = Repository::open(path.clone()).expect("can't open repo");
             let state = repo.state();
-            let mut subject = String::from("");
-            // ???
-            let mut require_conflicted = false;
-            match state {
-                RepositoryState::Merge => {
-                    require_conflicted = true;
-                }
-                RepositoryState::CherryPick => {
-                    let mut pth = path.clone();
-                    pth.push(CHERRY_PICK_HEAD);
-                    subject = std::fs::read_to_string(pth)
-                        .expect("Should have been able to read the file")
-                        .replace('\n', "");
-                    require_conflicted = true;
-                }
-                RepositoryState::Revert => {
-                    let mut pth = path.clone();
-                    pth.push(REVERT_HEAD);
-                    subject = std::fs::read_to_string(pth)
-                        .expect("Should have been able to read the file")
-                        .replace('\n', "");
-                    require_conflicted = true;
-                }
-                _ => {}
-            }
-            let state = State::new(state, subject);
-            // during conflicts in merge there are 2 cases:
-            // 1. no conflicts, cause they were resolved
-            // 2. still have conflicts.
-            // in case 2 the get_conflicted_v1 will be called
-            // LATER downwhere. but in case 1. we have to force update
-            // conflicted (to erase it during resolution)
-            if require_conflicted {
-                let index = repo.index().expect("cant get index");
-                if index.has_conflicts() {
-                    // case 2. Conflicted will be fired
-                    // in another clause
-                    debug!("i am getting state here. conflicted will be running later");
-                } else {
-                    // case 1. all conflicts are resolved, but state
-                    // is still merging. Fire Conflicted here to show the banner
-                    // TODO! move banner logic to state!, not conflicted!
-                    // get rid of banner in update conflicted!
-                    debug!("call conflicted instead of state to display/hide banner");
-                    sender
-                        .send_blocking(crate::Event::Conflicted(None, Some(state)))
-                        .expect("Could not send through channel");
-                    return;
-                }
-            }
+            let state = State::from_git_state(state, path.clone());
             sender
-                .send_blocking(crate::Event::Conflicted(None, Some(state)))
+                .send_blocking(crate::Event::State(state))
                 .expect("Could not send through channel");
         }
     });
+    // gio::spawn_blocking({
+    //     let sender = sender.clone();
+    //     let path = path.clone();
+    //     move || {
+    //         let repo = Repository::open(path.clone()).expect("can't open repo");
+    //         let state = repo.state();
+    //         let mut subject = String::from("");
+    //         // ???
+    //         let mut require_conflicted = false;
+    //         match state {
+    //             RepositoryState::Merge => {
+    //                 require_conflicted = true;
+    //             }
+    //             RepositoryState::CherryPick => {
+    //                 let mut pth = path.clone();
+    //                 pth.push(CHERRY_PICK_HEAD);
+    //                 subject = std::fs::read_to_string(pth)
+    //                     .expect("Should have been able to read the file")
+    //                     .replace('\n', "");
+    //                 require_conflicted = true;
+    //             }
+    //             RepositoryState::Revert => {
+    //                 let mut pth = path.clone();
+    //                 pth.push(REVERT_HEAD);
+    //                 subject = std::fs::read_to_string(pth)
+    //                     .expect("Should have been able to read the file")
+    //                     .replace('\n', "");
+    //                 require_conflicted = true;
+    //             }
+    //             _ => {}
+    //         }
+    //         let state = State::new(state, subject);
+    //         // during conflicts in merge there are 2 cases:
+    //         // 1. no conflicts, cause they were resolved
+    //         // 2. still have conflicts.
+    //         // in case 2 the get_conflicted_v1 will be called
+    //         // LATER downwhere. but in case 1. we have to force update
+    //         // conflicted (to erase it during resolution)
+    //         if require_conflicted {
+    //             let index = repo.index().expect("cant get index");
+    //             if index.has_conflicts() {
+    //                 // case 2. Conflicted will be fired
+    //                 // in another clause
+    //                 debug!("i am getting state here. conflicted will be running later");
+    //             } else {
+    //                 // case 1. all conflicts are resolved, but state
+    //                 // is still merging. Fire Conflicted here to show the banner
+    //                 // TODO! move banner logic to state!, not conflicted!
+    //                 // get rid of banner in update conflicted!
+    //                 debug!("call conflicted instead of state to display/hide banner");
+    //                 sender
+    //                     .send_blocking(crate::Event::Conflicted(None, Some(state)))
+    //                     .expect("Could not send through channel");
+    //                 return;
+    //             }
+    //         }
+    //         debug!("JUST RENDERING NONE AS CONFLICTED. WHY?");
+    //         sender
+    //             .send_blocking(crate::Event::Conflicted(None, Some(state)))
+    //             .expect("Could not send through channel");
+    //     }
+    // });
 
     // get HEAD
     gio::spawn_blocking({
@@ -786,12 +821,14 @@ pub fn get_current_repo_status(
                 .flatten()
                 .map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted));
             if !cleanup.is_empty() {
+                // DANGER: modify index while get conflicted!
                 let mut index = repo.index().expect("cant get index");
                 for pth in cleanup {
                     index.remove_path(&pth).expect("cant remove from index");
                 }
                 get_untracked(path, sender.clone());
             }
+            debug!("GET REGULAR CONFLICTED {:?}", conflicted.is_some());
             sender.send_blocking(crate::Event::Conflicted(
                 conflicted,
                 Some(State::new(state, "".to_string())),
@@ -1205,7 +1242,8 @@ pub fn track_changes(
             // this means file was in conflicted but now it is fixed manually!
             // PERHAPS it is no longer in index conflicts.
             // it must be in staged or unstaged then
-            get_current_repo_status(Some(path), sender).expect("cant get status");
+            // get_current_repo_status(Some(path), sender).expect("cant get status");
+            merge::try_finalize_conflict(path, sender).unwrap();
             return;
         }
         let mut opts = make_diff_options();

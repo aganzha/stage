@@ -224,6 +224,7 @@ pub fn abort(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Er
     repo.reset(&ob, git2::ResetType::Hard, Some(&mut checkout_builder))?;
 
     // cleanup conflicted
+    debug!("CLEANUP EMPTY CONFLICTED ?????????????");
     sender
         .send_blocking(crate::Event::Conflicted(
             None,
@@ -247,7 +248,6 @@ pub fn choose_conflict_side_of_hunk(
         line.content(&hunk)
     );
     let repo = git2::Repository::open(path.clone())?;
-    // let git_diff = conflict::get_diff(&repo, &mut None)?.unwrap();
 
     let mut index = repo.index()?;
     let conflicts = index.conflicts()?;
@@ -348,6 +348,7 @@ pub fn try_finalize_conflict(
     let mut index = repo.index()?;
     if let Some(git_diff) = conflict::get_diff(&repo, &mut Some(&mut cleanup)).unwrap() {
         let diff = make_diff(&git_diff, DiffKind::Conflicted);
+        debug!("for sure conflicted IS SOME");
         sender
             .send_blocking(crate::Event::Conflicted(
                 Some(diff),

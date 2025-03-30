@@ -761,7 +761,10 @@ impl Status {
         }
         self.conflicted = diff;
         if self.conflicted.is_some() || render_required {
+            debug!("RENDER CONFLICTED! {:?}", self.conflicted.is_some());
             self.render(txt, Some(DiffKind::Conflicted), context);
+        } else {
+            debug!("CONFLICTED IS NONE! {:?}", &self.conflicted);
         }
     }
 
@@ -1010,6 +1013,11 @@ impl Status {
         }
 
         if let Some(conflicted) = &self.conflicted {
+            debug!(
+                "rrrrrrrrrrrrrrrrrrrrrrrrrender {:?} {:?}",
+                conflicted.files.len(),
+                diff_kind
+            );
             conflicted.render(&buffer, &mut iter, context);
         }
 
@@ -1032,7 +1040,7 @@ impl Status {
         };
 
         let iter = diffs.choose_cursor_position(&buffer, diff_kind, &self.last_op);
-        debug!("LINE AFTER CHOOSE {:?} {:?}", iter.line(), diff_kind);
+        //debug!("LINE AFTER CHOOSE {:?} {:?}", iter.line(), diff_kind);
         buffer.place_cursor(&iter);
         // WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
