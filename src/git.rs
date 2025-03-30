@@ -837,7 +837,23 @@ pub fn get_current_repo_status(
     });
 
     // get_unstaged
-    let git_diff = repo.diff_index_to_workdir(None, Some(&mut make_diff_options()))?;
+    get_unstaged(&repo, sender.clone());
+    // let git_diff = repo.diff_index_to_workdir(None, Some(&mut make_diff_options()))?;
+    // let diff = make_diff(&git_diff, DiffKind::Unstaged);
+    // sender
+    //     .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
+    //         None
+    //     } else {
+    //         Some(diff)
+    //     }))
+    //     .expect("Could not send through channel");
+    Ok(())
+}
+
+fn get_unstaged(repo: &git2::Repository, sender: Sender<crate::Event>) {
+    let git_diff = repo
+        .diff_index_to_workdir(None, Some(&mut make_diff_options()))
+        .unwrap();
     let diff = make_diff(&git_diff, DiffKind::Unstaged);
     sender
         .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
@@ -846,7 +862,6 @@ pub fn get_current_repo_status(
             Some(diff)
         }))
         .expect("Could not send through channel");
-    Ok(())
 }
 
 pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
@@ -1191,7 +1206,7 @@ pub fn get_directories(path: PathBuf) -> HashSet<String> {
 pub fn track_changes(
     path: PathBuf,
     file_path: PathBuf,
-    has_conflicted: bool,
+    //has_conflicted: bool,
     sender: Sender<crate::Event>,
 ) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
@@ -1210,9 +1225,9 @@ pub fn track_changes(
             break;
         }
     }
-    if has_conflicted {
-        assert!(is_tracked);
-    }
+    // if has_conflicted {
+    //     assert!(is_tracked);
+    // }
     // conflicts could be resolved right in this file change manually
     // but it need to update conflicted anyways if we had them!
     // see else below!
@@ -1222,54 +1237,56 @@ pub fn track_changes(
             if let Some(our) = conflict.our {
                 let conflict_path = String::from_utf8(our.path.clone()).unwrap();
                 if file_path == conflict_path {
-                    // unwrap is forced here, cause this diff could not
-                    // be empty
-                    let git_diff = conflict::get_diff(&repo, &mut None).unwrap().unwrap();
-                    let event = crate::Event::TrackedFile(
-                        file_path.into(),
-                        make_diff(&git_diff, DiffKind::Conflicted),
-                    );
-                    sender
-                        .send_blocking(event)
-                        .expect("Could not send through channel");
-                    return;
+                    merge::try_finalize_conflict(path.clone(), sender.clone()).unwrap();
+                    // // if conflicts are resolved manually
+                    // // here will be empty diff!     aganzha
+                    // let git_diff = conflict::get_diff(&repo, &mut None).unwrap().unwrap();
+                    // let event = crate::Event::TrackedFile(
+                    //     file_path.into(),
+                    //     make_diff(&git_diff, DiffKind::Conflicted),
+                    // );
+                    // sender
+                    //     .send_blocking(event)
+                    //     .expect("Could not send through channel");
+                    // return;
                 }
             }
         }
     }
     if is_tracked {
-        if has_conflicted {
-            // this means file was in conflicted but now it is fixed manually!
-            // PERHAPS it is no longer in index conflicts.
-            // it must be in staged or unstaged then
-            // get_current_repo_status(Some(path), sender).expect("cant get status");
-            merge::try_finalize_conflict(path, sender).unwrap();
-            return;
-        }
-        let mut opts = make_diff_options();
-        opts.pathspec(&file_path);
-        let git_diff = repo
-            .diff_index_to_workdir(Some(&index), Some(&mut opts))
-            .expect("cant' get diff index to workdir");
-        let diff = make_diff(&git_diff, DiffKind::Unstaged);
+        get_unstaged(&repo, sender.clone());
+        // if has_conflicted {
+        //     // this means file was in conflicted but now it is fixed manually!
+        //     // PERHAPS it is no longer in index conflicts.
+        //     // it must be in staged or unstaged then
+        //     // get_current_repo_status(Some(path), sender).expect("cant get status");
+        //     merge::try_finalize_conflict(path, sender).unwrap();
+        //     return;
+        // }
+        // let mut opts = make_diff_options();
+        // opts.pathspec(&file_path);
+        // let git_diff = repo
+        //     .diff_index_to_workdir(Some(&index), Some(&mut opts))
+        //     .expect("cant' get diff index to workdir");
+        // let diff = make_diff(&git_diff, DiffKind::Unstaged);
 
-        if diff.is_empty() {
-            let git_diff = repo
-                .diff_index_to_workdir(None, Some(&mut make_diff_options()))
-                .expect("cant' get diff index to workdir");
-            let diff = make_diff(&git_diff, DiffKind::Unstaged);
-            sender
-                .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
-                    None
-                } else {
-                    Some(diff)
-                }))
-                .expect("Could not send through channel");
-        } else {
-            sender
-                .send_blocking(crate::Event::TrackedFile(file_path.into(), diff))
-                .expect("Could not send through channel");
-        }
+        // if diff.is_empty() {
+        //     let git_diff = repo
+        //         .diff_index_to_workdir(None, Some(&mut make_diff_options()))
+        //         .expect("cant' get diff index to workdir");
+        //     let diff = make_diff(&git_diff, DiffKind::Unstaged);
+        //     sender
+        //         .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
+        //             None
+        //         } else {
+        //             Some(diff)
+        //         }))
+        //         .expect("Could not send through channel");
+        // } else {
+        //     sender
+        //         .send_blocking(crate::Event::TrackedFile(file_path.into(), diff))
+        //         .expect("Could not send through channel");
+        // }
     } else {
         get_untracked(path, sender);
     }

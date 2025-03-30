@@ -138,7 +138,7 @@ pub enum Event {
     Conflicted(Option<Diff>, Option<State>),
     Unstaged(Option<Diff>),
     Untracked(Option<Diff>),
-    TrackedFile(PathBuf, Diff),
+    //TrackedFile(PathBuf, Diff),
     Staged(Option<Diff>),
     Head(Option<Head>),
     Upstream(Option<Head>),
@@ -173,7 +173,7 @@ pub enum Event {
     StoreSettings(String, String),
     OpenEditor,
     Tags(Option<Oid>),
-    TrackChanges(PathBuf),
+    //TrackChanges(PathBuf),
     CherryPick(Oid, bool, Option<PathBuf>, Option<String>),
     Focus,
 }
@@ -426,10 +426,10 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     });
                     window_stack.borrow_mut().push(w);
                 }
-                Event::TrackChanges(file_path) => {
-                    info!("track file changes {:?}", &file_path);
-                    status.track_changes(file_path, sender.clone());
-                }
+                // Event::TrackChanges(file_path) => {
+                //     info!("track file changes {:?}", &file_path);
+                //     status.track_changes(file_path, sender.clone());
+                // }
                 Event::Tags(ooid) => {
                     let oid = ooid.unwrap_or(status.head_oid());
                     let mut remote_name: Option<String> = None;
@@ -546,10 +546,10 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     info!("Unstaged");
                     status.update_unstaged(odiff, &txt, &mut ctx);
                 }
-                Event::TrackedFile(file_path, diff) => {
-                    info!("Unstaged");
-                    status.update_tracked_file(file_path, diff, &txt, &mut ctx);
-                }
+                // Event::TrackedFile(file_path, diff) => {
+                //     info!("Unstaged");
+                //     status.update_tracked_file(file_path, diff, &txt, &mut ctx);
+                // }
                 Event::Expand(offset, line_no) => {
                     info!("Expand");
                     status.expand(&txt, line_no, offset, &mut ctx);
