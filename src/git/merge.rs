@@ -287,131 +287,8 @@ pub fn choose_conflict_side_of_hunk(
         index.write().expect("cant restore index");
     };
 
-    // let diff_result = conflict::get_diff(&repo, &mut None);
-    // if diff_result.is_err() {
-    //     restore_index(&file_path);
-    //     return Err(diff_result.err().unwrap());
-    // }
-
-    // let git_diff = diff_result.unwrap().unwrap();
-    // let current_tree = match repo
-    //     .revparse_single("HEAD^{tree}")
-    //     .and_then(|ob| repo.find_tree(ob.id()))
-    // {
-    //     Ok(tree) => tree,
-    //     Err(error) => {
-    //         restore_index(&file_path);
-    //         return Err(error);
-    //     }
-    // };
-
-    // let mut opts = make_diff_options();
-    // let mut opts = opts.pathspec(&file_path).reverse(true);
-
-    // let git_diff = match repo.diff_tree_to_workdir(Some(&current_tree), Some(&mut opts)) {
-    //     Ok(gd) => gd,
-    //     Err(error) => {
-    //         restore_index(&file_path);
-    //         return Err(error);
-    //     }
-    // };
-
-    // let mut patch = match git2::Patch::from_diff(&git_diff, 0) {
-    //     Ok(patch) => patch.unwrap(),
-    //     Err(error) => {
-    //         restore_index(&file_path);
-    //         return Err(error.into());
-    //     }
-    // };
-
-    // let buff = match patch.to_buf() {
-    //     Ok(buff) => buff,
-    //     Err(error) => {
-    //         restore_index(&file_path);
-    //         return Err(error.into());
-    //     }
-    // };
-    // let raw = buff.as_str().unwrap();
-    // debug!("OLD body BEFORE patch ___________________");
-    // for line in raw.lines() {
-    //     debug!("{}", line);
-    // }
-    // let ours_choosed = line.is_our_side_of_conflict();
-    // let mut hunk_deltas: Vec<(&str, i32)> = Vec::new();
-
-    // let conflict_offset_inside_hunk = 0; // it is always zero! hunk.get_conflict_offset_by_line(&line);
-
-    // let reversed_header = Hunk::reverse_header(&hunk.header);
-    // debug!("conflict_side_of_hunk {ours_choosed} {conflict_offset_inside_hunk} {hunk} vs {reversed_header}");
-    // let mut new_body = conflict::choose_conflict_side_of_blob(
-    //     raw,
-    //     &mut hunk_deltas,
-    //     conflict_offset_inside_hunk,
-    //     &reversed_header,
-    //     ours_choosed,
-    // );
-    // debug!("new body for patch ___________________");
-    // debug!("new body for patch ___________________");
-    // debug!("new body for patch ___________________");
-    // debug!("new body for patch ___________________");
-    // debug!("new body for patch ___________________");
-
-    // for line in new_body.lines() {
-    //     debug!("{}", line);
-    // }
-
-    // // so. not only new lines are changed. new_start are changed also!!!!!!
-    // // it need to add delta of prev hunk int new start of next hunk!!!!!!!!
-    // let mut prev_delta = 0;
-
-    // let mut updated_reversed_header = String::from("");
-
-    // for (hh, delta) in hunk_deltas {
-    //     let new_header = Hunk::shift_new_start_and_lines(hh, prev_delta, delta);
-    //     trace!(
-    //         "adjusting delta >> prev delta {:?}, delta {:?} hh {:?} new_header {:?}",
-    //         prev_delta,
-    //         delta,
-    //         hh,
-    //         new_header
-    //     );
-    //     new_body = new_body.replace(hh, &new_header);
-    //     if hh == reversed_header {
-    //         updated_reversed_header = new_header;
-    //     }
-    //     prev_delta += delta;
-    // }
-    // trace!(
-    //     "reverse headers! {:?} vssssssssssssss      {:?}",
-    //     reversed_header,
-    //     updated_reversed_header
-    // );
-
-    // let git_diff = match git2::Diff::from_buffer(new_body.as_bytes()) {
-    //     Ok(gd) => gd,
-    //     Err(error) => {
-    //         restore_index(&file_path);
-    //         return Err(error.into());
-    //     }
-    // };
-    // trace!("CREEEEEEEEEEEEEATED DIFF!");
-
     let mut apply_options = git2::ApplyOptions::new();
 
-    // apply_options.hunk_callback(|odh| -> bool {
-    //     if let Some(dh) = odh {
-    //         let header = Hunk::get_header_from(&dh);
-    //         return header == updated_reversed_header;
-    //     }
-    //     false
-    // });
-    // apply_options.delta_callback(|odd| -> bool {
-    //     if let Some(dd) = odd {
-    //         let path: PathBuf = dd.new_file().path().unwrap().into();
-    //         return file_path == path;
-    //     }
-    //     todo!("diff without delta");
-    // });
     let mut bytes: Vec<u8> = Vec::new();
     conflict::choose_conflict_side_of_hunk(
         file_path.as_path(),
@@ -420,14 +297,12 @@ pub fn choose_conflict_side_of_hunk(
         &mut bytes,
     )?;
     let new_body = String::from_utf8(bytes.clone())?;
-    debug!("oooooooooooooooooooooooooooo>");
     for line in new_body.lines() {
         debug!("{}", line);
     }
     let git_diff = match git2::Diff::from_buffer(&bytes) {
         Ok(gd) => gd,
         Err(error) => {
-            debug!("PPPPPPPPPPPPPPPP {error}");
             restore_index(&file_path);
             return Err(error.into());
         }
@@ -498,46 +373,4 @@ pub fn try_finalize_conflict(
         });
     }
     Ok(())
-    // if let Some(git_diff) = conflict::get_diff(&repo, &mut Some(&mut cleanup)).unwrap() {
-    //     debug!("muuuuuuuuuuuuuuuuuuuuuuuu");
-    //     let diff = make_diff(&git_diff, DiffKind::Conflicted);
-    //     for file in &diff.files {
-    //         debug!("FIIIIIIIIIIIILE IN DIFF! {:?}", file.path);
-    //         if file.hunks.iter().any(|h| h.conflict_markers_count > 0) {
-    //             if file.path == file_path {
-    //                 update_status = false;
-    //             }
-    //         } else if file.path == file_path {
-    //             // cleanup conflicts only for this file
-    //             let mut index = repo.index()?;
-    //             index.remove_path(Path::new(&file_path))?;
-    //             index.add_path(Path::new(&file_path))?;
-    //             index.write()?;
-    //         }
-    //     }
-    //     if !update_status {
-    //         sender
-    //             .send_blocking(crate::Event::Conflicted(
-    //                 Some(diff),
-    //                 Some(State::new(repo.state(), "".to_string())),
-    //             ))
-    //             .expect("Could not send through channel");
-    //     }
-    // } else {
-    //     debug!("cleanup_last_conflict_for_file. no mor conflicts! restore file in index!");
-    //     debug!("++++++++++ {file_path:?} {cleanup:?}");
-    //     let mut index = repo.index()?;
-    //     index.remove_path(Path::new(&file_path))?;
-    //     index.add_path(Path::new(&file_path))?;
-    //     index.write()?;
-    // }
-    // if update_status {
-    //     gio::spawn_blocking({
-    //         move || {
-    //             get_current_repo_status(Some(path), sender).expect("cant get status");
-    //         }
-    //     });
-    //     return Ok(());
-    // }
-    // Ok(())
 }
