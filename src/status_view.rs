@@ -1025,6 +1025,7 @@ impl Status {
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
         let diffs = StageDiffs {
+            conflicted: &self.conflicted,
             untracked: &self.untracked,
             unstaged: &self.unstaged,
             staged: &self.staged,

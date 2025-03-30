@@ -884,6 +884,7 @@ pub fn test_choose_cursor_position() {
     // have only unstaged changes
     // and perform
     let diffs = StageDiffs {
+        conflicted: &None,
         untracked: &None,
         unstaged: &Some(diff),
         staged: &None,
