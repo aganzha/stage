@@ -272,7 +272,6 @@ impl Hunk {
         panic!("cant replace num in header")
     }
 
-    // THE REGEX IS WRONG! remove .* !!!!!!!!!!!!! for +
     pub fn reverse_header(header: &str) -> String {
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
         // "@@ -20,10 +24,11 @@ STAGING LINE..." -> "@@ -24,11 +20,10 @@ STAGING LINE..."
@@ -281,7 +280,6 @@ impl Hunk {
         if let Some((whole, [nums1, nums2])) = re.captures_iter(header).map(|c| c.extract()).next()
         {
             // for (whole, [nums1, nums2]) in re.captures_iter(&header).map(|c| c.extract()) {
-            debug!("RRRRRRRRRRRRRRRR {nums1} {nums2}");
             let result = whole
                 .replacen(nums1, "mock", 1)
                 .replace(nums2, nums1)

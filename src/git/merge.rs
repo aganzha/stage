@@ -296,10 +296,6 @@ pub fn choose_conflict_side_of_hunk(
         line.is_our_side_of_conflict(),
         &mut bytes,
     )?;
-    let new_body = String::from_utf8(bytes.clone())?;
-    for line in new_body.lines() {
-        debug!("{}", line);
-    }
     let git_diff = match git2::Diff::from_buffer(&bytes) {
         Ok(gd) => gd,
         Err(error) => {
