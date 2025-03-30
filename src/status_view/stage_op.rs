@@ -341,11 +341,11 @@ impl StageDiffs<'_> {
     ) -> TextIter {
         let this_pos = buffer.cursor_position();
         let mut iter = buffer.iter_at_offset(this_pos);
-        debug!(
-            "LINE BEFOOOOOOOOOOOORE CHOOSE {:?} {:?}",
-            iter.line(),
-            render_diff_kind
-        );
+        // debug!(
+        //     "LINE BEFOOOOOOOOOOOORE CHOOSE {:?} {:?}",
+        //     iter.line(),
+        //     render_diff_kind
+        // );
         if let (Some(op), Some(render_diff_kind)) = (&last_op.get(), render_diff_kind) {
             // both last_op and cursor_position in it are no longer actual,
             // cause update and render are already happened.
