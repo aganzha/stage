@@ -38,6 +38,7 @@ impl LastOp {
 #[derive(Debug, Clone)]
 pub struct StageDiffs<'a> {
     pub untracked: &'a Option<Diff>,
+    pub conflicted: &'a Option<Diff>,
     pub unstaged: &'a Option<Diff>,
     pub staged: &'a Option<Diff>,
 }
@@ -398,7 +399,8 @@ impl StageDiffs<'_> {
                 }
                 // ^^^^^^^^^^^^^^^^^^^^  Ops applied to whole Diff
 
-                // if Diff was updated by StageOp while on hunk and it hunks file is rendered now (was already updated)
+                // if Diff was updated by StageOp while on hunk and file containing this hunk
+                // is rendered now (was already updated)
                 // and this file has another hunks - put cursor on first remaining hunk
                 LastOp {
                     op: _,
@@ -441,7 +443,7 @@ impl StageDiffs<'_> {
                     || *desired_diff_kind == Some(render_diff_kind) =>
                 {
                     debug!("I AM HERE!");
-                    for diff in ([&self.unstaged, &self.staged])
+                    for diff in ([&self.unstaged, &self.staged, &self.conflicted])
                         .into_iter()
                         .copied()
                         .flatten()

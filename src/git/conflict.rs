@@ -1,7 +1,7 @@
 use crate::git::{Hunk, LineKind, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, SPACE};
 use anyhow::{Context, Result};
 use git2;
-use log::{debug, info};
+use log::info;
 use similar;
 use std::io::prelude::*;
 use std::{fs, io, path, str};
