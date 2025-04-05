@@ -27,5 +27,4 @@ jobs:
       run: sudo apt-get install libssl-dev -y
     - uses: actions/checkout@v4
     - name: Build and run tests
-      run: ./tests.sh
-      working-directory: /home/runner/work/stage/stage/
+      run: ./test.sh
