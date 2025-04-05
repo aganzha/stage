@@ -25,5 +25,6 @@ jobs:
       run: sudo apt install libadwaita-1-dev -y
     - name: Install libssl
       run: sudo apt-get install libssl-dev -y
+    - uses: actions/checkout@v4
     - name: Build and run tests
       run: ./tests.sh
