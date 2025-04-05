@@ -35,7 +35,7 @@
       },
       "build-commands": [
          "glib-compile-resources ./src/io.github.aganzha.Stage.gresource.xml --target ./src/gresources.compiled",
-         "RUST_BACKTRACE=1 RUST_LOG=debug OUT_DIR=. cargo test --no-run -- --nocapture",
+         "RUST_BACKTRACE=1 RUST_LOG=debug OUT_DIR=. cargo test --no-run -- --nocapture"
       ],
       "sources": [
          {
