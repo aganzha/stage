@@ -15,18 +15,18 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-    - name: Update
-      run: sudo apt-get update -y
-    - name: Install build tools
-      run: sudo apt install build-essential -y
-    - name: Install gtk
-      run: sudo apt install libgtk-4-dev -y
-    - name: Install libadwaita
-      run: sudo apt install libadwaita-1-dev -y
-    - name: Install libssl
-      run: sudo apt-get install libssl-dev -y
+    - name: Install flatpak
+      run: sudo -S apt install flatpak -y
+    - name: Install flatpak-builder
+      run: sudo -S apt install flatpak-builder -y
+    - name: Add flathub to remotes
+      run: flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    - name: Install Gnome Platform
+      run: flatpak install -y org.gnome.Platform/x86_64/47
+    - name: Install Gnome Sdk
+      run: flatpak install -y org.gnome.Sdk/x86_64/47
+    - name: Install Rust extension
+      run: flatpak install -y org.freedesktop.Sdk.Extension.rust-stable/x86_64/24.08
     - uses: actions/checkout@v4
     - name: Build and run tests
-      env:
-        TERM: xterm-256color
-      run: ./test.sh
+      run: ./flatpak_test.sh      
