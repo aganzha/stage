@@ -27,4 +27,6 @@ jobs:
       run: sudo apt-get install libssl-dev -y
     - uses: actions/checkout@v4
     - name: Build and run tests
+      env:
+        TERM: xterm-256color
       run: ./test.sh
