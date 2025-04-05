@@ -32,6 +32,8 @@ jobs:
       run: sudo apt install python3-pip -y
     - name: Install aiohttp
       run: sudo pip3 install --break-system-packages aiohttp
+    - name: Install toml
+      run: sudo pip3 install --break-system-packages toml
     - name: Generate cargo sources
       run: python3 flatpak-cargo-generator.py ./Cargo.lock -o io.github.aganzha.Stage.cargo-sources.json
     - name: Build and run tests
