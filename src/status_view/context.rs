@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::status_view::StageView;
 use crate::{Diff, File, Hunk, Line};
 
 #[derive(Debug, Clone)]
@@ -26,6 +27,8 @@ impl CursorPosition<'_> {
 
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
+    pub stage: &'a StageView,
+
     pub erase_counter: i32,
 
     /// same for hunks and line ranges
@@ -47,18 +50,16 @@ pub struct StatusRenderContext<'a> {
     pub current_file: Option<&'a File>,
     pub current_hunk: Option<&'a Hunk>,
     pub current_line: Option<&'a Line>,
+
+    // used in fn cursor to check if view is changed during fn cursor
+    pub was_current: bool,
 }
 
-impl Default for StatusRenderContext<'_> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl StatusRenderContext<'_> {
-    pub fn new() -> Self {
+impl<'a> StatusRenderContext<'a> {
+    pub fn new(stage: &'a StageView) -> Self {
         {
             Self {
+                stage,
                 erase_counter: 0,
 
                 highlight_lines: None,
@@ -75,6 +76,8 @@ impl StatusRenderContext<'_> {
                 // it is useless. rendering_x is sliding variable during render
                 // and there is nothing to render after line
                 current_line: None,
+
+                was_current: false,
             }
         }
     }

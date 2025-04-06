@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::{get_directories, Event, Status};
+use crate::{get_directories, git::track_changes, Status};
 use core::time::Duration;
 use gio::{Cancellable, File, FileMonitor, FileMonitorEvent, FileMonitorFlags};
 use gtk4::prelude::*;
@@ -110,8 +110,9 @@ impl Status {
                                                 } else {
                                                     // track just 1 file!
                                                     let file_path = lock.borrow().iter().next().unwrap().clone();
-                                                    sender.send_blocking(Event::TrackChanges(file_path))
-                                                        .expect("cant send through channel");
+                                                    track_changes(path.clone(), file_path, sender.clone())
+                                                    // sender.send_blocking(Event::TrackChanges(file_path))
+                                                    //     .expect("cant send through channel");
                                                 }
                                                 trace!("........ cleanup lock");
                                                 lock.borrow_mut().clear();

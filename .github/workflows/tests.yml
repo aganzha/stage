@@ -15,10 +15,12 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+    - name: Update
+      run: sudo apt-get update -y
     - name: Install flatpak
-      run: sudo -S apt install flatpak -y
+      run: sudo apt install flatpak -y
     - name: Install flatpak-builder
-      run: sudo -S apt install flatpak-builder -y
+      run: sudo apt install flatpak-builder -y
     - name: Add flathub to remotes
       run: flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     - name: Install Gnome Platform
@@ -27,6 +29,11 @@ jobs:
       run: flatpak install -y org.gnome.Sdk/x86_64/47
     - name: Install Rust extension
       run: flatpak install -y org.freedesktop.Sdk.Extension.rust-stable/x86_64/24.08
+    - name: Install x11
+      run: sudo apt install xvfb -y
     - uses: actions/checkout@v4
-    - name: Build and run tests
-      run: ./flatpak_test.sh
+    - name: Build flatpak app
+      run: flatpak-builder flatpak_build io.github.aganzha.Stage-tests.json --force-clean
+    - name: Run tests
+      run: xvfb-run flatpak-builder --run flatpak_build io.github.aganzha.Stage-tests.json ./flatpak_test.sh
+

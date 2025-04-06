@@ -4,17 +4,17 @@
 
 pub mod branch;
 pub mod commit;
+pub mod conflict;
 pub mod git_log;
 pub mod merge;
 pub mod remote;
 pub mod stash;
 pub mod tag;
-pub mod test_merge;
+pub mod test_conflict;
 use crate::branch::BranchData;
 use crate::commit::CommitRepr;
 use crate::gio;
 use crate::status_view::view::View;
-
 use async_channel::Sender;
 
 use chrono::{DateTime, FixedOffset};
@@ -31,7 +31,7 @@ use std::fmt;
 use std::num::ParseIntError;
 use std::ops::{Add, Sub};
 use std::path::PathBuf;
-use std::str::{from_utf8, FromStr};
+use std::str::FromStr;
 use std::{collections::HashSet, str};
 
 pub fn make_diff_options() -> DiffOptions {
@@ -157,13 +157,9 @@ impl Line {
 pub const MARKER_OURS: &str = "<<<<<<<";
 pub const MARKER_VS: &str = "=======";
 pub const MARKER_THEIRS: &str = ">>>>>>>";
-pub const MARKER_HUNK: &str = "@@";
-pub const MARKER_DIFF_B: &str = "---"; // --- b/client/ServiceWork/Order/document/_models/WorksNomModel.ts
-pub const MARKER_DIFF_A: &str = "+++"; // +++ a/client/ServiceWork/Order/document/_models/WorksNomModel.ts
-pub const PLUS: &str = "+";
+
 pub const MINUS: &str = "-";
 pub const SPACE: &str = " ";
-pub const NEW_LINE: &str = "\n";
 
 #[derive(Debug, Clone)]
 pub struct Hunk {
@@ -177,6 +173,12 @@ pub struct Hunk {
     pub kind: DiffKind,
     pub conflict_markers_count: i32,
     pub buf: String,
+}
+
+impl fmt::Display for Hunk {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.header)
+    }
 }
 
 impl Hunk {
@@ -270,17 +272,16 @@ impl Hunk {
         panic!("cant replace num in header")
     }
 
-    // THE REGEX IS WRONG! remove .* !!!!!!!!!!!!! for +
     pub fn reverse_header(header: &str) -> String {
         // "@@ -1,3 +1,7 @@" -> "@@ -1,7 +1,3 @@"
         // "@@ -20,10 +24,11 @@ STAGING LINE..." -> "@@ -24,11 +20,10 @@ STAGING LINE..."
         // "@@ -54,7 +59,6 @@ do not call..." -> "@@ -59,6 +54,7 @@ do not call..."
-        let re = Regex::new(r"@@ [+-]([0-9].*,[0-9]*) [+-]([0-9].*,[0-9].*) @@").unwrap();
+        let re = Regex::new(r"@@ [+-]([0-9]+,[0-9]+) [+-]([0-9]+,[0-9]+) @@").unwrap();
         if let Some((whole, [nums1, nums2])) = re.captures_iter(header).map(|c| c.extract()).next()
         {
             // for (whole, [nums1, nums2]) in re.captures_iter(&header).map(|c| c.extract()) {
             let result = whole
-                .replace(nums1, "mock")
+                .replacen(nums1, "mock", 1)
                 .replace(nums2, nums1)
                 .replace("mock", nums2);
             return header.replace(whole, &result);
@@ -307,7 +308,11 @@ impl Hunk {
         // mut line: Line,
         prev_line_kind: LineKind,
     ) -> LineKind {
-        let mut content = str::from_utf8(diff_line.content()).unwrap();
+        let mut content = if let Ok(content) = str::from_utf8(diff_line.content()) {
+            content
+        } else {
+            "!!!unreadable unicode!!!"
+        };
         if let Some(striped) = content.strip_suffix("\r\n") {
             content = striped;
         }
@@ -386,20 +391,20 @@ impl Hunk {
         this_kind
     }
 
-    /// by given Line inside conflict returns
-    /// the conflict offset from hunk start
-    pub fn get_conflict_offset_by_line(&self, line: &Line) -> i32 {
-        let mut conflict_offset_inside_hunk: i32 = 0;
-        for (i, l) in self.lines.iter().enumerate() {
-            if l.content(self).starts_with(MARKER_OURS) {
-                conflict_offset_inside_hunk = i as i32;
-            }
-            if l == line {
-                break;
-            }
-        }
-        conflict_offset_inside_hunk
-    }
+    // /// by given Line inside conflict returns
+    // /// the conflict offset from hunk start
+    // pub fn get_conflict_offset_by_line(&self, line: &Line) -> i32 {
+    //     let mut conflict_offset_inside_hunk: i32 = 0;
+    //     for (i, l) in self.lines.iter().enumerate() {
+    //         if l.content(self).starts_with(MARKER_OURS) {
+    //             conflict_offset_inside_hunk = i as i32;
+    //         }
+    //         if l == line {
+    //             break;
+    //         }
+    //     }
+    //     conflict_offset_inside_hunk
+    // }
 }
 
 #[derive(Debug, Clone)]
@@ -451,9 +456,6 @@ pub struct Diff {
     pub files: Vec<File>,
     pub view: View,
     pub kind: DiffKind,
-    /// option for diff if it differs
-    /// from the common obtained by make_diff_options
-    pub interhunk: Option<u32>,
 }
 
 impl Diff {
@@ -465,7 +467,6 @@ impl Diff {
             files: Vec::new(),
             view,
             kind,
-            interhunk: None,
         }
     }
 
@@ -515,6 +516,28 @@ impl State {
     }
     pub fn need_rebase_continue(&self) -> bool {
         matches!(self.state, RepositoryState::RebaseMerge)
+    }
+
+    fn from_git_state(state: git2::RepositoryState, path: PathBuf) -> State {
+        let mut subject = String::from("");
+        if let Some(path_to_read_subject) = match state {
+            RepositoryState::CherryPick => {
+                let mut pth = path.clone();
+                pth.push(CHERRY_PICK_HEAD);
+                Some(pth)
+            }
+            RepositoryState::Revert => {
+                let mut pth = path.clone();
+                pth.push(REVERT_HEAD);
+                Some(pth)
+            }
+            _ => None,
+        } {
+            subject = std::fs::read_to_string(path_to_read_subject)
+                .expect("Should have been able to read the file")
+                .replace('\n', "");
+        }
+        State::new(state, subject)
     }
 }
 
@@ -618,63 +641,74 @@ pub fn get_current_repo_status(
         move || {
             let repo = Repository::open(path.clone()).expect("can't open repo");
             let state = repo.state();
-            let mut subject = String::from("");
-            // ???
-            let mut require_conflicted = false;
-            match state {
-                RepositoryState::Merge => {
-                    require_conflicted = true;
-                }
-                RepositoryState::CherryPick => {
-                    let mut pth = path.clone();
-                    pth.push(CHERRY_PICK_HEAD);
-                    subject = std::fs::read_to_string(pth)
-                        .expect("Should have been able to read the file")
-                        .replace('\n', "");
-                    require_conflicted = true;
-                }
-                RepositoryState::Revert => {
-                    let mut pth = path.clone();
-                    pth.push(REVERT_HEAD);
-                    subject = std::fs::read_to_string(pth)
-                        .expect("Should have been able to read the file")
-                        .replace('\n', "");
-                    require_conflicted = true;
-                }
-                _ => {}
-            }
-            let state = State::new(state, subject);
-            // during conflicts in merge there are 2 cases:
-            // 1. no conflicts, cause they were resolved
-            // 2. still have conflicts.
-            // in case 2 the get_conflicted_v1 will be called
-            // LATER downwhere. but in case 1. we have to force update
-            // conflicted (to erase it during resolution)
-            if require_conflicted {
-                let index = repo.index().expect("cant get index");
-                if index.has_conflicts() {
-                    // case 2. Conflicted will be fired
-                    // in another clause
-                    debug!("i am getting state here. conflicted will be running later");
-                    require_conflicted = false;
-                }
-            }
-            if require_conflicted {
-                // case 1. all conflicts are resolved, but state
-                // is still merging. Fire Conflicted here to show the banner
-                // TODO! move banner logic to state!, not conflicted!
-                // get rid of banner in update conflicted!
-                let diff = get_conflicted_v1(path, None, sender.clone());
-                sender
-                    .send_blocking(crate::Event::Conflicted(diff, Some(state)))
-                    .expect("Could not send through channel");
-            } else {
-                sender
-                    .send_blocking(crate::Event::State(state))
-                    .expect("Could not send through channel");
-            }
+            let state = State::from_git_state(state, path.clone());
+            sender
+                .send_blocking(crate::Event::State(state))
+                .expect("Could not send through channel");
         }
     });
+    // gio::spawn_blocking({
+    //     let sender = sender.clone();
+    //     let path = path.clone();
+    //     move || {
+    //         let repo = Repository::open(path.clone()).expect("can't open repo");
+    //         let state = repo.state();
+    //         let mut subject = String::from("");
+    //         // ???
+    //         let mut require_conflicted = false;
+    //         match state {
+    //             RepositoryState::Merge => {
+    //                 require_conflicted = true;
+    //             }
+    //             RepositoryState::CherryPick => {
+    //                 let mut pth = path.clone();
+    //                 pth.push(CHERRY_PICK_HEAD);
+    //                 subject = std::fs::read_to_string(pth)
+    //                     .expect("Should have been able to read the file")
+    //                     .replace('\n', "");
+    //                 require_conflicted = true;
+    //             }
+    //             RepositoryState::Revert => {
+    //                 let mut pth = path.clone();
+    //                 pth.push(REVERT_HEAD);
+    //                 subject = std::fs::read_to_string(pth)
+    //                     .expect("Should have been able to read the file")
+    //                     .replace('\n', "");
+    //                 require_conflicted = true;
+    //             }
+    //             _ => {}
+    //         }
+    //         let state = State::new(state, subject);
+    //         // during conflicts in merge there are 2 cases:
+    //         // 1. no conflicts, cause they were resolved
+    //         // 2. still have conflicts.
+    //         // in case 2 the get_conflicted_v1 will be called
+    //         // LATER downwhere. but in case 1. we have to force update
+    //         // conflicted (to erase it during resolution)
+    //         if require_conflicted {
+    //             let index = repo.index().expect("cant get index");
+    //             if index.has_conflicts() {
+    //                 // case 2. Conflicted will be fired
+    //                 // in another clause
+    //                 debug!("i am getting state here. conflicted will be running later");
+    //             } else {
+    //                 // case 1. all conflicts are resolved, but state
+    //                 // is still merging. Fire Conflicted here to show the banner
+    //                 // TODO! move banner logic to state!, not conflicted!
+    //                 // get rid of banner in update conflicted!
+    //                 debug!("call conflicted instead of state to display/hide banner");
+    //                 sender
+    //                     .send_blocking(crate::Event::Conflicted(None, Some(state)))
+    //                     .expect("Could not send through channel");
+    //                 return;
+    //             }
+    //         }
+    //         debug!("JUST RENDERING NONE AS CONFLICTED. WHY?");
+    //         sender
+    //             .send_blocking(crate::Event::Conflicted(None, Some(state)))
+    //             .expect("Could not send through channel");
+    //     }
+    // });
 
     // get HEAD
     gio::spawn_blocking({
@@ -769,44 +803,29 @@ pub fn get_current_repo_status(
         }
     });
 
+    // bugs in libgit2
     // https://github.com/libgit2/libgit2/issues/6232
     // this one is for staging killed hunk
     // https://github.com/libgit2/libgit2/issues/6643
 
-    let index = repo.index()?;
+    // get conflicted
+    gio::spawn_blocking({
+        let sender = sender.clone();
+        let path = path.clone();
+        move || {
+            merge::try_finalize_conflict(path, sender, true).unwrap();
+        }
+    });
 
-    if index.has_conflicts() {
-        // https://github.com/libgit2/libgit2/issues/6232
-        // this one is for staging killed hunk
-        // https://github.com/libgit2/libgit2/issues/6643
-        gio::spawn_blocking({
-            let sender = sender.clone();
-            let path = path.clone();
-            let state = repo.state();
-            move || {
-                let diff = get_conflicted_v1(path, None, sender.clone());
-                // why do i need state?
-                sender
-                    .send_blocking(crate::Event::Conflicted(
-                        diff,
-                        Some(State::new(state, "".to_string())),
-                    ))
-                    .expect("Could not send through channel");
-            }
-        });
-    } else {
-        // cleanup conflicts while switching repo
-        let state = repo.state();
-        sender
-            .send_blocking(crate::Event::Conflicted(
-                None,
-                Some(State::new(state, "".to_string())),
-            ))
-            .expect("Could not send through channel");
-    }
+    get_unstaged(&repo, sender.clone());
 
-    // get_unstaged
-    let git_diff = repo.diff_index_to_workdir(None, Some(&mut make_diff_options()))?;
+    Ok(())
+}
+
+fn get_unstaged(repo: &git2::Repository, sender: Sender<crate::Event>) {
+    let git_diff = repo
+        .diff_index_to_workdir(None, Some(&mut make_diff_options()))
+        .unwrap();
     let diff = make_diff(&git_diff, DiffKind::Unstaged);
     sender
         .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
@@ -815,143 +834,6 @@ pub fn get_current_repo_status(
             Some(diff)
         }))
         .expect("Could not send through channel");
-    Ok(())
-}
-
-pub fn get_conflicted_v1(
-    path: PathBuf,
-    interhunk: Option<u32>,
-    sender: Sender<crate::Event>,
-) -> Option<Diff> {
-    // thought
-    // TODO! file path options!
-    // it is called now from track_changes, so it need to update only 1 file!
-    // thought
-
-    // so, when file is in conflict during merge, this means nothing
-    // was staged to that file, cause merging in such state is PROHIBITED!
-
-    // what is important here: all conflicts hunks must accommodate
-    // both side: ours and theirs. if those come separated everything
-    // will be broken!
-    info!(".........get_conflicted_v1");
-    let repo = Repository::open(path.clone()).expect("can't open repo");
-    let mut index = repo.index().expect("cant get index");
-    let conflicts = index.conflicts().expect("no conflicts");
-    let mut opts = make_diff_options();
-
-    if let Some(interhunk) = interhunk {
-        opts.interhunk_lines(interhunk);
-    }
-    let mut missing_theirs: Vec<git2::IndexEntry> = Vec::new();
-    let mut has_conflicts = false;
-    for conflict in conflicts {
-        let conflict = conflict.unwrap();
-        if let Some(our) = conflict.our {
-            opts.pathspec(String::from_utf8(our.path).unwrap());
-            has_conflicts = true;
-        } else {
-            missing_theirs.push(conflict.their.unwrap())
-        }
-    }
-    // file was deleted in current branch (not in merging one)
-    // it will be not displayed. lets just delete it from index
-    // and display as untracked (no other good ways exists yet)
-    for entry in &missing_theirs {
-        let pth = PathBuf::from(from_utf8(&entry.path).unwrap());
-        index.remove_path(&pth).unwrap();
-    }
-    if !missing_theirs.is_empty() {
-        debug!("moving file to untracked during conflict");
-        index.write().unwrap();
-        gio::spawn_blocking({
-            let sender = sender.clone();
-            let path = path.clone();
-            move || {
-                get_untracked(path, sender);
-            }
-        });
-    }
-    if !has_conflicts {
-        return None;
-    }
-    let ob = repo.revparse_single("HEAD^{tree}").expect("fail revparse");
-    let current_tree = repo.find_tree(ob.id()).expect("no working tree");
-    let git_diff = repo
-        .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
-        .expect("cant get diff");
-
-    let mut diff = make_diff(&git_diff, DiffKind::Conflicted);
-
-    if diff.is_empty() {
-        return None;
-    }
-    // if intehunk is unknown it need to check missing hunks
-    // (either ours or theirs could go to separate hunk)
-    // and recreate diff to accomodate both ours and theirs in single hunk
-    if let Some(interhunk) = interhunk {
-        diff.interhunk.replace(interhunk);
-    } else {
-        // this vec store tuples with last line_no of prev hunk
-        // and first line_no of next hunk
-        let mut hunks_to_join = Vec::new();
-        let mut prev_conflict_line: Option<HunkLineNo> = None;
-        for file in &diff.files {
-            for hunk in &file.hunks {
-                let (first_marker, last_marker) =
-                    hunk.lines.iter().fold((None, None), |acc, line| {
-                        match (acc.0, acc.1, &line.kind) {
-                            (None, _, LineKind::ConflictMarker(m)) => (Some(m), Some(m)),
-                            (Some(_), _, LineKind::ConflictMarker(m)) => (acc.0, Some(m)),
-                            _ => acc,
-                        }
-                    });
-                match (first_marker, last_marker) {
-                    (None, _) => {
-                        // hunk without conflicts?
-                        // just skip it
-                    }
-                    (Some(_), None) => {
-                        panic!("imposible case");
-                    }
-                    (Some(m), _) if m == MARKER_THEIRS || m == MARKER_VS => {
-                        // hunk is not started with ours
-                        // store prev hunk last line and this hunk start to join em
-                        hunks_to_join.push((prev_conflict_line.unwrap(), hunk.old_start));
-                        prev_conflict_line = None;
-                    }
-                    (_, Some(m)) if m != MARKER_THEIRS => {
-                        // hunk is not ended with theirs
-                        // store prev hunk last line and this hunk start to join em
-                        assert!(prev_conflict_line.is_none());
-                        prev_conflict_line
-                            .replace(HunkLineNo::new(hunk.old_start.as_u32() + hunk.old_lines));
-                    }
-                    (Some(start), Some(end)) => {
-                        assert!(start == MARKER_OURS);
-                        assert!(end == MARKER_THEIRS);
-                    }
-                }
-            }
-        }
-        if !hunks_to_join.is_empty() {
-            let interhunk = hunks_to_join
-                .iter()
-                .fold(HunkLineNo::new(0), |acc, from_to| {
-                    if acc < from_to.1 - from_to.0 {
-                        return from_to.1 - from_to.0;
-                    }
-                    acc
-                });
-            opts.interhunk_lines(interhunk.as_u32());
-            let git_diff = repo
-                .diff_tree_to_workdir(Some(&current_tree), Some(&mut opts))
-                .expect("cant get diff");
-            diff = make_diff(&git_diff, DiffKind::Conflicted);
-            diff.interhunk.replace(interhunk.as_u32());
-        }
-    }
-    Some(diff)
 }
 
 pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
@@ -1292,11 +1174,11 @@ pub fn get_directories(path: PathBuf) -> HashSet<String> {
     directories
 }
 
+// TODO! get rid of it. just call get_current_repo_status!
 pub fn track_changes(
     path: PathBuf,
     file_path: PathBuf,
-    interhunk: Option<u32>,
-    has_conflicted: bool,
+    //has_conflicted: bool,
     sender: Sender<crate::Event>,
 ) {
     let repo = Repository::open(path.clone()).expect("can't open repo");
@@ -1315,9 +1197,6 @@ pub fn track_changes(
             break;
         }
     }
-    if has_conflicted {
-        assert!(is_tracked);
-    }
     // conflicts could be resolved right in this file change manually
     // but it need to update conflicted anyways if we had them!
     // see else below!
@@ -1327,90 +1206,17 @@ pub fn track_changes(
             if let Some(our) = conflict.our {
                 let conflict_path = String::from_utf8(our.path.clone()).unwrap();
                 if file_path == conflict_path {
-                    // unwrap is forced here, cause this diff could not
-                    // be empty
-                    let diff = get_conflicted_v1(path, interhunk, sender.clone()).unwrap();
-                    let event = crate::Event::TrackedFile(file_path.into(), diff);
-                    sender
-                        .send_blocking(event)
-                        .expect("Could not send through channel");
-                    return;
+                    merge::try_finalize_conflict(path.clone(), sender.clone(), false).unwrap();
                 }
             }
         }
     }
     if is_tracked {
-        if has_conflicted {
-            // this means file was in conflicted but now it is fixed manually!
-            // PERHAPS it is no longer in index conflicts.
-            // it must be in staged or unstaged then
-            get_current_repo_status(Some(path), sender).expect("cant get status");
-            return;
-        }
-        let mut opts = make_diff_options();
-        opts.pathspec(&file_path);
-        let git_diff = repo
-            .diff_index_to_workdir(Some(&index), Some(&mut opts))
-            .expect("cant' get diff index to workdir");
-        let diff = make_diff(&git_diff, DiffKind::Unstaged);
-
-        if diff.is_empty() {
-            let git_diff = repo
-                .diff_index_to_workdir(None, Some(&mut make_diff_options()))
-                .expect("cant' get diff index to workdir");
-            let diff = make_diff(&git_diff, DiffKind::Unstaged);
-            sender
-                .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
-                    None
-                } else {
-                    Some(diff)
-                }))
-                .expect("Could not send through channel");
-        } else {
-            sender
-                .send_blocking(crate::Event::TrackedFile(file_path.into(), diff))
-                .expect("Could not send through channel");
-        }
+        get_unstaged(&repo, sender.clone());
     } else {
         get_untracked(path, sender);
     }
 }
-
-// pub fn checkout_oid(
-//     path: PathBuf,
-//     sender: Sender<crate::Event>,
-//     oid: Oid,
-//     ref_log_msg: Option<String>,
-// ) {
-//     // DANGEROUS! see in status_view!
-//     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
-//     let repo = Repository::open(path.clone()).expect("can't open repo");
-//     let commit = repo.find_commit(oid).expect("can't find commit");
-//     let head_ref = repo.head().expect("can't get head");
-//     assert!(head_ref.is_branch());
-//     let branch = Branch::wrap(head_ref);
-//     let log_message = match ref_log_msg {
-//         None => {
-//             format!("HEAD -> {}, {}", branch.name().unwrap().unwrap(), oid)
-//         }
-//         Some(msg) => msg,
-//     };
-//     let mut builder = CheckoutBuilder::new();
-//     let builder = builder.safe().allow_conflicts(true);
-
-//     sender
-//         .send_blocking(crate::Event::LockMonitors(true))
-//         .expect("can send through channel");
-//     let result = repo.checkout_tree(commit.as_object(), Some(builder));
-
-//     if result.is_err() {
-//         panic!("{:?}", result);
-//     }
-//     let mut head_ref = repo.head().expect("can't get head");
-//     head_ref
-//         .set_target(oid, &log_message)
-//         .expect("cant set target");
-// }
 
 pub fn abort_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), Error> {
     let _updater = DeferRefresh::new(path.clone(), sender, true, true);

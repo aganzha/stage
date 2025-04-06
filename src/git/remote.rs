@@ -351,7 +351,11 @@ pub fn pull(
     let err = "No remote to pull from";
     let branch_data = BranchData::from_branch(&branch, git2::BranchType::Local)?
         .ok_or(git2::Error::from_str(err))?;
-    let remote_name = branch_data.remote_name.ok_or(git2::Error::from_str(err))?;
+    let cloned = branch_data.clone();
+    let remote_name = branch_data
+        .remote_name
+        .clone()
+        .ok_or(git2::Error::from_str(err))?;
     let mut remote = repo.find_remote(&remote_name)?;
 
     let mut opts = git2::FetchOptions::new();
@@ -390,7 +394,14 @@ pub fn pull(
     set_remote_callbacks(&mut callbacks, &user_pass);
     opts.remote_callbacks(callbacks);
 
-    remote.fetch(&[branch_data.name.to_local()], Some(&mut opts), None)?;
+    debug!(
+        "...................... FETCH {:?} {:?} == {:?} {:?}",
+        &cloned.name.to_str(),
+        cloned.local_name(),
+        &remote_name,
+        &cloned
+    );
+    remote.fetch(&[&branch_data.local_name()], Some(&mut opts), None)?;
 
     let upstream = branch.upstream()?;
 
@@ -442,11 +453,9 @@ impl From<git2::Remote<'_>> for RemoteDetail {
 pub fn list(path: PathBuf) -> Result<Vec<RemoteDetail>, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let mut remotes: Vec<RemoteDetail> = Vec::new();
-    for remote_name in &repo.remotes()? {
-        if let Some(remote_name) = remote_name {
-            let remote = repo.find_remote(remote_name)?;
-            remotes.push(remote.into());
-        }
+    for remote_name in (&repo.remotes()?).into_iter().flatten() {
+        let remote = repo.find_remote(remote_name)?;
+        remotes.push(remote.into());
     }
     Ok(remotes)
 }

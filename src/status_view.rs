@@ -14,15 +14,20 @@ pub mod tags;
 
 use crate::dialogs::{alert, ConfirmWithOptions, DangerDialog, YES};
 use crate::git::{
-    abort_rebase, branch::BranchData, commit as git_commit, continue_rebase, merge, remote, stash,
-    track_changes, HunkLineNo,
+    abort_rebase,
+    branch::BranchData,
+    commit as git_commit,
+    continue_rebase,
+    merge,
+    remote,
+    stash,
+    HunkLineNo, // track_changes,
 };
 
-use core::time::Duration;
 use git2::RepositoryState;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_op::{LastOp, StageDiffs};
-use stage_view::{cursor_to_line_offset, StageView};
+use stage_view::{cursor_to_line_offset, EmptyLayoutManager, StageView};
 
 pub mod reconciliation;
 pub mod tests;
@@ -619,26 +624,6 @@ impl Status {
         }
     }
 
-    pub fn track_changes(&self, file_path: PathBuf, sender: Sender<Event>) {
-        gio::spawn_blocking({
-            let path = self.path.clone().unwrap();
-            let sender = sender.clone();
-            let mut interhunk = None;
-            let mut has_conflicted = false;
-            if let Some(diff) = &self.conflicted {
-                if let Some(stored_interhunk) = diff.interhunk {
-                    interhunk.replace(stored_interhunk);
-                }
-                for file in &diff.files {
-                    if file.path == file_path {
-                        has_conflicted = true;
-                    }
-                }
-            }
-            move || track_changes(path, file_path, interhunk, has_conflicted, sender)
-        });
-    }
-
     pub fn update_conflicted<'a>(
         &'a mut self,
         diff: Option<Diff>,
@@ -766,7 +751,10 @@ impl Status {
         }
         self.conflicted = diff;
         if self.conflicted.is_some() || render_required {
+            debug!("RENDER CONFLICTED! {:?}", self.conflicted.is_some());
             self.render(txt, Some(DiffKind::Conflicted), context);
+        } else {
+            debug!("CONFLICTED IS NONE! {:?}", &self.conflicted);
         }
     }
 
@@ -818,93 +806,25 @@ impl Status {
         }
     }
 
-    pub fn update_tracked_file<'a>(
-        &'a mut self,
-        file_path: PathBuf,
-        diff: Diff,
-        txt: &StageView,
-        context: &mut StatusRenderContext<'a>,
-    ) {
-        // this method is called only if there is something to
-        // update in unstaged/conflicted and they will remain after!
-        // if tracked file is returning to original state
-        // and it must be removed from unstaged/conflicted and this is
-        // ONLY file in unstaged/conflicted, then another event will raise and diff
-        // will be removed completelly
-        let mine = if diff.kind == DiffKind::Conflicted {
-            &mut self.conflicted
-        } else {
-            &mut self.unstaged
-        };
-        if let Some(rendered) = mine {
-            // so. it need to find file in rendered.
-            // if it is there - enrich new one by it and replace
-            // if it is not there - insert
-            // if it is there and new is empty - erase it
-
-            let updated_file = diff.files.into_iter().find(|f| f.path == file_path);
-            let buffer = &txt.buffer();
-            let mut ind = 0;
-            let mut insert_ind: Option<usize> = None;
-            debug!(
-                "track 1 file. rendered files are {:}",
-                &rendered.files.len()
-            );
-            rendered.files.retain_mut(|f| {
-                ind += 1;
-                if f.path == file_path {
-                    insert_ind = Some(ind);
-                    if let Some(file) = &updated_file {
-                        file.enrich_view(f, buffer, context);
-                    } else {
-                        debug!("ERASE rendered file!!!!!!!!!");
-                        f.erase(buffer, context);
-                    }
-                    false
-                } else {
-                    true
-                }
-            });
-
-            if let Some(file) = updated_file {
-                if let Some(ind) = insert_ind {
-                    rendered.files.insert(ind - 1, file);
-                } else {
-                    // insert alphabetically
-                    let mut ind = 0;
-                    for rendered_file in &rendered.files {
-                        if file.path.to_str().unwrap() < rendered_file.path.to_str().unwrap() {
-                            break;
-                        }
-                        ind += 1
-                    }
-                    rendered.files.insert(ind, file);
-                }
-                debug!("just inserted new file...........");
-            }
-        } else if diff.kind == DiffKind::Conflicted {
-            self.conflicted = Some(diff);
-        } else {
-            self.unstaged = Some(diff);
-        }
-        self.render(txt, Some(DiffKind::Unstaged), context);
-    }
-
     // TODO! is it still used?
-    pub fn resize_highlights<'a>(&'a mut self, txt: &StageView, ctx: &mut StatusRenderContext<'a>) {
-        let buffer = txt.buffer();
-        let iter = buffer.iter_at_offset(buffer.cursor_position());
-        self.cursor(txt, iter.line(), iter.offset(), ctx);
-        glib::source::timeout_add_local(Duration::from_millis(10), {
-            let txt = txt.clone();
-            let mut context = StatusRenderContext::new();
-            context.highlight_lines = ctx.highlight_lines;
-            context.highlight_hunks.clone_from(&ctx.highlight_hunks);
-            move || {
-                txt.bind_highlights(&context);
-                glib::ControlFlow::Break
-            }
-        });
+    pub fn resize_highlights<'a>(
+        &'a mut self,
+        _txt: &StageView,
+        _ctx: &mut StatusRenderContext<'a>,
+    ) {
+        // let buffer = txt.buffer();
+        // let iter = buffer.iter_at_offset(buffer.cursor_position());
+        // self.cursor(txt, iter.line(), iter.offset(), ctx);
+        // glib::source::timeout_add_local(Duration::from_millis(10), {
+        //     let txt = txt.clone();
+        //     let mut context = StatusRenderContext::new();
+        //     context.highlight_lines = ctx.highlight_lines;
+        //     context.highlight_hunks.clone_from(&ctx.highlight_hunks);
+        //     move || {
+        //         txt.bind_highlights(&context);
+        //         glib::ControlFlow::Break
+        //     }
+        // });
     }
 
     /// cursor does not change structure, but changes highlights
@@ -938,6 +858,18 @@ impl Status {
         changed
     }
 
+    pub fn toggle_empty_layout_manager(&self, txt: &StageView, on: bool) {
+        if on {
+            if txt.layout_manager().is_some() {
+                debug!("kiiiiiiiiiiiiiilllll custom layout");
+                txt.set_layout_manager(None::<EmptyLayoutManager>);
+            }
+        } else {
+            debug!("set custom layout 1.!");
+            txt.set_layout_manager(Some(EmptyLayoutManager::new()));
+        }
+    }
+
     pub fn expand<'a>(
         &'a mut self,
         txt: &StageView,
@@ -945,6 +877,8 @@ impl Status {
         _offset: i32,
         context: &mut StatusRenderContext<'a>,
     ) {
+        // debug!("TOOGLE ON");
+        //self.toggle_empty_layout_manager(txt, true);
         if let Some(conflicted) = &self.conflicted {
             if conflicted.expand(line_no, context).is_some() {
                 self.render(txt, Some(DiffKind::Conflicted), context);
@@ -963,6 +897,8 @@ impl Status {
                 self.render(txt, Some(DiffKind::Staged), context);
             }
         }
+        //debug!("TOOGLE BACK");
+        //self.toggle_empty_layout_manager(txt, false);
     }
 
     pub fn render<'a>(
@@ -1010,13 +946,14 @@ impl Status {
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
         let diffs = StageDiffs {
+            conflicted: &self.conflicted,
             untracked: &self.untracked,
             unstaged: &self.unstaged,
             staged: &self.staged,
         };
 
         let iter = diffs.choose_cursor_position(&buffer, diff_kind, &self.last_op);
-
+        //debug!("LINE AFTER CHOOSE {:?} {:?}", iter.line(), diff_kind);
         buffer.place_cursor(&iter);
         // WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
@@ -1093,8 +1030,15 @@ impl Status {
         };
     }
 
-    pub fn debug<'a>(&'a mut self, _txt: &StageView, _context: &mut StatusRenderContext<'a>) {
+    pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
         debug!("debug!");
+        if txt.layout_manager().is_some() {
+            debug!("kiiiiiiiiiiiiiilllll custom layout");
+            txt.set_layout_manager(None::<EmptyLayoutManager>);
+        } else {
+            debug!("set custom layout 2.!");
+            txt.set_layout_manager(Some(EmptyLayoutManager::new()));
+        }
     }
 
     //3

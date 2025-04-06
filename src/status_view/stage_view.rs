@@ -15,7 +15,7 @@ use gtk4::{
     GestureDrag, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::{debug, trace};
+use log::trace;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -36,7 +36,12 @@ mod stage_view_internal {
 
     // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
-    const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.137, 0.216, 0.310, 1.0);
+
+    // super bright!
+    // const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.101, 0.294, 0.526, 1.0);
+    // also bright
+    // const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.166, 0.329, 0.525, 1.0);
+    const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.094, 0.257, 0.454, 1.0);
 
     const DARK_BF_FILL: gdk::RGBA = gdk::RGBA::new(0.139, 0.139, 0.139, 1.0);
     const LIGHT_BG_FILL: gdk::RGBA = gdk::RGBA::new(1.0, 1.0, 1.0, 1.0);
@@ -246,11 +251,51 @@ impl StageView {
     }
 }
 
+glib::wrapper! {
+    pub struct EmptyLayoutManager(ObjectSubclass<empty_layout_manager_internal::EmptyLayoutManager>)
+        @extends gtk4::LayoutManager;
+}
+
+mod empty_layout_manager_internal {
+
+    use gtk4::subclass::prelude::*;
+    use gtk4::{glib, LayoutManager, Widget};
+
+    #[derive(Default)]
+    pub struct EmptyLayoutManager {}
+    #[glib::object_subclass]
+    impl ObjectSubclass for EmptyLayoutManager {
+        const NAME: &'static str = "EmptyLayoutManager";
+        type Type = super::EmptyLayoutManager;
+        type ParentType = LayoutManager;
+    }
+    impl ObjectImpl for EmptyLayoutManager {}
+    impl LayoutManagerImpl for EmptyLayoutManager {
+        fn allocate(&self, _widget: &Widget, _width: i32, _height: i32, _baseline: i32) {
+            // just an empty method
+        }
+    }
+}
+
+impl Default for EmptyLayoutManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EmptyLayoutManager {
+    pub fn new() -> Self {
+        glib::Object::builder().build()
+    }
+}
+
 pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
     let txt = StageView::new();
+    // txt.set_accessible_role(gtk4::AccessibleRole::None);
+
     txt.set_margin_start(12);
     txt.set_widget_name(name);
     txt.set_margin_end(12);

@@ -22,12 +22,12 @@ use crate::{
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
-use gtk4::{TextBuffer, TextIter};
+use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
 use log::{debug, trace};
 use std::collections::{HashMap, HashSet};
 
-pub const LINE_NO_SPACE: i32 = 6;
+//pub const LINE_NO_SPACE: i32 = 6;
 
 pub fn make_tag(name: &str) -> tags::TxtTag {
     tags::TxtTag::from_str(name)
@@ -270,6 +270,8 @@ pub trait ViewContainer {
         self.prepare_context(context);
 
         let view = self.get_view();
+
+        context.was_current = view.is_current();
 
         let is_current = view.is_rendered_in(line_no);
         if is_current {
@@ -881,35 +883,46 @@ impl ViewContainer for Line {
         buffer: &TextBuffer,
         context: &mut StatusRenderContext<'_>,
     ) {
-        let line_no = format!(
-            "{}",
-            self.new_line_no
-                .map(|num| num.as_u32())
-                .unwrap_or(self.old_line_no.map(|num| num.as_u32()).unwrap_or(0))
+        let anchor = iter
+            .child_anchor()
+            .unwrap_or(buffer.create_child_anchor(iter));
+
+        let line_no = self
+            .new_line_no
+            .map(|num| num.as_u32())
+            .unwrap_or(self.old_line_no.map(|num| num.as_u32()).unwrap_or(0));
+
+        let line_no_text = format!(
+            "<span size=\"small\" line_height=\"0.5\">{}</span>",
+            line_no
         );
-        match line_no.len() {
-            1 => {
-                buffer.insert(iter, "   ");
-                buffer.insert(iter, &line_no);
-            }
-            2 => {
-                buffer.insert(iter, "  ");
-                buffer.insert(iter, &line_no);
-            }
-            3 => {
-                buffer.insert(iter, " ");
-                buffer.insert(iter, &line_no);
-            }
-            4 => {
-                buffer.insert(iter, &line_no);
-            }
-            _ => {
-                buffer.insert(iter, "..");
-                buffer.insert(iter, &line_no[line_no.len() - 2..]);
-            }
+        if !anchor.widgets().is_empty() {
+            let w = &anchor.widgets()[0];
+            let l = w.downcast_ref::<GtkLabel>().unwrap();
+            l.set_label(&line_no_text);
+        } else {
+            let lbl: GtkLabel = GtkLabel::builder()
+                .use_markup(true)
+                .hexpand(false)
+                .vexpand(false)
+                .label(line_no_text)
+                .max_width_chars(3)
+                .width_chars(3)
+                .width_request(25)
+                .halign(Align::Start)
+                .xalign(0.0)
+                .opacity(0.3)
+                .css_classes(["line_no"])
+                .build();
+            context.stage.add_child_at_anchor(&lbl, &anchor);
         }
-        buffer.insert(iter, "  ");
-        buffer.insert(iter, self.content(context.current_hunk.unwrap()));
+
+        let content = self.content(context.current_hunk.unwrap());
+        if content.is_empty() {
+            buffer.insert(iter, " ");
+        } else {
+            buffer.insert(iter, content);
+        }
     }
 
     // Line
@@ -924,21 +937,24 @@ impl ViewContainer for Line {
                 self.add_tag(buffer, t);
             }
         }
-        // ---------------------------------------
 
-        // line_no
-        let line_no_tag = match self.origin {
-            DiffLineType::Addition => make_tag(tags::LINE_NO_ADDED),
-            DiffLineType::Deletion => make_tag(tags::LINE_NO_REMOVED),
-            _ => make_tag(tags::LINE_NO_CONTEXT),
-        };
-
-        if !self.view.tag_is_added(&line_no_tag) {
-            let (start_iter, mut end_iter) = self.start_end_iters(buffer, self.view.line_no.get());
-            end_iter.set_line_offset(0);
-            end_iter.forward_chars(LINE_NO_SPACE);
-            buffer.apply_tag_by_name(line_no_tag.name(), &start_iter, &end_iter);
-            self.view.tag_added(&line_no_tag);
+        let become_current = !context.was_current && self.view.is_current();
+        let no_longer_current = context.was_current && !self.view.is_current();
+        if no_longer_current || become_current {
+            let mut iter = buffer.iter_at_offset(0);
+            iter.set_line(self.view.line_no.get());
+            if let Some(anchor) = iter.child_anchor() {
+                if !anchor.widgets().is_empty() {
+                    let w = &anchor.widgets()[0];
+                    let l = w.downcast_ref::<GtkLabel>().unwrap();
+                    if become_current {
+                        l.set_opacity(1.0);
+                    }
+                    if no_longer_current {
+                        l.set_opacity(0.3);
+                    }
+                }
+            }
         }
 
         // highlight spaces
@@ -962,8 +978,8 @@ impl ViewContainer for Line {
             if !self.view.tag_is_added(&spaces_tag) {
                 let (mut start_iter, end_iter) =
                     self.start_end_iters(buffer, self.view.line_no.get());
-                start_iter.forward_chars(stripped_len as i32 + LINE_NO_SPACE);
-
+                // magic 1 is for label
+                start_iter.forward_chars(stripped_len as i32 + 1);
                 buffer.apply_tag_by_name(spaces_tag.name(), &start_iter, &end_iter);
                 self.view.tag_added(&spaces_tag);
             }
@@ -1149,32 +1165,6 @@ impl Diff {
 
     pub fn dump(&self) -> String {
         String::from("dump")
-    }
-
-    pub fn nearest_line_to_go(&self, cursor_line_no: i32) -> Option<i32> {
-        if !self.view.is_rendered() {
-            return None;
-        }
-        let my_line = self.view.line_no.get();
-        debug!(
-            "................nearest_line_to_go_1. my line {:?} cursor line {:?}",
-            my_line, cursor_line_no
-        );
-        if my_line >= cursor_line_no {
-            return Some(my_line);
-        }
-        let last_line = self.last_visible_line();
-        debug!(
-            "................nearest_line_to_go_2. my line {:?} cursor line {:?}",
-            my_line, cursor_line_no
-        );
-        if last_line >= cursor_line_no {
-            // no need to move anywhere
-            // cursor is already within
-            return None;
-        }
-        debug!("last lineeeeeeeeeeeeeeeeeee! {:?}", last_line);
-        Some(last_line)
     }
 
     pub fn has_view_on(&self, line_no: i32) -> bool {
