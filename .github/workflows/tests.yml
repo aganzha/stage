@@ -30,7 +30,7 @@ jobs:
     - name: Install Rust extension
       run: flatpak install -y org.freedesktop.Sdk.Extension.rust-stable/x86_64/24.08
     - name: Install x11
-      run: sudo apt install xvfb
+      run: sudo apt install xvfb -y
     - uses: actions/checkout@v4
     - name: Build flatpak app
       run: flatpak-builder flatpak_build io.github.aganzha.Stage-tests.json --force-clean
