@@ -21,6 +21,12 @@ jobs:
       run: sudo apt install flatpak -y
     - name: Install flatpak-builder
       run: sudo apt install flatpak-builder -y
+    - name: Install Gnome Platform
+      run: flatpak install -y org.gnome.Platform/x86_64/47
+    - name: Install Gnome Sdk
+      run: flatpak install -y org.gnome.Sdk/x86_64/47
+    - name: Install Rust extension
+      run: flatpak install -y org.freedesktop.Sdk.Extension.rust-stable/x86_64/24.08
     - uses: actions/checkout@v4
     - name: Build flatpak app
       run: flatpak-builder flatpak_build io.github.aganzha.Stage-tests.json --force-clean
