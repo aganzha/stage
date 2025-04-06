@@ -80,3 +80,8 @@ scheme_selector button:checked image {
 button.no_bg {
     background: rgba(255,255,255,0);
 }
+
+.line_no {
+    padding-left: 10px;
+    padding-right: 10px;
+}

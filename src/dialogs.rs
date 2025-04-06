@@ -66,6 +66,16 @@ impl AlertConversation for git2::Error {
         )
     }
 }
+
+impl AlertConversation for anyhow::Error {
+    fn heading_and_message(&self) -> (String, String) {
+        (
+            String::from("<span color=\"#ff0000\">Common error</span>"),
+            self.root_cause().to_string(),
+        )
+    }
+}
+
 impl AlertConversation for String {
     fn heading_and_message(&self) -> (String, String) {
         (
