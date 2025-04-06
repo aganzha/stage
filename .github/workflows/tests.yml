@@ -15,32 +15,14 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+    - name: Update
+      run: sudo apt-get update -y
     - name: Install flatpak
-      run: sudo -S apt install flatpak -y
+      run: sudo apt install flatpak -y
     - name: Install flatpak-builder
-      run: sudo -S apt install flatpak-builder -y
-    - name: Add flathub to remotes
-      run: flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-    - name: Install Gnome Platform
-      run: flatpak install -y org.gnome.Platform/x86_64/47
-    - name: Install Gnome Sdk
-      run: flatpak install -y org.gnome.Sdk/x86_64/47
-    - name: Install Rust extension
-      run: flatpak install -y org.freedesktop.Sdk.Extension.rust-stable/x86_64/24.08
+      run: sudo apt install flatpak-builder -y
     - uses: actions/checkout@v4
-    - name: Install pip
-      run: sudo apt install python3-pip -y
-    - name: Install aiohttp
-      run: sudo pip3 install --break-system-packages aiohttp
-    - name: Install toml
-      run: sudo pip3 install --break-system-packages toml
-    - name: Generate cargo sources
-      run: python3 flatpak-cargo-generator.py ./Cargo.lock -o io.github.aganzha.Stage.cargo-sources.json
-    - name: Build tests
-      run: ./flatpak_test.sh
-    - name: Run tests
-      run: |
-        ls -la
-        ls -la ./target
-        ls -la ./target/debug
-        ls -la ./target/debug/deps
+    - name: Build flatpak app
+      run: flatpak-builder flatpak_build io.github.aganzha.Stage-tests.json --force-clean
+    - name: Build and run tests
+      run: flatpak-builder --run flatpak_build io.github.aganzha.Stage-tests.json ./flatpak_test.sh

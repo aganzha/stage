@@ -1,2 +1,3 @@
 #!/bin/bash
-flatpak-builder flatpak_build io.github.aganzha.Stage-tests.json --force-clean
+RUST_BACKTRACE=1 RUST_LOG=debug OUT_DIR=. cargo test --no-run -- --nocapture
+find target/debug/deps/ -type f -executable -name 'stage*' -exec '{}' ';'
