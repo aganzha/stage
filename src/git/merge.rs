@@ -333,7 +333,7 @@ pub fn try_finalize_conflict(
     path: PathBuf,
     sender: Sender<crate::Event>,
     call_from_status: bool,
-) -> Result<(), git2::Error> {
+) -> Result<()> {
     debug!("cleanup_last_conflict_for_file");
     let repo = git2::Repository::open(path.clone())?;
     //let mut index = repo.index()?;
@@ -347,10 +347,10 @@ pub fn try_finalize_conflict(
     let mut update_status = true;
     let mut cleanup = Vec::new();
     let mut index = repo.index()?;
-    let conflicted = conflict::get_diff(&repo, &mut Some(&mut cleanup))
-        .ok()
-        .flatten()
-        .map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted));
+
+    let similar_diff = conflict::get_diff(&repo, &mut Some(&mut cleanup))?;
+    let conflicted = similar_diff.map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted));
+
     sender
         .send_blocking(crate::Event::Conflicted(
             conflicted,
@@ -363,6 +363,7 @@ pub fn try_finalize_conflict(
         index.remove_path(Path::new(&path))?;
         index.add_path(Path::new(&path))?;
         index.write()?;
+        debug!("JUST UPDATE INDEX {:?}", path);
     }
     if update_status && !call_from_status {
         gio::spawn_blocking({

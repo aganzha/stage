@@ -1,7 +1,7 @@
 use crate::git::{Hunk, LineKind, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, SPACE};
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use git2;
-use log::info;
+use log::{debug, info};
 use similar;
 use std::io::prelude::*;
 use std::{fs, io, path, str};
@@ -10,7 +10,7 @@ pub fn write_conflict_diff<'a>(
     bytes: &mut Vec<u8>,
     path: &str,
     similar_diff: similar::TextDiff<'a, 'a, 'a, str>,
-) {
+) -> Result<()> {
     let mut file_header_written = false;
     let mut hunk: Vec<(bool, &str)> = Vec::new();
     let mut hunk_old_start = 0;
@@ -25,17 +25,15 @@ pub fn write_conflict_diff<'a>(
         let prefix: String = value.chars().take(7).collect();
         match (change.tag(), op, &prefix[..]) {
             (similar::ChangeTag::Insert, _, MARKER_OURS) => {
-                assert!(op.is_empty());
+                if !op.is_empty() {
+                    bail!("op is not empty during parse");
+                }
                 if !file_header_written {
-                    bytes
-                        .write_all(format!("diff --git \"a/{}\" \"b/{}\"\n", path, path).as_bytes())
-                        .expect("cant write bytes");
-                    bytes
-                        .write_all(format!("--- \"a/{}\"\n", path).as_bytes())
-                        .expect("cant write bytes");
-                    bytes
-                        .write_all(format!("+++ \"b/{}\"\n", path).as_bytes())
-                        .expect("cant write bytes");
+                    bytes.write_all(
+                        format!("diff --git \"a/{}\" \"b/{}\"\n", path, path).as_bytes(),
+                    )?;
+                    bytes.write_all(format!("--- \"a/{}\"\n", path).as_bytes())?;
+                    bytes.write_all(format!("+++ \"b/{}\"\n", path).as_bytes())?;
                     file_header_written = true;
                 }
                 hunk.push((false, "header"));
@@ -44,7 +42,7 @@ pub fn write_conflict_diff<'a>(
                 count_new += 1;
 
                 // magic 1/perhaps similar counts from 0?
-                hunk_new_start = change.new_index().unwrap() + 1;
+                hunk_new_start = change.new_index().context("cant parse changes")? + 1;
                 if let Some(_old_start) = change.old_index() {
                     panic!("STOP");
                 } else {
@@ -52,13 +50,17 @@ pub fn write_conflict_diff<'a>(
                 }
             }
             (similar::ChangeTag::Insert, _, MARKER_VS) => {
-                assert!(op == "collect_ours");
+                if op != "collect_ours" {
+                    bail!("op != collect_ours during parse");
+                }
                 hunk.push((true, value));
                 op = "collect_theirs";
                 count_new += 1;
             }
             (similar::ChangeTag::Insert, _, MARKER_THEIRS) => {
-                assert!(op == "collect_theirs");
+                if op != "collect_theirs" {
+                    bail!("op != collect_theirs during parse");
+                }
                 count_new += 1;
                 hunk.push((true, value));
                 for (i, (plus, line)) in hunk.into_iter().enumerate() {
@@ -70,14 +72,14 @@ pub fn write_conflict_diff<'a>(
                             hunk_new_start,
                             count_old + count_new
                         );
-                        io::Write::write(bytes, header.as_bytes()).expect("cant write bytes");
+                        io::Write::write(bytes, header.as_bytes())?;
                         continue;
                     } else if plus {
-                        io::Write::write(bytes, &[b'+']).expect("cant write bytes");
+                        io::Write::write(bytes, &[b'+'])?;
                     } else {
-                        io::Write::write(bytes, &[b' ']).expect("cant write bytes");
+                        io::Write::write(bytes, &[b' '])?;
                     }
-                    io::Write::write(bytes, line.as_bytes()).expect("cant write bytes");
+                    io::Write::write(bytes, line.as_bytes())?;
                 }
                 hunk = Vec::new();
                 op = "";
@@ -96,6 +98,7 @@ pub fn write_conflict_diff<'a>(
             (_, _, _) => {}
         }
     }
+    Ok(())
 }
 
 pub fn get_diff<'a>(
@@ -151,7 +154,7 @@ pub fn get_diff<'a>(
         let text_diff = similar::TextDiff::from_lines(&tree_content, &workdir_content);
         let ratio = text_diff.ratio();
         let before = bytes.len();
-        write_conflict_diff(&mut bytes, &path, text_diff);
+        write_conflict_diff(&mut bytes, &path, text_diff)?;
         if bytes.len() == before || ratio == 1.0 {
             if let Some(paths) = paths_to_clean {
                 let path_to_clean = path::PathBuf::from(path);
