@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::sync::{Arc, Mutex, Condvar};
+use std::ops::Deref;
 use crate::git::{branch::BranchData, get_upstream, merge, DeferRefresh};
 use async_channel::Sender;
 use git2;
@@ -44,9 +46,7 @@ pub fn set_remote_callbacks(
     callbacks.credentials({
         let user_pass = user_pass.clone();
         move |url, username_from_url, allowed_types| {
-            trace!("auth credentials url {:?}", url);
             debug!("auth credentials username_from_url {:?}", username_from_url);
-            trace!("auth credentials allowed_types {:?}", allowed_types);
             if allowed_types.contains(git2::CredentialType::SSH_KEY) {
                 let result = git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
                 trace!("got auth memory result. is it ok? {:?}", result.is_ok());
@@ -137,20 +137,34 @@ pub fn update_remote(
     sender: Sender<crate::Event>,
     user_pass: Option<(String, String)>,
 ) -> Result<(), git2::Error> {
-    let _updater = DeferRefresh::new(path.clone(), sender, true, true);
+    let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path)?;
     let mut errors: HashMap<&str, Vec<git2::Error>> = HashMap::new();
 
     let remotes = repo.remotes()?;
     for remote_name in &remotes {
         let remote_name = remote_name.unwrap();
-
+        let sender = sender.clone();
         match repo.find_remote(remote_name) {
             Ok(mut remote) => {
                 let mut callbacks = git2::RemoteCallbacks::new();
                 set_remote_callbacks(&mut callbacks, &user_pass);
                 if let Err(err) = remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None)
                 {
+                    debug!("err1 -------------------> {}", err);
+                    if err.message() == PLAIN_PASSWORD {
+                        let pair = Arc::new((Mutex::new(false), Condvar::new()));
+                        let ui_pair = pair.clone();
+                        sender
+                            .send_blocking(crate::Event::UserInputRequired(ui_pair))
+                            .expect("cant send through channel");
+                        let mut started = pair.0.lock().unwrap();
+                        debug!("BEFORE LOOOP");
+                        while !started.deref() {
+                            started = pair.1.wait(started).unwrap();
+                        }
+                        debug!("AFTER LOOOOOOOP");
+                    }
                     errors.entry(remote_name).or_default().push(err);
                     continue;
                 }
@@ -159,6 +173,7 @@ pub fn update_remote(
                 set_remote_callbacks(&mut callbacks, &user_pass);
 
                 if let Err(err) = remote.prune(Some(callbacks)) {
+                    debug!("err2 -------------------> {}", err);
                     errors.entry(remote_name).or_default().push(err);
                     continue;
                 }
@@ -181,6 +196,7 @@ pub fn update_remote(
                 let refs: [String; 0] = [];
 
                 if let Err(err) = remote.fetch(&refs, Some(&mut opts), None) {
+                    debug!("err3 -------------------> {}", err);
                     errors.entry(remote_name).or_default().push(err);
                     continue;
                 }
@@ -191,11 +207,13 @@ pub fn update_remote(
                 if let Err(err) =
                     remote.update_tips(Some(&mut callbacks), true, git2::AutotagOption::Auto, None)
                 {
+                    debug!("err4 -------------------> {}", err);
                     errors.entry(remote_name).or_default().push(err);
                     continue;
                 }
             }
             Err(err) => {
+                debug!("err5 -------------------> {}", err);
                 errors.entry(remote_name).or_default().push(err);
             }
         }
