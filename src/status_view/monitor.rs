@@ -109,10 +109,13 @@ impl Status {
                                                     });
                                                 } else {
                                                     // track just 1 file!
-                                                    let file_path = lock.borrow().iter().next().unwrap().clone();
-                                                    track_changes(path.clone(), file_path, sender.clone())
-                                                    // sender.send_blocking(Event::TrackChanges(file_path))
-                                                    //     .expect("cant send through channel");
+                                                    gio::spawn_blocking({
+                                                        let path = path.clone();
+                                                        let sender = sender.clone();
+                                                        let file_path = lock.borrow().iter().next().unwrap().clone();
+                                                        move || track_changes(path.clone(), file_path, sender.clone())
+                                                    });
+
                                                 }
                                                 trace!("........ cleanup lock");
                                                 lock.borrow_mut().clear();

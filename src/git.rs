@@ -1206,7 +1206,14 @@ pub fn track_changes(
             if let Some(our) = conflict.our {
                 let conflict_path = String::from_utf8(our.path.clone()).unwrap();
                 if file_path == conflict_path {
-                    merge::try_finalize_conflict(path.clone(), sender.clone(), false).unwrap();
+                    let cleanup_result =
+                        merge::try_finalize_conflict(path.clone(), sender.clone(), false);
+                    if cleanup_result.is_err() {
+                        debug!(
+                            "error whyle trying finalize conflict {:?}",
+                            cleanup_result.err()
+                        );
+                    }
                 }
             }
         }
