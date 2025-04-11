@@ -37,7 +37,7 @@ impl BranchName {
     }
 
     pub fn name_of_remote(&self) -> String {
-        return self.0.split("/").next().unwrap().to_string();
+        self.0.split("/").next().unwrap().to_string()
     }
 }
 
@@ -122,7 +122,7 @@ impl BranchData {
     }
 
     pub fn local_name(&self) -> String {
-        return self.name.to_local(self.remote_name.as_deref());
+        self.name.to_local(self.remote_name.as_deref())
     }
 }
 
