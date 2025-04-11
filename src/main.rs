@@ -28,12 +28,11 @@ mod commit_view;
 use commit_view::show_commit_window;
 
 use core::time::Duration;
-use std::thread::sleep;
-use std::ops::Deref;
-use std::sync::{Arc, Mutex, Condvar};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::{Arc, Condvar, Mutex};
+use std::thread::sleep;
 
 mod git;
 use git::{
@@ -59,7 +58,7 @@ use gtk4::{
     ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
 };
 
-use log::{info, trace, debug};
+use log::{debug, info, trace};
 use regex::Regex;
 
 const APP_ID: &str = "io.github.aganzha.Stage";
@@ -125,6 +124,12 @@ fn register_resources() {
     // );
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct PlainTextAuth {
+    login: String,
+    password: String,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum StageOp {
     Stage,
@@ -177,7 +182,7 @@ pub enum Event {
     Tags(Option<Oid>),
     CherryPick(Oid, bool, Option<PathBuf>, Option<String>),
     Focus,
-    UserInputRequired(Arc<(Mutex<bool>, Condvar)>)
+    UserInputRequired(Arc<(Mutex<PlainTextAuth>, Condvar)>),
 }
 
 fn zoom(dir: bool) {
@@ -697,19 +702,20 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     } else {
                         status.cherry_pick(&window, oid, revert, ofile_path, ohunk_header)
                     }
-                },
+                }
                 Event::UserInputRequired(ui_pair) => {
                     debug!("EEEEEEEEEEEEEEEEEEEEEEEEE {:?}", ui_pair);
                     gio::spawn_blocking({
                         move || {
                             sleep(Duration::from_millis(5000));
-                            let mut started = ui_pair.0.lock().unwrap();
-                            *started = true;
-                            debug!("noooooooooootify all! {:?}", started);
+                            let mut auth = ui_pair.0.lock().unwrap();
+                            auth.login = "aganzha".to_string();
+                            auth.password = "123".to_string();
+                            debug!("noooooooooootify all! {:?}", auth);
                             ui_pair.1.notify_all();
                         }
                     });
-                } 
+                }
             };
             hb_updater(HbUpdateData::Context(ctx));
         }

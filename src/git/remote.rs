@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::sync::{Arc, Mutex, Condvar};
-use std::ops::Deref;
 use crate::git::{branch::BranchData, get_upstream, merge, DeferRefresh};
 use async_channel::Sender;
 use git2;
@@ -12,6 +10,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::{Arc, Condvar, Mutex};
 
 const PLAIN_PASSWORD: &str = "plain text password required";
 
@@ -153,17 +152,18 @@ pub fn update_remote(
                 {
                     debug!("err1 -------------------> {}", err);
                     if err.message() == PLAIN_PASSWORD {
-                        let pair = Arc::new((Mutex::new(false), Condvar::new()));
+                        let pair =
+                            Arc::new((Mutex::new(crate::PlainTextAuth::default()), Condvar::new()));
                         let ui_pair = pair.clone();
                         sender
                             .send_blocking(crate::Event::UserInputRequired(ui_pair))
                             .expect("cant send through channel");
-                        let mut started = pair.0.lock().unwrap();
-                        debug!("BEFORE LOOOP");
-                        while !started.deref() {
-                            started = pair.1.wait(started).unwrap();
+                        let mut auth = pair.0.lock().unwrap();
+                        debug!("BEFORE LOOOP {:?}", auth);
+                        while auth.login.is_empty() || auth.password.is_empty() {
+                            auth = pair.1.wait(auth).unwrap();
                         }
-                        debug!("AFTER LOOOOOOOP");
+                        debug!("AFTER LOOOOOOOP {:?}", auth);
                     }
                     errors.entry(remote_name).or_default().push(err);
                     continue;
