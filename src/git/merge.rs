@@ -4,8 +4,9 @@
 
 use crate::git::{
     branch::BranchName, conflict, get_current_repo_status, make_diff, make_diff_options,
-    BranchData, DeferRefresh, DiffKind, Hunk, Line, State,
+    stage_via_apply, BranchData, DeferRefresh, DiffKind, Hunk, Line, State,
 };
+use crate::StageOp;
 use anyhow::Result;
 use async_channel::Sender;
 use git2;
@@ -345,25 +346,46 @@ pub fn try_finalize_conflict(
     // 3 - conflicts are remaining in all files - just update conflicted
     //     - do not touch conflict@index
     let mut update_status = true;
-    let mut cleanup = Vec::new();
+    let mut to_stage = Vec::new();
+    let mut to_unstage = Vec::new();
     let mut index = repo.index()?;
 
-    let similar_diff = conflict::get_diff(&repo, &mut Some(&mut cleanup))?;
+    let similar_diff = conflict::get_diff(&repo, &mut to_stage, &mut to_unstage)?;
     let conflicted = similar_diff.map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted));
 
+    debug!(
+        "after writing similar diff. to_stage {:?} to_unstage {:?}",
+        to_stage, to_unstage
+    );
     sender
         .send_blocking(crate::Event::Conflicted(
-            conflicted,
+            conflicted, // it could be None, to cleanup UI from Conflicted
             Some(State::new(repo.state(), "".to_string())),
         ))
         .expect("Could not send through channel");
 
-    for path in cleanup {
+    for file_path in to_stage {
         update_status = true;
-        index.remove_path(Path::new(&path))?;
-        index.add_path(Path::new(&path))?;
+        index.remove_path(Path::new(&file_path))?;
+        index.add_path(Path::new(&file_path))?;
         index.write()?;
         debug!("JUST UPDATE INDEX {:?}", path);
+    }
+    for file_path in &to_unstage {
+        update_status = true;
+        index.remove_path(Path::new(&file_path))?;
+        index.add_path(Path::new(&file_path))?;
+        index.write()?;
+        debug!("JUST UPDATE INDEX {:?}", path);
+    }
+    for file_path in to_unstage {
+        stage_via_apply(
+            path.clone(),
+            Some(file_path),
+            None,
+            StageOp::Unstage,
+            sender.clone(),
+        )?;
     }
     if update_status && !call_from_status {
         gio::spawn_blocking({

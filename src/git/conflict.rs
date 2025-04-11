@@ -10,7 +10,7 @@ pub fn write_conflict_diff<'a>(
     bytes: &mut Vec<u8>,
     path: &str,
     similar_diff: similar::TextDiff<'a, 'a, 'a, str>,
-) -> Result<()> {
+) -> Result<bool> {
     let mut file_header_written = false;
     let mut hunk: Vec<(bool, &str)> = Vec::new();
     let mut hunk_old_start = 0;
@@ -75,9 +75,9 @@ pub fn write_conflict_diff<'a>(
                         io::Write::write(bytes, header.as_bytes())?;
                         continue;
                     } else if plus {
-                        io::Write::write(bytes, &[b'+'])?;
+                        io::Write::write(bytes, b"+")?;
                     } else {
-                        io::Write::write(bytes, &[b' '])?;
+                        io::Write::write(bytes, b" ")?;
                     }
                     io::Write::write(bytes, line.as_bytes())?;
                 }
@@ -98,12 +98,22 @@ pub fn write_conflict_diff<'a>(
             (_, _, _) => {}
         }
     }
-    Ok(())
+    if !op.is_empty() {
+        // iterrupted during parse cause manual editing
+        bail!("broken parsing");
+    }
+    debug!(
+        "RRRRRRRRRRRRRRRRRRRRRRRRRRRResult bytes len {} op {}",
+        bytes.len(),
+        op
+    );
+    Ok(!bytes.is_empty())
 }
 
 pub fn get_diff<'a>(
     repo: &'a git2::Repository,
-    paths_to_clean: &mut Option<&mut Vec<path::PathBuf>>,
+    paths_to_stage: &mut Vec<path::PathBuf>,
+    paths_to_unstage: &mut Vec<path::PathBuf>,
 ) -> Result<Option<git2::Diff<'a>>> {
     // so, when file is in conflict during merge, this means nothing
     // was staged to that file, cause merging in such state is PROHIBITED!
@@ -124,10 +134,10 @@ pub fn get_diff<'a>(
             let pth = String::from_utf8(our.path)?;
             conflict_paths.push(pth);
             has_conflicts = true;
-        } else if let Some(paths) = paths_to_clean {
+        } else {
             let entry = conflict.their.context("no theirs")?;
             let path = path::PathBuf::from(str::from_utf8(&entry.path)?);
-            paths.push(path);
+            paths_to_stage.push(path);
         }
     }
 
@@ -139,12 +149,9 @@ pub fn get_diff<'a>(
     let current_tree = repo.find_tree(ob.id())?;
 
     let mut bytes: Vec<u8> = Vec::new();
-    for path in conflict_paths {
-        let abs_file_path = repo
-            .path()
-            .parent()
-            .context("no parent dir")?
-            .join(path::Path::new(&path));
+    for str_path in conflict_paths {
+        let path = path::Path::new(&str_path);
+        let abs_file_path = repo.path().parent().context("no parent dir")?.join(path);
         let entry = current_tree.get_path(path::Path::new(&path))?;
         let ob = entry.to_object(repo)?;
         let blob = ob.as_blob().context("cant get blob")?;
@@ -152,16 +159,28 @@ pub fn get_diff<'a>(
         let file_bytes = fs::read(abs_file_path)?;
         let workdir_content = String::from_utf8_lossy(&file_bytes);
         let text_diff = similar::TextDiff::from_lines(&tree_content, &workdir_content);
-        let ratio = text_diff.ratio();
-        let before = bytes.len();
-        write_conflict_diff(&mut bytes, &path, text_diff)?;
-        if bytes.len() == before || ratio == 1.0 {
-            if let Some(paths) = paths_to_clean {
-                let path_to_clean = path::PathBuf::from(path);
-                paths.push(path_to_clean);
+        let mut current_bytes: Vec<u8> = Vec::new();
+
+        match write_conflict_diff(&mut current_bytes, &str_path, text_diff) {
+            Ok(write_result) => {
+                debug!("GOT SIMILAR DIF {}", write_result);
+                if write_result {
+                    bytes.extend(current_bytes);
+                } else {
+                    paths_to_unstage.push(path.into());
+                }
+            }
+            Err(error) => {
+                debug!("error while produce similar diff {:?}", error);
+                paths_to_unstage.push(path.into());
             }
         }
     }
+    debug!(
+        "finally bytes len from similar diff {:?} cleanup paths {:?}",
+        bytes.len(),
+        paths_to_stage
+    );
     if bytes.is_empty() {
         return Ok(None);
     }

@@ -308,11 +308,7 @@ impl Hunk {
         // mut line: Line,
         prev_line_kind: LineKind,
     ) -> LineKind {
-        let mut content = if let Ok(content) = str::from_utf8(diff_line.content()) {
-            content
-        } else {
-            "!!!unreadable unicode!!!"
-        };
+        let mut content = str::from_utf8(diff_line.content()).unwrap_or("!!!unreadable unicode!!!");
         if let Some(striped) = content.strip_suffix("\r\n") {
             content = striped;
         }
