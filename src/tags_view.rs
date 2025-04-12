@@ -19,7 +19,7 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::dialogs::{alert, confirm_dialog_factory, DangerDialog, YES};
+use crate::dialogs::{alert, confirm_dialog_factory, DangerDialog, PROCEED, YES};
 use crate::git::{remote, tag};
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use log::trace;
@@ -341,9 +341,7 @@ impl TagList {
                 gio::spawn_blocking({
                     let sender = sender.clone();
                     let tag_name = tag_name.clone();
-                    move || {
-                        remote::push(repo_path, remote_name, tag_name, false, true, sender, None)
-                    }
+                    move || remote::push(repo_path, remote_name, tag_name, false, true, sender)
                 })
                 .await
                 .unwrap_or_else(|e| {
@@ -495,7 +493,7 @@ impl TagList {
                 });
 
                 let response = dialog.choose_future(&window).await;
-                if !("confirm" == response || enter_pressed.get()) {
+                if !(PROCEED == response || enter_pressed.get()) {
                     return;
                 }
                 let new_tag_name = String::from(input.text());

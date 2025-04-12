@@ -14,9 +14,9 @@ use gtk4::{
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::dialogs::alert;
+use crate::dialogs::{alert, confirm_dialog_factory, PROCEED};
 use crate::git::stash;
-use crate::{confirm_dialog_factory, Event, Status};
+use crate::{Event, Status};
 use libadwaita::prelude::*;
 use libadwaita::{
     ActionRow, ApplicationWindow, EntryRow, HeaderBar, PreferencesRow, SwitchRow, ToolbarStyle,
@@ -118,7 +118,7 @@ impl OidRow {
                 };
                 let dialog = confirm_dialog_factory(Some(&lbl), "Drop", "Drop");
                 let result = dialog.choose_future(&window).await;
-                if result == "confirm" {
+                if result == PROCEED {
                     let result = gio::spawn_blocking({
                         let stash = row.imp().stash.borrow().clone();
                         let sender = sender.clone();
@@ -153,7 +153,7 @@ impl OidRow {
                 };
                 let dialog = confirm_dialog_factory(Some(&lbl), "Apply", "Apply");
                 let result = dialog.choose_future(&window).await;
-                if result == "confirm" {
+                if result == PROCEED {
                     gio::spawn_blocking({
                         let stash = row.imp().stash.borrow().clone();
                         let sender = sender.clone();
@@ -239,7 +239,7 @@ pub fn add_stash(
                 }
             });
             let response = dialog.choose_future(&window).await;
-            if !(response == "confirm" || enter_pressed.get()) {
+            if !(response == PROCEED || enter_pressed.get()) {
                 return;
             }
             let stash_message = format!("{}", input.text());

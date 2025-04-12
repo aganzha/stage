@@ -42,7 +42,7 @@ use git::{
 };
 use git2::Oid;
 mod dialogs;
-use dialogs::{alert, confirm_dialog_factory};
+use dialogs::alert;
 
 mod tests;
 use gdk::Display;
@@ -58,7 +58,7 @@ use gtk4::{
     ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
 };
 
-use log::{debug, info, trace};
+use log::{info, trace};
 use regex::Regex;
 
 const APP_ID: &str = "io.github.aganzha.Stage";
@@ -187,8 +187,6 @@ pub enum Event {
     Zoom(bool),
     ResetHard(Option<Oid>),
     CommitDiff(commit::CommitDiff),
-    PushUserPass(String, bool, bool),
-    PullUserPass,
     LockMonitors(bool),
     StoreSettings(String, String),
     OpenEditor,
@@ -415,12 +413,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::Push => {
                     info!("main.push");
                     hb_updater(HbUpdateData::Push);
-                    status.push(&window, None);
+                    status.push(&window);
                 }
                 Event::Pull => {
                     info!("main.pull");
                     hb_updater(HbUpdateData::Pull);
-                    status.pull(&window, None);
+                    status.pull(&window);
                 }
                 Event::Branches(branches) => {
                     info!("main. branches");
@@ -683,13 +681,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::CommitDiff(_d) => {
                     panic!("got oid diff in another receiver");
                 }
-                Event::PushUserPass(remote, tracking, is_tag) => {
-                    status.push(&window, Some((remote, tracking, is_tag)))
-                }
-                Event::PullUserPass => {
-                    info!("main. userpass");
-                    status.pull(&window, Some(true))
-                }
                 Event::RemotesDialog => {
                     info!("main. remotes dialog");
                     status.show_remotes_dialog(&window);
@@ -717,7 +708,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     }
                 }
                 Event::UserInputRequired(auth_request) => {
-                    debug!("EEEEEEEEEEEEEEEEEEEEEEEEE {:?}", auth_request);
+                    info!("main. UserInputRequired");
                     if let Some(stack) = window_stack.borrow().last() {
                         auth(auth_request, stack);
                     } else {
