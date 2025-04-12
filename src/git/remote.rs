@@ -52,21 +52,23 @@ pub fn set_remote_callbacks(
                 return result;
             }
             if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
-                // if let Some((user_name, password)) = &user_pass {
-                //     return git2::Cred::userpass_plaintext(user_name, password);
-                // }
-                // let pair =
-                //     Arc::new((Mutex::new(crate::PlainTextAuth::default()), Condvar::new()));
-                // let ui_pair = pair.clone();
-                // sender
-                //     .send_blocking(crate::Event::UserInputRequired(ui_pair))
-                //     .expect("cant send through channel");
-                // let mut auth = pair.0.lock().unwrap();
-                // debug!("BEFORE LOOOP {:?}", auth);
-                // while auth.login.is_empty() || auth.password.is_empty() {
-                //     auth = pair.1.wait(auth).unwrap();
-                // }
-                return Err(git2::Error::from_str(PLAIN_PASSWORD));
+                let auth_request =
+                    Arc::new((Mutex::new(crate::LoginPassword::default()), Condvar::new()));
+                let ui_auth_request = auth_request.clone();
+                sender
+                    .send_blocking(crate::Event::UserInputRequired(ui_auth_request))
+                    .expect("cant send through channel");
+
+                let mut login_pass = auth_request.0.lock().unwrap();
+                debug!("BEFORE LOOOP {:?}", login_pass);
+                while login_pass.pending {
+                    login_pass = auth_request.1.wait(login_pass).unwrap();
+                }
+                debug!("AFTER LOOOOOOOP {:?}", login_pass);
+                if login_pass.cancel {
+                    return Err(git2::Error::from_str(PLAIN_PASSWORD));
+                }
+                return git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
             }
             todo!("implement other types");
         }
@@ -142,11 +144,7 @@ pub fn set_remote_callbacks(
     response
 }
 
-pub fn update_remote(
-    path: PathBuf,
-    sender: Sender<crate::Event>,
-    user_pass: Option<(String, String)>,
-) -> Result<(), git2::Error> {
+pub fn update_remote(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {
     let _updater = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path)?;
     let mut errors: HashMap<&str, Vec<git2::Error>> = HashMap::new();
@@ -161,21 +159,7 @@ pub fn update_remote(
                 set_remote_callbacks(&mut callbacks, sender.clone());
                 if let Err(err) = remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None)
                 {
-                    debug!("err1 -------------------> {}", err);
-                    if err.message() == PLAIN_PASSWORD {
-                        let auth_request =
-                            Arc::new((Mutex::new(crate::LoginPassword::default()), Condvar::new()));
-                        let ui_auth_request = auth_request.clone();
-                        sender
-                            .send_blocking(crate::Event::UserInputRequired(ui_auth_request))
-                            .expect("cant send through channel");
-                        let mut login_pass = auth_request.0.lock().unwrap();
-                        debug!("BEFORE LOOOP {:?}", login_pass);
-                        while login_pass.pending {
-                            login_pass = auth_request.1.wait(login_pass).unwrap();
-                        }
-                        debug!("AFTER LOOOOOOOP {:?}", login_pass);
-                    }
+                    debug!("auth error -------------------> {}", err);
                     errors.entry(remote_name).or_default().push(err);
                     continue;
                 }
@@ -263,9 +247,8 @@ pub fn push(
     tracking_remote: bool,
     is_tag: bool,
     sender: Sender<crate::Event>,
-    user_pass: Option<(String, String)>,
 ) -> Result<(), RemoteResponse> {
-    debug!("remote branch {:?}", remote_ref);
+    debug!("--------------------------> remote branch {:?}", remote_ref);
     let repo = git2::Repository::open(path.clone())?;
 
     let head_ref = repo.head()?;
@@ -335,17 +318,6 @@ pub fn push(
 
     match &result {
         Ok(_) => {}
-        Err(error) if error.message() == PLAIN_PASSWORD => {
-            // asks for password
-            sender
-                .send_blocking(crate::Event::PushUserPass(
-                    remote_ref,
-                    tracking_remote,
-                    is_tag,
-                ))
-                .expect("cant send through channel");
-            return Ok(());
-        }
         Err(error) => {
             // error in rr - this is error from hooks.
             // it is more important
@@ -367,11 +339,7 @@ pub fn push(
     Ok(())
 }
 
-pub fn pull(
-    path: PathBuf,
-    sender: Sender<crate::Event>,
-    user_pass: Option<(String, String)>,
-) -> Result<(), git2::Error> {
+pub fn pull(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {
     let defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
 

@@ -4,7 +4,7 @@
 
 use async_channel::Sender;
 
-use crate::dialogs::alert;
+use crate::dialogs::{alert, confirm_dialog_factory, PROCEED};
 use crate::git::{branch, merge, rebase, remote};
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use git2::BranchType;
@@ -373,7 +373,7 @@ impl BranchList {
             let branch_list = self.clone();
             let window = window.clone();
             async move {
-                gio::spawn_blocking(move || remote::update_remote(repo_path, sender, None))
+                gio::spawn_blocking(move || remote::update_remote(repo_path, sender))
                     .await
                     .unwrap_or_else(|e| {
                         alert(format!("{:?}", e)).present(Some(&window));
@@ -405,13 +405,10 @@ impl BranchList {
             let window = window.clone();
             let branch_data = selected_branch.clone();
             async move {
-                let dialog = crate::confirm_dialog_factory(
-                    Some(&Label::new(Some(&title))),
-                    "Rebase",
-                    "Rebase",
-                );
+                let dialog =
+                    confirm_dialog_factory(Some(&Label::new(Some(&title))), "Rebase", "Rebase");
                 let result = dialog.choose_future(&window).await;
-                if "confirm" != result {
+                if PROCEED != result {
                     return;
                 }
                 gio::spawn_blocking(move || rebase(repo_path, branch_data.oid, None, sender))
@@ -446,13 +443,10 @@ impl BranchList {
             let window = window.clone();
             let branch_data = selected_branch.clone();
             async move {
-                let dialog = crate::confirm_dialog_factory(
-                    Some(&Label::new(Some(&title))),
-                    "Merge",
-                    "Merge",
-                );
+                let dialog =
+                    confirm_dialog_factory(Some(&Label::new(Some(&title))), "Merge", "Merge");
                 let result = dialog.choose_future(&window).await;
-                if "confirm" != result {
+                if PROCEED != result {
                     return;
                 }
                 let branch_data = gio::spawn_blocking(move || {
@@ -584,7 +578,7 @@ impl BranchList {
                     .build();
                 lb.append(&input);
                 lb.append(&checkout);
-                let dialog = crate::confirm_dialog_factory(Some(&lb), &title, "Create");
+                let dialog = confirm_dialog_factory(Some(&lb), &title, "Create");
                 dialog.connect_realize({
                     let input = input.clone();
                     move |_| {
@@ -613,7 +607,7 @@ impl BranchList {
                 });
 
                 let response = dialog.choose_future(&window).await;
-                if !("confirm" == response || enter_pressed.get()) {
+                if !(PROCEED == response || enter_pressed.get()) {
                     return;
                 }
                 let new_branch_name = format!("{}", input.text());
