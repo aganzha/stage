@@ -262,7 +262,7 @@ pub fn kill_branch(
                     .expect("no remote");
                 let mut opts = git2::PushOptions::new();
                 let mut callbacks = git2::RemoteCallbacks::new();
-                set_remote_callbacks(&mut callbacks, &None);
+                set_remote_callbacks(&mut callbacks, sender.clone());
                 opts.remote_callbacks(callbacks);
 
                 let refspec = format!(":refs/heads/{}", name);

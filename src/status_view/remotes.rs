@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use super::Status;
-use crate::dialogs::alert;
+use crate::dialogs::{alert, confirm_dialog_factory, PROCEED};
 use crate::git::remote;
 use gtk4::{gio, glib, Button, ListBox, SelectionMode, StringList};
 use libadwaita::prelude::*;
@@ -455,4 +455,51 @@ impl Status {
             }
         });
     }
+}
+
+use crate::LoginPassword;
+use log::debug;
+use std::sync::{Arc, Condvar, Mutex};
+
+pub fn auth(auth_request: Arc<(Mutex<LoginPassword>, Condvar)>, window: &impl IsA<gtk4::Widget>) {
+    let lb = ListBox::builder()
+        .selection_mode(SelectionMode::None)
+        .css_classes(vec![String::from("boxed-list")])
+        .build();
+    let user_name = EntryRow::builder()
+        .title("User name:")
+        .show_apply_button(true)
+        .css_classes(vec!["input_field"])
+        .build();
+    let password = PasswordEntryRow::builder()
+        .title("Password:")
+        .css_classes(vec!["input_field"])
+        .build();
+
+    lb.append(&user_name);
+    lb.append(&password);
+
+    let dialog = confirm_dialog_factory(Some(&lb), "Login required", "Proceed");
+    glib::spawn_future_local({
+        let window = window.clone();
+        async move {
+            let result = dialog.choose_future(&window).await;
+            let login = user_name.text();
+            let password = password.text();
+            let mut login_pass = auth_request.0.lock().unwrap();
+            login_pass.login = login.into();
+            login_pass.password = password.into();
+            login_pass.pending = false;
+            debug!(
+                "???????????????? {} {} {}",
+                result,
+                PROCEED,
+                result != PROCEED
+            );
+            if result != PROCEED {
+                login_pass.cancel = true;
+            }
+            auth_request.1.notify_all();
+        }
+    });
 }
