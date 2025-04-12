@@ -8,6 +8,7 @@ use status_view::{
     context::StatusRenderContext,
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
+    remotes::auth,
     stage_view::factory as stage_factory,
     Status,
 };
@@ -32,7 +33,6 @@ use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Condvar, Mutex};
-use std::thread::sleep;
 
 mod git;
 use git::{
@@ -124,10 +124,23 @@ fn register_resources() {
     // );
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct PlainTextAuth {
+#[derive(Debug, Clone)]
+pub struct LoginPassword {
     login: String,
     password: String,
+    cancel: bool,
+    pending: bool,
+}
+
+impl Default for LoginPassword {
+    fn default() -> Self {
+        Self {
+            login: String::from(""),
+            password: String::from(""),
+            cancel: false,
+            pending: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -182,7 +195,7 @@ pub enum Event {
     Tags(Option<Oid>),
     CherryPick(Oid, bool, Option<PathBuf>, Option<String>),
     Focus,
-    UserInputRequired(Arc<(Mutex<PlainTextAuth>, Condvar)>),
+    UserInputRequired(Arc<(Mutex<LoginPassword>, Condvar)>),
 }
 
 fn zoom(dir: bool) {
@@ -703,18 +716,13 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         status.cherry_pick(&window, oid, revert, ofile_path, ohunk_header)
                     }
                 }
-                Event::UserInputRequired(ui_pair) => {
-                    debug!("EEEEEEEEEEEEEEEEEEEEEEEEE {:?}", ui_pair);
-                    gio::spawn_blocking({
-                        move || {
-                            sleep(Duration::from_millis(5000));
-                            let mut auth = ui_pair.0.lock().unwrap();
-                            auth.login = "aganzha".to_string();
-                            auth.password = "123".to_string();
-                            debug!("noooooooooootify all! {:?}", auth);
-                            ui_pair.1.notify_all();
-                        }
-                    });
+                Event::UserInputRequired(auth_request) => {
+                    debug!("EEEEEEEEEEEEEEEEEEEEEEEEE {:?}", auth_request);
+                    if let Some(stack) = window_stack.borrow().last() {
+                        auth(auth_request, stack);
+                    } else {
+                        auth(auth_request, &window);
+                    }
                 }
             };
             hb_updater(HbUpdateData::Context(ctx));
