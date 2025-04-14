@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Condvar, Mutex};
+use anyhow::Result;
 
 const PLAIN_PASSWORD: &str = "plain text password required";
 
@@ -37,10 +38,78 @@ impl From<String> for RemoteResponse {
         }
     }
 }
+
+
+// pub fn prepare_remote<'a>(remote: &'a mut git2::Remote<'a>, direction: git2::Direction, sender: Sender<crate::Event>) -> Result<git2::RemoteCallbacks<'a>> {
+//     let mut callbacks = git2::RemoteCallbacks::new();
+//     let mut plain_userpass: Option<crate::LoginPassword> = None;
+//     callbacks.credentials({
+//         move |_url, username_from_url, allowed_types| {
+//             debug!(
+//                 "credentials callback username_from_url {:?}",
+//                 username_from_url
+//             );
+//             if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+//                 let result = git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
+//                 return result;
+//             }
+//             if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
+//                 let auth_request =
+//                     Arc::new((Mutex::new(crate::LoginPassword::default()), Condvar::new()));
+//                 let ui_auth_request = auth_request.clone();
+//                 sender
+//                     .send_blocking(crate::Event::UserInputRequired(ui_auth_request))
+//                     .expect("cant send through channel");
+
+//                 let mut login_pass = auth_request.0.lock().unwrap();
+//                 debug!("BEFORE LOOOP {:?}", login_pass);
+//                 while login_pass.pending {
+//                     login_pass = auth_request.1.wait(login_pass).unwrap();
+//                 }
+//                 debug!("AFTER LOOOOOOOP {:?}", login_pass);
+//                 if login_pass.cancel {
+//                     return Err(git2::Error::from_str(PLAIN_PASSWORD));
+//                 }
+//                 plain_userpass.replace(login_pass.clone());
+//                 let plain_result = git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
+//                 //let plain_result = git2::Cred::userpass_plaintext("au.ganzha", "CPJIB7GNT$");
+//                 debug!("z.................. is err? {:?}", plain_result.is_err());
+//                 return plain_result;
+//             }
+//             todo!("implement other types");
+//         }
+//     });
+//     remote.connect_auth(direction, Some(callbacks), None)?;
+//     let mut callbacks = git2::RemoteCallbacks::new();
+//     callbacks.credentials({
+//         move |_url, username_from_url, allowed_types| {
+//             debug!(
+//                 "credentials callback username_from_url {:?}",
+//                 username_from_url
+//             );
+//             if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+//                 let result = git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
+//                 return result;
+//             }
+//             if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
+                
+//                 let login_pass = plain_userpass.unwrap();
+//                 let plain_result = git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
+//                 debug!("z.................. is err? {:?}", plain_result.is_err());
+//                 return plain_result;
+//             }
+//             todo!("implement other types");
+//         }
+//     });
+//     return Ok(callbacks);
+// }
+
+
 pub fn set_remote_callbacks(
     callbacks: &mut git2::RemoteCallbacks,
     sender: Sender<crate::Event>,
 ) -> Rc<RefCell<RemoteResponse>> {
+
     callbacks.credentials({
         move |_url, username_from_url, allowed_types| {
             debug!(
@@ -68,7 +137,10 @@ pub fn set_remote_callbacks(
                 if login_pass.cancel {
                     return Err(git2::Error::from_str(PLAIN_PASSWORD));
                 }
-                return git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
+                let plain_result = git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
+                //let plain_result = git2::Cred::userpass_plaintext("au.ganzha", "CPJIB7GNT$");
+                debug!("z.................. is err? {:?}", plain_result.is_err());
+                return plain_result;
             }
             todo!("implement other types");
         }
@@ -87,7 +159,7 @@ pub fn set_remote_callbacks(
             progress_counts.insert(bytes, 1);
         }
         // progress_counts[] = 1;
-        trace!("transfer progress {:?}", bytes);
+        debug!("transfer progress {:?}", bytes);
         true
     });
 
@@ -131,7 +203,8 @@ pub fn set_remote_callbacks(
         Ok(git2::CertificateCheckStatus::CertificateOk)
     });
 
-    callbacks.push_negotiation(|update| {
+    callbacks.push_negotiation(|update| {        
+        debug!("pppppppppppppppush negotiation update len {:?}", update.len());
         if !update.is_empty() {
             debug!(
                 "push_negotiation {:?} {:?}",
@@ -305,7 +378,21 @@ pub fn push(
             true
         }
     });
+    debug!("gooooooooooooooooooooooooooooo");
+    let mut auth_callbacks =  git2::RemoteCallbacks::new();
+    let auth_response = set_remote_callbacks(&mut auth_callbacks, sender.clone());
 
+    match remote.connect_auth(git2::Direction::Push, Some(auth_callbacks), None) {
+        Ok(mut connection) => {
+            debug!("connected!!!!!!!!!!!!!!!! {:?}", connection.connected());
+        }
+        Err(err) => {
+            debug!("uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuumm {:?} {:?}", err, auth_response);
+            return Err(RemoteResponse::default());
+        }
+    }
+    debug!("paaaaaaaaaaaaaaaaaaaasss auth");
+    
     let response = set_remote_callbacks(&mut callbacks, sender.clone());
     opts.remote_callbacks(callbacks);
 
@@ -317,8 +404,11 @@ pub fn push(
     // 2. - error during response
 
     match &result {
-        Ok(_) => {}
+        Ok(_) => {
+            debug!(">>>>>>>>>>>>>>>>>>>> cuccessfull push");
+        }
         Err(error) => {
+            debug!("errrrrrrrrrrrrrrrrrrrrrrrr {:?}", error);
             // error in rr - this is error from hooks.
             // it is more important
             if rr.error.is_none() {
