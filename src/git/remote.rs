@@ -43,12 +43,14 @@ pub fn make_authorized_remote<'a>(
     repo: &'a git2::Repository,
     remote_name: &'a str,
     direction: git2::Direction,
+    entered_password: Option<crate::LoginPassword>,
     sender: Sender<crate::Event>,
 ) -> Result<git2::Remote<'a>> {
-
     let mut callbacks = git2::RemoteCallbacks::new();
-    let plain_userpass: Rc<RefCell<Option<crate::LoginPassword>>> = Rc::new(RefCell::new(None));
+    let plain_userpass: Rc<RefCell<Option<crate::LoginPassword>>> =
+        Rc::new(RefCell::new(entered_password.clone()));
     callbacks.credentials({
+        let sender = sender.clone();
         let plain_userpass = plain_userpass.clone();
         move |_url, username_from_url, allowed_types| {
             debug!(
@@ -60,34 +62,64 @@ pub fn make_authorized_remote<'a>(
                 return result;
             }
             if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
-                let auth_request =
-                    Arc::new((Mutex::new(crate::LoginPassword::default()), Condvar::new()));
-                let ui_auth_request = auth_request.clone();
-                sender
-                    .send_blocking(crate::Event::UserInputRequired(ui_auth_request))
-                    .expect("cant send through channel");
+                if let Some(login_pass) = &entered_password {
+                    let plain_result =
+                        git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
+                    debug!(
+                        "SECOND ATTEMPT with entered password...... is err? {:?}",
+                        plain_result.is_err()
+                    );
+                    return plain_result;
+                } else {
+                    let auth_request =
+                        Arc::new((Mutex::new(crate::LoginPassword::default()), Condvar::new()));
+                    let ui_auth_request = auth_request.clone();
+                    sender
+                        .send_blocking(crate::Event::UserInputRequired(ui_auth_request))
+                        .expect("cant send through channel");
 
-                let mut login_pass = auth_request.0.lock().unwrap();
-                debug!("BEFORE LOOOP {:?}", login_pass);
-                while login_pass.pending {
-                    login_pass = auth_request.1.wait(login_pass).unwrap();
+                    let mut login_pass = auth_request.0.lock().unwrap();
+                    debug!("BEFORE LOOOP {:?}", login_pass);
+                    while login_pass.pending {
+                        login_pass = auth_request.1.wait(login_pass).unwrap();
+                    }
+                    debug!("AFTER LOOOOOOOP {:?}", login_pass);
+                    if login_pass.cancel {
+                        return Err(git2::Error::from_str(PLAIN_PASSWORD));
+                    }
+                    plain_userpass.replace(Some(login_pass.clone()));
+                    let plain_result =
+                        git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
+                    debug!(
+                        "user just entered password...... is err? {:?}",
+                        plain_result.is_err()
+                    );
+                    return plain_result;
                 }
-                debug!("AFTER LOOOOOOOP {:?}", login_pass);
-                if login_pass.cancel {
-                    return Err(git2::Error::from_str(PLAIN_PASSWORD));
-                }
-                plain_userpass.replace(Some(login_pass.clone()));
-                let plain_result =
-                    git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
-                debug!("z.................. is err? {:?}", plain_result.is_err());
-                return plain_result;
             }
             todo!("implement other types");
         }
     });
     debug!("bbbbbbbbbbbbbbbefore CONNECT");
     let mut remote = repo.find_remote(remote_name).unwrap();
-    remote.connect_auth(direction, Some(callbacks), None);
+    if let Err(error) = remote.connect_auth(direction, Some(callbacks), None) {
+        debug!("auuuuuuuuuuuuuuuth result! {:?}", error);
+        if error.message() != PLAIN_PASSWORD {
+            // unknown ssl error and valid login_pass was already provided
+            // by user
+            if let Some(login_pass) = (*plain_userpass.borrow()).clone() {
+                return make_authorized_remote(
+                    repo,
+                    remote_name,
+                    direction,
+                    Some(login_pass),
+                    sender,
+                );
+            }
+        }
+    }
+
+    // debug!("________________________{:?}", some.is_err());
     // debug!("aaaaaaaaaaaaaaaaaaaaaaaaaafter first connect! {:?} {:?}", some.is_err(), plain_userpass);
     // let mut remote = repo.find_remote(remote_name).unwrap();
     // let mut callbacks = git2::RemoteCallbacks::new();
@@ -120,41 +152,41 @@ pub fn set_remote_callbacks(
     callbacks: &mut git2::RemoteCallbacks,
     sender: Sender<crate::Event>,
 ) -> Rc<RefCell<RemoteResponse>> {
-    callbacks.credentials({
-        move |_url, username_from_url, allowed_types| {
-            debug!(
-                "credentials callback username_from_url {:?}",
-                username_from_url
-            );
-            if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-                let result = git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
-                return result;
-            }
-            if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
-                let auth_request =
-                    Arc::new((Mutex::new(crate::LoginPassword::default()), Condvar::new()));
-                let ui_auth_request = auth_request.clone();
-                sender
-                    .send_blocking(crate::Event::UserInputRequired(ui_auth_request))
-                    .expect("cant send through channel");
+    // callbacks.credentials({
+    //     move |_url, username_from_url, allowed_types| {
+    //         debug!(
+    //             "credentials callback username_from_url {:?}",
+    //             username_from_url
+    //         );
+    //         if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+    //             let result = git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
+    //             return result;
+    //         }
+    //         if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
+    //             let auth_request =
+    //                 Arc::new((Mutex::new(crate::LoginPassword::default()), Condvar::new()));
+    //             let ui_auth_request = auth_request.clone();
+    //             sender
+    //                 .send_blocking(crate::Event::UserInputRequired(ui_auth_request))
+    //                 .expect("cant send through channel");
 
-                let mut login_pass = auth_request.0.lock().unwrap();
-                debug!("BEFORE LOOOP {:?}", login_pass);
-                while login_pass.pending {
-                    login_pass = auth_request.1.wait(login_pass).unwrap();
-                }
-                debug!("AFTER LOOOOOOOP {:?}", login_pass);
-                if login_pass.cancel {
-                    return Err(git2::Error::from_str(PLAIN_PASSWORD));
-                }
-                let plain_result =
-                    git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
-                debug!("z.................. is err? {:?}", plain_result.is_err());
-                return plain_result;
-            }
-            todo!("implement other types");
-        }
-    });
+    //             let mut login_pass = auth_request.0.lock().unwrap();
+    //             debug!("BEFORE LOOOP {:?}", login_pass);
+    //             while login_pass.pending {
+    //                 login_pass = auth_request.1.wait(login_pass).unwrap();
+    //             }
+    //             debug!("AFTER LOOOOOOOP {:?}", login_pass);
+    //             if login_pass.cancel {
+    //                 return Err(git2::Error::from_str(PLAIN_PASSWORD));
+    //             }
+    //             let plain_result =
+    //                 git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
+    //             debug!("z.................. is err? {:?}", plain_result.is_err());
+    //             return plain_result;
+    //         }
+    //         todo!("implement other types");
+    //     }
+    // });
 
     callbacks.push_transfer_progress(|s1, s2, s3| {
         debug!("push_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
@@ -239,7 +271,13 @@ pub fn update_remote(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), 
     for remote_name in &remotes {
         let remote_name = remote_name.unwrap();
         let sender = sender.clone();
-        match make_authorized_remote(&repo, remote_name, git2::Direction::Fetch, sender.clone()) {
+        match make_authorized_remote(
+            &repo,
+            remote_name,
+            git2::Direction::Fetch,
+            None,
+            sender.clone(),
+        ) {
             Ok(mut remote) => {
                 debug!("GOT AUTHORIZED REQUEST! PRUUUUUUUUNE");
                 let mut callbacks = git2::RemoteCallbacks::new();
@@ -247,7 +285,7 @@ pub fn update_remote(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), 
                 if let Err(err) = remote.prune(Some(callbacks)) {
                     debug!("prube error {:?}", err);
                     errors.entry(remote_name).or_default().push(err.into());
-                    continue
+                    continue;
                 }
                 debug!("paaaaaaaaaaaased PRUNE!");
                 let mut opts = git2::FetchOptions::new();
@@ -257,7 +295,7 @@ pub fn update_remote(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), 
                 let refs: [String; 0] = [];
                 if let Err(err) = remote.fetch(&refs, Some(&mut opts), None) {
                     errors.entry(remote_name).or_default().push(err.into());
-                    continue
+                    continue;
                 }
             }
             Err(err) => {
