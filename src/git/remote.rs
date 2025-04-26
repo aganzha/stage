@@ -9,6 +9,7 @@ use git2;
 use log::{debug, error, trace};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Condvar, Mutex};
@@ -20,9 +21,10 @@ pub struct RemoteResponse {
     pub body: Option<Vec<String>>,
     pub error: Option<String>,
 }
-impl RemoteResponse {
-    pub fn to_string(&self) -> String {
-        format!("{:?} {:?}", self.error, self.body)
+
+impl fmt::Display for RemoteResponse {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?} {:?}", self.error, self.body)
     }
 }
 impl From<git2::Error> for RemoteResponse {
@@ -160,10 +162,7 @@ pub fn make_authorized_remote<'a>(
     Ok((remote, authorizer))
 }
 
-pub fn set_remote_callbacks(
-    callbacks: &mut git2::RemoteCallbacks,
-    sender: Sender<crate::Event>,
-) -> Rc<RefCell<RemoteResponse>> {
+pub fn set_remote_callbacks(callbacks: &mut git2::RemoteCallbacks) -> Rc<RefCell<RemoteResponse>> {
     callbacks.push_transfer_progress(|s1, s2, s3| {
         debug!("push_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
     });
@@ -252,14 +251,14 @@ pub fn update_remote(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), 
         ) {
             Ok((mut remote, authorizer)) => {
                 let mut callbacks = authorizer.callbacks();
-                set_remote_callbacks(&mut callbacks, sender.clone());
+                set_remote_callbacks(&mut callbacks);
                 if let Err(err) = remote.prune(Some(callbacks)) {
                     errors.entry(remote_name).or_default().push(err.into());
                     continue;
                 }
                 let mut opts = git2::FetchOptions::new();
                 let mut callbacks = authorizer.callbacks();
-                set_remote_callbacks(&mut callbacks, sender.clone());
+                set_remote_callbacks(&mut callbacks);
                 opts.remote_callbacks(callbacks);
                 let refs: [String; 0] = [];
                 if let Err(err) = remote.fetch(&refs, Some(&mut opts), None) {
@@ -360,7 +359,7 @@ pub fn push(
         }
     });
 
-    let response = set_remote_callbacks(&mut callbacks, sender.clone());
+    let response = set_remote_callbacks(&mut callbacks);
     opts.remote_callbacks(callbacks);
 
     let result = remote.push(&[refspec], Some(&mut opts));
@@ -412,7 +411,7 @@ pub fn pull(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), RemoteRes
     let (mut remote, authorizer) = make_authorized_remote(
         &repo,
         &remote_name,
-        git2::Direction::Push,
+        git2::Direction::Fetch,
         Authorizer::default(),
         sender.clone(),
     )?;
@@ -450,7 +449,7 @@ pub fn pull(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), RemoteRes
         }
     });
 
-    set_remote_callbacks(&mut callbacks, sender.clone());
+    set_remote_callbacks(&mut callbacks);
     opts.remote_callbacks(callbacks);
 
     debug!(

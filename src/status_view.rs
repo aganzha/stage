@@ -421,12 +421,6 @@ impl Status {
             let path = self.path.clone().expect("no path");
             let sender = self.sender.clone();
             let window = window.clone();
-            let remote_name: Option<String> = None;
-            // if ask_pass.is_some() {
-            //     let (o_remote_name, _remote_branch_name) =
-            //         self.choose_remote_branch_name().unwrap();
-            //     remote_name = o_remote_name;
-            // }
             async move {
                 gio::spawn_blocking({
                     let sender = sender.clone();

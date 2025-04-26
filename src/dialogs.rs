@@ -86,7 +86,10 @@ impl AlertConversation for RemoteResponse {
     fn heading_and_message(&self) -> (String, String) {
         (
             String::from("<span color=\"#ff0000\">Error</span>"),
-            self.error.clone().unwrap_or("Unknown error".to_string()).clone(),
+            self.error
+                .clone()
+                .unwrap_or("Unknown error".to_string())
+                .clone(),
         )
     }
     fn extra_child(&mut self) -> Option<impl IsA<Widget>> {
