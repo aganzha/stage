@@ -77,27 +77,6 @@ impl Authorizer {
     }
 }
 
-// impl crate::LoginPassword {
-//     pub fn authorized_callbacks(&self) -> git2::RemoteCallbacks {
-//         let mut callbacks = git2::RemoteCallbacks::new();
-//         callbacks.credentials({
-//             move |_url, username_from_url, allowed_types| {
-//                 if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-//                     return git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
-//                 }
-//                 if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
-//                     return git2::Cred::userpass_plaintext(
-//                         &self.login,
-//                         &self.password,
-//                     );
-//                 }
-//                 todo!("implement other types");
-//             }
-//         });
-//         callbacks
-//     }
-// }
-
 pub fn make_authorized_remote<'a>(
     repo: &'a git2::Repository,
     remote_name: &'a str,
@@ -414,7 +393,7 @@ pub fn push(
     Ok(())
 }
 
-pub fn pull(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Error> {
+pub fn pull(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), RemoteResponse> {
     let defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     let repo = git2::Repository::open(path.clone())?;
 
@@ -429,10 +408,17 @@ pub fn pull(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Err
         .clone()
         .ok_or(git2::Error::from_str(err))?;
 
-    let mut remote = repo.find_remote(&remote_name)?;
+    // let mut remote = repo.find_remote(&remote_name)?;
+    let (mut remote, authorizer) = make_authorized_remote(
+        &repo,
+        &remote_name,
+        git2::Direction::Push,
+        Authorizer::default(),
+        sender.clone(),
+    )?;
 
     let mut opts = git2::FetchOptions::new();
-    let mut callbacks = git2::RemoteCallbacks::new();
+    let mut callbacks = authorizer.callbacks();
 
     callbacks.update_tips({
         let path = path.clone();
@@ -522,7 +508,6 @@ impl From<git2::Remote<'_>> for RemoteDetail {
     }
 }
 
-// , current_remote_name: Option<String>
 pub fn list(path: PathBuf) -> Result<Vec<RemoteDetail>, git2::Error> {
     let repo = git2::Repository::open(path.clone())?;
     let mut remotes: Vec<RemoteDetail> = Vec::new();
