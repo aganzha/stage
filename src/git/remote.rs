@@ -47,26 +47,78 @@ impl From<String> for RemoteResponse {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Authorizer {
+    login_pass: Option<crate::LoginPassword>,
+}
+
+impl Authorizer {
+    pub fn new(login_pass: crate::LoginPassword) -> Self {
+        Self {
+            login_pass: Some(login_pass),
+        }
+    }
+
+    pub fn callbacks(&self) -> git2::RemoteCallbacks {
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.credentials({
+            move |_url, username_from_url, allowed_types| {
+                if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+                    return git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
+                }
+                if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
+                    let login_pass = self.login_pass.clone().unwrap();
+                    return git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
+                }
+                todo!("implement other types");
+            }
+        });
+        callbacks
+    }
+}
+
+// impl crate::LoginPassword {
+//     pub fn authorized_callbacks(&self) -> git2::RemoteCallbacks {
+//         let mut callbacks = git2::RemoteCallbacks::new();
+//         callbacks.credentials({
+//             move |_url, username_from_url, allowed_types| {
+//                 if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+//                     return git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
+//                 }
+//                 if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
+//                     return git2::Cred::userpass_plaintext(
+//                         &self.login,
+//                         &self.password,
+//                     );
+//                 }
+//                 todo!("implement other types");
+//             }
+//         });
+//         callbacks
+//     }
+// }
+
 pub fn make_authorized_remote<'a>(
     repo: &'a git2::Repository,
     remote_name: &'a str,
     direction: git2::Direction,
-    entered_password: Option<crate::LoginPassword>,
+    received_from_user: Authorizer,
     sender: Sender<crate::Event>,
-) -> Result<(git2::Remote<'a>, git2::RemoteCallbacks<'a>), RemoteResponse> {
+) -> Result<(git2::Remote<'a>, Authorizer), RemoteResponse> {
     let mut callbacks = git2::RemoteCallbacks::new();
-    let plain_userpass: Rc<RefCell<Option<crate::LoginPassword>>> =
-        Rc::new(RefCell::new(entered_password.clone()));
+
+    let stored: Rc<RefCell<Authorizer>> = Rc::new(RefCell::new(received_from_user.clone()));
+
     callbacks.credentials({
         let sender = sender.clone();
-        let plain_userpass = plain_userpass.clone();
+        let stored = stored.clone();
         move |_url, username_from_url, allowed_types| {
             if allowed_types.contains(git2::CredentialType::SSH_KEY) {
                 let result = git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
                 return result;
             }
             if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
-                if let Some(login_pass) = &entered_password {
+                if let Some(login_pass) = &received_from_user.login_pass {
                     let plain_result =
                         git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
                     debug!(
@@ -91,7 +143,7 @@ pub fn make_authorized_remote<'a>(
                     if login_pass.cancel {
                         return Err(git2::Error::from_str(PLAIN_PASSWORD));
                     }
-                    plain_userpass.replace(Some(login_pass.clone()));
+                    stored.replace(Authorizer::new(login_pass.clone()));
                     let plain_result =
                         git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
                     debug!(
@@ -108,79 +160,31 @@ pub fn make_authorized_remote<'a>(
     let mut remote = repo.find_remote(remote_name).unwrap();
     if let Err(error) = remote.connect_auth(direction, Some(callbacks), None) {
         if error.message() != PLAIN_PASSWORD {
-            // unknown ssl error and valid login_pass was already provided
-            // by user
-            if let Some(login_pass) = (*plain_userpass.borrow()).clone() {
+            // "unknown ssl error" and valid login_pass was already provided
+            // by user. looks like it happens when some time pass while user
+            // enters credentials. THis error does not occur if provide credentials
+            // immidiatelly, so thats annother attempt to authorize with same
+            // credentials
+            if stored.borrow().login_pass.is_some() {
                 return make_authorized_remote(
                     repo,
                     remote_name,
                     direction,
-                    Some(login_pass),
+                    stored.borrow().clone(),
                     sender,
                 );
             }
         }
         return Err(error.into());
     }
-    // at this point we have authorixed remote and login/password
-    // provided by user if plain password were used
-    let mut callbacks = git2::RemoteCallbacks::new();
-    callbacks.credentials({
-        let plain_userpass = plain_userpass.clone();
-        move |_url, username_from_url, allowed_types| {
-            if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-                return git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
-            }
-            if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
-                let login_pass = (*plain_userpass.borrow()).clone().unwrap();
-                return git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
-            }
-            todo!("implement other types");
-        }
-    });
-    return Ok((remote, callbacks));
+    let authorizer = (*stored.borrow()).clone();
+    Ok((remote, authorizer))
 }
 
 pub fn set_remote_callbacks(
     callbacks: &mut git2::RemoteCallbacks,
     sender: Sender<crate::Event>,
 ) -> Rc<RefCell<RemoteResponse>> {
-    // callbacks.credentials({
-    //     move |_url, username_from_url, allowed_types| {
-    //         debug!(
-    //             "credentials callback username_from_url {:?}",
-    //             username_from_url
-    //         );
-    //         if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-    //             let result = git2::Cred::ssh_key_from_agent(username_from_url.unwrap());
-    //             return result;
-    //         }
-    //         if allowed_types == git2::CredentialType::USER_PASS_PLAINTEXT {
-    //             let auth_request =
-    //                 Arc::new((Mutex::new(crate::LoginPassword::default()), Condvar::new()));
-    //             let ui_auth_request = auth_request.clone();
-    //             sender
-    //                 .send_blocking(crate::Event::UserInputRequired(ui_auth_request))
-    //                 .expect("cant send through channel");
-
-    //             let mut login_pass = auth_request.0.lock().unwrap();
-    //             debug!("BEFORE LOOOP {:?}", login_pass);
-    //             while login_pass.pending {
-    //                 login_pass = auth_request.1.wait(login_pass).unwrap();
-    //             }
-    //             debug!("AFTER LOOOOOOOP {:?}", login_pass);
-    //             if login_pass.cancel {
-    //                 return Err(git2::Error::from_str(PLAIN_PASSWORD));
-    //             }
-    //             let plain_result =
-    //                 git2::Cred::userpass_plaintext(&login_pass.login, &login_pass.password);
-    //             debug!("z.................. is err? {:?}", plain_result.is_err());
-    //             return plain_result;
-    //         }
-    //         todo!("implement other types");
-    //     }
-    // });
-
     callbacks.push_transfer_progress(|s1, s2, s3| {
         debug!("push_transfer_progress {:?} {:?} {:?}", s1, s2, s3);
     });
@@ -239,10 +243,6 @@ pub fn set_remote_callbacks(
     });
 
     callbacks.push_negotiation(|update| {
-        debug!(
-            "pppppppppppppppush negotiation update len {:?}",
-            update.len()
-        );
         if !update.is_empty() {
             debug!(
                 "push_negotiation {:?} {:?}",
@@ -268,20 +268,18 @@ pub fn update_remote(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), 
             &repo,
             remote_name,
             git2::Direction::Fetch,
-            None,
+            Authorizer::default(),
             sender.clone(),
         ) {
-            Ok((mut remote, mut callbacks)) => {
-                debug!("GOT AUTHORIZED REQUEST! PRUUUUUUUUNE");
+            Ok((mut remote, authorizer)) => {
+                let mut callbacks = authorizer.callbacks();
                 set_remote_callbacks(&mut callbacks, sender.clone());
                 if let Err(err) = remote.prune(Some(callbacks)) {
-                    debug!("prube error {:?}", err);
                     errors.entry(remote_name).or_default().push(err.into());
                     continue;
                 }
-                debug!("paaaaaaaaaaaased PRUNE!");
                 let mut opts = git2::FetchOptions::new();
-                let mut callbacks = git2::RemoteCallbacks::new();
+                let mut callbacks = authorizer.callbacks();
                 set_remote_callbacks(&mut callbacks, sender.clone());
                 opts.remote_callbacks(callbacks);
                 let refs: [String; 0] = [];
@@ -304,7 +302,7 @@ pub fn update_remote(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), 
         for (k, v) in &errors {
             message.push_str(&format!("Errors for remote {:}\n", k));
             for err in v {
-                message.push_str(&format!("{}\n", err)); //err.message()
+                message.push_str(&format!("{}\n", err));
             }
             message.push('\n');
         }
@@ -312,19 +310,6 @@ pub fn update_remote(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), 
     }
     Ok(())
 }
-
-// pub fn setup_remote_for_current_branch(
-//     path: PathBuf,
-//     remote_name: String,
-// ) -> Result<(), git2::Error> {
-//     let repo = git2::Repository::open(path.clone())?;
-//     let head_ref = repo.head()?;
-//     assert!(head_ref.is_branch());
-//     let mut branch = git2::Branch::wrap(head_ref);
-//     let branch_name:BranchName = (&branch).into();
-//     branch.set_upstream(Some(&format!("{}/{}", remote_name, branch_name.to_local())))?;
-//     Ok(())
-// }
 
 pub fn push(
     path: PathBuf,
@@ -334,7 +319,6 @@ pub fn push(
     is_tag: bool,
     sender: Sender<crate::Event>,
 ) -> Result<(), RemoteResponse> {
-    debug!("--------------------------> remote branch {:?}", remote_ref);
     let repo = git2::Repository::open(path.clone())?;
 
     let head_ref = repo.head()?;
@@ -349,16 +333,22 @@ pub fn push(
     trace!("push. refspec {}", refspec);
     let mut branch = git2::Branch::wrap(head_ref);
 
-    // let mut remote = repo.find_remote(&remote_name)?;
-    let rn = remote_name.clone();
-    let (mut remote, mut callbacks) =
-        make_authorized_remote(&repo, &rn, git2::Direction::Push, None, sender.clone())?;
+    let (mut remote, authorizer) = make_authorized_remote(
+        &repo,
+        &remote_name,
+        git2::Direction::Push,
+        Authorizer::default(),
+        sender.clone(),
+    )?;
 
     let mut opts = git2::PushOptions::new();
+
+    let mut callbacks = authorizer.callbacks();
 
     callbacks.update_tips({
         let remote_ref = remote_ref.clone();
         let sender = sender.clone();
+        let remote_name = remote_name.clone();
         move |updated_ref, oid1, oid2| {
             debug!(
                 "updated local references {:?} {:?} {:?}",
@@ -390,22 +380,6 @@ pub fn push(
             true
         }
     });
-
-    // let mut auth_callbacks = git2::RemoteCallbacks::new();
-    // let auth_response = set_remote_callbacks(&mut auth_callbacks, sender.clone());
-
-    // match remote.connect_auth(git2::Direction::Push, Some(auth_callbacks), None) {
-    //     Ok(mut connection) => {
-    //         debug!("connected!!!!!!!!!!!!!!!! {:?}", connection.connected());
-    //     }
-    //     Err(err) => {
-    //         debug!(
-    //             "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuumm {:?} {:?}",
-    //             err, auth_response
-    //         );
-    //         return Err(RemoteResponse::default());
-    //     }
-    // }
 
     let response = set_remote_callbacks(&mut callbacks, sender.clone());
     opts.remote_callbacks(callbacks);
@@ -454,6 +428,7 @@ pub fn pull(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), git2::Err
         .remote_name
         .clone()
         .ok_or(git2::Error::from_str(err))?;
+
     let mut remote = repo.find_remote(&remote_name)?;
 
     let mut opts = git2::FetchOptions::new();
