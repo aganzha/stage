@@ -177,7 +177,7 @@ fn remote_adding(
         move |_| {
             let name = adding_name.text();
             let url = adding_url.text();
-            if name.len() > 0 && url.len() > 0 {
+            if !name.is_empty() && !url.is_empty() {
                 glib::spawn_future_local({
                     let path = path.clone();
                     let window = window.clone();
