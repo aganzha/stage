@@ -480,37 +480,35 @@ impl StageDiffs<'_> {
                     debug!("----------> NOT COVERED LastOp {:?}", op)
                 }
             }
-        } else if current_cursor_position == CursorPosition::None { match render_diff_kind {
-            Some(DiffKind::Unstaged) | Some(DiffKind::Conflicted) => {
-                if let Some(conflicted) = &self.conflicted {
-                    for file in &conflicted.files {
-                        iter.set_line(file.view.line_no.get());
-                        break;
-                    }
-                } else if let Some(unstaged) = &self.unstaged {
-                    for file in &unstaged.files {
-                        iter.set_line(file.view.line_no.get());
-                        break;
-                    }
-                }
-            }
-            Some(DiffKind::Staged) | Some(DiffKind::Untracked) => {
-                if self.conflicted.is_none() && self.unstaged.is_none() {
-                    if let Some(staged) = &self.staged {
-                        for file in &staged.files {
+        } else if current_cursor_position == CursorPosition::None {
+            match render_diff_kind {
+                Some(DiffKind::Unstaged) | Some(DiffKind::Conflicted) => {
+                    if let Some(conflicted) = &self.conflicted {
+                        if let Some(file) = conflicted.files.first() {
                             iter.set_line(file.view.line_no.get());
-                            break;
                         }
-                    } else if let Some(untracked) = &self.untracked {
-                        for file in &untracked.files {
+                    } else if let Some(unstaged) = &self.unstaged {
+                        if let Some(file) = unstaged.files.first() {
                             iter.set_line(file.view.line_no.get());
-                            break;
                         }
                     }
                 }
+                Some(DiffKind::Staged) | Some(DiffKind::Untracked) => {
+                    if self.conflicted.is_none() && self.unstaged.is_none() {
+                        if let Some(staged) = &self.staged {
+                            if let Some(file) = staged.files.first() {
+                                iter.set_line(file.view.line_no.get());
+                            }
+                        } else if let Some(untracked) = &self.untracked {
+                            if let Some(file) = untracked.files.first() {
+                                iter.set_line(file.view.line_no.get());
+                            }
+                        }
+                    }
+                }
+                _ => {}
             }
-            _ => {}
-        } }
+        }
         iter
     }
 
