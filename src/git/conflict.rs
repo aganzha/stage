@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Aleksey Ganzha <aganzha@yandex.ru>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use crate::git::{Hunk, LineKind, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, SPACE};
 use anyhow::{bail, Context, Result};
 use git2;
@@ -125,19 +129,26 @@ pub fn get_diff<'a>(
     let index = repo.index()?;
     let conflicts = index.conflicts()?;
 
-    // let mut missing_theirs: Vec<git2::IndexEntry> = Vec::new();
     let mut has_conflicts = false;
     let mut conflict_paths = Vec::new();
     for conflict in conflicts {
         let conflict = conflict?;
         if let Some(our) = conflict.our {
             let pth = String::from_utf8(our.path)?;
+            debug!("CONFLICT OUR {:?}", pth);
             conflict_paths.push(pth);
             has_conflicts = true;
         } else {
-            let entry = conflict.their.context("no theirs")?;
-            let path = path::PathBuf::from(str::from_utf8(&entry.path)?);
-            paths_to_stage.push(path);
+            // let entry = conflict.their.context("no theirs")?;
+            // let path = path::PathBuf::from(str::from_utf8(&entry.path)?);
+            // why we want to stage those files????
+            // what does no theirs mean? why it is conflicted then?
+            // paths_to_stage.push(path);
+            let their = conflict.their.context("no theirs")?.path;
+            let pth = String::from_utf8(their)?;
+            debug!("NO OUR IN CONFLICT {:?}", pth);
+            conflict_paths.push(pth);
+            has_conflicts = true;
         }
     }
 
@@ -163,11 +174,16 @@ pub fn get_diff<'a>(
 
         match write_conflict_diff(&mut current_bytes, &str_path, text_diff) {
             Ok(write_result) => {
-                debug!("GOT SIMILAR DIF {}", write_result);
+                debug!("GOT SIMILAR DIF. wrote something? {}", write_result);
                 if write_result {
                     bytes.extend(current_bytes);
                 } else {
-                    paths_to_unstage.push(path.into());
+                    // not sure why paths_to_unstage was here.
+                    // if nothing were written for file and
+                    // no errors - means file is cleaned from conflicts.
+                    // lets just stage it.
+                    // paths_to_unstage.push(path.into());
+                    paths_to_stage.push(path.into());
                 }
             }
             Err(error) => {
@@ -177,9 +193,10 @@ pub fn get_diff<'a>(
         }
     }
     debug!(
-        "finally bytes len from similar diff {:?} cleanup paths {:?}",
+        "finally bytes len from similar diff {:?} path_to_stage {:?} path to unstage {:?}",
         bytes.len(),
-        paths_to_stage
+        paths_to_stage,
+        paths_to_unstage
     );
     if bytes.is_empty() {
         return Ok(None);

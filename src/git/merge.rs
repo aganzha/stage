@@ -325,17 +325,17 @@ pub fn choose_conflict_side_of_hunk(
     if let Some(error) = apply_error {
         return Err(error.into());
     }
-
-    try_finalize_conflict(path, sender, false)?;
+    debug!("----------------> THATS ALL {:?}", file_path);
+    try_finalize_conflict(path, sender, Some(file_path))?;
     Ok(())
 }
 
 pub fn try_finalize_conflict(
     path: PathBuf,
     sender: Sender<crate::Event>,
-    call_from_status: bool,
+    file_path: Option<PathBuf>,
 ) -> Result<()> {
-    debug!("cleanup_last_conflict_for_file");
+    debug!("try_finalize_conflict!!!!!!!!!!!!!!! {:?}", file_path);
     let repo = git2::Repository::open(path.clone())?;
     //let mut index = repo.index()?;
 
@@ -354,8 +354,8 @@ pub fn try_finalize_conflict(
     let conflicted = similar_diff.map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted));
 
     debug!(
-        "after writing similar diff. to_stage {:?} to_unstage {:?}",
-        to_stage, to_unstage
+        "after writing similar diff. path {:?} to_stage {:?} to_unstage {:?}",
+        path, to_stage, to_unstage
     );
     sender
         .send_blocking(crate::Event::Conflicted(
@@ -387,7 +387,7 @@ pub fn try_finalize_conflict(
             sender.clone(),
         )?;
     }
-    if update_status && !call_from_status {
+    if update_status && file_path.is_some() {
         gio::spawn_blocking({
             move || {
                 get_current_repo_status(Some(path), sender).expect("cant get status");

@@ -809,7 +809,7 @@ pub fn get_current_repo_status(
         let sender = sender.clone();
         let path = path.clone();
         move || {
-            merge::try_finalize_conflict(path, sender, true).unwrap();
+            merge::try_finalize_conflict(path, sender, None).unwrap();
         }
     });
 
@@ -1202,8 +1202,11 @@ pub fn track_changes(
             if let Some(our) = conflict.our {
                 let conflict_path = String::from_utf8(our.path.clone()).unwrap();
                 if file_path == conflict_path {
-                    let cleanup_result =
-                        merge::try_finalize_conflict(path.clone(), sender.clone(), false);
+                    let cleanup_result = merge::try_finalize_conflict(
+                        path.clone(),
+                        sender.clone(),
+                        Some(file_path.clone().into()),
+                    );
                     if cleanup_result.is_err() {
                         debug!(
                             "error whyle trying finalize conflict {:?}",
