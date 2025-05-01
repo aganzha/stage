@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::dialogs::alert;
+use crate::dialogs::{alert, confirm_dialog_factory, PROCEED};
 use crate::{git::commit as git_commit, Event, DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
 use gtk4::prelude::*;
@@ -145,7 +145,7 @@ pub fn commit(
             text_view_box.append(&scroll);
             text_view_box.append(&list_box);
 
-            let dialog = crate::confirm_dialog_factory(Some(&text_view_box), "Commit", "Commit");
+            let dialog = confirm_dialog_factory(Some(&text_view_box), "Commit", "Commit");
 
             dialog.connect_realize({
                 let commit_message = commit_message.clone();
@@ -166,7 +166,7 @@ pub fn commit(
                 }
             });
             let response = dialog.choose_future(&window).await;
-            if !("confirm" == response || enter_pressed.get()) {
+            if !(PROCEED == response || enter_pressed.get()) {
                 return;
             }
 

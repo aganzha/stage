@@ -78,7 +78,6 @@ pub fn test_resolution() {
     )
     .unwrap();
     let new_body = String::from_utf8(bytes.clone()).unwrap();
-    debug!("oooooooooooooooooooooooooooo>");
     for line in new_body.lines() {
         debug!("{}", line);
     }
@@ -108,7 +107,6 @@ pub fn test_resolution() {
     conflict::choose_conflict_side_of_hunk(path::Path::new(path), &conflict_hunk, true, &mut bytes)
         .unwrap();
     let new_body = String::from_utf8(bytes.clone()).unwrap();
-    debug!("oooooooooooooooooooooooooooo>");
     for line in new_body.lines() {
         debug!("{}", line);
     }

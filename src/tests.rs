@@ -20,7 +20,6 @@ static INIT: Once = Once::new();
 pub fn initialize() -> TextBuffer {
     INIT.call_once(|| {
         env_logger::builder().format_timestamp(None).init();
-        debug!("CALL ONCE----------------> {:?}", gtk4::init());
     });
     let buffer = TextBuffer::new(None);
     let table = buffer.tag_table();

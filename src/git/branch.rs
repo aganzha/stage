@@ -37,7 +37,7 @@ impl BranchName {
     }
 
     pub fn name_of_remote(&self) -> String {
-        return self.0.split("/").next().unwrap().to_string();
+        self.0.split("/").next().unwrap().to_string()
     }
 }
 
@@ -122,7 +122,7 @@ impl BranchData {
     }
 
     pub fn local_name(&self) -> String {
-        return self.name.to_local(self.remote_name.as_deref());
+        self.name.to_local(self.remote_name.as_deref())
     }
 }
 
@@ -262,7 +262,7 @@ pub fn kill_branch(
                     .expect("no remote");
                 let mut opts = git2::PushOptions::new();
                 let mut callbacks = git2::RemoteCallbacks::new();
-                set_remote_callbacks(&mut callbacks, &None);
+                set_remote_callbacks(&mut callbacks);
                 opts.remote_callbacks(callbacks);
 
                 let refspec = format!(":refs/heads/{}", name);

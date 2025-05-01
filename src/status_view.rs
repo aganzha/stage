@@ -54,11 +54,8 @@ use gtk4::{
     gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, Widget, Window as GTKWindow,
 };
 use libadwaita::prelude::*;
-use libadwaita::{
-    ApplicationWindow, Banner, ButtonContent, EntryRow, PasswordEntryRow, StatusPage, StyleManager,
-    SwitchRow,
-};
-use log::{debug, trace};
+use libadwaita::{ApplicationWindow, Banner, ButtonContent, StatusPage, StyleManager, SwitchRow};
+use log::trace;
 
 impl State {
     pub fn title_for_proceed_banner(&self) -> String {
@@ -419,53 +416,15 @@ impl Status {
             .build()
     }
 
-    pub fn pull(&self, window: &ApplicationWindow, ask_pass: Option<bool>) {
+    pub fn pull(&self, window: &ApplicationWindow) {
         glib::spawn_future_local({
             let path = self.path.clone().expect("no path");
             let sender = self.sender.clone();
             let window = window.clone();
-            let mut remote_name: Option<String> = None;
-            if ask_pass.is_some() {
-                let (o_remote_name, _remote_branch_name) =
-                    self.choose_remote_branch_name().unwrap();
-                remote_name = o_remote_name;
-            }
             async move {
-                let mut user_pass: Option<(String, String)> = None;
-                if let Some(ask) = ask_pass {
-                    if ask {
-                        let lb = ListBox::builder()
-                            .selection_mode(SelectionMode::None)
-                            .css_classes(vec![String::from("boxed-list")])
-                            .build();
-
-                        let user_name = EntryRow::builder()
-                            .title("User name:")
-                            .show_apply_button(true)
-                            .css_classes(vec!["input_field"])
-                            .build();
-                        let password = PasswordEntryRow::builder()
-                            .title("Password:")
-                            .css_classes(vec!["input_field"])
-                            .build();
-                        let dialog = crate::confirm_dialog_factory(
-                            Some(&lb),
-                            &format!("Pull from {}", remote_name.unwrap_or("".to_string())),
-                            "Pull",
-                        );
-                        let response = dialog.choose_future(&window).await;
-                        if "confirm" != response {
-                            return;
-                        }
-                        user_pass.replace((
-                            format!("{}", user_name.text()),
-                            format!("{}", password.text()),
-                        ));
-                    }
-                }
                 gio::spawn_blocking({
                     let sender = sender.clone();
-                    move || remote::pull(path, sender, user_pass)
+                    move || remote::pull(path, sender)
                 })
                 .await
                 .unwrap_or_else(|e| {
@@ -751,10 +710,7 @@ impl Status {
         }
         self.conflicted = diff;
         if self.conflicted.is_some() || render_required {
-            debug!("RENDER CONFLICTED! {:?}", self.conflicted.is_some());
             self.render(txt, Some(DiffKind::Conflicted), context);
-        } else {
-            debug!("CONFLICTED IS NONE! {:?}", &self.conflicted);
         }
     }
 
@@ -861,11 +817,9 @@ impl Status {
     pub fn toggle_empty_layout_manager(&self, txt: &StageView, on: bool) {
         if on {
             if txt.layout_manager().is_some() {
-                debug!("kiiiiiiiiiiiiiilllll custom layout");
                 txt.set_layout_manager(None::<EmptyLayoutManager>);
             }
         } else {
-            debug!("set custom layout 1.!");
             txt.set_layout_manager(Some(EmptyLayoutManager::new()));
         }
     }
@@ -877,8 +831,6 @@ impl Status {
         _offset: i32,
         context: &mut StatusRenderContext<'a>,
     ) {
-        // debug!("TOOGLE ON");
-        //self.toggle_empty_layout_manager(txt, true);
         if let Some(conflicted) = &self.conflicted {
             if conflicted.expand(line_no, context).is_some() {
                 self.render(txt, Some(DiffKind::Conflicted), context);
@@ -897,8 +849,6 @@ impl Status {
                 self.render(txt, Some(DiffKind::Staged), context);
             }
         }
-        //debug!("TOOGLE BACK");
-        //self.toggle_empty_layout_manager(txt, false);
     }
 
     pub fn render<'a>(
@@ -952,10 +902,14 @@ impl Status {
             staged: &self.staged,
         };
 
-        let iter = diffs.choose_cursor_position(&buffer, diff_kind, &self.last_op);
-        //debug!("LINE AFTER CHOOSE {:?} {:?}", iter.line(), diff_kind);
+        let iter = diffs.choose_cursor_position(
+            &buffer,
+            diff_kind,
+            &self.last_op,
+            self.cursor_position.get(),
+        );
         buffer.place_cursor(&iter);
-        // WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
+        //  WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
     }
 
@@ -1031,12 +985,9 @@ impl Status {
     }
 
     pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
-        debug!("debug!");
         if txt.layout_manager().is_some() {
-            debug!("kiiiiiiiiiiiiiilllll custom layout");
             txt.set_layout_manager(None::<EmptyLayoutManager>);
         } else {
-            debug!("set custom layout 2.!");
             txt.set_layout_manager(Some(EmptyLayoutManager::new()));
         }
     }

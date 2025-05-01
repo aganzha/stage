@@ -14,36 +14,34 @@ pub fn confirm_dialog_factory(
     heading: &str,
     confirm_title: &str,
 ) -> AlertDialog {
-    let cancel_response = "cancel";
-    let confirm_response = "confirm";
-
     let dialog = AlertDialog::builder()
         .heading(heading)
-        .close_response(cancel_response)
-        .default_response(confirm_response)
+        .close_response(CANCEL)
+        .default_response(PROCEED)
         .width_request(720)
         .height_request(120)
         .build();
 
     dialog.set_extra_child(child);
-    dialog.add_responses(&[
-        (cancel_response, "Cancel"),
-        (confirm_response, confirm_title),
-    ]);
+    dialog.add_responses(&[(CANCEL, "Cancel"), (PROCEED, confirm_title)]);
 
-    dialog.set_response_appearance(confirm_response, ResponseAppearance::Suggested);
+    dialog.set_response_appearance(PROCEED, ResponseAppearance::Suggested);
     dialog
 }
 
 pub const YES: &str = "yes";
 pub const NO: &str = "no";
+
+pub const PROCEED: &str = "proceed";
+pub const CANCEL: &str = "cancel";
+
 const CLOSE: &str = "close";
 
 pub trait AlertConversation {
     fn heading_and_message(&self) -> (String, String);
 
-    fn extra_child(&mut self) -> Option<Widget> {
-        None
+    fn extra_child(&mut self) -> Option<impl IsA<Widget>> {
+        None::<Widget>
     }
     fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
         vec![(CLOSE, CLOSE, ResponseAppearance::Destructive)]
@@ -88,10 +86,13 @@ impl AlertConversation for RemoteResponse {
     fn heading_and_message(&self) -> (String, String) {
         (
             String::from("<span color=\"#ff0000\">Error</span>"),
-            self.error.clone().unwrap().clone(),
+            self.error
+                .clone()
+                .unwrap_or("Unknown error".to_string())
+                .clone(),
         )
     }
-    fn extra_child(&mut self) -> Option<Widget> {
+    fn extra_child(&mut self) -> Option<impl IsA<Widget>> {
         if let Some(body) = &self.body {
             let txt = TextView::builder()
                 .margin_start(12)
@@ -121,7 +122,7 @@ impl AlertConversation for RemoteResponse {
                 .orientation(Orientation::Vertical)
                 .build();
             bx.append(&scroll);
-            return Some(bx.into());
+            return Some(bx);
         }
         None
     }
@@ -175,7 +176,7 @@ impl AlertConversation for ConfirmWithOptions {
             (YES, YES, ResponseAppearance::Suggested),
         ]
     }
-    fn extra_child(&mut self) -> Option<Widget> {
+    fn extra_child(&mut self) -> Option<impl IsA<Widget>> {
         Some(self.2.clone())
     }
 }
