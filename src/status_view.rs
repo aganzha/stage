@@ -762,27 +762,6 @@ impl Status {
         }
     }
 
-    // TODO! is it still used?
-    pub fn resize_highlights<'a>(
-        &'a mut self,
-        _txt: &StageView,
-        _ctx: &mut StatusRenderContext<'a>,
-    ) {
-        // let buffer = txt.buffer();
-        // let iter = buffer.iter_at_offset(buffer.cursor_position());
-        // self.cursor(txt, iter.line(), iter.offset(), ctx);
-        // glib::source::timeout_add_local(Duration::from_millis(10), {
-        //     let txt = txt.clone();
-        //     let mut context = StatusRenderContext::new();
-        //     context.highlight_lines = ctx.highlight_lines;
-        //     context.highlight_hunks.clone_from(&ctx.highlight_hunks);
-        //     move || {
-        //         txt.bind_highlights(&context);
-        //         glib::ControlFlow::Break
-        //     }
-        // });
-    }
-
     /// cursor does not change structure, but changes highlights
     /// it will collect highlights in context. no need further render
     pub fn cursor<'a>(
@@ -814,15 +793,15 @@ impl Status {
         changed
     }
 
-    pub fn toggle_empty_layout_manager(&self, txt: &StageView, on: bool) {
-        if on {
-            if txt.layout_manager().is_some() {
-                txt.set_layout_manager(None::<EmptyLayoutManager>);
-            }
-        } else {
-            txt.set_layout_manager(Some(EmptyLayoutManager::new()));
-        }
-    }
+    // pub fn toggle_empty_layout_manager(&self, txt: &StageView, on: bool) {
+    //     if on {
+    //         if txt.layout_manager().is_some() {
+    //             txt.set_layout_manager(None::<EmptyLayoutManager>);
+    //         }
+    //     } else {
+    //         txt.set_layout_manager(Some(EmptyLayoutManager::new()));
+    //     }
+    // }
 
     pub fn expand<'a>(
         &'a mut self,

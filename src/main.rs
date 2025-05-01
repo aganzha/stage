@@ -28,12 +28,10 @@ use stashes_view::factory as stashes_view_factory;
 mod commit_view;
 use commit_view::show_commit_window;
 
-use core::time::Duration;
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Condvar, Mutex};
-
 mod git;
 use git::{
     branch, commit, get_current_repo_status, get_directories, reset_hard, stage_untracked,
@@ -46,7 +44,6 @@ use dialogs::alert;
 
 mod tests;
 use gdk::Display;
-use glib::ControlFlow;
 use libadwaita::prelude::*;
 use libadwaita::{
     Application, ApplicationWindow, Banner, OverlaySplitView, StyleManager, Toast, ToastOverlay,
@@ -54,75 +51,17 @@ use libadwaita::{
 };
 
 use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider, Orientation,
-    ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
+    gdk, gio, glib, style_context_add_provider_for_display,
+    style_context_remove_provider_for_display, Box, CssProvider, Orientation,
+    ScrolledWindow, STYLE_PROVIDER_PRIORITY_USER,
 };
 
 use log::{info, trace};
-use regex::Regex;
 
 const APP_ID: &str = "io.github.aganzha.Stage";
 
 pub const DARK_CLASS: &str = "dark";
 pub const LIGHT_CLASS: &str = "light";
-
-fn main() -> glib::ExitCode {
-    let app = Application::builder()
-        .application_id(APP_ID)
-        .flags(gio::ApplicationFlags::HANDLES_OPEN)
-        .build();
-
-    app.connect_startup(|_| load_css());
-    app.connect_startup(|_| register_resources());
-
-    let initial_path: Rc<RefCell<Option<PathBuf>>> = Rc::new(RefCell::new(None));
-
-    app.connect_open({
-        let initial_path = initial_path.clone();
-        move |opened_app: &Application, files: &[gio::File], _: &str| {
-            if !files.is_empty() {
-                if let Some(path) = files[0].path() {
-                    initial_path.replace(Some(path));
-                }
-            }
-            opened_app.activate();
-        }
-    });
-    app.connect_activate({
-        let initial_path = initial_path.clone();
-        move |running_app| {
-            let windows = running_app.windows();
-            if windows.is_empty() {
-                run_app(running_app, &initial_path.borrow());
-            } else {
-                windows[0].present();
-            }
-        }
-    });
-    app.run()
-}
-
-fn load_css() {
-    let display = Display::default().expect("Could not connect to a display.");
-    let settings = Settings::for_display(&display);
-    let stored_settings = get_settings();
-    let stored_font_size = stored_settings.get::<i32>("zoom");
-    settings.set_gtk_font_name(Some(&format!("Cantarell {}", stored_font_size)));
-
-    let provider = CssProvider::new();
-
-    provider.load_from_string(include_str!("style.css"));
-
-    style_context_add_provider_for_display(&display, &provider, STYLE_PROVIDER_PRIORITY_USER);
-}
-
-fn register_resources() {
-    gio::resources_register_include!("gresources.compiled").expect("Failed to register resources.");
-    // let xml: Result<gtk4::glib::Bytes, gtk4::glib::Error>= gio::resources_lookup_data(
-    //     "/io/github/aganzha/Stage/io.github.aganzha.Stage.metainfo.xml",
-    //     gio::ResourceLookupFlags::empty()
-    // );
-}
 
 #[derive(Debug, Clone)]
 pub struct LoginPassword {
@@ -196,24 +135,48 @@ pub enum Event {
     UserInputRequired(Arc<(Mutex<LoginPassword>, Condvar)>),
 }
 
-fn zoom(dir: bool) {
-    let display = Display::default().expect("Could not connect to a display.");
-    let settings = Settings::for_display(&display);
-    let font = settings.gtk_font_name().expect("cant get font");
-    let re = Regex::new(r".+ ([0-9]+)").expect("fail in regexp");
-    if let Some((_whole, [size])) = re.captures_iter(&font).map(|c| c.extract()).next() {
-        let mut int_size = size.parse::<i32>().expect("cant parse size");
-        if dir {
-            if int_size < 64 {
-                int_size += 1;
+fn main() -> glib::ExitCode {
+    let app = Application::builder()
+        .application_id(APP_ID)
+        .flags(gio::ApplicationFlags::HANDLES_OPEN)
+        .build();
+
+    app.connect_startup(|_| {
+        let display = Display::default().expect("cant get dispay");
+        let provider = CssProvider::new();
+        provider.load_from_string(include_str!("style.css"));
+        style_context_add_provider_for_display(&display, &provider, STYLE_PROVIDER_PRIORITY_USER);
+    });
+    app.connect_startup(|_| {
+        gio::resources_register_include!("gresources.compiled")
+            .expect("Failed to register resources.");
+    });
+
+    let initial_path: Rc<RefCell<Option<PathBuf>>> = Rc::new(RefCell::new(None));
+
+    app.connect_open({
+        let initial_path = initial_path.clone();
+        move |opened_app: &Application, files: &[gio::File], _: &str| {
+            if !files.is_empty() {
+                if let Some(path) = files[0].path() {
+                    initial_path.replace(Some(path));
+                }
             }
-        } else if int_size > 1 {
-            int_size -= 1;
+            opened_app.activate();
         }
-        settings.set_gtk_font_name(Some(&format!("Cantarell {}", int_size)));
-        let settings = get_settings();
-        settings.set("zoom", int_size).expect("cant set settings")
-    };
+    });
+    app.connect_activate({
+        let initial_path = initial_path.clone();
+        move |running_app| {
+            let windows = running_app.windows();
+            if windows.is_empty() {
+                run_app(running_app, &initial_path.borrow());
+            } else {
+                windows[0].present();
+            }
+        }
+    });
+    app.run()
 }
 
 pub fn get_settings() -> gio::Settings {
@@ -233,6 +196,16 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
     let monitors = Rc::new(RefCell::<Vec<gio::FileMonitor>>::new(Vec::new()));
 
     let settings = get_settings();
+
+    let font_size = settings.get::<i32>("zoom");
+    let provider = CssProvider::new();
+    provider.load_from_string(&format!(
+        "#status_view, #commit_view {{font-size: {}px;}}",
+        font_size
+    ));
+    let display = Display::default().expect("cant get dispay");
+    style_context_add_provider_for_display(&display, &provider, STYLE_PROVIDER_PRIORITY_USER);
+    let font_size_provider = RefCell::new(provider);
 
     let scheme = settings.get::<String>(SCHEME_TOKEN);
     if !scheme.is_empty() {
@@ -606,20 +579,34 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Zoom(dir) => {
                     info!("Zoom");
-                    zoom(dir);
+                    let settings = get_settings();
+                    let font_size = settings.get::<i32>("zoom") + if dir { 1 } else { -1 };
+                    let provider = CssProvider::new();
+                    provider.load_from_string(&format!(
+                        "#status_view, #commit_view {{font-size: {}px;}}",
+                        font_size
+                    ));
+                    let display = Display::default().expect("cant get dispay");
+                    style_context_add_provider_for_display(
+                        &display,
+                        &provider,
+                        STYLE_PROVIDER_PRIORITY_USER,
+                    );
+                    let old_provider = font_size_provider.replace(provider);
+                    style_context_remove_provider_for_display(&display, &old_provider);
+                    settings.set("zoom", font_size).expect("cant set settings");
                     // when zoom, TextView become offset from scroll
                     // on some step. this is a hack to force rerender
                     // this pair to allow TextView accomodate whole
                     // width of ScrollView
-                    status.resize_highlights(&txt, &mut ctx);
-                    scroll.set_halign(Align::Start);
-                    glib::source::timeout_add_local(Duration::from_millis(30), {
-                        let scroll = scroll.clone();
-                        move || {
-                            scroll.set_halign(Align::Fill);
-                            ControlFlow::Break
-                        }
-                    });
+                    // scroll.set_halign(Align::Start);
+                    // glib::source::timeout_add_local(Duration::from_millis(30), {
+                    //     let scroll = scroll.clone();
+                    //     move || {
+                    //         scroll.set_halign(Align::Fill);
+                    //         ControlFlow::Break
+                    //     }
+                    // });
                 }
                 Event::Stashes(stashes) => {
                     info!("stashes data");

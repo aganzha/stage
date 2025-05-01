@@ -1187,7 +1187,7 @@ pub fn continue_rebase(path: PathBuf, sender: Sender<crate::Event>) -> Result<()
     rebase.commit(None, &me, None)?;
     loop {
         if let Some(result) = rebase.next() {
-            let op = result?;
+            debug!("rebase result {:?}", result);
             rebase.commit(None, &me, None)?;
         } else {
             rebase.finish(Some(&me))?;

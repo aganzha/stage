@@ -207,7 +207,10 @@ pub fn set_remote_callbacks(callbacks: &mut git2::RemoteCallbacks) -> Rc<RefCell
         }
     });
 
-    callbacks.certificate_check(|_cert, error| Ok(git2::CertificateCheckStatus::CertificateOk));
+    callbacks.certificate_check(|_cert, error| {
+        debug!("certificate_check. error? {:?}", error);
+        Ok(git2::CertificateCheckStatus::CertificateOk)
+    });
 
     callbacks.push_negotiation(|update| {
         if !update.is_empty() {
@@ -390,7 +393,7 @@ pub fn pull(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), RemoteRes
     let err = "No remote to pull from";
     let branch_data = BranchData::from_branch(&branch, git2::BranchType::Local)?
         .ok_or(git2::Error::from_str(err))?;
-    let cloned = branch_data.clone();
+
     let remote_name = branch_data
         .remote_name
         .clone()
