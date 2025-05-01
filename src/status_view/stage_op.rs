@@ -8,6 +8,7 @@ use crate::git::merge;
 
 use std::cell::Cell;
 use std::collections::HashMap;
+use std::fmt;
 use std::path::PathBuf;
 
 use crate::{stage_untracked, stage_via_apply, Diff, DiffKind, Event, StageOp};
@@ -41,6 +42,19 @@ pub struct StageDiffs<'a> {
     pub conflicted: &'a Option<Diff>,
     pub unstaged: &'a Option<Diff>,
     pub staged: &'a Option<Diff>,
+}
+
+impl fmt::Display for StageDiffs<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Untracked: {} Conflicted: {} Unstaged: {} Staged: {}",
+            self.untracked.is_some(),
+            self.conflicted.is_some(),
+            self.unstaged.is_some(),
+            self.staged.is_some()
+        )
+    }
 }
 
 impl CursorPosition {
@@ -306,7 +320,13 @@ impl Status {
                                     // conflicts are resolved in branch above
                                     info!("cleanup_last_conflict_for_file");
                                     gio::spawn_blocking({
-                                        move || merge::try_finalize_conflict(path, sender, false)
+                                        move || {
+                                            merge::try_finalize_conflict(
+                                                path,
+                                                sender,
+                                                Some(file_path),
+                                            )
+                                        }
                                     })
                                     .await
                                     .unwrap_or_else(|e| {
@@ -338,23 +358,17 @@ impl StageDiffs<'_> {
         buffer: &TextBuffer,
         render_diff_kind: Option<DiffKind>,
         last_op: &Cell<Option<LastOp>>,
+        current_cursor_position: CursorPosition,
     ) -> TextIter {
         let this_pos = buffer.cursor_position();
         let mut iter = buffer.iter_at_offset(this_pos);
-        // debug!(
-        //     "LINE BEFOOOOOOOOOOOORE CHOOSE {:?} {:?}",
-        //     iter.line(),
-        //     render_diff_kind
-        // );
         if let (Some(op), Some(render_diff_kind)) = (&last_op.get(), render_diff_kind) {
             // both last_op and cursor_position in it are no longer actual,
             // cause update and render are already happened.
             // so, those are snapshot of previous state.
             // both will be changed right here!
-            debug!("CHOOOOOOOSE POS {op:?} {render_diff_kind:?}");
             match op {
                 // TODO! squash in one!
-                // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv Ops applied to whole Diff
                 LastOp {
                     op: StageOp::Stage,
                     cursor_position: CursorPosition::CursorDiff(diff_kind),
@@ -442,7 +456,6 @@ impl StageDiffs<'_> {
                 } if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
                 {
-                    debug!("I AM HERE!");
                     for diff in ([&self.unstaged, &self.staged, &self.conflicted])
                         .into_iter()
                         .copied()
@@ -460,7 +473,6 @@ impl StageDiffs<'_> {
                                             }
                                         }
                                     }
-                                    debug!("set LINE");
                                     iter.set_line(file.view.line_no.get());
                                     last_op.take();
                                     break;
@@ -468,15 +480,40 @@ impl StageDiffs<'_> {
                             }
                         }
                     }
-                    debug!("AFTER LOOOOOOOOOOOOP");
                     self.put_cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
                 }
                 op => {
-                    trace!("----------> NOT COVERED LastOp {:?}", op)
+                    debug!("----------> NOT COVERED LastOp {:?}", op)
                 }
             }
-        } else {
-            trace!("no any last_op....................");
+        } else if current_cursor_position == CursorPosition::None {
+            match render_diff_kind {
+                Some(DiffKind::Unstaged) | Some(DiffKind::Conflicted) => {
+                    if let Some(conflicted) = &self.conflicted {
+                        if let Some(file) = conflicted.files.first() {
+                            iter.set_line(file.view.line_no.get());
+                        }
+                    } else if let Some(unstaged) = &self.unstaged {
+                        if let Some(file) = unstaged.files.first() {
+                            iter.set_line(file.view.line_no.get());
+                        }
+                    }
+                }
+                Some(DiffKind::Staged) | Some(DiffKind::Untracked) => {
+                    if self.conflicted.is_none() && self.unstaged.is_none() {
+                        if let Some(staged) = &self.staged {
+                            if let Some(file) = staged.files.first() {
+                                iter.set_line(file.view.line_no.get());
+                            }
+                        } else if let Some(untracked) = &self.untracked {
+                            if let Some(file) = untracked.files.first() {
+                                iter.set_line(file.view.line_no.get());
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
         }
         iter
     }

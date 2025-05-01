@@ -210,7 +210,7 @@ pub fn burger_menu(
     menu_model.append_item(&menu_item);
 
     let popover_menu = PopoverMenu::from_model(Some(&menu_model));
-
+    popover_menu.add_css_class("burger_menu");
     popover_menu.add_child(
         &scheme_selector(stored_scheme, sender.clone()),
         SCHEME_TOKEN,

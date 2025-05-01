@@ -8,6 +8,7 @@ use status_view::{
     context::StatusRenderContext,
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
+    remotes::auth,
     stage_view::factory as stage_factory,
     Status,
 };
@@ -31,6 +32,7 @@ use core::time::Duration;
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::{Arc, Condvar, Mutex};
 
 mod git;
 use git::{
@@ -40,7 +42,7 @@ use git::{
 };
 use git2::Oid;
 mod dialogs;
-use dialogs::{alert, confirm_dialog_factory};
+use dialogs::alert;
 
 mod tests;
 use gdk::Display;
@@ -122,6 +124,25 @@ fn register_resources() {
     // );
 }
 
+#[derive(Debug, Clone)]
+pub struct LoginPassword {
+    login: String,
+    password: String,
+    cancel: bool,
+    pending: bool,
+}
+
+impl Default for LoginPassword {
+    fn default() -> Self {
+        Self {
+            login: String::from(""),
+            password: String::from(""),
+            cancel: false,
+            pending: true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum StageOp {
     Stage,
@@ -166,14 +187,13 @@ pub enum Event {
     Zoom(bool),
     ResetHard(Option<Oid>),
     CommitDiff(commit::CommitDiff),
-    PushUserPass(String, bool, bool),
-    PullUserPass,
     LockMonitors(bool),
     StoreSettings(String, String),
     OpenEditor,
     Tags(Option<Oid>),
     CherryPick(Oid, bool, Option<PathBuf>, Option<String>),
     Focus,
+    UserInputRequired(Arc<(Mutex<LoginPassword>, Condvar)>),
 }
 
 fn zoom(dir: bool) {
@@ -393,12 +413,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::Push => {
                     info!("main.push");
                     hb_updater(HbUpdateData::Push);
-                    status.push(&window, None);
+                    status.push(&window);
                 }
                 Event::Pull => {
                     info!("main.pull");
                     hb_updater(HbUpdateData::Pull);
-                    status.pull(&window, None);
+                    status.pull(&window);
                 }
                 Event::Branches(branches) => {
                     info!("main. branches");
@@ -661,13 +681,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::CommitDiff(_d) => {
                     panic!("got oid diff in another receiver");
                 }
-                Event::PushUserPass(remote, tracking, is_tag) => {
-                    status.push(&window, Some((remote, tracking, is_tag)))
-                }
-                Event::PullUserPass => {
-                    info!("main. userpass");
-                    status.pull(&window, Some(true))
-                }
                 Event::RemotesDialog => {
                     info!("main. remotes dialog");
                     status.show_remotes_dialog(&window);
@@ -692,6 +705,14 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         status.cherry_pick(window, oid, revert, ofile_path, ohunk_header)
                     } else {
                         status.cherry_pick(&window, oid, revert, ofile_path, ohunk_header)
+                    }
+                }
+                Event::UserInputRequired(auth_request) => {
+                    info!("main. UserInputRequired");
+                    if let Some(stack) = window_stack.borrow().last() {
+                        auth(auth_request, stack);
+                    } else {
+                        auth(auth_request, &window);
                     }
                 }
             };

@@ -24,7 +24,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::{debug, trace};
+use log::trace;
 use std::collections::{HashMap, HashSet};
 
 //pub const LINE_NO_SPACE: i32 = 6;
@@ -1172,20 +1172,12 @@ impl Diff {
             return false;
         }
         let my_line = self.view.line_no.get();
-        debug!(
-            "................has view on. my line {:?} cursor line {:?}",
-            my_line, line_no
-        );
         if my_line > line_no {
             return false;
         }
         if my_line == line_no {
             return true;
         }
-        debug!(
-            "~~~~~~~~~~~last visible_line {:?}",
-            self.last_visible_line()
-        );
         self.last_visible_line() >= line_no
     }
 }

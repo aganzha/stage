@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use super::Status;
-use crate::dialogs::alert;
+use crate::dialogs::{alert, confirm_dialog_factory, PROCEED};
 use crate::git::remote;
 use gtk4::{gio, glib, Button, ListBox, SelectionMode, StringList};
 use libadwaita::prelude::*;
@@ -12,9 +12,11 @@ use libadwaita::{
     PreferencesPage, SwitchRow,
 };
 
+use crate::LoginPassword;
 use std::cell::{Cell, RefCell};
 use std::path::Path;
 use std::rc::Rc;
+use std::sync::{Arc, Condvar, Mutex};
 
 impl remote::RemoteDetail {
     fn render(
@@ -177,7 +179,7 @@ fn remote_adding(
         move |_| {
             let name = adding_name.text();
             let url = adding_url.text();
-            if name.len() > 0 && url.len() > 0 {
+            if !name.is_empty() && !url.is_empty() {
                 glib::spawn_future_local({
                     let path = path.clone();
                     let window = window.clone();
@@ -212,7 +214,7 @@ fn remote_adding(
 }
 
 impl Status {
-    pub fn push(&self, window: &ApplicationWindow, remote_dialog: Option<(String, bool, bool)>) {
+    pub fn push(&self, window: &ApplicationWindow) {
         glib::spawn_future_local({
             let window = window.clone();
             let path = self.path.clone().unwrap();
@@ -271,17 +273,7 @@ impl Status {
                     .text(remote_branch_name)
                     .build();
 
-                let user_name = EntryRow::builder()
-                    .title("User name:")
-                    .show_apply_button(true)
-                    .css_classes(vec!["input_field"])
-                    .build();
-                let password = PasswordEntryRow::builder()
-                    .title("Password:")
-                    .css_classes(vec!["input_field"])
-                    .build();
-
-                let dialog = crate::confirm_dialog_factory(
+                let dialog = confirm_dialog_factory(
                     Some(&lb),
                     "Push to remote", // TODO here is harcode
                     "Push",
@@ -314,29 +306,14 @@ impl Status {
                         dialog.close();
                     }
                 });
-                let mut pass = false;
-                let mut this_is_tag = false;
-                match remote_dialog {
-                    None => {
-                        lb.append(&remotes);
-                        lb.append(&remote_branch_name);
-                        lb.append(&upstream);
-                    }
-                    Some((remote_branch, track_remote, is_tag)) => {
-                        this_is_tag = is_tag;
-                        remote_branch_name.set_text(&remote_branch);
-                        if track_remote {
-                            upstream.set_active(true);
-                        }
-                        lb.append(&user_name);
-                        lb.append(&password);
-                        pass = true;
-                    }
-                }
+
+                lb.append(&remotes);
+                lb.append(&remote_branch_name);
+                lb.append(&upstream);
 
                 let response = dialog.choose_future(&window).await;
 
-                if !("confirm" == response || enter_pressed.get()) {
+                if !(PROCEED == response || enter_pressed.get()) {
                     sender
                         .send_blocking(crate::Event::UpstreamProgress)
                         .expect("Could not send through channel");
@@ -353,13 +330,6 @@ impl Status {
                 }
                 let remote_name = remotes_list.string(remote_selected).unwrap();
                 let track_remote = upstream.is_active();
-                let mut user_pass: Option<(String, String)> = None;
-                if pass {
-                    user_pass.replace((
-                        format!("{}", user_name.text()),
-                        format!("{}", password.text()),
-                    ));
-                }
                 glib::spawn_future_local({
                     async move {
                         gio::spawn_blocking({
@@ -370,9 +340,8 @@ impl Status {
                                     remote_name.to_string(),
                                     remote_branch_name,
                                     track_remote,
-                                    this_is_tag,
+                                    false,
                                     sender,
-                                    user_pass,
                                 )
                             }
                         })
@@ -455,4 +424,41 @@ impl Status {
             }
         });
     }
+}
+
+pub fn auth(auth_request: Arc<(Mutex<LoginPassword>, Condvar)>, window: &impl IsA<gtk4::Widget>) {
+    let lb = ListBox::builder()
+        .selection_mode(SelectionMode::None)
+        .css_classes(vec![String::from("boxed-list")])
+        .build();
+    let user_name = EntryRow::builder()
+        .title("User name:")
+        .show_apply_button(true)
+        .css_classes(vec!["input_field"])
+        .build();
+    let password = PasswordEntryRow::builder()
+        .title("Password:")
+        .css_classes(vec!["input_field"])
+        .build();
+
+    lb.append(&user_name);
+    lb.append(&password);
+
+    let dialog = confirm_dialog_factory(Some(&lb), "Login required", "Proceed");
+    glib::spawn_future_local({
+        let window = window.clone();
+        async move {
+            let result = dialog.choose_future(&window).await;
+            let login = user_name.text();
+            let password = password.text();
+            let mut login_pass = auth_request.0.lock().unwrap();
+            login_pass.login = login.into();
+            login_pass.password = password.into();
+            login_pass.pending = false;
+            if result != PROCEED {
+                login_pass.cancel = true;
+            }
+            auth_request.1.notify_all();
+        }
+    });
 }

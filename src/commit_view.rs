@@ -20,7 +20,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
-use log::{debug, info, trace};
+use log::{info, trace};
 
 use std::path::PathBuf;
 
@@ -366,7 +366,6 @@ pub fn show_commit_window(
                     Event::Expand(_offset, line_no) => {
                         info!("Expand {}", line_no);
                         if let Some(d) = &mut diff {
-                            debug!(".................{:?}", d.diff.view.line_no);
                             if d.diff.expand(line_no, &mut ctx).is_some() {
                                 let buffer = &txt.buffer();
                                 let mut iter =

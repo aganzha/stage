@@ -4,7 +4,7 @@
 
 use async_channel::Sender;
 
-use crate::dialogs::alert;
+use crate::dialogs::{alert, confirm_dialog_factory, PROCEED};
 use crate::git::{branch, merge, rebase, remote};
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use git2::BranchType;
@@ -21,7 +21,7 @@ use libadwaita::{
     ApplicationWindow, EntryRow, HeaderBar, StyleManager, SwitchRow, ToolbarView, Window,
 };
 
-use log::{debug, info, trace};
+use log::{info, trace};
 use std::cell::Cell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -373,7 +373,7 @@ impl BranchList {
             let branch_list = self.clone();
             let window = window.clone();
             async move {
-                gio::spawn_blocking(move || remote::update_remote(repo_path, sender, None))
+                gio::spawn_blocking(move || remote::update_remote(repo_path, sender))
                     .await
                     .unwrap_or_else(|e| {
                         alert(format!("{:?}", e)).present(Some(&window));
@@ -405,13 +405,10 @@ impl BranchList {
             let window = window.clone();
             let branch_data = selected_branch.clone();
             async move {
-                let dialog = crate::confirm_dialog_factory(
-                    Some(&Label::new(Some(&title))),
-                    "Rebase",
-                    "Rebase",
-                );
+                let dialog =
+                    confirm_dialog_factory(Some(&Label::new(Some(&title))), "Rebase", "Rebase");
                 let result = dialog.choose_future(&window).await;
-                if "confirm" != result {
+                if PROCEED != result {
                     return;
                 }
                 gio::spawn_blocking(move || rebase(repo_path, branch_data.oid, None, sender))
@@ -446,13 +443,10 @@ impl BranchList {
             let window = window.clone();
             let branch_data = selected_branch.clone();
             async move {
-                let dialog = crate::confirm_dialog_factory(
-                    Some(&Label::new(Some(&title))),
-                    "Merge",
-                    "Merge",
-                );
+                let dialog =
+                    confirm_dialog_factory(Some(&Label::new(Some(&title))), "Merge", "Merge");
                 let result = dialog.choose_future(&window).await;
-                if "confirm" != result {
+                if PROCEED != result {
                     return;
                 }
                 let branch_data = gio::spawn_blocking(move || {
@@ -468,7 +462,6 @@ impl BranchList {
                     None
                 });
                 if let Some(branch_data) = branch_data {
-                    debug!("just merged and this is branch data {:?}", branch_data);
                     branch_list.update_head_branch(branch_data);
                 }
                 window.close();
@@ -499,7 +492,7 @@ impl BranchList {
                     alert(e).present(Some(&window));
                     None
                 });
-                debug!("_just deleted branch {:?} {:?}", result, pos);
+
                 if result.is_none() {
                     return;
                 }
@@ -512,10 +505,9 @@ impl BranchList {
                     .retain(|bd| bd.name != name);
 
                 let shifted_item = branch_list.item(pos);
-                debug!("removed item at pos {:?}", pos);
+
                 let mut new_pos = pos;
                 if let Some(item) = shifted_item {
-                    debug!("branches.shift item");
                     // next item in list will shift to this position
                     // and must get focus
                     let branch_item = item.downcast_ref::<BranchItem>().unwrap();
@@ -530,7 +522,6 @@ impl BranchList {
                     // or it was last one, e.g. delete branch
                     // durung search.
                     if pos > 0 {
-                        debug!("branches.got last item. decrement pos {:?}", new_pos);
                         new_pos = pos - 1;
                         let prev_item = branch_list.item(new_pos).unwrap();
                         let branch_item = prev_item.downcast_ref::<BranchItem>().unwrap();
@@ -538,10 +529,6 @@ impl BranchList {
                         branch_list.set_selected_pos(new_pos);
                     }
                 }
-                debug!(
-                    "call items cganged with pos {:?}. new pos will be {:?}",
-                    pos, new_pos
-                );
                 branch_list.items_changed(pos, 1, 0);
                 // restore selected position to next one
                 // will will get focus
@@ -584,7 +571,7 @@ impl BranchList {
                     .build();
                 lb.append(&input);
                 lb.append(&checkout);
-                let dialog = crate::confirm_dialog_factory(Some(&lb), &title, "Create");
+                let dialog = confirm_dialog_factory(Some(&lb), &title, "Create");
                 dialog.connect_realize({
                     let input = input.clone();
                     move |_| {
@@ -613,7 +600,7 @@ impl BranchList {
                 });
 
                 let response = dialog.choose_future(&window).await;
-                if !("confirm" == response || enter_pressed.get()) {
+                if !(PROCEED == response || enter_pressed.get()) {
                     return;
                 }
                 let new_branch_name = format!("{}", input.text());
