@@ -52,8 +52,8 @@ use libadwaita::{
 
 use gtk4::{
     gdk, gio, glib, style_context_add_provider_for_display,
-    style_context_remove_provider_for_display, Box, CssProvider, Orientation,
-    ScrolledWindow, STYLE_PROVIDER_PRIORITY_USER,
+    style_context_remove_provider_for_display, Box, CssProvider, Orientation, ScrolledWindow,
+    STYLE_PROVIDER_PRIORITY_USER,
 };
 
 use log::{info, trace};
@@ -680,7 +680,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     info!("StoreSettings {} {}", name, value);
                     settings.set(&name, value).expect("cant set settings");
                     if name == SCHEME_TOKEN {
-                        txt.set_is_dark(StyleManager::default().is_dark(), true);
+                        txt.set_background();
                     }
                 }
                 Event::CherryPick(oid, revert, ofile_path, ohunk_header) => {

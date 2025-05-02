@@ -13,6 +13,12 @@ listview.dark {
     background-color: #232323;
     color: #d6d5d2;/* @light_3; */
 }
+/* this used only in commit and alert views
+   stage_views are painted by bg_fill
+*/
+textview.dark {
+    background-color: #383838;
+}
 
 .nocorners {
     border-top-left-radius: 0;
@@ -28,12 +34,6 @@ banner.error.light revealer widget {
 }
 banner.error.dark revealer widget {
     background-color: #2b2023;
-}
-/* this used only in commit and alert views
-   stage_views are painted by bg_fill
-*/
-textview.dark {
-    background-color: #383838;
 }
 
 

@@ -15,7 +15,7 @@ use gtk4::{
     GestureDrag, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::trace;
+use log::{debug, trace};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -202,10 +202,7 @@ impl StageView {
         me
     }
 
-    pub fn set_is_dark(&self, _is_dark: bool, force: bool) {
-        if !force && self.imp().is_dark_set.get() {
-            return;
-        }
+    pub fn set_background(&self) {
         let manager = StyleManager::default();
         let is_dark = manager.is_dark();
         self.imp().is_dark.replace(is_dark);
@@ -301,7 +298,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     txt.set_margin_end(12);
     txt.set_margin_top(12);
     txt.set_margin_bottom(12);
-    txt.set_is_dark(is_dark, true);
+    txt.set_background();
     if is_dark {
         txt.set_css_classes(&[DARK_CLASS]);
     } else {
@@ -339,34 +336,26 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
         };
     }
 
-    manager.connect_color_scheme_notify({
+    manager.connect_dark_notify({
+        // color_scheme
         let txt = txt.clone();
         move |manager| {
             let is_dark = manager.is_dark();
-            let classes = txt.css_classes();
-            let mut new_classes = classes
-                .iter()
-                .map(|gs| gs.as_str())
-                .filter(|s| {
-                    if is_dark {
-                        s != &LIGHT_CLASS
-                    } else {
-                        s != &DARK_CLASS
-                    }
-                })
-                .collect::<Vec<&str>>();
             if is_dark {
-                new_classes.push(DARK_CLASS);
+                txt.remove_css_class(LIGHT_CLASS);
+                txt.add_css_class(DARK_CLASS);
             } else {
-                new_classes.push(LIGHT_CLASS);
+                txt.remove_css_class(DARK_CLASS);
+                txt.add_css_class(LIGHT_CLASS);
             }
-            txt.set_css_classes(&new_classes);
+            debug!("JUST SET new css classes {:?}", txt.css_classes());
             table.foreach(|tt| {
                 if let Some(name) = tt.name() {
                     let t = tags::TxtTag::unknown_tag(name.to_string());
                     t.fill_text_tag(tt, is_dark);
                 }
             });
+            txt.set_background();
         }
     });
     let pointer = pointer.unwrap();
