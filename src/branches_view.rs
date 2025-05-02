@@ -433,7 +433,7 @@ impl BranchList {
             return;
         }
         let title = format!(
-            "merge branch {} into {}",
+            "Merge branch {} into {}",
             selected_branch.name.to_str(),
             current_branch.name.to_str()
         );
@@ -443,14 +443,24 @@ impl BranchList {
             let window = window.clone();
             let branch_data = selected_branch.clone();
             async move {
-                let dialog =
-                    confirm_dialog_factory(Some(&Label::new(Some(&title))), "Merge", "Merge");
+                let lb = ListBox::builder()
+                    .selection_mode(SelectionMode::None)
+                    .css_classes(vec![String::from("boxed-list")])
+                    .build();
+                let squash = SwitchRow::builder()
+                    .title("Squash")
+                    .css_classes(vec!["input_field"])
+                    .active(false)
+                    .build();
+                lb.append(&squash);
+                let dialog = confirm_dialog_factory(Some(&lb), &title, "Merge");
                 let result = dialog.choose_future(&window).await;
                 if PROCEED != result {
                     return;
                 }
+                let to_squash = squash.is_active();
                 let branch_data = gio::spawn_blocking(move || {
-                    merge::branch(repo_path, branch_data, sender, None)
+                    merge::branch(repo_path, branch_data, to_squash, sender, None)
                 })
                 .await
                 .unwrap_or_else(|e| {

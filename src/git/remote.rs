@@ -451,7 +451,13 @@ pub fn pull(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), RemoteRes
     let branch_data = BranchData::from_branch(&upstream, git2::BranchType::Remote)
         .unwrap()
         .unwrap();
-    merge::branch(path.clone(), branch_data, sender.clone(), Some(defer))?;
+    merge::branch(
+        path.clone(),
+        branch_data,
+        false,
+        sender.clone(),
+        Some(defer),
+    )?;
     Ok(())
 }
 
