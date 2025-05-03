@@ -1,1 +1,261 @@
-<div>It works!</div>
+<html>
+  <head>
+        <meta charset="UTF-8">
+        <title>Stage - git gui client for linux desktops</title>
+
+    <style>
+      * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+ }
+
+html {
+    overflow-y: scroll;
+    height: 100%;
+    font: 100%/1.5 sans-serif;
+    word-wrap: break-word;
+    margin: 0 auto;
+    padding: 1.5em;
+ }
+
+@media (min-width: 768px) {
+    html {
+        font-size: 125%;
+        max-width: 42em;
+ } }
+
+h1, h2, h3, h4 {
+    margin: 2.5rem 0 1.5rem 0;
+    line-height: 1.25;
+    color: #333;
+ }
+
+a {
+    color: #fa6432;
+    text-decoration: none;
+ }
+a:hover, a:focus, a:active {
+    text-decoration: underline;
+ }
+
+p {
+    margin: 1em 0;
+    line-height: 1.5;
+ }
+p code {
+    background-color: #eee;
+    padding: 0.05em 0.2em;
+    border: 1px solid #ccc;
+ }
+
+ol, ul {
+    margin: 1em;
+ }
+ol li ol, ol li ul, ul li ol, ul li ul {
+    margin: 0 2em;
+ }
+ol li p, ul li p {
+    margin: 0;
+ }
+
+dl {
+    font-family: monospace, monospace;
+ }
+dl dt {
+    font-weight: bold;
+ }
+dl dd {
+    margin: -1em 0 1em 1em;
+      }
+
+      li {
+      display: block;
+      }
+img {
+    max-width: 100%;
+    display: block;
+    margin: 0 auto;
+    padding: 0.5em;
+ }
+      img.inline {
+      display: inline;
+      vertical-align: middle;
+      height: auto;
+      margin: 0 5px
+      }
+
+blockquote {
+    padding-left: 1em;
+    font-style: italic;
+    border-left: solid 1px #fa6432;
+ }
+
+table {
+    font-size: 1rem;
+    text-align: left;
+    caption-side: bottom;
+    margin-bottom: 2em;
+ }
+table * {
+    border: none;
+ }
+table thead, table tr {
+    display: table;
+    table-layout: fixed;
+    width: 100%;
+ }
+table tr:nth-child(even) {
+    background-color: rgba(200, 200, 200, 0.2);
+ }
+table tbody {
+    display: block;
+    max-height: 70vh;
+    overflow-y: auto;
+ }
+table td, table th {
+    padding: 0.25em;
+ }
+
+table, .highlight > pre, pre.example {
+    max-height: 70vh;
+    margin: 1em 0;
+    padding: 1em;
+    overflow: auto;
+    font-size: 0.85rem;
+    font-family: monospace, monospace;
+    border: 1px dashed rgba(250, 100, 50, 0.5);
+}
+
+.title {
+    font-size: 2.5em;
+}
+
+.subtitle {
+    font-weight: normal;
+    font-size: 0.75em;
+    color: #666;
+}
+
+.tags {
+    margin-top: -1.5rem;
+    padding-bottom: 1.5em;
+}
+.tags li {
+    display: inline;
+    margin-right: 0.5em;
+}
+
+figure {
+    margin: 1em 0;
+}
+figure figcaption {
+    font-family: monospace, monospace;
+    font-size: 0.75em;
+    text-align: center;
+    color: grey;
+}
+
+.footnote-definition sup {
+    margin-left: -1.5em;
+    float: left;
+}
+
+.footnote-definition .footnote-body {
+    margin: 1em 0;
+    padding: 0 1em;
+    border: 1px dashed rgba(250, 100, 50, 0.3);
+    background-color: rgba(200, 200, 200, 0.2);
+}
+.footnote-definition .footnote-body p:only-child {
+    margin: 0.2em 0;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+}
+header nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+header a + a {
+    margin-left: 1rem;
+}
+
+    </style>
+  </head>
+  <body>
+    <h1><img class="inline" width="96" style="margin: 0 -20px 0 -20px" src="https://storage.yandexcloud.net/www.aganzha.online/static/logo.jpg"/> Stage</h1>    
+    <p>
+      Stage is GTK4 git client inspired by <a target="_blank" href="https://magit.vc/">Magit</a>.
+      Pretends to be Magit without Emacs.
+    </p>
+
+    <h2>Installation</h2>
+    <p>Flatpak - is the proper way to install Stage on your linux desktop. Further commands are for terminal.</p>
+   Add Flathub to flatpak remotes:
+    <pre>
+
+      flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    </pre>
+    Install Stage
+    <pre>
+
+      flatpak install flathub io.github.aganzha.Stage
+    </pre>
+
+    Run Stage
+    <pre>
+
+      flatpak run flathub io.github.aganzha.Stage
+    </pre>
+
+    Update
+    <pre>
+
+      flatpak update io.github.aganzha.Stage
+    </pre>
+
+    <h2>Usage</h2>
+
+    <h3>Main screen - Status view </h3>
+    <p>
+      Open repository either by clicking placeholder button, or repository list button in the header bar.
+      Stage, then, will live track all changes you do on files inside repository and display in Status view in form of text diff.
+    </p>
+
+    <p>
+      Highlighted line in Status view behave like a cursor in TUI apps. Move cursor with arrows or by mouse clicking in any area.
+      Commands your issued for Stage are applied to "thing" under cursor. E.g. to stage (git add) file put cursor on file name and press <b>s</b>, or click <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-bottom-symbolic.svg"/> in header bar. Whole file will be added to staging are for further commit.
+    </p>
+    <video controls autoplay muted loop width="960">
+      <source src="https://storage.yandexcloud.net/www.aganzha.online/static/stage.mp4" type="video/mp4">
+    </video>
+    <p>
+      Main commands are:
+      <ul>
+        <li><b>s</b> - <b>S</b>tage. Also BENTER could be used. Button in headerbar - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-bottom-symbolic.svg"/></li>
+        <li><b>u</b> - <b>U</b>nstage. Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-top-symbolic.svg"/></li>
+        <li><b>k</b> - <b>K</b>ill (discard changes) </li>
+        <li><b>TAB</b> - Expand/Collapse. Also SPACE could be used.</li>
+      </ul>
+
+      Commands does not related to cursor position:
+      <ul>
+        <li><b>c</b> - <b>C</b>ommit. Button in headerbar - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/object-select-symbolic.svg"/> </li>
+        <li><b>p</b> - <b>P</b>ush. Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/send-to-symbolic.svg"/> </li>
+        <li><b>f</b> - Pull (as in <b>F</b>etch). Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/document-save-symbolic.svg"/> </li>
+      </ul>
+
+      Command for displaying additional windows:
+      <ul>
+        <li><b>b</b> - Branches view</li>
+        <li><b>l</b> - Log view</li>
+        <li><b>z</b> - Stash panel</li>
+        <li><b>t</b> - Tags view</li>
+      </ul>
+    </p>
+  </body>
+</html>
