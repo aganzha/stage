@@ -5,6 +5,8 @@
 </p>
 
 ![CI Build/Tests](https://github.com/aganzha/stage/actions/workflows/tests.yml/badge.svg)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Docs](https://img.shields.io/badge/docs-orange)](https://aganzha.github.io/stage/)
 
 ## Installing
 Add flathub to your remotes
