@@ -55,7 +55,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, Banner, ButtonContent, StatusPage, StyleManager, SwitchRow};
-use log::trace;
+use log::{debug, trace};
 
 impl State {
     pub fn title_for_proceed_banner(&self) -> String {
@@ -770,27 +770,34 @@ impl Status {
         line_no: i32,
         _offset: i32,
         context: &mut StatusRenderContext<'a>,
-    ) -> bool {
-        let mut changed = false;
+    ) {
         let buffer = txt.buffer();
+        if let Some(head) = &self.head {
+            head.cursor(&buffer, line_no, false, context);
+        }
+        if let Some(upstream) = &self.upstream {
+            upstream.cursor(&buffer, line_no, false, context);
+        }
+        if let Some(state) = &self.state {
+            state.cursor(&buffer, line_no, false, context);
+        }
         if let Some(untracked) = &self.untracked {
-            changed = untracked.cursor(&buffer, line_no, false, context) || changed;
+            untracked.cursor(&buffer, line_no, false, context);
         }
         if let Some(conflicted) = &self.conflicted {
-            changed = conflicted.cursor(&buffer, line_no, false, context) || changed;
+            conflicted.cursor(&buffer, line_no, false, context);
         }
         if let Some(unstaged) = &self.unstaged {
-            changed = unstaged.cursor(&buffer, line_no, false, context) || changed;
+            unstaged.cursor(&buffer, line_no, false, context);
         }
         if let Some(staged) = &self.staged {
-            changed = staged.cursor(&buffer, line_no, false, context) || changed;
+            staged.cursor(&buffer, line_no, false, context);
         }
 
         // this is called once in status_view and 3 times in commit view!!!
         txt.bind_highlights(context);
         self.cursor_position
             .replace(CursorPosition::from_context(context));
-        changed
     }
 
     // pub fn toggle_empty_layout_manager(&self, txt: &StageView, on: bool) {
@@ -836,6 +843,7 @@ impl Status {
         diff_kind: Option<DiffKind>,
         context: &mut StatusRenderContext<'a>,
     ) {
+        debug!("ENTER RENDER");
         let buffer = txt.buffer();
         let initial_line_offset = buffer
             .iter_at_offset(buffer.cursor_position())
@@ -844,10 +852,12 @@ impl Status {
         let mut iter = buffer.iter_at_offset(0);
 
         if let Some(head) = &self.head {
+            debug!("got the head {:?}", iter.line());
             head.render(&buffer, &mut iter, context);
         }
 
         if let Some(upstream) = &self.upstream {
+            debug!("got the upstream {:?}", iter.line());
             upstream.render(&buffer, &mut iter, context);
         }
 

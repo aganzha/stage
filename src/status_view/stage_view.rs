@@ -12,7 +12,7 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, glib, EventControllerKey, EventControllerMotion, EventSequenceState, GestureClick,
-    GestureDrag, MovementStep, TextBuffer, TextTag, TextView, TextWindowType, Widget,
+    GestureDrag, MovementStep, TextBuffer, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
 use log::{debug, trace};
@@ -307,32 +307,22 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
     let buffer = txt.buffer();
     let table = buffer.tag_table();
-    let mut pointer: Option<TextTag> = None;
-    let mut staged: Option<TextTag> = None;
-    let mut unstaged: Option<TextTag> = None;
-    let mut file: Option<TextTag> = None;
-    let mut hunk: Option<TextTag> = None;
+    let pointer = tags::TxtTag::from_str(tags::POINTER).create();
+    let staged = tags::TxtTag::from_str(tags::STAGED).create();
+    let unstaged = tags::TxtTag::from_str(tags::UNSTAGED).create();
+    let file = tags::TxtTag::from_str(tags::FILE).create();
+    let hunk = tags::TxtTag::from_str(tags::HUNK).create();
+    let oid = tags::TxtTag::from_str(tags::OID).create();
 
     for tag_name in tags::TEXT_TAGS {
-        let text_tag = tags::TxtTag::from_str(tag_name).create();
-        table.add(&text_tag);
         match tag_name {
-            tags::POINTER => {
-                pointer.replace(text_tag);
-            }
-            tags::STAGED => {
-                staged.replace(text_tag);
-            }
-            tags::UNSTAGED => {
-                unstaged.replace(text_tag);
-            }
-            tags::FILE => {
-                file.replace(text_tag);
-            }
-            tags::HUNK => {
-                hunk.replace(text_tag);
-            }
-            _ => {}
+            tags::POINTER => table.add(&pointer),
+            tags::STAGED => table.add(&staged),
+            tags::UNSTAGED => table.add(&unstaged),
+            tags::FILE => table.add(&file),
+            tags::HUNK => table.add(&hunk),
+            tags::OID => table.add(&oid),
+            _ => table.add(&tags::TxtTag::from_str(tag_name).create()),
         };
     }
 
@@ -358,17 +348,12 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             txt.set_background();
         }
     });
-    let pointer = pointer.unwrap();
-    let staged = staged.unwrap();
-    let unstaged = unstaged.unwrap();
-    let file = file.unwrap();
-    let hunk = hunk.unwrap();
 
     let key_controller = EventControllerKey::new();
     key_controller.connect_key_pressed({
         let buffer = buffer.clone();
         let sndr = sndr.clone();
-
+        let oid = oid.clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::Tab | gdk::Key::space, _) => {
@@ -378,6 +363,18 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     return glib::Propagation::Stop;
                 }
                 (gdk::Key::s | gdk::Key::a | gdk::Key::Return, _) => {
+                    let pos = buffer.cursor_position();
+                    let iter = buffer.iter_at_offset(pos);
+                    if iter.has_tag(&oid) {
+                        let mut start_iter = buffer.iter_at_offset(pos);
+                        let mut end_iter = buffer.iter_at_offset(pos);
+                        start_iter.backward_to_tag_toggle(Some(&oid));
+                        end_iter.forward_to_tag_toggle(Some(&oid));
+                        let oid_text = buffer.text(&start_iter, &end_iter, true);
+                        sndr.send_blocking(crate::Event::ShowTextOid(oid_text.to_string()))
+                            .expect("Cant send through channel");
+                        return glib::Propagation::Stop;
+                    }
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Stage))
                         .expect("Could not send through channel");
                 }
@@ -488,6 +485,16 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             let iter = txt.buffer().iter_at_offset(pos);
             sndr.send_blocking(crate::Event::Cursor(iter.offset(), iter.line()))
                 .expect("Cant send through channel");
+
+            if iter.has_tag(&oid) {
+                let mut start_iter = txt.buffer().iter_at_offset(pos);
+                let mut end_iter = txt.buffer().iter_at_offset(pos);
+                start_iter.backward_to_tag_toggle(Some(&oid));
+                end_iter.forward_to_tag_toggle(Some(&oid));
+                let oid_text = buffer.text(&start_iter, &end_iter, true);
+                sndr.send_blocking(crate::Event::ShowTextOid(oid_text.to_string()))
+                    .expect("Cant send through channel");
+            }
             if n_clicks == 1 && (iter.has_tag(&file) || iter.has_tag(&hunk)) {
                 click_lock.borrow_mut().replace(true);
                 glib::source::timeout_add_local(Duration::from_millis(200), {

@@ -44,16 +44,16 @@ use dialogs::alert;
 
 mod tests;
 use gdk::Display;
+use gtk4::prelude::*;
+use gtk4::{
+    gdk, gio, glib, style_context_add_provider_for_display,
+    style_context_remove_provider_for_display, Box as Gtk4Box, CssProvider, Orientation,
+    ScrolledWindow, STYLE_PROVIDER_PRIORITY_USER,
+};
 use libadwaita::prelude::*;
 use libadwaita::{
     Application, ApplicationWindow, Banner, OverlaySplitView, StyleManager, Toast, ToastOverlay,
     ToolbarStyle, ToolbarView, Window,
-};
-
-use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display,
-    style_context_remove_provider_for_display, Box, CssProvider, Orientation, ScrolledWindow,
-    STYLE_PROVIDER_PRIORITY_USER,
 };
 
 use log::{info, trace};
@@ -62,6 +62,12 @@ const APP_ID: &str = "io.github.aganzha.Stage";
 
 pub const DARK_CLASS: &str = "dark";
 pub const LIGHT_CLASS: &str = "light";
+
+#[derive(Clone)]
+enum CurrentWindow {
+    Window(Window),
+    ApplicationWindow(ApplicationWindow),
+}
 
 #[derive(Debug, Clone)]
 pub struct LoginPassword {
@@ -116,6 +122,7 @@ pub enum Event {
     Branches(Vec<branch::BranchData>),
     Log(Option<Oid>, Option<String>),
     ShowOid(Oid, Option<usize>),
+    ShowTextOid(String),
     TextViewResize(i32),
     TextCharVisibleWidth(i32),
     Toast(String),
@@ -224,23 +231,29 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         sender.clone(),
     );
 
-    let window = ApplicationWindow::builder().application(app).build();
+    let application_window = ApplicationWindow::builder().application(app).build();
 
-    settings.bind("width", &window, "default-width").build();
-    settings.bind("height", &window, "default-height").build();
-    settings.bind("is-maximized", &window, "maximized").build();
     settings
-        .bind("is-fullscreen", &window, "fullscreened")
+        .bind("width", &application_window, "default-width")
+        .build();
+    settings
+        .bind("height", &application_window, "default-height")
+        .build();
+    settings
+        .bind("is-maximized", &application_window, "maximized")
+        .build();
+    settings
+        .bind("is-fullscreen", &application_window, "fullscreened")
         .build();
 
     let action_close = gio::SimpleAction::new("close", None);
     action_close.connect_activate({
-        let window = window.clone();
+        let window = application_window.clone();
         move |_, _| {
             window.close();
         }
     });
-    window.add_action(&action_close);
+    application_window.add_action(&action_close);
 
     let action_open = gio::SimpleAction::new("open", Some(glib::VariantTy::STRING));
     action_open.connect_activate({
@@ -255,11 +268,15 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         }
     });
 
-    window.add_action(&action_open);
+    application_window.add_action(&action_open);
 
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone(), &window.clone());
+    let (hb, hb_updater) = headerbar_factory(
+        sender.clone(),
+        settings.clone(),
+        &application_window.clone(),
+    );
 
     let txt = stage_factory(sender.clone(), "status_view");
 
@@ -272,7 +289,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     scroll.set_child(Some(&status.get_empty_view()));
 
-    let bx = Box::builder()
+    let bx = Gtk4Box::builder()
         .hexpand(true)
         .vexpand(true)
         .vexpand_set(true)
@@ -305,11 +322,11 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         .build();
     tb.add_top_bar(&hb);
 
-    window.set_content(Some(&tb));
+    application_window.set_content(Some(&tb));
 
     let mut stage_set = false;
     status.get_status();
-    window.present();
+    application_window.present();
 
     let window_stack: Rc<RefCell<Vec<Window>>> = Rc::new(RefCell::new(Vec::new()));
 
@@ -376,7 +393,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         alert(String::from("No changes were staged. Stage by hitting 's'"))
                             .present(Some(&txt));
                     } else {
-                        status.commit(&window);
+                        status.commit(&application_window);
                     }
                 }
                 Event::Untracked(untracked) => {
@@ -386,12 +403,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::Push => {
                     info!("main.push");
                     hb_updater(HbUpdateData::Push);
-                    status.push(&window);
+                    status.push(&application_window);
                 }
                 Event::Pull => {
                     info!("main.pull");
                     hb_updater(HbUpdateData::Pull);
-                    status.pull(&window);
+                    status.pull(&application_window);
                 }
                 Event::Branches(branches) => {
                     info!("main. branches");
@@ -399,10 +416,11 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::ShowBranches => {
                     info!("main.braches");
+                    let path = status.path.clone().unwrap();
                     let w = show_branches_window(
-                        status.path.clone().expect("no path"),
+                        path,
                         status.branches.take(),
-                        &window,
+                        &application_window,
                         sender.clone(),
                     );
                     w.connect_close_request({
@@ -439,7 +457,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         } else {
                             show_tags_window(
                                 status.path.clone().expect("no path"),
-                                &window,
+                                &application_window,
                                 oid,
                                 remote_name,
                                 sender.clone(),
@@ -472,7 +490,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         } else {
                             show_log_window(
                                 status.path.clone().expect("no path"),
-                                &window,
+                                &application_window,
                                 status.head_name(),
                                 sender.clone(),
                                 ooid,
@@ -520,7 +538,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         odiff,
                         ostate,
                         &txt,
-                        &window,
+                        &application_window,
                         sender.clone(),
                         &banner,
                         &banner_button,
@@ -555,7 +573,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Stage(stage_op) => {
                     info!("Stage {:?}", stage_op);
-                    status.stage_op(stage_op, &window, &settings);
+                    status.stage_op(stage_op, &application_window, &settings);
                 }
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {}", w);
@@ -618,34 +636,80 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         split.set_show_sidebar(false);
                         txt.grab_focus();
                     } else {
-                        let (view, focus) = stashes_view_factory(&window, &status);
+                        let (view, focus) = stashes_view_factory(&application_window, &status);
                         split.set_sidebar(Some(&view));
                         split.set_show_sidebar(true);
                         focus();
                     }
                 }
+                Event::ShowTextOid(short_sha) => {
+                    info!("main.show text oid {:?}", txt);
+                    glib::spawn_future_local({
+                        let path = status.path.clone().unwrap();
+                        let current_window =
+                            if let Some(stacked_window) = window_stack.borrow().last() {
+                                let window = stacked_window.clone();
+                                CurrentWindow::Window(window)
+                            } else {
+                                let application_window = application_window.clone();
+                                CurrentWindow::ApplicationWindow(application_window)
+                            };
+                        let sender = sender.clone();
+                        let window_stack = window_stack.clone();
+                        async move {
+                            let o_commit_window = match gio::spawn_blocking({
+                                let path = path.clone();
+                                move || commit::from_short_sha(path, short_sha)
+                            })
+                            .await
+                            .unwrap()
+                            {
+                                Ok(oid) => {
+                                    info!("goooooooot my oid {:?}", oid);
+                                    let commit_window = show_commit_window(
+                                        path,
+                                        oid,
+                                        None,
+                                        current_window,
+                                        sender.clone(),
+                                    );
+                                    Some(commit_window)
+                                }
+                                Err(e) => {
+                                    let dialog = alert(format!("{:?}", e));
+                                    match current_window {
+                                        CurrentWindow::Window(w) => dialog.present(Some(&w)),
+                                        CurrentWindow::ApplicationWindow(w) => {
+                                            dialog.present(Some(&w))
+                                        }
+                                    };
+                                    None
+                                }
+                            };
+                            if let Some(commit_window) = o_commit_window {
+                                window_stack.borrow_mut().push(commit_window);
+                            }
+                        }
+                    });
+                }
                 Event::ShowOid(oid, num) => {
                     info!("main.show oid {:?}", oid);
-                    let w = {
-                        if let Some(stack) = window_stack.borrow().last() {
-                            show_commit_window(
-                                status.path.clone().expect("no path"),
-                                oid,
-                                num,
-                                stack,
-                                sender.clone(),
-                            )
-                        } else {
-                            show_commit_window(
-                                status.path.clone().expect("no path"),
-                                oid,
-                                num,
-                                &window,
-                                sender.clone(),
-                            )
-                        }
+                    let current_window = if let Some(stacked_window) = window_stack.borrow().last()
+                    {
+                        let window = stacked_window.clone();
+                        CurrentWindow::Window(window)
+                    } else {
+                        let application_window = application_window.clone();
+                        CurrentWindow::ApplicationWindow(application_window)
                     };
-                    w.connect_close_request({
+                    let commit_window = show_commit_window(
+                        status.path.clone().expect("no path"),
+                        oid,
+                        num,
+                        current_window,
+                        sender.clone(),
+                    );
+                    commit_window.connect_close_request({
                         let window_stack = window_stack.clone();
                         move |_| {
                             info!(
@@ -655,11 +719,11 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                             glib::signal::Propagation::Proceed
                         }
                     });
-                    window_stack.borrow_mut().push(w);
+                    window_stack.borrow_mut().push(commit_window);
                 }
                 Event::ResetHard(ooid) => {
                     info!("main. reset hard");
-                    status.reset_hard(ooid, &window);
+                    status.reset_hard(ooid, &application_window);
                 }
                 Event::Refresh => {
                     info!("main. refresh");
@@ -670,7 +734,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::RemotesDialog => {
                     info!("main. remotes dialog");
-                    status.show_remotes_dialog(&window);
+                    status.show_remotes_dialog(&application_window);
                 }
                 Event::LockMonitors(lock) => {
                     info!("main. lock monitors {}", lock);
@@ -691,7 +755,13 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     if let Some(window) = window_stack.borrow().last() {
                         status.cherry_pick(window, oid, revert, ofile_path, ohunk_header)
                     } else {
-                        status.cherry_pick(&window, oid, revert, ofile_path, ohunk_header)
+                        status.cherry_pick(
+                            &application_window,
+                            oid,
+                            revert,
+                            ofile_path,
+                            ohunk_header,
+                        )
                     }
                 }
                 Event::UserInputRequired(auth_request) => {
@@ -699,7 +769,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     if let Some(stack) = window_stack.borrow().last() {
                         auth(auth_request, stack);
                     } else {
-                        auth(auth_request, &window);
+                        auth(auth_request, &application_window);
                     }
                 }
             };
