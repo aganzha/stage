@@ -445,26 +445,20 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     if let Some((o_remote_name, _)) = status.choose_remote_branch_name() {
                         remote_name = o_remote_name;
                     }
-                    let w = {
-                        if let Some(stack) = window_stack.borrow().last() {
-                            show_tags_window(
-                                status.path.clone().expect("no path"),
-                                stack,
-                                oid,
-                                remote_name,
-                                sender.clone(),
-                            )
-                        } else {
-                            show_tags_window(
-                                status.path.clone().expect("no path"),
-                                &application_window,
-                                oid,
-                                remote_name,
-                                sender.clone(),
-                            )
-                        }
+                    let current_window = if let Some(stacked_window) = window_stack.borrow().last()
+                    {
+                        CurrentWindow::Window(stacked_window.clone())
+                    } else {
+                        CurrentWindow::ApplicationWindow(application_window.clone())
                     };
-                    w.connect_close_request({
+                    let tags_window = show_tags_window(
+                        status.path.clone().expect("no path"),
+                        current_window,
+                        oid,
+                        remote_name,
+                        sender.clone(),
+                    );
+                    tags_window.connect_close_request({
                         let window_stack = window_stack.clone();
                         move |_| {
                             info!(
@@ -474,7 +468,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                             glib::signal::Propagation::Proceed
                         }
                     });
-                    window_stack.borrow_mut().push(w);
+                    window_stack.borrow_mut().push(tags_window);
                 }
                 Event::Log(ooid, obranch_name) => {
                     info!("main.log");
@@ -665,7 +659,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                             .unwrap()
                             {
                                 Ok(oid) => {
-                                    info!("goooooooot my oid {:?}", oid);
                                     let commit_window = show_commit_window(
                                         path,
                                         oid,
@@ -687,6 +680,16 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                                 }
                             };
                             if let Some(commit_window) = o_commit_window {
+                                commit_window.connect_close_request({
+                                    let window_stack = window_stack.clone();
+                                    move |_| {
+                                        info!(
+                                            "popping stack while close commit {:?}",
+                                            window_stack.borrow_mut().pop()
+                                        );
+                                        glib::signal::Propagation::Proceed
+                                    }
+                                });
                                 window_stack.borrow_mut().push(commit_window);
                             }
                         }
@@ -696,11 +699,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     info!("main.show oid {:?}", oid);
                     let current_window = if let Some(stacked_window) = window_stack.borrow().last()
                     {
-                        let window = stacked_window.clone();
-                        CurrentWindow::Window(window)
+                        CurrentWindow::Window(stacked_window.clone())
                     } else {
-                        let application_window = application_window.clone();
-                        CurrentWindow::ApplicationWindow(application_window)
+                        CurrentWindow::ApplicationWindow(application_window.clone())
                     };
                     let commit_window = show_commit_window(
                         status.path.clone().expect("no path"),
