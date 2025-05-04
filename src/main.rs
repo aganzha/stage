@@ -472,26 +472,20 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Log(ooid, obranch_name) => {
                     info!("main.log");
-                    let w = {
-                        if let Some(stack) = window_stack.borrow().last() {
-                            show_log_window(
-                                status.path.clone().expect("no path"),
-                                stack,
-                                obranch_name.unwrap_or("unknown branch".to_string()),
-                                sender.clone(),
-                                ooid,
-                            )
-                        } else {
-                            show_log_window(
-                                status.path.clone().expect("no path"),
-                                &application_window,
-                                status.head_name(),
-                                sender.clone(),
-                                ooid,
-                            )
-                        }
+                    let current_window = if let Some(stacked_window) = window_stack.borrow().last()
+                    {
+                        CurrentWindow::Window(stacked_window.clone())
+                    } else {
+                        CurrentWindow::ApplicationWindow(application_window.clone())
                     };
-                    w.connect_close_request({
+                    let log_window = show_log_window(
+                        status.path.clone().expect("no path"),
+                        current_window,
+                        obranch_name.unwrap_or("unknown branch".to_string()),
+                        sender.clone(),
+                        ooid,
+                    );
+                    log_window.connect_close_request({
                         let window_stack = window_stack.clone();
                         move |_| {
                             info!(
@@ -501,7 +495,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                             glib::signal::Propagation::Proceed
                         }
                     });
-                    window_stack.borrow_mut().push(w);
+                    window_stack.borrow_mut().push(log_window);
                 }
                 Event::Head(h) => {
                     info!("main. head");
@@ -642,11 +636,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         let path = status.path.clone().unwrap();
                         let current_window =
                             if let Some(stacked_window) = window_stack.borrow().last() {
-                                let window = stacked_window.clone();
-                                CurrentWindow::Window(window)
+                                CurrentWindow::Window(stacked_window.clone())
                             } else {
-                                let application_window = application_window.clone();
-                                CurrentWindow::ApplicationWindow(application_window)
+                                CurrentWindow::ApplicationWindow(application_window.clone())
                             };
                         let sender = sender.clone();
                         let window_stack = window_stack.clone();
