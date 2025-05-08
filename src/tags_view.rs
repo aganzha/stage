@@ -13,7 +13,7 @@ use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick, Label, ListBox, ListItem,
     ListView, Orientation, PositionType, ScrolledWindow, SearchBar, SearchEntry, SelectionMode,
-    SignalListItemFactory, SingleSelection, TextView, Widget, Window as Gtk4Window, WrapMode,
+    SignalListItemFactory, SingleSelection, TextView, Widget, WrapMode,
 };
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -21,7 +21,7 @@ use std::rc::Rc;
 
 use crate::dialogs::{alert, confirm_dialog_factory, DangerDialog, PROCEED, YES};
 use crate::git::{remote, tag};
-use crate::{DARK_CLASS, LIGHT_CLASS};
+use crate::{CurrentWindow, DARK_CLASS, LIGHT_CLASS};
 use log::trace;
 use std::cell::Cell;
 
@@ -1024,17 +1024,21 @@ pub fn get_tags_list(list_view: &ListView) -> TagList {
 
 pub fn show_tags_window(
     repo_path: PathBuf,
-    app_window: &impl IsA<Gtk4Window>,
+    app_window: CurrentWindow,
     target_oid: git2::Oid,
     remote_name: Option<String>,
     main_sender: Sender<crate::Event>,
 ) -> Window {
-    let window = Window::builder()
-        .transient_for(app_window)
-        .default_width(640)
-        .default_height(480)
-        .build();
-    window.set_default_size(1280, 960);
+    let mut builder = Window::builder().default_width(1280).default_height(960);
+    match app_window {
+        CurrentWindow::Window(w) => {
+            builder = builder.transient_for(&w);
+        }
+        CurrentWindow::ApplicationWindow(w) => {
+            builder = builder.transient_for(&w);
+        }
+    }
+    let window = builder.build();
 
     let list_view = listview_factory(main_sender.clone());
 

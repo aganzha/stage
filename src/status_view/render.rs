@@ -126,10 +126,15 @@ pub trait ViewContainer {
         }
     }
 
-    fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag) {
+    fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag, chars_range: Option<(i32, i32)>) {
         let view = self.get_view();
         if !view.tag_is_added(tag) {
-            let (start_iter, end_iter) = self.start_end_iters(buffer, view.line_no.get());
+            let (mut start_iter, mut end_iter) = self.start_end_iters(buffer, view.line_no.get());
+            if let Some((start, end)) = chars_range {
+                start_iter.forward_chars(start);
+                end_iter.set_line_offset(0);
+                end_iter.forward_chars(end);
+            }
             buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
             view.tag_added(tag);
         }
@@ -145,7 +150,7 @@ pub trait ViewContainer {
             return;
         }
         for t in &self.tags(context) {
-            self.add_tag(buffer, t);
+            self.add_tag(buffer, t, None);
         }
     }
 
@@ -177,14 +182,10 @@ pub trait ViewContainer {
 
                 view.line_no.replace(line_no);
                 view.render(true);
-                // moved to cursor
-                // self.apply_tags(buffer, context);
             }
             ViewState::TagsModified => {
                 // todo!("whats the case?");
                 trace!("..render MATCH TagsModified {:?}", line_no);
-                // moved to cursor
-                // self.apply_tags(buffer, context);
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
                 }
@@ -213,9 +214,6 @@ pub trait ViewContainer {
                 }
                 view.cleanup_tags();
                 self.write_content(iter, buffer, context);
-                // moved to cursor
-                // self.apply_tags(buffer, context);
-
                 self.force_forward(buffer, iter);
             }
             ViewState::RenderedNotInPlace(l) => {
@@ -592,7 +590,7 @@ impl ViewContainer for File {
     // File
     fn tags<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) -> Vec<tags::TxtTag> {
         if self.kind == DiffKind::Untracked {
-            return vec![make_tag(tags::POINTER)];
+            return vec![];
         }
         let mut tags = vec![
             make_tag(tags::FILE),
@@ -932,9 +930,9 @@ impl ViewContainer for Line {
         }
         for t in &self.tags(context) {
             if self.view.is_active() {
-                self.add_tag(buffer, &t.enhance());
+                self.add_tag(buffer, &t.enhance(), None);
             } else {
-                self.add_tag(buffer, t);
+                self.add_tag(buffer, t, None);
             }
         }
 
@@ -1055,11 +1053,6 @@ impl ViewContainer for Head {
                 "Detached head".to_string()
             }
         };
-        // let title = if let Some(branch_name) = &self.branch_name {
-        //     branch_name.to_string()
-        // } else {
-        //     "Detached head".to_string()
-        // };
         let short = self.oid.to_string()[..7].to_string();
         let color = if StyleManager::default().is_dark() {
             "#839daf"
@@ -1081,6 +1074,12 @@ impl ViewContainer for Head {
                 self.log_message
             ),
         );
+    }
+
+    fn apply_tags<'a>(&'a self, buffer: &TextBuffer, _context: &mut StatusRenderContext<'a>) {
+        let range = Some((11, 18));
+        self.add_tag(buffer, &tags::TxtTag::from_str(tags::POINTER), range);
+        self.add_tag(buffer, &tags::TxtTag::from_str(tags::OID), range);
     }
 }
 

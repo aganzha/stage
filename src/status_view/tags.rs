@@ -5,7 +5,7 @@
 use crate::status_view::view::View;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
-use gtk4::{gdk, pango, TextTag};
+use gtk4::{pango, TextTag};
 use libadwaita::StyleManager;
 use log::debug;
 use pango::Style;
@@ -26,19 +26,18 @@ pub const REGION: &str = "region";
 
 pub const HUNK: &str = "hunk";
 pub const FILE: &str = "file";
+pub const OID: &str = "oid";
 
 pub const ITALIC: &str = "italic";
 
 pub const SPACES_ADDED: &str = "spacesAdded";
 pub const SPACES_REMOVED: &str = "spacesRemoved";
-// pub const LINE_NO_ADDED: &str = "linenoAdded";
-// pub const LINE_NO_REMOVED: &str = "linenoRemoved";
-pub const LINE_NO_CONTEXT: &str = "linenoContext";
-pub const CONTEXT: &str = "context";
 
 pub const CONFLICT_MARKER: &str = "conflictmarker";
 pub const OURS: &str = "ours";
 pub const THEIRS: &str = "theirs";
+
+pub const CONTEXT: &str = "context";
 
 pub const TEXT_TAGS: [&str; 19] = [
     BOLD,
@@ -52,6 +51,7 @@ pub const TEXT_TAGS: [&str; 19] = [
     DIFF,
     HUNK,
     FILE,
+    OID,
     ITALIC,
     POINTER,
     STAGED,
@@ -61,9 +61,6 @@ pub const TEXT_TAGS: [&str; 19] = [
     THEIRS,
     SPACES_ADDED,
     SPACES_REMOVED,
-    // LINE_NO_ADDED,
-    // LINE_NO_REMOVED,
-    LINE_NO_CONTEXT,
     CONTEXT,
 ];
 
@@ -213,42 +210,6 @@ impl TxtTag {
                     tag.set_background(Some("#a51d2d"));
                 } else {
                     tag.set_background(Some("#e4999e"));
-                }
-            }
-            // LINE_NO_ADDED => {
-            //     if is_dark {
-            //         tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#4a8e0999").unwrap()));
-            //     } else {
-            //         tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#2ec27e55").unwrap()));
-            //     }
-            // }
-            // LINE_NO_REMOVED => {
-            //     if is_dark {
-            //         tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#a51d2d99").unwrap()));
-            //     } else {
-            //         tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#c01c2855").unwrap()));
-            //     }
-            // }
-            LINE_NO_CONTEXT => {
-                // tag.set_priority(100);
-                if is_dark {
-                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(1.0, 1.0, 1.0, 0.2)));
-                } else {
-                    tag.set_foreground_rgba(Some(&gdk::RGBA::new(0.0, 0.0, 0.0, 0.2)));
-                    // from removed
-                    // tag.set_foreground_rgba(Some(&gdk::RGBA::parse("#c01c2855").unwrap()));
-                }
-            }
-            CONTEXT => {
-                // tag.set_priority(1);
-                // for some reason it affects LINE_NO_CONTEXT.
-                // cant find reason...
-                if is_dark {
-                    // tag.set_foreground_rgba(Some(&gdk::RGBA::new(1.0, 1.0, 1.0, 0.6)));
-                } else {
-                    // from removed
-                    // tag.set_foreground(Some("#c01c28"));
-                    // tag.set_foreground_rgba(Some(&gdk::RGBA::new(0.0, 0.0, 0.0, 0.6)));
                 }
             }
             BOLD => {

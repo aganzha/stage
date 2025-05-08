@@ -13,6 +13,12 @@ listview.dark {
     background-color: #232323;
     color: #d6d5d2;/* @light_3; */
 }
+/* this used only in commit and alert views
+   stage_views are painted by bg_fill
+*/
+textview.dark {
+    background-color: #383838;
+}
 
 .nocorners {
     border-top-left-radius: 0;
@@ -28,12 +34,6 @@ banner.error.light revealer widget {
 }
 banner.error.dark revealer widget {
     background-color: #2b2023;
-}
-/* this used only in commit and alert views
-   stage_views are painted by bg_fill
-*/
-textview.dark {
-    background-color: #383838;
 }
 
 
@@ -58,8 +58,8 @@ scheme_selector button.dark {
 }
 
 scheme_selector button image {
-    max-width: 0;
-    max-height: 0;
+    /* max-width: 0; */
+    /* max-height: 0; */
 }
 scheme_selector button:checked {
     box-shadow: inset 0 0 0 2px @accent_bg_color;
@@ -68,8 +68,8 @@ scheme_selector button:checked image {
     border: none;
     background: none;
     box-shadow: none;
-    max-width: 5px;
-    max-height: 5px;
+    /* max-width: 5px; */
+    /* max-height: 5px; */
     transform: translate(17px, 14px);
     padding: 2px;
     background-color: @accent_bg_color;

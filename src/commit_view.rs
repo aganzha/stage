@@ -9,14 +9,13 @@ use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
-use crate::Event;
+use crate::{CurrentWindow, Event};
 use async_channel::Sender;
 use git2::Oid;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, TextBuffer, TextIter,
-    Widget, Window as Gtk4Window,
+    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, TextBuffer, TextIter, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -251,7 +250,7 @@ pub fn show_commit_window(
     repo_path: PathBuf,
     oid: Oid,
     stash_num: Option<usize>,
-    app_window: &impl IsA<Gtk4Window>,
+    app_window: CurrentWindow,
     main_sender: Sender<Event>, // i need that to trigger revert and cherry-pick.
 ) -> Window {
     let (sender, receiver) = async_channel::unbounded();
@@ -259,12 +258,19 @@ pub fn show_commit_window(
     let mut diff: Option<commit::CommitDiff> = None;
 
     const MAX_WIDTH: i32 = 1280;
-    let window = Window::builder()
-        .transient_for(app_window)
-        .default_width(MAX_WIDTH)
-        .default_height(960)
-        .build();
 
+    let mut builder = Window::builder()
+        .default_width(MAX_WIDTH)
+        .default_height(960);
+    match app_window {
+        CurrentWindow::Window(w) => {
+            builder = builder.transient_for(&w);
+        }
+        CurrentWindow::ApplicationWindow(w) => {
+            builder = builder.transient_for(&w);
+        }
+    }
+    let window = builder.build();
     let scroll = ScrolledWindow::new();
 
     let hb = headerbar_factory(

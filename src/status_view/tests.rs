@@ -306,6 +306,7 @@ pub struct TestViewContainer {
     pub content: String,
 }
 
+#[cfg(test)]
 impl TestViewContainer {
     pub fn new(view: View, content: &str) -> Self {
         TestViewContainer {

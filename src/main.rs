@@ -28,12 +28,10 @@ use stashes_view::factory as stashes_view_factory;
 mod commit_view;
 use commit_view::show_commit_window;
 
-use core::time::Duration;
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Condvar, Mutex};
-
 mod git;
 use git::{
     branch, commit, get_current_repo_status, get_directories, reset_hard, stage_untracked,
@@ -46,82 +44,29 @@ use dialogs::alert;
 
 mod tests;
 use gdk::Display;
-use glib::ControlFlow;
+use gtk4::prelude::*;
+use gtk4::{
+    gdk, gio, glib, style_context_add_provider_for_display,
+    style_context_remove_provider_for_display, Box as Gtk4Box, CssProvider, Orientation,
+    ScrolledWindow, STYLE_PROVIDER_PRIORITY_USER,
+};
 use libadwaita::prelude::*;
 use libadwaita::{
     Application, ApplicationWindow, Banner, OverlaySplitView, StyleManager, Toast, ToastOverlay,
     ToolbarStyle, ToolbarView, Window,
 };
 
-use gtk4::{
-    gdk, gio, glib, style_context_add_provider_for_display, Align, Box, CssProvider, Orientation,
-    ScrolledWindow, Settings, STYLE_PROVIDER_PRIORITY_USER,
-};
-
 use log::{info, trace};
-use regex::Regex;
 
 const APP_ID: &str = "io.github.aganzha.Stage";
 
 pub const DARK_CLASS: &str = "dark";
 pub const LIGHT_CLASS: &str = "light";
 
-fn main() -> glib::ExitCode {
-    let app = Application::builder()
-        .application_id(APP_ID)
-        .flags(gio::ApplicationFlags::HANDLES_OPEN)
-        .build();
-
-    app.connect_startup(|_| load_css());
-    app.connect_startup(|_| register_resources());
-
-    let initial_path: Rc<RefCell<Option<PathBuf>>> = Rc::new(RefCell::new(None));
-
-    app.connect_open({
-        let initial_path = initial_path.clone();
-        move |opened_app: &Application, files: &[gio::File], _: &str| {
-            if !files.is_empty() {
-                if let Some(path) = files[0].path() {
-                    initial_path.replace(Some(path));
-                }
-            }
-            opened_app.activate();
-        }
-    });
-    app.connect_activate({
-        let initial_path = initial_path.clone();
-        move |running_app| {
-            let windows = running_app.windows();
-            if windows.is_empty() {
-                run_app(running_app, &initial_path.borrow());
-            } else {
-                windows[0].present();
-            }
-        }
-    });
-    app.run()
-}
-
-fn load_css() {
-    let display = Display::default().expect("Could not connect to a display.");
-    let settings = Settings::for_display(&display);
-    let stored_settings = get_settings();
-    let stored_font_size = stored_settings.get::<i32>("zoom");
-    settings.set_gtk_font_name(Some(&format!("Cantarell {}", stored_font_size)));
-
-    let provider = CssProvider::new();
-
-    provider.load_from_string(include_str!("style.css"));
-
-    style_context_add_provider_for_display(&display, &provider, STYLE_PROVIDER_PRIORITY_USER);
-}
-
-fn register_resources() {
-    gio::resources_register_include!("gresources.compiled").expect("Failed to register resources.");
-    // let xml: Result<gtk4::glib::Bytes, gtk4::glib::Error>= gio::resources_lookup_data(
-    //     "/io/github/aganzha/Stage/io.github.aganzha.Stage.metainfo.xml",
-    //     gio::ResourceLookupFlags::empty()
-    // );
+#[derive(Clone)]
+enum CurrentWindow {
+    Window(Window),
+    ApplicationWindow(ApplicationWindow),
 }
 
 #[derive(Debug, Clone)]
@@ -177,6 +122,7 @@ pub enum Event {
     Branches(Vec<branch::BranchData>),
     Log(Option<Oid>, Option<String>),
     ShowOid(Oid, Option<usize>),
+    ShowTextOid(String),
     TextViewResize(i32),
     TextCharVisibleWidth(i32),
     Toast(String),
@@ -196,24 +142,48 @@ pub enum Event {
     UserInputRequired(Arc<(Mutex<LoginPassword>, Condvar)>),
 }
 
-fn zoom(dir: bool) {
-    let display = Display::default().expect("Could not connect to a display.");
-    let settings = Settings::for_display(&display);
-    let font = settings.gtk_font_name().expect("cant get font");
-    let re = Regex::new(r".+ ([0-9]+)").expect("fail in regexp");
-    if let Some((_whole, [size])) = re.captures_iter(&font).map(|c| c.extract()).next() {
-        let mut int_size = size.parse::<i32>().expect("cant parse size");
-        if dir {
-            if int_size < 64 {
-                int_size += 1;
+fn main() -> glib::ExitCode {
+    let app = Application::builder()
+        .application_id(APP_ID)
+        .flags(gio::ApplicationFlags::HANDLES_OPEN)
+        .build();
+
+    app.connect_startup(|_| {
+        let display = Display::default().expect("cant get dispay");
+        let provider = CssProvider::new();
+        provider.load_from_string(include_str!("style.css"));
+        style_context_add_provider_for_display(&display, &provider, STYLE_PROVIDER_PRIORITY_USER);
+    });
+    app.connect_startup(|_| {
+        gio::resources_register_include!("gresources.compiled")
+            .expect("Failed to register resources.");
+    });
+
+    let initial_path: Rc<RefCell<Option<PathBuf>>> = Rc::new(RefCell::new(None));
+
+    app.connect_open({
+        let initial_path = initial_path.clone();
+        move |opened_app: &Application, files: &[gio::File], _: &str| {
+            if !files.is_empty() {
+                if let Some(path) = files[0].path() {
+                    initial_path.replace(Some(path));
+                }
             }
-        } else if int_size > 1 {
-            int_size -= 1;
+            opened_app.activate();
         }
-        settings.set_gtk_font_name(Some(&format!("Cantarell {}", int_size)));
-        let settings = get_settings();
-        settings.set("zoom", int_size).expect("cant set settings")
-    };
+    });
+    app.connect_activate({
+        let initial_path = initial_path.clone();
+        move |running_app| {
+            let windows = running_app.windows();
+            if windows.is_empty() {
+                run_app(running_app, &initial_path.borrow());
+            } else {
+                windows[0].present();
+            }
+        }
+    });
+    app.run()
 }
 
 pub fn get_settings() -> gio::Settings {
@@ -234,6 +204,16 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     let settings = get_settings();
 
+    let font_size = settings.get::<i32>("zoom");
+    let provider = CssProvider::new();
+    provider.load_from_string(&format!(
+        "#status_view, #commit_view {{font-size: {}px;}}",
+        font_size
+    ));
+    let display = Display::default().expect("cant get dispay");
+    style_context_add_provider_for_display(&display, &provider, STYLE_PROVIDER_PRIORITY_USER);
+    let font_size_provider = RefCell::new(provider);
+
     let scheme = settings.get::<String>(SCHEME_TOKEN);
     if !scheme.is_empty() {
         StyleManager::default().set_color_scheme(Scheme::new(scheme).scheme_name());
@@ -251,23 +231,29 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         sender.clone(),
     );
 
-    let window = ApplicationWindow::builder().application(app).build();
+    let application_window = ApplicationWindow::builder().application(app).build();
 
-    settings.bind("width", &window, "default-width").build();
-    settings.bind("height", &window, "default-height").build();
-    settings.bind("is-maximized", &window, "maximized").build();
     settings
-        .bind("is-fullscreen", &window, "fullscreened")
+        .bind("width", &application_window, "default-width")
+        .build();
+    settings
+        .bind("height", &application_window, "default-height")
+        .build();
+    settings
+        .bind("is-maximized", &application_window, "maximized")
+        .build();
+    settings
+        .bind("is-fullscreen", &application_window, "fullscreened")
         .build();
 
     let action_close = gio::SimpleAction::new("close", None);
     action_close.connect_activate({
-        let window = window.clone();
+        let window = application_window.clone();
         move |_, _| {
             window.close();
         }
     });
-    window.add_action(&action_close);
+    application_window.add_action(&action_close);
 
     let action_open = gio::SimpleAction::new("open", Some(glib::VariantTy::STRING));
     action_open.connect_activate({
@@ -282,11 +268,15 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         }
     });
 
-    window.add_action(&action_open);
+    application_window.add_action(&action_open);
 
     app.set_accels_for_action("win.close", &["<Ctrl>W"]);
 
-    let (hb, hb_updater) = headerbar_factory(sender.clone(), settings.clone(), &window.clone());
+    let (hb, hb_updater) = headerbar_factory(
+        sender.clone(),
+        settings.clone(),
+        &application_window.clone(),
+    );
 
     let txt = stage_factory(sender.clone(), "status_view");
 
@@ -299,7 +289,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     scroll.set_child(Some(&status.get_empty_view()));
 
-    let bx = Box::builder()
+    let bx = Gtk4Box::builder()
         .hexpand(true)
         .vexpand(true)
         .vexpand_set(true)
@@ -332,11 +322,11 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
         .build();
     tb.add_top_bar(&hb);
 
-    window.set_content(Some(&tb));
+    application_window.set_content(Some(&tb));
 
     let mut stage_set = false;
     status.get_status();
-    window.present();
+    application_window.present();
 
     let window_stack: Rc<RefCell<Vec<Window>>> = Rc::new(RefCell::new(Vec::new()));
 
@@ -403,7 +393,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         alert(String::from("No changes were staged. Stage by hitting 's'"))
                             .present(Some(&txt));
                     } else {
-                        status.commit(&window);
+                        status.commit(&application_window);
                     }
                 }
                 Event::Untracked(untracked) => {
@@ -413,12 +403,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::Push => {
                     info!("main.push");
                     hb_updater(HbUpdateData::Push);
-                    status.push(&window);
+                    status.push(&application_window);
                 }
                 Event::Pull => {
                     info!("main.pull");
                     hb_updater(HbUpdateData::Pull);
-                    status.pull(&window);
+                    status.pull(&application_window);
                 }
                 Event::Branches(branches) => {
                     info!("main. branches");
@@ -426,10 +416,11 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::ShowBranches => {
                     info!("main.braches");
+                    let path = status.path.clone().unwrap();
                     let w = show_branches_window(
-                        status.path.clone().expect("no path"),
+                        path,
                         status.branches.take(),
-                        &window,
+                        &application_window,
                         sender.clone(),
                     );
                     w.connect_close_request({
@@ -454,26 +445,20 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     if let Some((o_remote_name, _)) = status.choose_remote_branch_name() {
                         remote_name = o_remote_name;
                     }
-                    let w = {
-                        if let Some(stack) = window_stack.borrow().last() {
-                            show_tags_window(
-                                status.path.clone().expect("no path"),
-                                stack,
-                                oid,
-                                remote_name,
-                                sender.clone(),
-                            )
-                        } else {
-                            show_tags_window(
-                                status.path.clone().expect("no path"),
-                                &window,
-                                oid,
-                                remote_name,
-                                sender.clone(),
-                            )
-                        }
+                    let current_window = if let Some(stacked_window) = window_stack.borrow().last()
+                    {
+                        CurrentWindow::Window(stacked_window.clone())
+                    } else {
+                        CurrentWindow::ApplicationWindow(application_window.clone())
                     };
-                    w.connect_close_request({
+                    let tags_window = show_tags_window(
+                        status.path.clone().expect("no path"),
+                        current_window,
+                        oid,
+                        remote_name,
+                        sender.clone(),
+                    );
+                    tags_window.connect_close_request({
                         let window_stack = window_stack.clone();
                         move |_| {
                             info!(
@@ -483,30 +468,24 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                             glib::signal::Propagation::Proceed
                         }
                     });
-                    window_stack.borrow_mut().push(w);
+                    window_stack.borrow_mut().push(tags_window);
                 }
                 Event::Log(ooid, obranch_name) => {
                     info!("main.log");
-                    let w = {
-                        if let Some(stack) = window_stack.borrow().last() {
-                            show_log_window(
-                                status.path.clone().expect("no path"),
-                                stack,
-                                obranch_name.unwrap_or("unknown branch".to_string()),
-                                sender.clone(),
-                                ooid,
-                            )
-                        } else {
-                            show_log_window(
-                                status.path.clone().expect("no path"),
-                                &window,
-                                status.head_name(),
-                                sender.clone(),
-                                ooid,
-                            )
-                        }
+                    let current_window = if let Some(stacked_window) = window_stack.borrow().last()
+                    {
+                        CurrentWindow::Window(stacked_window.clone())
+                    } else {
+                        CurrentWindow::ApplicationWindow(application_window.clone())
                     };
-                    w.connect_close_request({
+                    let log_window = show_log_window(
+                        status.path.clone().expect("no path"),
+                        current_window,
+                        obranch_name.unwrap_or("unknown branch".to_string()),
+                        sender.clone(),
+                        ooid,
+                    );
+                    log_window.connect_close_request({
                         let window_stack = window_stack.clone();
                         move |_| {
                             info!(
@@ -516,7 +495,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                             glib::signal::Propagation::Proceed
                         }
                     });
-                    window_stack.borrow_mut().push(w);
+                    window_stack.borrow_mut().push(log_window);
                 }
                 Event::Head(h) => {
                     info!("main. head");
@@ -547,7 +526,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         odiff,
                         ostate,
                         &txt,
-                        &window,
+                        &application_window,
                         sender.clone(),
                         &banner,
                         &banner_button,
@@ -582,7 +561,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Stage(stage_op) => {
                     info!("Stage {:?}", stage_op);
-                    status.stage_op(stage_op, &window, &settings);
+                    status.stage_op(stage_op, &application_window, &settings);
                 }
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {}", w);
@@ -606,20 +585,34 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::Zoom(dir) => {
                     info!("Zoom");
-                    zoom(dir);
+                    let settings = get_settings();
+                    let font_size = settings.get::<i32>("zoom") + if dir { 1 } else { -1 };
+                    let provider = CssProvider::new();
+                    provider.load_from_string(&format!(
+                        "#status_view, #commit_view {{font-size: {}px;}}",
+                        font_size
+                    ));
+                    let display = Display::default().expect("cant get dispay");
+                    style_context_add_provider_for_display(
+                        &display,
+                        &provider,
+                        STYLE_PROVIDER_PRIORITY_USER,
+                    );
+                    let old_provider = font_size_provider.replace(provider);
+                    style_context_remove_provider_for_display(&display, &old_provider);
+                    settings.set("zoom", font_size).expect("cant set settings");
                     // when zoom, TextView become offset from scroll
                     // on some step. this is a hack to force rerender
                     // this pair to allow TextView accomodate whole
                     // width of ScrollView
-                    status.resize_highlights(&txt, &mut ctx);
-                    scroll.set_halign(Align::Start);
-                    glib::source::timeout_add_local(Duration::from_millis(30), {
-                        let scroll = scroll.clone();
-                        move || {
-                            scroll.set_halign(Align::Fill);
-                            ControlFlow::Break
-                        }
-                    });
+                    // scroll.set_halign(Align::Start);
+                    // glib::source::timeout_add_local(Duration::from_millis(30), {
+                    //     let scroll = scroll.clone();
+                    //     move || {
+                    //         scroll.set_halign(Align::Fill);
+                    //         ControlFlow::Break
+                    //     }
+                    // });
                 }
                 Event::Stashes(stashes) => {
                     info!("stashes data");
@@ -631,34 +624,85 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         split.set_show_sidebar(false);
                         txt.grab_focus();
                     } else {
-                        let (view, focus) = stashes_view_factory(&window, &status);
+                        let (view, focus) = stashes_view_factory(&application_window, &status);
                         split.set_sidebar(Some(&view));
                         split.set_show_sidebar(true);
                         focus();
                     }
                 }
+                Event::ShowTextOid(short_sha) => {
+                    info!("main.show text oid {:?}", txt);
+                    glib::spawn_future_local({
+                        let path = status.path.clone().unwrap();
+                        let current_window =
+                            if let Some(stacked_window) = window_stack.borrow().last() {
+                                CurrentWindow::Window(stacked_window.clone())
+                            } else {
+                                CurrentWindow::ApplicationWindow(application_window.clone())
+                            };
+                        let sender = sender.clone();
+                        let window_stack = window_stack.clone();
+                        async move {
+                            let o_commit_window = match gio::spawn_blocking({
+                                let path = path.clone();
+                                move || commit::from_short_sha(path, short_sha)
+                            })
+                            .await
+                            .unwrap()
+                            {
+                                Ok(oid) => {
+                                    let commit_window = show_commit_window(
+                                        path,
+                                        oid,
+                                        None,
+                                        current_window,
+                                        sender.clone(),
+                                    );
+                                    Some(commit_window)
+                                }
+                                Err(e) => {
+                                    let dialog = alert(format!("{:?}", e));
+                                    match current_window {
+                                        CurrentWindow::Window(w) => dialog.present(Some(&w)),
+                                        CurrentWindow::ApplicationWindow(w) => {
+                                            dialog.present(Some(&w))
+                                        }
+                                    };
+                                    None
+                                }
+                            };
+                            if let Some(commit_window) = o_commit_window {
+                                commit_window.connect_close_request({
+                                    let window_stack = window_stack.clone();
+                                    move |_| {
+                                        info!(
+                                            "popping stack while close commit {:?}",
+                                            window_stack.borrow_mut().pop()
+                                        );
+                                        glib::signal::Propagation::Proceed
+                                    }
+                                });
+                                window_stack.borrow_mut().push(commit_window);
+                            }
+                        }
+                    });
+                }
                 Event::ShowOid(oid, num) => {
                     info!("main.show oid {:?}", oid);
-                    let w = {
-                        if let Some(stack) = window_stack.borrow().last() {
-                            show_commit_window(
-                                status.path.clone().expect("no path"),
-                                oid,
-                                num,
-                                stack,
-                                sender.clone(),
-                            )
-                        } else {
-                            show_commit_window(
-                                status.path.clone().expect("no path"),
-                                oid,
-                                num,
-                                &window,
-                                sender.clone(),
-                            )
-                        }
+                    let current_window = if let Some(stacked_window) = window_stack.borrow().last()
+                    {
+                        CurrentWindow::Window(stacked_window.clone())
+                    } else {
+                        CurrentWindow::ApplicationWindow(application_window.clone())
                     };
-                    w.connect_close_request({
+                    let commit_window = show_commit_window(
+                        status.path.clone().expect("no path"),
+                        oid,
+                        num,
+                        current_window,
+                        sender.clone(),
+                    );
+                    commit_window.connect_close_request({
                         let window_stack = window_stack.clone();
                         move |_| {
                             info!(
@@ -668,11 +712,11 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                             glib::signal::Propagation::Proceed
                         }
                     });
-                    window_stack.borrow_mut().push(w);
+                    window_stack.borrow_mut().push(commit_window);
                 }
                 Event::ResetHard(ooid) => {
                     info!("main. reset hard");
-                    status.reset_hard(ooid, &window);
+                    status.reset_hard(ooid, &application_window);
                 }
                 Event::Refresh => {
                     info!("main. refresh");
@@ -683,7 +727,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 }
                 Event::RemotesDialog => {
                     info!("main. remotes dialog");
-                    status.show_remotes_dialog(&window);
+                    status.show_remotes_dialog(&application_window);
                 }
                 Event::LockMonitors(lock) => {
                     info!("main. lock monitors {}", lock);
@@ -693,7 +737,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     info!("StoreSettings {} {}", name, value);
                     settings.set(&name, value).expect("cant set settings");
                     if name == SCHEME_TOKEN {
-                        txt.set_is_dark(StyleManager::default().is_dark(), true);
+                        txt.set_background();
                     }
                 }
                 Event::CherryPick(oid, revert, ofile_path, ohunk_header) => {
@@ -704,7 +748,13 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     if let Some(window) = window_stack.borrow().last() {
                         status.cherry_pick(window, oid, revert, ofile_path, ohunk_header)
                     } else {
-                        status.cherry_pick(&window, oid, revert, ofile_path, ohunk_header)
+                        status.cherry_pick(
+                            &application_window,
+                            oid,
+                            revert,
+                            ofile_path,
+                            ohunk_header,
+                        )
                     }
                 }
                 Event::UserInputRequired(auth_request) => {
@@ -712,7 +762,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     if let Some(stack) = window_stack.borrow().last() {
                         auth(auth_request, stack);
                     } else {
-                        auth(auth_request, &window);
+                        auth(auth_request, &application_window);
                     }
                 }
             };

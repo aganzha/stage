@@ -30,7 +30,7 @@
       <summary>choosen theme</summary>
     </key>
     <key name="zoom" type="i">
-      <default>18</default>
+      <default>14</default>
       <summary>font size</summary>
     </key>
   </schema>

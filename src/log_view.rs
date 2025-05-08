@@ -4,7 +4,7 @@
 
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{commit, git_log};
-use crate::{DARK_CLASS, LIGHT_CLASS};
+use crate::{CurrentWindow, DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
 use core::time::Duration;
 use git2::Oid;
@@ -14,7 +14,7 @@ use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick, Image, Label, ListItem,
     ListView, Orientation, PositionType, ScrolledWindow, SearchBar, SearchEntry,
-    SignalListItemFactory, SingleSelection, Widget, Window as Gtk4Window,
+    SignalListItemFactory, SingleSelection, Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, StyleManager, ToolbarView, Window};
@@ -709,18 +709,21 @@ pub fn headerbar_factory(
 
 pub fn show_log_window(
     repo_path: PathBuf,
-    app_window: &impl IsA<Gtk4Window>,
+    app_window: CurrentWindow,
     branch_name: String,
     main_sender: Sender<crate::Event>,
     start_oid: Option<Oid>,
 ) -> Window {
-    let window = Window::builder()
-        .transient_for(app_window)
-        .default_width(640)
-        .default_height(480)
-        .build();
-    window.set_default_size(1280, 960);
-
+    let mut builder = Window::builder().default_width(1280).default_height(960);
+    match app_window {
+        CurrentWindow::Window(w) => {
+            builder = builder.transient_for(&w);
+        }
+        CurrentWindow::ApplicationWindow(w) => {
+            builder = builder.transient_for(&w);
+        }
+    }
+    let window = builder.build();
     let list_view = listview_factory(main_sender.clone());
 
     let scroll = ScrolledWindow::new();

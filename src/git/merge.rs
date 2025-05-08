@@ -118,6 +118,7 @@ pub fn final_merge_commit(path: PathBuf, sender: Sender<crate::Event>) -> Result
 pub fn branch(
     path: PathBuf,
     branch_data: BranchData,
+    squash: bool,
     sender: Sender<crate::Event>,
     mut defer: Option<DeferRefresh>,
 ) -> Result<Option<BranchData>, git2::Error> {
@@ -143,7 +144,9 @@ pub fn branch(
             sender
                 .send_blocking(crate::Event::LockMonitors(false))
                 .expect("Could not send through channel");
-            repo.reset(&ob, git2::ResetType::Soft, None)?;
+            if !squash {
+                repo.reset(&ob, git2::ResetType::Soft, None)?;
+            }
         }
         Ok((analysis, preference)) if analysis.is_normal() && !preference.is_fastforward_only() => {
             info!("merge.normal");
@@ -164,7 +167,9 @@ pub fn branch(
                 }
                 return Ok(None);
             }
-            final_merge_commit(path.clone(), sender.clone())?;
+            if !squash {
+                final_merge_commit(path.clone(), sender.clone())?;
+            }
         }
         Ok((analysis, preference)) => {
             todo!("not implemented case {:?} {:?}", analysis, preference);

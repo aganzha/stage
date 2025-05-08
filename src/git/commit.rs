@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::git::{get_head, make_diff, make_diff_options, DeferRefresh, Diff, DiffKind};
+use anyhow::Result;
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
 use git2;
@@ -296,4 +297,10 @@ pub fn apply(
         }
     }
     Ok(())
+}
+
+pub fn from_short_sha(path: PathBuf, short_sha: String) -> Result<git2::Oid> {
+    let repo = git2::Repository::open(path.clone())?;
+    let object = repo.revparse_single(&short_sha)?;
+    Ok(object.id())
 }
