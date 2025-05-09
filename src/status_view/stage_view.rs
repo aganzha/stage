@@ -17,7 +17,7 @@ use gtk4::{
 use libadwaita::StyleManager;
 use log::{debug, trace};
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 glib::wrapper! {
@@ -313,6 +313,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let file = tags::TxtTag::from_str(tags::FILE).create();
     let hunk = tags::TxtTag::from_str(tags::HUNK).create();
     let oid = tags::TxtTag::from_str(tags::OID).create();
+    let underline = tags::TxtTag::from_str(tags::UNDERLINE).create();
 
     for tag_name in tags::TEXT_TAGS {
         match tag_name {
@@ -322,6 +323,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             tags::FILE => table.add(&file),
             tags::HUNK => table.add(&hunk),
             tags::OID => table.add(&oid),
+            tags::UNDERLINE => table.add(&underline),
             _ => table.add(&tags::TxtTag::from_str(tag_name).create()),
         };
     }
@@ -338,7 +340,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 txt.remove_css_class(DARK_CLASS);
                 txt.add_css_class(LIGHT_CLASS);
             }
-            debug!("JUST SET new css classes {:?}", txt.css_classes());
             table.foreach(|tt| {
                 if let Some(name) = tt.name() {
                     let t = tags::TxtTag::unknown_tag(name.to_string());
@@ -478,6 +479,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     gesture_controller.connect_released({
         let sndr = sndr.clone();
         let txt = txt.clone();
+        let oid = oid.clone();
         move |gesture, n_clicks, _wx, _wy| {
             gesture.set_state(EventSequenceState::Claimed);
             txt.set_cursor_highlight(true);
@@ -525,10 +527,16 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
         }
     });
 
+    let current_underline: Rc<Cell<Option<(i32, i32)>>> = Rc::new(Cell::new(None));
+
     txt.add_controller(gesture_controller);
 
     txt.connect_move_cursor({
         let sndr = sndr.clone();
+        let txt = txt.clone();
+        let current_underline = current_underline.clone();
+        let oid = oid.clone();
+        let pointer = pointer.clone();
         move |view: &StageView, step, count, _selection| {
             view.set_cursor_highlight(true);
             let buffer = view.buffer();
@@ -543,7 +551,9 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     start_iter.forward_word_end();
                 }
                 MovementStep::DisplayLines => {
+                    let char_offset = start_iter.line_offset();
                     start_iter.forward_lines(count);
+                    start_iter.set_line_offset(char_offset);
                 }
                 MovementStep::DisplayLineEnds
                 | MovementStep::Paragraphs
@@ -553,8 +563,39 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 | MovementStep::HorizontalPages => {}
                 _ => todo!(),
             }
+
+            if let Some((u_start, u_end)) = current_underline.get() {
+                let u_start_iter = txt.buffer().iter_at_offset(u_start);
+                let u_end_iter = txt.buffer().iter_at_offset(u_end);
+                buffer.remove_tag_by_name(tags::UNDERLINE, &u_start_iter, &u_end_iter);
+                current_underline.replace(None);
+            }
+            if start_iter.has_tag(&oid) {
+                let pos = start_iter.offset();
+                let mut u_start_iter = txt.buffer().iter_at_offset(pos);
+                let mut u_end_iter = txt.buffer().iter_at_offset(pos);
+                u_start_iter.backward_to_tag_toggle(Some(&pointer));
+                u_end_iter.forward_to_tag_toggle(Some(&pointer));
+
+                if u_start_iter.line_offset() <= start_iter.line_offset()
+                    && u_end_iter.line_offset() >= start_iter.line_offset()
+                {
+                    // condition above and below are weird cases, when on line 0
+                    // start tag fall backward to line offset 0
+                    // on other lines those conditions are not required...
+                    if u_start_iter.has_tag(&oid) {
+                        buffer.apply_tag_by_name(tags::UNDERLINE, &u_start_iter, &u_end_iter);
+                        current_underline
+                            .replace(Some((u_start_iter.offset(), u_end_iter.offset())));
+                    }
+                }
+            }
+
             let current_line = start_iter.line();
+
             if line_before != current_line {
+                let mut cycle_iter = buffer.iter_at_offset(start_iter.offset());
+                cycle_iter.set_line_offset(0);
                 sndr.send_blocking(crate::Event::Cursor(start_iter.offset(), current_line))
                     .expect("Could not send through channel");
             }
@@ -567,6 +608,22 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
         move |_c, x, y| {
             let (x, y) = txt.window_to_buffer_coords(TextWindowType::Text, x as i32, y as i32);
             if let Some(iter) = txt.iter_at_location(x, y) {
+                let buffer = txt.buffer();
+                if let Some((u_start, u_end)) = current_underline.get() {
+                    let start_iter = txt.buffer().iter_at_offset(u_start);
+                    let end_iter = txt.buffer().iter_at_offset(u_end);
+                    buffer.remove_tag_by_name(tags::UNDERLINE, &start_iter, &end_iter);
+                    current_underline.replace(None);
+                }
+                if iter.has_tag(&oid) {
+                    let pos = iter.offset();
+                    let mut start_iter = txt.buffer().iter_at_offset(pos);
+                    let mut end_iter = txt.buffer().iter_at_offset(pos);
+                    start_iter.backward_to_tag_toggle(Some(&pointer));
+                    end_iter.forward_to_tag_toggle(Some(&pointer));
+                    buffer.apply_tag_by_name(tags::UNDERLINE, &start_iter, &end_iter);
+                    current_underline.replace(Some((start_iter.offset(), end_iter.offset())));
+                }
                 if iter.has_tag(&pointer) {
                     txt.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
                 } else {

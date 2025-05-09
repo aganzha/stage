@@ -8,7 +8,7 @@ use gtk4::prelude::*;
 use gtk4::{pango, TextTag};
 use libadwaita::StyleManager;
 use log::debug;
-use pango::Style;
+use pango::Underline;
 
 pub const POINTER: &str = "pointer";
 pub const STAGED: &str = "staged";
@@ -28,7 +28,7 @@ pub const HUNK: &str = "hunk";
 pub const FILE: &str = "file";
 pub const OID: &str = "oid";
 
-pub const ITALIC: &str = "italic";
+pub const UNDERLINE: &str = "italic";
 
 pub const SPACES_ADDED: &str = "spacesAdded";
 pub const SPACES_REMOVED: &str = "spacesRemoved";
@@ -52,7 +52,7 @@ pub const TEXT_TAGS: [&str; 19] = [
     HUNK,
     FILE,
     OID,
-    ITALIC,
+    UNDERLINE,
     POINTER,
     STAGED,
     UNSTAGED,
@@ -265,8 +265,8 @@ impl TxtTag {
                 //     tag.set_background(Some("#deddda"));
                 // }
             }
-            ITALIC => {
-                tag.set_style(Style::Italic);
+            UNDERLINE => {
+                tag.set_underline(Underline::Single);
             }
             POINTER => {}
             STAGED | UNSTAGED => {}
