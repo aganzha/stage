@@ -12,10 +12,10 @@ use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, glib, EventControllerKey, EventControllerMotion, EventSequenceState, GestureClick,
-    GestureDrag, MovementStep, TextBuffer, TextView, TextWindowType, Widget,
+    GestureDrag, MovementStep, TextBuffer, TextIter, TextTag, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::{debug, trace};
+use log::trace;
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -366,11 +366,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 (gdk::Key::s | gdk::Key::a | gdk::Key::Return, _) => {
                     let pos = buffer.cursor_position();
                     let iter = buffer.iter_at_offset(pos);
-                    if iter.has_tag(&oid) {
-                        let mut start_iter = buffer.iter_at_offset(pos);
-                        let mut end_iter = buffer.iter_at_offset(pos);
-                        start_iter.backward_to_tag_toggle(Some(&oid));
-                        end_iter.forward_to_tag_toggle(Some(&oid));
+                    if let Some((start_iter, end_iter)) = iters_for(&oid, &iter) {
                         let oid_text = buffer.text(&start_iter, &end_iter, true);
                         sndr.send_blocking(crate::Event::ShowTextOid(oid_text.to_string()))
                             .expect("Cant send through channel");
@@ -487,12 +483,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             let iter = txt.buffer().iter_at_offset(pos);
             sndr.send_blocking(crate::Event::Cursor(iter.offset(), iter.line()))
                 .expect("Cant send through channel");
-
-            if iter.has_tag(&oid) {
-                let mut start_iter = txt.buffer().iter_at_offset(pos);
-                let mut end_iter = txt.buffer().iter_at_offset(pos);
-                start_iter.backward_to_tag_toggle(Some(&oid));
-                end_iter.forward_to_tag_toggle(Some(&oid));
+            if let Some((start_iter, end_iter)) = iters_for(&oid, &iter) {
                 let oid_text = buffer.text(&start_iter, &end_iter, true);
                 sndr.send_blocking(crate::Event::ShowTextOid(oid_text.to_string()))
                     .expect("Cant send through channel");
@@ -570,13 +561,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 buffer.remove_tag_by_name(tags::UNDERLINE, &u_start_iter, &u_end_iter);
                 current_underline.replace(None);
             }
-            if start_iter.has_tag(&oid) {
-                let pos = start_iter.offset();
-                let mut u_start_iter = txt.buffer().iter_at_offset(pos);
-                let mut u_end_iter = txt.buffer().iter_at_offset(pos);
-                u_start_iter.backward_to_tag_toggle(Some(&pointer));
-                u_end_iter.forward_to_tag_toggle(Some(&pointer));
-
+            if let Some((u_start_iter, u_end_iter)) = iters_for(&oid, &start_iter) {
                 if u_start_iter.line_offset() <= start_iter.line_offset()
                     && u_end_iter.line_offset() >= start_iter.line_offset()
                 {
@@ -615,12 +600,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     buffer.remove_tag_by_name(tags::UNDERLINE, &start_iter, &end_iter);
                     current_underline.replace(None);
                 }
-                if iter.has_tag(&oid) {
-                    let pos = iter.offset();
-                    let mut start_iter = txt.buffer().iter_at_offset(pos);
-                    let mut end_iter = txt.buffer().iter_at_offset(pos);
-                    start_iter.backward_to_tag_toggle(Some(&pointer));
-                    end_iter.forward_to_tag_toggle(Some(&pointer));
+                if let Some((start_iter, end_iter)) = iters_for(&oid, &iter) {
                     buffer.apply_tag_by_name(tags::UNDERLINE, &start_iter, &end_iter);
                     current_underline.replace(Some((start_iter.offset(), end_iter.offset())));
                 }
@@ -651,6 +631,17 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     txt.set_monospace(true);
     txt.set_editable(false);
     txt
+}
+
+pub fn iters_for(tag: &TextTag, iter: &TextIter) -> Option<(TextIter, TextIter)> {
+    if iter.has_tag(tag) {
+        let mut start_iter = iter.buffer().iter_at_offset(iter.offset());
+        let mut end_iter = iter.buffer().iter_at_offset(iter.offset());
+        start_iter.backward_to_tag_toggle(Some(tag));
+        end_iter.forward_to_tag_toggle(Some(tag));
+        return Some((start_iter, end_iter));
+    }
+    None
 }
 
 pub fn cursor_to_line_offset(buffer: &TextBuffer, line_offset: i32) {
