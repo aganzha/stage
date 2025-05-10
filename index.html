@@ -43,7 +43,7 @@ p {
     margin: 1em 0;
     line-height: 1.5;
  }
-p code {
+code {
     background-color: #eee;
     padding: 0.05em 0.2em;
     border: 1px solid #ccc;
@@ -187,75 +187,137 @@ header a + a {
     </style>
   </head>
   <body>
-    <h1><img class="inline" width="96" style="margin: 0 -20px 0 -20px" src="https://storage.yandexcloud.net/www.aganzha.online/static/logo.jpg"/> Stage</h1>    
+    <h1>
+      <img class="inline" width="96" style="margin: 0 -20px 0 -20px; min-height: 96px;" src="https://storage.yandexcloud.net/www.aganzha.online/static/io.github.aganzha.Stage.png"/> Stage
+    </h1>
     <p>
       Stage is GTK4 git client inspired by <a target="_blank" href="https://magit.vc/">Magit</a>.
-      Pretends to be Magit without Emacs.
+      Pretends to be Magit without Emacs.</br>
+      View source code on <a href="https://github.com/aganzha/stage">Github<svg class="inline_svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" role="img" aria-hidden="true"><path d="M12 2C6.475 2 2 6.475 2 12a9.994 9.994 0 0 0 6.838 9.488c.5.087.687-.213.687-.476 0-.237-.013-1.024-.013-1.862-2.512.463-3.162-.612-3.362-1.175-.113-.288-.6-1.175-1.025-1.413-.35-.187-.85-.65-.013-.662.788-.013 1.35.725 1.538 1.025.9 1.512 2.338 1.087 2.912.825.088-.65.35-1.087.638-1.337-2.225-.25-4.55-1.113-4.55-4.938 0-1.088.387-1.987 1.025-2.688-.1-.25-.45-1.275.1-2.65 0 0 .837-.262 2.75 1.026a9.28 9.28 0 0 1 2.5-.338c.85 0 1.7.112 2.5.337 1.912-1.3 2.75-1.024 2.75-1.024.55 1.375.2 2.4.1 2.65.637.7 1.025 1.587 1.025 2.687 0 3.838-2.337 4.688-4.562 4.938.362.312.675.912.675 1.85 0 1.337-.013 2.412-.013 2.75 0 .262.188.574.688.474A10.016 10.016 0 0 0 22 12c0-5.525-4.475-10-10-10Z" fill="#171717"></path>
+</svg></a>
     </p>
 
     <h2>Installation</h2>
-    <p>Flatpak - is the proper way to install Stage on your linux desktop. Further commands are for terminal.</p>
-   Add Flathub to flatpak remotes:
-    <pre>
-
+    <p><a target="_blank" href="https://flatpak.org/">Flatpak</a> - is the proper way to install Stage on your linux desktop. Further commands are for terminal.</p>
+   <p>Add <a href="https://flathub.org/apps/io.github.aganzha.Stage" target="_blank">Flathub</a> to flatpak remotes <br/>
+    <code>
       flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-    </pre>
-    Install Stage
-    <pre>
-
+    </code>
+    </p>
+    <p>Install Stage<br/>
+    <code>
       flatpak install flathub io.github.aganzha.Stage
-    </pre>
-
-    Run Stage
-    <pre>
-
+    </code>
+    </p>
+    <p>Run<br/>
+    <code>
       flatpak run flathub io.github.aganzha.Stage
-    </pre>
+    </code>
+    </p>
 
-    Update
-    <pre>
-
+    <p>Update<br/>
+    <code>
       flatpak update io.github.aganzha.Stage
-    </pre>
+      </code>
+    </p>
 
     <h2>Usage</h2>
 
-    <h3>Main screen - Status view </h3>
+    <h3>Main screen - Status window </h3>
     <p>
       Open repository either by clicking placeholder button, or repository list button in the header bar.
-      Stage, then, will live track all changes you do on files inside repository and display in Status view in form of text diff.
+      Stage, then, will live track all changes you do on files inside repository and display in Status window in form of text diff.
     </p>
 
-    <p>
-      Highlighted line in Status view behave like a cursor in TUI apps. Move cursor with arrows or by mouse clicking in any area.
-      Commands your issued for Stage are applied to "thing" under cursor. E.g. to stage (git add) file put cursor on file name and press <b>s</b>, or click <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-bottom-symbolic.svg"/> in header bar. Whole file will be added to staging are for further commit.
+    <blockquote>Highlighted line in Status window behave like a cursor in TUI apps. </blockquote>
+      <p>Move cursor around with arrows or by mouse clicking in any area.
+      Commands your issued for Stage are applied to "thing" under cursor. E.g. to stage (git add) file put cursor on file name and press <code>s</code>, or click <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-bottom-symbolic.svg"/> in header bar. Whole file will be added to staging area for further commit.
     </p>
     <video controls autoplay muted loop width="960">
       <source src="https://storage.yandexcloud.net/www.aganzha.online/static/stage.mp4" type="video/mp4">
     </video>
-    <p>
-      Main commands are:
-      <ul>
-        <li><b>s</b> - <b>S</b>tage. Also BENTER could be used. Button in headerbar - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-bottom-symbolic.svg"/></li>
-        <li><b>u</b> - <b>U</b>nstage. Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-top-symbolic.svg"/></li>
-        <li><b>k</b> - <b>K</b>ill (discard changes) </li>
-        <li><b>TAB</b> - Expand/Collapse. Also SPACE could be used.</li>
-      </ul>
+    <h4>Main commands</h4>
+    <blockquote><strong>Important!</strong> Hard reset button <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/software-update-urgent-symbolic.svg"/> does not have confirmation dialog, be carefull!</blockquote>
+    <ul>
+      <li><code>s</code> - <b>S</b>tage. Also <code>enter</code> key could be used. Button in headerbar - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-bottom-symbolic.svg"/></li>
+      <li><code>u</code> - <b>U</b>nstage. Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-top-symbolic.svg"/></li>
+      <li><code>k</code> - <b>K</b>ill (discard changes) </li>
+      <li><code>TAB</code> - Expand/Collapse. Also <code>space</code> could be used.</li>
+    </ul>    
+    <blockquote>Stage operates on files and hunks as native git. You can expand/collapse files and hunks to view changes and choose hunks for commit.</blockquote>
+    <ul class="footnote-body">
+      <li> When cursor is on file name, <strong>whole file</strong> is a subject to issued command.</li>
+      <li> When cursor is on hunk header or any line inside hunk, then <strong>current hunk</strong> is subject to command</li>
+    </ul>
+    <blockquote>Current hunk under cursor is slightly highlighted.</blockquote>
+    <p></p>
+    <video controls autoplay muted loop width="960">
+      <source src="https://storage.yandexcloud.net/www.aganzha.online/static/stage1.mp4" type="video/mp4">
+    </video>
+    <h4>Commands does not related to cursor position</h4>
+    <ul>
+      <li><code>c</code> - <b>C</b>ommit. Button in headerbar - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/object-select-symbolic.svg"/> </li>
+      <li><code>p</code> - <b>P</b>ush. Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/send-to-symbolic.svg"/> </li>
+      <li><code>f</code> - Pull (as in <b>F</b>etch). Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/document-save-symbolic.svg"/> </li>
+    </ul>
 
-      Commands does not related to cursor position:
-      <ul>
-        <li><b>c</b> - <b>C</b>ommit. Button in headerbar - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/object-select-symbolic.svg"/> </li>
-        <li><b>p</b> - <b>P</b>ush. Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/send-to-symbolic.svg"/> </li>
-        <li><b>f</b> - Pull (as in <b>F</b>etch). Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/document-save-symbolic.svg"/> </li>
-      </ul>
-
-      Command for displaying additional windows:
-      <ul>
-        <li><b>b</b> - Branches view</li>
-        <li><b>l</b> - Log view</li>
-        <li><b>z</b> - Stash panel</li>
-        <li><b>t</b> - Tags view</li>
-      </ul>
+    <h4>Command for displaying additional windows</h4>
+    <ul>      
+      
+      <li><code>b</code> - Branches window <img class="inline" src="https://raw.githubusercontent.com/aganzha/stage/refs/heads/master/icons/org.gtk.gtk4.NodeEditor-symbolic.svg"/> </li>
+      <li><code>l</code> - Log window <img class="inline" src="https://raw.githubusercontent.com/aganzha/stage/refs/heads/master/icons/org.gnome.Logs-symbolic.svg"/> </li>
+      <li><code>z</code> - Stash panel <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/sidebar-show-symbolic.svg"/> </li>
+      <li><code>t</code> - Tags window <!-- <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/org.gtk.gtk4.NodeEditor-symbolic.svg"/> --> </li>
+    </ul>
+    <blockquote>Any window above Status window could be closed with <code>Esc</code> or <code>Ctrl-w</code></blockquote>
+    <h3>Branches window</h3>
+    <img src="https://storage.yandexcloud.net/www.aganzha.online/static/stage_branches_view.jpg"/>
+    <p>Current branch is marked with <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/avatar-default-symbolic.svg"/> icon</p>
+    <h4>Switching, creating and deleting branches</h4>
+    <p>     
+      This window allows quickly switch between branches: just move cursor with arrows and hit <code>enter</code>, or double click.
     </p>
+    <p>
+      To create new branch hit <code>c</code> or <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/list-add-symbolic.svg"/> button.<br/>      
+    </p>
+    <blockquote><strong> Important!</strong> The branch you are creating will be based on the branch on which the cursor currently is.
+      This means you can create new branch from branch <code>feature</code> even though the current branch is <code>master</code>, and quickly switch to it.</blockquote>
+    <p> To delete branch hit <code>k</code> or <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/user-trash-symbolic.svg"/> button.<br/>
+    </p>
+    <blockquote><strong> Important!</strong> There are no any confirmation for branch deleting.</blockquote>
+    <h4>Merge and rebase</h4>
+    <p> Put cursor on branch you want to merge in current (<img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/avatar-default-symbolic.svg"/>) branch and hit <code>m</code> (<img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/media-playlist-shuffle-symbolic.svg"/>). Use <code>r</code> (<img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/media-playlist-repeat-song-symbolic.svg"/>) for rebase.
+    </p>
+    <blockquote>Sooner or later you will have conflicts during merge/rebase. When Stage displays conflicts it behaves a bit differently: when cursor is on <code>ours</code> or <code>theirs</code> side of conflict, whole side is highlighted and hitting <code>s</code>tage will resolve this conflict. Conflict will disapear from <b>Conflicts</b> section. Sometimes you will see final result in <b>Staged</b> section, but it could not be the case if after resolving there are no changes in source code (e.g. you choose <code>ours</code> side and source code remains the same).
+    </blockquote>
+    <h4>View branch commits</h4>
+    <p>Hit <code>l</code> (as in <b>L</b>og) to view commits in branch under cursor in Log window.</p>
+    <h4>Remotes</h4>
+    <p>Remote branches are just separate section in branches list and their behaviour and commands are just the same as local branches. E.g. just hit <code>enter</code> or double click on remote branch and Stage will fetch it and switch to it.
+    <p>To update remote branches hit <code>u</code> or press <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/view-refresh-symbolic.svg"/> button in headerbar.</p>
+    </p>
+    <blockquote>You can manage remotes in Status window by pressing <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/network-server-symbolic.svg"/> button.</blockquote>
+    <h3>Log window</h3>
+    <p>
+      When in main Status window or in Branches window hitting <code>l</code> (<img class="inline" src="https://raw.githubusercontent.com/aganzha/stage/refs/heads/master/icons/org.gnome.Logs-symbolic.svg"/>) will bring up Log window.      
+    </p>
+    <blockquote><strong>Important</strong> Stage does not display merge commits.</blockquote>
+    <p>Log window is just a list of commits. You can search among them via panel in headerbar. Commits which come from other branches displaying arrows in separate column for convinience.</p>
+    <h3>Commits window</h3>
+    <p>
+      Hitting <code>enter</code> or single click on commit sha in Log window brings up the commit content window. Individual Commit window behaves same way as Status window, except its readonly.
+    </p>
+    <ul>
+      <li>Hit <code>a</code> (as in <b>A</b>pply) to Cherry-pick commit onto current branch <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/emblem-shared-symbolic.svg"/></li>
+      <li>Hit <code>r</code> (as in <b>R</b>evert) to Revert commit onto current branch <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/edit-undo-symbolic.svg"/></li>
+    </ul>
+    <h3>Stashes panel</h3>
+    <p>Hitting <code>z</code> or <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/sidebar-show-symbolic.svg"/> icon will open stashes panel. Hitting <code>z</code> one more time will stash all changes.</p>
+    <h3>Tags window</h3>
+    <p>Hitting <code>t</code> in Status window brings up Tags window. That window behave as a simple list where you can <code>c</code>reate, <code>k</code> delete (as in <b>K</b>ill) and <code>p</code> push tags to remote.</p>
+    <p></p>
+    <footer style="font-size: 50%">
+        <p>&copy; 2025 Alexey Ganzha.</p>
+    </footer>
   </body>
 </html>
