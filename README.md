@@ -9,7 +9,7 @@
 [![Docs](https://img.shields.io/badge/docs-orange)](https://aganzha.github.io/stage/)
 
 ## Installing
-Add flathub to your remotes
+Add [Flathub](https://flathub.org/apps/io.github.aganzha.Stage) to your remotes
 ```sh
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 ```
@@ -22,54 +22,104 @@ To update app to latest version run
 flatpak update io.github.aganzha.Stage
 ```
 
-## Running
+Run app
 ```sh
 flatpak run io.github.aganzha.Stage
 ```
 ## Using
-To create commit, it need "to stage" `Unstaged changes` either all of them or separate files/hunks.
-> [!NOTE]
-> You can use either buttons in headerbar or press `command keys` on your keyboard which will apply to line highlighted by cursor. All actions could be driven by keyboard 
+Open repository either by clicking placeholder button, or repository list button in the header bar. Stage, then, will live track all changes you do on files inside repository and display in Status window in form of text diff.
 
-- Use Ctrl + / Ctrl - to change font size.
+> [!NOTE]
+> Highlighted line in Status window behave like a cursor in TUI apps.
+
+Move cursor around with arrows or by mouse clicking in any area. Commands your issued for Stage are applied to "thing" under cursor. E.g. to stage (git add) file put cursor on file name and press `s`, or click <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-bottom-symbolic.svg"/> in header bar. Whole file will be added to staging area for further commit.
+
+- Use `Ctrl +` / `Ctrl -` to change font size.
 - dark / light theme switcher is in the burger
 
 <picture><source srcset="https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1"><img alt="Stage screenshot" src="https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1"></picture>
 
+> [!CAUTION]
+> Hard reset button <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/software-update-urgent-symbolic.svg"/> does not have confirmation dialog, be carefull!
+> 
+### Main commands
 
-### Staging
+- `s` - **S**tage selected files or hunks or all changes by pressing `enter`. <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-bottom-symbolic.svg"/>
+- `u` - **U**nstage. Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-top-symbolic.svg"/></li>
+- `k` - **K**ill
+- `Tab/Space` - Expand/collapse underlying files and hunks.
 
-- **Expand/collapse** underlying files and hunks by pressing `TAB` or `SPACE` or `clicking` expandable items on screen.
+> [!NOTE]
+> Stage operates on files and hunks as native git. You can expand/collapse files and hunks to view changes and choose hunks for commit.
 
-- **Stage** selected files or hunks or all changes by pressing `ENTER` or `S` or `double clicking` items on screen
++ When cursor is on file name, **whole file** is a subject to issued command.
++ When cursor is on hunk header or any line inside hunk, then **current hunk** is subject to command
 
-- **Unstage** staged changes by pressing `U` or `double clicking` while cursor is on staged items.
-
-- **Kill** unstaged changes by pressing `K` while cursor is on unstaged items.
-
+> [!NOTE]
+> Current hunk under cursor is slightly highlighted.
 
 ### Commit/Push/Pull
-- **Commit** hit `C` or press <picture><source srcset="./icons/object-select-symbolic.svg"><img valign="middle" alt="Commit button" src="./icons/object-select-symbolic.svg" width="12"></picture> button
-- **Pull** hit `F` (fetch) or press <picture><source srcset="./icons/document-save-symbolic.svg"><img valign="middle" alt="Pull button" src="./icons/document-save-symbolic.svg"></picture> button
-- **Push** hit `P` or press <picture><img valign="middle" alt="Push button" src="./icons/send-to-symbolic.svg" width="12"></picture> button
+- `c` - **C**ommit. Button in headerbar - <picture><source srcset="./icons/object-select-symbolic.svg"><img valign="middle" alt="Commit button" src="./icons/object-select-symbolic.svg" width="12"></picture>
+- `f` - Pull (as in **F**etch). Button - <picture><source srcset="./icons/document-save-symbolic.svg"><img valign="middle" alt="Pull button" src="./icons/document-save-symbolic.svg"></picture>
+- `p` - **P**ush. Button - <picture><img valign="middle" alt="Push button" src="./icons/send-to-symbolic.svg" width="12"></picture>
 
-### Branches
-Hit `B` in Status view or press <picture><source srcset="./icons/org.gtk.gtk4.NodeEditor-symbolic.svg" > <img valign="middle" alt="Branches button" src="./icons/org.gtk.gtk4.NodeEditor-symbolic.svg"></picture> button to open Branches view.
+### Command showing other windows
+- `b` - Branches window <picture><source srcset="./icons/org.gtk.gtk4.NodeEditor-symbolic.svg" > <img valign="middle" alt="Branches button" src="./icons/org.gtk.gtk4.NodeEditor-symbolic.svg"></picture>
+- `l` - opens log window <picture><source srcset="./icons/org.gnome.Logs-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/org.gnome.Logs-symbolic.svg" width="12"></picture>
+- `z` - opens stashes panel <picture><source srcset="./icons/sidebar-show-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/sidebar-show-symbolic.svg" width="12"></picture>
+- `t` - opens tags window
+
+> [!NOTE]
+> Any window above Status window could be closed with `Esc` or `Ctrl-w`
+
+### Branches window
 <picture><source srcset="https://github.com/user-attachments/assets/a07cd1bf-b435-40ad-beca-edbabc5d285f"> <img alt="Branches view" src="https://github.com/user-attachments/assets/a07cd1bf-b435-40ad-beca-edbabc5d285f"></picture>
+Current branch is marked with <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/avatar-default-symbolic.svg"/> icon
 
-#### Resolving conflicts
-When in conflict hit `S` to either Theirs or Others side of conflict to choose change to be applied.
+#### Switching, creating and deleting branches
+This window allows quickly switch between branches: just move cursor with arrows and hit <code>enter</code>, or double click.
 
-### Log
-Pressing `L` opens log view or <picture><source srcset="./icons/org.gnome.Logs-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/org.gnome.Logs-symbolic.svg" width="12"></picture> opens **Git log view**
+To create new branch hit <code>c</code> or <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/list-add-symbolic.svg"/> button.<br/>      
+> [!TIP]
+> The branch you are creating will be based on the branch on which the cursor currently is. This means you can create new branch from branch `feature` even though the current branch is `master`, and quickly switch to it.
 
-### Cherry-pick/Revert
-Both actions are available on all views (Branches, Logs, Commit and Stash views) by pressing respectivelly `A` (apply) `R` (revert) 
-<picture><source srcset="./icons/emblem-shared-symbolic.svg"><img valign="middle" alt="Apply button" src="./icons/emblem-shared-symbolic.svg" width="12"></picture> <picture><source srcset="./icons/edit-undo-symbolic.svg"><img valign="middle" alt="Revert button" src="./icons/edit-undo-symbolic.svg" width="12"></picture> buttons.
+To delete branch hit `k` or <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/user-trash-symbolic.svg"/> button
+> [!WARNING]
+> There are no any confirmation for branch deleting
 
-### Stash
-Pressing `Z` or <picture><source srcset="./icons/sidebar-show-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/sidebar-show-symbolic.svg" width="12"></picture> opens **Stashes panel**
-<picture><source srcset="https://github.com/user-attachments/assets/22f7b87d-42fd-4358-b719-5ea705df1f41"><img alt="Stashes view" src="https://github.com/user-attachments/assets/22f7b87d-42fd-4358-b719-5ea705df1f41"></picture>
+#### Merge and rebase
+Put cursor on branch you want to merge in current (<img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/avatar-default-symbolic.svg"/>) branch and hit `m` (<img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/media-playlist-shuffle-symbolic.svg"/>). Use `r` (<img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/media-playlist-repeat-song-symbolic.svg"/>) for rebase.
 
-### Tags
-Pressing `T` opens Tags view
+> [!NOTE]
+> Sooner or later you will have conflicts during merge/rebase. When Stage displays conflicts it behaves a bit differently: when cursor is on `ours` or `theirs` side of conflict, whole side is highlighted and hitting `s`tage will resolve this conflict. Conflict will disapear from **Conflicts** section. Sometimes you will see final result in **Staged** section, but it could not be the case if after resolving there are no changes in source code (e.g. you choose `ours` side and source code remains the same).
+
+#### View branch commits
+Hit `l` (as in **L**og) to view commits in branch under cursor in Log window.
+
+### Remotes
+Remote branches are just separate section in branches list and their behaviour and commands are just the same as local branches. E.g. just hit `enter` or double click on remote branch and Stage will fetch it and switch to it.
+
+To update remote branches hit <code>u</code> or press <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/view-refresh-symbolic.svg"/> button in headerbar.
+
+> [!TIP]
+> You can manage remotes in Status window by pressing <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/network-server-symbolic.svg"/> button.
+
+#### Log window
+When in main Status window or in Branches window hitting `l` (<img class="inline" src="https://raw.githubusercontent.com/aganzha/stage/refs/heads/master/icons/org.gnome.Logs-symbolic.svg"/>) will bring up Log window.      
+  
+> [!NOTE]
+> Stage does not display merge commits
+
+Log window is just a list of commits. You can search among them via panel in headerbar. Commits which come from other branches displaying arrows in separate column for convinience
+
+#### Commits window
+Hitting `enter` or single click on commit sha in Log window brings up the commit content window. Individual Commit window behaves same way as Status window, except its readonly.
+
+- Hit `a` (as in **A**pply) to Cherry-pick commit onto current branch <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/emblem-shared-symbolic.svg"/>
+- Hit `r` (as in **R**evert) to Revert commit onto current branch <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/edit-undo-symbolic.svg"/></li>
+  
+### Stashes panel
+Hitting `z` or <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/sidebar-show-symbolic.svg"/> icon will open stashes panel. Hitting <code>z</code> one more time will stash all changes.
+
+### Tags window
+Hitting `t` in Status window brings up Tags window. That window behave as a simple list where you can `c` - create, `k` - delete (as in **K**ill) and `p` - to push tags to remote.
