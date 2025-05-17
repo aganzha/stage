@@ -24,7 +24,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::trace;
+use log::{debug, trace};
 use std::collections::{HashMap, HashSet};
 
 //pub const LINE_NO_SPACE: i32 = 6;
@@ -982,6 +982,9 @@ impl ViewContainer for Line {
                 self.view.tag_added(&spaces_tag);
             }
         }
+        for (range, scope) in &self.syntax {
+            debug!(">>>>>>>> {:?} {:?}", range, scope);
+        }
     }
     // Line
     fn collect_clean_content(
@@ -1103,7 +1106,7 @@ impl ViewContainer for State {
         buffer: &TextBuffer,
         _context: &mut StatusRenderContext<'_>,
     ) {
-        buffer.insert(iter, "State:    ");
+        buffer.insert(iter, "State:     ");
         match self.state {
             RepositoryState::Clean => {
                 buffer.insert(iter, "Clean");

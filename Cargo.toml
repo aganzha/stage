@@ -18,4 +18,5 @@ chrono = "0.4.35"
 html-escape = "0.2.13"
 similar = "2.7.0"
 anyhow = "1.0.97"
+syntect = { version = "5.2.0", default-features = false, features = ["default-fancy"]}
 gtk4-sys = "0.9.6"

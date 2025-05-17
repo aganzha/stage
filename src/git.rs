@@ -27,12 +27,15 @@ use git2::{
 use log::{debug, error, info, trace};
 use regex::Regex;
 //use std::time::SystemTime;
+use core::ops::Range;
 use std::fmt;
 use std::num::ParseIntError;
 use std::ops::{Add, Sub};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::{collections::HashSet, str};
+use syntect::easy::ScopeRangeIterator;
+use syntect::parsing::{ParseState, Scope, ScopeStackOp, SyntaxSet};
 
 pub fn make_diff_options() -> DiffOptions {
     let mut opts = DiffOptions::new();
@@ -98,6 +101,7 @@ pub struct Line {
     pub old_line_no: Option<HunkLineNo>,
     pub kind: LineKind,
     pub content_idx: (usize, usize),
+    pub syntax: Vec<(Range<usize>, Scope)>,
 }
 
 impl Default for Line {
@@ -109,6 +113,7 @@ impl Default for Line {
             old_line_no: None,
             kind: LineKind::None,
             content_idx: (0, 0),
+            syntax: Vec::new(),
         }
     }
 }
@@ -118,7 +123,12 @@ impl Line {
         &hunk.buf[self.content_idx.0..self.content_idx.0 + self.content_idx.1]
     }
 
-    pub fn from_diff_line(l: &DiffLine, content_from: usize, content_to: usize) -> Self {
+    pub fn from_diff_line(
+        l: &DiffLine,
+        content_from: usize,
+        content_to: usize,
+        syntax: Vec<(Range<usize>, Scope)>,
+    ) -> Self {
         Self {
             view: View::new(),
             origin: l.origin_value(),
@@ -126,6 +136,7 @@ impl Line {
             old_line_no: l.old_lineno().map(HunkLineNo),
             kind: LineKind::None,
             content_idx: (content_from, content_to),
+            syntax,
         }
     }
     pub fn is_our_side_of_conflict(&self) -> bool {
@@ -305,8 +316,9 @@ impl Hunk {
     pub fn push_line(
         &mut self,
         diff_line: &DiffLine,
-        // mut line: Line,
         prev_line_kind: LineKind,
+        syntax_parse_state: Option<ParseState>,
+        ss: &SyntaxSet,
     ) -> LineKind {
         let mut content = str::from_utf8(diff_line.content()).unwrap_or("!!!unreadable unicode!!!");
         if let Some(striped) = content.strip_suffix("\r\n") {
@@ -321,7 +333,18 @@ impl Hunk {
         if let Some(striped) = content.strip_prefix('\n') {
             content = striped;
         }
-        let mut line = Line::from_diff_line(diff_line, self.buf.len(), content.len());
+        let mut syntax_ranges = Vec::new();
+        if let Some(mut syntax_parse_state) = syntax_parse_state {
+            if let Ok(ops) = syntax_parse_state.parse_line(content, ss) {
+                for (range, op) in ScopeRangeIterator::new(&ops, content) {
+                    if let ScopeStackOp::Push(s) = op {
+                        syntax_ranges.push((range, *s));
+                    }
+                }
+            }
+        }
+        let mut line =
+            Line::from_diff_line(diff_line, self.buf.len(), content.len(), syntax_ranges);
         self.buf.push_str(content);
         if self.kind != DiffKind::Conflicted {
             match line.origin {
@@ -424,6 +447,7 @@ impl File {
     }
     pub fn from_diff_file(f: &DiffFile, kind: DiffKind, status: Delta) -> Self {
         let path: PathBuf = f.path().unwrap().into();
+
         File {
             view: View::new(),
             path,
@@ -819,6 +843,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let mut current_file = File::new(kind);
     let mut current_hunk = Hunk::new(kind);
     let mut prev_line_kind = LineKind::None;
+    let ss = SyntaxSet::load_defaults_newlines(); // note we load the version with newlines
 
     let _res = git_diff.print(DiffFormat::Patch, |diff_delta, o_diff_hunk, diff_line| {
         let status = diff_delta.status();
@@ -850,15 +875,17 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
             }
         };
 
-        if file.path().is_none() {
-            todo!();
+        let current_path = file.path().unwrap();
+        let mut syntax_parse_state: Option<ParseState> = None;
+        if let Ok(Some(syntax)) = ss.find_syntax_for_file(current_path) {
+            syntax_parse_state.replace(ParseState::new(syntax));
         }
         // build up diff structure
         if current_file.path.capacity() == 0 {
             // init new file
             current_file = File::from_diff_file(&file, kind, status);
         }
-        if current_file.path != file.path().unwrap() {
+        if current_file.path != current_path {
             // go to next file
             // push current_hunk to file and init new empty hunk
             current_file.push_hunk(current_hunk.clone());
@@ -881,10 +908,12 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
                 current_hunk = Hunk::new(kind);
                 current_hunk.fill_from_git_hunk(&diff_hunk)
             }
-            prev_line_kind = current_hunk.push_line(&diff_line, prev_line_kind.clone());
+            prev_line_kind =
+                current_hunk.push_line(&diff_line, prev_line_kind.clone(), syntax_parse_state, &ss);
         } else {
             // this is file header line.
-            prev_line_kind = current_hunk.push_line(&diff_line, prev_line_kind.clone())
+            prev_line_kind =
+                current_hunk.push_line(&diff_line, prev_line_kind.clone(), syntax_parse_state, &ss)
         }
 
         true
