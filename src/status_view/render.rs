@@ -1056,16 +1056,6 @@ impl ViewContainer for Line {
                     self.view.tag_added(&spaces_tag);
                 }
             }
-
-            // syntax highlights
-            for (range, scope) in &self.syntax {
-                debug!(
-                    ">>>>>>>> {:?} {:?} {:?}",
-                    self.view.line_no.get(),
-                    range,
-                    scope
-                );
-            }
         }
     }
     // Line
