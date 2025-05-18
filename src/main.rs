@@ -4,6 +4,7 @@
 
 mod external;
 mod status_view;
+mod syntax;
 use status_view::{
     context::StatusRenderContext,
     headerbar::factory as headerbar_factory,

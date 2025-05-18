@@ -527,7 +527,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
         let txt = txt.clone();
         let current_underline = current_underline.clone();
         let oid = oid.clone();
-        let pointer = pointer.clone();
         move |view: &StageView, step, count, _selection| {
             view.set_cursor_highlight(true);
             let buffer = view.buffer();

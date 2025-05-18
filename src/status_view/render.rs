@@ -1029,6 +1029,8 @@ impl ViewContainer for Line {
         }
 
         if tag_changes == TagChanges::Render {
+            let (mut start_iter, mut end_iter) =
+                self.start_end_iters(buffer, self.view.line_no.get());
             // highlight spaces
             let content = self.content(context.current_hunk.unwrap());
             let stripped = content.trim_end_matches(|c| -> bool { char::is_ascii_whitespace(&c) });
@@ -1048,13 +1050,26 @@ impl ViewContainer for Line {
 
                 // do not add tag twice
                 if !self.view.tag_is_added(&spaces_tag) {
-                    let (mut start_iter, end_iter) =
-                        self.start_end_iters(buffer, self.view.line_no.get());
                     // magic 1 is for label
                     start_iter.forward_chars(stripped_len as i32 + 1);
                     buffer.apply_tag_by_name(spaces_tag.name(), &start_iter, &end_iter);
                     self.view.tag_added(&spaces_tag);
                 }
+            }
+            // highlight syntax keywords
+            for (start, end) in &self.keyword_ranges {
+                let tag = make_tag(tags::BOLD);
+                start_iter.set_line_offset(0);
+                start_iter.forward_chars(*start + if *start == 0 { 0 } else { 1 });
+                end_iter.set_line_offset(0);
+                end_iter.forward_chars(*end + 1);
+                debug!(
+                    "highlight! start {:?} end {:?} + 1 keyword: {:?}",
+                    *start,
+                    *end,
+                    buffer.text(&start_iter, &end_iter, true)
+                );
+                buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
             }
         }
     }
