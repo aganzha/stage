@@ -24,9 +24,10 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::{debug, trace};
+use log::trace;
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
-
+use std::rc::Rc;
 //pub const LINE_NO_SPACE: i32 = 6;
 
 pub fn make_tag(name: &str) -> tags::TxtTag {
@@ -142,13 +143,13 @@ pub trait ViewContainer {
 
     // ViewContainer
     fn apply_tags<'a>(&'a self, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {
-        if self.is_empty(context) {
-            // TAGS BECOME BROKEN ON EMPTY LINES!
-            return;
-        }
-        if !self.get_view().is_rendered() {
-            return;
-        }
+        // if self.is_empty(context) {
+        //     // TAGS BECOME BROKEN ON EMPTY LINES!
+        //     return;
+        // }
+        // if !self.get_view().is_rendered() {
+        //     return;
+        // }
         for t in &self.tags(context) {
             self.add_tag(buffer, t, None);
         }
@@ -182,6 +183,8 @@ pub trait ViewContainer {
 
                 view.line_no.replace(line_no);
                 view.render(true);
+                // before it was used only in cursor!
+                self.apply_tags(buffer, context);
             }
             ViewState::TagsModified => {
                 // todo!("whats the case?");
@@ -236,55 +239,104 @@ pub trait ViewContainer {
         self.get_view().child_dirty(false);
     }
 
-    fn find_cursor_position<'a>(
-        &'a self,
-        line_no: i32,
-        context: &mut StatusRenderContext<'a>,
-    ) -> bool {
-        let is_current = self.get_view().is_rendered_in(line_no);
-        let mut some_child_is_current = false;
-        if is_current {
-            self.fill_cursor_position(context)
-        } else {
-            for child in self.get_children() {
-                some_child_is_current = child.find_cursor_position(line_no, context);
-                if some_child_is_current {
-                    break;
-                }
-            }
-        }
-        is_current || some_child_is_current
-    }
+    // fn find_cursor_position<'a>(
+    //     &'a self,
+    //     line_no: i32,
+    //     context: &mut StatusRenderContext<'a>,
+    // ) -> bool {
+    //     let is_current = self.get_view().is_rendered_in(line_no);
+    //     let mut some_child_is_current = false;
+    //     if is_current {
+    //         self.fill_cursor_position(context)
+    //     } else {
+    //         for child in self.get_children() {
+    //             some_child_is_current = child.find_cursor_position(line_no, context);
+    //             if some_child_is_current {
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     is_current || some_child_is_current
+    // }
 
-    // ViewContainer
-    /// returns if view is active (selected)
+    // // ViewContainer
+    // // returns if view is active (selected)
+    // fn cursor_old<'a>(
+    //     &'a self,
+    //     buffer: &TextBuffer,
+    //     line_no: i32,
+    //     parent_active: bool,
+    //     context: &mut StatusRenderContext<'a>,
+    // ) -> bool {
+    //     self.prepare_context(context);
+
+    //     let view = self.get_view();
+
+    //     context.was_current = view.is_current();
+
+    //     let is_current = view.is_rendered_in(line_no);
+
+    //     if is_current {
+    //         self.fill_cursor_position(context);
+    //     }
+
+    //     let active_by_parent = self.is_active_by_parent(parent_active, context);
+
+    //     let mut is_active = is_current || active_by_parent;
+    //     if !is_active {
+    //         is_active = self.find_cursor_position(line_no, context);
+    //     }
+
+    //     if is_active {
+    //         self.fill_under_cursor(context);
+    //     }
+
+    //     for child in self.get_children() {
+    //         child.cursor(buffer, line_no, is_active, context);
+    //     }
+
+    //     view.activate(is_active);
+    //     view.make_current(is_current);
+    //     self.apply_tags(buffer, context);
+    //     self.after_cursor(buffer, context);
+    //     is_active
+    // }
+
     fn cursor<'a>(
         &'a self,
         buffer: &TextBuffer,
         line_no: i32,
         parent_active: bool,
         context: &mut StatusRenderContext<'a>,
-    ) -> bool {
+    ) {
         self.prepare_context(context);
 
         let view = self.get_view();
 
-        context.was_current = view.is_current();
+        let was_current = view.is_current();
+        let was_active = view.is_active();
 
         let is_current = view.is_rendered_in(line_no);
+
         if is_current {
             self.fill_cursor_position(context);
         }
 
-        let active_by_parent = self.is_active_by_parent(parent_active, context);
-
-        let mut is_active = is_current || active_by_parent;
+        let mut is_active = is_current;
         if !is_active {
-            is_active = self.find_cursor_position(line_no, context);
+            is_active = self.is_active_by_parent(parent_active, context);
         }
-
-        if is_active {
-            self.fill_under_cursor(context);
+        if !is_active {
+            let child_active = Rc::new(Cell::new(false));
+            self.walk_down({
+                let child_active = child_active.clone();
+                &mut move |vc: &dyn ViewContainer| {
+                    if vc.get_view().is_rendered_in(line_no) {
+                        child_active.replace(true);
+                    }
+                }
+            });
+            is_active = child_active.get();
         }
 
         for child in self.get_children() {
@@ -293,9 +345,20 @@ pub trait ViewContainer {
 
         view.activate(is_active);
         view.make_current(is_current);
-        self.apply_tags(buffer, context);
-        self.after_cursor(buffer, context);
-        is_active
+
+        if is_active {
+            self.fill_under_cursor(context);
+        }
+
+        if (is_active != was_active || is_current != was_current)
+            && view.is_rendered()
+            && !self.is_empty(context)
+        {
+            self.apply_tags(buffer, context);
+        }
+        if view.is_rendered() {
+            self.after_cursor(buffer, context);
+        }
     }
 
     // base
@@ -474,7 +537,10 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn after_cursor<'a>(&'a self, buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
+    fn apply_tags<'a>(&'a self, buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
+        for t in &self.tags(ctx) {
+            self.add_tag(buffer, t, None);
+        }
         // used to wrap all diff in tags.
         // is it necessary? yes, it is used
         // while handling user clicks inside stage_view
@@ -691,9 +757,7 @@ impl ViewContainer for Hunk {
 
     // Hunk
     fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
-        if self.view.is_rendered() {
-            ctx.collect_hunk_highlights(self.view.line_no.get());
-        }
+        ctx.collect_hunk_highlights(self.view.line_no.get());
     }
 
     // Hunk
@@ -760,11 +824,9 @@ impl ViewContainer for Line {
 
     // Line
     fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
-        if self.view.is_rendered() {
-            // hm. collecting lines for highlight.
-            if self.view.is_active() {
-                ctx.collect_line_highlights(self.view.line_no.get());
-            }
+        // hm. collecting lines for highlight.
+        if self.view.is_active() {
+            ctx.collect_line_highlights(self.view.line_no.get());
         }
     }
 
@@ -925,9 +987,9 @@ impl ViewContainer for Line {
 
     // Line
     fn apply_tags<'a>(&'a self, buffer: &TextBuffer, context: &mut StatusRenderContext<'a>) {
-        if !self.view.is_rendered() {
-            return;
-        }
+        // if !self.view.is_rendered() {
+        //     return;
+        // }
         for t in &self.tags(context) {
             if self.view.is_active() {
                 self.add_tag(buffer, &t.enhance(), None);
@@ -936,21 +998,16 @@ impl ViewContainer for Line {
             }
         }
 
-        let become_current = !context.was_current && self.view.is_current();
-        let no_longer_current = context.was_current && !self.view.is_current();
-        if no_longer_current || become_current {
-            let mut iter = buffer.iter_at_offset(0);
-            iter.set_line(self.view.line_no.get());
-            if let Some(anchor) = iter.child_anchor() {
-                if !anchor.widgets().is_empty() {
-                    let w = &anchor.widgets()[0];
-                    let l = w.downcast_ref::<GtkLabel>().unwrap();
-                    if become_current {
-                        l.set_opacity(1.0);
-                    }
-                    if no_longer_current {
-                        l.set_opacity(0.3);
-                    }
+        let mut iter = buffer.iter_at_offset(0);
+        iter.set_line(self.view.line_no.get());
+        if let Some(anchor) = iter.child_anchor() {
+            if !anchor.widgets().is_empty() {
+                let w = &anchor.widgets()[0];
+                let l = w.downcast_ref::<GtkLabel>().unwrap();
+                if self.view.is_current() {
+                    l.set_opacity(1.0);
+                } else {
+                    l.set_opacity(0.3);
                 }
             }
         }
@@ -982,9 +1039,9 @@ impl ViewContainer for Line {
                 self.view.tag_added(&spaces_tag);
             }
         }
-        for (range, scope) in &self.syntax {
-            debug!(">>>>>>>> {:?} {:?}", range, scope);
-        }
+        // for (range, scope) in &self.syntax {
+        //     debug!(">>>>>>>> {:?} {:?}", range, scope);
+        // }
     }
     // Line
     fn collect_clean_content(
@@ -1079,6 +1136,7 @@ impl ViewContainer for Head {
         );
     }
 
+    // Head
     fn apply_tags<'a>(&'a self, buffer: &TextBuffer, _context: &mut StatusRenderContext<'a>) {
         let range = Some((11, 18));
         self.add_tag(buffer, &tags::TxtTag::from_str(tags::POINTER), range);
