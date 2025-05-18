@@ -39,9 +39,6 @@ Move cursor around with arrows or by mouse clicking in any area. Commands your i
 
 <picture><source srcset="https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1"><img alt="Stage screenshot" src="https://github.com/user-attachments/assets/aae0b833-6979-4644-8f4c-83f4eda739c1"></picture>
 
-> [!CAUTION]
-> Hard reset button <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/software-update-urgent-symbolic.svg"/> does not have confirmation dialog, be carefull!
-> 
 ### Main commands
 
 - `s` - **S**tage selected files or hunks or all changes by pressing `enter`. <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-bottom-symbolic.svg"/>
