@@ -316,7 +316,7 @@ impl Hunk {
         diff_line: &DiffLine,
         // mut line: Line,
         prev_line_kind: LineKind,
-        parser: Option<&mut tree_sitter::Parser>,
+        parser: Option<&mut syntax::LanguageWrapper>,
     ) -> LineKind {
         let mut content = str::from_utf8(diff_line.content()).unwrap_or("!!!unreadable unicode!!!");
         if let Some(striped) = content.strip_suffix("\r\n") {
@@ -832,7 +832,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let mut current_file = File::new(kind);
     let mut current_hunk = Hunk::new(kind);
     let mut prev_line_kind = LineKind::None;
-    let mut parser: Option<tree_sitter::Parser> = None;
+    let mut parser: Option<syntax::LanguageWrapper> = None;
 
     let _res = git_diff.print(DiffFormat::Patch, |diff_delta, o_diff_hunk, diff_line| {
         let status = diff_delta.status();
