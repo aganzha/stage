@@ -330,11 +330,6 @@ impl Hunk {
             }
             return LineKind::None;
         }
-        trace!(
-            ":::::::::::::::::::::::::::::::: {:?}. prev line kind {:?}",
-            content,
-            prev_line_kind
-        );
         let prefix: String = content.chars().take(7).collect();
 
         match &prefix[..] {
