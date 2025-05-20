@@ -147,7 +147,7 @@ impl LanguageWrapper {
                 "never",
                 "boolean",
                 "number",
-                "string",
+                //"string", got broken on cyrylic strings
                 "symbol",
                 "bigint",
             ],
