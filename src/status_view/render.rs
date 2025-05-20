@@ -134,15 +134,14 @@ pub trait ViewContainer {
         }
     }
 
-    fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag, chars_range: Option<(i32, i32)>) {
+    fn add_tag(&self, buffer: &TextBuffer, tag: &tags::TxtTag, offset_range: Option<(i32, i32)>) {
         let view = self.get_view();
         if !view.tag_is_added(tag) {
-            let (mut start_iter, mut end_iter) = self.start_end_iters(buffer, view.line_no.get());
-            if let Some((start, end)) = chars_range {
-                start_iter.forward_chars(start);
-                end_iter.set_line_offset(0);
-                end_iter.forward_chars(end);
-            }
+            let (start_iter, end_iter) = if let Some((start, end)) = offset_range {
+                (buffer.iter_at_offset(start), buffer.iter_at_offset(end))
+            } else {
+                self.start_end_iters(buffer, view.line_no.get())
+            };
             buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
             view.tag_added(tag);
         }
@@ -580,13 +579,7 @@ impl ViewContainer for Diff {
                     } else {
                         make_tag(tags::UNSTAGED)
                     };
-
-                    let start_iter = buffer.iter_at_line(start_line).unwrap();
-                    let mut end_iter = buffer.iter_at_line(end_line).unwrap();
-                    end_iter.forward_to_line_end();
-                    self.remove_tag(buffer, &tag);
-                    buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
-                    self.view.tag_added(&tag);
+                    self.add_tag(&buffer, &tag, None);                    
                 }
                 _ => {}
             }
@@ -1029,7 +1022,7 @@ impl ViewContainer for Line {
         }
 
         if tag_changes == TagChanges::Render {
-            let (mut start_iter, mut end_iter) =
+            let (mut start_iter, end_iter) =
                 self.start_end_iters(buffer, self.view.line_no.get());
             // highlight spaces
             let content = self.content(context.current_hunk.unwrap());
@@ -1052,24 +1045,24 @@ impl ViewContainer for Line {
                 if !self.view.tag_is_added(&spaces_tag) {
                     // magic 1 is for label
                     start_iter.forward_chars(stripped_len as i32 + 1);
-                    buffer.apply_tag_by_name(spaces_tag.name(), &start_iter, &end_iter);
-                    self.view.tag_added(&spaces_tag);
+                    self.add_tag(&buffer, &spaces_tag, Some((start_iter.offset(), end_iter.offset())));
                 }
             }
             // highlight syntax keywords
             for (start, end) in &self.keyword_ranges {
                 let tag = make_tag(tags::BOLD);
-                start_iter.set_line_offset(0);
-                start_iter.forward_chars(*start + if *start == 0 { 0 } else { 1 });
-                end_iter.set_line_offset(0);
-                end_iter.forward_chars(*end + 1);
                 debug!(
-                    "highlight! start {:?} end {:?} + 1 keyword: {:?}",
+                    "highlight! LINE: {:?}. ||| start {:?} end {:?} + 1 keyword: {:?}",
+                    self.old_line_no,
                     *start,
                     *end,
                     buffer.text(&start_iter, &end_iter, true)
                 );
-                buffer.apply_tag_by_name(tag.name(), &start_iter, &end_iter);
+                start_iter.set_line_offset(0);
+                let offset = start_iter.offset();
+                let start = offset + start + (if *start == 0 { 0 } else { 1 });
+                let end = offset + end + 1;
+                self.add_tag(&buffer, &tag, Some((start, end)));
             }
         }
     }
@@ -1174,7 +1167,9 @@ impl ViewContainer for Head {
         _context: &mut StatusRenderContext<'a>,
     ) {
         if tag_changes == TagChanges::Render {
-            let range = Some((11, 18));
+            let line_no = self.view.line_no.get();
+            let iter = buffer.iter_at_line(line_no).unwrap();
+            let range = Some((iter.offset() + 11, iter.offset() + 18));
             self.add_tag(buffer, &tags::TxtTag::from_str(tags::POINTER), range);
             self.add_tag(buffer, &tags::TxtTag::from_str(tags::OID), range);
         }
