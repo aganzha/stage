@@ -90,7 +90,6 @@ impl LanguageWrapper {
                 "complex",
                 "str",
                 "list",
-                "tuple",
                 "dict",
                 "set",
                 "frozenset",
