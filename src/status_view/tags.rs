@@ -177,6 +177,13 @@ impl TxtTag {
         Self(s)
     }
 
+    pub fn fg_bg_color(&self) -> (Option<&str>, Option<&str>) {
+        match &self.0[..] {
+            ADDED => (Some("#4a8e09"), None),
+            _ => (None, None),
+        }
+    }
+
     pub fn unknown_tag(s: String) -> Self {
         Self(s)
     }
