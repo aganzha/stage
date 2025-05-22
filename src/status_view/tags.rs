@@ -44,15 +44,12 @@ pub const THEIRS: &str = "theirs";
 pub const CONTEXT: &str = "context";
 pub const SYNTAX: &str = "syntax";
 
-pub const TEXT_TAGS: [&str; 19] = [
+pub const TEXT_TAGS: [&str; 22] = [
     BOLD,
     ADDED,
     ENHANCED_ADDED,
     REMOVED,
     ENHANCED_REMOVED,
-    // CURSOR,
-    // REGION,
-    // HUNK,
     DIFF,
     HUNK,
     FILE,
@@ -67,6 +64,9 @@ pub const TEXT_TAGS: [&str; 19] = [
     SPACES_ADDED,
     SPACES_REMOVED,
     CONTEXT,
+    SYNTAX,
+    SYNTAX_ADDED,
+    SYNTAX_REMOVED,
 ];
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -351,10 +351,6 @@ impl Binary for TagIdx {
 
 impl View {
     pub fn tag_added(&self, tag: &TxtTag) {
-        // hack for SYNTAX
-        if tag.0 == BOLD {
-            return;
-        }
         self.tag_indexes.replace(self.tag_indexes.get().added(tag));
     }
     pub fn tag_removed(&self, tag: &TxtTag) {
@@ -362,10 +358,6 @@ impl View {
             .replace(self.tag_indexes.get().removed(tag));
     }
     pub fn tag_is_added(&self, tag: &TxtTag) -> bool {
-        // haack, for SYNTAX
-        if tag.0 == BOLD {
-            return false;
-        }
         self.tag_indexes.get().is_added(tag)
     }
     pub fn cleanup_tags(&self) {

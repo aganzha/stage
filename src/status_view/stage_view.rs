@@ -313,13 +313,17 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
     let added = tags::ColorTag((tags::ADDED, green.clone()));
     let removed = tags::ColorTag((tags::REMOVED, red.clone()));
+    //                                                                              same as Head!
+    let syntax = tags::ColorTag((
+        tags::SYNTAX,
+        tags::Color(("#323232".to_string(), "#4a708b".to_string())),
+    ));
 
     let enhanced_added = tags::ColorTag((tags::ENHANCED_ADDED, green.darken(Some(0.2))));
     let enhanced_removed = tags::ColorTag((tags::ENHANCED_REMOVED, red.darken(Some(0.2))));
-    debug!(">>>>>>>>>>>>>>>>>> {:?} {:?}", removed, enhanced_removed);
 
-    let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.darken(Some(0.3))));
-    let syntax_removed = tags::ColorTag((tags::SYNTAX_REMOVED, red.darken(Some(0.3))));
+    let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.darken(Some(0.4))));
+    let syntax_removed = tags::ColorTag((tags::SYNTAX_REMOVED, red.darken(Some(0.4))));
 
     let pointer = tags::TxtTag::from_str(tags::POINTER).create();
     let staged = tags::TxtTag::from_str(tags::STAGED).create();
@@ -344,6 +348,10 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             tags::REMOVED => table.add(&removed.create(is_dark)),
             tags::ENHANCED_REMOVED => table.add(&enhanced_removed.create(is_dark)),
             tags::SYNTAX_REMOVED => table.add(&syntax_removed.create(is_dark)),
+            tags::SYNTAX => {
+                debug!("AAAAAAAAAAAADDING SYNTAX TO TAG_TABLE {:?}", syntax);
+                table.add(&syntax.create(is_dark))
+            }
             _ => table.add(&tags::TxtTag::from_str(tag_name).create()),
         };
     }
@@ -370,6 +378,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                         tags::REMOVED => removed.toggle(tt, is_dark),
                         tags::ENHANCED_REMOVED => enhanced_removed.toggle(tt, is_dark),
                         tags::SYNTAX_REMOVED => syntax_removed.toggle(tt, is_dark),
+                        tags::SYNTAX => syntax.toggle(tt, is_dark),
                         unknown => {
                             debug!("toggling tag? {:?}", removed)
                         }
