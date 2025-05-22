@@ -19,8 +19,12 @@ pub const DIFF: &str = "diff";
 pub const BOLD: &str = "bold";
 pub const ADDED: &str = "added";
 pub const ENHANCED_ADDED: &str = "enhancedAdded";
+pub const SYNTAX_ADDED: &str = "syntaxAdded";
+
 pub const REMOVED: &str = "removed";
 pub const ENHANCED_REMOVED: &str = "enhancedRemoved";
+pub const SYNTAX_REMOVED: &str = "syntaxRemoved";
+
 pub const CURSOR: &str = "cursor";
 pub const REGION: &str = "region";
 
@@ -64,6 +68,212 @@ pub const TEXT_TAGS: [&str; 19] = [
     SPACES_REMOVED,
     CONTEXT,
 ];
+
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct Color(pub (String, String));
+
+impl Color {
+    pub fn for_light_scheme(&self) -> String {
+        self.0 .0.clone()
+    }
+    pub fn for_dark_scheme(&self) -> String {
+        self.0 .1.clone()
+    }
+    pub fn darken_color(hex: &str, factor: Option<f32>) -> String {
+        let hex = hex.trim_start_matches('#');
+        let r = u8::from_str_radix(&hex[0..2], 16).unwrap();
+        let g = u8::from_str_radix(&hex[2..4], 16).unwrap();
+        let b = u8::from_str_radix(&hex[4..6], 16).unwrap();
+
+        // Default factor to 0.1 (10%) if not provided
+        let factor = factor.unwrap_or(0.1);
+
+        // Darken the color
+        let darken = |c: u8| -> u8 { (c as f32 * (1.0 - factor)).round() as u8 };
+
+        let new_r = darken(r);
+        let new_g = darken(g);
+        let new_b = darken(b);
+
+        // Format the new color back to hex
+        format!("#{:02x}{:02x}{:02x}", new_r, new_g, new_b)
+    }
+    pub fn darken(&self, factor: Option<f32>) -> Self {
+        let fg = Self::darken_color(&self.0 .0, factor);
+        let bg = Self::darken_color(&self.0 .1, factor);
+        Self((fg, bg))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct ColorTag(pub (&'static str, Color));
+
+impl ColorTag {
+    pub fn create(&self, is_dark: bool) -> TextTag {
+        let tag = TextTag::new(Some(self.0 .0));
+        self.toggle(&tag, is_dark);
+        tag
+    }
+    pub fn toggle(&self, tag: &TextTag, is_dark: bool) {
+        if is_dark {
+            tag.set_foreground(Some(&self.0 .1 .0 .0));
+        } else {
+            tag.set_foreground(Some(&self.0 .1 .0 .1));
+        }
+    }
+}
+
+//pub const T_ADDED: ColorTag = ColorTag("ADDED");
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TxtTag(String);
+
+impl TxtTag {
+    pub fn new(s: String) -> Self {
+        if !TEXT_TAGS.contains(&&s[..]) {
+            panic!("undeclared tag {}", s);
+        }
+        Self(s)
+    }
+
+    pub fn fg_bg_color(&self) -> (Option<&str>, Option<&str>) {
+        match &self.0[..] {
+            ADDED => (Some("#4a8e09"), None),
+            _ => (None, None),
+        }
+    }
+
+    pub fn unknown_tag(s: String) -> Self {
+        Self(s)
+    }
+
+    pub fn from_str(s: &str) -> Self {
+        if !TEXT_TAGS.contains(&s) {
+            panic!("undeclared tag {}", s);
+        }
+        Self(s.to_string())
+    }
+
+    pub fn str(&self) -> &str {
+        &self.0[..]
+    }
+
+    pub fn name(&self) -> &str {
+        &self.0[..]
+    }
+
+    pub fn enhance(&self) -> Self {
+        let new_name = match self.name() {
+            ADDED => ENHANCED_ADDED,
+            REMOVED => ENHANCED_REMOVED,
+            other => other,
+        };
+        Self::from_str(new_name)
+    }
+
+    pub fn fill_text_tag(&self, tag: &TextTag, is_dark: bool) {
+        match &self.0[..] {
+            SPACES_ADDED => {
+                if is_dark {
+                    tag.set_background(Some("#4a8e09"));
+                } else {
+                    tag.set_background(Some("#9bebc6"));
+                }
+            }
+            SPACES_REMOVED => {
+                if is_dark {
+                    tag.set_background(Some("#a51d2d"));
+                } else {
+                    tag.set_background(Some("#e4999e"));
+                }
+            }
+            BOLD => {
+                tag.set_weight(700);
+            }
+            // ADDED => {
+            //     if is_dark {
+            //         tag.set_foreground(Some("#4a8e09"));
+            //     } else {
+            //         tag.set_foreground(Some("#2ec27e"));
+            //     }
+            // }
+            // ENHANCED_ADDED => {
+            //     if is_dark {
+            //         tag.set_foreground(Some("#3fb907"));
+            //     } else {
+            //         tag.set_foreground(Some("#26a269"));
+            //     }
+            // }
+            // REMOVED => {
+            //     if is_dark {
+            //         tag.set_foreground(Some("#a51d2d"));
+            //     } else {
+            //         tag.set_foreground(Some("#c01c28"));
+            //     }
+            // }
+            // ENHANCED_REMOVED => {
+            //     if is_dark {
+            //         tag.set_foreground(Some("#cd0e1c"));
+            //     } else {
+            //         tag.set_foreground(Some("#a51d2d"));
+            //     }
+            // }
+            // CURSOR => {
+            //     if is_dark {
+            //         tag.set_background(Some("#23374f"));
+            //     } else {
+            //         // tag.set_background(Some("#f6fecd")); // original yellow
+            //         tag.set_background(Some("#cce0f8")); // default blue
+            //     }
+            // }
+            // REGION => {
+            //     if is_dark {
+            //         tag.set_background(Some("#494949"));
+            //     } else {
+            //         tag.set_background(Some("#f6f5f4"));
+            //     }
+            // }
+            // HUNK => {
+            //     // if is_dark {
+            //     //     tag.set_background(Some("#383838"));
+            //     // } else {
+            //     //     tag.set_background(Some("#deddda"));
+            //     // }
+            // }
+            UNDERLINE => {
+                tag.set_underline(Underline::Single);
+            }
+            // POINTER => {}
+            // STAGED | UNSTAGED => {}
+            DIFF => {
+                // TODO! get it from line_yrange!
+                tag.set_weight(700);
+                tag.set_pixels_above_lines(32);
+                if is_dark {
+                    tag.set_foreground(Some("#a78a44"));
+                } else {
+                    tag.set_foreground(Some("#8b6508"));
+                }
+            }
+            CONFLICT_MARKER => {
+                tag.set_foreground(Some("#ff0000"));
+            }
+            // OURS => {}
+            // THEIRS => {}
+            unknown => {
+                debug!("skip tag ...... {}", unknown);
+            }
+        }
+    }
+
+    pub fn create(&self) -> TextTag {
+        let tag = TextTag::new(Some(&self.0));
+        let manager = StyleManager::default();
+        let is_dark = manager.is_dark();
+        self.fill_text_tag(&tag, is_dark);
+        tag
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct TagIdx(u32);
@@ -163,155 +373,5 @@ impl View {
     }
     pub fn added_tags(&self) -> Vec<TxtTag> {
         self.tag_indexes.get().added_tags()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct TxtTag(String);
-
-impl TxtTag {
-    pub fn new(s: String) -> Self {
-        if !TEXT_TAGS.contains(&&s[..]) {
-            panic!("undeclared tag {}", s);
-        }
-        Self(s)
-    }
-
-    pub fn fg_bg_color(&self) -> (Option<&str>, Option<&str>) {
-        match &self.0[..] {
-            ADDED => (Some("#4a8e09"), None),
-            _ => (None, None),
-        }
-    }
-
-    pub fn unknown_tag(s: String) -> Self {
-        Self(s)
-    }
-
-    pub fn from_str(s: &str) -> Self {
-        if !TEXT_TAGS.contains(&s) {
-            panic!("undeclared tag {}", s);
-        }
-        Self(s.to_string())
-    }
-
-    pub fn str(&self) -> &str {
-        &self.0[..]
-    }
-
-    pub fn name(&self) -> &str {
-        &self.0[..]
-    }
-
-    pub fn enhance(&self) -> Self {
-        let new_name = match self.name() {
-            ADDED => ENHANCED_ADDED,
-            REMOVED => ENHANCED_REMOVED,
-            other => other,
-        };
-        Self::from_str(new_name)
-    }
-
-    pub fn fill_text_tag(&self, tag: &TextTag, is_dark: bool) {
-        match &self.0[..] {
-            SPACES_ADDED => {
-                if is_dark {
-                    tag.set_background(Some("#4a8e09"));
-                } else {
-                    tag.set_background(Some("#9bebc6"));
-                }
-            }
-            SPACES_REMOVED => {
-                if is_dark {
-                    tag.set_background(Some("#a51d2d"));
-                } else {
-                    tag.set_background(Some("#e4999e"));
-                }
-            }
-            BOLD => {
-                tag.set_weight(700);
-            }
-            ADDED => {
-                if is_dark {
-                    tag.set_foreground(Some("#4a8e09"));
-                } else {
-                    tag.set_foreground(Some("#2ec27e"));
-                }
-            }
-            ENHANCED_ADDED => {
-                if is_dark {
-                    tag.set_foreground(Some("#3fb907"));
-                } else {
-                    tag.set_foreground(Some("#26a269"));
-                }
-            }
-            REMOVED => {
-                if is_dark {
-                    tag.set_foreground(Some("#a51d2d"));
-                } else {
-                    tag.set_foreground(Some("#c01c28"));
-                }
-            }
-            ENHANCED_REMOVED => {
-                if is_dark {
-                    tag.set_foreground(Some("#cd0e1c"));
-                } else {
-                    tag.set_foreground(Some("#a51d2d"));
-                }
-            }
-            CURSOR => {
-                if is_dark {
-                    tag.set_background(Some("#23374f"));
-                } else {
-                    // tag.set_background(Some("#f6fecd")); // original yellow
-                    tag.set_background(Some("#cce0f8")); // default blue
-                }
-            }
-            REGION => {
-                if is_dark {
-                    tag.set_background(Some("#494949"));
-                } else {
-                    tag.set_background(Some("#f6f5f4"));
-                }
-            }
-            HUNK => {
-                // if is_dark {
-                //     tag.set_background(Some("#383838"));
-                // } else {
-                //     tag.set_background(Some("#deddda"));
-                // }
-            }
-            UNDERLINE => {
-                tag.set_underline(Underline::Single);
-            }
-            POINTER => {}
-            STAGED | UNSTAGED => {}
-            DIFF => {
-                // TODO! get it from line_yrange!
-                tag.set_weight(700);
-                tag.set_pixels_above_lines(32);
-                if is_dark {
-                    tag.set_foreground(Some("#a78a44"));
-                } else {
-                    tag.set_foreground(Some("#8b6508"));
-                }
-            }
-            CONFLICT_MARKER => {
-                tag.set_foreground(Some("#ff0000"));
-            }
-            OURS => {}
-            THEIRS => {}
-            unknown => {
-                debug!("unknown tag {}", unknown);
-            }
-        }
-    }
-
-    pub fn create(&self) -> TextTag {
-        let tag = TextTag::new(Some(&self.0));
-        let manager = StyleManager::default();
-        let is_dark = manager.is_dark();
-        self.fill_text_tag(&tag, is_dark);
-        tag
     }
 }

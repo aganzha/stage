@@ -15,7 +15,7 @@ use gtk4::{
     GestureDrag, MovementStep, TextBuffer, TextIter, TextTag, TextView, TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::trace;
+use log::{debug, trace};
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -307,6 +307,20 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
     let buffer = txt.buffer();
     let table = buffer.tag_table();
+
+    let green = tags::Color(("#4a8e09".to_string(), "#2ec27e".to_string()));
+    let red = tags::Color(("#a51d2d".to_string(), "#c01c28".to_string()));
+
+    let added = tags::ColorTag((tags::ADDED, green.clone()));
+    let removed = tags::ColorTag((tags::REMOVED, red.clone()));
+
+    let enhanced_added = tags::ColorTag((tags::ENHANCED_ADDED, green.darken(Some(0.2))));
+    let enhanced_removed = tags::ColorTag((tags::ENHANCED_REMOVED, red.darken(Some(0.2))));
+    debug!(">>>>>>>>>>>>>>>>>> {:?} {:?}", removed, enhanced_removed);
+
+    let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.darken(Some(0.3))));
+    let syntax_removed = tags::ColorTag((tags::SYNTAX_REMOVED, red.darken(Some(0.3))));
+
     let pointer = tags::TxtTag::from_str(tags::POINTER).create();
     let staged = tags::TxtTag::from_str(tags::STAGED).create();
     let unstaged = tags::TxtTag::from_str(tags::UNSTAGED).create();
@@ -324,6 +338,12 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             tags::HUNK => table.add(&hunk),
             tags::OID => table.add(&oid),
             tags::UNDERLINE => table.add(&underline),
+            tags::ADDED => table.add(&added.create(is_dark)),
+            tags::ENHANCED_ADDED => table.add(&enhanced_added.create(is_dark)),
+            tags::SYNTAX_ADDED => table.add(&syntax_added.create(is_dark)),
+            tags::REMOVED => table.add(&removed.create(is_dark)),
+            tags::ENHANCED_REMOVED => table.add(&enhanced_removed.create(is_dark)),
+            tags::SYNTAX_REMOVED => table.add(&syntax_removed.create(is_dark)),
             _ => table.add(&tags::TxtTag::from_str(tag_name).create()),
         };
     }
@@ -341,9 +361,21 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 txt.add_css_class(LIGHT_CLASS);
             }
             table.foreach(|tt| {
+                debug!("TOGGLE SCHEME");
                 if let Some(name) = tt.name() {
-                    let t = tags::TxtTag::unknown_tag(name.to_string());
-                    t.fill_text_tag(tt, is_dark);
+                    match name.as_ref() {
+                        tags::ADDED => added.toggle(tt, is_dark),
+                        tags::ENHANCED_ADDED => enhanced_added.toggle(tt, is_dark),
+                        tags::SYNTAX_ADDED => syntax_added.toggle(tt, is_dark),
+                        tags::REMOVED => removed.toggle(tt, is_dark),
+                        tags::ENHANCED_REMOVED => enhanced_removed.toggle(tt, is_dark),
+                        tags::SYNTAX_REMOVED => syntax_removed.toggle(tt, is_dark),
+                        unknown => {
+                            debug!("toggling tag? {:?}", removed)
+                        }
+                    }
+                    // let t = tags::TxtTag::unknown_tag(name.to_string());
+                    // t.fill_text_tag(tt, is_dark);
                 }
             });
             txt.set_background();

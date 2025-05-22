@@ -33,8 +33,8 @@ use std::rc::Rc;
 #[derive(PartialEq)]
 pub enum TagChanges {
     Render,
-    BecomeCurrent,
-    BecomeActive,
+    BecomeCurrent(bool),
+    BecomeActive(bool),
 }
 
 pub trait ViewContainer {
@@ -279,9 +279,9 @@ pub trait ViewContainer {
         if view.is_rendered() {
             if !self.is_empty(context) {
                 if is_current != was_current {
-                    self.apply_tags(TagChanges::BecomeCurrent, buffer, context);
+                    self.apply_tags(TagChanges::BecomeCurrent(is_current), buffer, context);
                 } else if is_active != was_active {
-                    self.apply_tags(TagChanges::BecomeActive, buffer, context);
+                    self.apply_tags(TagChanges::BecomeActive(is_active), buffer, context);
                 }
             }
             self.after_cursor(buffer, context);
@@ -894,39 +894,40 @@ impl ViewContainer for Line {
         buffer: &TextBuffer,
         context: &mut StatusRenderContext<'a>,
     ) {
-        if tag_changes == TagChanges::Render {
-            match self.kind {
-                LineKind::ConflictMarker(_) => self.add_tag(buffer, tags::CONFLICT_MARKER, None),
-                // no need to mark theirs/ours. use regular colors downwhere
-                LineKind::Ours(_) | LineKind::Theirs(_) => {
-                    match self.origin {
-                        DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
-                        DiffLineType::Deletion => {
-                            //  |  DiffLineType::Context
-                            // this is a hack. in Ours lines got Context origin
-                            // while Theirs got Addition
-                            self.add_tag(buffer, tags::REMOVED, None)
+        match tag_changes {
+            TagChanges::Render => {
+                match self.kind {
+                    LineKind::ConflictMarker(_) => self.add_tag(buffer, tags::CONFLICT_MARKER, None),
+                    // no need to mark theirs/ours. use regular colors downwhere
+                    LineKind::Ours(_) | LineKind::Theirs(_) => {
+                        match self.origin {
+                            DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
+                            DiffLineType::Deletion => {
+                                //  |  DiffLineType::Context
+                                // this is a hack. in Ours lines got Context origin
+                                // while Theirs got Addition
+                                self.add_tag(buffer, tags::REMOVED, None)
+                            }
+                            _ => {}
                         }
-                        _ => {}
                     }
+                    _ => match self.origin {
+                        DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
+                        DiffLineType::Deletion => self.add_tag(buffer, tags::REMOVED, None),
+                        DiffLineType::Context => self.add_tag(buffer, tags::CONTEXT, None),
+                        _ => {}
+                    },
                 }
-                _ => match self.origin {
-                    DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
-                    DiffLineType::Deletion => self.add_tag(buffer, tags::REMOVED, None),
-                    DiffLineType::Context => self.add_tag(buffer, tags::CONTEXT, None),
-                    _ => {}
-                },
-            }
 
-            let (mut start_iter, end_iter) = self.start_end_iters(buffer, self.view.line_no.get());
-            // highlight spaces
-            let content = self.content(context.current_hunk.unwrap());
-            let stripped = content.trim_end_matches(|c| -> bool { char::is_ascii_whitespace(&c) });
-            let content_len = content.chars().count();
-            let stripped_len = stripped.chars().count();
+                let (mut start_iter, end_iter) = self.start_end_iters(buffer, self.view.line_no.get());
+                // highlight spaces
+                let content = self.content(context.current_hunk.unwrap());
+                let stripped = content.trim_end_matches(|c| -> bool { char::is_ascii_whitespace(&c) });
+                let content_len = content.chars().count();
+                let stripped_len = stripped.chars().count();
 
-            if stripped_len < content_len
-                && (self.origin == DiffLineType::Addition || self.origin == DiffLineType::Deletion)
+                if stripped_len < content_len
+                    && (self.origin == DiffLineType::Addition || self.origin == DiffLineType::Deletion)
             {
                 // if will use here enhanced_added for now, but
                 // spaces must have their separate tag!
@@ -945,36 +946,63 @@ impl ViewContainer for Line {
                     Some((start_iter.offset(), end_iter.offset())),
                 );
             }
-            // highlight syntax keywords
-            for (start, end) in &self.keyword_ranges {
-                let tag = tags::BOLD;
-                debug!(
-                    "highlight! LINE: {:?}. ||| start {:?} end {:?} + 1 keyword: {:?}",
-                    self.old_line_no,
-                    *start,
-                    *end,
-                    buffer.text(&start_iter, &end_iter, true)
-                );
-                start_iter.set_line_offset(0);
-                let offset = start_iter.offset();
-                let start = offset + start + (if *start == 0 { 0 } else { 1 });
-                let end = offset + end + 1;
-                self.add_tag(buffer, tag, Some((start, end)));
+                // highlight syntax keywords
+                for (start, end) in &self.keyword_ranges {
+                    let tag = tags::BOLD;
+                    debug!(
+                        "highlight! LINE: {:?}. ||| start {:?} end {:?} + 1 keyword: {:?}",
+                        self.old_line_no,
+                        *start,
+                        *end,
+                        buffer.text(&start_iter, &end_iter, true)
+                    );
+                    start_iter.set_line_offset(0);
+                    let offset = start_iter.offset();
+                    let start = offset + start + (if *start == 0 { 0 } else { 1 });
+                    let end = offset + end + 1;
+                    self.add_tag(buffer, tag, Some((start, end)));
+                }
             }
-        }
 
-        if tag_changes == TagChanges::BecomeCurrent {
-            let mut iter = buffer.iter_at_offset(0);
-            iter.set_line(self.view.line_no.get());
-            if let Some(anchor) = iter.child_anchor() {
-                if !anchor.widgets().is_empty() {
-                    let w = &anchor.widgets()[0];
-                    let l = w.downcast_ref::<GtkLabel>().unwrap();
-                    if self.view.is_current() {
-                        l.set_opacity(1.0);
-                    } else {
-                        l.set_opacity(0.3);
+            TagChanges::BecomeCurrent(_) => {
+                let mut iter = buffer.iter_at_offset(0);
+                iter.set_line(self.view.line_no.get());
+                if let Some(anchor) = iter.child_anchor() {
+                    if !anchor.widgets().is_empty() {
+                        let w = &anchor.widgets()[0];
+                        let l = w.downcast_ref::<GtkLabel>().unwrap();
+                        if self.view.is_current() {
+                            l.set_opacity(1.0);
+                        } else {
+                            l.set_opacity(0.3);
+                        }
                     }
+                }
+            }
+            TagChanges::BecomeActive(is_active) => {
+                match self.origin {
+                    DiffLineType::Addition => {
+                        if is_active {
+                            self.remove_tag(buffer, tags::ADDED, None);
+                            self.add_tag(buffer, tags::ENHANCED_ADDED, None);
+                        } else {
+                            self.remove_tag(buffer, tags::ENHANCED_ADDED, None);
+                            self.add_tag(buffer, tags::ADDED, None);
+                        }
+                    }
+                    DiffLineType::Deletion => {
+                        if is_active {
+                            self.remove_tag(buffer, tags::REMOVED, None);
+                            self.add_tag(buffer, tags::ENHANCED_REMOVED, None);
+                        } else {
+                            self.remove_tag(buffer, tags::ENHANCED_REMOVED, None);
+                            self.add_tag(buffer, tags::REMOVED, None);
+                        }
+                    }
+                    DiffLineType::Context => {
+                        self.add_tag(buffer, tags::CONTEXT, None);
+                    }
+                    _ => {}
                 }
             }
         }
