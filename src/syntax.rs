@@ -89,7 +89,6 @@ impl LanguageWrapper {
                 "float",
                 "complex",
                 "str",
-                "list",
                 "dict",
                 "set",
                 "frozenset",
