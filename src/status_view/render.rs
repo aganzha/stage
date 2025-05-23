@@ -918,7 +918,7 @@ impl ViewContainer for Line {
                     _ => match self.origin {
                         DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
                         DiffLineType::Deletion => self.add_tag(buffer, tags::REMOVED, None),
-                        DiffLineType::Context => self.add_tag(buffer, tags::CONTEXT, None),
+                        DiffLineType::Context => {/*self.add_tag(buffer, tags::CONTEXT, None)*/},
                         _ => {}
                     },
                 }
@@ -963,6 +963,7 @@ impl ViewContainer for Line {
                     };
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
+                    debug!("SYNTAX line_no {:?} {:?} tag {:?} {:?} {:?}", self.old_line_no, self.new_line_no, tag, start, end);
                     self.add_tag(buffer, tag, Some((start, end)));
                 }
             }
@@ -1013,7 +1014,7 @@ impl ViewContainer for Line {
                             (tags::ENHANCED_SYNTAX, tags::SYNTAX)
                         } else {
                             self.remove_tag(buffer, tags::ENHANCED_CONTEXT, None);
-                            self.add_tag(buffer, tags::ENHANCED_CONTEXT, None);
+                            self.add_tag(buffer, tags::CONTEXT, None);
                             (tags::SYNTAX, tags::ENHANCED_SYNTAX)
                         }
                     }

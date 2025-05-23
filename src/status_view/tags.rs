@@ -65,12 +65,15 @@ pub const TEXT_TAGS: [&str; 26] = [
     THEIRS,
     SPACES_ADDED,
     SPACES_REMOVED,
+
     SYNTAX,
     SYNTAX_ADDED,
     SYNTAX_REMOVED,
+
     ENHANCED_SYNTAX,
     ENHANCED_SYNTAX_ADDED,
     ENHANCED_SYNTAX_REMOVED,
+
     CONTEXT,
     ENHANCED_CONTEXT,
 ];
@@ -127,6 +130,7 @@ impl ColorTag {
         if is_dark {
             tag.set_foreground(Some(&self.0 .1 .0 .0));
         } else {
+            debug!("............. {:?} {:?}", self.0,  &self.0 .1 .0 .1);
             tag.set_foreground(Some(&self.0 .1 .0 .1));
         }
     }

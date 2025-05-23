@@ -308,15 +308,17 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let buffer = txt.buffer();
     let table = buffer.tag_table();
 
+    // Dark theme - first color on tuple. Light - last one.
     let green = tags::Color(("#4a8e09".to_string(), "#2ec27e".to_string()));
     let red = tags::Color(("#a51d2d".to_string(), "#c01c28".to_string()));
-    // in terms of light. in dark theme those are gray and white
-    let grey = tags::Color(("#222222".to_string(), "#dddddd".to_string()));
-    let black = tags::Color(("#111111".to_string(), "#eeeeee".to_string()));
+    // in terms of dark theme: white  - is white font on black backgroud. grey is near white.
+    // in terms of light theme: black - is black font on white color. greay is near black 
+    let grey = tags::Color(("#dddddd".to_string(), "#999999".to_string()));
+    let white_black = tags::Color(("#eeeeee".to_string(), "#111111".to_string()));
 
     let added = tags::ColorTag((tags::ADDED, green.clone()));
     let removed = tags::ColorTag((tags::REMOVED, red.clone()));
-    let syntax = tags::ColorTag((tags::SYNTAX, black.clone()));
+    let syntax = tags::ColorTag((tags::SYNTAX, white_black.clone()));
     let context = tags::ColorTag((tags::CONTEXT, grey.clone()));
 
     let enhanced_added = tags::ColorTag((tags::ENHANCED_ADDED, green.darken(Some(0.2))));
@@ -330,7 +332,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let enhanced_syntax_removed =
         tags::ColorTag((tags::ENHANCED_SYNTAX_REMOVED, red.darken(Some(0.4))));
 
-    let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, black.darken(Some(0.2))));
+    let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, white_black.darken(Some(0.2))));
     let enhanced_context = tags::ColorTag((tags::ENHANCED_CONTEXT, grey.darken(Some(0.2))));
 
     let pointer = tags::TxtTag::from_str(tags::POINTER).create();
@@ -365,8 +367,10 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
             tags::SYNTAX => table.add(&syntax.create(is_dark)),
             tags::ENHANCED_SYNTAX => table.add(&enhanced_syntax.create(is_dark)),
+
             tags::CONTEXT => table.add(&context.create(is_dark)),
             tags::ENHANCED_CONTEXT => table.add(&enhanced_context.create(is_dark)),
+
             _ => table.add(&tags::TxtTag::from_str(tag_name).create()),
         };
     }
