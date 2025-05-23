@@ -20,13 +20,12 @@ pub const BOLD: &str = "bold";
 pub const ADDED: &str = "added";
 pub const ENHANCED_ADDED: &str = "enhancedAdded";
 pub const SYNTAX_ADDED: &str = "syntaxAdded";
+pub const ENHANCED_SYNTAX_ADDED: &str = "enhancedSyntaxAdded";
 
 pub const REMOVED: &str = "removed";
 pub const ENHANCED_REMOVED: &str = "enhancedRemoved";
 pub const SYNTAX_REMOVED: &str = "syntaxRemoved";
-
-pub const CURSOR: &str = "cursor";
-pub const REGION: &str = "region";
+pub const ENHANCED_SYNTAX_REMOVED: &str = "enhancedSyntaxRemoved";
 
 pub const HUNK: &str = "hunk";
 pub const FILE: &str = "file";
@@ -42,9 +41,12 @@ pub const OURS: &str = "ours";
 pub const THEIRS: &str = "theirs";
 
 pub const CONTEXT: &str = "context";
-pub const SYNTAX: &str = "syntax";
+pub const ENHANCED_CONTEXT: &str = "enhancedContext";
 
-pub const TEXT_TAGS: [&str; 22] = [
+pub const SYNTAX: &str = "syntax";
+pub const ENHANCED_SYNTAX: &str = "enhancedSyntax";
+
+pub const TEXT_TAGS: [&str; 26] = [
     BOLD,
     ADDED,
     ENHANCED_ADDED,
@@ -63,10 +65,14 @@ pub const TEXT_TAGS: [&str; 22] = [
     THEIRS,
     SPACES_ADDED,
     SPACES_REMOVED,
-    CONTEXT,
     SYNTAX,
     SYNTAX_ADDED,
     SYNTAX_REMOVED,
+    ENHANCED_SYNTAX,
+    ENHANCED_SYNTAX_ADDED,
+    ENHANCED_SYNTAX_REMOVED,
+    CONTEXT,
+    ENHANCED_CONTEXT,
 ];
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -79,28 +85,31 @@ impl Color {
     pub fn for_dark_scheme(&self) -> String {
         self.0 .1.clone()
     }
-    pub fn darken_color(hex: &str, factor: Option<f32>) -> String {
+    pub fn adjust_color(hex: &str, factor: f32) -> String {
         let hex = hex.trim_start_matches('#');
         let r = u8::from_str_radix(&hex[0..2], 16).unwrap();
         let g = u8::from_str_radix(&hex[2..4], 16).unwrap();
         let b = u8::from_str_radix(&hex[4..6], 16).unwrap();
 
-        // Default factor to 0.1 (10%) if not provided
-        let factor = factor.unwrap_or(0.1);
+        // Adjust the color
+        let adjust = |c: u8| -> u8 {
+            let new_value = (c as f32 * (1.0 + factor)).round() as u8;
+            // Clamp the value between 0 and 255
+            new_value
+        };
 
-        // Darken the color
-        let darken = |c: u8| -> u8 { (c as f32 * (1.0 - factor)).round() as u8 };
-
-        let new_r = darken(r);
-        let new_g = darken(g);
-        let new_b = darken(b);
+        let new_r = adjust(r);
+        let new_g = adjust(g);
+        let new_b = adjust(b);
 
         // Format the new color back to hex
         format!("#{:02x}{:02x}{:02x}", new_r, new_g, new_b)
     }
+
     pub fn darken(&self, factor: Option<f32>) -> Self {
-        let fg = Self::darken_color(&self.0 .0, factor);
-        let bg = Self::darken_color(&self.0 .1, factor);
+        let f = factor.unwrap_or(0.1);
+        let fg = Self::adjust_color(&self.0 .0, f);
+        let bg = Self::adjust_color(&self.0 .1, 0.0 - f);
         Self((fg, bg))
     }
 }

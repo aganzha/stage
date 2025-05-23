@@ -310,20 +310,28 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
     let green = tags::Color(("#4a8e09".to_string(), "#2ec27e".to_string()));
     let red = tags::Color(("#a51d2d".to_string(), "#c01c28".to_string()));
+    // in terms of light. in dark theme those are gray and white
+    let grey = tags::Color(("#222222".to_string(), "#dddddd".to_string()));
+    let black = tags::Color(("#111111".to_string(), "#eeeeee".to_string()));
 
     let added = tags::ColorTag((tags::ADDED, green.clone()));
     let removed = tags::ColorTag((tags::REMOVED, red.clone()));
-    //                                                                              same as Head!
-    let syntax = tags::ColorTag((
-        tags::SYNTAX,
-        tags::Color(("#323232".to_string(), "#4a708b".to_string())),
-    ));
+    let syntax = tags::ColorTag((tags::SYNTAX, black.clone()));
+    let context = tags::ColorTag((tags::CONTEXT, grey.clone()));
 
     let enhanced_added = tags::ColorTag((tags::ENHANCED_ADDED, green.darken(Some(0.2))));
     let enhanced_removed = tags::ColorTag((tags::ENHANCED_REMOVED, red.darken(Some(0.2))));
 
-    let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.darken(Some(0.4))));
-    let syntax_removed = tags::ColorTag((tags::SYNTAX_REMOVED, red.darken(Some(0.4))));
+    let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.darken(Some(0.2))));
+    let syntax_removed = tags::ColorTag((tags::SYNTAX_REMOVED, red.darken(Some(0.2))));
+
+    let enhanced_syntax_added =
+        tags::ColorTag((tags::ENHANCED_SYNTAX_ADDED, green.darken(Some(0.4))));
+    let enhanced_syntax_removed =
+        tags::ColorTag((tags::ENHANCED_SYNTAX_REMOVED, red.darken(Some(0.4))));
+
+    let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, black.darken(Some(0.2))));
+    let enhanced_context = tags::ColorTag((tags::ENHANCED_CONTEXT, grey.darken(Some(0.2))));
 
     let pointer = tags::TxtTag::from_str(tags::POINTER).create();
     let staged = tags::TxtTag::from_str(tags::STAGED).create();
@@ -342,16 +350,23 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             tags::HUNK => table.add(&hunk),
             tags::OID => table.add(&oid),
             tags::UNDERLINE => table.add(&underline),
+
             tags::ADDED => table.add(&added.create(is_dark)),
             tags::ENHANCED_ADDED => table.add(&enhanced_added.create(is_dark)),
+
             tags::SYNTAX_ADDED => table.add(&syntax_added.create(is_dark)),
+            tags::ENHANCED_SYNTAX_ADDED => table.add(&enhanced_syntax_added.create(is_dark)),
+
             tags::REMOVED => table.add(&removed.create(is_dark)),
             tags::ENHANCED_REMOVED => table.add(&enhanced_removed.create(is_dark)),
+
             tags::SYNTAX_REMOVED => table.add(&syntax_removed.create(is_dark)),
-            tags::SYNTAX => {
-                debug!("AAAAAAAAAAAADDING SYNTAX TO TAG_TABLE {:?}", syntax);
-                table.add(&syntax.create(is_dark))
-            }
+            tags::ENHANCED_SYNTAX_REMOVED => table.add(&enhanced_syntax_removed.create(is_dark)),
+
+            tags::SYNTAX => table.add(&syntax.create(is_dark)),
+            tags::ENHANCED_SYNTAX => table.add(&enhanced_syntax.create(is_dark)),
+            tags::CONTEXT => table.add(&context.create(is_dark)),
+            tags::ENHANCED_CONTEXT => table.add(&enhanced_context.create(is_dark)),
             _ => table.add(&tags::TxtTag::from_str(tag_name).create()),
         };
     }

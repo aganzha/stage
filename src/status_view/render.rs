@@ -894,6 +894,8 @@ impl ViewContainer for Line {
         buffer: &TextBuffer,
         context: &mut StatusRenderContext<'a>,
     ) {
+        let (mut start_iter, end_iter) = self.start_end_iters(buffer, self.view.line_no.get());
+        let start_offset = start_iter.offset();
         match tag_changes {
             TagChanges::Render => {
                 match self.kind {
@@ -921,8 +923,6 @@ impl ViewContainer for Line {
                     },
                 }
 
-                let (mut start_iter, end_iter) =
-                    self.start_end_iters(buffer, self.view.line_no.get());
                 // highlight spaces
                 let content = self.content(context.current_hunk.unwrap());
                 let stripped =
@@ -961,17 +961,8 @@ impl ViewContainer for Line {
                             todo!("syntax in non code line");
                         }
                     };
-                    debug!(
-                        "highlight! LINE: {:?}. ||| start {:?} end {:?} + 1 keyword: {:?}",
-                        self.old_line_no,
-                        *start,
-                        *end,
-                        buffer.text(&start_iter, &end_iter, true)
-                    );
-                    start_iter.set_line_offset(0);
-                    let offset = start_iter.offset();
-                    let start = offset + start + (if *start == 0 { 0 } else { 1 });
-                    let end = offset + end + 1;
+                    let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
+                    let end = start_offset + end + 1;
                     self.add_tag(buffer, tag, Some((start, end)));
                 }
             }
@@ -991,30 +982,56 @@ impl ViewContainer for Line {
                     }
                 }
             }
-            TagChanges::BecomeActive(is_active) => match self.origin {
-                DiffLineType::Addition => {
-                    if is_active {
-                        self.remove_tag(buffer, tags::ADDED, None);
-                        self.add_tag(buffer, tags::ENHANCED_ADDED, None);
-                    } else {
-                        self.remove_tag(buffer, tags::ENHANCED_ADDED, None);
-                        self.add_tag(buffer, tags::ADDED, None);
+            TagChanges::BecomeActive(is_active) => {
+                let (syntax_to_add, syntax_to_remove) = match self.origin {
+                    DiffLineType::Addition => {
+                        if is_active {
+                            self.remove_tag(buffer, tags::ADDED, None);
+                            self.add_tag(buffer, tags::ENHANCED_ADDED, None);
+                            (tags::ENHANCED_SYNTAX_ADDED, tags::SYNTAX_ADDED)
+                        } else {
+                            self.remove_tag(buffer, tags::ENHANCED_ADDED, None);
+                            self.add_tag(buffer, tags::ADDED, None);
+                            (tags::SYNTAX_ADDED, tags::ENHANCED_SYNTAX_ADDED)
+                        }
                     }
-                }
-                DiffLineType::Deletion => {
-                    if is_active {
-                        self.remove_tag(buffer, tags::REMOVED, None);
-                        self.add_tag(buffer, tags::ENHANCED_REMOVED, None);
-                    } else {
-                        self.remove_tag(buffer, tags::ENHANCED_REMOVED, None);
-                        self.add_tag(buffer, tags::REMOVED, None);
+                    DiffLineType::Deletion => {
+                        if is_active {
+                            self.remove_tag(buffer, tags::REMOVED, None);
+                            self.add_tag(buffer, tags::ENHANCED_REMOVED, None);
+                            (tags::ENHANCED_SYNTAX_REMOVED, tags::SYNTAX_REMOVED)
+                        } else {
+                            self.remove_tag(buffer, tags::ENHANCED_REMOVED, None);
+                            self.add_tag(buffer, tags::REMOVED, None);
+                            (tags::SYNTAX_REMOVED, tags::ENHANCED_SYNTAX_REMOVED)
+                        }
                     }
+                    DiffLineType::Context => {
+                        if is_active {
+                            self.remove_tag(buffer, tags::CONTEXT, None);
+                            self.add_tag(buffer, tags::ENHANCED_CONTEXT, None);
+                            (tags::ENHANCED_SYNTAX, tags::SYNTAX)
+                        } else {
+                            self.remove_tag(buffer, tags::ENHANCED_CONTEXT, None);
+                            self.add_tag(buffer, tags::ENHANCED_CONTEXT, None);
+                            (tags::SYNTAX, tags::ENHANCED_SYNTAX)
+                        }
+                    }
+                    _ => {
+                        todo!("unknown origin");
+                    }
+                };
+                for (start, end) in &self.keyword_ranges {
+                    let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
+                    let end = start_offset + end + 1;
+                    debug!(
+                        "RRRRRREMOVE AND ADD {:?} {:?}",
+                        syntax_to_remove, syntax_to_add
+                    );
+                    self.remove_tag(buffer, syntax_to_remove, Some((start, end)));
+                    self.add_tag(buffer, syntax_to_add, Some((start, end)));
                 }
-                DiffLineType::Context => {
-                    self.add_tag(buffer, tags::CONTEXT, None);
-                }
-                _ => {}
-            },
+            }
         }
     }
     // Line
