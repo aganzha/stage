@@ -24,7 +24,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::{debug, trace};
+use log::trace;
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -898,31 +898,6 @@ impl ViewContainer for Line {
         let start_offset = start_iter.offset();
         match tag_changes {
             TagChanges::Render => {
-                match self.kind {
-                    LineKind::ConflictMarker(_) => {
-                        self.add_tag(buffer, tags::CONFLICT_MARKER, None)
-                    }
-                    // no need to mark theirs/ours. use regular colors downwhere
-                    LineKind::Ours(_) | LineKind::Theirs(_) => {
-                        match self.origin {
-                            DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
-                            DiffLineType::Deletion => {
-                                //  |  DiffLineType::Context
-                                // this is a hack. in Ours lines got Context origin
-                                // while Theirs got Addition
-                                self.add_tag(buffer, tags::REMOVED, None)
-                            }
-                            _ => {}
-                        }
-                    }
-                    _ => match self.origin {
-                        DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
-                        DiffLineType::Deletion => self.add_tag(buffer, tags::REMOVED, None),
-                        DiffLineType::Context => {/*self.add_tag(buffer, tags::CONTEXT, None)*/},
-                        _ => {}
-                    },
-                }
-
                 // highlight spaces
                 let content = self.content(context.current_hunk.unwrap());
                 let stripped =
@@ -963,8 +938,31 @@ impl ViewContainer for Line {
                     };
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
-                    debug!("SYNTAX line_no {:?} {:?} tag {:?} {:?} {:?}", self.old_line_no, self.new_line_no, tag, start, end);
                     self.add_tag(buffer, tag, Some((start, end)));
+                }
+                match self.kind {
+                    LineKind::ConflictMarker(_) => {
+                        self.add_tag(buffer, tags::CONFLICT_MARKER, None)
+                    }
+                    // no need to mark theirs/ours. use regular colors downwhere
+                    LineKind::Ours(_) | LineKind::Theirs(_) => {
+                        match self.origin {
+                            DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
+                            DiffLineType::Deletion => {
+                                //  |  DiffLineType::Context
+                                // this is a hack. in Ours lines got Context origin
+                                // while Theirs got Addition
+                                self.add_tag(buffer, tags::REMOVED, None)
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => match self.origin {
+                        DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
+                        DiffLineType::Deletion => self.add_tag(buffer, tags::REMOVED, None),
+                        DiffLineType::Context => self.add_tag(buffer, tags::CONTEXT, None),
+                        _ => {}
+                    },
                 }
             }
 
@@ -984,53 +982,82 @@ impl ViewContainer for Line {
                 }
             }
             TagChanges::BecomeActive(is_active) => {
-                let (syntax_to_add, syntax_to_remove) = match self.origin {
+                match self.origin {
                     DiffLineType::Addition => {
                         if is_active {
                             self.remove_tag(buffer, tags::ADDED, None);
-                            self.add_tag(buffer, tags::ENHANCED_ADDED, None);
-                            (tags::ENHANCED_SYNTAX_ADDED, tags::SYNTAX_ADDED)
                         } else {
                             self.remove_tag(buffer, tags::ENHANCED_ADDED, None);
-                            self.add_tag(buffer, tags::ADDED, None);
-                            (tags::SYNTAX_ADDED, tags::ENHANCED_SYNTAX_ADDED)
                         }
                     }
                     DiffLineType::Deletion => {
                         if is_active {
                             self.remove_tag(buffer, tags::REMOVED, None);
-                            self.add_tag(buffer, tags::ENHANCED_REMOVED, None);
-                            (tags::ENHANCED_SYNTAX_REMOVED, tags::SYNTAX_REMOVED)
                         } else {
                             self.remove_tag(buffer, tags::ENHANCED_REMOVED, None);
-                            self.add_tag(buffer, tags::REMOVED, None);
-                            (tags::SYNTAX_REMOVED, tags::ENHANCED_SYNTAX_REMOVED)
                         }
                     }
                     DiffLineType::Context => {
                         if is_active {
                             self.remove_tag(buffer, tags::CONTEXT, None);
-                            self.add_tag(buffer, tags::ENHANCED_CONTEXT, None);
-                            (tags::ENHANCED_SYNTAX, tags::SYNTAX)
                         } else {
                             self.remove_tag(buffer, tags::ENHANCED_CONTEXT, None);
-                            self.add_tag(buffer, tags::CONTEXT, None);
-                            (tags::SYNTAX, tags::ENHANCED_SYNTAX)
                         }
                     }
                     _ => {
                         todo!("unknown origin");
                     }
-                };
+                }
                 for (start, end) in &self.keyword_ranges {
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
-                    debug!(
-                        "RRRRRREMOVE AND ADD {:?} {:?}",
-                        syntax_to_remove, syntax_to_add
-                    );
-                    self.remove_tag(buffer, syntax_to_remove, Some((start, end)));
-                    self.add_tag(buffer, syntax_to_add, Some((start, end)));
+                    let (to_add, to_remove) = match (self.origin, is_active) {
+                        (DiffLineType::Addition, true) => {
+                            (tags::ENHANCED_SYNTAX_ADDED, tags::SYNTAX_ADDED)
+                        }
+                        (DiffLineType::Addition, false) => {
+                            (tags::SYNTAX_ADDED, tags::ENHANCED_SYNTAX_ADDED)
+                        }
+                        (DiffLineType::Deletion, true) => {
+                            (tags::ENHANCED_SYNTAX_REMOVED, tags::SYNTAX_REMOVED)
+                        }
+                        (DiffLineType::Deletion, false) => {
+                            (tags::SYNTAX_REMOVED, tags::ENHANCED_SYNTAX_REMOVED)
+                        }
+                        (DiffLineType::Context, true) => (tags::ENHANCED_SYNTAX, tags::SYNTAX),
+                        (DiffLineType::Context, false) => (tags::SYNTAX, tags::ENHANCED_SYNTAX),
+                        (_, _) => {
+                            todo!("unknown syntax tag combo")
+                        }
+                    };
+                    self.remove_tag(buffer, to_remove, Some((start, end)));
+                    self.add_tag(buffer, to_add, Some((start, end)));
+                }
+                match self.origin {
+                    DiffLineType::Addition => {
+                        if is_active {
+                            self.add_tag(buffer, tags::ENHANCED_ADDED, None);
+                        } else {
+                            self.add_tag(buffer, tags::ADDED, None);
+                        }
+                    }
+                    DiffLineType::Deletion => {
+                        if is_active {
+                            self.add_tag(buffer, tags::ENHANCED_REMOVED, None);
+                        } else {
+                            self.add_tag(buffer, tags::REMOVED, None);
+                        }
+                    }
+                    DiffLineType::Context => {
+                        if is_active {
+                            self.add_tag(buffer, tags::ENHANCED_CONTEXT, None);
+                        } else {
+                            self.add_tag(buffer, tags::CONTEXT, None);
+                        }
+                    }
+                    _ => {
+                        todo!("unknown origin");
+                    }
                 }
             }
         }

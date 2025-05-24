@@ -46,6 +46,8 @@ pub const ENHANCED_CONTEXT: &str = "enhancedContext";
 pub const SYNTAX: &str = "syntax";
 pub const ENHANCED_SYNTAX: &str = "enhancedSyntax";
 
+// THE ORDER HERE IS IMPORTANT!
+// if swap context and syntax, then syntax tags will not be visible in context lines!
 pub const TEXT_TAGS: [&str; 26] = [
     BOLD,
     ADDED,
@@ -65,29 +67,20 @@ pub const TEXT_TAGS: [&str; 26] = [
     THEIRS,
     SPACES_ADDED,
     SPACES_REMOVED,
-
+    CONTEXT,
+    ENHANCED_CONTEXT,
     SYNTAX,
     SYNTAX_ADDED,
     SYNTAX_REMOVED,
-
     ENHANCED_SYNTAX,
     ENHANCED_SYNTAX_ADDED,
     ENHANCED_SYNTAX_REMOVED,
-
-    CONTEXT,
-    ENHANCED_CONTEXT,
 ];
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Color(pub (String, String));
 
 impl Color {
-    pub fn for_light_scheme(&self) -> String {
-        self.0 .0.clone()
-    }
-    pub fn for_dark_scheme(&self) -> String {
-        self.0 .1.clone()
-    }
     pub fn adjust_color(hex: &str, factor: f32) -> String {
         let hex = hex.trim_start_matches('#');
         let r = u8::from_str_radix(&hex[0..2], 16).unwrap();
@@ -96,9 +89,9 @@ impl Color {
 
         // Adjust the color
         let adjust = |c: u8| -> u8 {
-            let new_value = (c as f32 * (1.0 + factor)).round() as u8;
+            
             // Clamp the value between 0 and 255
-            new_value
+            (c as f32 * (1.0 + factor)).round() as u8
         };
 
         let new_r = adjust(r);
@@ -130,7 +123,10 @@ impl ColorTag {
         if is_dark {
             tag.set_foreground(Some(&self.0 .1 .0 .0));
         } else {
-            debug!("............. {:?} {:?}", self.0,  &self.0 .1 .0 .1);
+            debug!(
+                "TOGGLE TAG............. {:?} {:?}",
+                self.0, &self.0 .1 .0 .1
+            );
             tag.set_foreground(Some(&self.0 .1 .0 .1));
         }
     }
@@ -147,13 +143,6 @@ impl TxtTag {
             panic!("undeclared tag {}", s);
         }
         Self(s)
-    }
-
-    pub fn fg_bg_color(&self) -> (Option<&str>, Option<&str>) {
-        match &self.0[..] {
-            ADDED => (Some("#4a8e09"), None),
-            _ => (None, None),
-        }
     }
 
     pub fn unknown_tag(s: String) -> Self {
@@ -173,15 +162,6 @@ impl TxtTag {
 
     pub fn name(&self) -> &str {
         &self.0[..]
-    }
-
-    pub fn enhance(&self) -> Self {
-        let new_name = match self.name() {
-            ADDED => ENHANCED_ADDED,
-            REMOVED => ENHANCED_REMOVED,
-            other => other,
-        };
-        Self::from_str(new_name)
     }
 
     pub fn fill_text_tag(&self, tag: &TextTag, is_dark: bool) {
