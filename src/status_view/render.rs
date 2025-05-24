@@ -938,6 +938,13 @@ impl ViewContainer for Line {
                     let end = start_offset + end + 1;
                     self.add_tag(buffer, tag.0, Some((start, end)));
                 }
+
+                for (start, end) in &self.identifier_ranges {
+                    let tag = self.choose_syntax_1_tag();
+                    let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
+                    let end = start_offset + end + 1;
+                    self.add_tag(buffer, tag.0, Some((start, end)));
+                }
                 match self.kind {
                     LineKind::ConflictMarker(_) => {
                         self.add_tag(buffer, tags::CONFLICT_MARKER, None)
@@ -993,8 +1000,31 @@ impl ViewContainer for Line {
                             Some((start, end)),
                         );
                     } else {
-                        self.remove_tag(buffer, self.choose_tag().enhance().0, Some((start, end)));
-                        self.add_tag(buffer, self.choose_tag().0, Some((start, end)));
+                        self.remove_tag(
+                            buffer,
+                            self.choose_syntax_tag().enhance().0,
+                            Some((start, end)),
+                        );
+                        self.add_tag(buffer, self.choose_syntax_tag().0, Some((start, end)));
+                    }
+                }
+                for (start, end) in &self.identifier_ranges {
+                    let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
+                    let end = start_offset + end + 1;
+                    if is_active {
+                        self.remove_tag(buffer, self.choose_syntax_1_tag().0, Some((start, end)));
+                        self.add_tag(
+                            buffer,
+                            self.choose_syntax_1_tag().enhance().0,
+                            Some((start, end)),
+                        );
+                    } else {
+                        self.remove_tag(
+                            buffer,
+                            self.choose_syntax_1_tag().enhance().0,
+                            Some((start, end)),
+                        );
+                        self.add_tag(buffer, self.choose_syntax_1_tag().0, Some((start, end)));
                     }
                 }
                 // put new main tags
@@ -1230,6 +1260,16 @@ impl Line {
             DiffLineType::Addition => tags::Tag(tags::SYNTAX_ADDED),
             DiffLineType::Deletion => tags::Tag(tags::SYNTAX_REMOVED),
             DiffLineType::Context => tags::Tag(tags::SYNTAX),
+            _ => {
+                todo!("syntax in non code line");
+            }
+        }
+    }
+    fn choose_syntax_1_tag(&self) -> tags::Tag {
+        match self.origin {
+            DiffLineType::Addition => tags::Tag(tags::SYNTAX_1_ADDED),
+            DiffLineType::Deletion => tags::Tag(tags::SYNTAX_1_REMOVED),
+            DiffLineType::Context => tags::Tag(tags::SYNTAX_1),
             _ => {
                 todo!("syntax in non code line");
             }

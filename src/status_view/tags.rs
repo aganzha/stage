@@ -17,12 +17,16 @@ pub const BOLD: &str = "bold";
 pub const ADDED: &str = "added";
 pub const ENHANCED_ADDED: &str = "enhancedAdded";
 pub const SYNTAX_ADDED: &str = "syntaxAdded";
+pub const SYNTAX_1_ADDED: &str = "syntax1Added";
 pub const ENHANCED_SYNTAX_ADDED: &str = "enhancedSyntaxAdded";
+pub const ENHANCED_SYNTAX_1_ADDED: &str = "enhancedSyntax1Added";
 
 pub const REMOVED: &str = "removed";
 pub const ENHANCED_REMOVED: &str = "enhancedRemoved";
 pub const SYNTAX_REMOVED: &str = "syntaxRemoved";
+pub const SYNTAX_1_REMOVED: &str = "syntax1Removed";
 pub const ENHANCED_SYNTAX_REMOVED: &str = "enhancedSyntaxRemoved";
+pub const ENHANCED_SYNTAX_1_REMOVED: &str = "enhancedSyntax1Removed";
 
 pub const HUNK: &str = "hunk";
 pub const FILE: &str = "file";
@@ -41,11 +45,13 @@ pub const CONTEXT: &str = "context";
 pub const ENHANCED_CONTEXT: &str = "enhancedContext";
 
 pub const SYNTAX: &str = "syntax";
+pub const SYNTAX_1: &str = "syntax1";
 pub const ENHANCED_SYNTAX: &str = "enhancedSyntax";
+pub const ENHANCED_SYNTAX_1: &str = "enhancedSyntax";
 
 // THE ORDER HERE IS IMPORTANT!
 // if swap context and syntax, then syntax tags will not be visible in context lines!
-pub const TEXT_TAGS: [&str; 26] = [
+pub const TEXT_TAGS: [&str; 32] = [
     BOLD,
     ADDED,
     ENHANCED_ADDED,
@@ -72,6 +78,12 @@ pub const TEXT_TAGS: [&str; 26] = [
     ENHANCED_SYNTAX,
     ENHANCED_SYNTAX_ADDED,
     ENHANCED_SYNTAX_REMOVED,
+    SYNTAX_1,
+    SYNTAX_1_ADDED,
+    SYNTAX_1_REMOVED,
+    ENHANCED_SYNTAX_1,
+    ENHANCED_SYNTAX_1_ADDED,
+    ENHANCED_SYNTAX_1_REMOVED,
 ];
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -120,10 +132,13 @@ impl Tag {
         match self.0 {
             "ADDED" => Self("ENHANCED_ADDED"),
             "REMOVED" => Self("ENHANCED_REMOVED"),
-            "SYNTAX" => Self("ENHANCED_SYNTAX"),
             "CONTEXT" => Self("ENHANCED_CONTEXT"),
+            "SYNTAX" => Self("ENHANCED_SYNTAX"),
             "SYNTAX_ADDED" => Self("ENHANCED_SYNTAX_ADDED"),
             "SYNTAX_REMOVED" => Self("ENHANCED_SYNTAX_REMOVED"),
+            "SYNTAX_1" => Self("ENHANCED_SYNTAX_1"),
+            "SYNTAX_1_ADDED" => Self("ENHANCED_SYNTAX_1_ADDED"),
+            "SYNTAX_1_REMOVED" => Self("ENHANCED_SYNTAX_1_REMOVED"),
             name => Self(name),
         }
     }

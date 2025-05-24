@@ -330,10 +330,10 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let conflict_marker = tags::ColorTag((tags::CONFLICT_MARKER, conflict_color));
     let conflict_marker_tag = conflict_marker.create(&table, is_dark);
 
-    let spaces_added = tags::ColorTag((tags::SPACES_ADDED, green.clone()));
+    let spaces_added = tags::ColorTag((tags::SPACES_ADDED, green.clone().darken(Some(0.7))));
     let spaces_added_tag = spaces_added.create(&table, is_dark);
 
-    let spaces_removed = tags::ColorTag((tags::SPACES_REMOVED, green.clone()));
+    let spaces_removed = tags::ColorTag((tags::SPACES_REMOVED, red.clone().darken(Some(0.7))));
     let spaces_removed_tag = spaces_removed.create(&table, is_dark);
 
     let added = tags::ColorTag((tags::ADDED, green.clone()));
@@ -342,37 +342,57 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let removed = tags::ColorTag((tags::REMOVED, red.clone()));
     let removed_tag = removed.create(&table, is_dark);
 
+    let enhanced_removed = tags::ColorTag((tags::ENHANCED_REMOVED, red.darken(Some(0.2))));
+    let enhanced_removed_tag = enhanced_removed.create(&table, is_dark);
+
     let context = tags::ColorTag((tags::CONTEXT, grey.clone()));
     let context_tag = context.create(&table, is_dark);
 
-    let syntax = tags::ColorTag((tags::SYNTAX, grey.darken(Some(0.3))));
+    let syntax = tags::ColorTag((tags::SYNTAX, grey.darken(Some(0.6)))); // 0.3
     let syntax_tag = syntax.create(&table, is_dark);
+
+    let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, grey.darken(Some(0.5))));
+    let enhanced_syntax_tag = enhanced_syntax.create(&table, is_dark);
+
+    let syntax_1 = tags::ColorTag((tags::SYNTAX_1, grey.darken(Some(0.4)))); // 0.3
+    let syntax_1_tag = syntax_1.create(&table, is_dark);
+
+    let enhanced_syntax_1 = tags::ColorTag((tags::ENHANCED_SYNTAX_1, grey.darken(Some(0.5))));
+    let enhanced_syntax_1_tag = enhanced_syntax_1.create(&table, is_dark);
 
     let enhanced_added = tags::ColorTag((tags::ENHANCED_ADDED, green.darken(Some(0.2))));
     let enhanced_added_tag = enhanced_added.create(&table, is_dark);
 
-    let enhanced_removed = tags::ColorTag((tags::ENHANCED_REMOVED, red.darken(Some(0.2))));
-    enhanced_removed.create(&table, is_dark);
-
     let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.darken(Some(0.2))));
     let syntax_added_tag = syntax_added.create(&table, is_dark);
 
-    let syntax_removed = tags::ColorTag((tags::SYNTAX_REMOVED, red.darken(Some(0.2))));
-    let syntax_removed_tag = syntax_removed.create(&table, is_dark);
-
     let enhanced_syntax_added =
         tags::ColorTag((tags::ENHANCED_SYNTAX_ADDED, green.darken(Some(0.4))));
-    enhanced_syntax_added.create(&table, is_dark);
+    let enhanced_syntax_added_tag = enhanced_syntax_added.create(&table, is_dark);
+
+    let syntax_removed = tags::ColorTag((tags::SYNTAX_REMOVED, red.darken(Some(0.2))));
+    let syntax_removed_tag = syntax_removed.create(&table, is_dark);
 
     let enhanced_syntax_removed =
         tags::ColorTag((tags::ENHANCED_SYNTAX_REMOVED, red.darken(Some(0.4))));
     let enhanced_syntax_removed_tag = enhanced_syntax_removed.create(&table, is_dark);
 
+    let syntax_1_added = tags::ColorTag((tags::SYNTAX_1_ADDED, green.darken(Some(0.2))));
+    let syntax_1_added_tag = syntax_1_added.create(&table, is_dark);
+
+    let syntax_1_removed = tags::ColorTag((tags::SYNTAX_1_REMOVED, red.darken(Some(0.2))));
+    let syntax_1_removed_tag = syntax_1_removed.create(&table, is_dark);
+
+    let enhanced_syntax_1_added =
+        tags::ColorTag((tags::ENHANCED_SYNTAX_1_ADDED, green.darken(Some(0.4))));
+    let enhanced_syntax_1_added_tag = enhanced_syntax_1_added.create(&table, is_dark);
+
+    let enhanced_syntax_1_removed =
+        tags::ColorTag((tags::ENHANCED_SYNTAX_1_REMOVED, red.darken(Some(0.4))));
+    let enhanced_syntax_1_removed_tag = enhanced_syntax_1_removed.create(&table, is_dark);
+
     let enhanced_context = tags::ColorTag((tags::ENHANCED_CONTEXT, grey.darken(Some(0.2))));
     let enhanced_context_tag = enhanced_context.create(&table, is_dark);
-
-    let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, grey.darken(Some(0.5))));
-    let enhanced_syntax_tag = enhanced_syntax.create(&table, is_dark);
 
     let pointer = tags::Tag(tags::POINTER).create(&table);
     let staged = tags::Tag(tags::STAGED).create(&table);
@@ -412,18 +432,36 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
             diff.toggle(&diff_tag, is_dark);
             conflict_marker.toggle(&conflict_marker_tag, is_dark);
+
             spaces_added.toggle(&spaces_added_tag, is_dark);
             spaces_removed.toggle(&spaces_removed_tag, is_dark);
+
             added.toggle(&added_tag, is_dark);
-            removed.toggle(&removed_tag, is_dark);
-            context.toggle(&context_tag, is_dark);
-            syntax.toggle(&syntax_tag, is_dark);
             enhanced_added.toggle(&enhanced_added_tag, is_dark);
+
+            removed.toggle(&removed_tag, is_dark);
+            enhanced_removed.toggle(&enhanced_removed_tag, is_dark);
+
+            context.toggle(&context_tag, is_dark);
+            enhanced_context.toggle(&enhanced_context_tag, is_dark);
+
+            syntax.toggle(&syntax_tag, is_dark);
+            enhanced_syntax.toggle(&enhanced_syntax_tag, is_dark);
+
+            syntax_1.toggle(&syntax_1_tag, is_dark);
+            enhanced_syntax_1.toggle(&enhanced_syntax_1_tag, is_dark);
+
             syntax_added.toggle(&syntax_added_tag, is_dark);
+            enhanced_syntax_added.toggle(&enhanced_syntax_added_tag, is_dark);
+
             syntax_removed.toggle(&syntax_removed_tag, is_dark);
             enhanced_syntax_removed.toggle(&enhanced_syntax_removed_tag, is_dark);
-            enhanced_context.toggle(&enhanced_context_tag, is_dark);
-            enhanced_syntax.toggle(&enhanced_syntax_tag, is_dark);
+
+            syntax_1_added.toggle(&syntax_1_added_tag, is_dark);
+            enhanced_syntax_1_added.toggle(&enhanced_syntax_1_added_tag, is_dark);
+
+            syntax_1_removed.toggle(&syntax_1_removed_tag, is_dark);
+            enhanced_syntax_1_removed.toggle(&enhanced_syntax_1_removed_tag, is_dark);
         }
     });
 

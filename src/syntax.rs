@@ -48,6 +48,7 @@ impl LanguageWrapper {
             LanguageWrapper::Rust(_) => vec![
                 "pub", "fn", "let", "mut", "if", "else", "loop", "while", "for", "match", "return",
                 "break", "continue", "struct", "enum", "impl", "trait", "use", "const", "static",
+                "self",
             ],
             LanguageWrapper::Python(_) => vec![
                 "False",
@@ -157,6 +158,7 @@ pub fn get_node_range<'a>(
     node: &tree_sitter::Node<'a>,
     cursor: &mut tree_sitter::TreeCursor<'a>,
     acc: &mut Vec<(i32, i32)>,
+    acc_1: &mut Vec<(i32, i32)>,
     language: &LanguageWrapper,
 ) {
     // Get the keywords for the current language
@@ -168,13 +170,18 @@ pub fn get_node_range<'a>(
             node.start_position().column as i32,
             node.end_position().column as i32,
         ));
+    } else if node.kind() == "identifier" {
+        acc_1.push((
+            node.start_position().column as i32,
+            node.end_position().column as i32,
+        ))
     }
 
     // Move the cursor to the first child
     if cursor.goto_first_child() {
         loop {
             // Recursively call get_node_range for the current child
-            get_node_range(&cursor.node(), cursor, acc, language);
+            get_node_range(&cursor.node(), cursor, acc, acc_1, language);
             // Move to the next sibling
             if !cursor.goto_next_sibling() {
                 break; // Exit the loop if there are no more siblings
@@ -185,7 +192,10 @@ pub fn get_node_range<'a>(
     }
 }
 
-pub fn collect_ranges(content: &str, parser: &mut LanguageWrapper) -> Vec<(i32, i32)> {
+pub fn collect_ranges(
+    content: &str,
+    parser: &mut LanguageWrapper,
+) -> (Vec<(i32, i32)>, Vec<(i32, i32)>) {
     // Parse the content using the parser wrapped in LanguageWrapper
     let tree = match parser {
         LanguageWrapper::Rust(p) => p.parse(content, None).unwrap(),
@@ -196,10 +206,16 @@ pub fn collect_ranges(content: &str, parser: &mut LanguageWrapper) -> Vec<(i32, 
     let root_node = tree.root_node();
     let mut cursor = root_node.walk();
     let mut result = Vec::new();
-
+    let mut result_1 = Vec::new();
     // Get the keywords for the current language
     let language = parser; // We already have the language in the parser
-    get_node_range(&root_node, &mut cursor, &mut result, language);
+    get_node_range(
+        &root_node,
+        &mut cursor,
+        &mut result,
+        &mut result_1,
+        language,
+    );
 
-    result
+    (result, result_1)
 }

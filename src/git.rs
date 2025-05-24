@@ -100,6 +100,7 @@ pub struct Line {
     pub kind: LineKind,
     pub content_idx: (usize, usize),
     pub keyword_ranges: Vec<(i32, i32)>,
+    pub identifier_ranges: Vec<(i32, i32)>,
 }
 
 impl Default for Line {
@@ -112,6 +113,7 @@ impl Default for Line {
             kind: LineKind::None,
             content_idx: (0, 0),
             keyword_ranges: vec![],
+            identifier_ranges: vec![],
         }
     }
 }
@@ -121,12 +123,7 @@ impl Line {
         &hunk.buf[self.content_idx.0..self.content_idx.0 + self.content_idx.1]
     }
 
-    pub fn from_diff_line(
-        l: &DiffLine,
-        content_from: usize,
-        content_to: usize,
-        keyword_ranges: Vec<(i32, i32)>,
-    ) -> Self {
+    pub fn from_diff_line(l: &DiffLine, content_from: usize, content_to: usize) -> Self {
         Self {
             view: View::new(),
             origin: l.origin_value(),
@@ -134,7 +131,8 @@ impl Line {
             old_line_no: l.old_lineno().map(HunkLineNo),
             kind: LineKind::None,
             content_idx: (content_from, content_to),
-            keyword_ranges,
+            keyword_ranges: vec![],
+            identifier_ranges: vec![],
         }
     }
     pub fn is_our_side_of_conflict(&self) -> bool {
@@ -332,19 +330,19 @@ impl Hunk {
             content = striped;
         }
 
-        let keyword_ranges = if let Some(parser) = parser {
-            syntax::collect_ranges(content, parser)
-        } else {
-            vec![]
-        };
-        let mut line =
-            Line::from_diff_line(diff_line, self.buf.len(), content.len(), keyword_ranges);
+        let mut line = Line::from_diff_line(diff_line, self.buf.len(), content.len());
 
         self.buf.push_str(content);
         if self.kind != DiffKind::Conflicted {
             match line.origin {
                 DiffLineType::FileHeader | DiffLineType::HunkHeader | DiffLineType::Binary => {}
-                _ => self.lines.push(line),
+                _ => {
+                    if let Some(parser) = parser {
+                        (line.keyword_ranges, line.identifier_ranges) =
+                            syntax::collect_ranges(content, parser);
+                    };
+                    self.lines.push(line);
+                }
             }
             return LineKind::None;
         }
@@ -395,7 +393,13 @@ impl Hunk {
         let this_kind = line.kind.clone();
         match line.origin {
             DiffLineType::FileHeader | DiffLineType::HunkHeader | DiffLineType::Binary => {}
-            _ => self.lines.push(line),
+            _ => {
+                if let Some(parser) = parser {
+                    (line.keyword_ranges, line.identifier_ranges) =
+                        syntax::collect_ranges(content, parser);
+                };
+                self.lines.push(line)
+            }
         }
         this_kind
     }

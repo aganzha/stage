@@ -65,6 +65,7 @@ fn create_line(line_no: u32, from: usize, to: usize) -> Line {
         kind: LineKind::None,
         content_idx: (from, to),
         keyword_ranges: vec![],
+        identifier_ranges: vec![],
     }
 }
 
