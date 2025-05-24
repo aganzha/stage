@@ -47,7 +47,7 @@ pub const ENHANCED_CONTEXT: &str = "enhancedContext";
 pub const SYNTAX: &str = "syntax";
 pub const SYNTAX_1: &str = "syntax1";
 pub const ENHANCED_SYNTAX: &str = "enhancedSyntax";
-pub const ENHANCED_SYNTAX_1: &str = "enhancedSyntax";
+pub const ENHANCED_SYNTAX_1: &str = "enhancedSyntax1";
 
 // THE ORDER HERE IS IMPORTANT!
 // if swap context and syntax, then syntax tags will not be visible in context lines!

@@ -24,7 +24,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::trace;
+use log::{debug, trace};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -123,6 +123,15 @@ pub trait ViewContainer {
         } else {
             self.start_end_iters(buffer, view.line_no.get())
         };
+
+        //debug!("start aand end iters {:?}:{:?} - {:?}:{:?} \n", start_iter.line(), start_iter.offset(), end_iter.line(), end_iter.offset());
+        if start_iter.line() != end_iter.line() {
+            debug!(
+                ">>>>>>>>>>>>>>>{}<<<<<<<<<<<<<<<<<<<",
+                buffer.text(&start_iter, &end_iter, true)
+            );
+            panic!("STOP")
+        }
         buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
         view.tag_added(tag);
     }

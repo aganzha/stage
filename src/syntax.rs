@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::collections::HashMap;
 use std::path::Path;
 use tree_sitter::Parser;
 
@@ -161,10 +162,8 @@ pub fn get_node_range<'a>(
     acc_1: &mut Vec<(i32, i32)>,
     language: &LanguageWrapper,
 ) {
-    // Get the keywords for the current language
     let keywords = language.keywords();
 
-    // Check if the current node's kind is in the keywords list
     if keywords.contains(&node.kind()) {
         acc.push((
             node.start_position().column as i32,
@@ -196,7 +195,12 @@ pub fn collect_ranges(
     content: &str,
     parser: &mut LanguageWrapper,
 ) -> (Vec<(i32, i32)>, Vec<(i32, i32)>) {
-    // Parse the content using the parser wrapped in LanguageWrapper
+    // bytes to chars for utf-8
+    let mut mapping = HashMap::new();
+    for (current_index, (byte_index, _)) in content.char_indices().enumerate() {
+        mapping.insert(byte_index as i32, current_index as i32);
+    }
+
     let tree = match parser {
         LanguageWrapper::Rust(p) => p.parse(content, None).unwrap(),
         LanguageWrapper::Python(p) => p.parse(content, None).unwrap(),
@@ -216,6 +220,24 @@ pub fn collect_ranges(
         &mut result_1,
         language,
     );
-
-    (result, result_1)
+    let mx = content.chars().count() as i32;
+    let char_result = result
+        .into_iter()
+        .map(|(from, to)| {
+            (
+                *mapping.get(&from).unwrap_or(&0),
+                *mapping.get(&to).unwrap_or(&mx),
+            )
+        })
+        .collect::<Vec<(i32, i32)>>();
+    let char_result_1 = result_1
+        .into_iter()
+        .map(|(from, to)| {
+            (
+                *mapping.get(&from).unwrap_or(&0),
+                *mapping.get(&to).unwrap_or(&mx),
+            )
+        })
+        .collect::<Vec<(i32, i32)>>();
+    (char_result, char_result_1)
 }
