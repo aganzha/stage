@@ -766,8 +766,8 @@ fn test_reconciliation_new() {
 
 #[test]
 fn test_tags() {
-    let tag1 = tags::TxtTag::from_str(tags::TEXT_TAGS[17]);
-    let tag3 = tags::TxtTag::from_str(tags::TEXT_TAGS[3]);
+    let tag1 = tags::TEXT_TAGS[17];
+    let tag3 = tags::TEXT_TAGS[3];
 
     let view = View::new();
     view.tag_added(&tag1);

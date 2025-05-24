@@ -24,8 +24,7 @@ pub fn initialize() -> TextBuffer {
     let buffer = TextBuffer::new(None);
     let table = buffer.tag_table();
     for tag_name in tags::TEXT_TAGS {
-        let text_tag = tags::TxtTag::from_str(tag_name).create();
-        table.add(&text_tag);
+        let text_tag = tags::Tag(tag_name).create(&table);
     }
     buffer
 }

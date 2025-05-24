@@ -5,7 +5,7 @@
 use crate::status_view::view::View;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
-use gtk4::{pango, TextTag, TextTagTable};
+use gtk4::{TextTag, TextTagTable};
 
 pub const POINTER: &str = "pointer";
 pub const STAGED: &str = "staged";
@@ -158,6 +158,18 @@ pub trait ITag {
     fn name(&self) -> &'static str;
 }
 
+impl ITag for Tag {
+    fn name(&self) -> &'static str {
+        self.0
+    }
+}
+
+impl ITag for ColorTag {
+    fn name(&self) -> &'static str {
+        self.0 .0
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct TagIdx(u32);
 
@@ -177,10 +189,10 @@ impl TagIdx {
     /// when tag added to view
     /// view will store index of this tag
     /// from global array as bit mask
-    pub fn added(self, tag: &impl ITag) -> Self {
+    pub fn added(self, tag: &'static str) -> Self {
         let mut bit_mask: u32 = 1;
         for name in TEXT_TAGS {
-            if tag.name() == name {
+            if tag == name {
                 break;
             }
             bit_mask <<= 1;
@@ -190,10 +202,10 @@ impl TagIdx {
     /// when tag removed from view
     /// view will remove index of this tag
     /// in global array from bit mask
-    pub fn removed(self, tag: &impl ITag) -> Self {
+    pub fn removed(self, tag: &'static str) -> Self {
         let mut bit_mask: u32 = 1;
         for name in TEXT_TAGS {
-            if tag.name() == name {
+            if tag == name {
                 break;
             }
             bit_mask <<= 1;
@@ -201,10 +213,10 @@ impl TagIdx {
         Self(self.0 & !bit_mask)
     }
 
-    pub fn is_added(&self, tag: &impl ITag) -> bool {
+    pub fn is_added(&self, tag: &'static str) -> bool {
         let mut bit_mask: u32 = 1;
         for name in TEXT_TAGS {
-            if tag.name() == name {
+            if tag == name {
                 break;
             }
             bit_mask <<= 1;
@@ -233,14 +245,14 @@ impl Binary for TagIdx {
 }
 
 impl View {
-    pub fn tag_added(&self, tag: &impl ITag) {
+    pub fn tag_added(&self, tag: &'static str) {
         self.tag_indexes.replace(self.tag_indexes.get().added(tag));
     }
-    pub fn tag_removed(&self, tag: &impl ITag) {
+    pub fn tag_removed(&self, tag: &'static str) {
         self.tag_indexes
             .replace(self.tag_indexes.get().removed(tag));
     }
-    pub fn tag_is_added(&self, tag: &impl ITag) -> bool {
+    pub fn tag_is_added(&self, tag: &'static str) -> bool {
         self.tag_indexes.get().is_added(tag)
     }
     pub fn cleanup_tags(&self) {

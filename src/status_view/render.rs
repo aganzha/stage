@@ -116,7 +116,7 @@ pub trait ViewContainer {
         (start_iter, end_iter)
     }
 
-    fn add_tag(&self, buffer: &TextBuffer, tag: &str, offset_range: Option<(i32, i32)>) {
+    fn add_tag(&self, buffer: &TextBuffer, tag: &'static str, offset_range: Option<(i32, i32)>) {
         let view = self.get_view();
         let (start_iter, end_iter) = if let Some((start, end)) = offset_range {
             (buffer.iter_at_offset(start), buffer.iter_at_offset(end))
@@ -124,8 +124,9 @@ pub trait ViewContainer {
             self.start_end_iters(buffer, view.line_no.get())
         };
         buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
+        view.tag_added(tag);
     }
-    fn remove_tag(&self, buffer: &TextBuffer, tag: &str, offset_range: Option<(i32, i32)>) {
+    fn remove_tag(&self, buffer: &TextBuffer, tag: &'static str, offset_range: Option<(i32, i32)>) {
         let view = self.get_view();
         let (start_iter, end_iter) = if let Some((start, end)) = offset_range {
             (buffer.iter_at_offset(start), buffer.iter_at_offset(end))
@@ -133,6 +134,7 @@ pub trait ViewContainer {
             self.start_end_iters(buffer, view.line_no.get())
         };
         buffer.remove_tag_by_name(tag, &start_iter, &end_iter);
+        view.tag_removed(tag);
     }
 
     // ViewContainer
