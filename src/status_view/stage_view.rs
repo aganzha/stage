@@ -11,11 +11,12 @@ use core::time::Duration;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, glib, EventControllerKey, EventControllerMotion, EventSequenceState, GestureClick,
-    GestureDrag, MovementStep, TextBuffer, TextIter, TextTag, TextView, TextWindowType, Widget,
+    gdk, glib, pango::Underline, EventControllerKey, EventControllerMotion, EventSequenceState,
+    GestureClick, GestureDrag, MovementStep, TextBuffer, TextIter, TextTag, TextView,
+    TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::{debug, trace};
+use log::trace;
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -308,6 +309,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let buffer = txt.buffer();
     let table = buffer.tag_table();
 
+    // ----------------- COLORS -------------------------------------
     // Dark theme - first color on tuple. Light - last one.
     let green = tags::Color(("#4a8e09".to_string(), "#10ac64".to_string()));
     let red = tags::Color(("#a51d2d".to_string(), "#c01c28".to_string()));
@@ -315,85 +317,83 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     // in terms of light theme: black - is black font on white color. greay is near black
     let grey = tags::Color(("#dddddd".to_string(), "#555555".to_string()));
 
-    let diff = tags::ColorTag((
-        tags::DIFF,
-        tags::Color(("#a78a44".to_string(), "#8b6508".to_string())),
-    ));
-    let conflict_marker = tags::ColorTag((
-        tags::DIFF,
-        tags::Color(("#ff0000".to_string(), "#ff0000".to_string())),
-    ));
+    let diff_color = tags::Color(("#a78a44".to_string(), "#8b6508".to_string()));
+    let conflict_color = tags::Color(("#ff0000".to_string(), "#ff0000".to_string()));
 
-    let spaces_added = tags::ColorTag((tags::SPACES_ADDED, green.clone()));
-    let spaces_removed = tags::ColorTag((tags::SPACES_REMOVED, green.clone()));
+    // ----------------- COLORS -------------------------------------
 
-    let added = tags::ColorTag((tags::ADDED, green.clone()));
-    let removed = tags::ColorTag((tags::REMOVED, red.clone()));
-
-    let context = tags::ColorTag((tags::CONTEXT, grey.clone()));
-    let syntax = tags::ColorTag((tags::SYNTAX, grey.darken(Some(0.3))));
-
-    let enhanced_added = tags::ColorTag((tags::ENHANCED_ADDED, green.darken(Some(0.2))));
-    let enhanced_removed = tags::ColorTag((tags::ENHANCED_REMOVED, red.darken(Some(0.2))));
-
-    let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.darken(Some(0.2))));
-    let syntax_removed = tags::ColorTag((tags::SYNTAX_REMOVED, red.darken(Some(0.2))));
-
-    let enhanced_syntax_added =
-        tags::ColorTag((tags::ENHANCED_SYNTAX_ADDED, green.darken(Some(0.4))));
-    let enhanced_syntax_removed =
-        tags::ColorTag((tags::ENHANCED_SYNTAX_REMOVED, red.darken(Some(0.4))));
-
-    let enhanced_context = tags::ColorTag((tags::ENHANCED_CONTEXT, grey.darken(Some(0.2))));
-    let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, grey.darken(Some(0.5))));
-
-    let pointer = tags::TxtTag::from_str(tags::POINTER).create();
-    let staged = tags::TxtTag::from_str(tags::STAGED).create();
-    let unstaged = tags::TxtTag::from_str(tags::UNSTAGED).create();
-    let file = tags::TxtTag::from_str(tags::FILE).create();
-    let hunk = tags::TxtTag::from_str(tags::HUNK).create();
-    let oid = tags::TxtTag::from_str(tags::OID).create();
-    let underline = tags::TxtTag::from_str(tags::UNDERLINE).create();
-
-    let diff_tag = diff.create(is_dark);
+    let diff = tags::ColorTag((tags::DIFF, diff_color));
+    let diff_tag = diff.create(&table, is_dark);
     diff_tag.set_weight(700);
     diff_tag.set_pixels_above_lines(32);
 
+    let conflict_marker = tags::ColorTag((tags::CONFLICT_MARKER, conflict_color));
+    let conflict_marker_tag = conflict_marker.create(&table, is_dark);
+
+    let spaces_added = tags::ColorTag((tags::SPACES_ADDED, green.clone()));
+    let spaces_added_tag = spaces_added.create(&table, is_dark);
+
+    let spaces_removed = tags::ColorTag((tags::SPACES_REMOVED, green.clone()));
+    let spaces_removed_tag = spaces_removed.create(&table, is_dark);
+
+    let added = tags::ColorTag((tags::ADDED, green.clone()));
+    let added_tag = added.create(&table, is_dark);
+
+    let removed = tags::ColorTag((tags::REMOVED, red.clone()));
+    let removed_tag = removed.create(&table, is_dark);
+
+    let context = tags::ColorTag((tags::CONTEXT, grey.clone()));
+    let context_tag = context.create(&table, is_dark);
+
+    let syntax = tags::ColorTag((tags::SYNTAX, grey.darken(Some(0.3))));
+    let syntax_tag = syntax.create(&table, is_dark);
+
+    let enhanced_added = tags::ColorTag((tags::ENHANCED_ADDED, green.darken(Some(0.2))));
+    let enhanced_added_tag = enhanced_added.create(&table, is_dark);
+
+    let enhanced_removed = tags::ColorTag((tags::ENHANCED_REMOVED, red.darken(Some(0.2))));
+    enhanced_removed.create(&table, is_dark);
+
+    let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.darken(Some(0.2))));
+    let syntax_added_tag = syntax_added.create(&table, is_dark);
+
+    let syntax_removed = tags::ColorTag((tags::SYNTAX_REMOVED, red.darken(Some(0.2))));
+    let syntax_removed_tag = syntax_removed.create(&table, is_dark);
+
+    let enhanced_syntax_added =
+        tags::ColorTag((tags::ENHANCED_SYNTAX_ADDED, green.darken(Some(0.4))));
+    enhanced_syntax_added.create(&table, is_dark);
+
+    let enhanced_syntax_removed =
+        tags::ColorTag((tags::ENHANCED_SYNTAX_REMOVED, red.darken(Some(0.4))));
+    let enhanced_syntax_removed_tag = enhanced_syntax_removed.create(&table, is_dark);
+
+    let enhanced_context = tags::ColorTag((tags::ENHANCED_CONTEXT, grey.darken(Some(0.2))));
+    let enhanced_context_tag = enhanced_context.create(&table, is_dark);
+
+    let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, grey.darken(Some(0.5))));
+    let enhanced_syntax_tag = enhanced_syntax.create(&table, is_dark);
+
+    let pointer = tags::Tag(tags::POINTER).create(&table);
+    let staged = tags::Tag(tags::STAGED).create(&table);
+    let unstaged = tags::Tag(tags::UNSTAGED).create(&table);
+    let file = tags::Tag(tags::FILE).create(&table);
+    let hunk = tags::Tag(tags::HUNK).create(&table);
+    let oid = tags::Tag(tags::OID).create(&table);
+
+    let bold = tags::Tag(tags::BOLD).create(&table);
+    bold.set_weight(700);
+
+    let underline = tags::Tag(tags::UNDERLINE).create(&table);
+    underline.set_underline(Underline::Single);
+
+    tags::Tag(tags::OURS).create(&table);
+    tags::Tag(tags::THEIRS).create(&table);
+
     for tag_name in tags::TEXT_TAGS {
-        match tag_name {
-            tags::POINTER => table.add(&pointer),
-            tags::STAGED => table.add(&staged),
-            tags::UNSTAGED => table.add(&unstaged),
-            tags::FILE => table.add(&file),
-            tags::HUNK => table.add(&hunk),
-            tags::OID => table.add(&oid),
-            tags::UNDERLINE => table.add(&underline),
-
-            tags::ADDED => table.add(&added.create(is_dark)),
-            tags::ENHANCED_ADDED => table.add(&enhanced_added.create(is_dark)),
-
-            tags::SYNTAX_ADDED => table.add(&syntax_added.create(is_dark)),
-            tags::ENHANCED_SYNTAX_ADDED => table.add(&enhanced_syntax_added.create(is_dark)),
-
-            tags::REMOVED => table.add(&removed.create(is_dark)),
-            tags::ENHANCED_REMOVED => table.add(&enhanced_removed.create(is_dark)),
-
-            tags::SYNTAX_REMOVED => table.add(&syntax_removed.create(is_dark)),
-            tags::ENHANCED_SYNTAX_REMOVED => table.add(&enhanced_syntax_removed.create(is_dark)),
-
-            tags::CONTEXT => table.add(&context.create(is_dark)),
-            tags::ENHANCED_CONTEXT => table.add(&enhanced_context.create(is_dark)),
-
-            tags::SYNTAX => table.add(&syntax.create(is_dark)),
-            tags::ENHANCED_SYNTAX => table.add(&enhanced_syntax.create(is_dark)),
-
-            tags::SPACES_ADDED => table.add(&spaces_added.create(is_dark)),
-            tags::SPACES_REMOVED => table.add(&spaces_removed.create(is_dark)),
-            tags::DIFF => table.add(&diff_tag),
-            tags::CONFLICT_MARKER => table.add(&conflict_marker.create(is_dark)),
-
-            _ => table.add(&tags::TxtTag::from_str(tag_name).create()),
-        };
+        if table.lookup(tag_name).is_none() {
+            panic!("tag is not added to the table {:?}", tag_name);
+        }
     }
 
     manager.connect_dark_notify({
@@ -408,30 +408,22 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 txt.remove_css_class(DARK_CLASS);
                 txt.add_css_class(LIGHT_CLASS);
             }
-            table.foreach(|tt| {
-                debug!("TOGGLE SCHEME");
-                if let Some(name) = tt.name() {
-                    match name.as_ref() {
-                        tags::ADDED => added.toggle(tt, is_dark),
-                        tags::ENHANCED_ADDED => enhanced_added.toggle(tt, is_dark),
-                        tags::SYNTAX_ADDED => syntax_added.toggle(tt, is_dark),
-                        tags::REMOVED => removed.toggle(tt, is_dark),
-                        tags::ENHANCED_REMOVED => enhanced_removed.toggle(tt, is_dark),
-                        tags::SYNTAX_REMOVED => syntax_removed.toggle(tt, is_dark),
-                        tags::SYNTAX => syntax.toggle(tt, is_dark),
-                        tags::SPACES_ADDED => spaces_added.toggle(tt, is_dark),
-                        tags::SPACES_REMOVED => spaces_removed.toggle(tt, is_dark),
-                        tags::DIFF => diff.toggle(tt, is_dark),
-                        tags::CONFLICT_MARKER => conflict_marker.toggle(tt, is_dark),
-                        unknown => {
-                            debug!("toggling tag? {:?}", unknown)
-                        }
-                    }
-                    // let t = tags::TxtTag::unknown_tag(name.to_string());
-                    // t.fill_text_tag(tt, is_dark);
-                }
-            });
             txt.set_background();
+
+            diff.toggle(&diff_tag, is_dark);
+            conflict_marker.toggle(&conflict_marker_tag, is_dark);
+            spaces_added.toggle(&spaces_added_tag, is_dark);
+            spaces_removed.toggle(&spaces_removed_tag, is_dark);
+            added.toggle(&added_tag, is_dark);
+            removed.toggle(&removed_tag, is_dark);
+            context.toggle(&context_tag, is_dark);
+            syntax.toggle(&syntax_tag, is_dark);
+            enhanced_added.toggle(&enhanced_added_tag, is_dark);
+            syntax_added.toggle(&syntax_added_tag, is_dark);
+            syntax_removed.toggle(&syntax_removed_tag, is_dark);
+            enhanced_syntax_removed.toggle(&enhanced_syntax_removed_tag, is_dark);
+            enhanced_context.toggle(&enhanced_context_tag, is_dark);
+            enhanced_syntax.toggle(&enhanced_syntax_tag, is_dark);
         }
     });
 

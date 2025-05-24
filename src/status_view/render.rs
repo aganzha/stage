@@ -26,7 +26,7 @@ use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
 use log::trace;
 use std::cell::Cell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::rc::Rc;
 //pub const LINE_NO_SPACE: i32 = 6;
 
@@ -352,12 +352,14 @@ pub trait ViewContainer {
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         let initial_line_offset = iter.line_offset();
 
-        let mut applied_tags = HashSet::new();
+        // it does not required here. erase will kill em all
+        // let mut applied_tags = HashSet::new();
 
         let view = self.get_view();
-        for tag in view.added_tags() {
-            applied_tags.insert(tag.name().to_string());
-        }
+        // it does not required here. erase will kill em all
+        // for tag in view.added_tags() {
+        //     applied_tags.insert(tag.name().to_string());
+        // }
 
         // let mut line_no = view.line_no.get();
         let line_no = view.line_no.get() - context.erase_counter;
@@ -371,9 +373,10 @@ pub trait ViewContainer {
         if view.is_expanded() {
             self.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
-                for tag in view.added_tags() {
-                    applied_tags.insert(tag.name().to_string());
-                }
+                // it does not required here. erase will kill em all
+                // for tag in view.added_tags() {
+                //     applied_tags.insert(tag.name().to_string());
+                // }
                 if !view.is_rendered() {
                     return;
                 }
@@ -389,9 +392,10 @@ pub trait ViewContainer {
                 // buffer.delete(&mut iter, &mut nel_iter);
             });
         }
-        for tag in applied_tags {
-            buffer.remove_tag_by_name(&tag, &iter, &nel_iter);
-        }
+        // it does not required here. erase will kill em all
+        // for tag in applied_tags {
+        //     buffer.remove_tag_by_name(&tag, &iter, &nel_iter);
+        // }
         buffer.delete(&mut iter, &mut nel_iter);
         cursor_to_line_offset(buffer, initial_line_offset);
     }

@@ -5,9 +5,7 @@
 use crate::status_view::view::View;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
-use gtk4::{pango, TextTag};
-use log::debug;
-use pango::Underline;
+use gtk4::{pango, TextTag, TextTagTable};
 
 pub const POINTER: &str = "pointer";
 pub const STAGED: &str = "staged";
@@ -112,6 +110,12 @@ impl Color {
 pub struct Tag(pub &'static str);
 
 impl Tag {
+    pub fn create(&self, table: &TextTagTable) -> TextTag {
+        let tag = TextTag::new(Some(self.0));
+        table.add(&tag);
+        tag
+    }
+
     pub fn enhance(&self) -> Self {
         match self.0 {
             "ADDED" => Self("ENHANCED_ADDED"),
@@ -129,9 +133,10 @@ impl Tag {
 pub struct ColorTag(pub (&'static str, Color));
 
 impl ColorTag {
-    pub fn create(&self, is_dark: bool) -> TextTag {
+    pub fn create(&self, table: &TextTagTable, is_dark: bool) -> TextTag {
         let tag = TextTag::new(Some(self.0 .0));
         self.toggle(&tag, is_dark);
+        table.add(&tag);
         tag
     }
     pub fn toggle(&self, tag: &TextTag, is_dark: bool) {
@@ -149,57 +154,8 @@ impl ColorTag {
     }
 }
 
-//pub const T_ADDED: ColorTag = ColorTag("ADDED");
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct TxtTag(String);
-
-impl TxtTag {
-    pub fn new(s: String) -> Self {
-        if !TEXT_TAGS.contains(&&s[..]) {
-            panic!("undeclared tag {}", s);
-        }
-        Self(s)
-    }
-
-    pub fn unknown_tag(s: String) -> Self {
-        Self(s)
-    }
-
-    pub fn from_str(s: &str) -> Self {
-        if !TEXT_TAGS.contains(&s) {
-            panic!("undeclared tag {}", s);
-        }
-        Self(s.to_string())
-    }
-
-    pub fn str(&self) -> &str {
-        &self.0[..]
-    }
-
-    pub fn name(&self) -> &str {
-        &self.0[..]
-    }
-
-    pub fn fill_text_tag(&self, tag: &TextTag) {
-        match &self.0[..] {
-            BOLD => {
-                tag.set_weight(700);
-            }
-            UNDERLINE => {
-                tag.set_underline(Underline::Single);
-            }
-            unknown => {
-                debug!("skip tag ...... {}", unknown);
-            }
-        }
-    }
-
-    pub fn create(&self) -> TextTag {
-        let tag = TextTag::new(Some(&self.0));
-        self.fill_text_tag(&tag);
-        tag
-    }
+pub trait ITag {
+    fn name(&self) -> &'static str;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -221,7 +177,7 @@ impl TagIdx {
     /// when tag added to view
     /// view will store index of this tag
     /// from global array as bit mask
-    pub fn added(self, tag: &TxtTag) -> Self {
+    pub fn added(self, tag: &impl ITag) -> Self {
         let mut bit_mask: u32 = 1;
         for name in TEXT_TAGS {
             if tag.name() == name {
@@ -234,7 +190,7 @@ impl TagIdx {
     /// when tag removed from view
     /// view will remove index of this tag
     /// in global array from bit mask
-    pub fn removed(self, tag: &TxtTag) -> Self {
+    pub fn removed(self, tag: &impl ITag) -> Self {
         let mut bit_mask: u32 = 1;
         for name in TEXT_TAGS {
             if tag.name() == name {
@@ -245,7 +201,7 @@ impl TagIdx {
         Self(self.0 & !bit_mask)
     }
 
-    pub fn is_added(&self, tag: &TxtTag) -> bool {
+    pub fn is_added(&self, tag: &impl ITag) -> bool {
         let mut bit_mask: u32 = 1;
         for name in TEXT_TAGS {
             if tag.name() == name {
@@ -256,12 +212,12 @@ impl TagIdx {
         self.0 & bit_mask != 0
     }
 
-    pub fn added_tags(&self) -> Vec<TxtTag> {
+    pub fn added_tags(&self) -> Vec<&'static str> {
         let mut bit_mask: u32 = 1;
         let mut result = Vec::new();
         for name in TEXT_TAGS {
             if self.0 & bit_mask != 0 {
-                result.push(TxtTag::from_str(name));
+                result.push(name);
             }
             bit_mask <<= 1;
         }
@@ -277,20 +233,20 @@ impl Binary for TagIdx {
 }
 
 impl View {
-    pub fn tag_added(&self, tag: &TxtTag) {
+    pub fn tag_added(&self, tag: &impl ITag) {
         self.tag_indexes.replace(self.tag_indexes.get().added(tag));
     }
-    pub fn tag_removed(&self, tag: &TxtTag) {
+    pub fn tag_removed(&self, tag: &impl ITag) {
         self.tag_indexes
             .replace(self.tag_indexes.get().removed(tag));
     }
-    pub fn tag_is_added(&self, tag: &TxtTag) -> bool {
+    pub fn tag_is_added(&self, tag: &impl ITag) -> bool {
         self.tag_indexes.get().is_added(tag)
     }
     pub fn cleanup_tags(&self) {
         self.tag_indexes.replace(TagIdx::new());
     }
-    pub fn added_tags(&self) -> Vec<TxtTag> {
+    pub fn added_tags(&self) -> Vec<&'static str> {
         self.tag_indexes.get().added_tags()
     }
 }
