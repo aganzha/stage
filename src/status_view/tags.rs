@@ -89,7 +89,6 @@ impl Color {
 
         // Adjust the color
         let adjust = |c: u8| -> u8 {
-            
             // Clamp the value between 0 and 255
             (c as f32 * (1.0 + factor)).round() as u8
         };
@@ -111,6 +110,23 @@ impl Color {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct Tag(pub &'static str);
+
+impl Tag {
+    pub fn enhance(&self) -> Self {
+        match self.0 {
+            "ADDED" => Self("ENHANCED_ADDED"),
+            "REMOVED" => Self("ENHANCED_REMOVED"),
+            "SYNTAX" => Self("ENHANCED_SYNTAX"),
+            "CONTEXT" => Self("ENHANCED_CONTEXT"),
+            "SYNTAX_ADDED" => Self("ENHANCED_SYNTAX_ADDED"),
+            "SYNTAX_REMOVED" => Self("ENHANCED_SYNTAX_REMOVED"),
+            name => Self(name),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct ColorTag(pub (&'static str, Color));
 
 impl ColorTag {
@@ -123,10 +139,6 @@ impl ColorTag {
         if is_dark {
             tag.set_foreground(Some(&self.0 .1 .0 .0));
         } else {
-            debug!(
-                "TOGGLE TAG............. {:?} {:?}",
-                self.0, &self.0 .1 .0 .1
-            );
             tag.set_foreground(Some(&self.0 .1 .0 .1));
         }
     }
@@ -183,61 +195,9 @@ impl TxtTag {
             BOLD => {
                 tag.set_weight(700);
             }
-            // ADDED => {
-            //     if is_dark {
-            //         tag.set_foreground(Some("#4a8e09"));
-            //     } else {
-            //         tag.set_foreground(Some("#2ec27e"));
-            //     }
-            // }
-            // ENHANCED_ADDED => {
-            //     if is_dark {
-            //         tag.set_foreground(Some("#3fb907"));
-            //     } else {
-            //         tag.set_foreground(Some("#26a269"));
-            //     }
-            // }
-            // REMOVED => {
-            //     if is_dark {
-            //         tag.set_foreground(Some("#a51d2d"));
-            //     } else {
-            //         tag.set_foreground(Some("#c01c28"));
-            //     }
-            // }
-            // ENHANCED_REMOVED => {
-            //     if is_dark {
-            //         tag.set_foreground(Some("#cd0e1c"));
-            //     } else {
-            //         tag.set_foreground(Some("#a51d2d"));
-            //     }
-            // }
-            // CURSOR => {
-            //     if is_dark {
-            //         tag.set_background(Some("#23374f"));
-            //     } else {
-            //         // tag.set_background(Some("#f6fecd")); // original yellow
-            //         tag.set_background(Some("#cce0f8")); // default blue
-            //     }
-            // }
-            // REGION => {
-            //     if is_dark {
-            //         tag.set_background(Some("#494949"));
-            //     } else {
-            //         tag.set_background(Some("#f6f5f4"));
-            //     }
-            // }
-            // HUNK => {
-            //     // if is_dark {
-            //     //     tag.set_background(Some("#383838"));
-            //     // } else {
-            //     //     tag.set_background(Some("#deddda"));
-            //     // }
-            // }
             UNDERLINE => {
                 tag.set_underline(Underline::Single);
             }
-            // POINTER => {}
-            // STAGED | UNSTAGED => {}
             DIFF => {
                 // TODO! get it from line_yrange!
                 tag.set_weight(700);
@@ -251,8 +211,6 @@ impl TxtTag {
             CONFLICT_MARKER => {
                 tag.set_foreground(Some("#ff0000"));
             }
-            // OURS => {}
-            // THEIRS => {}
             unknown => {
                 debug!("skip tag ...... {}", unknown);
             }

@@ -314,7 +314,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     // in terms of dark theme: white  - is white font on black backgroud. grey is near white.
     // in terms of light theme: black - is black font on white color. greay is near black
     let grey = tags::Color(("#dddddd".to_string(), "#555555".to_string()));
-    // let white_black = tags::Color(("#eeeeee".to_string(), "#333333".to_string()));
 
     let added = tags::ColorTag((tags::ADDED, green.clone()));
     let removed = tags::ColorTag((tags::REMOVED, red.clone()));

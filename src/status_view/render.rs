@@ -928,17 +928,10 @@ impl ViewContainer for Line {
                 }
                 // highlight syntax keywords
                 for (start, end) in &self.keyword_ranges {
-                    let tag = match self.origin {
-                        DiffLineType::Addition => tags::SYNTAX_ADDED,
-                        DiffLineType::Deletion => tags::SYNTAX_REMOVED,
-                        DiffLineType::Context => tags::SYNTAX,
-                        _ => {
-                            todo!("syntax in non code line");
-                        }
-                    };
+                    let tag = self.choose_syntax_tag();
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
-                    self.add_tag(buffer, tag, Some((start, end)));
+                    self.add_tag(buffer, tag.0, Some((start, end)));
                 }
                 match self.kind {
                     LineKind::ConflictMarker(_) => {
@@ -957,12 +950,12 @@ impl ViewContainer for Line {
                             _ => {}
                         }
                     }
-                    _ => match self.origin {
-                        DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
-                        DiffLineType::Deletion => self.add_tag(buffer, tags::REMOVED, None),
-                        DiffLineType::Context => self.add_tag(buffer, tags::CONTEXT, None),
-                        _ => {}
-                    },
+                    _ => self.add_tag(buffer, self.choose_tag().0, None), // _ => match self.origin {
+                                                                          //     DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
+                                                                          //     DiffLineType::Deletion => self.add_tag(buffer, tags::REMOVED, None),
+                                                                          //     DiffLineType::Context => self.add_tag(buffer, tags::CONTEXT, None),
+                                                                          //     _ => {}
+                                                                          // },
                 }
             }
 
@@ -982,82 +975,33 @@ impl ViewContainer for Line {
                 }
             }
             TagChanges::BecomeActive(is_active) => {
-                match self.origin {
-                    DiffLineType::Addition => {
-                        if is_active {
-                            self.remove_tag(buffer, tags::ADDED, None);
-                        } else {
-                            self.remove_tag(buffer, tags::ENHANCED_ADDED, None);
-                        }
-                    }
-                    DiffLineType::Deletion => {
-                        if is_active {
-                            self.remove_tag(buffer, tags::REMOVED, None);
-                        } else {
-                            self.remove_tag(buffer, tags::ENHANCED_REMOVED, None);
-                        }
-                    }
-                    DiffLineType::Context => {
-                        if is_active {
-                            self.remove_tag(buffer, tags::CONTEXT, None);
-                        } else {
-                            self.remove_tag(buffer, tags::ENHANCED_CONTEXT, None);
-                        }
-                    }
-                    _ => {
-                        todo!("unknown origin");
-                    }
+                // kill main tags first
+                if is_active {
+                    self.remove_tag(buffer, self.choose_tag().0, None);
+                } else {
+                    self.remove_tag(buffer, self.choose_tag().enhance().0, None);
                 }
+                // add syntax tags
                 for (start, end) in &self.keyword_ranges {
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
-                    let (to_add, to_remove) = match (self.origin, is_active) {
-                        (DiffLineType::Addition, true) => {
-                            (tags::ENHANCED_SYNTAX_ADDED, tags::SYNTAX_ADDED)
-                        }
-                        (DiffLineType::Addition, false) => {
-                            (tags::SYNTAX_ADDED, tags::ENHANCED_SYNTAX_ADDED)
-                        }
-                        (DiffLineType::Deletion, true) => {
-                            (tags::ENHANCED_SYNTAX_REMOVED, tags::SYNTAX_REMOVED)
-                        }
-                        (DiffLineType::Deletion, false) => {
-                            (tags::SYNTAX_REMOVED, tags::ENHANCED_SYNTAX_REMOVED)
-                        }
-                        (DiffLineType::Context, true) => (tags::ENHANCED_SYNTAX, tags::SYNTAX),
-                        (DiffLineType::Context, false) => (tags::SYNTAX, tags::ENHANCED_SYNTAX),
-                        (_, _) => {
-                            todo!("unknown syntax tag combo")
-                        }
-                    };
-                    self.remove_tag(buffer, to_remove, Some((start, end)));
-                    self.add_tag(buffer, to_add, Some((start, end)));
+                    if is_active {
+                        self.remove_tag(buffer, self.choose_syntax_tag().0, Some((start, end)));
+                        self.add_tag(
+                            buffer,
+                            self.choose_syntax_tag().enhance().0,
+                            Some((start, end)),
+                        );
+                    } else {
+                        self.remove_tag(buffer, self.choose_tag().enhance().0, Some((start, end)));
+                        self.add_tag(buffer, self.choose_tag().0, Some((start, end)));
+                    }
                 }
-                match self.origin {
-                    DiffLineType::Addition => {
-                        if is_active {
-                            self.add_tag(buffer, tags::ENHANCED_ADDED, None);
-                        } else {
-                            self.add_tag(buffer, tags::ADDED, None);
-                        }
-                    }
-                    DiffLineType::Deletion => {
-                        if is_active {
-                            self.add_tag(buffer, tags::ENHANCED_REMOVED, None);
-                        } else {
-                            self.add_tag(buffer, tags::REMOVED, None);
-                        }
-                    }
-                    DiffLineType::Context => {
-                        if is_active {
-                            self.add_tag(buffer, tags::ENHANCED_CONTEXT, None);
-                        } else {
-                            self.add_tag(buffer, tags::CONTEXT, None);
-                        }
-                    }
-                    _ => {
-                        todo!("unknown origin");
-                    }
+                // put new main tags
+                if is_active {
+                    self.add_tag(buffer, self.choose_tag().enhance().0, None);
+                } else {
+                    self.add_tag(buffer, self.choose_tag().0, None);
                 }
             }
         }
@@ -1267,5 +1211,28 @@ impl Diff {
             return true;
         }
         self.last_visible_line() >= line_no
+    }
+}
+
+impl Line {
+    fn choose_tag(&self) -> tags::Tag {
+        match self.origin {
+            DiffLineType::Addition => tags::Tag(tags::ADDED),
+            DiffLineType::Deletion => tags::Tag(tags::REMOVED),
+            DiffLineType::Context => tags::Tag(tags::CONTEXT),
+            _ => {
+                todo!("syntax in non code line");
+            }
+        }
+    }
+    fn choose_syntax_tag(&self) -> tags::Tag {
+        match self.origin {
+            DiffLineType::Addition => tags::Tag(tags::SYNTAX_ADDED),
+            DiffLineType::Deletion => tags::Tag(tags::SYNTAX_REMOVED),
+            DiffLineType::Context => tags::Tag(tags::SYNTAX),
+            _ => {
+                todo!("syntax in non code line");
+            }
+        }
     }
 }
