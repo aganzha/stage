@@ -916,7 +916,6 @@ impl ViewContainer for Line {
                     } else {
                         tags::SPACES_REMOVED
                     };
-
                     // do not add tag twice
                     // magic 1 is for label
                     start_iter.forward_chars(stripped_len as i32 + 1);
@@ -950,12 +949,7 @@ impl ViewContainer for Line {
                             _ => {}
                         }
                     }
-                    _ => self.add_tag(buffer, self.choose_tag().0, None), // _ => match self.origin {
-                                                                          //     DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
-                                                                          //     DiffLineType::Deletion => self.add_tag(buffer, tags::REMOVED, None),
-                                                                          //     DiffLineType::Context => self.add_tag(buffer, tags::CONTEXT, None),
-                                                                          //     _ => {}
-                                                                          // },
+                    _ => self.add_tag(buffer, self.choose_tag().0, None),
                 }
             }
 

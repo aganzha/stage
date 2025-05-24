@@ -6,7 +6,6 @@ use crate::status_view::view::View;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
 use gtk4::{pango, TextTag};
-use libadwaita::StyleManager;
 use log::debug;
 use pango::Underline;
 
@@ -138,8 +137,14 @@ impl ColorTag {
     pub fn toggle(&self, tag: &TextTag, is_dark: bool) {
         if is_dark {
             tag.set_foreground(Some(&self.0 .1 .0 .0));
+            if self.0 .0 == SPACES_ADDED || self.0 .0 == SPACES_REMOVED {
+                tag.set_background(Some(&self.0 .1 .0 .0));
+            }
         } else {
             tag.set_foreground(Some(&self.0 .1 .0 .1));
+            if self.0 .0 == SPACES_ADDED || self.0 .0 == SPACES_REMOVED {
+                tag.set_background(Some(&self.0 .1 .0 .0));
+            }
         }
     }
 }
@@ -176,40 +181,13 @@ impl TxtTag {
         &self.0[..]
     }
 
-    pub fn fill_text_tag(&self, tag: &TextTag, is_dark: bool) {
+    pub fn fill_text_tag(&self, tag: &TextTag) {
         match &self.0[..] {
-            SPACES_ADDED => {
-                if is_dark {
-                    tag.set_background(Some("#4a8e09"));
-                } else {
-                    tag.set_background(Some("#9bebc6"));
-                }
-            }
-            SPACES_REMOVED => {
-                if is_dark {
-                    tag.set_background(Some("#a51d2d"));
-                } else {
-                    tag.set_background(Some("#e4999e"));
-                }
-            }
             BOLD => {
                 tag.set_weight(700);
             }
             UNDERLINE => {
                 tag.set_underline(Underline::Single);
-            }
-            DIFF => {
-                // TODO! get it from line_yrange!
-                tag.set_weight(700);
-                tag.set_pixels_above_lines(32);
-                if is_dark {
-                    tag.set_foreground(Some("#a78a44"));
-                } else {
-                    tag.set_foreground(Some("#8b6508"));
-                }
-            }
-            CONFLICT_MARKER => {
-                tag.set_foreground(Some("#ff0000"));
             }
             unknown => {
                 debug!("skip tag ...... {}", unknown);
@@ -219,9 +197,7 @@ impl TxtTag {
 
     pub fn create(&self) -> TextTag {
         let tag = TextTag::new(Some(&self.0));
-        let manager = StyleManager::default();
-        let is_dark = manager.is_dark();
-        self.fill_text_tag(&tag, is_dark);
+        self.fill_text_tag(&tag);
         tag
     }
 }

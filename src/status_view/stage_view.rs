@@ -315,6 +315,18 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     // in terms of light theme: black - is black font on white color. greay is near black
     let grey = tags::Color(("#dddddd".to_string(), "#555555".to_string()));
 
+    let diff = tags::ColorTag((
+        tags::DIFF,
+        tags::Color(("#a78a44".to_string(), "#8b6508".to_string())),
+    ));
+    let conflict_marker = tags::ColorTag((
+        tags::DIFF,
+        tags::Color(("#ff0000".to_string(), "#ff0000".to_string())),
+    ));
+
+    let spaces_added = tags::ColorTag((tags::SPACES_ADDED, green.clone()));
+    let spaces_removed = tags::ColorTag((tags::SPACES_REMOVED, green.clone()));
+
     let added = tags::ColorTag((tags::ADDED, green.clone()));
     let removed = tags::ColorTag((tags::REMOVED, red.clone()));
 
@@ -342,6 +354,10 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let hunk = tags::TxtTag::from_str(tags::HUNK).create();
     let oid = tags::TxtTag::from_str(tags::OID).create();
     let underline = tags::TxtTag::from_str(tags::UNDERLINE).create();
+
+    let diff_tag = diff.create(is_dark);
+    diff_tag.set_weight(700);
+    diff_tag.set_pixels_above_lines(32);
 
     for tag_name in tags::TEXT_TAGS {
         match tag_name {
@@ -371,6 +387,11 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             tags::SYNTAX => table.add(&syntax.create(is_dark)),
             tags::ENHANCED_SYNTAX => table.add(&enhanced_syntax.create(is_dark)),
 
+            tags::SPACES_ADDED => table.add(&spaces_added.create(is_dark)),
+            tags::SPACES_REMOVED => table.add(&spaces_removed.create(is_dark)),
+            tags::DIFF => table.add(&diff_tag),
+            tags::CONFLICT_MARKER => table.add(&conflict_marker.create(is_dark)),
+
             _ => table.add(&tags::TxtTag::from_str(tag_name).create()),
         };
     }
@@ -398,8 +419,12 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                         tags::ENHANCED_REMOVED => enhanced_removed.toggle(tt, is_dark),
                         tags::SYNTAX_REMOVED => syntax_removed.toggle(tt, is_dark),
                         tags::SYNTAX => syntax.toggle(tt, is_dark),
+                        tags::SPACES_ADDED => spaces_added.toggle(tt, is_dark),
+                        tags::SPACES_REMOVED => spaces_removed.toggle(tt, is_dark),
+                        tags::DIFF => diff.toggle(tt, is_dark),
+                        tags::CONFLICT_MARKER => conflict_marker.toggle(tt, is_dark),
                         unknown => {
-                            debug!("toggling tag? {:?}", removed)
+                            debug!("toggling tag? {:?}", unknown)
                         }
                     }
                     // let t = tags::TxtTag::unknown_tag(name.to_string());
