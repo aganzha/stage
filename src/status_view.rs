@@ -770,16 +770,7 @@ impl Status {
         line_no: i32,
         _offset: i32,
         context: &mut StatusRenderContext<'a>,
-    ) {
-        let buffer = txt.buffer();
-        let pos = buffer.cursor_position();
-        //let tags = buffer.get_tags(&pos);
-        let iter = buffer.iter_at_offset(pos);
-        // Print the tags
-        debug!("............................");
-        for tag in iter.tags() {
-            println!("\nTag: {}", tag.name().unwrap());
-        }
+    ) {        
 
         let buffer = txt.buffer();
         if let Some(head) = &self.head {

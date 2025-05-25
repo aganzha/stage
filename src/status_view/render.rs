@@ -289,7 +289,8 @@ pub trait ViewContainer {
             if !self.is_empty(context) {
                 if is_current != was_current {
                     self.apply_tags(TagChanges::BecomeCurrent(is_current), buffer, context);
-                } else if is_active != was_active {
+                }
+                if is_active != was_active {
                     self.apply_tags(TagChanges::BecomeActive(is_active), buffer, context);
                 }
             }
@@ -989,28 +990,12 @@ impl ViewContainer for Line {
                 }
             }
             TagChanges::BecomeActive(is_active) => {
-                // TODO! must be same when become current!
-                // kill main tags first
-                // if is_active {
-                //     debug!("activa main purspose REMOVE {:}", self.choose_tag().0);
-                //     self.remove_tag(buffer, self.choose_tag().0, None);
-                // } else {
-                //     self.remove_tag(buffer, self.choose_tag().enhance().0, None);
-                // }
-                // add syntax tags
                 self.remove_tag(buffer, self.choose_tag().0);
                 self.remove_tag(buffer, self.choose_tag().enhance().0);
                 self.remove_tag(buffer, self.choose_syntax_tag().0);
                 self.remove_tag(buffer, self.choose_syntax_tag().enhance().0);
                 self.remove_tag(buffer, self.choose_syntax_1_tag().0);
                 self.remove_tag(buffer, self.choose_syntax_1_tag().enhance().0);
-
-                // if is_active {
-                //     // debug!("main purpose ADD {:?}", self.choose_tag().enhance().0);
-                //     self.add_tag(buffer, self.choose_tag().enhance().0, None);
-                // } else {
-                //     self.add_tag(buffer, self.choose_tag().0, None);
-                // }
 
                 for (start, end) in &self.keyword_ranges {
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
@@ -1040,7 +1025,13 @@ impl ViewContainer for Line {
                         self.add_tag(buffer, self.choose_syntax_1_tag().0, Some((start, end)));
                     }
                 }
-                // put new main tags
+
+                if is_active {
+                    // debug!("main purpose ADD {:?}", self.choose_tag().enhance().0);
+                    self.add_tag(buffer, self.choose_tag().enhance().0, None);
+                } else {
+                    self.add_tag(buffer, self.choose_tag().0, None);
+                }
             }
         }
     }
