@@ -127,17 +127,17 @@ pub trait ViewContainer {
         if let Some((start, end)) = offset_range {
             let delta = 29;
             let spare_iter = buffer.iter_at_offset(start + delta);
-            debug!(
-                "..........{}................ s {} d {} s+d {} e {}",
-                buffer.text(&start_iter, &spare_iter, true),
-                start, delta, start + delta, end
-            );
+            // debug!(
+            //     "..........{}................ s {} d {} s+d {} e {}",
+            //     buffer.text(&start_iter, &spare_iter, true),
+            //     start, delta, start + delta, end
+            // );
         }
-        debug!(
-            ">>>>>>>>>>>>>>>{}<<<<<<<<<<<<<<<<<<<",
-            buffer.text(&start_iter, &end_iter, true)
-        );
-        debug!("offset tag {:?} range {:?} s line offset {:?} e line_offset {:?}", tag, offset_range, start_iter.line_offset(), end_iter.line_offset());
+        // debug!(
+        //     ">>>>>>>>>>>>>>>{}<<<<<<<<<<<<<<<<<<<",
+        //     buffer.text(&start_iter, &end_iter, true)
+        // );
+        // debug!("offset tag {:?} range {:?} s line offset {:?} e line_offset {:?}", tag, offset_range, start_iter.line_offset(), end_iter.line_offset());
         if start_iter.line() != end_iter.line() {
             panic!("STOP")
         }
@@ -958,22 +958,22 @@ impl ViewContainer for Line {
                     );
                 }
 
-                debug!("\nCONTENT_IDX: {:?}", self.content_idx);
+                //debug!("\nCONTENT_IDX: {:?}", self.content_idx);
                 let content = self.content(context.current_hunk.unwrap());
-                debug!("CONTENT: >{}<", content);
+                //debug!("CONTENT: >{}<", content);
 
                 // highlight syntax keywords
-                for (start, end) in &self.keyword_ranges {
+                for (start, end) in &self.keyword_ranges(context.current_hunk.unwrap()) {
                     let tag = self.choose_syntax_tag();
                     // let slice = &context.current_hunk.unwrap().buf[(*start as usize)..(*end as usize)];
                     // let slice = &content[1..10];
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
-                    debug!("----------> KEYWORD RANGES {:?} {:?}", start, end);
+                    //debug!("----------> KEYWORD RANGES {:?} {:?}", start, end);
                     self.add_tag(buffer, tag.0, Some((start, end)));
                 }
 
-                for (start, end) in &self.identifier_ranges {
+                for (start, end) in &self.identifier_ranges(context.current_hunk.unwrap()) {
                     let tag = self.choose_syntax_1_tag();
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
@@ -1023,7 +1023,7 @@ impl ViewContainer for Line {
                 self.remove_tag(buffer, self.choose_syntax_1_tag().0);
                 self.remove_tag(buffer, self.choose_syntax_1_tag().enhance().0);
 
-                for (start, end) in &self.keyword_ranges {
+                for (start, end) in &self.keyword_ranges(context.current_hunk.unwrap()) {
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
                     if is_active {
@@ -1038,7 +1038,7 @@ impl ViewContainer for Line {
                         self.add_tag(buffer, self.choose_syntax_tag().0, Some((start, end)));
                     }
                 }
-                for (start, end) in &self.identifier_ranges {
+                for (start, end) in &self.identifier_ranges(context.current_hunk.unwrap()) {
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
                     if is_active {

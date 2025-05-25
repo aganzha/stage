@@ -99,8 +99,8 @@ pub struct Line {
     pub old_line_no: Option<HunkLineNo>,
     pub kind: LineKind,
     pub content_idx: (usize, usize),
-    pub keyword_ranges: Vec<(i32, i32)>,
-    pub identifier_ranges: Vec<(i32, i32)>,
+    // pub keyword_ranges: Vec<(i32, i32)>,
+    // pub identifier_ranges: Vec<(i32, i32)>,
 }
 
 impl Default for Line {
@@ -112,8 +112,8 @@ impl Default for Line {
             old_line_no: None,
             kind: LineKind::None,
             content_idx: (0, 0),
-            keyword_ranges: vec![],
-            identifier_ranges: vec![],
+            // keyword_ranges: vec![],
+            // identifier_ranges: vec![],
         }
     }
 }
@@ -121,6 +121,26 @@ impl Default for Line {
 impl Line {
     pub fn content<'a>(&'a self, hunk: &'a Hunk) -> &'a str {
         &hunk.buf[self.content_idx.0..self.content_idx.0 + self.content_idx.1]
+    }
+    pub fn keyword_ranges(&self, hunk: &Hunk) -> Vec<(i32, i32)> {
+        let content = self.content(hunk);
+        debug!("\nKEYWORD {:?} content idx {:?}", content, self.content_idx);
+        let result: Vec<(i32, i32)> = hunk.keyword_ranges.iter().filter(|(from, to)| {
+            *from >= self.content_idx.0 && *to <= self.content_idx.0 + self.content_idx.1
+        }).map(|&(from, to)| ((from - self.content_idx.0) as i32, (to - self.content_idx.0) as i32)).collect();
+        debug!("KEYWORDS: {:?}", result);
+        for (s, e) in result.iter() {
+            let start = *s as usize;
+            let end = *e as usize;
+            debug!("{:?}", &content[start..end]);
+        }
+        debug!("\n");
+        result
+    }
+    pub fn identifier_ranges(&self, hunk: &Hunk) -> Vec<(i32, i32)> {
+        hunk.identifier_ranges.iter().filter(|(from, to)| {
+            *from >= self.content_idx.0 && *to <= self.content_idx.1
+        }).map(|&(from, to)| (from as i32, to as i32)).collect()
     }
 
     pub fn from_diff_line(l: &DiffLine, content_from: usize, content_to: usize) -> Self {
@@ -131,8 +151,8 @@ impl Line {
             old_line_no: l.old_lineno().map(HunkLineNo),
             kind: LineKind::None,
             content_idx: (content_from, content_to),
-            keyword_ranges: vec![],
-            identifier_ranges: vec![],
+            // keyword_ranges: vec![],
+            // identifier_ranges: vec![],
         }
     }
     pub fn is_our_side_of_conflict(&self) -> bool {
@@ -180,6 +200,8 @@ pub struct Hunk {
     pub kind: DiffKind,
     pub conflict_markers_count: i32,
     pub buf: String,
+    pub keyword_ranges: Vec<(usize, usize)>,
+    pub identifier_ranges: Vec<(usize, usize)>,
 }
 
 impl fmt::Display for Hunk {
@@ -203,6 +225,8 @@ impl Hunk {
             kind,
             conflict_markers_count: 0,
             buf: String::new(),
+            keyword_ranges: Vec::new(),
+            identifier_ranges: Vec::new()
         }
     }
 
@@ -219,8 +243,10 @@ impl Hunk {
         self.old_lines = dh.old_lines();
         self.new_start = HunkLineNo(dh.new_start());
         self.new_lines = dh.new_lines();
-        self.buf =
-            String::with_capacity(1 + 3 + self.old_lines as usize + self.new_lines as usize + 3);
+        self.buf = String::new();
+        // ???
+        // self.buf =
+        //     String::with_capacity(1 + 3 + self.old_lines as usize + self.new_lines as usize + 3);
     }
 
     pub fn shift_new_start_and_lines(header: &str, hunk_delta: i32, lines_delta: i32) -> String {
@@ -330,12 +356,16 @@ impl Hunk {
         }
 
         let mut line = Line::from_diff_line(diff_line, self.buf.len(), content.len());
+        // self.buf.push_str(content);
+        // self.buf.push_str("\n");
 
-        self.buf.push_str(content);
         if self.kind != DiffKind::Conflicted {
             match line.origin {
                 DiffLineType::FileHeader | DiffLineType::HunkHeader | DiffLineType::Binary => {}
                 _ => {
+                    // let mut line = Line::from_diff_line(diff_line, self.buf.len(), content.len());
+                    self.buf.push_str(content);
+                    self.buf.push('\n');
                     self.lines.push(line);
                 }
             }
@@ -388,28 +418,27 @@ impl Hunk {
         let this_kind = line.kind.clone();
         match line.origin {
             DiffLineType::FileHeader | DiffLineType::HunkHeader | DiffLineType::Binary => {}
-            _ => self.lines.push(line),
+            _ => {
+                self.buf.push_str(content);
+                self.buf.push('\n');
+
+                self.lines.push(line);
+            },
         }
         this_kind
     }
     pub fn parse_syntax(&mut self, parser: Option<&mut syntax::LanguageWrapper>) {
         if let Some(parser) = parser {
-            let mut content =
-                String::with_capacity(self.buf.len() - self.header.len() + self.lines.len());
-            for line in &self.lines {
-                content.push_str(line.content(self));
-                content.push_str("\n");
-            }
+            // let mut content =
+            //     String::with_capacity(self.buf.len() - self.header.len() + self.lines.len());
+            // for line in &self.lines {
+            //     content.push_str(line.content(self));
+            //     content.push_str("\n");
+            // }
             // debug!("================== PARSE SYNTAX {:?}", self.header);
             // debug!("{}", &content);
             // debug!("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
-            let (keyword_ranges, identifier_ranges) = syntax::collect_ranges(&content, parser);
-            for (line_index, from, to) in keyword_ranges {
-                self.lines[line_index].keyword_ranges.push((from, to));
-            }
-            for (line_index, from, to) in identifier_ranges {
-                self.lines[line_index].keyword_ranges.push((from, to));
-            }
+            (self.keyword_ranges, self.identifier_ranges) = syntax::collect_ranges(&self.buf, parser);
         };
     }
 }

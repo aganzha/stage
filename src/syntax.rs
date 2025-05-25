@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use log::debug;
-use std::collections::HashMap;
 use std::path::Path;
 use tree_sitter::Parser;
 
@@ -159,25 +157,24 @@ impl LanguageWrapper {
 pub fn get_node_range<'a>(
     node: &tree_sitter::Node<'a>,
     cursor: &mut tree_sitter::TreeCursor<'a>,
-    acc: &mut Vec<(usize, i32, i32)>,
-    acc_1: &mut Vec<(usize, i32, i32)>,
+    acc: &mut Vec<(usize, usize)>,
+    acc_1: &mut Vec<(usize, usize)>,
     language: &LanguageWrapper,
 ) {
     let keywords = language.keywords();
-    //debug!("\nNODE: {:?} ... {:?}", node, node.to_sexp());
+    
     if keywords.contains(&node.kind()) {
+        //debug!("\nKEYWORD: {:?} ... {:?}", node, node.utf8_text());
         acc.push((
-            node.start_position().row,
-            node.start_position().column as i32,
-            node.end_position().column as i32,
+            node.start_byte(),
+            node.end_byte(),
         ));
     } else if node.kind() == "identifier" {
         if let Some(parent) = node.parent() {
             if parent.kind() != "ERROR" {
                 acc_1.push((
-                    node.start_position().row,
-                    node.start_position().column as i32,
-                    node.end_position().column as i32,
+                    node.start_byte(),
+                    node.end_byte(),
                 ))
             }
         }
@@ -201,12 +198,12 @@ pub fn get_node_range<'a>(
 pub fn collect_ranges(
     content: &str,
     parser: &mut LanguageWrapper,
-) -> (Vec<(usize, i32, i32)>, Vec<(usize, i32, i32)>) {
+) -> (Vec<(usize, usize)>, Vec<(usize, usize)>) {
     // bytes to chars for utf-8
-    let mut mapping = HashMap::new();
-    for (current_index, (byte_index, _)) in content.char_indices().enumerate() {
-        mapping.insert(byte_index as i32, current_index as i32);
-    }
+    // let mut mapping = HashMap::new();
+    // for (current_index, (byte_index, _)) in content.char_indices().enumerate() {
+    //     mapping.insert(byte_index as i32, current_index as i32);
+    // }
 
     let tree = match parser {
         LanguageWrapper::Rust(p) => p.parse(content, None).unwrap(),
@@ -227,26 +224,27 @@ pub fn collect_ranges(
         &mut result_1,
         language,
     );
-    let mx = content.chars().count() as i32;
-    let char_result = result
-        .into_iter()
-        .map(|(line_no, from, to)| {
-            (
-                line_no,
-                *mapping.get(&from).unwrap_or(&0),
-                *mapping.get(&to).unwrap_or(&mx),
-            )
-        })
-        .collect::<Vec<(usize, i32, i32)>>();
-    let char_result_1 = result_1
-        .into_iter()
-        .map(|(line_no, from, to)| {
-            (
-                line_no,
-                *mapping.get(&from).unwrap_or(&0),
-                *mapping.get(&to).unwrap_or(&mx),
-            )
-        })
-        .collect::<Vec<(usize, i32, i32)>>();
-    (char_result, char_result_1)
+    (result, result_1)
+    // let mx = content.chars().count() as i32;
+    // let char_result = result
+    //     .into_iter()
+    //     .map(|(line_no, from, to)| {
+    //         (
+    //             line_no,
+    //             *mapping.get(&from).unwrap_or(&0),
+    //             *mapping.get(&to).unwrap_or(&mx),
+    //         )
+    //     })
+    //     .collect::<Vec<(usize, i32, i32)>>();
+    // let char_result_1 = result_1
+    //     .into_iter()
+    //     .map(|(line_no, from, to)| {
+    //         (
+    //             line_no,
+    //             *mapping.get(&from).unwrap_or(&0),
+    //             *mapping.get(&to).unwrap_or(&mx),
+    //         )
+    //     })
+    //     .collect::<Vec<(usize, i32, i32)>>();
+    // (char_result, char_result_1)
 }
