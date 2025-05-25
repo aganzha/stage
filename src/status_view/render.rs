@@ -118,7 +118,7 @@ pub trait ViewContainer {
 
     fn add_tag(&self, buffer: &TextBuffer, tag: &'static str, offset_range: Option<(i32, i32)>) {
         let view = self.get_view();
-        //debug!("AAAAAAAAAAAAAADDING {:?} {:?}", tag, view.line_no.get());
+        debug!("AAAAAAAAAAAAAADDING tag {:?} line_no {:?}", tag, view.line_no.get());
         let (start_iter, end_iter) = if let Some((start, end)) = offset_range {
             (buffer.iter_at_offset(start), buffer.iter_at_offset(end))
         } else {
@@ -518,12 +518,14 @@ impl ViewContainer for Diff {
             if start_line == end_line {
                 // todo!
                 debug!(".............hm.has diff, but its not rendered? empty diff?");
-                return
+                return;
             }
             if start_line > end_line {
                 // todo!
-                debug!(".............hm. i am rendering diff, but ctx.current_x is not in this diff?");
-                return
+                debug!(
+                    ".............hm. i am rendering diff, but ctx.current_x is not in this diff?"
+                );
+                return;
             }
             match self.kind {
                 DiffKind::Unstaged | DiffKind::Staged => {
@@ -928,6 +930,7 @@ impl ViewContainer for Line {
     ) {
         let (mut start_iter, end_iter) = self.start_end_iters(buffer, self.view.line_no.get());
         let start_offset = start_iter.offset();
+        let hunk = context.current_hunk.unwrap();
         match tag_changes {
             TagChanges::Render => {
                 // highlight spaces
@@ -960,23 +963,38 @@ impl ViewContainer for Line {
 
                 //debug!("\nCONTENT_IDX: {:?}", self.content_idx);
                 let content = self.content(context.current_hunk.unwrap());
-                //debug!("CONTENT: >{}<", content);
+                debug!("RENDER. LINE CONTENT: >{}<", content);
 
                 // highlight syntax keywords
-                for (start, end) in &self.keyword_ranges(context.current_hunk.unwrap()) {
+                for (start, end) in self.byte_indexes_to_char_indexes(&hunk.keyword_ranges) {
+                // for (start, end) in &self.keyword_ranges(context.current_hunk.unwrap()) {
                     let tag = self.choose_syntax_tag();
                     // let slice = &context.current_hunk.unwrap().buf[(*start as usize)..(*end as usize)];
                     // let slice = &content[1..10];
-                    let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
-                    let end = start_offset + end + 1;
-                    //debug!("----------> KEYWORD RANGES {:?} {:?}", start, end);
+                    debug!("RENDER ----------> KEYWORD RANGES {:?} {:?}", start, end);
+                    let start = start_offset + start + (if start == 0 { 0 } else { 1 });
+                    let end = start_offset + end + 1;                    
+                    let start_iter = buffer.iter_at_offset(start);
+                    let end_iter = buffer.iter_at_offset(end);
+                    debug!(
+                        "RENDER === KEYWORD TEXT {:?}",
+                        buffer.text(&start_iter, &end_iter, true)
+                    );
                     self.add_tag(buffer, tag.0, Some((start, end)));
                 }
 
-                for (start, end) in &self.identifier_ranges(context.current_hunk.unwrap()) {
+                //for (start, end) in &self.identifier_ranges(context.current_hunk.unwrap()) {
+                for (start, end) in self.byte_indexes_to_char_indexes(&hunk.identifier_ranges) {
                     let tag = self.choose_syntax_1_tag();
-                    let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
-                    let end = start_offset + end + 1;
+                    debug!("RENDER ----------> IDENTIFIER RANGES {:?} {:?}", start, end);
+                    let start = start_offset + start + (if start == 0 { 0 } else { 1 });
+                    let end = start_offset + end + 1;                    
+                    let start_iter = buffer.iter_at_offset(start);
+                    let end_iter = buffer.iter_at_offset(end);
+                    debug!(
+                        "RENDER === IDENTIFIER TEXT {:?}",
+                        buffer.text(&start_iter, &end_iter, true)
+                    );
                     self.add_tag(buffer, tag.0, Some((start, end)));
                 }
                 match self.kind {
@@ -1023,8 +1041,9 @@ impl ViewContainer for Line {
                 self.remove_tag(buffer, self.choose_syntax_1_tag().0);
                 self.remove_tag(buffer, self.choose_syntax_1_tag().enhance().0);
 
-                for (start, end) in &self.keyword_ranges(context.current_hunk.unwrap()) {
-                    let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
+                for (start, end) in self.byte_indexes_to_char_indexes(&hunk.keyword_ranges) {
+                // for (start, end) in &self.keyword_ranges(context.current_hunk.unwrap()) {
+                    let start = start_offset + start + (if start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
                     if is_active {
                         //debug!("active syntax. add {:?}", self.choose_syntax_tag().enhance().0);
@@ -1038,8 +1057,9 @@ impl ViewContainer for Line {
                         self.add_tag(buffer, self.choose_syntax_tag().0, Some((start, end)));
                     }
                 }
-                for (start, end) in &self.identifier_ranges(context.current_hunk.unwrap()) {
-                    let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
+                for (start, end) in self.byte_indexes_to_char_indexes(&hunk.identifier_ranges) {
+                // for (start, end) in &self.identifier_ranges(context.current_hunk.unwrap()) {
+                    let start = start_offset + start + (if start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
                     if is_active {
                         self.add_tag(

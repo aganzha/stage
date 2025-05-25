@@ -4,6 +4,7 @@
 
 use std::path::Path;
 use tree_sitter::Parser;
+use log::{debug};
 
 pub fn choose_parser(path: &Path) -> Option<LanguageWrapper> {
     let path_str = path.to_str().unwrap();
@@ -162,20 +163,15 @@ pub fn get_node_range<'a>(
     language: &LanguageWrapper,
 ) {
     let keywords = language.keywords();
-    
+
     if keywords.contains(&node.kind()) {
-        //debug!("\nKEYWORD: {:?} ... {:?}", node, node.utf8_text());
-        acc.push((
-            node.start_byte(),
-            node.end_byte(),
-        ));
+        debug!("\nKEYWORD: {:?} {:?} {:?}", node.kind(), node.start_byte(), node.end_byte());
+        acc.push((node.start_byte(), node.end_byte()));
     } else if node.kind() == "identifier" {
         if let Some(parent) = node.parent() {
             if parent.kind() != "ERROR" {
-                acc_1.push((
-                    node.start_byte(),
-                    node.end_byte(),
-                ))
+                debug!("\nIDENTIFIER: {:?} {:?} {:?}", node.kind(), node.start_byte(), node.end_byte());
+                acc_1.push((node.start_byte(), node.end_byte()))
             }
         }
     }
@@ -224,27 +220,11 @@ pub fn collect_ranges(
         &mut result_1,
         language,
     );
+    for (start, end) in result.iter() {
+        debug!("RESULT. KEYWORD {:?} {:?} = {:?}", start, end, &content[*start..*end]);
+    }
+    for (start, end) in result_1.iter() {
+        debug!("RESULT. IDENTIFIER {:?} {:?} = {:?}", start, end, &content[*start..*end]);
+    }
     (result, result_1)
-    // let mx = content.chars().count() as i32;
-    // let char_result = result
-    //     .into_iter()
-    //     .map(|(line_no, from, to)| {
-    //         (
-    //             line_no,
-    //             *mapping.get(&from).unwrap_or(&0),
-    //             *mapping.get(&to).unwrap_or(&mx),
-    //         )
-    //     })
-    //     .collect::<Vec<(usize, i32, i32)>>();
-    // let char_result_1 = result_1
-    //     .into_iter()
-    //     .map(|(line_no, from, to)| {
-    //         (
-    //             line_no,
-    //             *mapping.get(&from).unwrap_or(&0),
-    //             *mapping.get(&to).unwrap_or(&mx),
-    //         )
-    //     })
-    //     .collect::<Vec<(usize, i32, i32)>>();
-    // (char_result, char_result_1)
 }
