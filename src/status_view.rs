@@ -770,8 +770,7 @@ impl Status {
         line_no: i32,
         _offset: i32,
         context: &mut StatusRenderContext<'a>,
-    ) {        
-
+    ) {
         let buffer = txt.buffer();
         if let Some(head) = &self.head {
             head.cursor(&buffer, line_no, false, context);

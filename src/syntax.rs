@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use log::debug;
 use std::collections::HashMap;
 use std::path::Path;
 use tree_sitter::Parser;
@@ -158,22 +159,28 @@ impl LanguageWrapper {
 pub fn get_node_range<'a>(
     node: &tree_sitter::Node<'a>,
     cursor: &mut tree_sitter::TreeCursor<'a>,
-    acc: &mut Vec<(i32, i32)>,
-    acc_1: &mut Vec<(i32, i32)>,
+    acc: &mut Vec<(usize, i32, i32)>,
+    acc_1: &mut Vec<(usize, i32, i32)>,
     language: &LanguageWrapper,
 ) {
     let keywords = language.keywords();
-
+    //debug!("\nNODE: {:?} ... {:?}", node, node.to_sexp());
     if keywords.contains(&node.kind()) {
         acc.push((
+            node.start_position().row,
             node.start_position().column as i32,
             node.end_position().column as i32,
         ));
     } else if node.kind() == "identifier" {
-        acc_1.push((
-            node.start_position().column as i32,
-            node.end_position().column as i32,
-        ))
+        if let Some(parent) = node.parent() {
+            if parent.kind() != "ERROR" {
+                acc_1.push((
+                    node.start_position().row,
+                    node.start_position().column as i32,
+                    node.end_position().column as i32,
+                ))
+            }
+        }
     }
 
     // Move the cursor to the first child
@@ -194,7 +201,7 @@ pub fn get_node_range<'a>(
 pub fn collect_ranges(
     content: &str,
     parser: &mut LanguageWrapper,
-) -> (Vec<(i32, i32)>, Vec<(i32, i32)>) {
+) -> (Vec<(usize, i32, i32)>, Vec<(usize, i32, i32)>) {
     // bytes to chars for utf-8
     let mut mapping = HashMap::new();
     for (current_index, (byte_index, _)) in content.char_indices().enumerate() {
@@ -223,21 +230,23 @@ pub fn collect_ranges(
     let mx = content.chars().count() as i32;
     let char_result = result
         .into_iter()
-        .map(|(from, to)| {
+        .map(|(line_no, from, to)| {
             (
+                line_no,
                 *mapping.get(&from).unwrap_or(&0),
                 *mapping.get(&to).unwrap_or(&mx),
             )
         })
-        .collect::<Vec<(i32, i32)>>();
+        .collect::<Vec<(usize, i32, i32)>>();
     let char_result_1 = result_1
         .into_iter()
-        .map(|(from, to)| {
+        .map(|(line_no, from, to)| {
             (
+                line_no,
                 *mapping.get(&from).unwrap_or(&0),
                 *mapping.get(&to).unwrap_or(&mx),
             )
         })
-        .collect::<Vec<(i32, i32)>>();
+        .collect::<Vec<(usize, i32, i32)>>();
     (char_result, char_result_1)
 }

@@ -124,13 +124,21 @@ pub trait ViewContainer {
         } else {
             self.start_end_iters(buffer, view.line_no.get())
         };
-
-        //debug!("start aand end iters {:?}:{:?} - {:?}:{:?} \n", start_iter.line(), start_iter.offset(), end_iter.line(), end_iter.offset());
-        if start_iter.line() != end_iter.line() {
+        if let Some((start, end)) = offset_range {
+            let delta = 29;
+            let spare_iter = buffer.iter_at_offset(start + delta);
             debug!(
-                ">>>>>>>>>>>>>>>{}<<<<<<<<<<<<<<<<<<<",
-                buffer.text(&start_iter, &end_iter, true)
+                "..........{}................ s {} d {} s+d {} e {}",
+                buffer.text(&start_iter, &spare_iter, true),
+                start, delta, start + delta, end
             );
+        }
+        debug!(
+            ">>>>>>>>>>>>>>>{}<<<<<<<<<<<<<<<<<<<",
+            buffer.text(&start_iter, &end_iter, true)
+        );
+        debug!("offset tag {:?} range {:?} s line offset {:?} e line_offset {:?}", tag, offset_range, start_iter.line_offset(), end_iter.line_offset());
+        if start_iter.line() != end_iter.line() {
             panic!("STOP")
         }
         buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
@@ -506,6 +514,16 @@ impl ViewContainer for Diff {
                 if line.view.is_rendered() {
                     end_line = line.view.line_no.get();
                 }
+            }
+            if start_line == end_line {
+                // todo!
+                debug!(".............hm.has diff, but its not rendered? empty diff?");
+                return
+            }
+            if start_line > end_line {
+                // todo!
+                debug!(".............hm. i am rendering diff, but ctx.current_x is not in this diff?");
+                return
             }
             match self.kind {
                 DiffKind::Unstaged | DiffKind::Staged => {
@@ -939,11 +957,19 @@ impl ViewContainer for Line {
                         Some((start_iter.offset(), end_iter.offset())),
                     );
                 }
+
+                debug!("\nCONTENT_IDX: {:?}", self.content_idx);
+                let content = self.content(context.current_hunk.unwrap());
+                debug!("CONTENT: >{}<", content);
+
                 // highlight syntax keywords
                 for (start, end) in &self.keyword_ranges {
                     let tag = self.choose_syntax_tag();
+                    // let slice = &context.current_hunk.unwrap().buf[(*start as usize)..(*end as usize)];
+                    // let slice = &content[1..10];
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
+                    debug!("----------> KEYWORD RANGES {:?} {:?}", start, end);
                     self.add_tag(buffer, tag.0, Some((start, end)));
                 }
 

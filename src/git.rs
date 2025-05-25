@@ -314,7 +314,6 @@ impl Hunk {
         diff_line: &DiffLine,
         // mut line: Line,
         prev_line_kind: LineKind,
-        parser: Option<&mut syntax::LanguageWrapper>,
     ) -> LineKind {
         let mut content = str::from_utf8(diff_line.content()).unwrap_or("!!!unreadable unicode!!!");
         if let Some(striped) = content.strip_suffix("\r\n") {
@@ -337,10 +336,6 @@ impl Hunk {
             match line.origin {
                 DiffLineType::FileHeader | DiffLineType::HunkHeader | DiffLineType::Binary => {}
                 _ => {
-                    if let Some(parser) = parser {
-                        (line.keyword_ranges, line.identifier_ranges) =
-                            syntax::collect_ranges(content, parser);
-                    };
                     self.lines.push(line);
                 }
             }
@@ -393,31 +388,30 @@ impl Hunk {
         let this_kind = line.kind.clone();
         match line.origin {
             DiffLineType::FileHeader | DiffLineType::HunkHeader | DiffLineType::Binary => {}
-            _ => {
-                if let Some(parser) = parser {
-                    (line.keyword_ranges, line.identifier_ranges) =
-                        syntax::collect_ranges(content, parser);
-                };
-                self.lines.push(line)
-            }
+            _ => self.lines.push(line),
         }
         this_kind
     }
-
-    // /// by given Line inside conflict returns
-    // /// the conflict offset from hunk start
-    // pub fn get_conflict_offset_by_line(&self, line: &Line) -> i32 {
-    //     let mut conflict_offset_inside_hunk: i32 = 0;
-    //     for (i, l) in self.lines.iter().enumerate() {
-    //         if l.content(self).starts_with(MARKER_OURS) {
-    //             conflict_offset_inside_hunk = i as i32;
-    //         }
-    //         if l == line {
-    //             break;
-    //         }
-    //     }
-    //     conflict_offset_inside_hunk
-    // }
+    pub fn parse_syntax(&mut self, parser: Option<&mut syntax::LanguageWrapper>) {
+        if let Some(parser) = parser {
+            let mut content =
+                String::with_capacity(self.buf.len() - self.header.len() + self.lines.len());
+            for line in &self.lines {
+                content.push_str(line.content(self));
+                content.push_str("\n");
+            }
+            // debug!("================== PARSE SYNTAX {:?}", self.header);
+            // debug!("{}", &content);
+            // debug!("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
+            let (keyword_ranges, identifier_ranges) = syntax::collect_ranges(&content, parser);
+            for (line_index, from, to) in keyword_ranges {
+                self.lines[line_index].keyword_ranges.push((from, to));
+            }
+            for (line_index, from, to) in identifier_ranges {
+                self.lines[line_index].keyword_ranges.push((from, to));
+            }
+        };
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -450,8 +444,9 @@ impl File {
         }
     }
 
-    pub fn push_hunk(&mut self, h: Hunk) {
-        self.hunks.push(h);
+    pub fn push_hunk(&mut self, mut hunk: Hunk, parser: Option<&mut syntax::LanguageWrapper>) {
+        hunk.parse_syntax(parser);
+        self.hunks.push(hunk);
     }
 }
 
@@ -880,7 +875,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
         if current_file.path != current_path {
             // go to next file
             // push current_hunk to file and init new empty hunk
-            current_file.push_hunk(current_hunk.clone());
+            current_file.push_hunk(current_hunk.clone(), parser.as_mut());
             current_hunk = Hunk::new(kind);
             // push current_file to diff and change to new file
             diff.push_file(current_file.clone());
@@ -897,22 +892,20 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
             if current_hunk.header != hh {
                 // go to next hunk
                 prev_line_kind = LineKind::None;
-                current_file.push_hunk(current_hunk.clone());
+                current_file.push_hunk(current_hunk.clone(), parser.as_mut());
                 current_hunk = Hunk::new(kind);
                 current_hunk.fill_from_git_hunk(&diff_hunk)
             }
-            prev_line_kind =
-                current_hunk.push_line(&diff_line, prev_line_kind.clone(), parser.as_mut());
+            prev_line_kind = current_hunk.push_line(&diff_line, prev_line_kind.clone());
         } else {
             // this is file header line.
-            prev_line_kind =
-                current_hunk.push_line(&diff_line, prev_line_kind.clone(), parser.as_mut())
+            prev_line_kind = current_hunk.push_line(&diff_line, prev_line_kind.clone())
         }
 
         true
     });
     if !current_hunk.header.is_empty() {
-        current_file.push_hunk(current_hunk);
+        current_file.push_hunk(current_hunk, parser.as_mut());
     }
     if current_file.path.capacity() != 0 {
         diff.push_file(current_file);
