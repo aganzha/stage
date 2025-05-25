@@ -70,8 +70,6 @@ pub const TEXT_TAGS: [&str; 32] = [
     THEIRS,
     SPACES_ADDED,
     SPACES_REMOVED,
-    CONTEXT,
-    ENHANCED_CONTEXT,
     SYNTAX,
     SYNTAX_ADDED,
     SYNTAX_REMOVED,
@@ -84,6 +82,8 @@ pub const TEXT_TAGS: [&str; 32] = [
     ENHANCED_SYNTAX_1,
     ENHANCED_SYNTAX_1_ADDED,
     ENHANCED_SYNTAX_1_REMOVED,
+    CONTEXT,
+    ENHANCED_CONTEXT,
 ];
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -130,15 +130,15 @@ impl Tag {
 
     pub fn enhance(&self) -> Self {
         match self.0 {
-            "ADDED" => Self("ENHANCED_ADDED"),
-            "REMOVED" => Self("ENHANCED_REMOVED"),
-            "CONTEXT" => Self("ENHANCED_CONTEXT"),
-            "SYNTAX" => Self("ENHANCED_SYNTAX"),
-            "SYNTAX_ADDED" => Self("ENHANCED_SYNTAX_ADDED"),
-            "SYNTAX_REMOVED" => Self("ENHANCED_SYNTAX_REMOVED"),
-            "SYNTAX_1" => Self("ENHANCED_SYNTAX_1"),
-            "SYNTAX_1_ADDED" => Self("ENHANCED_SYNTAX_1_ADDED"),
-            "SYNTAX_1_REMOVED" => Self("ENHANCED_SYNTAX_1_REMOVED"),
+            ADDED => Self(ENHANCED_ADDED),
+            REMOVED => Self(ENHANCED_REMOVED),
+            CONTEXT => Self(ENHANCED_CONTEXT),
+            SYNTAX => Self(ENHANCED_SYNTAX),
+            SYNTAX_ADDED => Self(ENHANCED_SYNTAX_ADDED),
+            SYNTAX_REMOVED => Self(ENHANCED_SYNTAX_REMOVED),
+            SYNTAX_1 => Self(ENHANCED_SYNTAX_1),
+            SYNTAX_1_ADDED => Self(ENHANCED_SYNTAX_1_ADDED),
+            SYNTAX_1_REMOVED => Self(ENHANCED_SYNTAX_1_REMOVED),
             name => Self(name),
         }
     }
@@ -166,22 +166,6 @@ impl ColorTag {
                 tag.set_background(Some(&self.0 .1 .0 .0));
             }
         }
-    }
-}
-
-pub trait ITag {
-    fn name(&self) -> &'static str;
-}
-
-impl ITag for Tag {
-    fn name(&self) -> &'static str {
-        self.0
-    }
-}
-
-impl ITag for ColorTag {
-    fn name(&self) -> &'static str {
-        self.0 .0
     }
 }
 

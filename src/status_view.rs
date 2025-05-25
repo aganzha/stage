@@ -27,7 +27,7 @@ use crate::git::{
 use git2::RepositoryState;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_op::{LastOp, StageDiffs};
-use stage_view::{cursor_to_line_offset, EmptyLayoutManager, StageView};
+use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
 pub mod tests;
@@ -772,6 +772,16 @@ impl Status {
         context: &mut StatusRenderContext<'a>,
     ) {
         let buffer = txt.buffer();
+        let pos = buffer.cursor_position();
+        //let tags = buffer.get_tags(&pos);
+        let iter = buffer.iter_at_offset(pos);
+        // Print the tags
+        debug!("............................");
+        for tag in iter.tags() {
+            println!("\nTag: {}", tag.name().unwrap());
+        }
+
+        let buffer = txt.buffer();
         if let Some(head) = &self.head {
             head.cursor(&buffer, line_no, false, context);
         }
@@ -974,10 +984,14 @@ impl Status {
     }
 
     pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
-        if txt.layout_manager().is_some() {
-            txt.set_layout_manager(None::<EmptyLayoutManager>);
-        } else {
-            txt.set_layout_manager(Some(EmptyLayoutManager::new()));
+        let buffer = txt.buffer();
+        let pos = buffer.cursor_position();
+        //let tags = buffer.get_tags(&pos);
+        let iter = buffer.iter_at_offset(pos);
+        // Print the tags
+        debug!("==========================");
+        for tag in iter.tags() {
+            println!("Tag: {}", tag.name().unwrap());
         }
     }
 

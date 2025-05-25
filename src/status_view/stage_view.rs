@@ -315,10 +315,16 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let red = tags::Color(("#a51d2d".to_string(), "#c01c28".to_string()));
     // in terms of dark theme: white  - is white font on black backgroud. grey is near white.
     // in terms of light theme: black - is black font on white color. greay is near black
-    let grey = tags::Color(("#dddddd".to_string(), "#555555".to_string()));
+    let grey = tags::Color(("#999999".to_string(), "#555555".to_string()));
 
     let diff_color = tags::Color(("#a78a44".to_string(), "#8b6508".to_string()));
     let conflict_color = tags::Color(("#ff0000".to_string(), "#ff0000".to_string()));
+
+    let blue_color = tags::Color(("#300ef3".to_string(), "#300ef3".to_string()));
+    let yellow_color = tags::Color(("#e6f30e".to_string(), "#e6f30e".to_string()));
+
+    let magenta_color = tags::Color(("#f21af0".to_string(), "#f21af0".to_string()));
+    let cyan_color = tags::Color(("#1ae6f2".to_string(), "#1ae6f2".to_string()));
 
     // ----------------- COLORS -------------------------------------
 
@@ -327,7 +333,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     diff_tag.set_weight(700);
     diff_tag.set_pixels_above_lines(32);
 
-    let conflict_marker = tags::ColorTag((tags::CONFLICT_MARKER, conflict_color));
+    let conflict_marker = tags::ColorTag((tags::CONFLICT_MARKER, conflict_color.clone()));
     let conflict_marker_tag = conflict_marker.create(&table, is_dark);
 
     let spaces_added = tags::ColorTag((tags::SPACES_ADDED, green.clone().darken(Some(0.7))));
@@ -339,6 +345,9 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let added = tags::ColorTag((tags::ADDED, green.clone()));
     let added_tag = added.create(&table, is_dark);
 
+    let enhanced_added = tags::ColorTag((tags::ENHANCED_ADDED, green.darken(Some(0.2))));
+    let enhanced_added_tag = enhanced_added.create(&table, is_dark);
+
     let removed = tags::ColorTag((tags::REMOVED, red.clone()));
     let removed_tag = removed.create(&table, is_dark);
 
@@ -348,20 +357,20 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let context = tags::ColorTag((tags::CONTEXT, grey.clone()));
     let context_tag = context.create(&table, is_dark);
 
-    let syntax = tags::ColorTag((tags::SYNTAX, grey.darken(Some(0.6)))); // 0.3
+    let enhanced_context = tags::ColorTag((tags::ENHANCED_CONTEXT, grey.darken(Some(0.2))));
+    let enhanced_context_tag = enhanced_context.create(&table, is_dark);
+
+    let syntax = tags::ColorTag((tags::SYNTAX, blue_color)); // grey.darken(Some(0.4))
     let syntax_tag = syntax.create(&table, is_dark);
 
-    let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, grey.darken(Some(0.5))));
+    let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, yellow_color)); //grey.darken(Some(0.5))
     let enhanced_syntax_tag = enhanced_syntax.create(&table, is_dark);
 
-    let syntax_1 = tags::ColorTag((tags::SYNTAX_1, grey.darken(Some(0.4)))); // 0.3
+    let syntax_1 = tags::ColorTag((tags::SYNTAX_1, magenta_color)); // 0.3 grey.darken(Some(0.2))
     let syntax_1_tag = syntax_1.create(&table, is_dark);
 
-    let enhanced_syntax_1 = tags::ColorTag((tags::ENHANCED_SYNTAX_1, grey.darken(Some(0.5))));
+    let enhanced_syntax_1 = tags::ColorTag((tags::ENHANCED_SYNTAX_1, cyan_color)); // grey.darken(Some(0.3))
     let enhanced_syntax_1_tag = enhanced_syntax_1.create(&table, is_dark);
-
-    let enhanced_added = tags::ColorTag((tags::ENHANCED_ADDED, green.darken(Some(0.2))));
-    let enhanced_added_tag = enhanced_added.create(&table, is_dark);
 
     let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.darken(Some(0.2))));
     let syntax_added_tag = syntax_added.create(&table, is_dark);
@@ -390,9 +399,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let enhanced_syntax_1_removed =
         tags::ColorTag((tags::ENHANCED_SYNTAX_1_REMOVED, red.darken(Some(0.4))));
     let enhanced_syntax_1_removed_tag = enhanced_syntax_1_removed.create(&table, is_dark);
-
-    let enhanced_context = tags::ColorTag((tags::ENHANCED_CONTEXT, grey.darken(Some(0.2))));
-    let enhanced_context_tag = enhanced_context.create(&table, is_dark);
 
     let pointer = tags::Tag(tags::POINTER).create(&table);
     let staged = tags::Tag(tags::STAGED).create(&table);

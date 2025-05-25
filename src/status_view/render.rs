@@ -118,6 +118,7 @@ pub trait ViewContainer {
 
     fn add_tag(&self, buffer: &TextBuffer, tag: &'static str, offset_range: Option<(i32, i32)>) {
         let view = self.get_view();
+        //debug!("AAAAAAAAAAAAAADDING {:?} {:?}", tag, view.line_no.get());
         let (start_iter, end_iter) = if let Some((start, end)) = offset_range {
             (buffer.iter_at_offset(start), buffer.iter_at_offset(end))
         } else {
@@ -135,13 +136,10 @@ pub trait ViewContainer {
         buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
         view.tag_added(tag);
     }
-    fn remove_tag(&self, buffer: &TextBuffer, tag: &'static str, offset_range: Option<(i32, i32)>) {
+    fn remove_tag(&self, buffer: &TextBuffer, tag: &'static str) {
         let view = self.get_view();
-        let (start_iter, end_iter) = if let Some((start, end)) = offset_range {
-            (buffer.iter_at_offset(start), buffer.iter_at_offset(end))
-        } else {
-            self.start_end_iters(buffer, view.line_no.get())
-        };
+        let (start_iter, end_iter) = self.start_end_iters(buffer, view.line_no.get());
+        //debug!("REMOVE TAG ???????????????????? tag {:?} start line {:?} lo {:?} end line {:?} lo {:?}", tag, start_iter.line(), start_iter.line_offset(), end_iter.line(), end_iter.line_offset());
         buffer.remove_tag_by_name(tag, &start_iter, &end_iter);
         view.tag_removed(tag);
     }
@@ -518,7 +516,7 @@ impl ViewContainer for Diff {
                     let start_iter = buffer.iter_at_line(start_line).unwrap();
                     let end_iter = buffer.iter_at_line(end_line).unwrap();
                     let offsets = Some((start_iter.offset(), end_iter.offset()));
-                    self.remove_tag(buffer, tag, offsets);
+                    self.remove_tag(buffer, tag);
                     self.add_tag(buffer, tag, offsets);
                 }
                 _ => {}
@@ -991,29 +989,41 @@ impl ViewContainer for Line {
                 }
             }
             TagChanges::BecomeActive(is_active) => {
+                // TODO! must be same when become current!
                 // kill main tags first
-                if is_active {
-                    self.remove_tag(buffer, self.choose_tag().0, None);
-                } else {
-                    self.remove_tag(buffer, self.choose_tag().enhance().0, None);
-                }
+                // if is_active {
+                //     debug!("activa main purspose REMOVE {:}", self.choose_tag().0);
+                //     self.remove_tag(buffer, self.choose_tag().0, None);
+                // } else {
+                //     self.remove_tag(buffer, self.choose_tag().enhance().0, None);
+                // }
                 // add syntax tags
+                self.remove_tag(buffer, self.choose_tag().0);
+                self.remove_tag(buffer, self.choose_tag().enhance().0);
+                self.remove_tag(buffer, self.choose_syntax_tag().0);
+                self.remove_tag(buffer, self.choose_syntax_tag().enhance().0);
+                self.remove_tag(buffer, self.choose_syntax_1_tag().0);
+                self.remove_tag(buffer, self.choose_syntax_1_tag().enhance().0);
+
+                // if is_active {
+                //     // debug!("main purpose ADD {:?}", self.choose_tag().enhance().0);
+                //     self.add_tag(buffer, self.choose_tag().enhance().0, None);
+                // } else {
+                //     self.add_tag(buffer, self.choose_tag().0, None);
+                // }
+
                 for (start, end) in &self.keyword_ranges {
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
                     if is_active {
-                        self.remove_tag(buffer, self.choose_syntax_tag().0, Some((start, end)));
+                        //debug!("active syntax. add {:?}", self.choose_syntax_tag().enhance().0);
                         self.add_tag(
                             buffer,
                             self.choose_syntax_tag().enhance().0,
                             Some((start, end)),
                         );
                     } else {
-                        self.remove_tag(
-                            buffer,
-                            self.choose_syntax_tag().enhance().0,
-                            Some((start, end)),
-                        );
+                        //debug!("INACTIVE syntax. add {:?}", self.choose_syntax_tag().0);
                         self.add_tag(buffer, self.choose_syntax_tag().0, Some((start, end)));
                     }
                 }
@@ -1021,27 +1031,16 @@ impl ViewContainer for Line {
                     let start = start_offset + start + (if *start == 0 { 0 } else { 1 });
                     let end = start_offset + end + 1;
                     if is_active {
-                        self.remove_tag(buffer, self.choose_syntax_1_tag().0, Some((start, end)));
                         self.add_tag(
                             buffer,
                             self.choose_syntax_1_tag().enhance().0,
                             Some((start, end)),
                         );
                     } else {
-                        self.remove_tag(
-                            buffer,
-                            self.choose_syntax_1_tag().enhance().0,
-                            Some((start, end)),
-                        );
                         self.add_tag(buffer, self.choose_syntax_1_tag().0, Some((start, end)));
                     }
                 }
                 // put new main tags
-                if is_active {
-                    self.add_tag(buffer, self.choose_tag().enhance().0, None);
-                } else {
-                    self.add_tag(buffer, self.choose_tag().0, None);
-                }
             }
         }
     }
