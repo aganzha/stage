@@ -31,6 +31,8 @@ use log::debug;
 use regex::Regex;
 #[cfg(test)]
 use std::cell::Cell;
+#[cfg(test)]
+use std::collections::HashMap;
 
 impl Hunk {
     // used in tests only
@@ -64,6 +66,7 @@ fn create_line(line_no: u32, from: usize, to: usize) -> Line {
         old_line_no: Some(HunkLineNo::new(line_no)),
         kind: LineKind::None,
         content_idx: (from, to),
+        char_indices: HashMap::new(),
     }
 }
 

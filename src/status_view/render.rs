@@ -118,26 +118,11 @@ pub trait ViewContainer {
 
     fn add_tag(&self, buffer: &TextBuffer, tag: &'static str, offset_range: Option<(i32, i32)>) {
         let view = self.get_view();
-        debug!("AAAAAAAAAAAAAADDING tag {:?} line_no {:?}", tag, view.line_no.get());
         let (start_iter, end_iter) = if let Some((start, end)) = offset_range {
             (buffer.iter_at_offset(start), buffer.iter_at_offset(end))
         } else {
             self.start_end_iters(buffer, view.line_no.get())
         };
-        if let Some((start, end)) = offset_range {
-            let delta = 29;
-            let spare_iter = buffer.iter_at_offset(start + delta);
-            // debug!(
-            //     "..........{}................ s {} d {} s+d {} e {}",
-            //     buffer.text(&start_iter, &spare_iter, true),
-            //     start, delta, start + delta, end
-            // );
-        }
-        // debug!(
-        //     ">>>>>>>>>>>>>>>{}<<<<<<<<<<<<<<<<<<<",
-        //     buffer.text(&start_iter, &end_iter, true)
-        // );
-        // debug!("offset tag {:?} range {:?} s line offset {:?} e line_offset {:?}", tag, offset_range, start_iter.line_offset(), end_iter.line_offset());
         if start_iter.line() != end_iter.line() {
             panic!("STOP")
         }
@@ -147,7 +132,6 @@ pub trait ViewContainer {
     fn remove_tag(&self, buffer: &TextBuffer, tag: &'static str) {
         let view = self.get_view();
         let (start_iter, end_iter) = self.start_end_iters(buffer, view.line_no.get());
-        //debug!("REMOVE TAG ???????????????????? tag {:?} start line {:?} lo {:?} end line {:?} lo {:?}", tag, start_iter.line(), start_iter.line_offset(), end_iter.line(), end_iter.line_offset());
         buffer.remove_tag_by_name(tag, &start_iter, &end_iter);
         view.tag_removed(tag);
     }
@@ -961,42 +945,19 @@ impl ViewContainer for Line {
                     );
                 }
 
-                //debug!("\nCONTENT_IDX: {:?}", self.content_idx);
-                let content = self.content(context.current_hunk.unwrap());
-                debug!("RENDER. LINE CONTENT: >{}<", content);
+                self.fill_syntax_tags(
+                    self.choose_syntax_tag().0,
+                    &hunk.keyword_ranges,
+                    buffer,
+                    start_offset,
+                );
+                self.fill_syntax_tags(
+                    self.choose_syntax_1_tag().0,
+                    &hunk.identifier_ranges,
+                    buffer,
+                    start_offset,
+                );
 
-                // highlight syntax keywords
-                for (start, end) in self.byte_indexes_to_char_indexes(&hunk.keyword_ranges) {
-                // for (start, end) in &self.keyword_ranges(context.current_hunk.unwrap()) {
-                    let tag = self.choose_syntax_tag();
-                    // let slice = &context.current_hunk.unwrap().buf[(*start as usize)..(*end as usize)];
-                    // let slice = &content[1..10];
-                    debug!("RENDER ----------> KEYWORD RANGES {:?} {:?}", start, end);
-                    let start = start_offset + start + (if start == 0 { 0 } else { 1 });
-                    let end = start_offset + end + 1;                    
-                    let start_iter = buffer.iter_at_offset(start);
-                    let end_iter = buffer.iter_at_offset(end);
-                    debug!(
-                        "RENDER === KEYWORD TEXT {:?}",
-                        buffer.text(&start_iter, &end_iter, true)
-                    );
-                    self.add_tag(buffer, tag.0, Some((start, end)));
-                }
-
-                //for (start, end) in &self.identifier_ranges(context.current_hunk.unwrap()) {
-                for (start, end) in self.byte_indexes_to_char_indexes(&hunk.identifier_ranges) {
-                    let tag = self.choose_syntax_1_tag();
-                    debug!("RENDER ----------> IDENTIFIER RANGES {:?} {:?}", start, end);
-                    let start = start_offset + start + (if start == 0 { 0 } else { 1 });
-                    let end = start_offset + end + 1;                    
-                    let start_iter = buffer.iter_at_offset(start);
-                    let end_iter = buffer.iter_at_offset(end);
-                    debug!(
-                        "RENDER === IDENTIFIER TEXT {:?}",
-                        buffer.text(&start_iter, &end_iter, true)
-                    );
-                    self.add_tag(buffer, tag.0, Some((start, end)));
-                }
                 match self.kind {
                     LineKind::ConflictMarker(_) => {
                         self.add_tag(buffer, tags::CONFLICT_MARKER, None)
@@ -1041,39 +1002,34 @@ impl ViewContainer for Line {
                 self.remove_tag(buffer, self.choose_syntax_1_tag().0);
                 self.remove_tag(buffer, self.choose_syntax_1_tag().enhance().0);
 
-                for (start, end) in self.byte_indexes_to_char_indexes(&hunk.keyword_ranges) {
-                // for (start, end) in &self.keyword_ranges(context.current_hunk.unwrap()) {
-                    let start = start_offset + start + (if start == 0 { 0 } else { 1 });
-                    let end = start_offset + end + 1;
-                    if is_active {
-                        //debug!("active syntax. add {:?}", self.choose_syntax_tag().enhance().0);
-                        self.add_tag(
-                            buffer,
-                            self.choose_syntax_tag().enhance().0,
-                            Some((start, end)),
-                        );
-                    } else {
-                        //debug!("INACTIVE syntax. add {:?}", self.choose_syntax_tag().0);
-                        self.add_tag(buffer, self.choose_syntax_tag().0, Some((start, end)));
-                    }
-                }
-                for (start, end) in self.byte_indexes_to_char_indexes(&hunk.identifier_ranges) {
-                // for (start, end) in &self.identifier_ranges(context.current_hunk.unwrap()) {
-                    let start = start_offset + start + (if start == 0 { 0 } else { 1 });
-                    let end = start_offset + end + 1;
-                    if is_active {
-                        self.add_tag(
-                            buffer,
-                            self.choose_syntax_1_tag().enhance().0,
-                            Some((start, end)),
-                        );
-                    } else {
-                        self.add_tag(buffer, self.choose_syntax_1_tag().0, Some((start, end)));
-                    }
-                }
-
                 if is_active {
-                    // debug!("main purpose ADD {:?}", self.choose_tag().enhance().0);
+                    self.fill_syntax_tags(
+                        self.choose_syntax_tag().enhance().0,
+                        &hunk.keyword_ranges,
+                        buffer,
+                        start_offset,
+                    );
+                    self.fill_syntax_tags(
+                        self.choose_syntax_1_tag().enhance().0,
+                        &hunk.identifier_ranges,
+                        buffer,
+                        start_offset,
+                    );
+                } else {
+                    self.fill_syntax_tags(
+                        self.choose_syntax_tag().0,
+                        &hunk.keyword_ranges,
+                        buffer,
+                        start_offset,
+                    );
+                    self.fill_syntax_tags(
+                        self.choose_syntax_1_tag().0,
+                        &hunk.identifier_ranges,
+                        buffer,
+                        start_offset,
+                    );
+                }
+                if is_active {
                     self.add_tag(buffer, self.choose_tag().enhance().0, None);
                 } else {
                     self.add_tag(buffer, self.choose_tag().0, None);
@@ -1318,6 +1274,20 @@ impl Line {
             _ => {
                 todo!("syntax in non code line");
             }
+        }
+    }
+
+    fn fill_syntax_tags(
+        &self,
+        tag: &'static str,
+        ranges: &Vec<(usize, usize)>,
+        buffer: &TextBuffer,
+        start_offset: i32,
+    ) {
+        for (start, end) in self.byte_indexes_to_char_indexes(ranges) {
+            let start = start_offset + start + (if start == 0 { 0 } else { 1 });
+            let end = start_offset + end + 1 + 1;
+            self.add_tag(buffer, tag, Some((start, end)));
         }
     }
 }

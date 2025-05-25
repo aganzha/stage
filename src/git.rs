@@ -33,7 +33,10 @@ use std::num::ParseIntError;
 use std::ops::{Add, Sub};
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::{collections::{HashSet, HashMap}, str};
+use std::{
+    collections::{HashMap, HashSet},
+    str,
+};
 
 pub fn make_diff_options() -> DiffOptions {
     let mut opts = DiffOptions::new();
@@ -99,7 +102,7 @@ pub struct Line {
     pub old_line_no: Option<HunkLineNo>,
     pub kind: LineKind,
     pub content_idx: (usize, usize),
-    pub char_indices: HashMap<usize, i32>,    
+    pub char_indices: HashMap<usize, i32>,
 }
 
 impl Default for Line {
@@ -111,7 +114,7 @@ impl Default for Line {
             old_line_no: None,
             kind: LineKind::None,
             content_idx: (0, 0),
-            char_indices: HashMap::new(),            
+            char_indices: HashMap::new(),
         }
     }
 }
@@ -120,71 +123,31 @@ impl Line {
     pub fn content<'a>(&'a self, hunk: &'a Hunk) -> &'a str {
         &hunk.buf[self.content_idx.0..self.content_idx.0 + self.content_idx.1]
     }
-    // pub fn keyword_ranges(&self, hunk: &Hunk) -> Vec<(i32, i32)> {
-    //     let content = self.content(hunk);
-    //     debug!(
-    //         "\nCONTENT >{:?}< content idx {:?}",
-    //         content, self.content_idx
-    //     );
 
-    //     let result: Vec<(i32, i32)> = hunk
-    //         .keyword_ranges
-    //         .iter()
-    //         .filter(|(from, to)| {
-    //             *from >= self.content_idx.0 && *to <= self.content_idx.0 + self.content_idx.1
-    //         })
-    //         .map(|&(from, to)| {
-    //             (
-    //                 (from - self.content_idx.0) as i32,
-    //                 (to - self.content_idx.0) as i32,
-    //             )
-    //         })
-    //         .collect();
-
-    //     debug!("KEYWORD INDEXES: {:?}", result);
-    //     for (s, e) in result.iter() {
-    //         let start = *s as usize;
-    //         let end = *e as usize;
-    //         debug!("KEYWORD: >{:?}<", &content[start..end]);
-    //     }
-    //     debug!("\n");
-    //     result
-    // }
-
-    // pub fn identifier_ranges(&self, hunk: &Hunk) -> Vec<(i32, i32)> {
-    //     hunk.identifier_ranges
-    //         .iter()
-    //         .filter(|(from, to)| {
-    //             *from >= self.content_idx.0 && *to <= self.content_idx.0 + self.content_idx.1
-    //         })
-    //         .map(|&(from, to)| {
-    //             (
-    //                 (from - self.content_idx.0) as i32,
-    //                 (to - self.content_idx.0) as i32,
-    //             )
-    //         })
-    //         .collect()
-    // }
-
-    pub fn byte_indexes_to_char_indexes(&self, byte_indexes: &Vec<(usize, usize)>) -> Vec<(i32,i32)>
-    {
-        debug!("transform byte_indexes. char_indices {:?}", self.char_indices);
-        byte_indexes.iter().filter(|(from, to)| {
-            *from >= self.content_idx.0 && *to <= self.content_idx.0 + self.content_idx.1
-        }).map(|(from, to)| {            
-            let byte_start = from - self.content_idx.0;
-            let first_char_no = self.char_indices.get(&byte_start).unwrap();
-            // to - is the byte which immidiatelly follows the token.
-            // here are 2 cases: one byte char and two byte chars.
-            // to get last byte it need to either -1 or -2!
-            let byte_end = to - self.content_idx.0 - 1;
-            let last_char_no = if let Some(last_char_no) = self.char_indices.get(&byte_end) {
-                last_char_no
-            } else {
-                self.char_indices.get(&(byte_end - 1)).unwrap()
-            };
-            (*first_char_no, *last_char_no)
-        }).collect()
+    pub fn byte_indexes_to_char_indexes(
+        &self,
+        byte_indexes: &Vec<(usize, usize)>,
+    ) -> Vec<(i32, i32)> {
+        byte_indexes
+            .iter()
+            .filter(|(from, to)| {
+                *from >= self.content_idx.0 && *to <= self.content_idx.0 + self.content_idx.1
+            })
+            .map(|(from, to)| {
+                let byte_start = from - self.content_idx.0;
+                let first_char_no = self.char_indices.get(&byte_start).unwrap();
+                // to - is the byte which immidiatelly follows the token.
+                // here are 2 cases: one byte char and two byte chars.
+                // to get last byte it need to either -1 or -2!
+                let byte_end = to - self.content_idx.0 - 1;
+                let last_char_no = if let Some(last_char_no) = self.char_indices.get(&byte_end) {
+                    last_char_no
+                } else {
+                    self.char_indices.get(&(byte_end - 1)).unwrap()
+                };
+                (*first_char_no, *last_char_no)
+            })
+            .collect()
     }
 
     pub fn from_diff_line(l: &DiffLine, content_from: usize, content_to: usize) -> Self {

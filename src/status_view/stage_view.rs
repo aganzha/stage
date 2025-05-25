@@ -44,14 +44,14 @@ mod stage_view_internal {
     // const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.166, 0.329, 0.525, 1.0);
     const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.094, 0.257, 0.454, 1.0);
 
-    const DARK_BF_FILL: gdk::RGBA = gdk::RGBA::new(0.139, 0.139, 0.139, 1.0);
+    const DARK_BG_FILL: gdk::RGBA = gdk::RGBA::new(0.139, 0.139, 0.139, 1.0);
     const LIGHT_BG_FILL: gdk::RGBA = gdk::RGBA::new(1.0, 1.0, 1.0, 1.0);
     // color #f6f5f4/494949 - 246/255 245/255 244/255
     // f3f3f3 - 243/255
     // f4f4f4 - 244/255
     // const LIGHT_LINES: gdk::RGBA = gdk::RGBA::new(0.961, 0.961, 0.957, 1.0);
     const LIGHT_LINES: gdk::RGBA = gdk::RGBA::new(0.957, 0.957, 0.957, 1.0);
-    const DARK_LINES: gdk::RGBA = gdk::RGBA::new(0.250, 0.250, 0.250, 1.0);
+    const DARK_LINES: gdk::RGBA = gdk::RGBA::new(0.200, 0.200, 0.200, 1.0); // was 250
 
     // #deddda/383838 - 221/255 221/255 218/255
     const LIGHT_HUNKS: gdk::RGBA = gdk::RGBA::new(0.871, 0.871, 0.855, 1.0);
@@ -85,7 +85,7 @@ mod stage_view_internal {
             if layer == TextViewLayer::BelowText {
                 let rect = self.obj().visible_rect();
                 let bg_fill = if self.is_dark.get() {
-                    &DARK_BF_FILL
+                    &DARK_BG_FILL
                 } else {
                     &LIGHT_BG_FILL
                 };
@@ -320,11 +320,11 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let diff_color = tags::Color(("#a78a44".to_string(), "#8b6508".to_string()));
     let conflict_color = tags::Color(("#ff0000".to_string(), "#ff0000".to_string()));
 
-    let blue_color = tags::Color(("#300ef3".to_string(), "#300ef3".to_string()));
-    let yellow_color = tags::Color(("#e6f30e".to_string(), "#e6f30e".to_string()));
+    // let blue_color = tags::Color(("#300ef3".to_string(), "#300ef3".to_string()));
+    // let yellow_color = tags::Color(("#e6f30e".to_string(), "#e6f30e".to_string()));
 
-    let magenta_color = tags::Color(("#f21af0".to_string(), "#f21af0".to_string()));
-    let cyan_color = tags::Color(("#1ae6f2".to_string(), "#1ae6f2".to_string()));
+    // let magenta_color = tags::Color(("#f21af0".to_string(), "#f21af0".to_string()));
+    // let cyan_color = tags::Color(("#1ae6f2".to_string(), "#1ae6f2".to_string()));
 
     // ----------------- COLORS -------------------------------------
 
@@ -360,26 +360,26 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let enhanced_context = tags::ColorTag((tags::ENHANCED_CONTEXT, grey.darken(Some(0.2))));
     let enhanced_context_tag = enhanced_context.create(&table, is_dark);
 
-    let syntax = tags::ColorTag((tags::SYNTAX, blue_color)); // grey.darken(Some(0.4))
+    let syntax = tags::ColorTag((tags::SYNTAX, grey.darken(Some(0.3)))); // blue_color
     let syntax_tag = syntax.create(&table, is_dark);
 
-    let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, yellow_color)); //grey.darken(Some(0.5))
+    let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, grey.darken(Some(0.4)))); //yellow_color
     let enhanced_syntax_tag = enhanced_syntax.create(&table, is_dark);
 
-    let syntax_1 = tags::ColorTag((tags::SYNTAX_1, magenta_color)); // 0.3 grey.darken(Some(0.2))
+    let syntax_1 = tags::ColorTag((tags::SYNTAX_1, grey.darken(Some(0.2)))); // magenta_color
     let syntax_1_tag = syntax_1.create(&table, is_dark);
 
-    let enhanced_syntax_1 = tags::ColorTag((tags::ENHANCED_SYNTAX_1, cyan_color)); // grey.darken(Some(0.3))
+    let enhanced_syntax_1 = tags::ColorTag((tags::ENHANCED_SYNTAX_1, grey.darken(Some(0.3)))); // cyan_color
     let enhanced_syntax_1_tag = enhanced_syntax_1.create(&table, is_dark);
 
-    let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.darken(Some(0.2))));
+    let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.darken(Some(0.3))));
     let syntax_added_tag = syntax_added.create(&table, is_dark);
 
     let enhanced_syntax_added =
         tags::ColorTag((tags::ENHANCED_SYNTAX_ADDED, green.darken(Some(0.4))));
     let enhanced_syntax_added_tag = enhanced_syntax_added.create(&table, is_dark);
 
-    let syntax_removed = tags::ColorTag((tags::SYNTAX_REMOVED, red.darken(Some(0.2))));
+    let syntax_removed = tags::ColorTag((tags::SYNTAX_REMOVED, red.darken(Some(0.3))));
     let syntax_removed_tag = syntax_removed.create(&table, is_dark);
 
     let enhanced_syntax_removed =
@@ -393,11 +393,11 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let syntax_1_removed_tag = syntax_1_removed.create(&table, is_dark);
 
     let enhanced_syntax_1_added =
-        tags::ColorTag((tags::ENHANCED_SYNTAX_1_ADDED, green.darken(Some(0.4))));
+        tags::ColorTag((tags::ENHANCED_SYNTAX_1_ADDED, green.darken(Some(0.3))));
     let enhanced_syntax_1_added_tag = enhanced_syntax_1_added.create(&table, is_dark);
 
     let enhanced_syntax_1_removed =
-        tags::ColorTag((tags::ENHANCED_SYNTAX_1_REMOVED, red.darken(Some(0.4))));
+        tags::ColorTag((tags::ENHANCED_SYNTAX_1_REMOVED, red.darken(Some(0.3))));
     let enhanced_syntax_1_removed_tag = enhanced_syntax_1_removed.create(&table, is_dark);
 
     let pointer = tags::Tag(tags::POINTER).create(&table);
