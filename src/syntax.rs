@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use log::debug;
 use std::path::Path;
 use tree_sitter::Parser;
 
@@ -165,22 +164,10 @@ pub fn get_node_range<'a>(
     let keywords = language.keywords();
 
     if keywords.contains(&node.kind()) {
-        debug!(
-            "\nKEYWORD: {:?} {:?} {:?}",
-            node.kind(),
-            node.start_byte(),
-            node.end_byte()
-        );
         acc.push((node.start_byte(), node.end_byte()));
     } else if node.kind() == "identifier" {
         if let Some(parent) = node.parent() {
             if parent.kind() != "ERROR" {
-                debug!(
-                    "\nIDENTIFIER: {:?} {:?} {:?}",
-                    node.kind(),
-                    node.start_byte(),
-                    node.end_byte()
-                );
                 acc_1.push((node.start_byte(), node.end_byte()))
             }
         }
@@ -230,21 +217,5 @@ pub fn collect_ranges(
         &mut result_1,
         language,
     );
-    for (start, end) in result.iter() {
-        debug!(
-            "RESULT. KEYWORD {:?} {:?} = {:?}",
-            start,
-            end,
-            &content[*start..*end]
-        );
-    }
-    for (start, end) in result_1.iter() {
-        debug!(
-            "RESULT. IDENTIFIER {:?} {:?} = {:?}",
-            start,
-            end,
-            &content[*start..*end]
-        );
-    }
     (result, result_1)
 }

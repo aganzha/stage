@@ -132,6 +132,8 @@ impl Line {
             .iter()
             .filter(|(from, to)| {
                 *from >= self.content_idx.0 && *to <= self.content_idx.0 + self.content_idx.1
+                    &&
+                    from != to
             })
             .map(|(from, to)| {
                 let byte_start = from - self.content_idx.0;
