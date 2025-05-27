@@ -11,7 +11,7 @@ pub enum ViewState {
     RenderedInPlace,
     Deleted,
     NotYetRendered,
-    TagsModified,
+    UnknownCase,
     MarkedForDeletion,
     UpdatedFromGit(i32),
     RenderedNotInPlace(i32),
@@ -244,7 +244,7 @@ impl View {
             return ViewState::NotYetRendered;
         }
         if self.is_dirty() && !self.is_transfered() {
-            return ViewState::TagsModified;
+            return ViewState::UnknownCase;
         }
         if self.is_dirty() && self.is_transfered() {
             // why not in place? it is in place, just transfered!

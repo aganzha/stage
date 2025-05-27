@@ -30,7 +30,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 //pub const LINE_NO_SPACE: i32 = 6;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum TagChanges {
     Render,
     BecomeCurrent(bool),
@@ -176,13 +176,13 @@ pub trait ViewContainer {
                 // before it was used only in cursor!
                 self.apply_tags(TagChanges::Render, buffer, context);
             }
-            ViewState::TagsModified => {
+            ViewState::UnknownCase => {
                 // todo!("whats the case?");
-                trace!("..render MATCH TagsModified {:?}", line_no);
-                if !iter.forward_lines(1) {
-                    assert!(iter.offset() == buffer.end_iter().offset());
-                }
-                view.render(true);
+                panic!("..render MATCH UnknowCase {:?}", line_no);
+                // if !iter.forward_lines(1) {
+                //     assert!(iter.offset() == buffer.end_iter().offset());
+                // }
+                // view.render(true);
             }
             ViewState::MarkedForDeletion => {
                 trace!("..render MATCH squashed {:?}", line_no);
@@ -207,6 +207,8 @@ pub trait ViewContainer {
                 }
                 view.cleanup_tags();
                 self.write_content(iter, buffer, context);
+                // before it was used only in cursor!
+                self.apply_tags(TagChanges::Render, buffer, context);
                 self.force_forward(buffer, iter);
             }
             ViewState::RenderedNotInPlace(l) => {
