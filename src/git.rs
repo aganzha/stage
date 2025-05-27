@@ -124,34 +124,6 @@ impl Line {
         &hunk.buf[self.content_idx.0..self.content_idx.0 + self.content_idx.1]
     }
 
-    pub fn byte_indexes_to_char_indexes(
-        &self,
-        byte_indexes: &Vec<(usize, usize)>,
-    ) -> Vec<(i32, i32)> {
-        byte_indexes
-            .iter()
-            .filter(|(from, to)| {
-                *from >= self.content_idx.0 && *to <= self.content_idx.0 + self.content_idx.1
-                    &&
-                    from != to
-            })
-            .map(|(from, to)| {
-                let byte_start = from - self.content_idx.0;
-                let first_char_no = self.char_indices.get(&byte_start).unwrap();
-                // to - is the byte which immidiatelly follows the token.
-                // here are 2 cases: one byte char and two byte chars.
-                // to get last byte it need to either -1 or -2!
-                let byte_end = to - self.content_idx.0 - 1;
-                let last_char_no = if let Some(last_char_no) = self.char_indices.get(&byte_end) {
-                    last_char_no
-                } else {
-                    self.char_indices.get(&(byte_end - 1)).unwrap()
-                };
-                (*first_char_no, *last_char_no)
-            })
-            .collect()
-    }
-
     pub fn from_diff_line(l: &DiffLine, content_from: usize, content_to: usize) -> Self {
         Self {
             view: View::new(),
@@ -161,15 +133,6 @@ impl Line {
             kind: LineKind::None,
             content_idx: (content_from, content_to),
             char_indices: HashMap::new(),
-        }
-    }
-    pub fn fill_char_indices(&mut self, buf: &str) {
-        for (i, (byte_index, char)) in buf
-            [self.content_idx.0..self.content_idx.0 + self.content_idx.1]
-            .char_indices()
-            .enumerate()
-        {
-            self.char_indices.insert(byte_index, i as i32);
         }
     }
 
@@ -445,21 +408,6 @@ impl Hunk {
             }
         }
         this_kind
-    }
-    pub fn parse_syntax(&mut self, parser: Option<&mut syntax::LanguageWrapper>) {
-        if let Some(parser) = parser {
-            // let mut content =
-            //     String::with_capacity(self.buf.len() - self.header.len() + self.lines.len());
-            // for line in &self.lines {
-            //     content.push_str(line.content(self));
-            //     content.push_str("\n");
-            // }
-            // debug!("================== PARSE SYNTAX {:?}", self.header);
-            // debug!("{}", &content);
-            // debug!("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
-            (self.keyword_ranges, self.identifier_ranges) =
-                syntax::collect_ranges(&self.buf, parser);
-        };
     }
 }
 

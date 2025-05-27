@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::{Hunk, Line};
 use std::path::Path;
 use tree_sitter::Parser;
 
@@ -218,4 +219,177 @@ pub fn collect_ranges(
         language,
     );
     (result, result_1)
+}
+
+impl Line {
+    pub fn byte_indexes_to_char_indexes(
+        &self,
+        byte_indexes: &Vec<(usize, usize)>,
+    ) -> Vec<(i32, i32)> {
+        byte_indexes
+            .iter()
+            .filter(|(from, to)| {
+                *from >= self.content_idx.0
+                    && *to <= self.content_idx.0 + self.content_idx.1
+                    && from != to
+            })
+            .map(|(from, to)| {
+                let byte_start = from - self.content_idx.0;
+                let first_char_no = self.char_indices.get(&byte_start).unwrap();
+                // to - is the byte which immidiatelly follows the token.
+                // here are 2 cases: one byte char and two byte chars.
+                // to get last byte it need to either -1 or -2!
+                let byte_end = to - self.content_idx.0 - 1;
+                let last_char_no = if let Some(last_char_no) = self.char_indices.get(&byte_end) {
+                    last_char_no
+                } else {
+                    self.char_indices.get(&(byte_end - 1)).unwrap()
+                };
+                (*first_char_no, *last_char_no)
+            })
+            .collect()
+    }
+
+    pub fn fill_char_indices(&mut self, buf: &str) {
+        for (i, (byte_index, char)) in buf
+            [self.content_idx.0..self.content_idx.0 + self.content_idx.1]
+            .char_indices()
+            .enumerate()
+        {
+            self.char_indices.insert(byte_index, i as i32);
+        }
+    }
+}
+
+impl Hunk {
+    pub fn parse_syntax(&mut self, parser: Option<&mut LanguageWrapper>) {
+        if let Some(parser) = parser {
+            (self.keyword_ranges, self.identifier_ranges) = collect_ranges(&self.buf, parser);
+        };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_choose_parser_rust() {
+        let path = Path::new("example.rs");
+        let parser = choose_parser(&path);
+        assert!(parser.is_some());
+        if let Some(LanguageWrapper::Rust(_)) = parser {
+            // Test passed
+        } else {
+            panic!("Expected Rust parser");
+        }
+    }
+
+    #[test]
+    fn test_choose_parser_python() {
+        let path = Path::new("example.py");
+        let parser = choose_parser(&path);
+        assert!(parser.is_some());
+        if let Some(LanguageWrapper::Python(_)) = parser {
+            // Test passed
+        } else {
+            panic!("Expected Python parser");
+        }
+    }
+
+    #[test]
+    fn test_choose_parser_typescript() {
+        let path = Path::new("example.ts");
+        let parser = choose_parser(&path);
+        assert!(parser.is_some());
+        if let Some(LanguageWrapper::TypeScript(_)) = parser {
+            // Test passed
+        } else {
+            panic!("Expected TypeScript parser");
+        }
+    }
+
+    #[test]
+    fn test_choose_parser_tsx() {
+        let path = Path::new("example.tsx");
+        let parser = choose_parser(&path);
+        assert!(parser.is_some());
+        if let Some(LanguageWrapper::TypeScript(_)) = parser {
+            // Test passed
+        } else {
+            panic!("Expected TypeScript parser for TSX");
+        }
+    }
+
+    #[test]
+    fn test_choose_parser_invalid() {
+        let path = Path::new("example.txt");
+        let parser = choose_parser(&path);
+        assert!(parser.is_none());
+    }
+
+    #[test]
+    fn test_collect_ranges_rust() {
+        let mut parser = LanguageWrapper::Rust(Parser::new());
+        let content = r#"
+            fn main() {
+                let x = 5;
+                if x > 0 {
+                    println!("Positive");
+                }
+            }
+        "#;
+        let (keyword_ranges, identifier_ranges) = collect_ranges(content, &mut parser);
+
+        // Check keyword ranges
+        assert_eq!(keyword_ranges.len(), 5); // Adjust based on expected keywords
+                                             // Add more specific assertions based on expected byte ranges
+
+        // Check identifier ranges
+        assert_eq!(identifier_ranges.len(), 2); // Adjust based on expected identifiers
+                                                // Add more specific assertions based on expected byte ranges
+    }
+
+    #[test]
+    fn test_collect_ranges_python() {
+        let mut parser = LanguageWrapper::Python(Parser::new());
+        let content = r#"
+            def main():
+                x = 5
+                if x > 0:
+                    print("Positive")
+        "#;
+        let (keyword_ranges, identifier_ranges) = collect_ranges(content, &mut parser);
+
+        // Check keyword ranges
+        assert_eq!(keyword_ranges.len(), 3); // Adjust based on expected keywords
+                                             // Add more specific assertions based on expected byte ranges
+
+        // Check identifier ranges
+        assert_eq!(identifier_ranges.len(), 2); // Adjust based on expected identifiers
+                                                // Add more specific assertions based on expected byte ranges
+    }
+
+    #[test]
+    fn test_collect_ranges_typescript() {
+        let mut parser = LanguageWrapper::TypeScript(Parser::new());
+        let content = r#"
+            function main() {
+                let x: number = 5;
+                if (x > 0) {
+                    console.log("Positive");
+                }
+            }
+        "#;
+        let (keyword_ranges, identifier_ranges) = collect_ranges(content, &mut parser);
+
+        // Check keyword ranges
+        assert_eq!(keyword_ranges.len(), 4); // Adjust based on expected keywords
+                                             // Add more specific assertions based on expected byte ranges
+
+        // Check identifier ranges
+        assert_eq!(identifier_ranges.len(), 3); // Adjust based on expected identifiers
+                                                // Add more specific assertions based on expected byte ranges
+    }
 }
