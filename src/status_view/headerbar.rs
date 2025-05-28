@@ -260,7 +260,7 @@ pub fn factory(
         .use_underline(true)
         .can_focus(false)
         .tooltip_text("Stashes (Z)")
-        .icon_name("sidebar-show-symbolic")
+        .icon_name("application-exit-rtl-symbolic")
         .sensitive(false)
         .can_shrink(true)
         .build();
