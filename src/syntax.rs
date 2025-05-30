@@ -53,6 +53,7 @@ impl LanguageWrapper {
                 "self",
             ],
             LanguageWrapper::Python(_) => vec![
+                "self",
                 "False",
                 "None",
                 "True",
@@ -172,20 +173,29 @@ pub fn get_node_range<'a>(
     } else if node.kind() == "identifier" {
         if let Some(field_name) = cursor.field_name() {
             debug!("---------> {:?} {:?}", parent_kind, field_name);
-            if let (
+            match (language, parent_kind, field_name) {
+                (
                     LanguageWrapper::Rust(_),
                     "parameter" | "tuple_struct_pattern" | "let_declaration",
                     "pattern",
-                ) = (language, parent_kind, field_name) {
-                debug!(
-                    "EEEEEEEEEEEEEEEEEEEEEEEE {:?} {:?}",
-                    parent_kind, field_name
-                );
-                acc_1.push((node.start_byte(), node.end_byte()))
+                ) => {
+                    debug!(
+                        "EEEEEEEEEEEEEEEEEEEEEEEE {:?} {:?}",
+                        parent_kind, field_name
+                    );
+                    acc_1.push((node.start_byte(), node.end_byte()))
+                }
+                (LanguageWrapper::Python(_), "assignment", "left") => {
+                    debug!(
+                        "EEEEEEEEEEEEEEEEEEEEEEEE {:?} {:?}",
+                        parent_kind, field_name
+                    );
+                    acc_1.push((node.start_byte(), node.end_byte()))
+                }
+                (_, _, _) => {}
             }
         }
     }
-
     if cursor.goto_first_child() {
         loop {
             get_node_range(&cursor.node(), cursor, acc, acc_1, node.kind(), language);

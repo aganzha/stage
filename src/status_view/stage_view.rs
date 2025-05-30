@@ -366,10 +366,10 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, grey.darken(Some(0.4))));
     let enhanced_syntax_tag = enhanced_syntax.create(&table, is_dark);
 
-    let syntax_1 = tags::ColorTag((tags::SYNTAX_1, blue_color.clone())); // grey.darken(Some(0.2))
+    let syntax_1 = tags::ColorTag((tags::SYNTAX_1, grey.darken(Some(-0.3)))); //blue_color.clone()
     let syntax_1_tag = syntax_1.create(&table, is_dark);
 
-    let enhanced_syntax_1 = tags::ColorTag((tags::ENHANCED_SYNTAX_1, blue_color.darken(Some(0.3)))); // grey.darken(Some(0.3))
+    let enhanced_syntax_1 = tags::ColorTag((tags::ENHANCED_SYNTAX_1, grey.darken(Some(-0.4)))); // blue_color.darken(Some(0.3)
     let enhanced_syntax_1_tag = enhanced_syntax_1.create(&table, is_dark);
 
     let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.darken(Some(0.3))));
@@ -386,22 +386,22 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
         tags::ColorTag((tags::ENHANCED_SYNTAX_REMOVED, red.darken(Some(0.4))));
     let enhanced_syntax_removed_tag = enhanced_syntax_removed.create(&table, is_dark);
 
-    let syntax_1_added = tags::ColorTag((tags::SYNTAX_1_ADDED, magenta_color.clone())); //green.darken(Some(0.2))
+    let syntax_1_added = tags::ColorTag((tags::SYNTAX_1_ADDED, green.darken(Some(-0.3)))); //magenta_color.clone()
     let syntax_1_added_tag = syntax_1_added.create(&table, is_dark);
 
-    let syntax_1_removed = tags::ColorTag((tags::SYNTAX_1_REMOVED, yellow_color.clone())); //red.darken(Some(0.2))
+    let syntax_1_removed = tags::ColorTag((tags::SYNTAX_1_REMOVED, red.darken(Some(-0.3)))); // yellow_color.clone()
     let syntax_1_removed_tag = syntax_1_removed.create(&table, is_dark);
 
     let enhanced_syntax_1_added = tags::ColorTag((
         tags::ENHANCED_SYNTAX_1_ADDED,
-        magenta_color.darken(Some(0.3)),
-    )); //green
+        green.darken(Some(-0.4)),
+    )); //magenta_color
     let enhanced_syntax_1_added_tag = enhanced_syntax_1_added.create(&table, is_dark);
 
     let enhanced_syntax_1_removed = tags::ColorTag((
         tags::ENHANCED_SYNTAX_1_REMOVED,
-        yellow_color.darken(Some(0.3)),
-    )); // red
+        red.darken(Some(-0.4)),
+    )); // yellow_color
     let enhanced_syntax_1_removed_tag = enhanced_syntax_1_removed.create(&table, is_dark);
 
     let pointer = tags::Tag(tags::POINTER).create(&table);
