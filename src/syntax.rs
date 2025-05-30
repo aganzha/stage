@@ -192,6 +192,13 @@ pub fn get_node_range<'a>(
                     );
                     acc_1.push((node.start_byte(), node.end_byte()))
                 }
+                (LanguageWrapper::TypeScript(_), "variable_declarator", "name") => {
+                    debug!(
+                        "EEEEEEEEEEEEEEEEEEEEEEEE {:?} {:?}",
+                        parent_kind, field_name
+                    );
+                    acc_1.push((node.start_byte(), node.end_byte()))
+                }
                 (_, _, _) => {}
             }
         }
