@@ -177,8 +177,8 @@ pub trait ViewContainer {
                 self.apply_tags(TagChanges::Render, buffer, context);
             }
             ViewState::UnknownCase => {
-                // todo!("whats the case?");
-                panic!("..render MATCH UnknowCase {:?}", line_no);
+                todo!("whats the case?");
+                // panic!("..render MATCH UnknowCase {:?}", line_no);
                 // if !iter.forward_lines(1) {
                 //     assert!(iter.offset() == buffer.end_iter().offset());
                 // }

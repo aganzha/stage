@@ -99,7 +99,7 @@ impl Color {
         // Adjust the color
         let adjust = |c: u8| -> u8 {
             // Clamp the value between 0 and 255
-            (c as f32 * (1.0 + factor)).round() as u8
+            (c as f32 * (1.0 + factor * 2.0)).round() as u8
         };
 
         let new_r = adjust(r);

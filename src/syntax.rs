@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::{Hunk, Line};
+use log::debug;
 use std::path::Path;
 use tree_sitter::Parser;
 
@@ -100,6 +101,7 @@ impl LanguageWrapper {
                 "memoryview",
             ],
             LanguageWrapper::TypeScript(_) => vec![
+                "await",
                 "break",
                 "case",
                 "catch",
@@ -160,6 +162,7 @@ pub fn get_node_range<'a>(
     cursor: &mut tree_sitter::TreeCursor<'a>,
     acc: &mut Vec<(usize, usize)>,
     acc_1: &mut Vec<(usize, usize)>,
+    parent_kind: &'static str,
     language: &LanguageWrapper,
 ) {
     let keywords = language.keywords();
@@ -167,24 +170,29 @@ pub fn get_node_range<'a>(
     if keywords.contains(&node.kind()) {
         acc.push((node.start_byte(), node.end_byte()));
     } else if node.kind() == "identifier" {
-        if let Some(parent) = node.parent() {
-            if parent.kind() != "ERROR" {
+        if let Some(field_name) = cursor.field_name() {
+            debug!("---------> {:?} {:?}", parent_kind, field_name);
+            if let (
+                    LanguageWrapper::Rust(_),
+                    "parameter" | "tuple_struct_pattern" | "let_declaration",
+                    "pattern",
+                ) = (language, parent_kind, field_name) {
+                debug!(
+                    "EEEEEEEEEEEEEEEEEEEEEEEE {:?} {:?}",
+                    parent_kind, field_name
+                );
                 acc_1.push((node.start_byte(), node.end_byte()))
             }
         }
     }
 
-    // Move the cursor to the first child
     if cursor.goto_first_child() {
         loop {
-            // Recursively call get_node_range for the current child
-            get_node_range(&cursor.node(), cursor, acc, acc_1, language);
-            // Move to the next sibling
+            get_node_range(&cursor.node(), cursor, acc, acc_1, node.kind(), language);
             if !cursor.goto_next_sibling() {
-                break; // Exit the loop if there are no more siblings
+                break;
             }
         }
-        // Move the cursor back to the parent after processing all children
         cursor.goto_parent();
     }
 }
@@ -209,14 +217,13 @@ pub fn collect_ranges(
     let mut cursor = root_node.walk();
     let mut result = Vec::new();
     let mut result_1 = Vec::new();
-    // Get the keywords for the current language
-    let language = parser; // We already have the language in the parser
     get_node_range(
         &root_node,
         &mut cursor,
         &mut result,
         &mut result_1,
-        language,
+        "",
+        parser,
     );
     (result, result_1)
 }
