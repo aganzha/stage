@@ -176,13 +176,12 @@ pub trait ViewContainer {
                 // before it was used only in cursor!
                 self.apply_tags(TagChanges::Render, buffer, context);
             }
-            ViewState::UnknownCase => {
-                todo!("whats the case?");
-                // panic!("..render MATCH UnknowCase {:?}", line_no);
-                // if !iter.forward_lines(1) {
-                //     assert!(iter.offset() == buffer.end_iter().offset());
-                // }
-                // view.render(true);
+            ViewState::JustDirtyItsNotUsed => {
+                // todo!("whats the case?");
+                if !iter.forward_lines(1) {
+                    assert!(iter.offset() == buffer.end_iter().offset());
+                }
+                view.render(true);
             }
             ViewState::MarkedForDeletion => {
                 trace!("..render MATCH squashed {:?}", line_no);
@@ -1252,9 +1251,8 @@ impl Line {
         match self.origin {
             DiffLineType::Addition => tags::Tag(tags::ADDED),
             DiffLineType::Deletion => tags::Tag(tags::REMOVED),
-            DiffLineType::Context => tags::Tag(tags::CONTEXT),
             _ => {
-                todo!("syntax in non code line");
+                tags::Tag(tags::CONTEXT)
             }
         }
     }
@@ -1262,9 +1260,8 @@ impl Line {
         match self.origin {
             DiffLineType::Addition => tags::Tag(tags::SYNTAX_ADDED),
             DiffLineType::Deletion => tags::Tag(tags::SYNTAX_REMOVED),
-            DiffLineType::Context => tags::Tag(tags::SYNTAX),
             _ => {
-                todo!("syntax in non code line");
+                tags::Tag(tags::SYNTAX)
             }
         }
     }
@@ -1272,9 +1269,8 @@ impl Line {
         match self.origin {
             DiffLineType::Addition => tags::Tag(tags::SYNTAX_1_ADDED),
             DiffLineType::Deletion => tags::Tag(tags::SYNTAX_1_REMOVED),
-            DiffLineType::Context => tags::Tag(tags::SYNTAX_1),
             _ => {
-                todo!("syntax in non code line");
+                tags::Tag(tags::SYNTAX_1)
             }
         }
     }
