@@ -1251,27 +1251,21 @@ impl Line {
         match self.origin {
             DiffLineType::Addition => tags::Tag(tags::ADDED),
             DiffLineType::Deletion => tags::Tag(tags::REMOVED),
-            _ => {
-                tags::Tag(tags::CONTEXT)
-            }
+            _ => tags::Tag(tags::CONTEXT),
         }
     }
     fn choose_syntax_tag(&self) -> tags::Tag {
         match self.origin {
             DiffLineType::Addition => tags::Tag(tags::SYNTAX_ADDED),
             DiffLineType::Deletion => tags::Tag(tags::SYNTAX_REMOVED),
-            _ => {
-                tags::Tag(tags::SYNTAX)
-            }
+            _ => tags::Tag(tags::SYNTAX),
         }
     }
     fn choose_syntax_1_tag(&self) -> tags::Tag {
         match self.origin {
             DiffLineType::Addition => tags::Tag(tags::SYNTAX_1_ADDED),
             DiffLineType::Deletion => tags::Tag(tags::SYNTAX_1_REMOVED),
-            _ => {
-                tags::Tag(tags::SYNTAX_1)
-            }
+            _ => tags::Tag(tags::SYNTAX_1),
         }
     }
 

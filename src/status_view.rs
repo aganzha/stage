@@ -976,9 +976,7 @@ impl Status {
     pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
         let buffer = txt.buffer();
         let pos = buffer.cursor_position();
-        //let tags = buffer.get_tags(&pos);
         let iter = buffer.iter_at_offset(pos);
-        // Print the tags
         debug!("==========================");
         for tag in iter.tags() {
             println!("Tag: {}", tag.name().unwrap());

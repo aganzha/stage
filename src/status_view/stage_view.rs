@@ -311,7 +311,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
     // ----------------- COLORS -------------------------------------
     // Dark theme - first color on tuple. Light - last one.
-    let green = tags::Color(("#4a8e09".to_string(), "#10ac64".to_string()));
+    let green = tags::Color(("#4a8e09".to_string(), "#10ac64".to_string())); //
     let red = tags::Color(("#a51d2d".to_string(), "#c01c28".to_string()));
     // in terms of dark theme: white  - is white font on black backgroud. grey is near white.
     // in terms of light theme: black - is black font on white color. greay is near black
@@ -319,7 +319,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
     let diff_color = tags::Color(("#a78a44".to_string(), "#8b6508".to_string()));
     let conflict_color = tags::Color(("#ff0000".to_string(), "#ff0000".to_string()));
-
 
     // ----------------- COLORS -------------------------------------
 
@@ -340,51 +339,73 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let added = tags::ColorTag((tags::ADDED, green.clone()));
     let added_tag = added.create(&table, is_dark);
 
-    let enhanced_added = tags::ColorTag((tags::ENHANCED_ADDED, green.from_hsl(tags::HslAdjustment::Enhance)));
+    let enhanced_added = tags::ColorTag((
+        tags::ENHANCED_ADDED,
+        green.from_hsl(tags::HslAdjustment::Enhance),
+    ));
     let enhanced_added_tag = enhanced_added.create(&table, is_dark);
 
     let removed = tags::ColorTag((tags::REMOVED, red.clone()));
     let removed_tag = removed.create(&table, is_dark);
 
-    let enhanced_removed = tags::ColorTag((tags::ENHANCED_REMOVED, red.from_hsl(tags::HslAdjustment::Enhance)));
+    let enhanced_removed = tags::ColorTag((
+        tags::ENHANCED_REMOVED,
+        red.from_hsl(tags::HslAdjustment::Enhance),
+    ));
     let enhanced_removed_tag = enhanced_removed.create(&table, is_dark);
 
     let context = tags::ColorTag((tags::CONTEXT, grey.clone()));
     let context_tag = context.create(&table, is_dark);
 
-    let enhanced_context = tags::ColorTag((tags::ENHANCED_CONTEXT,  grey.darken(Some(0.2))));//grey.from_hsl(tags::HslAdjustment::Enhance)));
+    let enhanced_context = tags::ColorTag((tags::ENHANCED_CONTEXT, grey.darken(Some(0.2)))); //grey.from_hsl(tags::HslAdjustment::Enhance)));
     let enhanced_context_tag = enhanced_context.create(&table, is_dark);
 
-    let syntax = tags::ColorTag((tags::SYNTAX,  grey.darken(Some(0.3)))); //grey.from_hsl(tags::HslAdjustment::Up(false))));
+    let syntax = tags::ColorTag((tags::SYNTAX, grey.darken(Some(0.3)))); //grey.from_hsl(tags::HslAdjustment::Up(false))));
     let syntax_tag = syntax.create(&table, is_dark);
 
     let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, grey.darken(Some(0.4)))); // grey.from_hsl(tags::HslAdjustment::Up(true))
     let enhanced_syntax_tag = enhanced_syntax.create(&table, is_dark);
 
-    let syntax_1 = tags::ColorTag((tags::SYNTAX_1, grey.darken(Some(-0.2))));//grey.from_hsl(tags::HslAdjustment::Down(false))));
+    let syntax_1 = tags::ColorTag((tags::SYNTAX_1, grey.darken(Some(-0.2)))); //grey.from_hsl(tags::HslAdjustment::Down(false))));
     let syntax_1_tag = syntax_1.create(&table, is_dark);
 
-    let enhanced_syntax_1 = tags::ColorTag((tags::ENHANCED_SYNTAX_1, grey.darken(Some(-0.2))));//grey.from_hsl(tags::HslAdjustment::Down(true))));
+    let enhanced_syntax_1 = tags::ColorTag((tags::ENHANCED_SYNTAX_1, grey.darken(Some(-0.2)))); //grey.from_hsl(tags::HslAdjustment::Down(true))));
     let enhanced_syntax_1_tag = enhanced_syntax_1.create(&table, is_dark);
 
-    let syntax_added = tags::ColorTag((tags::SYNTAX_ADDED, green.from_hsl(tags::HslAdjustment::Up(false))));
+    let syntax_added = tags::ColorTag((
+        tags::SYNTAX_ADDED,
+        green.from_hsl(tags::HslAdjustment::Up(false)),
+    ));
     let syntax_added_tag = syntax_added.create(&table, is_dark);
 
-    let enhanced_syntax_added =
-        tags::ColorTag((tags::ENHANCED_SYNTAX_ADDED, green.from_hsl(tags::HslAdjustment::Up(true))));
+    let enhanced_syntax_added = tags::ColorTag((
+        tags::ENHANCED_SYNTAX_ADDED,
+        green.from_hsl(tags::HslAdjustment::Up(true)),
+    ));
     let enhanced_syntax_added_tag = enhanced_syntax_added.create(&table, is_dark);
 
-    let syntax_removed = tags::ColorTag((tags::SYNTAX_REMOVED, red.from_hsl(tags::HslAdjustment::Up(false))));
+    let syntax_removed = tags::ColorTag((
+        tags::SYNTAX_REMOVED,
+        red.from_hsl(tags::HslAdjustment::Up(false)),
+    ));
     let syntax_removed_tag = syntax_removed.create(&table, is_dark);
 
-    let enhanced_syntax_removed =
-        tags::ColorTag((tags::ENHANCED_SYNTAX_REMOVED, red.from_hsl(tags::HslAdjustment::Up(true))));
+    let enhanced_syntax_removed = tags::ColorTag((
+        tags::ENHANCED_SYNTAX_REMOVED,
+        red.from_hsl(tags::HslAdjustment::Up(true)),
+    ));
     let enhanced_syntax_removed_tag = enhanced_syntax_removed.create(&table, is_dark);
 
-    let syntax_1_added = tags::ColorTag((tags::SYNTAX_1_ADDED, green.from_hsl(tags::HslAdjustment::Down(false)))); //magenta_color.clone()
+    let syntax_1_added = tags::ColorTag((
+        tags::SYNTAX_1_ADDED,
+        green.from_hsl(tags::HslAdjustment::Down(false)),
+    )); //magenta_color.clone()
     let syntax_1_added_tag = syntax_1_added.create(&table, is_dark);
 
-    let syntax_1_removed = tags::ColorTag((tags::SYNTAX_1_REMOVED, red.from_hsl(tags::HslAdjustment::Down(false)))); // yellow_color.clone()
+    let syntax_1_removed = tags::ColorTag((
+        tags::SYNTAX_1_REMOVED,
+        red.from_hsl(tags::HslAdjustment::Down(false)),
+    )); // yellow_color.clone()
     let syntax_1_removed_tag = syntax_1_removed.create(&table, is_dark);
 
     let enhanced_syntax_1_added = tags::ColorTag((

@@ -50,7 +50,7 @@ impl LanguageWrapper {
             LanguageWrapper::Rust(_) => vec![
                 "pub", "fn", "let", "mut", "if", "else", "loop", "while", "for", "match", "return",
                 "break", "continue", "struct", "enum", "impl", "trait", "use", "const", "static",
-                "self",
+                "self", "in",
             ],
             LanguageWrapper::Python(_) => vec![
                 "self",
@@ -169,16 +169,24 @@ pub fn get_node_range<'a>(
     let keywords = language.keywords();
 
     if keywords.contains(&node.kind()) {
+        debug!("___________> {:?}", node.kind());
         acc.push((node.start_byte(), node.end_byte()));
     } else if node.kind() == "identifier" {
         if let Some(field_name) = cursor.field_name() {
-            debug!("---------> {:?} {:?}", parent_kind, field_name);
+            debug!("---------> {:?} {:?} {:?}", parent_kind, field_name, node);
             match (language, parent_kind, field_name) {
                 (
                     LanguageWrapper::Rust(_),
                     "parameter" | "tuple_struct_pattern" | "let_declaration",
                     "pattern",
                 ) => {
+                    debug!(
+                        "EEEEEEEEEEEEEEEEEEEEEEEE {:?} {:?}",
+                        parent_kind, field_name
+                    );
+                    acc_1.push((node.start_byte(), node.end_byte()))
+                }
+                (LanguageWrapper::Rust(_), "field_expression", "value") => {
                     debug!(
                         "EEEEEEEEEEEEEEEEEEEEEEEE {:?} {:?}",
                         parent_kind, field_name
@@ -201,6 +209,8 @@ pub fn get_node_range<'a>(
                 }
                 (_, _, _) => {}
             }
+        } else {
+            debug!("nooooooooo name {:?} {:?}", parent_kind, node);
         }
     }
     if cursor.goto_first_child() {
@@ -292,4 +302,3 @@ impl Hunk {
         };
     }
 }
-

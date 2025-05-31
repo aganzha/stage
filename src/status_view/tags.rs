@@ -6,7 +6,7 @@ use crate::status_view::view::View;
 use core::fmt::{Binary, Formatter, Result};
 use gtk4::prelude::*;
 use gtk4::{TextTag, TextTagTable};
-use palette::{FromColor, Hsl, rgb::Rgb, RgbHue};
+use palette::{rgb::Rgb, FromColor, Hsl, RgbHue};
 
 pub const POINTER: &str = "pointer";
 pub const STAGED: &str = "staged";
@@ -94,8 +94,11 @@ pub struct Color(pub (String, String));
 pub enum HslAdjustment {
     Up(bool),
     Down(bool),
-    Enhance
+    Enhance,
 }
+
+pub const HUE_DIFF: f32 = 20.0;
+pub const SATURATION_DIFF: f32 = 0.1;
 
 impl Color {
     pub fn adjust_color(hex: &str, factor: f32) -> String {
@@ -103,9 +106,7 @@ impl Color {
         let r = u8::from_str_radix(&hex[0..2], 16).unwrap();
         let g = u8::from_str_radix(&hex[2..4], 16).unwrap();
         let b = u8::from_str_radix(&hex[4..6], 16).unwrap();
-        let adjust = |c: u8| -> u8 {
-            (c as f32 * (1.0 + factor)).round() as u8
-        };
+        let adjust = |c: u8| -> u8 { (c as f32 * (1.0 + factor)).round() as u8 };
         let new_r = adjust(r);
         let new_g = adjust(g);
         let new_b = adjust(b);
@@ -126,27 +127,29 @@ impl Color {
         let b = u8::from_str_radix(&hex[4..6], 16).expect("Invalid hex color");
         Rgb::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0)
     }
-    
+
     pub fn hsl_change(hex_color: &str, adjustment: HslAdjustment, is_dark: bool) -> String {
         let rgb_color = Color::hex_to_rgb(hex_color);
         let mut hsl_color: Hsl = Hsl::from_color(rgb_color);
-        let lightness_diff = if is_dark {
-            0.1
-        } else {
-            -0.1
-        };
+        let lightness_diff = if is_dark { 0.1 } else { -0.1 };
         match adjustment {
             HslAdjustment::Enhance => {
                 hsl_color.lightness = (hsl_color.lightness + lightness_diff).clamp(0.0, 1.0);
             }
             HslAdjustment::Up(enhance) => {
-                hsl_color.hue = RgbHue::from_degrees((hsl_color.hue.into_degrees() + 15.0).rem_euclid(360.0));
+                hsl_color.hue = RgbHue::from_degrees(
+                    (hsl_color.hue.into_degrees() + HUE_DIFF).rem_euclid(360.0),
+                );
+                hsl_color.saturation = (hsl_color.saturation + SATURATION_DIFF).clamp(0.0, 1.0);
                 if enhance {
                     hsl_color.lightness = (hsl_color.lightness + lightness_diff).clamp(0.0, 1.0);
                 }
             }
             HslAdjustment::Down(enhance) => {
-                hsl_color.hue = RgbHue::from_degrees((hsl_color.hue.into_degrees() + 345.0).rem_euclid(360.0));
+                hsl_color.hue = RgbHue::from_degrees(
+                    (hsl_color.hue.into_degrees() - HUE_DIFF).rem_euclid(360.0),
+                );
+                hsl_color.saturation = (hsl_color.saturation + SATURATION_DIFF).clamp(0.0, 1.0);
                 if enhance {
                     hsl_color.lightness = (hsl_color.lightness + lightness_diff).clamp(0.0, 1.0);
                 }
@@ -158,7 +161,7 @@ impl Color {
             (new_rgb_color.red * 255.0) as u8,
             (new_rgb_color.green * 255.0) as u8,
             (new_rgb_color.blue * 255.0) as u8
-        )     
+        )
     }
 
     pub fn from_hsl(&self, adjustment: HslAdjustment) -> Self {
