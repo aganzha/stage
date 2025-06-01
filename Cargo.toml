@@ -1,5 +1,6 @@
 [package]
 name = "stage"
+description="GUI Git client inspired by Magit"
 version = "0.1.17"
 edition = "2021"
 license = "GPL-3.0-or-later"
