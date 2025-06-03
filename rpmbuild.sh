@@ -2,6 +2,7 @@
 original_name="stage"
 name="stage-git-gui"
 version="0.1.17"
+release=2
 full_id="io.github.aganzha.Stage"
 spec_name="stage-git-gui.spec"
 rm -rf ~/rpmbuild/
@@ -18,6 +19,9 @@ tar_name="$name"-"$version".x86_64.tar.gz
 tar czvf ~/rpmbuild/SOURCES/$tar_name --exclude-vcs --exclude=target --exclude='*~' --exclude='#*#' --transform="s|^|${name}-${version}/|" .
 rust2rpm --path $(pwd)/Cargo.toml -t fedora $name@$version
 
+# release
+sed -i "s/^Release:.*$/Release:        2%{?dist}/" $spec_name
+
 # fixmes
 sed -i 's|URL:            # FIXME|URL:            https:://github.com/aganzha/stage|' $spec_name
 sed -i '/^Source:         # FIXME/a %global out_dir .' $spec_name
@@ -27,6 +31,9 @@ sed -i "s|License:        # FIXME|License:        GPL-3.0-or-later|" $spec_name
 # xvfb for tests
 sed -i '/^BuildRequires:  cargo-rpm-macros >= 26/a BuildRequires: xorg-x11-server-Xvfb' $spec_name
 sed -i 's/%cargo_test/xvfb-run bash -c '"'"'%cargo_test'"'"'/g' $spec_name
+
+# update desktop database
+sed -i '/^BuildRequires:  cargo-rpm-macros >= 26/a Requires(post): desktop-file-utils' $spec_name
 
 # env on build
 sed -i '/^%build/a export OUT_DIR=%{out_dir}' $spec_name
@@ -88,14 +95,24 @@ sed -i "/^%changelog/i %{_datadir}/applications/$full_id.desktop" $spec_name
 sed -i "/^%changelog/i %{_datadir}/metainfo/$full_id.metainfo.xml" $spec_name
 sed -i "/^%changelog/i %{_datadir}/glib-2.0/schemas/$full_id.gschema.xml" $spec_name
 
-# adding post directive to compile schema
-sed -i "/^%changelog/i %post" $spec_name
-sed -i "/^%changelog/i glib-compile-schemas /usr/share/glib-2.0/schemas/" $spec_name
+# adding post directive to compile schema, update caches etc
+sed -i '/^%changelog/i\
+%post\
+update-desktop-database &> /dev/null || :\
+if [ -x %{_bindir}/gtk-update-icon-cache ]; then\
+    %{_bindir}/gtk-update-icon-cache --quiet %{_datadir}/icons/hicolor || :\
+fi\
+%postun\
+if [ "$1" = "0" ]; then\
+    /usr/bin/update-desktop-database -q /usr/share/applications &>/dev/null || :\
+fi' $spec_name
 
 # building
 mv $spec_name ~/rpmbuild/SPECS/
-rpmbuild -bs ~/rpmbuild/SPECS/$spec_name
-toolbox run -c f42-rpmbuild rpmbuild -ba ~/rpmbuild/SPECS/$spec_name
 git checkout io.github.aganzha.Stage.desktop
 git checkout Cargo.toml
 git checkout Cargo.lock
+rpmbuild -bs ~/rpmbuild/SPECS/$spec_name
+# toolbox run -c f42-rpmbuild rpmbuild -ba ~/rpmbuild/SPECS/$spec_name
+
+# copr-cli build aganzha/stage ~/rpmbuild/SRPMS/stage-git-gui-0.1.17-1.fc42.src.rpm
