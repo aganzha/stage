@@ -313,6 +313,7 @@ pub fn factory(
         .use_underline(true)
         .tooltip_text("Push (P)")
         .icon_name("send-to-symbolic")
+        .sensitive(false)
         .width_request(38)
         .build();
     push_btn.connect_clicked({
@@ -481,6 +482,7 @@ pub fn factory(
                 reset_btn.set_sensitive(true);
                 log_btn.set_sensitive(true);
                 pull_btn.set_sensitive(true);
+                push_btn.set_sensitive(true);
                 let some_box = repo_opener.last_child().unwrap();
                 let repo_opener_label = some_box.last_child().unwrap();
                 let repo_opener_label = repo_opener_label.downcast_ref::<Label>().unwrap();
