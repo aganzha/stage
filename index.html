@@ -214,11 +214,30 @@ header a + a {
       flatpak run flathub io.github.aganzha.Stage
     </code>
     </p>
-
     <p>Update<br/>
     <code>
       flatpak update io.github.aganzha.Stage
       </code>
+    </p>
+
+    <p><strong>RPM for Fedora 42</strong></p>
+    <p>Install copr
+      <code>sudo dnf install copr</code>
+    </p>
+    <p>Enable repo
+      <code>
+      sudo dnf copr enable aganzha/stage
+    </code>
+    </p>
+    <p>Install Stage
+    <code>
+      sudo dnf install stage-git-gui
+    </code>
+    </p>
+    <p>Run
+    <code>
+      stage-git-gui
+    </code>
     </p>
 
     <h2>Usage</h2>
@@ -242,7 +261,7 @@ header a + a {
       <li><code>u</code> - <b>U</b>nstage. Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/go-top-symbolic.svg"/></li>
       <li><code>k</code> - <b>K</b>ill (discard changes) </li>
       <li><code>TAB</code> - Expand/Collapse. Also <code>space</code> could be used.</li>
-    </ul>    
+    </ul>
     <blockquote>Stage operates on files and hunks as native git. You can expand/collapse files and hunks to view changes and choose hunks for commit.</blockquote>
     <ul class="footnote-body">
       <li> When cursor is on file name, <strong>whole file</strong> is a subject to issued command.</li>
@@ -261,8 +280,8 @@ header a + a {
     </ul>
 
     <h4>Command for displaying additional windows</h4>
-    <ul>      
-      
+    <ul>
+
       <li><code>b</code> - Branches window <img class="inline" src="https://raw.githubusercontent.com/aganzha/stage/refs/heads/master/icons/org.gtk.gtk4.NodeEditor-symbolic.svg"/> </li>
       <li><code>l</code> - Log window <img class="inline" src="https://raw.githubusercontent.com/aganzha/stage/refs/heads/master/icons/org.gnome.Logs-symbolic.svg"/> </li>
       <li><code>z</code> - Stash panel <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/sidebar-show-symbolic.svg"/> </li>
@@ -273,11 +292,11 @@ header a + a {
     <img src="https://storage.yandexcloud.net/www.aganzha.online/static/stage_branches_view.jpg"/>
     <p>Current branch is marked with <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/avatar-default-symbolic.svg"/> icon</p>
     <h4>Switching, creating and deleting branches</h4>
-    <p>     
+    <p>
       This window allows quickly switch between branches: just move cursor with arrows and hit <code>enter</code>, or double click.
     </p>
     <p>
-      To create new branch hit <code>c</code> or <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/list-add-symbolic.svg"/> button.<br/>      
+      To create new branch hit <code>c</code> or <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/list-add-symbolic.svg"/> button.<br/>
     </p>
     <blockquote><strong> Important!</strong> The branch you are creating will be based on the branch on which the cursor currently is.
       This means you can create new branch from branch <code>feature</code> even though the current branch is <code>master</code>, and quickly switch to it.</blockquote>
@@ -298,7 +317,7 @@ header a + a {
     <blockquote>You can manage remotes in Status window by pressing <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/network-server-symbolic.svg"/> button.</blockquote>
     <h3>Log window</h3>
     <p>
-      When in main Status window or in Branches window hitting <code>l</code> (<img class="inline" src="https://raw.githubusercontent.com/aganzha/stage/refs/heads/master/icons/org.gnome.Logs-symbolic.svg"/>) will bring up Log window.      
+      When in main Status window or in Branches window hitting <code>l</code> (<img class="inline" src="https://raw.githubusercontent.com/aganzha/stage/refs/heads/master/icons/org.gnome.Logs-symbolic.svg"/>) will bring up Log window.
     </p>
     <blockquote><strong>Important</strong> Stage does not display merge commits.</blockquote>
     <p>Log window is just a list of commits. You can search among them via panel in headerbar. Commits which come from other branches displaying arrows in separate column for convinience.</p>
