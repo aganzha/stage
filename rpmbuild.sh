@@ -1,15 +1,15 @@
 #!/bin/bash
+original_name="stage"
 name="stage-git-gui"
-version="0.1.18"
+version="0.1.17"
 full_id="io.github.aganzha.Stage"
 spec_name="stage-git-gui.spec"
 rm -rf ~/rpmbuild/
 rpmdev-setuptree
 
 # rename binary
-sed -i "s/name = \"color\"/name = \"$name\"/" Cargo.toml
-sed -i "s|Exec=stage|Exec=$name|g" $full_id.desktop
-exit 0
+sed -i "s/name = \"$original_name\"/name = \"$name\"/" Cargo.toml
+sed -i "s|Exec=$original_name|Exec=$name|g" $full_id.desktop
 
 # create archive
 tar_name="$name"-"$version".x86_64.tar.gz
