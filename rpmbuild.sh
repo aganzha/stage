@@ -22,7 +22,8 @@ rust2rpm --path $(pwd)/Cargo.toml -t fedora $name@$version
 sed -i 's|URL:            # FIXME|URL:            https:://github.com/aganzha/stage|' $spec_name
 sed -i '/^Source:         # FIXME/a %global out_dir .' $spec_name
 sed -i "s|Source:         # FIXME|Source:         $tar_name|" $spec_name
-
+sed -i "s|License:        # FIXME|License:        GPL-3.0-or-later|" $spec_name
+exit 0
 # env on build
 sed -i '/^%build/a export OUT_DIR=%{out_dir}' $spec_name
 sed -i '/^%build/a glib-compile-resources $(pwd)/io.github.aganzha.Stage.gresource.xml --target $(pwd)/src/gresources.compiled' $spec_name
