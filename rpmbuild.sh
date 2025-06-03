@@ -23,7 +23,11 @@ sed -i 's|URL:            # FIXME|URL:            https:://github.com/aganzha/st
 sed -i '/^Source:         # FIXME/a %global out_dir .' $spec_name
 sed -i "s|Source:         # FIXME|Source:         $tar_name|" $spec_name
 sed -i "s|License:        # FIXME|License:        GPL-3.0-or-later|" $spec_name
-exit 0
+
+# xvfb for tests
+sed -i '/^BuildRequires:  cargo-rpm-macros >= 26/a BuildRequires: xorg-x11-server-Xvfb' $spec_name
+sed -i 's/%cargo_test/xvfb-run bash -c '"'"'%cargo_test'"'"'/g' $spec_name
+
 # env on build
 sed -i '/^%build/a export OUT_DIR=%{out_dir}' $spec_name
 sed -i '/^%build/a glib-compile-resources $(pwd)/io.github.aganzha.Stage.gresource.xml --target $(pwd)/src/gresources.compiled' $spec_name
@@ -94,3 +98,4 @@ rpmbuild -bs ~/rpmbuild/SPECS/$spec_name
 toolbox run -c f42-rpmbuild rpmbuild -ba ~/rpmbuild/SPECS/$spec_name
 git checkout io.github.aganzha.Stage.desktop
 git checkout Cargo.toml
+git checkout Cargo.lock
