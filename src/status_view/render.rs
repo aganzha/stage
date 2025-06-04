@@ -1272,7 +1272,7 @@ impl Line {
     fn fill_syntax_tags(
         &self,
         tag: &'static str,
-        ranges: &Vec<(usize, usize)>,
+        ranges: &[(usize, usize)],
         buffer: &TextBuffer,
         start_offset: i32,
     ) {

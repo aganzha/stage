@@ -279,15 +279,6 @@ impl Status {
         base
     }
 
-    pub fn head_name(&self) -> String {
-        if let Some(head) = &self.head {
-            if let Some(branch_data) = &head.branch {
-                return branch_data.name.to_string();
-            }
-        }
-        "Detached head".to_string()
-    }
-
     pub fn update_path(
         &mut self,
         path: PathBuf,
@@ -372,7 +363,8 @@ impl Status {
             let path = self.path.clone();
             let sender = self.sender.clone();
             move || {
-                get_current_repo_status(path, sender).expect("cant get status");
+                let lookup_result = get_current_repo_status(path, sender);
+                debug!("repo lookup result {:?}", lookup_result);
             }
         });
     }

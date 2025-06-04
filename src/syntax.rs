@@ -258,7 +258,7 @@ pub fn collect_ranges(
 impl Line {
     pub fn byte_indexes_to_char_indexes(
         &self,
-        byte_indexes: &Vec<(usize, usize)>,
+        byte_indexes: &[(usize, usize)],
     ) -> Vec<(i32, i32)> {
         byte_indexes
             .iter()
@@ -285,7 +285,7 @@ impl Line {
     }
 
     pub fn fill_char_indices(&mut self, buf: &str) {
-        for (i, (byte_index, char)) in buf
+        for (i, (byte_index, _)) in buf
             [self.content_idx.0..self.content_idx.0 + self.content_idx.1]
             .char_indices()
             .enumerate()
