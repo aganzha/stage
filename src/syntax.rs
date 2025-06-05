@@ -2,13 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::git::HunkLineNo;
-use crate::status_view::view::View;
-use crate::LineKind;
 use crate::{Hunk, Line};
-use git2::DiffLineType;
 use log::trace;
-use std::collections::HashMap;
 use std::path::Path;
 use tree_sitter::Parser;
 
@@ -256,7 +251,7 @@ impl Line {
                     && *to <= self.content_idx.0 + self.content_idx.1
                     && from != to
             })
-            .map(|(from, to)| {
+            .filter_map(|(from, to)| {
                 let byte_start = from - self.content_idx.0;
                 let first_char_no = self.char_indices.get(&byte_start)?;
                 // the byte offset right after the last character
@@ -270,7 +265,6 @@ impl Line {
                 };
                 Some((*first_char_no, *last_char_no))
             })
-            .filter_map(|x| x)
             .collect()
     }
 
@@ -295,7 +289,11 @@ impl Hunk {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use crate::git::HunkLineNo;
+    use crate::status_view::view::View;
+    use crate::{Line, LineKind};
+    use git2::DiffLineType;
+    use std::collections::HashMap;
     #[test]
     fn test_byte_indexes_to_char_indexes_edge_cases() {
         for buf in vec!["abc🌄defhij", "abcdefhij"] {
@@ -309,8 +307,6 @@ mod tests {
                 char_indices: HashMap::new(),
             };
             line.fill_char_indices(buf);
-            let mut sorted = line.char_indices.clone().into_iter().collect::<Vec<_>>();
-            sorted.sort_by_key(|k| k.0);
             let byte_indexes = vec![(0, buf.len())];
             let expected: Vec<(i32, i32)> = vec![(0, (buf.chars().count() - 1) as i32)];
             assert_eq!(line.byte_indexes_to_char_indexes(&byte_indexes), expected);

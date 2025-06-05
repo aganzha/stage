@@ -753,10 +753,8 @@ impl ViewContainer for Hunk {
 }
 
 impl ViewContainer for Line {
-    fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool {
-        if let Some(hunk) = context.current_hunk {
-            return self.content(hunk).is_empty();
-        }
+    fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
+        // lines could not be empty
         false
     }
 
@@ -900,7 +898,11 @@ impl ViewContainer for Line {
 
         let content = self.content(context.current_hunk.unwrap());
         if content.is_empty() {
-            buffer.insert(iter, " ");
+            if self.origin == DiffLineType::Deletion {
+                buffer.insert(iter, "-");
+            } else {
+                buffer.insert(iter, " ");
+            }
         } else {
             buffer.insert(iter, content);
         }
@@ -1277,9 +1279,11 @@ impl Line {
         start_offset: i32,
     ) {
         for (start, end) in self.byte_indexes_to_char_indexes(ranges) {
-            let start = start_offset + start + (if start == 0 { 0 } else { 1 });
-            let end = start_offset + end + 1 + 1;
-            self.add_tag(buffer, tag, Some((start, end)));
+            self.add_tag(
+                buffer,
+                tag,
+                Some((start_offset + start, start_offset + end + 1)),
+            );
         }
     }
 }

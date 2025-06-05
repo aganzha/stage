@@ -715,9 +715,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     }
                 }
             }
-
             let current_line = start_iter.line();
-
             if line_before != current_line {
                 let mut cycle_iter = buffer.iter_at_offset(start_iter.offset());
                 cycle_iter.set_line_offset(0);
