@@ -24,7 +24,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::{debug, trace};
+use log::{debug, error, trace};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -123,9 +123,9 @@ pub trait ViewContainer {
         } else {
             self.start_end_iters(buffer, view.line_no.get())
         };
-        if start_iter.line() != end_iter.line() {
-            panic!("STOP")
-        }
+        // if start_iter.line() != end_iter.line() {
+        //     panic!("STOP")
+        // }
         buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
         view.tag_added(tag);
     }
@@ -477,57 +477,7 @@ impl ViewContainer for Diff {
         buffer: &TextBuffer,
         ctx: &mut StatusRenderContext<'a>,
     ) {
-        // used to wrap all diff in tags.
-        // is it necessary? yes, it is used
-        // while handling user clicks inside stage_view
-        if tag_changes == TagChanges::Render {
-            self.add_tag(buffer, tags::DIFF, None);
-
-            let start_line = self.view.line_no.get();
-            let mut end_line = start_line;
-            if let Some(file) = ctx.current_file {
-                if file.view.is_rendered() {
-                    end_line = file.view.line_no.get();
-                }
-            }
-            if let Some(hunk) = ctx.current_diff {
-                if hunk.view.is_rendered() {
-                    end_line = hunk.view.line_no.get()
-                }
-            }
-            if let Some(line) = ctx.current_line {
-                if line.view.is_rendered() {
-                    end_line = line.view.line_no.get();
-                }
-            }
-            if start_line == end_line {
-                // todo!
-                debug!(".............hm.has diff, but its not rendered? empty diff?");
-                return;
-            }
-            if start_line > end_line {
-                // todo!
-                debug!(
-                    ".............hm. i am rendering diff, but ctx.current_x is not in this diff?"
-                );
-                return;
-            }
-            match self.kind {
-                DiffKind::Unstaged | DiffKind::Staged => {
-                    let tag = if self.kind == DiffKind::Staged {
-                        tags::STAGED
-                    } else {
-                        tags::UNSTAGED
-                    };
-                    let start_iter = buffer.iter_at_line(start_line).unwrap();
-                    let end_iter = buffer.iter_at_line(end_line).unwrap();
-                    let offsets = Some((start_iter.offset(), end_iter.offset()));
-                    self.remove_tag(buffer, tag);
-                    self.add_tag(buffer, tag, offsets);
-                }
-                _ => {}
-            }
-        }
+        self.add_tag(buffer, tags::DIFF, None);
     }
 
     // Diff
@@ -1032,6 +982,7 @@ impl ViewContainer for Line {
                         start_offset,
                     );
                 }
+                //hey
                 if is_active {
                     self.add_tag(buffer, self.choose_tag().enhance().0, None);
                 } else {
@@ -1245,6 +1196,66 @@ impl Diff {
             return true;
         }
         self.last_visible_line() >= line_no
+    }
+
+    pub fn set_diff_tags<'a>(&'a self, buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
+        // used to wrap all diff in tags.
+        // it is used
+        // while handling user clicks inside stage_view
+
+        let start_line = self.view.line_no.get();
+        let mut end_line = start_line;
+        debug!(
+            "+++++++ {:?} {:?} {:?}",
+            ctx.current_file.is_some(),
+            ctx.current_hunk.is_some(),
+            ctx.current_line.is_some()
+        );
+        if let Some(file) = ctx.current_file {
+            if file.view.is_rendered() {
+                debug!("RENDERD FILE {:?} {:?}", file.path, file.view.line_no.get());
+                end_line = file.view.line_no.get();
+            }
+        }
+        if let Some(hunk) = ctx.current_hunk {
+            if hunk.view.is_rendered() {
+                end_line = hunk.view.line_no.get()
+            }
+        }
+        if let Some(line) = ctx.current_line {
+            if line.view.is_rendered() {
+                end_line = line.view.line_no.get();
+            }
+        }
+        if start_line == end_line {
+            // todo!
+            error!(
+                ".............hm.has diff, but its not rendered? empty diff? {:?} {:?}",
+                self.files.len(),
+                self.kind
+            );
+            return;
+        }
+        if start_line > end_line {
+            // todo!
+            error!(".............hm. i am rendering diff, but ctx.current_x is not in this diff?");
+            return;
+        }
+        match self.kind {
+            DiffKind::Unstaged | DiffKind::Staged => {
+                let tag = if self.kind == DiffKind::Staged {
+                    tags::STAGED
+                } else {
+                    tags::UNSTAGED
+                };
+                let start_iter = buffer.iter_at_line(start_line).unwrap();
+                let end_iter = buffer.iter_at_line(end_line).unwrap();
+                let offsets = Some((start_iter.offset(), end_iter.offset()));
+                self.remove_tag(buffer, tag);
+                self.add_tag(buffer, tag, offsets);
+            }
+            _ => {}
+        }
     }
 }
 

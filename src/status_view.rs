@@ -835,7 +835,6 @@ impl Status {
         diff_kind: Option<DiffKind>,
         context: &mut StatusRenderContext<'a>,
     ) {
-        debug!("ENTER RENDER");
         let buffer = txt.buffer();
         let initial_line_offset = buffer
             .iter_at_offset(buffer.cursor_position())
@@ -863,14 +862,17 @@ impl Status {
 
         if let Some(conflicted) = &self.conflicted {
             conflicted.render(&buffer, &mut iter, context);
+            conflicted.set_diff_tags(&buffer, context);
         }
 
         if let Some(unstaged) = &self.unstaged {
             unstaged.render(&buffer, &mut iter, context);
+            unstaged.set_diff_tags(&buffer, context);
         }
 
         if let Some(staged) = &self.staged {
             staged.render(&buffer, &mut iter, context);
+            staged.set_diff_tags(&buffer, context);
         }
 
         // first place is here

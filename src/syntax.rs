@@ -267,7 +267,7 @@ impl Line {
             })
             .collect()
     }
-
+    // hop
     pub fn fill_char_indices(&mut self, buf: &str) {
         for (i, (byte_index, _)) in buf[self.content_idx.0..self.content_idx.0 + self.content_idx.1]
             .char_indices()
