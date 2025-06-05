@@ -2,8 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::git::HunkLineNo;
+use crate::status_view::view::View;
+use crate::LineKind;
 use crate::{Hunk, Line};
+use git2::DiffLineType;
 use log::trace;
+use std::collections::HashMap;
 use std::path::Path;
 use tree_sitter::Parser;
 
@@ -169,42 +174,35 @@ pub fn get_node_range<'a>(
     let keywords = language.keywords();
 
     if keywords.contains(&node.kind()) {
-        trace!("___________> {:?}", node.kind());
+        trace!("keyword node {:?}", node.kind());
         acc.push((node.start_byte(), node.end_byte()));
     } else if node.kind() == "identifier" {
         if let Some(field_name) = cursor.field_name() {
-            trace!("---------> {:?} {:?} {:?}", parent_kind, field_name, node);
+            trace!(
+                "identifier node {:?} {:?} {:?}",
+                parent_kind,
+                field_name,
+                node
+            );
             match (language, parent_kind, field_name) {
                 (
                     LanguageWrapper::Rust(_),
                     "parameter" | "tuple_struct_pattern" | "let_declaration",
                     "pattern",
                 ) => {
-                    trace!(
-                        "EEEEEEEEEEEEEEEEEEEEEEEE {:?} {:?}",
-                        parent_kind, field_name
-                    );
+                    trace!("parent > field {:?} {:?}", parent_kind, field_name);
                     acc_1.push((node.start_byte(), node.end_byte()))
                 }
                 (LanguageWrapper::Rust(_), "field_expression", "value") => {
-                    trace!(
-                        "EEEEEEEEEEEEEEEEEEEEEEEE {:?} {:?}",
-                        parent_kind, field_name
-                    );
+                    trace!("parent > field {:?} {:?}", parent_kind, field_name);
                     acc_1.push((node.start_byte(), node.end_byte()))
                 }
                 (LanguageWrapper::Python(_), "assignment", "left") => {
-                    trace!(
-                        "EEEEEEEEEEEEEEEEEEEEEEEE {:?} {:?}",
-                        parent_kind, field_name
-                    );
+                    trace!("parent > field {:?} {:?}", parent_kind, field_name);
                     acc_1.push((node.start_byte(), node.end_byte()))
                 }
                 (LanguageWrapper::TypeScript(_), "variable_declarator", "name") => {
-                    trace!(
-                        "EEEEEEEEEEEEEEEEEEEEEEEE {:?} {:?}",
-                        parent_kind, field_name
-                    );
+                    trace!("parent > field {:?} {:?}", parent_kind, field_name);
                     acc_1.push((node.start_byte(), node.end_byte()))
                 }
                 (_, _, _) => {}
@@ -228,12 +226,6 @@ pub fn collect_ranges(
     content: &str,
     parser: &mut LanguageWrapper,
 ) -> (Vec<(usize, usize)>, Vec<(usize, usize)>) {
-    // bytes to chars for utf-8
-    // let mut mapping = HashMap::new();
-    // for (current_index, (byte_index, _)) in content.char_indices().enumerate() {
-    //     mapping.insert(byte_index as i32, current_index as i32);
-    // }
-
     let tree = match parser {
         LanguageWrapper::Rust(p) => p.parse(content, None).unwrap(),
         LanguageWrapper::Python(p) => p.parse(content, None).unwrap(),
@@ -256,10 +248,7 @@ pub fn collect_ranges(
 }
 
 impl Line {
-    pub fn byte_indexes_to_char_indexes(
-        &self,
-        byte_indexes: &[(usize, usize)],
-    ) -> Vec<(i32, i32)> {
+    pub fn byte_indexes_to_char_indexes(&self, byte_indexes: &[(usize, usize)]) -> Vec<(i32, i32)> {
         byte_indexes
             .iter()
             .filter(|(from, to)| {
@@ -269,24 +258,24 @@ impl Line {
             })
             .map(|(from, to)| {
                 let byte_start = from - self.content_idx.0;
-                let first_char_no = self.char_indices.get(&byte_start).unwrap();
-                // to - is the byte which immidiatelly follows the token.
-                // here are 2 cases: one byte char and two byte chars.
-                // to get last byte it need to either -1 or -2!
-                let byte_end = to - self.content_idx.0 - 1;
+                let first_char_no = self.char_indices.get(&byte_start)?;
+                // the byte offset right after the last character
+                let byte_end = to - self.content_idx.0;
                 let last_char_no = if let Some(last_char_no) = self.char_indices.get(&byte_end) {
                     last_char_no
                 } else {
-                    self.char_indices.get(&(byte_end - 1)).unwrap()
+                    // in case of unicode letter there will be 2 bytes
+                    // testё - char index is 5. byte index is 6
+                    self.char_indices.get(&(byte_end - 1))?
                 };
-                (*first_char_no, *last_char_no)
+                Some((*first_char_no, *last_char_no))
             })
+            .filter_map(|x| x)
             .collect()
     }
 
     pub fn fill_char_indices(&mut self, buf: &str) {
-        for (i, (byte_index, _)) in buf
-            [self.content_idx.0..self.content_idx.0 + self.content_idx.1]
+        for (i, (byte_index, _)) in buf[self.content_idx.0..self.content_idx.0 + self.content_idx.1]
             .char_indices()
             .enumerate()
         {
@@ -300,5 +289,31 @@ impl Hunk {
         if let Some(parser) = parser {
             (self.keyword_ranges, self.identifier_ranges) = collect_ranges(&self.buf, parser);
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_byte_indexes_to_char_indexes_edge_cases() {
+        for buf in vec!["abc🌄defhij", "abcdefhij"] {
+            let mut line = Line {
+                origin: DiffLineType::Context,
+                view: View::new(),
+                new_line_no: Some(HunkLineNo::new(0)),
+                old_line_no: Some(HunkLineNo::new(0)),
+                kind: LineKind::None,
+                content_idx: (0, buf.len()),
+                char_indices: HashMap::new(),
+            };
+            line.fill_char_indices(buf);
+            let mut sorted = line.char_indices.clone().into_iter().collect::<Vec<_>>();
+            sorted.sort_by_key(|k| k.0);
+            let byte_indexes = vec![(0, buf.len())];
+            let expected: Vec<(i32, i32)> = vec![(0, (buf.chars().count() - 1) as i32)];
+            assert_eq!(line.byte_indexes_to_char_indexes(&byte_indexes), expected);
+        }
     }
 }
