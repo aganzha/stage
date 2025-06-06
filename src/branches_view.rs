@@ -921,7 +921,7 @@ pub fn headerbar_factory(
     let new_btn = Button::builder()
         .icon_name("list-add-symbolic")
         .can_shrink(true)
-        .tooltip_text("Create branch (N)")
+        .tooltip_text("Create branch (c)")
         .sensitive(true)
         .use_underline(true)
         .build();

@@ -11,19 +11,20 @@ use core::time::Duration;
 use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use gtk4::{
-    gdk, glib, EventControllerKey, EventControllerMotion, EventSequenceState, GestureClick,
-    GestureDrag, MovementStep, TextBuffer, TextView, TextWindowType, Widget,
+    gdk, glib, pango::Underline, EventControllerKey, EventControllerMotion, EventSequenceState,
+    GestureClick, GestureDrag, MovementStep, TextBuffer, TextIter, TextTag, TextView,
+    TextWindowType, Widget,
 };
 use libadwaita::StyleManager;
-use log::{debug, trace};
+use log::trace;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 glib::wrapper! {
     pub struct StageView(ObjectSubclass<stage_view_internal::StageView>)
         @extends TextView, Widget,
-        @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
+        @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Editable;
 }
 
 mod stage_view_internal {
@@ -43,14 +44,14 @@ mod stage_view_internal {
     // const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.166, 0.329, 0.525, 1.0);
     const DARK_CURSOR: gdk::RGBA = gdk::RGBA::new(0.094, 0.257, 0.454, 1.0);
 
-    const DARK_BF_FILL: gdk::RGBA = gdk::RGBA::new(0.139, 0.139, 0.139, 1.0);
+    const DARK_BG_FILL: gdk::RGBA = gdk::RGBA::new(0.139, 0.139, 0.139, 1.0);
     const LIGHT_BG_FILL: gdk::RGBA = gdk::RGBA::new(1.0, 1.0, 1.0, 1.0);
     // color #f6f5f4/494949 - 246/255 245/255 244/255
     // f3f3f3 - 243/255
     // f4f4f4 - 244/255
     // const LIGHT_LINES: gdk::RGBA = gdk::RGBA::new(0.961, 0.961, 0.957, 1.0);
     const LIGHT_LINES: gdk::RGBA = gdk::RGBA::new(0.957, 0.957, 0.957, 1.0);
-    const DARK_LINES: gdk::RGBA = gdk::RGBA::new(0.250, 0.250, 0.250, 1.0);
+    const DARK_LINES: gdk::RGBA = gdk::RGBA::new(0.200, 0.200, 0.200, 1.0); // was 250
 
     // #deddda/383838 - 221/255 221/255 218/255
     const LIGHT_HUNKS: gdk::RGBA = gdk::RGBA::new(0.871, 0.871, 0.855, 1.0);
@@ -84,7 +85,7 @@ mod stage_view_internal {
             if layer == TextViewLayer::BelowText {
                 let rect = self.obj().visible_rect();
                 let bg_fill = if self.is_dark.get() {
-                    &DARK_BF_FILL
+                    &DARK_BG_FILL
                 } else {
                     &LIGHT_BG_FILL
                 };
@@ -134,7 +135,7 @@ mod stage_view_internal {
                             rect.x() as f32,
                             y_to as f32,
                             rect.width() as f32,
-                            rect.height() as f32,
+                            64000.0,
                         ),
                     );
                 }
@@ -307,23 +308,138 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
 
     let buffer = txt.buffer();
     let table = buffer.tag_table();
-    let pointer = tags::TxtTag::from_str(tags::POINTER).create();
-    let staged = tags::TxtTag::from_str(tags::STAGED).create();
-    let unstaged = tags::TxtTag::from_str(tags::UNSTAGED).create();
-    let file = tags::TxtTag::from_str(tags::FILE).create();
-    let hunk = tags::TxtTag::from_str(tags::HUNK).create();
-    let oid = tags::TxtTag::from_str(tags::OID).create();
+
+    // ----------------- COLORS -------------------------------------
+    // Dark theme - first color on tuple. Light - last one.
+    let green = tags::Color(("#4a8e09".to_string(), "#10ac64".to_string())); //
+    let red = tags::Color(("#a51d2d".to_string(), "#c01c28".to_string()));
+    // in terms of dark theme: white  - is white font on black backgroud. grey is near white.
+    // in terms of light theme: black - is black font on white color. greay is near black
+    let grey = tags::Color(("#999999".to_string(), "#555555".to_string()));
+
+    let diff_color = tags::Color(("#a78a44".to_string(), "#8b6508".to_string()));
+    let conflict_color = tags::Color(("#ff0000".to_string(), "#ff0000".to_string()));
+
+    // ----------------- COLORS -------------------------------------
+
+    let diff = tags::ColorTag((tags::DIFF, diff_color));
+    let diff_tag = diff.create(&table, is_dark);
+    diff_tag.set_weight(700);
+    diff_tag.set_pixels_above_lines(32);
+
+    let conflict_marker = tags::ColorTag((tags::CONFLICT_MARKER, conflict_color.clone()));
+    let conflict_marker_tag = conflict_marker.create(&table, is_dark);
+
+    let spaces_added = tags::ColorTag((tags::SPACES_ADDED, green.clone()));
+    let spaces_added_tag = spaces_added.create(&table, is_dark);
+
+    let spaces_removed = tags::ColorTag((tags::SPACES_REMOVED, red.clone()));
+    let spaces_removed_tag = spaces_removed.create(&table, is_dark);
+
+    let added = tags::ColorTag((tags::ADDED, green.clone()));
+    let added_tag = added.create(&table, is_dark);
+
+    let enhanced_added = tags::ColorTag((
+        tags::ENHANCED_ADDED,
+        green.from_hsl(tags::HslAdjustment::Enhance),
+    ));
+    let enhanced_added_tag = enhanced_added.create(&table, is_dark);
+
+    let removed = tags::ColorTag((tags::REMOVED, red.clone()));
+    let removed_tag = removed.create(&table, is_dark);
+
+    let enhanced_removed = tags::ColorTag((
+        tags::ENHANCED_REMOVED,
+        red.from_hsl(tags::HslAdjustment::Enhance),
+    ));
+    let enhanced_removed_tag = enhanced_removed.create(&table, is_dark);
+
+    let context = tags::ColorTag((tags::CONTEXT, grey.clone()));
+    let context_tag = context.create(&table, is_dark);
+
+    let enhanced_context = tags::ColorTag((tags::ENHANCED_CONTEXT, grey.darken(Some(0.2)))); //grey.from_hsl(tags::HslAdjustment::Enhance)));
+    let enhanced_context_tag = enhanced_context.create(&table, is_dark);
+
+    let syntax = tags::ColorTag((tags::SYNTAX, grey.darken(Some(0.3)))); //grey.from_hsl(tags::HslAdjustment::Up(false))));
+    let syntax_tag = syntax.create(&table, is_dark);
+
+    let enhanced_syntax = tags::ColorTag((tags::ENHANCED_SYNTAX, grey.darken(Some(0.4)))); // grey.from_hsl(tags::HslAdjustment::Up(true))
+    let enhanced_syntax_tag = enhanced_syntax.create(&table, is_dark);
+
+    let syntax_1 = tags::ColorTag((tags::SYNTAX_1, grey.darken(Some(-0.2)))); //grey.from_hsl(tags::HslAdjustment::Down(false))));
+    let syntax_1_tag = syntax_1.create(&table, is_dark);
+
+    let enhanced_syntax_1 = tags::ColorTag((tags::ENHANCED_SYNTAX_1, grey.darken(Some(-0.2)))); //grey.from_hsl(tags::HslAdjustment::Down(true))));
+    let enhanced_syntax_1_tag = enhanced_syntax_1.create(&table, is_dark);
+
+    let syntax_added = tags::ColorTag((
+        tags::SYNTAX_ADDED,
+        green.from_hsl(tags::HslAdjustment::Up(false)),
+    ));
+    let syntax_added_tag = syntax_added.create(&table, is_dark);
+
+    let enhanced_syntax_added = tags::ColorTag((
+        tags::ENHANCED_SYNTAX_ADDED,
+        green.from_hsl(tags::HslAdjustment::Up(true)),
+    ));
+    let enhanced_syntax_added_tag = enhanced_syntax_added.create(&table, is_dark);
+
+    let syntax_removed = tags::ColorTag((
+        tags::SYNTAX_REMOVED,
+        red.from_hsl(tags::HslAdjustment::Up(false)),
+    ));
+    let syntax_removed_tag = syntax_removed.create(&table, is_dark);
+
+    let enhanced_syntax_removed = tags::ColorTag((
+        tags::ENHANCED_SYNTAX_REMOVED,
+        red.from_hsl(tags::HslAdjustment::Up(true)),
+    ));
+    let enhanced_syntax_removed_tag = enhanced_syntax_removed.create(&table, is_dark);
+
+    let syntax_1_added = tags::ColorTag((
+        tags::SYNTAX_1_ADDED,
+        green.from_hsl(tags::HslAdjustment::Down(false)),
+    )); //magenta_color.clone()
+    let syntax_1_added_tag = syntax_1_added.create(&table, is_dark);
+
+    let syntax_1_removed = tags::ColorTag((
+        tags::SYNTAX_1_REMOVED,
+        red.from_hsl(tags::HslAdjustment::Down(false)),
+    )); // yellow_color.clone()
+    let syntax_1_removed_tag = syntax_1_removed.create(&table, is_dark);
+
+    let enhanced_syntax_1_added = tags::ColorTag((
+        tags::ENHANCED_SYNTAX_1_ADDED,
+        green.from_hsl(tags::HslAdjustment::Down(true)),
+    )); //magenta_color
+    let enhanced_syntax_1_added_tag = enhanced_syntax_1_added.create(&table, is_dark);
+
+    let enhanced_syntax_1_removed = tags::ColorTag((
+        tags::ENHANCED_SYNTAX_1_REMOVED,
+        red.from_hsl(tags::HslAdjustment::Down(true)),
+    )); // yellow_color
+    let enhanced_syntax_1_removed_tag = enhanced_syntax_1_removed.create(&table, is_dark);
+
+    let pointer = tags::Tag(tags::POINTER).create(&table);
+    let staged = tags::Tag(tags::STAGED).create(&table);
+    let unstaged = tags::Tag(tags::UNSTAGED).create(&table);
+    let file = tags::Tag(tags::FILE).create(&table);
+    let hunk = tags::Tag(tags::HUNK).create(&table);
+    let oid = tags::Tag(tags::OID).create(&table);
+
+    let bold = tags::Tag(tags::BOLD).create(&table);
+    bold.set_weight(700);
+
+    let underline = tags::Tag(tags::UNDERLINE).create(&table);
+    underline.set_underline(Underline::Single);
+
+    tags::Tag(tags::OURS).create(&table);
+    tags::Tag(tags::THEIRS).create(&table);
 
     for tag_name in tags::TEXT_TAGS {
-        match tag_name {
-            tags::POINTER => table.add(&pointer),
-            tags::STAGED => table.add(&staged),
-            tags::UNSTAGED => table.add(&unstaged),
-            tags::FILE => table.add(&file),
-            tags::HUNK => table.add(&hunk),
-            tags::OID => table.add(&oid),
-            _ => table.add(&tags::TxtTag::from_str(tag_name).create()),
-        };
+        if table.lookup(tag_name).is_none() {
+            panic!("tag is not added to the table {:?}", tag_name);
+        }
     }
 
     manager.connect_dark_notify({
@@ -338,14 +454,40 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 txt.remove_css_class(DARK_CLASS);
                 txt.add_css_class(LIGHT_CLASS);
             }
-            debug!("JUST SET new css classes {:?}", txt.css_classes());
-            table.foreach(|tt| {
-                if let Some(name) = tt.name() {
-                    let t = tags::TxtTag::unknown_tag(name.to_string());
-                    t.fill_text_tag(tt, is_dark);
-                }
-            });
             txt.set_background();
+
+            diff.toggle(&diff_tag, is_dark);
+            conflict_marker.toggle(&conflict_marker_tag, is_dark);
+
+            spaces_added.toggle(&spaces_added_tag, is_dark);
+            spaces_removed.toggle(&spaces_removed_tag, is_dark);
+
+            added.toggle(&added_tag, is_dark);
+            enhanced_added.toggle(&enhanced_added_tag, is_dark);
+
+            removed.toggle(&removed_tag, is_dark);
+            enhanced_removed.toggle(&enhanced_removed_tag, is_dark);
+
+            context.toggle(&context_tag, is_dark);
+            enhanced_context.toggle(&enhanced_context_tag, is_dark);
+
+            syntax.toggle(&syntax_tag, is_dark);
+            enhanced_syntax.toggle(&enhanced_syntax_tag, is_dark);
+
+            syntax_1.toggle(&syntax_1_tag, is_dark);
+            enhanced_syntax_1.toggle(&enhanced_syntax_1_tag, is_dark);
+
+            syntax_added.toggle(&syntax_added_tag, is_dark);
+            enhanced_syntax_added.toggle(&enhanced_syntax_added_tag, is_dark);
+
+            syntax_removed.toggle(&syntax_removed_tag, is_dark);
+            enhanced_syntax_removed.toggle(&enhanced_syntax_removed_tag, is_dark);
+
+            syntax_1_added.toggle(&syntax_1_added_tag, is_dark);
+            enhanced_syntax_1_added.toggle(&enhanced_syntax_1_added_tag, is_dark);
+
+            syntax_1_removed.toggle(&syntax_1_removed_tag, is_dark);
+            enhanced_syntax_1_removed.toggle(&enhanced_syntax_1_removed_tag, is_dark);
         }
     });
 
@@ -365,11 +507,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 (gdk::Key::s | gdk::Key::a | gdk::Key::Return, _) => {
                     let pos = buffer.cursor_position();
                     let iter = buffer.iter_at_offset(pos);
-                    if iter.has_tag(&oid) {
-                        let mut start_iter = buffer.iter_at_offset(pos);
-                        let mut end_iter = buffer.iter_at_offset(pos);
-                        start_iter.backward_to_tag_toggle(Some(&oid));
-                        end_iter.forward_to_tag_toggle(Some(&oid));
+                    if let Some((start_iter, end_iter)) = iters_for(&oid, &iter) {
                         let oid_text = buffer.text(&start_iter, &end_iter, true);
                         sndr.send_blocking(crate::Event::ShowTextOid(oid_text.to_string()))
                             .expect("Cant send through channel");
@@ -478,6 +616,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     gesture_controller.connect_released({
         let sndr = sndr.clone();
         let txt = txt.clone();
+        let oid = oid.clone();
         move |gesture, n_clicks, _wx, _wy| {
             gesture.set_state(EventSequenceState::Claimed);
             txt.set_cursor_highlight(true);
@@ -485,12 +624,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
             let iter = txt.buffer().iter_at_offset(pos);
             sndr.send_blocking(crate::Event::Cursor(iter.offset(), iter.line()))
                 .expect("Cant send through channel");
-
-            if iter.has_tag(&oid) {
-                let mut start_iter = txt.buffer().iter_at_offset(pos);
-                let mut end_iter = txt.buffer().iter_at_offset(pos);
-                start_iter.backward_to_tag_toggle(Some(&oid));
-                end_iter.forward_to_tag_toggle(Some(&oid));
+            if let Some((start_iter, end_iter)) = iters_for(&oid, &iter) {
                 let oid_text = buffer.text(&start_iter, &end_iter, true);
                 sndr.send_blocking(crate::Event::ShowTextOid(oid_text.to_string()))
                     .expect("Cant send through channel");
@@ -525,10 +659,15 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
         }
     });
 
+    let current_underline: Rc<Cell<Option<(i32, i32)>>> = Rc::new(Cell::new(None));
+
     txt.add_controller(gesture_controller);
 
     txt.connect_move_cursor({
         let sndr = sndr.clone();
+        let txt = txt.clone();
+        let current_underline = current_underline.clone();
+        let oid = oid.clone();
         move |view: &StageView, step, count, _selection| {
             view.set_cursor_highlight(true);
             let buffer = view.buffer();
@@ -543,7 +682,9 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     start_iter.forward_word_end();
                 }
                 MovementStep::DisplayLines => {
+                    let char_offset = start_iter.line_offset();
                     start_iter.forward_lines(count);
+                    start_iter.set_line_offset(char_offset);
                 }
                 MovementStep::DisplayLineEnds
                 | MovementStep::Paragraphs
@@ -553,8 +694,31 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 | MovementStep::HorizontalPages => {}
                 _ => todo!(),
             }
+
+            if let Some((u_start, u_end)) = current_underline.get() {
+                let u_start_iter = txt.buffer().iter_at_offset(u_start);
+                let u_end_iter = txt.buffer().iter_at_offset(u_end);
+                buffer.remove_tag_by_name(tags::UNDERLINE, &u_start_iter, &u_end_iter);
+                current_underline.replace(None);
+            }
+            if let Some((u_start_iter, u_end_iter)) = iters_for(&oid, &start_iter) {
+                if u_start_iter.line_offset() <= start_iter.line_offset()
+                    && u_end_iter.line_offset() >= start_iter.line_offset()
+                {
+                    // condition above and below are weird cases, when on line 0
+                    // start tag fall backward to line offset 0
+                    // on other lines those conditions are not required...
+                    if u_start_iter.has_tag(&oid) {
+                        buffer.apply_tag_by_name(tags::UNDERLINE, &u_start_iter, &u_end_iter);
+                        current_underline
+                            .replace(Some((u_start_iter.offset(), u_end_iter.offset())));
+                    }
+                }
+            }
             let current_line = start_iter.line();
             if line_before != current_line {
+                let mut cycle_iter = buffer.iter_at_offset(start_iter.offset());
+                cycle_iter.set_line_offset(0);
                 sndr.send_blocking(crate::Event::Cursor(start_iter.offset(), current_line))
                     .expect("Could not send through channel");
             }
@@ -567,6 +731,17 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
         move |_c, x, y| {
             let (x, y) = txt.window_to_buffer_coords(TextWindowType::Text, x as i32, y as i32);
             if let Some(iter) = txt.iter_at_location(x, y) {
+                let buffer = txt.buffer();
+                if let Some((u_start, u_end)) = current_underline.get() {
+                    let start_iter = txt.buffer().iter_at_offset(u_start);
+                    let end_iter = txt.buffer().iter_at_offset(u_end);
+                    buffer.remove_tag_by_name(tags::UNDERLINE, &start_iter, &end_iter);
+                    current_underline.replace(None);
+                }
+                if let Some((start_iter, end_iter)) = iters_for(&oid, &iter) {
+                    buffer.apply_tag_by_name(tags::UNDERLINE, &start_iter, &end_iter);
+                    current_underline.replace(Some((start_iter.offset(), end_iter.offset())));
+                }
                 if iter.has_tag(&pointer) {
                     txt.set_cursor(Some(&gdk::Cursor::from_name("pointer", None).unwrap()));
                 } else {
@@ -592,8 +767,19 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     });
 
     txt.set_monospace(true);
-    txt.set_editable(false);
+    gtk4::prelude::TextViewExt::set_editable(&txt, false);
     txt
+}
+
+pub fn iters_for(tag: &TextTag, iter: &TextIter) -> Option<(TextIter, TextIter)> {
+    if iter.has_tag(tag) {
+        let mut start_iter = iter.buffer().iter_at_offset(iter.offset());
+        let mut end_iter = iter.buffer().iter_at_offset(iter.offset());
+        start_iter.backward_to_tag_toggle(Some(tag));
+        end_iter.forward_to_tag_toggle(Some(tag));
+        return Some((start_iter, end_iter));
+    }
+    None
 }
 
 pub fn cursor_to_line_offset(buffer: &TextBuffer, line_offset: i32) {

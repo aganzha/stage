@@ -1,9 +1,9 @@
 [Desktop Entry]
 Name=Stage
-Comment=GUI Git client inspited by Magit
+Comment=GUI Git client inspired by Magit
 
 Keywords=RevisionControl;Development;Utility;IDE;GNOME;GTK;git;
-Categories=Development;Utility;
+Categories=Development;
 
 Exec=stage %U
 Actions=new-window;

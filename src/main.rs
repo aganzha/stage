@@ -4,6 +4,7 @@
 
 mod external;
 mod status_view;
+mod syntax;
 use status_view::{
     context::StatusRenderContext,
     headerbar::factory as headerbar_factory,
@@ -187,6 +188,11 @@ fn main() -> glib::ExitCode {
 }
 
 pub fn get_settings() -> gio::Settings {
+    if let Some(system_schema_source) = gio::SettingsSchemaSource::default() {
+        if let Some(schema) = system_schema_source.lookup(APP_ID, false) {
+            return gio::Settings::new(&schema.id());
+        }
+    }
     let mut exe_path = std::env::current_exe().expect("cant get exe path");
     exe_path.pop();
     let exe_path = exe_path.as_path();

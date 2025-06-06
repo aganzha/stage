@@ -260,7 +260,7 @@ pub fn factory(
         .use_underline(true)
         .can_focus(false)
         .tooltip_text("Stashes (Z)")
-        .icon_name("sidebar-show-symbolic")
+        .icon_name("application-exit-rtl-symbolic")
         .sensitive(false)
         .can_shrink(true)
         .build();
@@ -294,7 +294,7 @@ pub fn factory(
         .label("Branches")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Branches (B)")
+        .tooltip_text("Branches (b)")
         .icon_name("org.gtk.gtk4.NodeEditor-symbolic")
         .can_shrink(true)
         .sensitive(false)
@@ -313,6 +313,7 @@ pub fn factory(
         .use_underline(true)
         .tooltip_text("Push (P)")
         .icon_name("send-to-symbolic")
+        .sensitive(false)
         .width_request(38)
         .build();
     push_btn.connect_clicked({
@@ -327,7 +328,7 @@ pub fn factory(
         .label("Reset hard")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Reset hard (X)")
+        .tooltip_text("Reset hard")
         .icon_name("software-update-urgent-symbolic")
         .can_shrink(true)
         .sensitive(false)
@@ -344,7 +345,7 @@ pub fn factory(
         .label("Log")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Log (L)")
+        .tooltip_text("Log (l)")
         .icon_name("org.gnome.Logs-symbolic")
         .can_shrink(true)
         .sensitive(false)
@@ -361,7 +362,7 @@ pub fn factory(
     let pull_btn = Button::builder()
         .label("Pull")
         .use_underline(true)
-        .tooltip_text("Pull (F)")
+        .tooltip_text("Pull (f)")
         .icon_name("document-save-symbolic")
         .sensitive(false)
         .width_request(38)
@@ -378,7 +379,7 @@ pub fn factory(
         .label("Commit")
         .use_underline(true)
         .can_focus(false)
-        .tooltip_text("Commit (C)")
+        .tooltip_text("Commit (c)")
         .icon_name("object-select-symbolic")
         .can_shrink(true)
         .sensitive(false)
@@ -481,6 +482,7 @@ pub fn factory(
                 reset_btn.set_sensitive(true);
                 log_btn.set_sensitive(true);
                 pull_btn.set_sensitive(true);
+                push_btn.set_sensitive(true);
                 let some_box = repo_opener.last_child().unwrap();
                 let repo_opener_label = some_box.last_child().unwrap();
                 let repo_opener_label = repo_opener_label.downcast_ref::<Label>().unwrap();

@@ -9,7 +9,7 @@ cargo fetch --manifest-path "$SOURCE_ROOT"/Cargo.toml --offline --verbose
 
 # resources
 cp "$PROJECT_ROOT"/io.github.aganzha.Stage.metainfo.xml ./
-glib-compile-resources "$PROJECT_SOURCES"/io.github.aganzha.Stage.gresource.xml --target "$PROJECT_SOURCES"/gresources.compiled
+glib-compile-resources "$PROJECT_ROOT"/io.github.aganzha.Stage.gresource.xml --target "$PROJECT_SOURCES"/gresources.compiled
 
 cargo build --release --verbose --offline
 

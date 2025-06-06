@@ -15,6 +15,7 @@ use crate::branch::BranchData;
 use crate::commit::CommitRepr;
 use crate::gio;
 use crate::status_view::view::View;
+use crate::syntax;
 use async_channel::Sender;
 
 use chrono::{DateTime, FixedOffset};
@@ -32,7 +33,10 @@ use std::num::ParseIntError;
 use std::ops::{Add, Sub};
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::{collections::HashSet, str};
+use std::{
+    collections::{HashMap, HashSet},
+    str,
+};
 
 pub fn make_diff_options() -> DiffOptions {
     let mut opts = DiffOptions::new();
@@ -98,6 +102,7 @@ pub struct Line {
     pub old_line_no: Option<HunkLineNo>,
     pub kind: LineKind,
     pub content_idx: (usize, usize),
+    pub char_indices: HashMap<usize, i32>,
 }
 
 impl Default for Line {
@@ -109,6 +114,7 @@ impl Default for Line {
             old_line_no: None,
             kind: LineKind::None,
             content_idx: (0, 0),
+            char_indices: HashMap::new(),
         }
     }
 }
@@ -126,8 +132,10 @@ impl Line {
             old_line_no: l.old_lineno().map(HunkLineNo),
             kind: LineKind::None,
             content_idx: (content_from, content_to),
+            char_indices: HashMap::new(),
         }
     }
+
     pub fn is_our_side_of_conflict(&self) -> bool {
         match &self.kind {
             LineKind::Ours(_) => true,
@@ -173,6 +181,8 @@ pub struct Hunk {
     pub kind: DiffKind,
     pub conflict_markers_count: i32,
     pub buf: String,
+    pub keyword_ranges: Vec<(usize, usize)>,
+    pub identifier_ranges: Vec<(usize, usize)>,
 }
 
 impl fmt::Display for Hunk {
@@ -196,6 +206,8 @@ impl Hunk {
             kind,
             conflict_markers_count: 0,
             buf: String::new(),
+            keyword_ranges: Vec::new(),
+            identifier_ranges: Vec::new(),
         }
     }
 
@@ -212,8 +224,10 @@ impl Hunk {
         self.old_lines = dh.old_lines();
         self.new_start = HunkLineNo(dh.new_start());
         self.new_lines = dh.new_lines();
-        self.buf =
-            String::with_capacity(1 + 3 + self.old_lines as usize + self.new_lines as usize + 3);
+        self.buf = String::new();
+        // ???
+        // self.buf =
+        //     String::with_capacity(1 + 3 + self.old_lines as usize + self.new_lines as usize + 3);
     }
 
     pub fn shift_new_start_and_lines(header: &str, hunk_delta: i32, lines_delta: i32) -> String {
@@ -321,20 +335,24 @@ impl Hunk {
         if let Some(striped) = content.strip_prefix('\n') {
             content = striped;
         }
+
         let mut line = Line::from_diff_line(diff_line, self.buf.len(), content.len());
-        self.buf.push_str(content);
+        // self.buf.push_str(content);
+        // self.buf.push_str("\n");
+
         if self.kind != DiffKind::Conflicted {
             match line.origin {
                 DiffLineType::FileHeader | DiffLineType::HunkHeader | DiffLineType::Binary => {}
-                _ => self.lines.push(line),
+                _ => {
+                    // let mut line = Line::from_diff_line(diff_line, self.buf.len(), content.len());
+                    self.buf.push_str(content);
+                    self.buf.push('\n');
+                    line.fill_char_indices(&self.buf);
+                    self.lines.push(line);
+                }
             }
             return LineKind::None;
         }
-        trace!(
-            ":::::::::::::::::::::::::::::::: {:?}. prev line kind {:?}",
-            content,
-            prev_line_kind
-        );
         let prefix: String = content.chars().take(7).collect();
 
         match &prefix[..] {
@@ -382,25 +400,15 @@ impl Hunk {
         let this_kind = line.kind.clone();
         match line.origin {
             DiffLineType::FileHeader | DiffLineType::HunkHeader | DiffLineType::Binary => {}
-            _ => self.lines.push(line),
+            _ => {
+                self.buf.push_str(content);
+                self.buf.push('\n');
+                line.fill_char_indices(&self.buf);
+                self.lines.push(line);
+            }
         }
         this_kind
     }
-
-    // /// by given Line inside conflict returns
-    // /// the conflict offset from hunk start
-    // pub fn get_conflict_offset_by_line(&self, line: &Line) -> i32 {
-    //     let mut conflict_offset_inside_hunk: i32 = 0;
-    //     for (i, l) in self.lines.iter().enumerate() {
-    //         if l.content(self).starts_with(MARKER_OURS) {
-    //             conflict_offset_inside_hunk = i as i32;
-    //         }
-    //         if l == line {
-    //             break;
-    //         }
-    //     }
-    //     conflict_offset_inside_hunk
-    // }
 }
 
 #[derive(Debug, Clone)]
@@ -433,8 +441,9 @@ impl File {
         }
     }
 
-    pub fn push_hunk(&mut self, h: Hunk) {
-        self.hunks.push(h);
+    pub fn push_hunk(&mut self, mut hunk: Hunk, parser: Option<&mut syntax::LanguageWrapper>) {
+        hunk.parse_syntax(parser);
+        self.hunks.push(hunk);
     }
 }
 
@@ -819,6 +828,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
     let mut current_file = File::new(kind);
     let mut current_hunk = Hunk::new(kind);
     let mut prev_line_kind = LineKind::None;
+    let mut parser: Option<syntax::LanguageWrapper> = None;
 
     let _res = git_diff.print(DiffFormat::Patch, |diff_delta, o_diff_hunk, diff_line| {
         let status = diff_delta.status();
@@ -853,19 +863,21 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
         if file.path().is_none() {
             todo!();
         }
-        // build up diff structure
+        let current_path = file.path().unwrap();
         if current_file.path.capacity() == 0 {
             // init new file
             current_file = File::from_diff_file(&file, kind, status);
+            parser = syntax::choose_parser(current_path)
         }
-        if current_file.path != file.path().unwrap() {
+        if current_file.path != current_path {
             // go to next file
             // push current_hunk to file and init new empty hunk
-            current_file.push_hunk(current_hunk.clone());
+            current_file.push_hunk(current_hunk.clone(), parser.as_mut());
             current_hunk = Hunk::new(kind);
             // push current_file to diff and change to new file
             diff.push_file(current_file.clone());
             current_file = File::from_diff_file(&file, kind, status);
+            parser = syntax::choose_parser(current_path);
         }
         if let Some(diff_hunk) = o_diff_hunk {
             let hh = Hunk::get_header_from(&diff_hunk);
@@ -877,7 +889,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
             if current_hunk.header != hh {
                 // go to next hunk
                 prev_line_kind = LineKind::None;
-                current_file.push_hunk(current_hunk.clone());
+                current_file.push_hunk(current_hunk.clone(), parser.as_mut());
                 current_hunk = Hunk::new(kind);
                 current_hunk.fill_from_git_hunk(&diff_hunk)
             }
@@ -890,7 +902,7 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
         true
     });
     if !current_hunk.header.is_empty() {
-        current_file.push_hunk(current_hunk);
+        current_file.push_hunk(current_hunk, parser.as_mut());
     }
     if current_file.path.capacity() != 0 {
         diff.push_file(current_file);

@@ -31,6 +31,8 @@ use log::debug;
 use regex::Regex;
 #[cfg(test)]
 use std::cell::Cell;
+#[cfg(test)]
+use std::collections::HashMap;
 
 impl Hunk {
     // used in tests only
@@ -64,6 +66,7 @@ fn create_line(line_no: u32, from: usize, to: usize) -> Line {
         old_line_no: Some(HunkLineNo::new(line_no)),
         kind: LineKind::None,
         content_idx: (from, to),
+        char_indices: HashMap::new(),
     }
 }
 
@@ -765,8 +768,8 @@ fn test_reconciliation_new() {
 
 #[test]
 fn test_tags() {
-    let tag1 = tags::TxtTag::from_str(tags::TEXT_TAGS[17]);
-    let tag3 = tags::TxtTag::from_str(tags::TEXT_TAGS[3]);
+    let tag1 = tags::TEXT_TAGS[17];
+    let tag3 = tags::TEXT_TAGS[3];
 
     let view = View::new();
     view.tag_added(&tag1);

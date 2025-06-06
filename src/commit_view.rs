@@ -19,7 +19,7 @@ use gtk4::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
-use log::{info, trace};
+use log::{debug, info, trace};
 
 use std::path::PathBuf;
 
@@ -399,6 +399,15 @@ pub fn show_commit_window(
                         info!("TextCharVisibleWidth {}", w);
                         if let Some(d) = &mut diff {
                             d.render(&txt, &mut ctx, &mut labels, body_label.as_mut().unwrap());
+                        }
+                    }
+                    Event::Debug => {
+                        let buffer = txt.buffer();
+                        let pos = buffer.cursor_position();
+                        let iter = buffer.iter_at_offset(pos);
+                        debug!("==========================");
+                        for tag in iter.tags() {
+                            println!("Tag: {}", tag.name().unwrap());
                         }
                     }
                     Event::Stage(_) | Event::RepoPopup => {

@@ -27,7 +27,7 @@ use crate::git::{
 use git2::RepositoryState;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_op::{LastOp, StageDiffs};
-use stage_view::{cursor_to_line_offset, EmptyLayoutManager, StageView};
+use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
 pub mod tests;
@@ -279,15 +279,6 @@ impl Status {
         base
     }
 
-    pub fn head_name(&self) -> String {
-        if let Some(head) = &self.head {
-            if let Some(branch_data) = &head.branch {
-                return branch_data.name.to_string();
-            }
-        }
-        "Detached head".to_string()
-    }
-
     pub fn update_path(
         &mut self,
         path: PathBuf,
@@ -372,7 +363,8 @@ impl Status {
             let path = self.path.clone();
             let sender = self.sender.clone();
             move || {
-                get_current_repo_status(path, sender).expect("cant get status");
+                let lookup_result = get_current_repo_status(path, sender);
+                debug!("repo lookup result {:?}", lookup_result);
             }
         });
     }
@@ -843,7 +835,6 @@ impl Status {
         diff_kind: Option<DiffKind>,
         context: &mut StatusRenderContext<'a>,
     ) {
-        debug!("ENTER RENDER");
         let buffer = txt.buffer();
         let initial_line_offset = buffer
             .iter_at_offset(buffer.cursor_position())
@@ -871,14 +862,17 @@ impl Status {
 
         if let Some(conflicted) = &self.conflicted {
             conflicted.render(&buffer, &mut iter, context);
+            conflicted.set_diff_tags(&buffer, context);
         }
 
         if let Some(unstaged) = &self.unstaged {
             unstaged.render(&buffer, &mut iter, context);
+            unstaged.set_diff_tags(&buffer, context);
         }
 
         if let Some(staged) = &self.staged {
             staged.render(&buffer, &mut iter, context);
+            staged.set_diff_tags(&buffer, context);
         }
 
         // first place is here
@@ -974,10 +968,11 @@ impl Status {
     }
 
     pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
-        if txt.layout_manager().is_some() {
-            txt.set_layout_manager(None::<EmptyLayoutManager>);
-        } else {
-            txt.set_layout_manager(Some(EmptyLayoutManager::new()));
+        let buffer = txt.buffer();
+        let pos = buffer.cursor_position();
+        let iter = buffer.iter_at_offset(pos);
+        for tag in iter.tags() {
+            println!("Tag: {}", tag.name().unwrap());
         }
     }
 
