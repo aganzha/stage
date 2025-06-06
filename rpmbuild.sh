@@ -1,8 +1,8 @@
 #!/bin/bash
 original_name="stage"
 name="stage-git-gui"
-version="0.1.17"
-release=2
+version="0.1.18"
+release=1
 full_id="io.github.aganzha.Stage"
 spec_name="stage-git-gui.spec"
 rm -rf ~/rpmbuild/
@@ -115,4 +115,4 @@ git checkout Cargo.lock
 rpmbuild -bs ~/rpmbuild/SPECS/$spec_name
 # toolbox run -c f42-rpmbuild rpmbuild -ba ~/rpmbuild/SPECS/$spec_name
 
-# copr-cli build aganzha/stage ~/rpmbuild/SRPMS/stage-git-gui-0.1.17-1.fc42.src.rpm
+# copr-cli build aganzha/stage ~/rpmbuild/SRPMS/stage-git-gui-0.1.18-1.fc42.src.rpm
