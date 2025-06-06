@@ -1205,7 +1205,7 @@ impl Diff {
 
         let start_line = self.view.line_no.get();
         let mut end_line = start_line;
-        debug!(
+        trace!(
             "+++++++ {:?} {:?} {:?}",
             ctx.current_file.is_some(),
             ctx.current_hunk.is_some(),
@@ -1213,7 +1213,7 @@ impl Diff {
         );
         if let Some(file) = ctx.current_file {
             if file.view.is_rendered() {
-                debug!("RENDERD FILE {:?} {:?}", file.path, file.view.line_no.get());
+                trace!("RENDERD FILE {:?} {:?}", file.path, file.view.line_no.get());
                 end_line = file.view.line_no.get();
             }
         }
@@ -1249,7 +1249,8 @@ impl Diff {
                     tags::UNSTAGED
                 };
                 let start_iter = buffer.iter_at_line(start_line).unwrap();
-                let end_iter = buffer.iter_at_line(end_line).unwrap();
+                let mut end_iter = buffer.iter_at_line(end_line).unwrap();
+                end_iter.forward_to_line_end();
                 let offsets = Some((start_iter.offset(), end_iter.offset()));
                 self.remove_tag(buffer, tag);
                 self.add_tag(buffer, tag, offsets);

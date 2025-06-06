@@ -24,7 +24,7 @@ use std::rc::Rc;
 glib::wrapper! {
     pub struct StageView(ObjectSubclass<stage_view_internal::StageView>)
         @extends TextView, Widget,
-        @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
+        @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Editable;
 }
 
 mod stage_view_internal {
@@ -767,7 +767,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     });
 
     txt.set_monospace(true);
-    txt.set_editable(false);
+    gtk4::prelude::TextViewExt::set_editable(&txt, false);
     txt
 }
 
