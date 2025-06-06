@@ -13,7 +13,7 @@ use gtk4::subclass::prelude::*;
 use gtk4::{
     gdk, gio, glib, pango, Box, Button, EventControllerKey, GestureClick, Label, ListBox, ListItem,
     ListView, Orientation, PositionType, ScrolledWindow, SearchBar, SearchEntry, SelectionMode,
-    SignalListItemFactory, SingleSelection, TextView, Widget, WrapMode,
+    SignalListItemFactory, SingleSelection, Spinner, TextView, Widget, WrapMode,
 };
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -134,6 +134,9 @@ mod tag_list {
         // does not used for now
         #[property(get, set)]
         pub selected_pos: RefCell<u32>,
+
+        #[property(get, set)]
+        pub push_button: RefCell<gtk4::Button>,
     }
 
     #[glib::object_subclass]
@@ -336,7 +339,14 @@ impl TagList {
     ) {
         let (tag_name, _) = self.get_selected_tag();
         let window = window.clone();
+        let spinner = Spinner::builder().spinning(true).build();
+
+        let push_btn = self.push_button();
+        push_btn.set_child(Some(&spinner));
+        push_btn.set_sensitive(false);
+
         glib::spawn_future_local({
+            let push_btn = push_btn.clone();
             async move {
                 gio::spawn_blocking({
                     let sender = sender.clone();
@@ -351,6 +361,9 @@ impl TagList {
                 .unwrap_or_else(|e| {
                     alert(e).present(Some(&window));
                 });
+                push_btn.set_child(None::<&Widget>);
+                push_btn.set_icon_name("send-to-symbolic");
+                push_btn.set_sensitive(true);
                 sender
                     .send_blocking(crate::Event::Toast(format!("Pushed tag {:?}", tag_name)))
                     .expect("cant send through sender");
@@ -945,14 +958,15 @@ pub fn headerbar_factory(
         .sensitive(remote_name.is_some())
         .icon_name("send-to-symbolic")
         .can_shrink(true)
-        //.sensitive(false)
         .build();
+
+    tag_list.set_push_button(&push_btn);
+
     push_btn.connect_clicked({
         let sender = sender.clone();
         let window = window.clone();
         let tag_list = tag_list.clone();
         let repo_path = repo_path.clone();
-        //let remote_name = remote_name.clone();
         move |_| {
             tag_list.push_tag(
                 repo_path.clone(),
