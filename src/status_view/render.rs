@@ -473,9 +473,9 @@ impl ViewContainer for Diff {
     // Diff
     fn apply_tags<'a>(
         &'a self,
-        tag_changes: TagChanges,
+        _tag_changes: TagChanges,
         buffer: &TextBuffer,
-        ctx: &mut StatusRenderContext<'a>,
+        _ctx: &mut StatusRenderContext<'a>,
     ) {
         self.add_tag(buffer, tags::DIFF, None);
     }

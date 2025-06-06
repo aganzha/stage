@@ -81,7 +81,7 @@ pub fn headerbar_factory(
                     git_oid_op(
                         ConfirmDialog("Apply stash?".to_string(), format!("{}", num)),
                         window,
-                        move || stash::apply(path, num, None, None, sender),
+                        move || stash::apply(path, num, None, sender),
                     )
                 });
             } else {
@@ -489,17 +489,27 @@ pub fn show_commit_window(
                                         window,
                                         move || match event {
                                             Event::Stage(_) => {
-                                                if let Some(stash_num) = stash_num {
+                                                if hunk_header.is_some() {
+                                                    commit::partial_apply(path, oid, false, file_path, hunk_header, sender)
+                                                } else {
                                                     stash::apply(
                                                         path,
-                                                        stash_num,
+                                                        stash_num.unwrap(),
                                                         file_path,
-                                                        hunk_header,
                                                         sender,
                                                     )
-                                                } else {
-                                                    Ok(())
                                                 }
+                                                // if let Some(stash_num) = stash_num {
+                                                //     stash::apply(
+                                                //         path,
+                                                //         stash_num,
+                                                //         file_path,
+                                                //         hunk_header,
+                                                //         sender,
+                                                //     )
+                                                // } else {
+                                                //     Ok(())
+                                                // }
                                             }
                                             _ => Ok(()),
                                         },

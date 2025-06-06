@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::git::{get_head, make_diff, make_diff_options, DeferRefresh, Diff, DiffKind};
+use crate::git::{get_head, make_diff, make_diff_options, DeferRefresh, Diff, DiffKind, Hunk};
 use anyhow::Result;
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
@@ -303,4 +303,60 @@ pub fn from_short_sha(path: PathBuf, short_sha: String) -> Result<git2::Oid> {
     let repo = git2::Repository::open(path.clone())?;
     let object = repo.revparse_single(&short_sha)?;
     Ok(object.id())
+}
+
+
+pub fn partial_apply(
+    path: PathBuf,
+    oid: git2::Oid,
+    revert: bool,
+    file_path: Option<PathBuf>,
+    hunk_header: Option<String>,
+    sender: Sender<crate::Event>,
+) -> Result<(), git2::Error> {
+    let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+
+    let repo = git2::Repository::open(path.clone())?;
+
+    sender
+        .send_blocking(crate::Event::LockMonitors(true))
+        .expect("Could not send through channel");
+    
+
+    let head_ref = repo.head()?;
+    let ob = head_ref.peel(git2::ObjectType::Commit)?;
+    let our_commit = ob.peel_to_commit()?;
+    let commit = repo.find_commit(oid)?;
+    let memory_index = if revert {
+        repo.revert_commit(&commit, &our_commit, 1, None).unwrap()
+    } else {
+        repo.cherrypick_commit(&commit, &our_commit, 1, None).unwrap()
+    };
+    let mut diff_opts = make_diff_options();
+    let mut diff_opts = diff_opts.reverse(true);
+    let git_diff = repo.diff_index_to_workdir(Some(&memory_index), Some(&mut diff_opts))
+        .unwrap();
+    let mut options = git2::ApplyOptions::new();
+
+    options.hunk_callback(|odh| -> bool {
+        if let Some(hunk_header) = &hunk_header {
+            if let Some(dh) = odh {
+                let header = Hunk::get_header_from(&dh);
+                return hunk_header == &header;
+            }
+        }
+        true
+    });
+
+    options.delta_callback(|odd| -> bool {
+        if let Some(file_path) = &file_path {
+            if let Some(dd) = odd {
+                let path: PathBuf = dd.new_file().path().unwrap().into();
+                return file_path == &path;
+            }
+        }
+        true
+    });
+    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))?;
+    return Ok(());
 }
