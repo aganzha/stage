@@ -20,7 +20,7 @@ tar czvf ~/rpmbuild/SOURCES/$tar_name --exclude-vcs --exclude=target --exclude='
 rust2rpm --path $(pwd)/Cargo.toml -t fedora $name@$version
 
 # release
-sed -i "s/^Release:.*$/Release:        2%{?dist}/" $spec_name
+sed -i "s/^Release:.*$/Release:        $release%{?dist}/" $spec_name
 
 # fixmes
 sed -i 's|URL:            # FIXME|URL:            https:://github.com/aganzha/stage|' $spec_name
@@ -114,5 +114,4 @@ git checkout Cargo.toml
 git checkout Cargo.lock
 rpmbuild -bs ~/rpmbuild/SPECS/$spec_name
 # toolbox run -c f42-rpmbuild rpmbuild -ba ~/rpmbuild/SPECS/$spec_name
-
 # copr-cli build aganzha/stage ~/rpmbuild/SRPMS/stage-git-gui-0.1.18-1.fc42.src.rpm
