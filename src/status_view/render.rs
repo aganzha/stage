@@ -24,7 +24,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::{debug, error, trace};
+use log::{error, trace};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
