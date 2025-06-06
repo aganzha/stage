@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::git::DeferRefresh;
+use crate::git::{make_diff, make_diff_options, DeferRefresh, DiffKind, Hunk};
 use async_channel::Sender;
 use git2;
 
@@ -78,15 +78,65 @@ pub fn apply(
     path: PathBuf,
     num: usize,
     file_path: Option<PathBuf>,
-    _hunk_header: Option<String>,
+    hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+
     let mut repo = git2::Repository::open(path.clone())?;
-    // let opts = StashApplyOptions::new();
+
+    let mut ooid: Option<git2::Oid> = None;
+    if hunk_header.is_some() {
+        repo.stash_foreach(|i_num, _title, oid| {
+            if i_num == num {
+                ooid.replace(*oid);
+                return false;
+            }
+            true
+        });
+    }
     sender
         .send_blocking(crate::Event::LockMonitors(true))
-        .expect("can send through channel");
+        .expect("Could not send through channel");
+
+    if let Some(oid) = ooid {
+        let head_ref = repo.head()?;
+        let ob = head_ref.peel(git2::ObjectType::Commit)?;
+        let our_commit = ob.peel_to_commit()?;
+        let commit = repo.find_commit(oid).expect("no commit for oid");
+        let memory_index = repo
+            .cherrypick_commit(&commit, &our_commit, 1, None)
+            .unwrap();
+        let mut diff_opts = make_diff_options();
+        let mut diff_opts = diff_opts.reverse(true);
+        let git_diff = repo
+            .diff_index_to_workdir(Some(&memory_index), Some(&mut diff_opts))
+            .unwrap();
+        let mut options = git2::ApplyOptions::new();
+
+        options.hunk_callback(|odh| -> bool {
+            if let Some(hunk_header) = &hunk_header {
+                if let Some(dh) = odh {
+                    let header = Hunk::get_header_from(&dh);
+                    return hunk_header == &header;
+                }
+            }
+            true
+        });
+
+        options.delta_callback(|odd| -> bool {
+            if let Some(file_path) = &file_path {
+                if let Some(dd) = odd {
+                    let path: PathBuf = dd.new_file().path().unwrap().into();
+                    return file_path == &path;
+                }
+            }
+            true
+        });
+        repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))?;
+        return Ok(());
+    }
+
     let mut stash_options = git2::StashApplyOptions::new();
     if let Some(file_path) = file_path {
         let mut cb = git2::build::CheckoutBuilder::new();
