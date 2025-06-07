@@ -24,7 +24,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::{error, trace};
+use log::{error, trace, debug};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -87,7 +87,7 @@ pub trait ViewContainer {
 
     fn fill_cursor_position<'a>(&'a self, _context: &mut StatusRenderContext<'a>) {}
 
-    fn fill_under_cursor<'a>(&'a self, _context: &mut StatusRenderContext<'a>) {}
+    fn fill_selected<'a>(&'a self, _context: &mut StatusRenderContext<'a>) {}
 
     fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, _ctx: &mut StatusRenderContext<'a>) {}
 
@@ -230,6 +230,25 @@ pub trait ViewContainer {
         self.get_view().child_dirty(false);
     }
 
+    fn search_cursor_position<'a>(
+        &'a self,
+        line_no: i32,
+        context: &mut StatusRenderContext<'a>,
+    )  {
+        debug!("search_cursor_position..............");
+        if self.get_view().is_rendered_in(line_no) {
+            self.fill_cursor_position(context)
+        } else {
+            for child in self.get_children() {
+                child.search_cursor_position(line_no, context);
+                if !context.cursor_position.is_empty() {
+                    self.fill_selected(context);
+                    break;
+                }
+            }
+        }
+    }
+    
     fn cursor<'a>(
         &'a self,
         buffer: &TextBuffer,
@@ -246,36 +265,52 @@ pub trait ViewContainer {
 
         let is_current = view.is_rendered_in(line_no);
 
-        if is_current {
-            self.fill_cursor_position(context);
+        let i_am_debug = view.line_no.get() == 7;
+        let mut is_active = is_current;
+        if i_am_debug {
+            println!("\n\nby current {:?}", is_current)
         }
 
-        let mut is_active = is_current;
+        // important!
+        // before calc active/active_by_parent
+        // it need to check childs first.
+        // if cursor is on child, this means this view
+        // is also active
+        if !is_active {
+            if i_am_debug {
+                println!("not active but will search in child? {:?}", context.cursor_position.is_empty());
+            }
+            if context.cursor_position.is_empty() {
+                self.search_cursor_position(line_no, context);
+                is_active = !context.cursor_position.is_empty();
+                if is_active {
+                    println!("JUST FILL CursorPosition by My Child! {:?}", view.line_no.get());
+                }
+            }
+        }
         if !is_active {
             is_active = self.is_active_by_parent(parent_active, context);
+            if i_am_debug {
+                println!("by parent {:?} context.selected_diff {:?}", is_active, context.selected_diff.is_some());
+            }
         }
-        if !is_active {
-            let child_active = Rc::new(Cell::new(false));
-            self.walk_down({
-                let child_active = child_active.clone();
-                &mut move |vc: &dyn ViewContainer| {
-                    if vc.get_view().is_rendered_in(line_no) {
-                        child_active.replace(true);
-                    }
-                }
-            });
-            is_active = child_active.get();
+        // important! context.selected_diff/file/hunk
+        // will be used by childs, so must be here,
+        // before child iteration!
+        if i_am_debug {
+            println!("finally.........{:?}", is_active);
         }
-
-        for child in self.get_children() {
-            child.cursor(buffer, line_no, is_active, context);
-        }
-
+        // if is_active {
+        //     if i_am_debug {
+        //         println!("FILL SELECTED!");
+        //     }
+        //     self.fill_selected(context);
+        // }
         view.activate(is_active);
         view.make_current(is_current);
 
-        if is_active {
-            self.fill_under_cursor(context);
+        for child in self.get_children() {
+            child.cursor(buffer, line_no, is_active, context);
         }
 
         if view.is_rendered() {
@@ -501,13 +536,14 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+    fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {       
         context.cursor_position = CursorPosition::CursorDiff(self);
-        self.fill_under_cursor(context);
+        self.fill_selected(context);
     }
 
     // Diff
-    fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+    fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+        debug!("FILL SELECTED DIFF {:?} {:?}", self.kind, self.view.line_no.get());
         context.selected_diff = Some(self);
     }
 }
@@ -592,11 +628,12 @@ impl ViewContainer for File {
     // File
     fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
         context.cursor_position = CursorPosition::CursorFile(self);
-        self.fill_under_cursor(context);
+        self.fill_selected(context);
     }
 
     // File
-    fn fill_under_cursor<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+    fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+        debug!("FILL SELECTED FILE {:?} {:?}", self.path, self.view.line_no.get());
         context.selected_file = Some(self);
     }
 }
@@ -693,11 +730,12 @@ impl ViewContainer for Hunk {
     // Hunk
     fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
         context.cursor_position = CursorPosition::CursorHunk(self);
-        self.fill_under_cursor(context);
+        self.fill_selected(context);
     }
 
     // Hunk
-    fn fill_under_cursor<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn fill_selected<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+        debug!("FILL SELECTED HUNK {:?} {:?}", self.header, self.view.line_no.get());
         ctx.selected_hunk = Some(self);
     }
 }
@@ -750,11 +788,12 @@ impl ViewContainer for Line {
 
     // Line
     fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+        debug!(">>>>>>>>>>>>>>thats cursor on line!");
         context.cursor_position = CursorPosition::CursorLine(self);
     }
 
     // Line
-    fn fill_under_cursor<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {
+    fn fill_selected<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {
         // there are multiple selected lines,
         // and storing some in context does not make sense
     }
@@ -771,9 +810,13 @@ impl ViewContainer for Line {
         if !self.view.is_rendered() {
             return false;
         }
-
+        let i_am_debug = self.view.line_no.get() == 10;        
         if let Some(diff) = context.selected_diff {
             if diff.kind == DiffKind::Conflicted {
+                if i_am_debug {
+                    println!("active by parent HERE!");
+                }
+                //error!("is_active_by_parent in COONFLICT!");
                 match context.cursor_position {
                     CursorPosition::CursorLine(line) => match (&line.kind, &self.kind) {
                         (LineKind::Ours(_), LineKind::Ours(_)) => {
@@ -797,6 +840,9 @@ impl ViewContainer for Line {
                         }
                     },
                     _ => {
+                        if i_am_debug {
+                            println!("________________{:?}", context.cursor_position);
+                        }
                         return false;
                     }
                 }

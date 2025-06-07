@@ -13,6 +13,16 @@ pub enum CursorPosition<'a> {
     CursorLine(&'a Line),
     None,
 }
+
+impl CursorPosition<'_> {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::None => true,
+            _ => false
+        }        
+    }
+}
+
 impl CursorPosition<'_> {
     pub fn kind(&self) -> &str {
         match self {
