@@ -312,7 +312,6 @@ pub fn partial_apply(
     hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
-    println!("-------------------------> partial_apply");
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
 
     let repo = git2::Repository::open(path.clone())?;
@@ -328,19 +327,25 @@ pub fn partial_apply(
         let tree = parent.tree()?;
         parent_tree.replace(tree);
     }
+    let mut diff_opts = make_diff_options();
     let git_diff = repo.diff_tree_to_tree(
         parent_tree.as_ref(),
         Some(&tree),
-        Some(&mut make_diff_options()),
+        Some(if revert {
+            diff_opts.reverse(true)
+        } else {
+            &mut diff_opts
+        }),
     )?;
-
     let mut options = git2::ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
         if let Some(hunk_header) = &hunk_header {
             if let Some(dh) = odh {
-                let header = Hunk::get_header_from(&dh);
-                println!("hunk_callback: {:?} {:?}", hunk_header, header);
+                let mut header = Hunk::get_header_from(&dh);
+                if revert {
+                    header = Hunk::reverse_header(&header);
+                }
                 return hunk_header == &header;
             }
         }

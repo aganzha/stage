@@ -969,7 +969,7 @@ impl Status {
         let pos = buffer.cursor_position();
         let iter = buffer.iter_at_offset(pos);
         for tag in iter.tags() {
-            println!("Tag: {}", tag.name().unwrap());
+            debug!("Tag: {}", tag.name().unwrap());
         }
     }
 }

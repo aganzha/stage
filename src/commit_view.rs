@@ -396,9 +396,8 @@ pub fn show_commit_window(
                         let buffer = txt.buffer();
                         let pos = buffer.cursor_position();
                         let iter = buffer.iter_at_offset(pos);
-                        debug!("==========================");
                         for tag in iter.tags() {
-                            println!("Tag: {}", tag.name().unwrap());
+                            debug!("Tag: {}", tag.name().unwrap());
                         }
                     }
                     Event::Stage(op) if op != StageOp::Kill => {
