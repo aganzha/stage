@@ -344,7 +344,7 @@ pub fn try_finalize_conflict(
     let mut to_stage = Vec::new();
     let mut to_unstage = Vec::new();
     let mut index = repo.index()?;
-    let similar_diff = conflict::get_diff(&repo, &mut to_stage, &mut to_unstage)?;
+    let similar_diff = conflict::get_diff(&repo, &mut to_stage, &mut to_unstage).unwrap();
     let conflicted = similar_diff.map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted));
 
     sender
@@ -354,14 +354,14 @@ pub fn try_finalize_conflict(
         ))
         .expect("Could not send through channel");
     for file_path in &to_stage {
-        index.remove_path(Path::new(&file_path))?;
-        index.add_path(Path::new(&file_path))?;
-        index.write()?;
+        index.remove_path(Path::new(&file_path)).unwrap();
+        index.add_path(Path::new(&file_path)).unwrap();
+        index.write().unwrap();
     }
     for file_path in &to_unstage {
-        index.remove_path(Path::new(&file_path))?;
-        index.add_path(Path::new(&file_path))?;
-        index.write()?;
+        index.remove_path(Path::new(&file_path)).unwrap();
+        index.add_path(Path::new(&file_path)).unwrap();
+        index.write().unwrap();
     }
     for file_path in &to_unstage {
         stage_via_apply(
@@ -370,7 +370,7 @@ pub fn try_finalize_conflict(
             None,
             StageOp::Unstage,
             sender.clone(),
-        )?;
+        ).unwrap();
     }
     // when file_path is None - it is calling from status itself!
     // avoid infinite loop

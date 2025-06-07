@@ -314,17 +314,17 @@ pub fn partial_apply(
 ) -> Result<(), git2::Error> {
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
 
-    let repo = git2::Repository::open(path.clone())?;
+    let repo = git2::Repository::open(path.clone()).unwrap();
 
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 
-    let commit = repo.find_commit(oid)?;
-    let tree = commit.tree()?;
+    let commit = repo.find_commit(oid).unwrap();
+    let tree = commit.tree().unwrap();
     let mut parent_tree: Option<git2::Tree> = None;
     if let Ok(parent) = commit.parent(0) {
-        let tree = parent.tree()?;
+        let tree = parent.tree().unwrap();
         parent_tree.replace(tree);
     }
     let mut diff_opts = make_diff_options();
@@ -336,7 +336,7 @@ pub fn partial_apply(
         } else {
             &mut diff_opts
         }),
-    )?;
+    ).unwrap();
     let mut options = git2::ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
@@ -359,6 +359,6 @@ pub fn partial_apply(
         }
         true
     });
-    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))?;
+    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options)).unwrap();
     Ok(())
 }

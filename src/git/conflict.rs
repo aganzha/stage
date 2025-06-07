@@ -5,7 +5,7 @@
 use crate::git::{Hunk, LineKind, MARKER_OURS, MARKER_THEIRS, MARKER_VS, MINUS, SPACE};
 use anyhow::{bail, Context, Result};
 use git2;
-use log::{debug, info};
+use log::{debug, info, error};
 use similar;
 use std::io::prelude::*;
 use std::{fs, io, path, str};
@@ -179,15 +179,16 @@ pub fn get_diff<'a>(
                     }
                 }
                 Err(error) => {
-                    debug!("error while produce similar diff {:?}", error);
+                    error!("error while produce similar diff {:?}", error);
                     paths_to_unstage.push(path.into());
                 }
             }
         } else {
             // if file is not in tree - it was deleted.
-            // must be added to staged then
-            // if add it to unstaged, it will just disapear from everywhere
-            paths_to_stage.push(path.into());
+            // it is not possible to stage/unstage it, because there are no
+            // file in worktree
+            error!("missing file in tree {:?}", path);
+            // paths_to_unstage.push(path.into());
         }
     }
     if bytes.is_empty() {
