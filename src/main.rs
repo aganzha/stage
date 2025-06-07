@@ -754,7 +754,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     }
                 }
                 Event::Apply(apply_op) => {
-                    info!("Apply {:?}", apply_op);
+                    info!("Apply op: {:?}", apply_op);
                     if let Some(window) = window_stack.borrow().last() {
                         status.apply_op(apply_op, window)
                     } else {

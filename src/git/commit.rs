@@ -312,6 +312,7 @@ pub fn partial_apply(
     hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
+    println!("-------------------------> partial_apply");
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
 
     let repo = git2::Repository::open(path.clone())?;
@@ -325,22 +326,30 @@ pub fn partial_apply(
     let our_commit = ob.peel_to_commit()?;
     let commit = repo.find_commit(oid)?;
     let memory_index = if revert {
-        repo.revert_commit(&commit, &our_commit, 1, None).unwrap()
+        repo.revert_commit(&commit, &our_commit, 1, None)?
     } else {
-        repo.cherrypick_commit(&commit, &our_commit, 1, None)
-            .unwrap()
+        repo.cherrypick_commit(&commit, &our_commit, 1, None)?
     };
     let mut diff_opts = make_diff_options();
-    let mut diff_opts = diff_opts.reverse(true);
+    let mut diff_opts = diff_opts.reverse(false);
     let git_diff = repo
-        .diff_index_to_workdir(Some(&memory_index), Some(&mut diff_opts))
-        .unwrap();
+        .diff_index_to_workdir(Some(&memory_index), Some(&mut diff_opts))?;
+    println!("gooooooooooooot oid {:?} diff deltas co {:?} for {:?} {:?} revert? {:?}", oid, git_diff.deltas().len(), file_path, hunk_header, revert);
+    let diff = make_diff(&git_diff, DiffKind::Staged);
+    for f in &diff.files {
+        println!("file: {:?}", f.path);
+    }
+    // for entry in memory_index.iter() {
+    //     let path = entry.path;
+    //     println!("ENTRY PATH {:?}", std::str::from_utf8(&path).unwrap());
+    // }
     let mut options = git2::ApplyOptions::new();
-
+    
     options.hunk_callback(|odh| -> bool {
         if let Some(hunk_header) = &hunk_header {
             if let Some(dh) = odh {
                 let header = Hunk::get_header_from(&dh);
+                println!("hunk_callback: {:?} {:?}", hunk_header, header);
                 return hunk_header == &header;
             }
         }
