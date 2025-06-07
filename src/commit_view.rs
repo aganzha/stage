@@ -357,6 +357,7 @@ pub fn show_commit_window(
                             &mut labels,
                             body_label.as_mut().unwrap(),
                         );
+                        cursor_position = CursorPosition::from_context(&ctx);
                         // it should be called after cursor in ViewContainer
                         diff.replace(commit_diff);
                     }
@@ -371,14 +372,17 @@ pub fn show_commit_window(
                                 let iter = buffer.iter_at_offset(buffer.cursor_position());
                                 d.diff.cursor(buffer, iter.line(), true, &mut ctx);
                                 txt.bind_highlights(&ctx);
+                                cursor_position = CursorPosition::from_context(&ctx);
                             }
                         }
                     }
                     Event::Cursor(_offset, line_no) => {
+                        info!("Cursor!!!!!!!!!!!!!!!!!");
                         if let Some(d) = &mut diff {
                             let buffer = &txt.buffer();
                             d.diff.cursor(buffer, line_no, false, &mut ctx);
                             cursor_position = CursorPosition::from_context(&ctx);
+                            info!("GOT CURSOR POSITION {:?}", cursor_position);
                         }
                         // it should be called after cursor in ViewContainer !!!!!!!!
                         txt.bind_highlights(&ctx);
@@ -401,7 +405,10 @@ pub fn show_commit_window(
                         }
                     }
                     Event::Stage(op) if op != StageOp::Kill => {
-                        info!("Stage/Unstage or r pressed {:?}", op);
+                        info!(
+                            "Stage/Unstage or r pressed {:?} cursor position {:?}",
+                            op, cursor_position
+                        );
                         if let Some(diff) = &diff {
                             let (file_path, hunk_header) = match cursor_position {
                                 CursorPosition::CursorDiff(_) => (None, None),
