@@ -321,30 +321,21 @@ pub fn partial_apply(
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
 
-    let head_ref = repo.head()?;
-    let ob = head_ref.peel(git2::ObjectType::Commit)?;
-    let our_commit = ob.peel_to_commit()?;
     let commit = repo.find_commit(oid)?;
-    let memory_index = if revert {
-        repo.revert_commit(&commit, &our_commit, 1, None)?
-    } else {
-        repo.cherrypick_commit(&commit, &our_commit, 1, None)?
-    };
-    let mut diff_opts = make_diff_options();
-    let mut diff_opts = diff_opts.reverse(false);
-    let git_diff = repo
-        .diff_index_to_workdir(Some(&memory_index), Some(&mut diff_opts))?;
-    println!("gooooooooooooot oid {:?} diff deltas co {:?} for {:?} {:?} revert? {:?}", oid, git_diff.deltas().len(), file_path, hunk_header, revert);
-    let diff = make_diff(&git_diff, DiffKind::Staged);
-    for f in &diff.files {
-        println!("file: {:?}", f.path);
+    let tree = commit.tree()?;
+    let mut parent_tree: Option<git2::Tree> = None;
+    if let Ok(parent) = commit.parent(0) {
+        let tree = parent.tree()?;
+        parent_tree.replace(tree);
     }
-    // for entry in memory_index.iter() {
-    //     let path = entry.path;
-    //     println!("ENTRY PATH {:?}", std::str::from_utf8(&path).unwrap());
-    // }
+    let git_diff = repo.diff_tree_to_tree(
+        parent_tree.as_ref(),
+        Some(&tree),
+        Some(&mut make_diff_options()),
+    )?;
+
     let mut options = git2::ApplyOptions::new();
-    
+
     options.hunk_callback(|odh| -> bool {
         if let Some(hunk_header) = &hunk_header {
             if let Some(dh) = odh {

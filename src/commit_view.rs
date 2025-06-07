@@ -9,7 +9,7 @@ use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
-use crate::{StageOp, ApplyOp, CurrentWindow, Event};
+use crate::{ApplyOp, CurrentWindow, Event, StageOp};
 use async_channel::Sender;
 use git2::Oid;
 
