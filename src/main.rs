@@ -96,7 +96,7 @@ pub enum StageOp {
     Kill,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ApplyOp {
     CherryPick(Oid, Option<PathBuf>, Option<String>),
     Revert(Oid, Option<PathBuf>, Option<String>),

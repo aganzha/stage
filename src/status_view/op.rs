@@ -563,26 +563,91 @@ impl Status {
                     .selection_mode(SelectionMode::None)
                     .css_classes(vec![String::from("boxed-list")])
                     .build();
+
+                let (oid, title, body, no_commit, ofile_path, ohunk_header, revert) =
+                    match op.clone() {
+                        ApplyOp::CherryPick(oid, ofile, ohunk) => (
+                            oid,
+                            "Cherry picking commit".to_string(),
+                            oid.to_string()[..7].to_string(),
+                            ofile.is_some(),
+                            ofile,
+                            ohunk,
+                            false,
+                        ),
+                        ApplyOp::Revert(oid, ofile, ohunk) => (
+                            oid,
+                            "Reverting commit".to_string(),
+                            oid.to_string()[..7].to_string(),
+                            ofile.is_some(),
+                            ofile,
+                            ohunk,
+                            true,
+                        ),
+                        ApplyOp::Stash(oid, num, ofile, ohunk) => (
+                            oid,
+                            "Applying stash".to_string(),
+                            format!("# {}", num),
+                            true,
+                            ofile,
+                            ohunk,
+                            false,
+                        ),
+                    };
                 let no_commit = SwitchRow::builder()
                     .title("Only apply changes without commit")
                     .css_classes(vec!["input_field"])
-                    .active(false)
+                    .active(no_commit)
+                    .sensitive(!no_commit)
+                    .build();
+                list_box.append(&no_commit);
+
+                let file_chooser = SwitchRow::builder()
+                    .title("")
+                    .css_classes(vec!["input_field"])
+                    .visible(false)
+                    .active(true)
+                    .build();
+                if let Some(path) = &ofile_path {
+                    file_chooser.set_visible(true);
+                    file_chooser.set_title(&format!(
+                        "Only changes for file: {}",
+                        path.to_string_lossy()
+                    ));
+                }
+                list_box.append(&file_chooser);
+
+                let hunk_chooser = SwitchRow::builder()
+                    .title("")
+                    .css_classes(vec!["input_field"])
+                    .visible(false)
+                    .active(true)
                     .build();
 
-                list_box.append(&no_commit);
-                let (title, body) = match op {
-                    ApplyOp::CherryPick(oid, _, _) => (
-                        "Cherry picking commit".to_string(),
-                        oid.to_string()[..7].to_string(),
-                    ),
-                    ApplyOp::Revert(oid, _, _) => (
-                        "Reverting commit".to_string(),
-                        oid.to_string()[..7].to_string(),
-                    ),
-                    ApplyOp::Stash(_, num, _, _) => {
-                        ("Applying stash".to_string(), format!("# {}", num))
+                if let Some(header) = &ohunk_header {
+                    hunk_chooser.set_visible(true);
+                    hunk_chooser.set_title(&format!("Only changes for hunk: {}", header))
+                }
+                list_box.append(&hunk_chooser);
+
+                file_chooser.connect_active_notify({
+                    let hunk_chooser = hunk_chooser.clone();
+                    move |sw| {
+                        if !sw.is_active() {
+                            hunk_chooser.set_active(false);
+                        }
                     }
-                };
+                });
+
+                hunk_chooser.connect_active_notify({
+                    let file_chooser = file_chooser.clone();
+                    move |sw| {
+                        if sw.is_active() {
+                            file_chooser.set_active(true);
+                        }
+                    }
+                });
+
                 let response = alert(ConfirmWithOptions(title, body, list_box.into()))
                     .choose_future(&window)
                     .await;
@@ -593,35 +658,45 @@ impl Status {
                     let sender = sender.clone();
                     let path = path.clone();
                     let no_commit = no_commit.is_active();
-                    let revert = match op {
-                        ApplyOp::Revert(_, _, _) => true,
-                        _ => false,
-                    };
-                    move || match op {
-                        ApplyOp::CherryPick(oid, ofile_path, None)
-                        | ApplyOp::Revert(oid, ofile_path, None) => {
-                            commit::apply(path, oid, revert, ofile_path, no_commit, sender)
-                        }
-                        ApplyOp::CherryPick(oid, Some(file_path), ohunk_header)
-                        | ApplyOp::Revert(oid, Some(file_path), ohunk_header) => {
-                            commit::partial_apply(
+                    let use_file = file_chooser.is_active();
+                    let use_hunk = hunk_chooser.is_active();
+                    move || {
+                        if use_file | use_hunk {
+                            return commit::partial_apply(
                                 path,
                                 oid,
                                 revert,
-                                file_path,
+                                ofile_path.clone().unwrap(),
                                 ohunk_header,
                                 sender,
-                            )
+                            );
                         }
-                        ApplyOp::Stash(_, num, ofile_path, None) => {
-                            stash::apply(path, num, ofile_path, sender)
+                        match op {
+                            ApplyOp::Stash(_, num, _, _) => stash::apply(path, num, None, sender),
+                            _ => commit::apply(path, oid, revert, None, no_commit, sender),
                         }
-                        ApplyOp::Stash(oid, _, Some(file_path), ohunk_header) => {
-                            commit::partial_apply(path, oid, false, file_path, ohunk_header, sender)
-                        }
-                        _ => {
-                            todo!("unknwon apply op")
-                        }
+                        // if use_hunk {
+                        //     return commit::partial_apply(
+                        //         path,
+                        //         oid,
+                        //         revert,
+                        //         ofile_path.clone().unwrap(),
+                        //         ohunk_header.clone().unwrap(),
+                        //         sender,
+                        //     );
+                        // }
+                        // if use_file {
+                        //  THIS ONE ADDS FILE TO STAGED!
+                        //     match op {
+                        //         ApplyOp::Stash(_, num, f, _) => stash::apply(path, num, f, sender),
+                        //         _ => commit::apply(path, oid, revert, ofile_path, no_commit, sender),
+                        //     }
+                        // } else {
+                        //     match op {
+                        //         ApplyOp::Stash(_, num, _, _) => stash::apply(path, num, None, sender),
+                        //         _ => commit::apply(path, oid, revert, None, no_commit, sender),
+                        //     }
+                        // }
                     }
                 })
                 .await

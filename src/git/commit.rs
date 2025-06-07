@@ -346,7 +346,7 @@ pub fn partial_apply(
                 if revert {
                     header = Hunk::reverse_header(&header);
                 }
-                return hunk_header == &header;
+                return *hunk_header == header;
             }
         }
         true
