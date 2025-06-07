@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::git::{
-    branch::BranchName, conflict, get_current_repo_status, make_diff, make_diff_options,
-    stage_via_apply, BranchData, DeferRefresh, DiffKind, Hunk, Line, State, get_staged
+    branch::BranchName, conflict, get_current_repo_status, get_staged, make_diff,
+    make_diff_options, stage_via_apply, BranchData, DeferRefresh, DiffKind, Hunk, Line, State,
 };
 use crate::StageOp;
 use anyhow::Result;
@@ -343,11 +343,8 @@ pub fn try_finalize_conflict(
     //     - do not touch conflict@index
     let mut to_stage = Vec::new();
     let mut to_unstage = Vec::new();
-    println!("111111111111");
     let mut index = repo.index()?;
-    println!("1222222222222222");
     let similar_diff = conflict::get_diff(&repo, &mut to_stage, &mut to_unstage)?;
-    println!("13333333333333333333333");
     let conflicted = similar_diff.map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted));
 
     sender
@@ -356,14 +353,11 @@ pub fn try_finalize_conflict(
             Some(State::new(repo.state(), "".to_string())),
         ))
         .expect("Could not send through channel");
-    println!("14444444444444444444");
     for file_path in &to_stage {
-        println!("SSSSSSSSSSSSSSSSTAGED!");
         index.remove_path(Path::new(&file_path))?;
         index.add_path(Path::new(&file_path))?;
         index.write()?;
     }
-    println!("155555555555555555555");
     for file_path in &to_unstage {
         index.remove_path(Path::new(&file_path))?;
         index.add_path(Path::new(&file_path))?;
@@ -382,19 +376,13 @@ pub fn try_finalize_conflict(
     // avoid infinite loop
     if file_path.is_some() {
         gio::spawn_blocking({
-            println!("UUUUUUUUUUUUUUUUUUUUUUUUDATE STATUS!");
             move || {
                 get_current_repo_status(Some(path), sender).expect("cant get status");
             }
         });
     } else {
         if !to_stage.is_empty() {
-            gio::spawn_blocking({
-                println!("UUUUUUUUUUUUUUUUUUUUUUUUDATE STATUS!");
-                move || {
-                    get_staged(path, sender)
-                }
-            });
+            gio::spawn_blocking({ move || get_staged(path, sender) });
         }
         if !to_unstage.is_empty() {
             // dies not needed. stage via apply will do all work

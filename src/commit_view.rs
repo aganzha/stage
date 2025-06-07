@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::dialogs::{alert, ConfirmDialog, YES};
-use crate::git::{commit};
+use crate::git::commit;
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
-use crate::{CurrentWindow, Event, ApplyOp};
+use crate::{ApplyOp, CurrentWindow, Event};
 use async_channel::Sender;
 use git2::Oid;
 
