@@ -89,7 +89,7 @@ impl Default for LoginPassword {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StageOp {
     Stage,
     Unstage,

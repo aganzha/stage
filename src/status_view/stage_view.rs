@@ -505,18 +505,20 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     return glib::Propagation::Stop;
                 }
                 (gdk::Key::s | gdk::Key::a | gdk::Key::Return, _) => {
-                    let pos = buffer.cursor_position();
-                    let iter = buffer.iter_at_offset(pos);
-                    if let Some((start_iter, end_iter)) = iters_for(&oid, &iter) {
-                        let oid_text = buffer.text(&start_iter, &end_iter, true);
-                        sndr.send_blocking(crate::Event::ShowTextOid(oid_text.to_string()))
-                            .expect("Cant send through channel");
-                        return glib::Propagation::Stop;
+                    if key == gdk::Key::Return {
+                        let pos = buffer.cursor_position();
+                        let iter = buffer.iter_at_offset(pos);
+                        if let Some((start_iter, end_iter)) = iters_for(&oid, &iter) {
+                            let oid_text = buffer.text(&start_iter, &end_iter, true);
+                            sndr.send_blocking(crate::Event::ShowTextOid(oid_text.to_string()))
+                                .expect("Cant send through channel");
+                            return glib::Propagation::Stop;
+                        }
                     }
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Stage))
                         .expect("Could not send through channel");
                 }
-                (gdk::Key::u, _) => {
+                (gdk::Key::u | gdk::Key::r, _) => {
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Unstage))
                         .expect("Could not send through channel");
                 }
@@ -553,10 +555,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 }
                 (gdk::Key::o, gdk::ModifierType::CONTROL_MASK) => {
                     sndr.send_blocking(crate::Event::OpenFileDialog)
-                        .expect("Could not send through channel");
-                }
-                (gdk::Key::r, _) => {
-                    sndr.send_blocking(crate::Event::RepoPopup)
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::z, _) => {
