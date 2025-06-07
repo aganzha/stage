@@ -738,7 +738,11 @@ pub fn get_current_repo_status(
         let sender = sender.clone();
         let path = path.clone();
         move || {
-            merge::try_finalize_conflict(path, sender, None).unwrap();
+            if let Err(error) = merge::try_finalize_conflict(path, sender.clone(), None) {
+                sender
+                    .send_blocking(crate::Event::Toast(error.to_string()))
+                    .expect("cant send through channel");
+            }
         }
     });
 
