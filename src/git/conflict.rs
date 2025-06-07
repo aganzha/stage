@@ -137,11 +137,12 @@ pub fn get_diff<'a>(
             // why we want to stage those files????
             // what does no theirs mean? why it is conflicted then?
             // paths_to_stage.push(path);
-            let their = conflict.their.context("no theirs")?.path;
-            let pth = String::from_utf8(their)?;
-            debug!("NO OUR IN CONFLICT {:?}", pth);
-            conflict_paths.push(pth);
-            has_conflicts = true;
+            // let their = conflict.their.context("no theirs")?.path;
+            // let pth = String::from_utf8(their)?;
+            // debug!("NO OUR IN CONFLICT {:?}", pth);
+            // conflict_paths.push(pth);
+            // has_conflicts = true;
+            // see branch handle_file_rename
         }
     }
     if !has_conflicts {
