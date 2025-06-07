@@ -705,25 +705,7 @@ pub fn get_current_repo_status(
         let sender = sender.clone();
         let path = path.clone();
         move || {
-            let repo = Repository::open(path).expect("can't open repo");
-            let git_diff = {
-                if let Ok(ob) = repo.revparse_single("HEAD^{tree}") {
-                    let tree = repo.find_tree(ob.id()).expect("no working tree");
-                    repo.diff_tree_to_index(Some(&tree), None, Some(&mut make_diff_options()))
-                        .expect("can't get diff tree to index")
-                } else {
-                    repo.diff_tree_to_index(None, None, Some(&mut make_diff_options()))
-                        .expect("can't get diff tree to index")
-                }
-            };
-            let diff = make_diff(&git_diff, DiffKind::Staged);
-            sender
-                .send_blocking(crate::Event::Staged(if diff.is_empty() {
-                    None
-                } else {
-                    Some(diff)
-                }))
-                .expect("Could not send through channel");
+            get_staged(path, sender);
         }
     });
     // TODO! not need to call stashes every time when status is required!
@@ -763,6 +745,28 @@ pub fn get_current_repo_status(
     get_unstaged(&repo, sender.clone());
 
     Ok(())
+}
+
+fn get_staged(path: PathBuf, sender: Sender<crate::Event>) {
+    let repo = Repository::open(path).expect("can't open repo");
+    let git_diff = {
+        if let Ok(ob) = repo.revparse_single("HEAD^{tree}") {
+            let tree = repo.find_tree(ob.id()).expect("no working tree");
+            repo.diff_tree_to_index(Some(&tree), None, Some(&mut make_diff_options()))
+                .expect("can't get diff tree to index")
+        } else {
+            repo.diff_tree_to_index(None, None, Some(&mut make_diff_options()))
+                .expect("can't get diff tree to index")
+        }
+    };
+    let diff = make_diff(&git_diff, DiffKind::Staged);
+    sender
+        .send_blocking(crate::Event::Staged(if diff.is_empty() {
+            None
+        } else {
+            Some(diff)
+        }))
+        .expect("Could not send through channel");
 }
 
 fn get_unstaged(repo: &git2::Repository, sender: Sender<crate::Event>) {

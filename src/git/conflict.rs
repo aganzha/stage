@@ -122,8 +122,9 @@ pub fn get_diff<'a>(
     // will be broken!
     info!(".........git.conflict.get_diff");
     let index = repo.index()?;
+    println!("___________1");
     let conflicts = index.conflicts()?;
-
+    println!("___________2");
     let mut has_conflicts = false;
     let mut conflict_paths = Vec::new();
     for conflict in conflicts {
@@ -145,44 +146,57 @@ pub fn get_diff<'a>(
             has_conflicts = true;
         }
     }
-
+    println!("___________3");
     if !has_conflicts {
         return Ok(None);
     }
 
     let ob = repo.revparse_single("HEAD^{tree}")?;
+    println!("_______________4444444444444444444444444444");
     let current_tree = repo.find_tree(ob.id())?;
-
+    println!("______________555555555555555555555");
     let mut bytes: Vec<u8> = Vec::new();
     for str_path in conflict_paths {
         let path = path::Path::new(&str_path);
         let abs_file_path = repo.path().parent().context("no parent dir")?.join(path);
-        let entry = current_tree.get_path(path::Path::new(&path))?;
-        let ob = entry.to_object(repo)?;
-        let blob = ob.as_blob().context("cant get blob")?;
-        let tree_content = String::from_utf8_lossy(blob.content());
-        let file_bytes = fs::read(abs_file_path)?;
-        let workdir_content = String::from_utf8_lossy(&file_bytes);
-        let text_diff = similar::TextDiff::from_lines(&tree_content, &workdir_content);
-        let mut current_bytes: Vec<u8> = Vec::new();
+        println!("______________6666666666666666666666666");
+        // let entry = current_tree.get_path(path::Path::new(&path))?;
+        // path could not be in tree!
+        if let Ok(entry) = current_tree.get_path(path::Path::new(&path)) {
+            println!("_______________77777777777");
+            let ob = entry.to_object(repo)?;
+            println!("_______________88888888888888");
+            let blob = ob.as_blob().context("cant get blob")?;
+            println!("_____________9999999999999999999");
+            let tree_content = String::from_utf8_lossy(blob.content());
+            let file_bytes = fs::read(abs_file_path)?;
+            let workdir_content = String::from_utf8_lossy(&file_bytes);
+            let text_diff = similar::TextDiff::from_lines(&tree_content, &workdir_content);
+            let mut current_bytes: Vec<u8> = Vec::new();
 
-        match write_conflict_diff(&mut current_bytes, &str_path, text_diff) {
-            Ok(write_result) => {
-                if write_result {
-                    bytes.extend(current_bytes);
-                } else {
-                    // not sure why paths_to_unstage was here.
-                    // if nothing were written for file and
-                    // no errors - means file is cleaned from conflicts.
-                    // lets just stage it.
-                    // paths_to_unstage.push(path.into());
-                    paths_to_stage.push(path.into());
+            match write_conflict_diff(&mut current_bytes, &str_path, text_diff) {
+                Ok(write_result) => {
+                    if write_result {
+                        bytes.extend(current_bytes);
+                    } else {
+                        // not sure why paths_to_unstage was here.
+                        // if nothing were written for file and
+                        // no errors - means file is cleaned from conflicts.
+                        // lets just stage it.
+                        // paths_to_unstage.push(path.into());
+                        paths_to_stage.push(path.into());
+                    }
+                }
+                Err(error) => {
+                    debug!("error while produce similar diff {:?}", error);
+                    paths_to_unstage.push(path.into());
                 }
             }
-            Err(error) => {
-                debug!("error while produce similar diff {:?}", error);
-                paths_to_unstage.push(path.into());
-            }
+        } else {
+            // if file is not in tree - it was deleted.
+            // must be added to staged then
+            // if add it to unstaged, it will just disapear from everywhere
+            paths_to_stage.push(path.into());
         }
     }
     if bytes.is_empty() {
