@@ -382,7 +382,7 @@ pub fn try_finalize_conflict(
         });
     } else {
         if !to_stage.is_empty() {
-            gio::spawn_blocking({ move || get_staged(path, sender) });
+            gio::spawn_blocking(move || get_staged(path, sender));
         }
         if !to_unstage.is_empty() {
             // dies not needed. stage via apply will do all work

@@ -1196,7 +1196,9 @@ pub fn show_branches_window(
                     let selected_branch = branch_list.get_selected_branch();
                     let oid = selected_branch.oid;
                     sender
-                        .send_blocking(crate::Event::CherryPick(oid, false, None, None))
+                        .send_blocking(crate::Event::Apply(crate::ApplyOp::CherryPick(
+                            oid, None, None,
+                        )))
                         .expect("cant send through sender");
                 }
                 (gdk::Key::u, _) => {

@@ -145,7 +145,6 @@ pub enum Event {
     StoreSettings(String, String),
     OpenEditor,
     Tags(Option<Oid>),
-    CherryPick(Oid, bool, Option<PathBuf>, Option<String>),
     Apply(ApplyOp),
     Focus,
     UserInputRequired(Arc<(Mutex<LoginPassword>, Condvar)>),
@@ -752,23 +751,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     settings.set(&name, value).expect("cant set settings");
                     if name == SCHEME_TOKEN {
                         txt.set_background();
-                    }
-                }
-                Event::CherryPick(oid, revert, ofile_path, ohunk_header) => {
-                    info!(
-                        "CherryPick {:?} {:?} {:?} {:?} {:?}",
-                        oid, revert, ofile_path, ohunk_header, window_stack
-                    );
-                    if let Some(window) = window_stack.borrow().last() {
-                        status.cherry_pick(window, oid, revert, ofile_path, ohunk_header)
-                    } else {
-                        status.cherry_pick(
-                            &application_window,
-                            oid,
-                            revert,
-                            ofile_path,
-                            ohunk_header,
-                        )
                     }
                 }
                 Event::Apply(apply_op) => {

@@ -12,11 +12,10 @@ pub mod render;
 pub mod stage_view;
 pub mod tags;
 
-use crate::dialogs::{alert, ConfirmWithOptions, DangerDialog, YES};
+use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{
     abort_rebase,
     branch::BranchData,
-    commit as git_commit,
     continue_rebase,
     merge,
     remote,
@@ -50,11 +49,9 @@ use gio::FileMonitor;
 use crate::status_view::context::CursorPosition as ContextCursorPosition;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
-use gtk4::{
-    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, Widget, Window as GTKWindow,
-};
+use gtk4::{gio, glib, Align, Button, FileDialog, Widget, Window as GTKWindow};
 use libadwaita::prelude::*;
-use libadwaita::{ApplicationWindow, Banner, ButtonContent, StatusPage, StyleManager, SwitchRow};
+use libadwaita::{ApplicationWindow, Banner, ButtonContent, StatusPage, StyleManager};
 use log::{debug, trace};
 
 impl State {
@@ -974,59 +971,5 @@ impl Status {
         for tag in iter.tags() {
             println!("Tag: {}", tag.name().unwrap());
         }
-    }
-
-    //3
-    pub fn cherry_pick(
-        &self,
-        window: &impl IsA<Widget>,
-        oid: git2::Oid,
-        revert: bool,
-        file_path: Option<PathBuf>,
-        hunk_header: Option<String>,
-    ) {
-        glib::spawn_future_local({
-            let sender = self.sender.clone();
-            let path = self.path.clone().unwrap();
-            let window = window.clone();
-            async move {
-                let list_box = ListBox::builder()
-                    .selection_mode(SelectionMode::None)
-                    .css_classes(vec![String::from("boxed-list")])
-                    .build();
-                let no_commit = SwitchRow::builder()
-                    .title("Only apply changes without commit")
-                    .css_classes(vec!["input_field"])
-                    .active(false)
-                    .build();
-
-                list_box.append(&no_commit);
-
-                let response = alert(ConfirmWithOptions(
-                    format!("{} commit?", if revert { "Revert" } else { "Cherry pick" }),
-                    format!("{}", oid),
-                    list_box.into(),
-                ))
-                .choose_future(&window)
-                .await;
-                if response != YES {
-                    return;
-                }
-                gio::spawn_blocking({
-                    let sender = sender.clone();
-                    let path = path.clone();
-                    let is_active = no_commit.is_active();
-                    move || git_commit::apply(path, oid, revert, file_path, is_active, sender)
-                })
-                .await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(Some(&window));
-                    Ok(())
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(Some(&window));
-                });
-            }
-        });
     }
 }

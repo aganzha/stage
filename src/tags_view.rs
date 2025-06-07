@@ -866,12 +866,11 @@ pub fn headerbar_factory(
         let tag_list = tag_list.clone();
         move |_btn| {
             sender
-                .send_blocking(crate::Event::CherryPick(
+                .send_blocking(crate::Event::Apply(crate::ApplyOp::CherryPick(
                     tag_list.get_selected_commit_oid(),
-                    false,
                     None,
                     None,
-                ))
+                )))
                 .expect("cant send through channel");
         }
     });
@@ -888,12 +887,11 @@ pub fn headerbar_factory(
         let tag_list = tag_list.clone();
         move |_btn| {
             sender
-                .send_blocking(crate::Event::CherryPick(
+                .send_blocking(crate::Event::Apply(crate::ApplyOp::CherryPick(
                     tag_list.get_selected_commit_oid(),
-                    true,
                     None,
                     None,
-                ))
+                )))
                 .expect("cant send through channel");
         }
     });
