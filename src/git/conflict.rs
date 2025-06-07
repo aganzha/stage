@@ -125,23 +125,32 @@ pub fn get_diff<'a>(
     let conflicts = index.conflicts()?;
     let mut has_conflicts = false;
     let mut conflict_paths = Vec::new();
+    let mut missing_ours = Vec::new();
+    let mut missing_theirs = Vec::new();
     for conflict in conflicts {
         let conflict = conflict?;
         if let Some(our) = conflict.our {
             let pth = String::from_utf8(our.path)?;
-            conflict_paths.push(pth);
-            has_conflicts = true;
-        } else {
-            // let entry = conflict.their.context("no theirs")?;
-            // let path = path::PathBuf::from(str::from_utf8(&entry.path)?);
-            // why we want to stage those files????
-            // what does no theirs mean? why it is conflicted then?
-            // paths_to_stage.push(path);
-            let their = conflict.their.context("no theirs")?.path;
-            let pth = String::from_utf8(their)?;
-            debug!("NO OUR IN CONFLICT {:?}", pth);
-            conflict_paths.push(pth);
-            has_conflicts = true;
+            if conflict.their.is_none() {
+                missing_theirs.push(pth);
+            } else {
+                conflict_paths.push(pth);
+                has_conflicts = true;
+            }
+        } else {            
+            let entry = conflict.their.context("no theirs")?;
+            let path = path::PathBuf::from(str::from_utf8(&entry.path)?);
+            missing_ours.push(path);
+        }
+    }
+    if !missing_theirs.is_empty() && !missing_ours.is_empty() {
+        // here is the plan. lets assume missing_theirs.len() and missing_ours.len()
+        // are equal to 1. it just need merge 2 blobs from different trees and apply resulting
+        // file to workdir. then push it to conflict path and pass through the similar.
+        // if no conflicts are found - we are fine, lets proceed. else - ok, let it be regular
+        // conflict. so, whe whole idea is just to make merge manyally here.
+        // if there are more then 1 renamed files: huston, we've got problem
+        for ours in missing_theirs {
         }
     }
     if !has_conflicts {
