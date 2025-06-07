@@ -96,6 +96,13 @@ pub enum StageOp {
     Kill,
 }
 
+#[derive(Debug, Clone)]
+pub enum ApplyOp {
+    CherryPick(Oid, Option<PathBuf>, Option<String>),
+    Revert(Oid, Option<PathBuf>, Option<String>),
+    Stash(Oid, usize, Option<PathBuf>, Option<String>),
+}
+
 #[derive(Debug)]
 pub enum Event {
     Debug,
@@ -139,6 +146,7 @@ pub enum Event {
     OpenEditor,
     Tags(Option<Oid>),
     CherryPick(Oid, bool, Option<PathBuf>, Option<String>),
+    Apply(ApplyOp),
     Focus,
     UserInputRequired(Arc<(Mutex<LoginPassword>, Condvar)>),
 }
@@ -761,6 +769,14 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                             ofile_path,
                             ohunk_header,
                         )
+                    }
+                }
+                Event::Apply(apply_op) => {
+                    info!("Apply {:?}", apply_op);
+                    if let Some(window) = window_stack.borrow().last() {
+                        status.apply_op(apply_op, window)
+                    } else {
+                        status.apply_op(apply_op, &application_window)
                     }
                 }
                 Event::UserInputRequired(auth_request) => {

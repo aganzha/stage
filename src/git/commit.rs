@@ -244,7 +244,6 @@ pub fn apply(
     oid: git2::Oid,
     revert: bool,
     file_path: Option<PathBuf>,
-    _hunk_header: Option<String>,
     nocommit: bool,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
@@ -305,12 +304,11 @@ pub fn from_short_sha(path: PathBuf, short_sha: String) -> Result<git2::Oid> {
     Ok(object.id())
 }
 
-
 pub fn partial_apply(
     path: PathBuf,
     oid: git2::Oid,
     revert: bool,
-    file_path: Option<PathBuf>,
+    file_path: PathBuf,
     hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
@@ -321,7 +319,6 @@ pub fn partial_apply(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
-    
 
     let head_ref = repo.head()?;
     let ob = head_ref.peel(git2::ObjectType::Commit)?;
@@ -330,11 +327,13 @@ pub fn partial_apply(
     let memory_index = if revert {
         repo.revert_commit(&commit, &our_commit, 1, None).unwrap()
     } else {
-        repo.cherrypick_commit(&commit, &our_commit, 1, None).unwrap()
+        repo.cherrypick_commit(&commit, &our_commit, 1, None)
+            .unwrap()
     };
     let mut diff_opts = make_diff_options();
     let mut diff_opts = diff_opts.reverse(true);
-    let git_diff = repo.diff_index_to_workdir(Some(&memory_index), Some(&mut diff_opts))
+    let git_diff = repo
+        .diff_index_to_workdir(Some(&memory_index), Some(&mut diff_opts))
         .unwrap();
     let mut options = git2::ApplyOptions::new();
 
@@ -349,14 +348,12 @@ pub fn partial_apply(
     });
 
     options.delta_callback(|odd| -> bool {
-        if let Some(file_path) = &file_path {
-            if let Some(dd) = odd {
-                let path: PathBuf = dd.new_file().path().unwrap().into();
-                return file_path == &path;
-            }
+        if let Some(dd) = odd {
+            let path: PathBuf = dd.new_file().path().unwrap().into();
+            return file_path == path;
         }
         true
     });
     repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))?;
-    return Ok(());
+    Ok(())
 }

@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::dialogs::{alert, ConfirmDialog, YES};
-use crate::git::{commit, stash};
+use crate::git::{commit};
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
-use crate::{CurrentWindow, Event};
+use crate::{CurrentWindow, Event, ApplyOp};
 use async_channel::Sender;
 use git2::Oid;
 
@@ -70,25 +70,16 @@ pub fn headerbar_factory(
 
     cherry_pick_btn.connect_clicked({
         let sender = sender.clone();
-        let path = repo_path.clone();
-        let window = window.clone();
         move |_| {
             let sender = sender.clone();
-            let path = path.clone();
-            let window = window.clone();
-            if let Some(num) = stash_num {
-                glib::spawn_future_local({
-                    git_oid_op(
-                        ConfirmDialog("Apply stash?".to_string(), format!("{}", num)),
-                        window,
-                        move || stash::apply(path, num, None, sender),
-                    )
-                });
+            let apply_op = if let Some(stash_num) = stash_num {
+                ApplyOp::Stash(oid, stash_num, None, None)
             } else {
-                sender
-                    .send_blocking(crate::Event::CherryPick(oid, false, None, None))
-                    .expect("cant send through channel");
-            }
+                ApplyOp::CherryPick(oid, None, None)
+            };
+            sender
+                .send_blocking(crate::Event::Apply(apply_op))
+                .expect("cant send through channel");
         }
     });
     hb.pack_end(&cherry_pick_btn);
@@ -104,7 +95,7 @@ pub fn headerbar_factory(
         revert_btn.connect_clicked({
             move |_| {
                 sender
-                    .send_blocking(crate::Event::CherryPick(oid, true, None, None))
+                    .send_blocking(crate::Event::Apply(ApplyOp::Revert(oid, None, None)))
                     .expect("cant send through channel");
             }
         });
@@ -410,113 +401,107 @@ pub fn show_commit_window(
                             println!("Tag: {}", tag.name().unwrap());
                         }
                     }
-                    Event::Stage(_) | Event::RepoPopup => {
-                        info!("Stage/Unstage or r pressed");
+                    Event::Stage(op) => {
+                        info!("Stage/Unstage or r pressed {:?}", op);
+
                         if let Some(diff) = &diff {
-                            let title = if stash_num.is_some() {
-                                "Apply stash"
-                            } else {
-                                match event {
-                                    Event::Stage(_) => "Cherry pick",
-                                    _ => "Revert",
-                                }
-                            };
-                            let (body, file_path, hunk_header) = match cursor_position {
-                                CursorPosition::CursorDiff(_) => (oid.to_string(), None, None),
-                                CursorPosition::CursorFile(_, Some(file_idx)) => {
-                                    let file = &diff.diff.files[file_idx];
-                                    (
-                                        format!("File: {}", file.path.to_str().unwrap()),
-                                        Some(file.path.clone()),
-                                        None,
-                                    )
-                                }
-                                CursorPosition::CursorHunk(_, Some(file_idx), Some(hunk_idx))
-                                | CursorPosition::CursorLine(
-                                    _,
-                                    Some(file_idx),
-                                    Some(hunk_idx),
-                                    _,
-                                ) => {
-                                    let file = &diff.diff.files[file_idx];
-                                    let hunk = &file.hunks[hunk_idx];
-                                    (
-                                            format!(
-                                                "File: {}\nApplying single hunks is not yet implemented :(",
-                                                file.path.to_str().unwrap()
-                                            ),
-                                            Some(file.path.clone()),
-                                            Some(hunk.header.clone()),
-                                        )
-                                }
-                                _ => ("".to_string(), None, None),
-                            };
-                            let mut cherry_pick_handled = false;
-                            match event {
-                                Event::Stage(_) => {
-                                    if stash_num.is_none() {
-                                        cherry_pick_handled = true;
-                                        main_sender
-                                            .send_blocking(crate::Event::CherryPick(
-                                                oid,
-                                                false,
-                                                file_path.clone(),
-                                                hunk_header.clone(),
-                                            ))
-                                            .expect("cant send through channel");
-                                    }
-                                }
-                                _ => {
-                                    cherry_pick_handled = true;
-                                    main_sender
-                                        .send_blocking(crate::Event::CherryPick(
-                                            oid,
-                                            true,
-                                            file_path.clone(),
-                                            hunk_header.clone(),
-                                        ))
-                                        .expect("cant send through channel");
-                                }
-                            }
-                            // temporary untill revert is not going via main event loop
-                            if !cherry_pick_handled {
-                                let path = repo_path.clone();
-                                let sender = main_sender.clone();
-                                let window = window.clone();
-                                glib::spawn_future_local({
-                                    git_oid_op(
-                                        ConfirmDialog(title.to_string(), body.to_string()),
-                                        window,
-                                        move || match event {
-                                            Event::Stage(_) => {
-                                                if hunk_header.is_some() {
-                                                    commit::partial_apply(path, oid, false, file_path, hunk_header, sender)
-                                                } else {
-                                                    stash::apply(
-                                                        path,
-                                                        stash_num.unwrap(),
-                                                        file_path,
-                                                        sender,
-                                                    )
-                                                }
-                                                // if let Some(stash_num) = stash_num {
-                                                //     stash::apply(
-                                                //         path,
-                                                //         stash_num,
-                                                //         file_path,
-                                                //         hunk_header,
-                                                //         sender,
-                                                //     )
-                                                // } else {
-                                                //     Ok(())
-                                                // }
-                                            }
-                                            _ => Ok(()),
-                                        },
-                                    )
-                                });
+                            if stash_num.is_some() {
+                                // viewing stash
                             }
                         }
+                        //     let title = if stash_num.is_some() {
+                        //         "Apply stash"
+                        //     } else {
+                        //         match event {
+                        //             Event::Stage(_) => "Cherry pick",
+                        //             _ => "Revert",
+                        //         }
+                        //     };
+                        //     let (body, file_path, hunk_header) = match cursor_position {
+                        //         CursorPosition::CursorDiff(_) => (oid.to_string(), None, None),
+                        //         CursorPosition::CursorFile(_, Some(file_idx)) => {
+                        //             let file = &diff.diff.files[file_idx];
+                        //             (
+                        //                 format!("File: {}", file.path.to_str().unwrap()),
+                        //                 Some(file.path.clone()),
+                        //                 None,
+                        //             )
+                        //         }
+                        //         CursorPosition::CursorHunk(_, Some(file_idx), Some(hunk_idx))
+                        //         | CursorPosition::CursorLine(
+                        //             _,
+                        //             Some(file_idx),
+                        //             Some(hunk_idx),
+                        //             _,
+                        //         ) => {
+                        //             let file = &diff.diff.files[file_idx];
+                        //             let hunk = &file.hunks[hunk_idx];
+                        //             (
+                        //                     format!(
+                        //                         "File: {}\nApplying single hunks is not yet implemented :(",
+                        //                         file.path.to_str().unwrap()
+                        //                     ),
+                        //                     Some(file.path.clone()),
+                        //                     Some(hunk.header.clone()),
+                        //                 )
+                        //         }
+                        //         _ => ("".to_string(), None, None),
+                        //     };
+                        //     let mut cherry_pick_handled = false;
+                        //     match event {
+                        //         Event::Stage(_) => {
+                        //             if stash_num.is_none() {
+                        //                 cherry_pick_handled = true;
+                        //                 main_sender
+                        //                     .send_blocking(crate::Event::CherryPick(
+                        //                         oid,
+                        //                         false,
+                        //                         file_path.clone(),
+                        //                         hunk_header.clone(),
+                        //                     ))
+                        //                     .expect("cant send through channel");
+                        //             }
+                        //         }
+                        //         _ => {
+                        //             cherry_pick_handled = true;
+                        //             main_sender
+                        //                 .send_blocking(crate::Event::CherryPick(
+                        //                     oid,
+                        //                     true,
+                        //                     file_path.clone(),
+                        //                     hunk_header.clone(),
+                        //                 ))
+                        //                 .expect("cant send through channel");
+                        //         }
+                        //     }
+                        //     // temporary untill revert is not going via main event loop
+                        //     if !cherry_pick_handled {
+                        //         let path = repo_path.clone();
+                        //         let sender = main_sender.clone();
+                        //         let window = window.clone();
+                        //         glib::spawn_future_local({
+                        //             git_oid_op(
+                        //                 ConfirmDialog(title.to_string(), body.to_string()),
+                        //                 window,
+                        //                 move || match event {
+                        //                     Event::Stage(_) => {
+                        //                         if hunk_header.is_some() {
+                        //                             commit::partial_apply(path, oid, false, file_path, hunk_header, sender)
+                        //                         } else {
+                        //                             stash::apply(
+                        //                                 path,
+                        //                                 stash_num.unwrap(),
+                        //                                 file_path,
+                        //                                 sender,
+                        //                             )
+                        //                         }
+                        //                     }
+                        //                     _ => Ok(()),
+                        //                 },
+                        //             )
+                        //         });
+                        //     }
+                        // }
                     }
                     _ => {
                         trace!("unhandled event in commit_view {:?}", event);

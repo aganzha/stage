@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #[cfg(test)]
-use crate::status_view::stage_op::{LastOp, StageDiffs};
+use crate::status_view::op::{LastOp, StageDiffs};
 #[cfg(test)]
 use crate::status_view::stage_view::StageView;
 #[cfg(test)]

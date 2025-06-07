@@ -6,9 +6,9 @@ pub mod commit;
 pub mod context;
 pub mod headerbar;
 pub mod monitor;
+pub mod op;
 pub mod remotes;
 pub mod render;
-pub mod stage_op;
 pub mod stage_view;
 pub mod tags;
 
@@ -25,8 +25,8 @@ use crate::git::{
 };
 
 use git2::RepositoryState;
+use op::{LastOp, StageDiffs};
 use render::ViewContainer; // MayBeViewContainer o
-use stage_op::{LastOp, StageDiffs};
 use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
@@ -1017,17 +1017,7 @@ impl Status {
                     let sender = sender.clone();
                     let path = path.clone();
                     let is_active = no_commit.is_active();
-                    move || {
-                        git_commit::apply(
-                            path,
-                            oid,
-                            revert,
-                            file_path,
-                            hunk_header,
-                            is_active,
-                            sender,
-                        )
-                    }
+                    move || git_commit::apply(path, oid, revert, file_path, is_active, sender)
                 })
                 .await
                 .unwrap_or_else(|e| {

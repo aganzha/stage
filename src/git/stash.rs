@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::git::{make_diff, make_diff_options, DeferRefresh, DiffKind, Hunk};
+use crate::git::DeferRefresh;
 use async_channel::Sender;
 use git2;
 
