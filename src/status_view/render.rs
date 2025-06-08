@@ -1031,23 +1031,6 @@ impl ViewContainer for Line {
             }
         }
     }
-    // Line
-    fn collect_clean_content(
-        &self,
-        from: i32,
-        to: i32,
-        content_map: &mut HashMap<i32, (String, i32)>,
-        context: &mut StatusRenderContext<'_>,
-    ) {
-        if !self.view.is_rendered() {
-            return;
-        }
-        let line_no = self.view.line_no.get();
-        if line_no >= from && line_no <= to {
-            let content = self.content(context.current_hunk.unwrap()).to_string();
-            content_map.insert(line_no, (content, 6));
-        }
-    }
 }
 
 impl ViewContainer for Label {
