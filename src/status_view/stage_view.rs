@@ -560,6 +560,10 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     sndr.send_blocking(crate::Event::OpenFileDialog)
                         .expect("Could not send through channel");
                 }
+                (gdk::Key::o, _) => {
+                    sndr.send_blocking(crate::Event::RepoPopup)
+                        .expect("Could not send through channel");
+                }
                 (gdk::Key::z, _) => {
                     sndr.send_blocking(crate::Event::StashesPanel)
                         .expect("cant send through channel");
