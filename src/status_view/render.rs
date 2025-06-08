@@ -82,8 +82,6 @@ pub trait ViewContainer {
     // ViewContainer
     fn prepare_context<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>, _line_no: Option<i32>) {}
 
-    //fn fill_cursor_position<'a>(&'a self, _context: &mut StatusRenderContext<'a>) {}
-
     fn fill_selected<'a>(&'a self, _context: &mut StatusRenderContext<'a>, _parent_index: usize) {}
 
     fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, _ctx: &mut StatusRenderContext<'a>) {}
@@ -514,14 +512,8 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    // fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-    //     context.cursor_position = CursorPosition::CursorDiff(self);
-    //     self.fill_selected(context);
-    // }
-
-    // Diff
     fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>, _parent_index: usize) {
-        debug!(
+        trace!(
             "FILL SELECTED DIFF {:?} line_no {:?}",
             self.kind,
             self.view.line_no.get()
@@ -604,15 +596,10 @@ impl ViewContainer for File {
         ctx.current_file = Some(self);
     }
 
-    // File
-    // fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-    //     context.cursor_position = CursorPosition::CursorFile(self);
-    //     self.fill_selected(context);
-    // }
 
     // File
     fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>, parent_index: usize) {
-        debug!(
+        trace!(
             "FILL SELECTED FILE {:?} line_no {:?} parent_index {:?}",
             self.path,
             self.view.line_no.get(),
@@ -710,14 +697,8 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
-    // fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-    //     context.cursor_position = CursorPosition::CursorHunk(self);
-    //     self.fill_selected(context);
-    // }
-
-    // Hunk
     fn fill_selected<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, parent_index: usize) {
-        debug!(
+        trace!(
             "FILL SELECTED HUNK {:?} line_no {:?} parent_index {:?}",
             self.header,
             self.view.line_no.get(),
@@ -773,14 +754,8 @@ impl ViewContainer for Line {
     }
 
     // Line
-    // fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-    //     debug!(">>>>>>>>>>>>>>thats cursor on line!");
-    //     context.cursor_position = CursorPosition::CursorLine(self);
-    // }
-
-    // Line
     fn fill_selected<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, parent_index: usize) {
-        debug!(
+        trace!(
             "FILL SELECTED LINE {:?} {:?}",
             self.view.line_no.get(),
             parent_index
