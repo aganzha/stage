@@ -345,12 +345,10 @@ pub fn show_commit_window(
                         }
                     }
                     Event::Cursor(_offset, line_no) => {
-                        info!("Cursor!!!!!!!!!!!!!!!!!");
                         if let Some(d) = &mut diff {
                             let buffer = &txt.buffer();
                             d.diff.cursor(buffer, line_no, &mut ctx);
                             cursor_position = CursorPosition::from_context(&ctx);
-                            info!("GOT CURSOR POSITION {:?}", cursor_position);
                         }
                         // it should be called after cursor in ViewContainer !!!!!!!!
                         txt.bind_highlights(&ctx);

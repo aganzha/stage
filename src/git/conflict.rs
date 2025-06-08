@@ -120,7 +120,6 @@ pub fn get_diff<'a>(
     // what is important here: all conflicts hunks must accommodate
     // both side: ours and theirs. if those come separated everything
     // will be broken!
-    info!(".........git.conflict.get_diff");
     let index = repo.index()?;
     let conflicts = index.conflicts()?;
     let mut has_conflicts = false;
