@@ -23,7 +23,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::{debug, error, trace};
+use log::trace;
 use std::collections::HashMap;
 //pub const LINE_NO_SPACE: i32 = 6;
 
@@ -408,20 +408,7 @@ pub trait ViewContainer {
         buffer.delete(&mut iter, &mut nel_iter);
         cursor_to_line_offset(buffer, initial_line_offset);
     }
-    // container
-    // clean_content is line_no: (content, offset)
-    fn collect_clean_content<'a>(
-        &'a self,
-        from: i32,
-        to: i32,
-        content: &mut HashMap<i32, (String, i32)>,
-        context: &mut StatusRenderContext<'a>,
-    ) {
-        for child in self.get_children() {
-            child.prepare_context(context, None);
-            child.collect_clean_content(from, to, content, context)
-        }
-    }
+
 }
 
 impl ViewContainer for Diff {
@@ -551,14 +538,11 @@ impl ViewContainer for Diff {
                 };
                 let start_iter = buffer.iter_at_line(start_line);
                 let end_iter = buffer.iter_at_line(end_line);
-                match (start_iter, end_iter) {
-                    (Some(start_iter), Some(mut end_iter)) => {
-                        end_iter.forward_to_line_end();
-                        let offsets = Some((start_iter.offset(), end_iter.offset()));
-                        self.remove_tag(buffer, tag);
-                        self.add_tag(buffer, tag, offsets);
-                    }
-                    _ => {}
+                if let (Some(start_iter), Some(mut end_iter)) = (start_iter, end_iter) {
+                    end_iter.forward_to_line_end();
+                    let offsets = Some((start_iter.offset(), end_iter.offset()));
+                    self.remove_tag(buffer, tag);
+                    self.add_tag(buffer, tag, offsets);
                 }
             }
             _ => {}
