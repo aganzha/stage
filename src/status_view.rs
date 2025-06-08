@@ -97,9 +97,9 @@ impl Label {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CursorPosition {
     CursorDiff(DiffKind),
-    CursorFile(DiffKind, Option<usize>),
-    CursorHunk(DiffKind, Option<usize>, Option<usize>),
-    CursorLine(DiffKind, Option<usize>, Option<usize>, Option<usize>),
+    CursorFile(DiffKind, usize),
+    CursorHunk(DiffKind, usize, usize),
+    CursorLine(DiffKind, usize, usize, usize),
     None,
 }
 
@@ -108,20 +108,20 @@ impl CursorPosition {
         if let Some((_, index)) = context.selected_line {
             return CursorPosition::CursorLine(
                 context.selected_diff.unwrap().kind,
-                context.selected_file.map(|(_, i)| i),
-                context.selected_hunk.map(|(_, i)| i),
-                Some(index),
+                context.selected_file.unwrap().1,
+                context.selected_hunk.unwrap().1,
+                index,
             );
         }
         if let Some((_, index)) = context.selected_hunk {
             return CursorPosition::CursorHunk(
                 context.selected_diff.unwrap().kind,
-                context.selected_file.map(|(_, i)| i),
-                Some(index),
+                context.selected_file.unwrap().1,
+                index,
             );
         }
         if let Some((_, index)) = context.selected_file {
-            return CursorPosition::CursorFile(context.selected_diff.unwrap().kind, Some(index));
+            return CursorPosition::CursorFile(context.selected_diff.unwrap().kind, index);
         }
         if let Some(diff) = context.selected_diff {
             return CursorPosition::CursorDiff(diff.kind);

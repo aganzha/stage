@@ -23,7 +23,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::{debug, error, trace};
+use log::{error, trace};
 use std::collections::HashMap;
 //pub const LINE_NO_SPACE: i32 = 6;
 
@@ -595,7 +595,6 @@ impl ViewContainer for File {
     fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, _line_no: Option<i32>) {
         ctx.current_file = Some(self);
     }
-
 
     // File
     fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>, parent_index: usize) {
