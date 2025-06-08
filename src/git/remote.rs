@@ -6,7 +6,7 @@ use crate::git::{branch::BranchData, get_upstream, merge, DeferRefresh};
 use anyhow::{anyhow, Result};
 use async_channel::Sender;
 use git2;
-use log::{debug, error, trace};
+use log::{debug, trace};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;

@@ -24,7 +24,6 @@ use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
 use log::trace;
-use std::collections::HashMap;
 //pub const LINE_NO_SPACE: i32 = 6;
 
 #[derive(PartialEq, Debug)]
