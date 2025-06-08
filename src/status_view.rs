@@ -793,12 +793,10 @@ impl Status {
         let mut iter = buffer.iter_at_offset(0);
 
         if let Some(head) = &self.head {
-            debug!("got the head {:?}", iter.line());
             head.render(&buffer, &mut iter, context);
         }
 
         if let Some(upstream) = &self.upstream {
-            debug!("got the upstream {:?}", iter.line());
             upstream.render(&buffer, &mut iter, context);
         }
 
@@ -812,17 +810,14 @@ impl Status {
 
         if let Some(conflicted) = &self.conflicted {
             conflicted.render(&buffer, &mut iter, context);
-            conflicted.set_diff_tags(&buffer, context);
         }
 
         if let Some(unstaged) = &self.unstaged {
             unstaged.render(&buffer, &mut iter, context);
-            unstaged.set_diff_tags(&buffer, context);
         }
 
         if let Some(staged) = &self.staged {
             staged.render(&buffer, &mut iter, context);
-            staged.set_diff_tags(&buffer, context);
         }
 
         // first place is here

@@ -17,7 +17,7 @@ use gtk4::prelude::*;
 use gtk4::{gio, glib, ListBox, SelectionMode, TextBuffer, TextIter, Widget};
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, SwitchRow};
-use log::{debug, info, trace};
+use log::{debug, info, trace, error};
 
 #[derive(Debug, Clone, Copy)]
 pub struct LastOp {
@@ -275,7 +275,7 @@ impl StageDiffs<'_> {
                     self.put_cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
                 }
                 op => {
-                    debug!("----------> NOT COVERED LastOp {:?}", op)
+                    error!("----------> NOT COVERED LastOp {:?}", op)
                 }
             }
         } else if current_cursor_position == CursorPosition::None {
