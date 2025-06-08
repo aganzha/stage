@@ -556,7 +556,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     status.update_unstaged(odiff, &txt, &mut ctx);
                 }
                 Event::Expand(offset, line_no) => {
-                    info!("Expand");
+                    trace!("Expand");
                     status.expand(&txt, line_no, offset, &mut ctx);
                 }
                 Event::Cursor(offset, line_no) => {

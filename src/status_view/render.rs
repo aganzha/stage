@@ -191,6 +191,7 @@ pub trait ViewContainer {
                 nel_iter.forward_lines(1);
                 buffer.delete(iter, &mut nel_iter);
                 view.render(false);
+                view.activate(false);
                 view.cleanup_tags();
             }
             ViewState::UpdatedFromGit(l) => {
@@ -1021,7 +1022,6 @@ impl ViewContainer for Line {
                         start_offset,
                     );
                 }
-                //hey
                 if is_active {
                     self.add_tag(buffer, self.choose_tag().enhance().0, None);
                 } else {

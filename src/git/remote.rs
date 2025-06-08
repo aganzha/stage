@@ -340,7 +340,7 @@ pub fn push(
                         .expect("Could not send through channel");
                 }
                 Err(err) => {
-                    error!("cant get Upstream {:?}", err);
+                    debug!("cant get Upstream {:?}", err);
                     sender
                         .send_blocking(crate::Event::Upstream(None))
                         .expect("Could not send through channel");
@@ -431,7 +431,7 @@ pub fn pull(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), RemoteRes
                         .expect("Could not send through channel");
                 }
                 Err(err) => {
-                    error!("cant get Upstream {:?}", err);
+                    debug!("cant get Upstream {:?}", err);
                     sender
                         .send_blocking(crate::Event::Upstream(None))
                         .expect("Could not send through channel");

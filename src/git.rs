@@ -678,7 +678,7 @@ pub fn get_current_repo_status(
                         .expect("Could not send through channel");
                 }
                 Err(err) => {
-                    error!("cant get Upstream {:?}", err);
+                    debug!("cant get Upstream {:?}", err);
                     sender
                         .send_blocking(crate::Event::Upstream(None))
                         .expect("Could not send through channel");
