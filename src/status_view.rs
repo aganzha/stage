@@ -852,66 +852,6 @@ impl Status {
         self.head.as_ref().unwrap().oid
     }
 
-    pub fn copy_to_clipboard<'a>(
-        &'a self,
-        txt: &StageView,
-        start_offset: i32,
-        end_offset: i32,
-        context: &mut StatusRenderContext<'a>,
-    ) {
-        //2
-        // in fact the content IS already copied to clipboard
-        // so, here it need to clean it from status_view artefacts
-        let buffer = txt.buffer();
-        let start_iter = buffer.iter_at_offset(start_offset);
-        let end_iter = buffer.iter_at_offset(end_offset);
-        let line_from = start_iter.line();
-        let line_from_offset = start_iter.line_offset();
-        let line_to = end_iter.line();
-        let line_to_offset = end_iter.line_offset();
-        let mut clean_content: HashMap<i32, (String, i32)> = HashMap::new();
-        for diff in [&self.conflicted, &self.unstaged, &self.staged]
-            .into_iter()
-            .flatten()
-        {
-            diff.collect_clean_content(line_from, line_to, &mut clean_content, context);
-        }
-        if !clean_content.is_empty() {
-            let clipboard = txt.clipboard();
-            glib::spawn_future_local({
-                async move {
-                    let mut new_content = String::new();
-                    let mut replace_content = false;
-                    if let Ok(Some(content)) = clipboard.read_text_future().await {
-                        for (i, line) in content.split("\n").enumerate() {
-                            replace_content = true;
-                            let ind = i as i32 + line_from;
-                            if let Some((clean_line, clean_offset)) = clean_content.get(&ind) {
-                                if ind == line_from && &line_from_offset >= clean_offset {
-                                    new_content.push_str(
-                                        &clean_line[(line_from_offset - clean_offset) as usize..],
-                                    );
-                                } else if ind == line_to && &line_to_offset >= clean_offset {
-                                    new_content.push_str(
-                                        &clean_line[..(line_to_offset - clean_offset) as usize],
-                                    );
-                                } else {
-                                    new_content.push_str(clean_line);
-                                }
-                            } else {
-                                new_content.push_str(line);
-                            }
-                            new_content.push('\n');
-                        }
-                    }
-                    if replace_content {
-                        clipboard.set_text(&new_content);
-                    }
-                }
-            });
-        };
-    }
-
     pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
         let buffer = txt.buffer();
         let pos = buffer.cursor_position();

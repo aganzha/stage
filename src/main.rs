@@ -121,7 +121,6 @@ pub enum Event {
     RepoPopup,
     Expand(i32, i32),
     Cursor(i32, i32),
-    CopyToClipboard(i32, i32),
     Stage(StageOp),
     Commit,
     Push,
@@ -556,10 +555,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     info!("Unstaged");
                     status.update_unstaged(odiff, &txt, &mut ctx);
                 }
-                // Event::TrackedFile(file_path, diff) => {
-                //     info!("Unstaged");
-                //     status.update_tracked_file(file_path, diff, &txt, &mut ctx);
-                // }
                 Event::Expand(offset, line_no) => {
                     info!("Expand");
                     status.expand(&txt, line_no, offset, &mut ctx);
@@ -567,10 +562,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::Cursor(offset, line_no) => {
                     trace!("Cursor");
                     status.cursor(&txt, line_no, offset, &mut ctx);
-                }
-                Event::CopyToClipboard(start_offset, end_offset) => {
-                    info!("CopyToClipboard");
-                    status.copy_to_clipboard(&txt, start_offset, end_offset, &mut ctx);
                 }
                 Event::Stage(stage_op) => {
                     info!("Stage {:?}", stage_op);

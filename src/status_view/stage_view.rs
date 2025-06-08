@@ -749,20 +749,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     });
     txt.add_controller(motion_controller);
 
-    txt.connect_copy_clipboard({
-        let sndr = sndr.clone();
-        move |view| {
-            let buffer = view.buffer();
-            if let Some((start_iter, end_iter)) = buffer.selection_bounds() {
-                sndr.send_blocking(crate::Event::CopyToClipboard(
-                    start_iter.offset(),
-                    end_iter.offset(),
-                ))
-                .expect("could not sent through channel");
-            }
-        }
-    });
-
     txt.set_monospace(true);
     gtk4::prelude::TextViewExt::set_editable(&txt, false);
     txt
