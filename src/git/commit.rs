@@ -322,14 +322,18 @@ pub fn partial_apply(
 
     let commit = repo.find_commit(oid)?;
     let tree = commit.tree()?;
-    let mut parent_tree: Option<git2::Tree> = None;
-    if let Ok(parent) = commit.parent(0) {
-        let tree = parent.tree()?;
-        parent_tree.replace(tree);
-    }
+
+    let ob = repo.revparse_single("HEAD^{tree}")?;
+    let parent_tree = repo.find_tree(ob.id())?;
+
+    // let mut parent_tree: Option<git2::Tree> = None;
+    // if let Ok(parent) = commit.parent(0) {
+    //     let tree = parent.tree()?;
+    //     parent_tree.replace(tree);
+    // }
     let mut diff_opts = make_diff_options();
     let git_diff = repo.diff_tree_to_tree(
-        parent_tree.as_ref(),
+        Some(&parent_tree),
         Some(&tree),
         Some(if revert {
             diff_opts.reverse(true)

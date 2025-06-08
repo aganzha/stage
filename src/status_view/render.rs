@@ -408,7 +408,6 @@ pub trait ViewContainer {
         buffer.delete(&mut iter, &mut nel_iter);
         cursor_to_line_offset(buffer, initial_line_offset);
     }
-
 }
 
 impl ViewContainer for Diff {

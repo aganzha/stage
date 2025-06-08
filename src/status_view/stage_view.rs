@@ -214,7 +214,6 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
         } else {
