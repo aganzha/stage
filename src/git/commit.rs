@@ -324,16 +324,11 @@ pub fn partial_apply(
     let tree = commit.tree()?;
 
     let ob = repo.revparse_single("HEAD^{tree}")?;
-    let parent_tree = repo.find_tree(ob.id())?;
+    let head_tree = repo.find_tree(ob.id())?;
 
-    // let mut parent_tree: Option<git2::Tree> = None;
-    // if let Ok(parent) = commit.parent(0) {
-    //     let tree = parent.tree()?;
-    //     parent_tree.replace(tree);
-    // }
     let mut diff_opts = make_diff_options();
     let git_diff = repo.diff_tree_to_tree(
-        Some(&parent_tree),
+        Some(&head_tree),
         Some(&tree),
         Some(if revert {
             diff_opts.reverse(true)
@@ -347,6 +342,10 @@ pub fn partial_apply(
         if let Some(hunk_header) = &hunk_header {
             if let Some(dh) = odh {
                 let mut header = Hunk::get_header_from(&dh);
+                println!(
+                    "-----------------------> MINE: {:?} REAL: {:?}",
+                    hunk_header, header
+                );
                 if revert {
                     header = Hunk::reverse_header(&header);
                 }
