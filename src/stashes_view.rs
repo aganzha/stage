@@ -160,10 +160,7 @@ impl OidRow {
                         move || stash::apply(path, stash.num, None, sender)
                     })
                     .await
-                    .unwrap_or_else(|e| {
-                        alert(format!("{:?}", e)).present(Some(&window));
-                        Ok(())
-                    })
+                    .unwrap()
                     .unwrap_or_else(|e| {
                         alert(e).present(Some(&window));
                     });

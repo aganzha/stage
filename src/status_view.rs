@@ -97,9 +97,9 @@ impl Label {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CursorPosition {
     CursorDiff(DiffKind),
-    CursorFile(DiffKind, Option<usize>),
-    CursorHunk(DiffKind, Option<usize>, Option<usize>),
-    CursorLine(DiffKind, Option<usize>, Option<usize>, Option<usize>),
+    CursorFile(DiffKind, usize),
+    CursorHunk(DiffKind, usize, usize),
+    CursorLine(DiffKind, usize, usize, usize),
     None,
 }
 
@@ -108,20 +108,20 @@ impl CursorPosition {
         if let Some((_, index)) = context.selected_line {
             return CursorPosition::CursorLine(
                 context.selected_diff.unwrap().kind,
-                context.selected_file.map(|(_, i)| i),
-                context.selected_hunk.map(|(_, i)| i),
-                Some(index),
+                context.selected_file.unwrap().1,
+                context.selected_hunk.unwrap().1,
+                index,
             );
         }
         if let Some((_, index)) = context.selected_hunk {
             return CursorPosition::CursorHunk(
                 context.selected_diff.unwrap().kind,
-                context.selected_file.map(|(_, i)| i),
-                Some(index),
+                context.selected_file.unwrap().1,
+                index,
             );
         }
         if let Some((_, index)) = context.selected_file {
-            return CursorPosition::CursorFile(context.selected_diff.unwrap().kind, Some(index));
+            return CursorPosition::CursorFile(context.selected_diff.unwrap().kind, index);
         }
         if let Some(diff) = context.selected_diff {
             return CursorPosition::CursorDiff(diff.kind);
@@ -793,12 +793,10 @@ impl Status {
         let mut iter = buffer.iter_at_offset(0);
 
         if let Some(head) = &self.head {
-            debug!("got the head {:?}", iter.line());
             head.render(&buffer, &mut iter, context);
         }
 
         if let Some(upstream) = &self.upstream {
-            debug!("got the upstream {:?}", iter.line());
             upstream.render(&buffer, &mut iter, context);
         }
 
@@ -812,17 +810,14 @@ impl Status {
 
         if let Some(conflicted) = &self.conflicted {
             conflicted.render(&buffer, &mut iter, context);
-            conflicted.set_diff_tags(&buffer, context);
         }
 
         if let Some(unstaged) = &self.unstaged {
             unstaged.render(&buffer, &mut iter, context);
-            unstaged.set_diff_tags(&buffer, context);
         }
 
         if let Some(staged) = &self.staged {
             staged.render(&buffer, &mut iter, context);
-            staged.set_diff_tags(&buffer, context);
         }
 
         // first place is here
@@ -855,66 +850,6 @@ impl Status {
 
     pub fn head_oid(&self) -> crate::Oid {
         self.head.as_ref().unwrap().oid
-    }
-
-    pub fn copy_to_clipboard<'a>(
-        &'a self,
-        txt: &StageView,
-        start_offset: i32,
-        end_offset: i32,
-        context: &mut StatusRenderContext<'a>,
-    ) {
-        //2
-        // in fact the content IS already copied to clipboard
-        // so, here it need to clean it from status_view artefacts
-        let buffer = txt.buffer();
-        let start_iter = buffer.iter_at_offset(start_offset);
-        let end_iter = buffer.iter_at_offset(end_offset);
-        let line_from = start_iter.line();
-        let line_from_offset = start_iter.line_offset();
-        let line_to = end_iter.line();
-        let line_to_offset = end_iter.line_offset();
-        let mut clean_content: HashMap<i32, (String, i32)> = HashMap::new();
-        for diff in [&self.conflicted, &self.unstaged, &self.staged]
-            .into_iter()
-            .flatten()
-        {
-            diff.collect_clean_content(line_from, line_to, &mut clean_content, context);
-        }
-        if !clean_content.is_empty() {
-            let clipboard = txt.clipboard();
-            glib::spawn_future_local({
-                async move {
-                    let mut new_content = String::new();
-                    let mut replace_content = false;
-                    if let Ok(Some(content)) = clipboard.read_text_future().await {
-                        for (i, line) in content.split("\n").enumerate() {
-                            replace_content = true;
-                            let ind = i as i32 + line_from;
-                            if let Some((clean_line, clean_offset)) = clean_content.get(&ind) {
-                                if ind == line_from && &line_from_offset >= clean_offset {
-                                    new_content.push_str(
-                                        &clean_line[(line_from_offset - clean_offset) as usize..],
-                                    );
-                                } else if ind == line_to && &line_to_offset >= clean_offset {
-                                    new_content.push_str(
-                                        &clean_line[..(line_to_offset - clean_offset) as usize],
-                                    );
-                                } else {
-                                    new_content.push_str(clean_line);
-                                }
-                            } else {
-                                new_content.push_str(line);
-                            }
-                            new_content.push('\n');
-                        }
-                    }
-                    if replace_content {
-                        clipboard.set_text(&new_content);
-                    }
-                }
-            });
-        };
     }
 
     pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {

@@ -97,7 +97,7 @@ pub enum HslAdjustment {
     Enhance,
 }
 
-pub const HUE_DIFF: f32 = 20.0;
+pub const HUE_DIFF: f32 = 10.0;
 pub const SATURATION_DIFF: f32 = 0.1;
 
 impl Color {

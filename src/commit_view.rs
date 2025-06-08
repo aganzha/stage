@@ -378,17 +378,12 @@ pub fn show_commit_window(
                         if let Some(diff) = &diff {
                             let (file_path, hunk_header) = match cursor_position {
                                 CursorPosition::CursorDiff(_) => (None, None),
-                                CursorPosition::CursorFile(_, Some(file_idx)) => {
+                                CursorPosition::CursorFile(_, file_idx) => {
                                     let file = &diff.diff.files[file_idx];
                                     (Some(file.path.clone()), None)
                                 }
-                                CursorPosition::CursorHunk(_, Some(file_idx), Some(hunk_idx))
-                                | CursorPosition::CursorLine(
-                                    _,
-                                    Some(file_idx),
-                                    Some(hunk_idx),
-                                    _,
-                                ) => {
+                                CursorPosition::CursorHunk(_, file_idx, hunk_idx)
+                                | CursorPosition::CursorLine(_, file_idx, hunk_idx, _) => {
                                     let file = &diff.diff.files[file_idx];
                                     let hunk = &file.hunks[hunk_idx];
                                     (Some(file.path.clone()), Some(hunk.header.clone()))

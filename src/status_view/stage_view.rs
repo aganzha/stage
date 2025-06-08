@@ -60,8 +60,6 @@ mod stage_view_internal {
     #[derive(Default)]
     pub struct StageView {
         pub show_cursor: Cell<bool>,
-        // is it still used?
-        pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
 
@@ -216,13 +214,6 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-        // is it still used?
-        if context.cursor_is_on_diff() {
-            self.imp().double_height_line.replace(true);
-        } else {
-            self.imp().double_height_line.replace(false);
-        }
-
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
         } else {
@@ -560,6 +551,10 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     sndr.send_blocking(crate::Event::OpenFileDialog)
                         .expect("Could not send through channel");
                 }
+                (gdk::Key::o, _) => {
+                    sndr.send_blocking(crate::Event::RepoPopup)
+                        .expect("Could not send through channel");
+                }
                 (gdk::Key::z, _) => {
                     sndr.send_blocking(crate::Event::StashesPanel)
                         .expect("cant send through channel");
@@ -752,20 +747,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
         }
     });
     txt.add_controller(motion_controller);
-
-    txt.connect_copy_clipboard({
-        let sndr = sndr.clone();
-        move |view| {
-            let buffer = view.buffer();
-            if let Some((start_iter, end_iter)) = buffer.selection_bounds() {
-                sndr.send_blocking(crate::Event::CopyToClipboard(
-                    start_iter.offset(),
-                    end_iter.offset(),
-                ))
-                .expect("could not sent through channel");
-            }
-        }
-    });
 
     txt.set_monospace(true);
     gtk4::prelude::TextViewExt::set_editable(&txt, false);

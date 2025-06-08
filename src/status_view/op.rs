@@ -17,7 +17,7 @@ use gtk4::prelude::*;
 use gtk4::{gio, glib, ListBox, SelectionMode, TextBuffer, TextIter, Widget};
 use libadwaita::prelude::*;
 use libadwaita::{ApplicationWindow, SwitchRow};
-use log::{debug, info, trace};
+use log::{debug, error, info, trace};
 
 #[derive(Debug, Clone, Copy)]
 pub struct LastOp {
@@ -69,18 +69,15 @@ impl CursorPosition {
                     return (Some(unstaged.kind), None, None);
                 }
             }
-            (
-                Self::CursorFile(DiffKind::Unstaged, Some(file_idx)),
-                StageOp::Stage | StageOp::Kill,
-            ) => {
+            (Self::CursorFile(DiffKind::Unstaged, file_idx), StageOp::Stage | StageOp::Kill) => {
                 if let Some(unstaged) = &status.unstaged {
                     let file = &unstaged.files[*file_idx];
                     return (Some(unstaged.kind), Some(file.path.clone()), None);
                 }
             }
             (
-                Self::CursorHunk(DiffKind::Unstaged, Some(file_idx), Some(hunk_idx))
-                | Self::CursorLine(DiffKind::Unstaged, Some(file_idx), Some(hunk_idx), _),
+                Self::CursorHunk(DiffKind::Unstaged, file_idx, hunk_idx)
+                | Self::CursorLine(DiffKind::Unstaged, file_idx, hunk_idx, _),
                 StageOp::Stage | StageOp::Kill,
             ) => {
                 if let Some(unstaged) = &status.unstaged {
@@ -98,15 +95,15 @@ impl CursorPosition {
                     return (Some(staged.kind), None, None);
                 }
             }
-            (Self::CursorFile(DiffKind::Staged, Some(file_idx)), StageOp::Unstage) => {
+            (Self::CursorFile(DiffKind::Staged, file_idx), StageOp::Unstage) => {
                 if let Some(staged) = &status.staged {
                     let file = &staged.files[*file_idx];
                     return (Some(staged.kind), Some(file.path.clone()), None);
                 }
             }
             (
-                Self::CursorHunk(DiffKind::Staged, Some(file_idx), Some(hunk_idx))
-                | Self::CursorLine(DiffKind::Staged, Some(file_idx), Some(hunk_idx), _),
+                Self::CursorHunk(DiffKind::Staged, file_idx, hunk_idx)
+                | Self::CursorLine(DiffKind::Staged, file_idx, hunk_idx, _),
                 StageOp::Unstage,
             ) => {
                 if let Some(staged) = &status.staged {
@@ -124,19 +121,13 @@ impl CursorPosition {
                     return (Some(untracked.kind), None, None);
                 }
             }
-            (
-                Self::CursorFile(DiffKind::Untracked, Some(file_idx)),
-                StageOp::Stage | StageOp::Kill,
-            ) => {
+            (Self::CursorFile(DiffKind::Untracked, file_idx), StageOp::Stage | StageOp::Kill) => {
                 if let Some(untracked) = &status.untracked {
                     let file = &untracked.files[*file_idx];
                     return (Some(untracked.kind), Some(file.path.clone()), None);
                 }
             }
-            (
-                Self::CursorLine(DiffKind::Conflicted, Some(file_idx), Some(hunk_idx), _),
-                StageOp::Stage,
-            ) => {
+            (Self::CursorLine(DiffKind::Conflicted, file_idx, hunk_idx, _), StageOp::Stage) => {
                 if let Some(conflicted) = &status.conflicted {
                     let file = &conflicted.files[*file_idx];
                     let hunk = &file.hunks[*hunk_idx];
@@ -219,7 +210,7 @@ impl StageDiffs<'_> {
                 // and this file has another hunks - put cursor on first remaining hunk
                 LastOp {
                     op: _,
-                    cursor_position: CursorPosition::CursorFile(cursor_diff_kind, Some(file_idx)),
+                    cursor_position: CursorPosition::CursorFile(cursor_diff_kind, file_idx),
                     desired_diff_kind,
                 } if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
@@ -251,8 +242,8 @@ impl StageDiffs<'_> {
                 LastOp {
                     op: _,
                     cursor_position:
-                        CursorPosition::CursorHunk(cursor_diff_kind, Some(file_idx), Some(hunk_ids))
-                        | CursorPosition::CursorLine(cursor_diff_kind, Some(file_idx), Some(hunk_ids), _),
+                        CursorPosition::CursorHunk(cursor_diff_kind, file_idx, hunk_ids)
+                        | CursorPosition::CursorLine(cursor_diff_kind, file_idx, hunk_ids, _),
                     desired_diff_kind,
                 } if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
@@ -284,7 +275,10 @@ impl StageDiffs<'_> {
                     self.put_cursor_on_opposite_diff(render_diff_kind, &mut iter, last_op);
                 }
                 op => {
-                    debug!("----------> NOT COVERED LastOp {:?}", op)
+                    error!(
+                        "----------> NOT COVERED LastOp {:?} render_diff_kind {:?}",
+                        op, render_diff_kind
+                    )
                 }
             }
         } else if current_cursor_position == CursorPosition::None {
@@ -328,7 +322,7 @@ impl StageDiffs<'_> {
         // ONLY IF LAST_OP WAS NOT DROPPED BY PREVIOUS LOOP
         if let Some(op) = last_op.get() {
             match render_diff_kind {
-                DiffKind::Unstaged | DiffKind::Untracked => {
+                DiffKind::Unstaged | DiffKind::Untracked | DiffKind::Conflicted => {
                     if let Some(diff) = &self.staged {
                         iter.set_line(diff.files[0].view.line_no.get());
                         last_op.take();
@@ -485,9 +479,9 @@ impl Status {
                 match self.cursor_position.get() {
                     CursorPosition::CursorLine(
                         DiffKind::Conflicted,
-                        Some(file_idx),
-                        Some(hunk_idx),
-                        Some(line_idx),
+                        file_idx,
+                        hunk_idx,
+                        line_idx,
                     ) => {
                         let conflicted = self.conflicted.as_ref().unwrap();
                         let file = &conflicted.files[file_idx];
@@ -671,7 +665,7 @@ impl Status {
                                 sender,
                             );
                         }
-                       if use_file {
+                        if use_file {
                             return commit::partial_apply(
                                 path,
                                 oid,
@@ -680,7 +674,7 @@ impl Status {
                                 None,
                                 sender,
                             );
-                       }
+                        }
                         match op {
                             ApplyOp::Stash(_, num, _, _) => stash::apply(path, num, None, sender),
                             _ => commit::apply(path, oid, revert, None, no_commit, sender),
