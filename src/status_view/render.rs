@@ -83,11 +83,11 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn prepare_context<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {}
+    fn prepare_context<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>, _line_no: Option<i32>) {}
 
-    fn fill_cursor_position<'a>(&'a self, _context: &mut StatusRenderContext<'a>) {}
+    //fn fill_cursor_position<'a>(&'a self, _context: &mut StatusRenderContext<'a>) {}
 
-    fn fill_selected<'a>(&'a self, _context: &mut StatusRenderContext<'a>) {}
+    fn fill_selected<'a>(&'a self, _context: &mut StatusRenderContext<'a>, _parent_index: usize) {}
 
     fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, _ctx: &mut StatusRenderContext<'a>) {}
 
@@ -152,7 +152,7 @@ pub trait ViewContainer {
         iter: &mut TextIter,
         context: &mut StatusRenderContext<'a>,
     ) {
-        self.prepare_context(context);
+        self.prepare_context(context, None);
 
         let line_no = iter.line();
         let view = self.get_view();
@@ -230,105 +230,74 @@ pub trait ViewContainer {
         self.get_view().child_dirty(false);
     }
 
+    /// called before cursor to fill context.selected...
+    /// ONLY FROM DIFF. so, each Diff pass all childs
+    /// recursivelly, before calculating all views "active"
+    /// it is require for further processing
     fn search_cursor_position<'a>(
         &'a self,
         line_no: i32,
+        parent_index: usize,
         context: &mut StatusRenderContext<'a>,
-    )  {
-        debug!("search_cursor_position..............");
+    ) -> bool {
         if self.get_view().is_rendered_in(line_no) {
-            self.fill_cursor_position(context)
+            self.fill_selected(context, parent_index);
+            return true;
         } else {
-            for child in self.get_children() {
-                child.search_cursor_position(line_no, context);
-                if !context.cursor_position.is_empty() {
-                    self.fill_selected(context);
-                    break;
+            for (i, child) in self.get_children().iter().enumerate() {
+                if child.search_cursor_position(line_no, i, context) {
+                    self.fill_selected(context, parent_index);
+                    return true;
                 }
             }
         }
+        false
     }
-    
+
     fn cursor<'a>(
         &'a self,
         buffer: &TextBuffer,
         line_no: i32,
-        parent_active: bool,
         context: &mut StatusRenderContext<'a>,
     ) {
-        self.prepare_context(context);
-
         let view = self.get_view();
+        if !view.is_rendered() {
+            return;
+        }
+        self.prepare_context(context, Some(line_no));
 
         let was_current = view.is_current();
         let was_active = view.is_active();
 
         let is_current = view.is_rendered_in(line_no);
+        let is_active = if is_current {
+            true
+        } else {
+            self.get_is_active(context)
+        };
 
-        let i_am_debug = view.line_no.get() == 7;
-        let mut is_active = is_current;
-        if i_am_debug {
-            println!("\n\nby current {:?}", is_current)
-        }
-
-        // important!
-        // before calc active/active_by_parent
-        // it need to check childs first.
-        // if cursor is on child, this means this view
-        // is also active
-        if !is_active {
-            if i_am_debug {
-                println!("not active but will search in child? {:?}", context.cursor_position.is_empty());
-            }
-            if context.cursor_position.is_empty() {
-                self.search_cursor_position(line_no, context);
-                is_active = !context.cursor_position.is_empty();
-                if is_active {
-                    println!("JUST FILL CursorPosition by My Child! {:?}", view.line_no.get());
-                }
-            }
-        }
-        if !is_active {
-            is_active = self.is_active_by_parent(parent_active, context);
-            if i_am_debug {
-                println!("by parent {:?} context.selected_diff {:?}", is_active, context.selected_diff.is_some());
-            }
-        }
-        // important! context.selected_diff/file/hunk
-        // will be used by childs, so must be here,
-        // before child iteration!
-        if i_am_debug {
-            println!("finally.........{:?}", is_active);
-        }
-        // if is_active {
-        //     if i_am_debug {
-        //         println!("FILL SELECTED!");
-        //     }
-        //     self.fill_selected(context);
-        // }
         view.activate(is_active);
         view.make_current(is_current);
 
         for child in self.get_children() {
-            child.cursor(buffer, line_no, is_active, context);
+            child.cursor(buffer, line_no, context);
         }
 
-        if view.is_rendered() {
-            if !self.is_empty(context) {
-                if is_current != was_current {
-                    self.apply_tags(TagChanges::BecomeCurrent(is_current), buffer, context);
-                }
-                if is_active != was_active {
-                    self.apply_tags(TagChanges::BecomeActive(is_active), buffer, context);
-                }
+        if !self.is_empty(context) {
+            if is_current != was_current {
+                self.apply_tags(TagChanges::BecomeCurrent(is_current), buffer, context);
             }
-            self.after_cursor(buffer, context);
+            if is_active != was_active {
+                self.apply_tags(TagChanges::BecomeActive(is_active), buffer, context);
+            }
         }
+        self.after_cursor(buffer, context);
+
     }
 
     // base
-    fn is_active_by_parent(&self, parent_active: bool, _context: &mut StatusRenderContext) -> bool {
-        parent_active
+    fn get_is_active(&self, _context: &mut StatusRenderContext) -> bool {
+        false
     }
 
     // ViewContainer
@@ -447,7 +416,7 @@ pub trait ViewContainer {
         context: &mut StatusRenderContext<'a>,
     ) {
         for child in self.get_children() {
-            child.prepare_context(context);
+            child.prepare_context(context, None);
             child.collect_clean_content(from, to, content, context)
         }
     }
@@ -501,8 +470,21 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, line_no: Option<i32>) {
         ctx.current_diff = Some(self);
+        if let Some(line_no) = line_no {
+            // line_no passed in calling from cursor
+            self.search_cursor_position(line_no, 0, ctx);
+        }
+    }
+
+    /// Diff is active when cursor is on Diff
+    /// or something inside Diff
+    fn get_is_active(&self, context: &mut StatusRenderContext) -> bool {
+        if let Some(diff) = context.selected_diff {
+            return std::ptr::eq(diff, self);
+        }
+        false
     }
 
     // Diff
@@ -536,14 +518,14 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {       
-        context.cursor_position = CursorPosition::CursorDiff(self);
-        self.fill_selected(context);
-    }
+    // fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+    //     context.cursor_position = CursorPosition::CursorDiff(self);
+    //     self.fill_selected(context);
+    // }
 
     // Diff
-    fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-        debug!("FILL SELECTED DIFF {:?} {:?}", self.kind, self.view.line_no.get());
+    fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>, _parent_index: usize) {
+        debug!("FILL SELECTED DIFF {:?} line_no {:?}", self.kind, self.view.line_no.get());
         context.selected_diff = Some(self);
     }
 }
@@ -601,40 +583,39 @@ impl ViewContainer for File {
         }
     }
 
-    // File
-    fn is_active_by_parent(&self, active: bool, context: &mut StatusRenderContext) -> bool {
-        if active {
-            // files are active when cursor is on Diff
-            match context.cursor_position {
-                CursorPosition::CursorDiff(_) => {
-                    return true;
-                }
-                _ => {
-                    return false;
-                }
+    /// Files are active when cursor is on Diff or File
+    /// or something inside File
+    fn get_is_active(&self, context: &mut StatusRenderContext) -> bool {
+        if let Some((file, _)) = context.selected_file {
+            return std::ptr::eq(file, self);
+        } else {
+            if let Some(diff) = context.selected_diff {
+                // no selected file but selected diff means cursor is on diff
+                // and diff for this file is current_diff
+                return std::ptr::eq(diff, context.current_diff.unwrap());
             }
         }
-        active
+        false
     }
 
     // file
     fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, _context: &mut StatusRenderContext<'a>) {}
 
     // File
-    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, _line_no: Option<i32>) {
         ctx.current_file = Some(self);
     }
 
     // File
-    fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-        context.cursor_position = CursorPosition::CursorFile(self);
-        self.fill_selected(context);
-    }
+    // fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+    //     context.cursor_position = CursorPosition::CursorFile(self);
+    //     self.fill_selected(context);
+    // }
 
     // File
-    fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-        debug!("FILL SELECTED FILE {:?} {:?}", self.path, self.view.line_no.get());
-        context.selected_file = Some(self);
+    fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>, parent_index: usize) {
+        debug!("FILL SELECTED FILE {:?} line_no {:?} parent_index {:?}", self.path, self.view.line_no.get(), parent_index);
+        context.selected_file = Some((self, parent_index));
     }
 }
 
@@ -684,7 +665,7 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
-    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, _line_no: Option<i32>) {
         ctx.current_hunk = Some(self);
     }
 
@@ -693,21 +674,23 @@ impl ViewContainer for Hunk {
         ctx.collect_hunk_highlights(self.view.line_no.get());
     }
 
-    // Hunk
-    fn is_active_by_parent(&self, active: bool, context: &mut StatusRenderContext) -> bool {
-        if active {
-            // hunks are active when cursor is on File
-            // or is on Diff
-            match context.cursor_position {
-                CursorPosition::CursorFile(_) | CursorPosition::CursorDiff(_) => {
-                    return true;
-                }
-                _ => {
-                    return false;
+    /// Hunk is active when cursor is on Diff or File or self
+    /// or something inside self
+    fn get_is_active(&self, context: &mut StatusRenderContext) -> bool {
+        if let Some((hunk, _)) = context.selected_hunk {
+            return std::ptr::eq(hunk, self);
+        } else {
+            if let Some((file, _)) = context.selected_file {
+                // cursor is on file
+                return std::ptr::eq(file, context.current_file.unwrap());
+            } else {
+                if let Some(diff) = context.selected_diff {
+                    // cursor is on diff
+                    return std::ptr::eq(diff, context.current_diff.unwrap());
                 }
             }
         }
-        active
+        false
     }
 
     // Hunk
@@ -728,15 +711,15 @@ impl ViewContainer for Hunk {
     }
 
     // Hunk
-    fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-        context.cursor_position = CursorPosition::CursorHunk(self);
-        self.fill_selected(context);
-    }
+    // fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+    //     context.cursor_position = CursorPosition::CursorHunk(self);
+    //     self.fill_selected(context);
+    // }
 
     // Hunk
-    fn fill_selected<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
-        debug!("FILL SELECTED HUNK {:?} {:?}", self.header, self.view.line_no.get());
-        ctx.selected_hunk = Some(self);
+    fn fill_selected<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, parent_index: usize) {
+        debug!("FILL SELECTED HUNK {:?} line_no {:?} parent_index {:?}", self.header, self.view.line_no.get(), parent_index);
+        ctx.selected_hunk = Some((self, parent_index));
     }
 }
 
@@ -764,7 +747,6 @@ impl ViewContainer for Line {
 
     // Line
     fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
-        // hm. collecting lines for highlight.
         if self.view.is_active() {
             ctx.collect_line_highlights(self.view.line_no.get());
         }
@@ -782,73 +764,88 @@ impl ViewContainer for Line {
     // Line
     // it is useless. rendering_x is sliding variable during render
     // and there is nothing to render after line
-    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>) {
+    fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, _line_no: Option<i32>) {
         ctx.current_line = Some(self);
     }
 
     // Line
-    fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
-        debug!(">>>>>>>>>>>>>>thats cursor on line!");
-        context.cursor_position = CursorPosition::CursorLine(self);
-    }
+    // fn fill_cursor_position<'a>(&'a self, context: &mut StatusRenderContext<'a>) {
+    //     debug!(">>>>>>>>>>>>>>thats cursor on line!");
+    //     context.cursor_position = CursorPosition::CursorLine(self);
+    // }
 
     // Line
-    fn fill_selected<'a>(&'a self, _ctx: &mut StatusRenderContext<'a>) {
-        // there are multiple selected lines,
-        // and storing some in context does not make sense
+    fn fill_selected<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, parent_index: usize) {
+        debug!("FILL SELECTED LINE {:?} {:?}", self.view.line_no.get(), parent_index);
+        ctx.selected_line = Some((self, parent_index));
     }
 
-    // Line
-    fn is_active_by_parent(&self, active: bool, context: &mut StatusRenderContext) -> bool {
-        // if HUNK is active (cursor on some line in it or on it)
-        // this line is active
-        // Except conflicted lines
+    /// Lines are active when cursor is on their Diff or file or hunk
+    /// or
+    /// 1. in normal case - on any line inside hunk
+    /// 2. in case of conflict - on any line of same side
+    fn get_is_active(&self, context: &mut StatusRenderContext) -> bool {
 
-        // conflicted lines become active by choosing
-        // ours/theirs
-        // they use under cursor for it.
-        if !self.view.is_rendered() {
-            return false;
-        }
-        let i_am_debug = self.view.line_no.get() == 10;        
-        if let Some(diff) = context.selected_diff {
-            if diff.kind == DiffKind::Conflicted {
-                if i_am_debug {
-                    println!("active by parent HERE!");
+        if context.current_diff.unwrap().kind == DiffKind::Conflicted {
+            // case 2.
+            if let Some((line, _)) = context.selected_line {
+                if std::ptr::eq(line, self) {
+                    return true;
                 }
-                //error!("is_active_by_parent in COONFLICT!");
-                match context.cursor_position {
-                    CursorPosition::CursorLine(line) => match (&line.kind, &self.kind) {
+                let (selected_hunk, _) = context.selected_hunk.unwrap();
+                if std::ptr::eq(selected_hunk, context.current_hunk.unwrap()) {
+                    // selected line is in the same hunk as me
+                    return match (&line.kind, &self.kind) {
                         (LineKind::Ours(_), LineKind::Ours(_)) => {
-                            return active;
+                            true
                         }
                         (LineKind::ConflictMarker(marker), LineKind::Ours(_))
                             if marker == MARKER_OURS =>
                         {
-                            return active;
+                            true
                         }
                         (LineKind::Theirs(_), LineKind::Theirs(_)) => {
-                            return active;
+                            true
                         }
                         (LineKind::ConflictMarker(marker), LineKind::Theirs(_))
                             if marker == MARKER_THEIRS =>
                         {
-                            return active;
+                            true
                         }
                         _ => {
-                            return false;
+                            false
                         }
-                    },
-                    _ => {
-                        if i_am_debug {
-                            println!("________________{:?}", context.cursor_position);
+                    };
+                }
+            }
+        } else {
+            // case 1 - normal
+            if let Some((line, _)) = context.selected_line {
+                if std::ptr::eq(line, self) {
+                    return true;
+                }
+                let (selected_hunk, _) = context.selected_hunk.unwrap();
+                if std::ptr::eq(selected_hunk, context.current_hunk.unwrap()) {
+                    return true;
+                }
+            } else {
+                if let Some((hunk, _)) = context.selected_hunk {
+                    // cursor is on hunk
+                    return std::ptr::eq(hunk, context.current_hunk.unwrap());
+                } else {
+                    if let Some((file, _)) = context.selected_file {
+                        // cursor is on file
+                        return std::ptr::eq(file, context.current_file.unwrap());
+                    } else {
+                        if let Some(diff) = context.selected_diff {
+                            // cursor is on diff
+                            return std::ptr::eq(diff, context.current_diff.unwrap());
                         }
-                        return false;
                     }
                 }
             }
         }
-        active
+        false
     }
 
     // Line

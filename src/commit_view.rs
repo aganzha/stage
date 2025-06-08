@@ -232,7 +232,7 @@ impl commit::CommitDiff {
                 .unwrap();
             buffer.place_cursor(&iter);
         }
-        self.diff.cursor(&txt.buffer(), iter.line(), true, ctx);
+        self.diff.cursor(&txt.buffer(), iter.line(), ctx);
         txt.bind_highlights(ctx);
     }
 }
@@ -370,7 +370,7 @@ pub fn show_commit_window(
                                     buffer.iter_at_line(d.diff.view.line_no.get()).unwrap();
                                 d.diff.render(buffer, &mut iter, &mut ctx);
                                 let iter = buffer.iter_at_offset(buffer.cursor_position());
-                                d.diff.cursor(buffer, iter.line(), true, &mut ctx);
+                                d.diff.cursor(buffer, iter.line(), &mut ctx);
                                 txt.bind_highlights(&ctx);
                                 cursor_position = CursorPosition::from_context(&ctx);
                             }
@@ -380,7 +380,7 @@ pub fn show_commit_window(
                         info!("Cursor!!!!!!!!!!!!!!!!!");
                         if let Some(d) = &mut diff {
                             let buffer = &txt.buffer();
-                            d.diff.cursor(buffer, line_no, false, &mut ctx);
+                            d.diff.cursor(buffer, line_no, &mut ctx);
                             cursor_position = CursorPosition::from_context(&ctx);
                             info!("GOT CURSOR POSITION {:?}", cursor_position);
                         }

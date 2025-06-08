@@ -114,13 +114,13 @@ pub fn test_file_active() {
     diff.render(&buffer, &mut iter, &mut context);
 
     let mut line_no = (&diff.files[0]).view.line_no.get();
-    diff.cursor(&buffer, line_no, false, &mut context);
+    diff.cursor(&buffer, line_no, &mut context);
 
     assert!((&diff.files[0]).view.is_current());
     assert!((&diff.files[0]).view.is_active());
 
     // put cursor on file
-    // diff.files[0].cursor(&buffer, line_no, false, &mut context);
+    // diff.files[0].cursor(&buffer, line_no, &mut context);
 
     // expand it
     diff.files[0].expand(line_no, &mut context).unwrap();
@@ -128,7 +128,7 @@ pub fn test_file_active() {
     // successive expand always followed by render
     diff.render(&buffer, &mut iter, &mut context);
     // any render always follow cursor
-    diff.cursor(&buffer, line_no, false, &mut context);
+    diff.cursor(&buffer, line_no, &mut context);
 
     // cursor is on file and file is expanded
     assert!((&diff.files[0]).view.is_current());
@@ -143,7 +143,7 @@ pub fn test_file_active() {
     }
     // goto next line
     line_no = diff.files[1].view.line_no.get();
-    diff.cursor(&buffer, line_no, false, &mut context);
+    diff.cursor(&buffer, line_no, &mut context);
 
     assert!(!(&diff.files[0]).view.is_active());
     assert!(diff.files[1].view.is_current());
@@ -153,7 +153,7 @@ pub fn test_file_active() {
     // successive expand always followed by render
     diff.render(&buffer, &mut iter, &mut context);
     // any render always follow cursor
-    diff.cursor(&buffer, line_no, false, &mut context);
+    diff.cursor(&buffer, line_no, &mut context);
 
     assert!(diff.files[1].hunks[0].view.is_rendered());
     assert!(diff.files[1].hunks[0].view.is_active());
@@ -175,7 +175,7 @@ pub fn test_expand() {
     diff.render(&buffer, &mut iter, &mut ctx);
 
     for cursor_line in 1..4 {
-        diff.cursor(&buffer, cursor_line, false, &mut ctx);
+        diff.cursor(&buffer, cursor_line, &mut ctx);
 
         for file in &diff.files {
             let view = file.get_view();
@@ -201,7 +201,7 @@ pub fn test_expand() {
     }
 
     diff.render(&buffer, &mut buffer.iter_at_offset(0), &mut ctx);
-    diff.cursor(&buffer, cursor_line, false, &mut ctx);
+    diff.cursor(&buffer, cursor_line, &mut ctx);
 
     for file in &diff.files {
         let view = file.get_view();
@@ -239,7 +239,7 @@ pub fn test_expand() {
         }
     }
     diff.render(&buffer, &mut buffer.iter_at_offset(0), &mut ctx);
-    diff.cursor(&buffer, cursor_line, false, &mut ctx);
+    diff.cursor(&buffer, cursor_line, &mut ctx);
 
     for file in &diff.files {
         let view = file.get_view();
@@ -284,7 +284,7 @@ pub fn test_expand() {
 
     // go to first hunk of second file
     cursor_line = 2;
-    diff.cursor(&buffer, cursor_line, false, &mut ctx);
+    diff.cursor(&buffer, cursor_line, &mut ctx);
     for file in &diff.files {
         if let Some(_expanded_line) = file.expand(cursor_line, &mut ctx) {
             for child in file.get_children() {
@@ -445,12 +445,12 @@ fn test_expand_line() {
     let mut ctx = StatusRenderContext::new(&stage);
     diff.render(&buffer, &mut iter, &mut ctx);
     let first_file_line = diff.files[0].view.line_no.get();
-    diff.cursor(&buffer, 1, false, &mut ctx);
+    diff.cursor(&buffer, 1, &mut ctx);
 
     // expand first file
     diff.expand(first_file_line, &mut ctx);
     diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
-    diff.cursor(&buffer, first_file_line, false, &mut ctx);
+    diff.cursor(&buffer, first_file_line, &mut ctx);
     assert!(diff.files[0].view.is_expanded());
 
     let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
@@ -484,7 +484,7 @@ fn test_expand_line() {
     // put cursor inside first hunk
     let first_hunk = &diff.files[0].hunks[0];
     let first_hunk_line = first_hunk.view.line_no.get();
-    diff.cursor(&buffer, first_hunk_line, false, &mut ctx);
+    diff.cursor(&buffer, first_hunk_line, &mut ctx);
     // expand on line inside first hunk
     diff.expand(first_hunk_line, &mut ctx);
     diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
@@ -836,7 +836,7 @@ pub fn test_cursor_position() {
     diff.expand(line_no, &mut ctx);
     let mut iter = buffer.iter_at_offset(0);
     diff.render(&buffer, &mut iter, &mut ctx);
-    diff.cursor(&buffer, diff.view.line_no.get(), false, &mut ctx);
+    diff.cursor(&buffer, diff.view.line_no.get(), &mut ctx);
 
     let position = CursorPosition::from_context(&ctx);
     assert!(position == CursorPosition::CursorDiff(diff.kind));
@@ -845,21 +845,23 @@ pub fn test_cursor_position() {
     for (fi, file) in diff.files.iter().enumerate() {
         let file_line_no = file.view.line_no.get();
         // put cursor on each file
-        diff.cursor(&buffer, file_line_no, false, &mut ctx);
+        ctx = StatusRenderContext::new(&stage);
+        diff.cursor(&buffer, file_line_no, &mut ctx);
         let position = CursorPosition::from_context(&ctx);
         assert!(position == CursorPosition::CursorFile(diff.kind, Some(fi)));
 
         for (hi, hunk) in file.hunks.iter().enumerate() {
             let hunk_line_no = hunk.view.line_no.get();
             // put cursor on each hunk
-            diff.cursor(&buffer, hunk_line_no, false, &mut ctx);
+            ctx = StatusRenderContext::new(&stage);
+            diff.cursor(&buffer, hunk_line_no, &mut ctx);
             let position = CursorPosition::from_context(&ctx);
             assert!(position == CursorPosition::CursorHunk(diff.kind, Some(fi), Some(hi)));
 
             for (li, line) in hunk.lines.iter().enumerate() {
                 let line_line_no = line.view.line_no.get();
                 // put cursor on each line
-                diff.cursor(&buffer, line_line_no, false, &mut ctx);
+                diff.cursor(&buffer, line_line_no, &mut ctx);
                 let position = CursorPosition::from_context(&ctx);
                 assert!(
                     position == CursorPosition::CursorLine(diff.kind, Some(fi), Some(hi), Some(li))

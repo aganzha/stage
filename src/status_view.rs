@@ -106,72 +106,31 @@ pub enum CursorPosition {
 
 impl CursorPosition {
     pub fn from_context(context: &StatusRenderContext) -> Self {
-        match context.cursor_position {
-            ContextCursorPosition::CursorDiff(diff) => {
-                return CursorPosition::CursorDiff(diff.kind);
-            }
-            ContextCursorPosition::CursorFile(f) => {
-                let diff = context.selected_diff.unwrap();
-                let file = context.selected_file.unwrap();
-                assert!(std::ptr::eq(file, f));
-                return CursorPosition::CursorFile(
-                    diff.kind,
-                    Some(
-                        diff.files
-                            .iter()
-                            .position(|f| std::ptr::eq(file, f))
-                            .unwrap(),
-                    ),
-                );
-            }
-            ContextCursorPosition::CursorHunk(h) => {
-                let diff = context.selected_diff.unwrap();
-                let file = context.selected_file.unwrap();
-                let hunk = context.selected_hunk.unwrap();
-                assert!(std::ptr::eq(hunk, h));
-                return CursorPosition::CursorHunk(
-                    diff.kind,
-                    Some(
-                        diff.files
-                            .iter()
-                            .position(|f| std::ptr::eq(file, f))
-                            .unwrap(),
-                    ),
-                    Some(
-                        file.hunks
-                            .iter()
-                            .position(|h| std::ptr::eq(hunk, h))
-                            .unwrap(),
-                    ),
-                );
-            }
-            ContextCursorPosition::CursorLine(line) => {
-                let diff = context.selected_diff.unwrap();
-                let file = context.selected_file.unwrap();
-                let hunk = context.selected_hunk.unwrap();
-                return CursorPosition::CursorLine(
-                    diff.kind,
-                    Some(
-                        diff.files
-                            .iter()
-                            .position(|f| std::ptr::eq(file, f))
-                            .unwrap(),
-                    ),
-                    Some(
-                        file.hunks
-                            .iter()
-                            .position(|h| std::ptr::eq(hunk, h))
-                            .unwrap(),
-                    ),
-                    Some(
-                        hunk.lines
-                            .iter()
-                            .position(|l| std::ptr::eq(line, l))
-                            .unwrap(),
-                    ),
-                );
-            }
-            _ => {}
+        if let Some((_, index)) = context.selected_line {
+            return CursorPosition::CursorLine(
+                context.selected_diff.unwrap().kind,
+                context.selected_file.map(|(_, i)| i),
+                context.selected_hunk.map(|(_, i)| i),
+                Some(index),
+            );
+        }
+        if let Some((_, index)) = context.selected_hunk {
+            return CursorPosition::CursorHunk(
+                context.selected_diff.unwrap().kind,
+                context.selected_file.map(|(_, i)| i),
+                Some(index),
+            );
+        }
+        if let Some((_, index)) = context.selected_file {
+            return CursorPosition::CursorFile(
+                context.selected_diff.unwrap().kind,
+                Some(index),
+            );
+        }
+        if let Some(diff) = context.selected_diff {
+            return CursorPosition::CursorDiff(
+                diff.kind,
+            );
         }
         CursorPosition::None
     }
@@ -762,25 +721,25 @@ impl Status {
     ) {
         let buffer = txt.buffer();
         if let Some(head) = &self.head {
-            head.cursor(&buffer, line_no, false, context);
+            head.cursor(&buffer, line_no, context);
         }
         if let Some(upstream) = &self.upstream {
-            upstream.cursor(&buffer, line_no, false, context);
+            upstream.cursor(&buffer, line_no, context);
         }
         if let Some(state) = &self.state {
-            state.cursor(&buffer, line_no, false, context);
+            state.cursor(&buffer, line_no, context);
         }
         if let Some(untracked) = &self.untracked {
-            untracked.cursor(&buffer, line_no, false, context);
+            untracked.cursor(&buffer, line_no, context);
         }
         if let Some(conflicted) = &self.conflicted {
-            conflicted.cursor(&buffer, line_no, false, context);
+            conflicted.cursor(&buffer, line_no, context);
         }
         if let Some(unstaged) = &self.unstaged {
-            unstaged.cursor(&buffer, line_no, false, context);
+            unstaged.cursor(&buffer, line_no, context);
         }
         if let Some(staged) = &self.staged {
-            staged.cursor(&buffer, line_no, false, context);
+            staged.cursor(&buffer, line_no, context);
         }
 
         // this is called once in status_view and 3 times in commit view!!!

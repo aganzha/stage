@@ -60,6 +60,7 @@ mod stage_view_internal {
     #[derive(Default)]
     pub struct StageView {
         pub show_cursor: Cell<bool>,
+        // is it still used?
         pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
@@ -215,10 +216,13 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-        match context.cursor_position {
-            CursorPosition::CursorDiff(_) => self.imp().double_height_line.replace(true),
-            _ => self.imp().double_height_line.replace(false),
-        };
+
+        // is it still used?
+        if context.cursor_is_on_diff() {
+            self.imp().double_height_line.replace(true);
+        } else {
+            self.imp().double_height_line.replace(false);
+        }
 
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
