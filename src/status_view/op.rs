@@ -661,7 +661,7 @@ impl Status {
                     let use_file = file_chooser.is_active();
                     let use_hunk = hunk_chooser.is_active();
                     move || {
-                        if use_file | use_hunk {
+                        if use_hunk {
                             return commit::partial_apply(
                                 path,
                                 oid,
@@ -671,6 +671,16 @@ impl Status {
                                 sender,
                             );
                         }
+                       if use_file {
+                            return commit::partial_apply(
+                                path,
+                                oid,
+                                revert,
+                                ofile_path.clone().unwrap(),
+                                None,
+                                sender,
+                            );
+                       }
                         match op {
                             ApplyOp::Stash(_, num, _, _) => stash::apply(path, num, None, sender),
                             _ => commit::apply(path, oid, revert, None, no_commit, sender),
