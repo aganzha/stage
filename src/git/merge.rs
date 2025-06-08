@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::git::{
-    branch::BranchName, conflict, get_current_repo_status, make_diff, make_diff_options,
-    stage_via_apply, BranchData, DeferRefresh, DiffKind, Hunk, Line, State,
+    branch::BranchName, conflict, get_current_repo_status, get_staged, make_diff,
+    make_diff_options, stage_via_apply, BranchData, DeferRefresh, DiffKind, Hunk, Line, State,
 };
 use crate::StageOp;
 use anyhow::Result;
@@ -334,7 +334,6 @@ pub fn try_finalize_conflict(
     file_path: Option<PathBuf>,
 ) -> Result<()> {
     let repo = git2::Repository::open(path.clone())?;
-    //let mut index = repo.index()?;
 
     // 1 - all conflicts in all files are resolved - update all
     //   - remove all from conflict@index
@@ -342,11 +341,9 @@ pub fn try_finalize_conflict(
     //     - remove this file from conflict@index
     // 3 - conflicts are remaining in all files - just update conflicted
     //     - do not touch conflict@index
-    let mut update_status = true;
     let mut to_stage = Vec::new();
     let mut to_unstage = Vec::new();
     let mut index = repo.index()?;
-
     let similar_diff = conflict::get_diff(&repo, &mut to_stage, &mut to_unstage)?;
     let conflicted = similar_diff.map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted));
 
@@ -356,34 +353,40 @@ pub fn try_finalize_conflict(
             Some(State::new(repo.state(), "".to_string())),
         ))
         .expect("Could not send through channel");
-
-    for file_path in to_stage {
-        update_status = true;
+    for file_path in &to_stage {
         index.remove_path(Path::new(&file_path))?;
         index.add_path(Path::new(&file_path))?;
         index.write()?;
     }
     for file_path in &to_unstage {
-        update_status = true;
         index.remove_path(Path::new(&file_path))?;
         index.add_path(Path::new(&file_path))?;
         index.write()?;
     }
-    for file_path in to_unstage {
+    for file_path in &to_unstage {
         stage_via_apply(
             path.clone(),
-            Some(file_path),
+            Some(file_path.clone()),
             None,
             StageOp::Unstage,
             sender.clone(),
         )?;
     }
-    if update_status && file_path.is_some() {
+    // when file_path is None - it is calling from status itself!
+    // avoid infinite loop
+    if file_path.is_some() {
         gio::spawn_blocking({
             move || {
                 get_current_repo_status(Some(path), sender).expect("cant get status");
             }
         });
+    } else {
+        if !to_stage.is_empty() {
+            gio::spawn_blocking(move || get_staged(path, sender));
+        }
+        if !to_unstage.is_empty() {
+            // dies not needed. stage via apply will do all work
+        }
     }
     Ok(())
 }

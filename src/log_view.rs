@@ -653,12 +653,11 @@ pub fn headerbar_factory(
         let commit_list = commit_list.clone();
         move |_| {
             sender
-                .send_blocking(crate::Event::CherryPick(
+                .send_blocking(crate::Event::Apply(crate::ApplyOp::CherryPick(
                     commit_list.get_selected_oid(),
-                    false,
                     None,
                     None,
-                ))
+                )))
                 .expect("cant send through channel");
         }
     });
@@ -675,12 +674,11 @@ pub fn headerbar_factory(
         let commit_list = commit_list.clone();
         move |_btn| {
             sender
-                .send_blocking(crate::Event::CherryPick(
+                .send_blocking(crate::Event::Apply(crate::ApplyOp::CherryPick(
                     commit_list.get_selected_oid(),
-                    true,
                     None,
                     None,
-                ))
+                )))
                 .expect("cant send through channel");
         }
     });
@@ -791,22 +789,20 @@ pub fn show_log_window(
                 }
                 (gdk::Key::a, _) => {
                     main_sender
-                        .send_blocking(crate::Event::CherryPick(
+                        .send_blocking(crate::Event::Apply(crate::ApplyOp::CherryPick(
                             get_commit_list(&list_view).get_selected_oid(),
-                            false,
                             None,
                             None,
-                        ))
+                        )))
                         .expect("cant send through channel");
                 }
                 (gdk::Key::r, _) => {
                     main_sender
-                        .send_blocking(crate::Event::CherryPick(
+                        .send_blocking(crate::Event::Apply(crate::ApplyOp::CherryPick(
                             get_commit_list(&list_view).get_selected_oid(),
-                            true,
                             None,
                             None,
-                        ))
+                        )))
                         .expect("cant send through channel");
                 }
                 (key, modifier) => {

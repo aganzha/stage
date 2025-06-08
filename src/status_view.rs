@@ -6,17 +6,16 @@ pub mod commit;
 pub mod context;
 pub mod headerbar;
 pub mod monitor;
+pub mod op;
 pub mod remotes;
 pub mod render;
-pub mod stage_op;
 pub mod stage_view;
 pub mod tags;
 
-use crate::dialogs::{alert, ConfirmWithOptions, DangerDialog, YES};
+use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{
     abort_rebase,
     branch::BranchData,
-    commit as git_commit,
     continue_rebase,
     merge,
     remote,
@@ -25,8 +24,8 @@ use crate::git::{
 };
 
 use git2::RepositoryState;
+use op::{LastOp, StageDiffs};
 use render::ViewContainer; // MayBeViewContainer o
-use stage_op::{LastOp, StageDiffs};
 use stage_view::{cursor_to_line_offset, StageView};
 
 pub mod reconciliation;
@@ -47,14 +46,11 @@ use async_channel::Sender;
 
 use gio::FileMonitor;
 
-use crate::status_view::context::CursorPosition as ContextCursorPosition;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
-use gtk4::{
-    gio, glib, Align, Button, FileDialog, ListBox, SelectionMode, Widget, Window as GTKWindow,
-};
+use gtk4::{gio, glib, Align, Button, FileDialog, Widget, Window as GTKWindow};
 use libadwaita::prelude::*;
-use libadwaita::{ApplicationWindow, Banner, ButtonContent, StatusPage, StyleManager, SwitchRow};
+use libadwaita::{ApplicationWindow, Banner, ButtonContent, StatusPage, StyleManager};
 use log::{debug, trace};
 
 impl State {
@@ -109,72 +105,26 @@ pub enum CursorPosition {
 
 impl CursorPosition {
     pub fn from_context(context: &StatusRenderContext) -> Self {
-        match context.cursor_position {
-            ContextCursorPosition::CursorDiff(diff) => {
-                return CursorPosition::CursorDiff(diff.kind);
-            }
-            ContextCursorPosition::CursorFile(f) => {
-                let diff = context.selected_diff.unwrap();
-                let file = context.selected_file.unwrap();
-                assert!(std::ptr::eq(file, f));
-                return CursorPosition::CursorFile(
-                    diff.kind,
-                    Some(
-                        diff.files
-                            .iter()
-                            .position(|f| std::ptr::eq(file, f))
-                            .unwrap(),
-                    ),
-                );
-            }
-            ContextCursorPosition::CursorHunk(h) => {
-                let diff = context.selected_diff.unwrap();
-                let file = context.selected_file.unwrap();
-                let hunk = context.selected_hunk.unwrap();
-                assert!(std::ptr::eq(hunk, h));
-                return CursorPosition::CursorHunk(
-                    diff.kind,
-                    Some(
-                        diff.files
-                            .iter()
-                            .position(|f| std::ptr::eq(file, f))
-                            .unwrap(),
-                    ),
-                    Some(
-                        file.hunks
-                            .iter()
-                            .position(|h| std::ptr::eq(hunk, h))
-                            .unwrap(),
-                    ),
-                );
-            }
-            ContextCursorPosition::CursorLine(line) => {
-                let diff = context.selected_diff.unwrap();
-                let file = context.selected_file.unwrap();
-                let hunk = context.selected_hunk.unwrap();
-                return CursorPosition::CursorLine(
-                    diff.kind,
-                    Some(
-                        diff.files
-                            .iter()
-                            .position(|f| std::ptr::eq(file, f))
-                            .unwrap(),
-                    ),
-                    Some(
-                        file.hunks
-                            .iter()
-                            .position(|h| std::ptr::eq(hunk, h))
-                            .unwrap(),
-                    ),
-                    Some(
-                        hunk.lines
-                            .iter()
-                            .position(|l| std::ptr::eq(line, l))
-                            .unwrap(),
-                    ),
-                );
-            }
-            _ => {}
+        if let Some((_, index)) = context.selected_line {
+            return CursorPosition::CursorLine(
+                context.selected_diff.unwrap().kind,
+                context.selected_file.map(|(_, i)| i),
+                context.selected_hunk.map(|(_, i)| i),
+                Some(index),
+            );
+        }
+        if let Some((_, index)) = context.selected_hunk {
+            return CursorPosition::CursorHunk(
+                context.selected_diff.unwrap().kind,
+                context.selected_file.map(|(_, i)| i),
+                Some(index),
+            );
+        }
+        if let Some((_, index)) = context.selected_file {
+            return CursorPosition::CursorFile(context.selected_diff.unwrap().kind, Some(index));
+        }
+        if let Some(diff) = context.selected_diff {
+            return CursorPosition::CursorDiff(diff.kind);
         }
         CursorPosition::None
     }
@@ -765,25 +715,25 @@ impl Status {
     ) {
         let buffer = txt.buffer();
         if let Some(head) = &self.head {
-            head.cursor(&buffer, line_no, false, context);
+            head.cursor(&buffer, line_no, context);
         }
         if let Some(upstream) = &self.upstream {
-            upstream.cursor(&buffer, line_no, false, context);
+            upstream.cursor(&buffer, line_no, context);
         }
         if let Some(state) = &self.state {
-            state.cursor(&buffer, line_no, false, context);
+            state.cursor(&buffer, line_no, context);
         }
         if let Some(untracked) = &self.untracked {
-            untracked.cursor(&buffer, line_no, false, context);
+            untracked.cursor(&buffer, line_no, context);
         }
         if let Some(conflicted) = &self.conflicted {
-            conflicted.cursor(&buffer, line_no, false, context);
+            conflicted.cursor(&buffer, line_no, context);
         }
         if let Some(unstaged) = &self.unstaged {
-            unstaged.cursor(&buffer, line_no, false, context);
+            unstaged.cursor(&buffer, line_no, context);
         }
         if let Some(staged) = &self.staged {
-            staged.cursor(&buffer, line_no, false, context);
+            staged.cursor(&buffer, line_no, context);
         }
 
         // this is called once in status_view and 3 times in commit view!!!
@@ -972,71 +922,7 @@ impl Status {
         let pos = buffer.cursor_position();
         let iter = buffer.iter_at_offset(pos);
         for tag in iter.tags() {
-            println!("Tag: {}", tag.name().unwrap());
+            debug!("Tag: {}", tag.name().unwrap());
         }
-    }
-
-    //3
-    pub fn cherry_pick(
-        &self,
-        window: &impl IsA<Widget>,
-        oid: git2::Oid,
-        revert: bool,
-        file_path: Option<PathBuf>,
-        hunk_header: Option<String>,
-    ) {
-        glib::spawn_future_local({
-            let sender = self.sender.clone();
-            let path = self.path.clone().unwrap();
-            let window = window.clone();
-            async move {
-                let list_box = ListBox::builder()
-                    .selection_mode(SelectionMode::None)
-                    .css_classes(vec![String::from("boxed-list")])
-                    .build();
-                let no_commit = SwitchRow::builder()
-                    .title("Only apply changes without commit")
-                    .css_classes(vec!["input_field"])
-                    .active(false)
-                    .build();
-
-                list_box.append(&no_commit);
-
-                let response = alert(ConfirmWithOptions(
-                    format!("{} commit?", if revert { "Revert" } else { "Cherry pick" }),
-                    format!("{}", oid),
-                    list_box.into(),
-                ))
-                .choose_future(&window)
-                .await;
-                if response != YES {
-                    return;
-                }
-                gio::spawn_blocking({
-                    let sender = sender.clone();
-                    let path = path.clone();
-                    let is_active = no_commit.is_active();
-                    move || {
-                        git_commit::apply(
-                            path,
-                            oid,
-                            revert,
-                            file_path,
-                            hunk_header,
-                            is_active,
-                            sender,
-                        )
-                    }
-                })
-                .await
-                .unwrap_or_else(|e| {
-                    alert(format!("{:?}", e)).present(Some(&window));
-                    Ok(())
-                })
-                .unwrap_or_else(|e| {
-                    alert(e).present(Some(&window));
-                });
-            }
-        });
     }
 }

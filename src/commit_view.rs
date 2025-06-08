@@ -2,20 +2,20 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::dialogs::{alert, ConfirmDialog, YES};
-use crate::git::{commit, stash};
+use crate::dialogs::alert;
+use crate::git::commit;
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
-use crate::{CurrentWindow, Event};
+use crate::{ApplyOp, CurrentWindow, Event, StageOp};
 use async_channel::Sender;
 use git2::Oid;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, TextBuffer, TextIter, Widget,
+    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, TextBuffer, TextIter,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -23,32 +23,7 @@ use log::{debug, info, trace};
 
 use std::path::PathBuf;
 
-async fn git_oid_op<F>(dialog: ConfirmDialog, window: impl IsA<Widget>, op: F)
-where
-    F: FnOnce() -> Result<(), git2::Error> + Send + 'static,
-{
-    let response = alert(dialog).choose_future(&window).await;
-    if response != YES {
-        return;
-    }
-    gio::spawn_blocking(op)
-        .await
-        .unwrap_or_else(|e| {
-            alert(format!("{:?}", e)).present(Some(&window));
-            Ok(())
-        })
-        .unwrap_or_else(|e| {
-            alert(e).present(Some(&window));
-        });
-}
-
-pub fn headerbar_factory(
-    repo_path: PathBuf,
-    window: &impl IsA<Widget>,
-    sender: Sender<Event>,
-    oid: Oid,
-    stash_num: Option<usize>,
-) -> HeaderBar {
+pub fn headerbar_factory(sender: Sender<Event>, oid: Oid, stash_num: Option<usize>) -> HeaderBar {
     let hb = HeaderBar::builder().build();
     let (btn_tooltip, title) = if stash_num.is_some() {
         ("Apply stash", "Stash")
@@ -70,25 +45,16 @@ pub fn headerbar_factory(
 
     cherry_pick_btn.connect_clicked({
         let sender = sender.clone();
-        let path = repo_path.clone();
-        let window = window.clone();
         move |_| {
             let sender = sender.clone();
-            let path = path.clone();
-            let window = window.clone();
-            if let Some(num) = stash_num {
-                glib::spawn_future_local({
-                    git_oid_op(
-                        ConfirmDialog("Apply stash?".to_string(), format!("{}", num)),
-                        window,
-                        move || stash::apply(path, num, None, None, sender),
-                    )
-                });
+            let apply_op = if let Some(stash_num) = stash_num {
+                ApplyOp::Stash(oid, stash_num, None, None)
             } else {
-                sender
-                    .send_blocking(crate::Event::CherryPick(oid, false, None, None))
-                    .expect("cant send through channel");
-            }
+                ApplyOp::CherryPick(oid, None, None)
+            };
+            sender
+                .send_blocking(crate::Event::Apply(apply_op))
+                .expect("cant send through channel");
         }
     });
     hb.pack_end(&cherry_pick_btn);
@@ -104,7 +70,7 @@ pub fn headerbar_factory(
         revert_btn.connect_clicked({
             move |_| {
                 sender
-                    .send_blocking(crate::Event::CherryPick(oid, true, None, None))
+                    .send_blocking(crate::Event::Apply(ApplyOp::Revert(oid, None, None)))
                     .expect("cant send through channel");
             }
         });
@@ -241,7 +207,7 @@ impl commit::CommitDiff {
                 .unwrap();
             buffer.place_cursor(&iter);
         }
-        self.diff.cursor(&txt.buffer(), iter.line(), true, ctx);
+        self.diff.cursor(&txt.buffer(), iter.line(), ctx);
         txt.bind_highlights(ctx);
     }
 }
@@ -273,13 +239,7 @@ pub fn show_commit_window(
     let window = builder.build();
     let scroll = ScrolledWindow::new();
 
-    let hb = headerbar_factory(
-        repo_path.clone(),
-        &window.clone(),
-        main_sender.clone(),
-        oid,
-        stash_num,
-    );
+    let hb = headerbar_factory(main_sender.clone(), oid, stash_num);
 
     let txt = crate::stage_factory(sender.clone(), "commit_view");
 
@@ -340,7 +300,6 @@ pub fn show_commit_window(
     ];
 
     glib::spawn_future_local({
-        let window = window.clone();
         async move {
             while let Ok(event) = receiver.recv().await {
                 let mut ctx = crate::StatusRenderContext::new(&txt);
@@ -366,6 +325,7 @@ pub fn show_commit_window(
                             &mut labels,
                             body_label.as_mut().unwrap(),
                         );
+                        cursor_position = CursorPosition::from_context(&ctx);
                         // it should be called after cursor in ViewContainer
                         diff.replace(commit_diff);
                     }
@@ -378,16 +338,19 @@ pub fn show_commit_window(
                                     buffer.iter_at_line(d.diff.view.line_no.get()).unwrap();
                                 d.diff.render(buffer, &mut iter, &mut ctx);
                                 let iter = buffer.iter_at_offset(buffer.cursor_position());
-                                d.diff.cursor(buffer, iter.line(), true, &mut ctx);
+                                d.diff.cursor(buffer, iter.line(), &mut ctx);
                                 txt.bind_highlights(&ctx);
+                                cursor_position = CursorPosition::from_context(&ctx);
                             }
                         }
                     }
                     Event::Cursor(_offset, line_no) => {
+                        info!("Cursor!!!!!!!!!!!!!!!!!");
                         if let Some(d) = &mut diff {
                             let buffer = &txt.buffer();
-                            d.diff.cursor(buffer, line_no, false, &mut ctx);
+                            d.diff.cursor(buffer, line_no, &mut ctx);
                             cursor_position = CursorPosition::from_context(&ctx);
+                            info!("GOT CURSOR POSITION {:?}", cursor_position);
                         }
                         // it should be called after cursor in ViewContainer !!!!!!!!
                         txt.bind_highlights(&ctx);
@@ -405,31 +368,21 @@ pub fn show_commit_window(
                         let buffer = txt.buffer();
                         let pos = buffer.cursor_position();
                         let iter = buffer.iter_at_offset(pos);
-                        debug!("==========================");
                         for tag in iter.tags() {
-                            println!("Tag: {}", tag.name().unwrap());
+                            debug!("Tag: {}", tag.name().unwrap());
                         }
                     }
-                    Event::Stage(_) | Event::RepoPopup => {
-                        info!("Stage/Unstage or r pressed");
+                    Event::Stage(op) if op != StageOp::Kill => {
+                        info!(
+                            "Stage/Unstage or r pressed {:?} cursor position {:?}",
+                            op, cursor_position
+                        );
                         if let Some(diff) = &diff {
-                            let title = if stash_num.is_some() {
-                                "Apply stash"
-                            } else {
-                                match event {
-                                    Event::Stage(_) => "Cherry pick",
-                                    _ => "Revert",
-                                }
-                            };
-                            let (body, file_path, hunk_header) = match cursor_position {
-                                CursorPosition::CursorDiff(_) => (oid.to_string(), None, None),
+                            let (file_path, hunk_header) = match cursor_position {
+                                CursorPosition::CursorDiff(_) => (None, None),
                                 CursorPosition::CursorFile(_, Some(file_idx)) => {
                                     let file = &diff.diff.files[file_idx];
-                                    (
-                                        format!("File: {}", file.path.to_str().unwrap()),
-                                        Some(file.path.clone()),
-                                        None,
-                                    )
+                                    (Some(file.path.clone()), None)
                                 }
                                 CursorPosition::CursorHunk(_, Some(file_idx), Some(hunk_idx))
                                 | CursorPosition::CursorLine(
@@ -440,72 +393,28 @@ pub fn show_commit_window(
                                 ) => {
                                     let file = &diff.diff.files[file_idx];
                                     let hunk = &file.hunks[hunk_idx];
-                                    (
-                                            format!(
-                                                "File: {}\nApplying single hunks is not yet implemented :(",
-                                                file.path.to_str().unwrap()
-                                            ),
-                                            Some(file.path.clone()),
-                                            Some(hunk.header.clone()),
-                                        )
+                                    (Some(file.path.clone()), Some(hunk.header.clone()))
                                 }
-                                _ => ("".to_string(), None, None),
+                                _ => (None, None),
                             };
-                            let mut cherry_pick_handled = false;
-                            match event {
-                                Event::Stage(_) => {
-                                    if stash_num.is_none() {
-                                        cherry_pick_handled = true;
-                                        main_sender
-                                            .send_blocking(crate::Event::CherryPick(
-                                                oid,
-                                                false,
-                                                file_path.clone(),
-                                                hunk_header.clone(),
-                                            ))
-                                            .expect("cant send through channel");
+                            let apply_op = if let Some(stash_num) = stash_num {
+                                ApplyOp::Stash(oid, stash_num, file_path, hunk_header)
+                            } else {
+                                match op {
+                                    StageOp::Stage => {
+                                        ApplyOp::CherryPick(oid, file_path, hunk_header)
+                                    }
+                                    StageOp::Unstage => {
+                                        ApplyOp::Revert(oid, file_path, hunk_header)
+                                    }
+                                    _ => {
+                                        unreachable!("no way")
                                     }
                                 }
-                                _ => {
-                                    cherry_pick_handled = true;
-                                    main_sender
-                                        .send_blocking(crate::Event::CherryPick(
-                                            oid,
-                                            true,
-                                            file_path.clone(),
-                                            hunk_header.clone(),
-                                        ))
-                                        .expect("cant send through channel");
-                                }
-                            }
-                            // temporary untill revert is not going via main event loop
-                            if !cherry_pick_handled {
-                                let path = repo_path.clone();
-                                let sender = main_sender.clone();
-                                let window = window.clone();
-                                glib::spawn_future_local({
-                                    git_oid_op(
-                                        ConfirmDialog(title.to_string(), body.to_string()),
-                                        window,
-                                        move || match event {
-                                            Event::Stage(_) => {
-                                                if let Some(stash_num) = stash_num {
-                                                    stash::apply(
-                                                        path,
-                                                        stash_num,
-                                                        file_path,
-                                                        hunk_header,
-                                                        sender,
-                                                    )
-                                                } else {
-                                                    Ok(())
-                                                }
-                                            }
-                                            _ => Ok(()),
-                                        },
-                                    )
-                                });
-                            }
+                            };
+                            main_sender
+                                .send_blocking(crate::Event::Apply(apply_op))
+                                .expect("cant send through channel");
                         }
                     }
                     _ => {

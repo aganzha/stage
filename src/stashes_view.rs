@@ -157,7 +157,7 @@ impl OidRow {
                     gio::spawn_blocking({
                         let stash = row.imp().stash.borrow().clone();
                         let sender = sender.clone();
-                        move || stash::apply(path, stash.num, None, None, sender)
+                        move || stash::apply(path, stash.num, None, sender)
                     })
                     .await
                     .unwrap_or_else(|e| {

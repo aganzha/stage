@@ -6,26 +6,6 @@ use crate::status_view::StageView;
 use crate::{Diff, File, Hunk, Line};
 
 #[derive(Debug, Clone)]
-pub enum CursorPosition<'a> {
-    CursorDiff(&'a Diff),
-    CursorFile(&'a File),
-    CursorHunk(&'a Hunk),
-    CursorLine(&'a Line),
-    None,
-}
-impl CursorPosition<'_> {
-    pub fn kind(&self) -> &str {
-        match self {
-            Self::CursorDiff(_) => "cursor pos -> Diff",
-            Self::CursorFile(_) => "cursor pos -> File",
-            Self::CursorHunk(_) => "cursor pos -> Hunk",
-            Self::CursorLine(_) => "cursor pos -> Line",
-            Self::None => "cursor pos -> None",
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
     pub stage: &'a StageView,
 
@@ -36,12 +16,13 @@ pub struct StatusRenderContext<'a> {
     pub highlight_hunks: Vec<i32>,
 
     /// introduce
-    pub cursor_position: CursorPosition<'a>,
+    // pub cursor_position: CursorPosition<'a>,
 
     // rename to current as view: active-current etc!
     pub selected_diff: Option<&'a Diff>,
-    pub selected_file: Option<&'a File>,
-    pub selected_hunk: Option<&'a Hunk>,
+    pub selected_file: Option<(&'a File, usize)>,
+    pub selected_hunk: Option<(&'a Hunk, usize)>,
+    pub selected_line: Option<(&'a Line, usize)>,
 
     // this is sliding values during render/cursor.
     // at the end of render they will
@@ -65,10 +46,11 @@ impl<'a> StatusRenderContext<'a> {
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
 
-                cursor_position: CursorPosition::None,
+                //cursor_position: CursorPosition::None,
                 selected_diff: None,
                 selected_file: None,
                 selected_hunk: None,
+                selected_line: None,
 
                 current_diff: None,
                 current_file: None,
@@ -102,5 +84,14 @@ impl<'a> StatusRenderContext<'a> {
                 todo!("whats the case? {:?} {:?}", self.highlight_lines, line_no)
             }
         }
+    }
+    pub fn cursor_is_on_diff(&self) -> bool {
+        self.selected_diff.is_some() && self.selected_file.is_none()
+    }
+    pub fn has_selected(&self) -> bool {
+        self.selected_diff.is_some()
+            || self.selected_file.is_some()
+            || self.selected_hunk.is_some()
+            || self.selected_line.is_none()
     }
 }

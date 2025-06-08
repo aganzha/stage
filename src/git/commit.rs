@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::git::{get_head, make_diff, make_diff_options, DeferRefresh, Diff, DiffKind};
+use crate::git::{get_head, make_diff, make_diff_options, DeferRefresh, Diff, DiffKind, Hunk};
 use anyhow::Result;
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
@@ -244,7 +244,6 @@ pub fn apply(
     oid: git2::Oid,
     revert: bool,
     file_path: Option<PathBuf>,
-    _hunk_header: Option<String>,
     nocommit: bool,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
@@ -303,4 +302,63 @@ pub fn from_short_sha(path: PathBuf, short_sha: String) -> Result<git2::Oid> {
     let repo = git2::Repository::open(path.clone())?;
     let object = repo.revparse_single(&short_sha)?;
     Ok(object.id())
+}
+
+pub fn partial_apply(
+    path: PathBuf,
+    oid: git2::Oid,
+    revert: bool,
+    file_path: PathBuf,
+    hunk_header: Option<String>,
+    sender: Sender<crate::Event>,
+) -> Result<(), git2::Error> {
+    let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+
+    let repo = git2::Repository::open(path.clone())?;
+
+    sender
+        .send_blocking(crate::Event::LockMonitors(true))
+        .expect("Could not send through channel");
+
+    let commit = repo.find_commit(oid)?;
+    let tree = commit.tree()?;
+    let mut parent_tree: Option<git2::Tree> = None;
+    if let Ok(parent) = commit.parent(0) {
+        let tree = parent.tree()?;
+        parent_tree.replace(tree);
+    }
+    let mut diff_opts = make_diff_options();
+    let git_diff = repo.diff_tree_to_tree(
+        parent_tree.as_ref(),
+        Some(&tree),
+        Some(if revert {
+            diff_opts.reverse(true)
+        } else {
+            &mut diff_opts
+        }),
+    )?;
+    let mut options = git2::ApplyOptions::new();
+
+    options.hunk_callback(|odh| -> bool {
+        if let Some(hunk_header) = &hunk_header {
+            if let Some(dh) = odh {
+                let mut header = Hunk::get_header_from(&dh);
+                if revert {
+                    header = Hunk::reverse_header(&header);
+                }
+                return *hunk_header == header;
+            }
+        }
+        true
+    });
+
+    options.delta_callback(|odd| -> bool {
+        if let Some(dd) = odd {
+            let path: PathBuf = dd.new_file().path().unwrap().into();
+            return file_path == path;
+        }
+        true
+    });
+    repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))?;
+    Ok(())
 }

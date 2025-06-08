@@ -78,15 +78,15 @@ pub fn apply(
     path: PathBuf,
     num: usize,
     file_path: Option<PathBuf>,
-    _hunk_header: Option<String>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
+
     let mut repo = git2::Repository::open(path.clone())?;
-    // let opts = StashApplyOptions::new();
     sender
         .send_blocking(crate::Event::LockMonitors(true))
-        .expect("can send through channel");
+        .expect("Could not send through channel");
+
     let mut stash_options = git2::StashApplyOptions::new();
     if let Some(file_path) = file_path {
         let mut cb = git2::build::CheckoutBuilder::new();

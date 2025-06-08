@@ -123,7 +123,6 @@ pub fn get_diff<'a>(
     info!(".........git.conflict.get_diff");
     let index = repo.index()?;
     let conflicts = index.conflicts()?;
-
     let mut has_conflicts = false;
     let mut conflict_paths = Vec::new();
     for conflict in conflicts {
@@ -138,51 +137,58 @@ pub fn get_diff<'a>(
             // why we want to stage those files????
             // what does no theirs mean? why it is conflicted then?
             // paths_to_stage.push(path);
-            let their = conflict.their.context("no theirs")?.path;
-            let pth = String::from_utf8(their)?;
-            debug!("NO OUR IN CONFLICT {:?}", pth);
-            conflict_paths.push(pth);
-            has_conflicts = true;
+            // let their = conflict.their.context("no theirs")?.path;
+            // let pth = String::from_utf8(their)?;
+            // debug!("NO OUR IN CONFLICT {:?}", pth);
+            // conflict_paths.push(pth);
+            // has_conflicts = true;
+            // see branch handle_file_rename
         }
     }
-
     if !has_conflicts {
         return Ok(None);
     }
 
     let ob = repo.revparse_single("HEAD^{tree}")?;
     let current_tree = repo.find_tree(ob.id())?;
-
     let mut bytes: Vec<u8> = Vec::new();
     for str_path in conflict_paths {
         let path = path::Path::new(&str_path);
         let abs_file_path = repo.path().parent().context("no parent dir")?.join(path);
-        let entry = current_tree.get_path(path::Path::new(&path))?;
-        let ob = entry.to_object(repo)?;
-        let blob = ob.as_blob().context("cant get blob")?;
-        let tree_content = String::from_utf8_lossy(blob.content());
-        let file_bytes = fs::read(abs_file_path)?;
-        let workdir_content = String::from_utf8_lossy(&file_bytes);
-        let text_diff = similar::TextDiff::from_lines(&tree_content, &workdir_content);
-        let mut current_bytes: Vec<u8> = Vec::new();
+        // let entry = current_tree.get_path(path::Path::new(&path))?;
+        // path could not be in tree!
+        if let Ok(entry) = current_tree.get_path(path::Path::new(&path)) {
+            let ob = entry.to_object(repo)?;
+            let blob = ob.as_blob().context("cant get blob")?;
+            let tree_content = String::from_utf8_lossy(blob.content());
+            let file_bytes = fs::read(abs_file_path)?;
+            let workdir_content = String::from_utf8_lossy(&file_bytes);
+            let text_diff = similar::TextDiff::from_lines(&tree_content, &workdir_content);
+            let mut current_bytes: Vec<u8> = Vec::new();
 
-        match write_conflict_diff(&mut current_bytes, &str_path, text_diff) {
-            Ok(write_result) => {
-                if write_result {
-                    bytes.extend(current_bytes);
-                } else {
-                    // not sure why paths_to_unstage was here.
-                    // if nothing were written for file and
-                    // no errors - means file is cleaned from conflicts.
-                    // lets just stage it.
-                    // paths_to_unstage.push(path.into());
-                    paths_to_stage.push(path.into());
+            match write_conflict_diff(&mut current_bytes, &str_path, text_diff) {
+                Ok(write_result) => {
+                    if write_result {
+                        bytes.extend(current_bytes);
+                    } else {
+                        // not sure why paths_to_unstage was here.
+                        // if nothing were written for file and
+                        // no errors - means file is cleaned from conflicts.
+                        // lets just stage it.
+                        // paths_to_unstage.push(path.into());
+                        paths_to_stage.push(path.into());
+                    }
+                }
+                Err(error) => {
+                    debug!("error while produce similar diff {:?}", error);
+                    paths_to_unstage.push(path.into());
                 }
             }
-            Err(error) => {
-                debug!("error while produce similar diff {:?}", error);
-                paths_to_unstage.push(path.into());
-            }
+        } else {
+            // if file is not in tree - it was deleted.
+            // must be added to staged then
+            // if add it to unstaged, it will just disapear from everywhere
+            paths_to_stage.push(path.into());
         }
     }
     if bytes.is_empty() {

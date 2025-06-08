@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::status_view::context::{CursorPosition, StatusRenderContext};
+use crate::status_view::context::StatusRenderContext;
 use crate::status_view::tags;
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
@@ -60,6 +60,7 @@ mod stage_view_internal {
     #[derive(Default)]
     pub struct StageView {
         pub show_cursor: Cell<bool>,
+        // is it still used?
         pub double_height_line: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
@@ -215,10 +216,12 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-        match context.cursor_position {
-            CursorPosition::CursorDiff(_) => self.imp().double_height_line.replace(true),
-            _ => self.imp().double_height_line.replace(false),
-        };
+        // is it still used?
+        if context.cursor_is_on_diff() {
+            self.imp().double_height_line.replace(true);
+        } else {
+            self.imp().double_height_line.replace(false);
+        }
 
         if let Some(lines) = context.highlight_lines {
             self.imp().active_lines.replace(lines);
@@ -505,18 +508,20 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     return glib::Propagation::Stop;
                 }
                 (gdk::Key::s | gdk::Key::a | gdk::Key::Return, _) => {
-                    let pos = buffer.cursor_position();
-                    let iter = buffer.iter_at_offset(pos);
-                    if let Some((start_iter, end_iter)) = iters_for(&oid, &iter) {
-                        let oid_text = buffer.text(&start_iter, &end_iter, true);
-                        sndr.send_blocking(crate::Event::ShowTextOid(oid_text.to_string()))
-                            .expect("Cant send through channel");
-                        return glib::Propagation::Stop;
+                    if key == gdk::Key::Return {
+                        let pos = buffer.cursor_position();
+                        let iter = buffer.iter_at_offset(pos);
+                        if let Some((start_iter, end_iter)) = iters_for(&oid, &iter) {
+                            let oid_text = buffer.text(&start_iter, &end_iter, true);
+                            sndr.send_blocking(crate::Event::ShowTextOid(oid_text.to_string()))
+                                .expect("Cant send through channel");
+                            return glib::Propagation::Stop;
+                        }
                     }
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Stage))
                         .expect("Could not send through channel");
                 }
-                (gdk::Key::u, _) => {
+                (gdk::Key::u | gdk::Key::r, _) => {
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Unstage))
                         .expect("Could not send through channel");
                 }
@@ -553,10 +558,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 }
                 (gdk::Key::o, gdk::ModifierType::CONTROL_MASK) => {
                     sndr.send_blocking(crate::Event::OpenFileDialog)
-                        .expect("Could not send through channel");
-                }
-                (gdk::Key::r, _) => {
-                    sndr.send_blocking(crate::Event::RepoPopup)
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::z, _) => {
