@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::status_view::context::CursorPosition;
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
 use crate::status_view::view::{View, ViewState};
@@ -24,10 +23,8 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::{error, trace, debug};
-use std::cell::Cell;
+use log::{debug, error, trace};
 use std::collections::HashMap;
-use std::rc::Rc;
 //pub const LINE_NO_SPACE: i32 = 6;
 
 #[derive(PartialEq, Debug)]
@@ -292,7 +289,6 @@ pub trait ViewContainer {
             }
         }
         self.after_cursor(buffer, context);
-
     }
 
     // base
@@ -525,7 +521,11 @@ impl ViewContainer for Diff {
 
     // Diff
     fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>, _parent_index: usize) {
-        debug!("FILL SELECTED DIFF {:?} line_no {:?}", self.kind, self.view.line_no.get());
+        debug!(
+            "FILL SELECTED DIFF {:?} line_no {:?}",
+            self.kind,
+            self.view.line_no.get()
+        );
         context.selected_diff = Some(self);
     }
 }
@@ -588,12 +588,10 @@ impl ViewContainer for File {
     fn get_is_active(&self, context: &mut StatusRenderContext) -> bool {
         if let Some((file, _)) = context.selected_file {
             return std::ptr::eq(file, self);
-        } else {
-            if let Some(diff) = context.selected_diff {
-                // no selected file but selected diff means cursor is on diff
-                // and diff for this file is current_diff
-                return std::ptr::eq(diff, context.current_diff.unwrap());
-            }
+        } else if let Some(diff) = context.selected_diff {
+            // no selected file but selected diff means cursor is on diff
+            // and diff for this file is current_diff
+            return std::ptr::eq(diff, context.current_diff.unwrap());
         }
         false
     }
@@ -614,7 +612,12 @@ impl ViewContainer for File {
 
     // File
     fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>, parent_index: usize) {
-        debug!("FILL SELECTED FILE {:?} line_no {:?} parent_index {:?}", self.path, self.view.line_no.get(), parent_index);
+        debug!(
+            "FILL SELECTED FILE {:?} line_no {:?} parent_index {:?}",
+            self.path,
+            self.view.line_no.get(),
+            parent_index
+        );
         context.selected_file = Some((self, parent_index));
     }
 }
@@ -679,16 +682,12 @@ impl ViewContainer for Hunk {
     fn get_is_active(&self, context: &mut StatusRenderContext) -> bool {
         if let Some((hunk, _)) = context.selected_hunk {
             return std::ptr::eq(hunk, self);
-        } else {
-            if let Some((file, _)) = context.selected_file {
-                // cursor is on file
-                return std::ptr::eq(file, context.current_file.unwrap());
-            } else {
-                if let Some(diff) = context.selected_diff {
-                    // cursor is on diff
-                    return std::ptr::eq(diff, context.current_diff.unwrap());
-                }
-            }
+        } else if let Some((file, _)) = context.selected_file {
+            // cursor is on file
+            return std::ptr::eq(file, context.current_file.unwrap());
+        } else if let Some(diff) = context.selected_diff {
+            // cursor is on diff
+            return std::ptr::eq(diff, context.current_diff.unwrap());
         }
         false
     }
@@ -718,7 +717,12 @@ impl ViewContainer for Hunk {
 
     // Hunk
     fn fill_selected<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, parent_index: usize) {
-        debug!("FILL SELECTED HUNK {:?} line_no {:?} parent_index {:?}", self.header, self.view.line_no.get(), parent_index);
+        debug!(
+            "FILL SELECTED HUNK {:?} line_no {:?} parent_index {:?}",
+            self.header,
+            self.view.line_no.get(),
+            parent_index
+        );
         ctx.selected_hunk = Some((self, parent_index));
     }
 }
@@ -776,7 +780,11 @@ impl ViewContainer for Line {
 
     // Line
     fn fill_selected<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, parent_index: usize) {
-        debug!("FILL SELECTED LINE {:?} {:?}", self.view.line_no.get(), parent_index);
+        debug!(
+            "FILL SELECTED LINE {:?} {:?}",
+            self.view.line_no.get(),
+            parent_index
+        );
         ctx.selected_line = Some((self, parent_index));
     }
 
@@ -785,7 +793,6 @@ impl ViewContainer for Line {
     /// 1. in normal case - on any line inside hunk
     /// 2. in case of conflict - on any line of same side
     fn get_is_active(&self, context: &mut StatusRenderContext) -> bool {
-
         if context.current_diff.unwrap().kind == DiffKind::Conflicted {
             // case 2.
             if let Some((line, _)) = context.selected_line {
@@ -796,25 +803,19 @@ impl ViewContainer for Line {
                 if std::ptr::eq(selected_hunk, context.current_hunk.unwrap()) {
                     // selected line is in the same hunk as me
                     return match (&line.kind, &self.kind) {
-                        (LineKind::Ours(_), LineKind::Ours(_)) => {
-                            true
-                        }
+                        (LineKind::Ours(_), LineKind::Ours(_)) => true,
                         (LineKind::ConflictMarker(marker), LineKind::Ours(_))
                             if marker == MARKER_OURS =>
                         {
                             true
                         }
-                        (LineKind::Theirs(_), LineKind::Theirs(_)) => {
-                            true
-                        }
+                        (LineKind::Theirs(_), LineKind::Theirs(_)) => true,
                         (LineKind::ConflictMarker(marker), LineKind::Theirs(_))
                             if marker == MARKER_THEIRS =>
                         {
                             true
                         }
-                        _ => {
-                            false
-                        }
+                        _ => false,
                     };
                 }
             }
@@ -828,21 +829,15 @@ impl ViewContainer for Line {
                 if std::ptr::eq(selected_hunk, context.current_hunk.unwrap()) {
                     return true;
                 }
-            } else {
-                if let Some((hunk, _)) = context.selected_hunk {
-                    // cursor is on hunk
-                    return std::ptr::eq(hunk, context.current_hunk.unwrap());
-                } else {
-                    if let Some((file, _)) = context.selected_file {
-                        // cursor is on file
-                        return std::ptr::eq(file, context.current_file.unwrap());
-                    } else {
-                        if let Some(diff) = context.selected_diff {
-                            // cursor is on diff
-                            return std::ptr::eq(diff, context.current_diff.unwrap());
-                        }
-                    }
-                }
+            } else if let Some((hunk, _)) = context.selected_hunk {
+                // cursor is on hunk
+                return std::ptr::eq(hunk, context.current_hunk.unwrap());
+            } else if let Some((file, _)) = context.selected_file {
+                // cursor is on file
+                return std::ptr::eq(file, context.current_file.unwrap());
+            } else if let Some(diff) = context.selected_diff {
+                // cursor is on diff
+                return std::ptr::eq(diff, context.current_diff.unwrap());
             }
         }
         false

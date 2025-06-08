@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::dialogs::{alert, ConfirmDialog, YES};
+use crate::dialogs::alert;
 use crate::git::commit;
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
@@ -15,7 +15,7 @@ use git2::Oid;
 
 use gtk4::prelude::*;
 use gtk4::{
-    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, TextBuffer, TextIter, Widget,
+    gdk, gio, glib, Button, EventControllerKey, Label, ScrolledWindow, TextBuffer, TextIter,
 };
 use libadwaita::prelude::*;
 use libadwaita::{HeaderBar, ToolbarView, Window};
@@ -23,32 +23,7 @@ use log::{debug, info, trace};
 
 use std::path::PathBuf;
 
-async fn git_oid_op<F>(dialog: ConfirmDialog, window: impl IsA<Widget>, op: F)
-where
-    F: FnOnce() -> Result<(), git2::Error> + Send + 'static,
-{
-    let response = alert(dialog).choose_future(&window).await;
-    if response != YES {
-        return;
-    }
-    gio::spawn_blocking(op)
-        .await
-        .unwrap_or_else(|e| {
-            alert(format!("{:?}", e)).present(Some(&window));
-            Ok(())
-        })
-        .unwrap_or_else(|e| {
-            alert(e).present(Some(&window));
-        });
-}
-
-pub fn headerbar_factory(
-    repo_path: PathBuf,
-    window: &impl IsA<Widget>,
-    sender: Sender<Event>,
-    oid: Oid,
-    stash_num: Option<usize>,
-) -> HeaderBar {
+pub fn headerbar_factory(sender: Sender<Event>, oid: Oid, stash_num: Option<usize>) -> HeaderBar {
     let hb = HeaderBar::builder().build();
     let (btn_tooltip, title) = if stash_num.is_some() {
         ("Apply stash", "Stash")
@@ -264,13 +239,7 @@ pub fn show_commit_window(
     let window = builder.build();
     let scroll = ScrolledWindow::new();
 
-    let hb = headerbar_factory(
-        repo_path.clone(),
-        &window.clone(),
-        main_sender.clone(),
-        oid,
-        stash_num,
-    );
+    let hb = headerbar_factory(main_sender.clone(), oid, stash_num);
 
     let txt = crate::stage_factory(sender.clone(), "commit_view");
 
@@ -331,7 +300,6 @@ pub fn show_commit_window(
     ];
 
     glib::spawn_future_local({
-        let window = window.clone();
         async move {
             while let Ok(event) = receiver.recv().await {
                 let mut ctx = crate::StatusRenderContext::new(&txt);

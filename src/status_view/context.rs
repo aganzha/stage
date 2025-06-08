@@ -6,36 +6,6 @@ use crate::status_view::StageView;
 use crate::{Diff, File, Hunk, Line};
 
 #[derive(Debug, Clone)]
-pub enum CursorPosition<'a> {
-    CursorDiff(&'a Diff),
-    CursorFile(&'a File),
-    CursorHunk(&'a Hunk),
-    CursorLine(&'a Line),
-    None,
-}
-
-impl CursorPosition<'_> {
-    pub fn is_empty(&self) -> bool {
-        match self {
-            Self::None => true,
-            _ => false,
-        }
-    }
-}
-
-impl CursorPosition<'_> {
-    pub fn kind(&self) -> &str {
-        match self {
-            Self::CursorDiff(_) => "cursor pos -> Diff",
-            Self::CursorFile(_) => "cursor pos -> File",
-            Self::CursorHunk(_) => "cursor pos -> Hunk",
-            Self::CursorLine(_) => "cursor pos -> Line",
-            Self::None => "cursor pos -> None",
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
     pub stage: &'a StageView,
 

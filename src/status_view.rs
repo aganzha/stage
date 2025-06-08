@@ -46,7 +46,6 @@ use async_channel::Sender;
 
 use gio::FileMonitor;
 
-use crate::status_view::context::CursorPosition as ContextCursorPosition;
 use glib::signal::SignalHandlerId;
 use gtk4::prelude::*;
 use gtk4::{gio, glib, Align, Button, FileDialog, Widget, Window as GTKWindow};
@@ -122,15 +121,10 @@ impl CursorPosition {
             );
         }
         if let Some((_, index)) = context.selected_file {
-            return CursorPosition::CursorFile(
-                context.selected_diff.unwrap().kind,
-                Some(index),
-            );
+            return CursorPosition::CursorFile(context.selected_diff.unwrap().kind, Some(index));
         }
         if let Some(diff) = context.selected_diff {
-            return CursorPosition::CursorDiff(
-                diff.kind,
-            );
+            return CursorPosition::CursorDiff(diff.kind);
         }
         CursorPosition::None
     }

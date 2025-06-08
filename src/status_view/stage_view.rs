@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::status_view::context::{CursorPosition, StatusRenderContext};
+use crate::status_view::context::StatusRenderContext;
 use crate::status_view::tags;
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
@@ -216,7 +216,6 @@ impl StageView {
     }
 
     pub fn bind_highlights(&self, context: &StatusRenderContext) {
-
         // is it still used?
         if context.cursor_is_on_diff() {
             self.imp().double_height_line.replace(true);
