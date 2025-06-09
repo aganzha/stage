@@ -23,7 +23,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::trace;
+use log::{debug, error, trace};
 //pub const LINE_NO_SPACE: i32 = 6;
 
 #[derive(PartialEq, Debug)]
@@ -1185,38 +1185,13 @@ impl ViewContainer for State {
 }
 
 impl Diff {
-    pub fn last_visible_line(&self) -> i32 {
-        let le = self.files.len() - 1;
-        let last_file = &self.files[le];
-        if !last_file.view.is_expanded() {
-            return last_file.view.line_no.get();
+    pub fn auto_expand(&self) {
+        debug!("---------auto expand {:?}", self.kind);
+        if self.is_empty() {
+            error!("EXPANDING EMPTY DIFF");
+            return;
         }
-        let le = last_file.hunks.len() - 1;
-        let last_hunk = &last_file.hunks[le];
-        if !last_hunk.view.is_expanded() {
-            return last_hunk.view.line_no.get();
-        }
-        let le = last_hunk.lines.len() - 1;
-        let last_line = &last_hunk.lines[le];
-        last_line.view.line_no.get()
-    }
-
-    pub fn dump(&self) -> String {
-        String::from("dump")
-    }
-
-    pub fn has_view_on(&self, line_no: i32) -> bool {
-        if !self.view.is_rendered() {
-            return false;
-        }
-        let my_line = self.view.line_no.get();
-        if my_line > line_no {
-            return false;
-        }
-        if my_line == line_no {
-            return true;
-        }
-        self.last_visible_line() >= line_no
+        self.files[0].view.expand(true);
     }
 }
 

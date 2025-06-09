@@ -552,6 +552,10 @@ impl Status {
             } else {
                 rendered.erase(buffer, context);
             }
+        } else if let Some(conflicted) = &diff {
+            if self.staged.is_none() && self.unstaged.is_none() && self.last_op.get().is_none() {
+                conflicted.auto_expand();
+            }
         }
         // banner is separate thing. perhaps assign method below to banner?
         if let Some(state) = &self.state {
@@ -671,6 +675,11 @@ impl Status {
             } else {
                 rendered.erase(buffer, context);
             }
+        } else if let Some(staged) = &diff {
+            if self.unstaged.is_none() && self.conflicted.is_none() && self.last_op.get().is_none()
+            {
+                staged.auto_expand();
+            }
         }
         self.staged = diff;
         if self.staged.is_some() || render_required {
@@ -695,8 +704,11 @@ impl Status {
             } else {
                 rendered.erase(buffer, context);
             }
+        } else if let Some(unstaged) = &diff {
+            if self.staged.is_none() && self.conflicted.is_none() && self.last_op.get().is_none() {
+                unstaged.auto_expand();
+            }
         }
-
         self.unstaged = diff;
 
         if self.unstaged.is_some() || render_required {
