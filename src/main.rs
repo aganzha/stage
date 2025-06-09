@@ -130,10 +130,9 @@ pub enum Event {
     ShowBranches,
     Branches(Vec<branch::BranchData>),
     Log(Option<Oid>, Option<String>),
-    ShowOid(Oid, Option<StashNum>, Option<HunkLineNo>),
+    ShowOid(Oid, Option<StashNum>, Option<(PathBuf, HunkLineNo)>),
     ShowTextOid(String),
     TextViewResize(i32),
-    TextCharVisibleWidth(i32),
     Toast(String),
     StashesPanel,
     Stashes(Stashes),
@@ -574,9 +573,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {}", w);
                 }
-                Event::TextCharVisibleWidth(w) => {
-                    info!("TextCharVisibleWidth {}", w);
-                }
                 Event::Toast(title) => {
                     info!("Toast {:?}", toast_lock);
                     if !toast_lock.get() {
@@ -673,6 +669,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                                         path,
                                         oid,
                                         None,
+                                        None,
                                         current_window,
                                         sender.clone(),
                                     );
@@ -705,7 +702,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         }
                     });
                 }
-                Event::ShowOid(oid, onum, olineno) => {
+                Event::ShowOid(oid, onum, ofile_withlineno) => {
                     info!("main.show oid {:?}", oid);
                     let current_window = if let Some(stacked_window) = window_stack.borrow().last()
                     {
@@ -717,6 +714,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         status.path.clone().expect("no path"),
                         oid,
                         onum,
+                        ofile_withlineno,
                         current_window,
                         sender.clone(),
                     );

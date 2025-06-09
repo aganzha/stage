@@ -293,10 +293,7 @@ pub fn adopt_stashes(
     }
 }
 
-pub fn factory(
-    window: &ApplicationWindow, //&impl IsA<Gtk4Window>,
-    status: &Status,
-) -> (ToolbarView, impl FnOnce()) {
+pub fn factory(window: &ApplicationWindow, status: &Status) -> (ToolbarView, impl FnOnce()) {
     let scroll = ScrolledWindow::new();
     scroll.set_css_classes(&[&String::from("nocorners")]);
     let lb = ListBox::builder()

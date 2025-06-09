@@ -1267,8 +1267,15 @@ pub fn blame(
     let blame_hunk = blame
         .get_line(line_no.as_usize())
         .context("Can`t get line to blame")?;
-    Ok((
+    debug!(
+        "---------------------> final l {:?} orig l {:?} final id {:?} orig id {:?}",
+        blame_hunk.final_start_line(),
+        blame_hunk.orig_start_line(),
         blame_hunk.final_commit_id(),
-        HunkLineNo(blame_hunk.final_start_line() as u32),
+        blame_hunk.orig_commit_id()
+    );
+    Ok((
+        blame_hunk.orig_commit_id(),
+        HunkLineNo(blame_hunk.orig_start_line() as u32),
     ))
 }

@@ -863,7 +863,6 @@ impl Status {
     }
 
     pub fn blame(&self, app_window: CurrentWindow) {
-        println!("BLAAAAAAAAAAAAAAME {:?}", self.cursor_position);
         let mut line_no: Option<HunkLineNo> = None;
         let mut ofile_path: Option<PathBuf> = None;
         match self.cursor_position.get() {
@@ -889,18 +888,21 @@ impl Status {
             glib::spawn_future_local({
                 let path = self.path.clone().expect("no path");
                 let sender = self.sender.clone();
+                let file_path = ofile_path.unwrap();
                 async move {
-                    let ooid =
-                        gio::spawn_blocking({ move || blame(path, ofile_path.unwrap(), line_no) })
-                            .await
-                            .unwrap();
+                    let ooid = gio::spawn_blocking({
+                        let file_path = file_path.clone();
+                        move || blame(path, file_path.clone(), line_no)
+                    })
+                    .await
+                    .unwrap();
                     match ooid {
                         Ok((oid, hunk_line_start)) => {
                             sender
                                 .send_blocking(crate::Event::ShowOid(
                                     oid,
                                     None,
-                                    Some(hunk_line_start),
+                                    Some((file_path, hunk_line_start)),
                                 ))
                                 .expect("Could not send through channel");
                         }
