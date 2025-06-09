@@ -699,9 +699,7 @@ pub fn get_current_repo_status(
         }
     });
 
-    // get staged
     gio::spawn_blocking({
-        // get_staged
         let sender = sender.clone();
         let path = path.clone();
         move || {
@@ -719,7 +717,6 @@ pub fn get_current_repo_status(
         }
     });
 
-    // get untracked
     gio::spawn_blocking({
         let sender = sender.clone();
         let path = path.clone();

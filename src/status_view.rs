@@ -823,14 +823,14 @@ impl Status {
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
-        let diffs = StageDiffs {
-            conflicted: &self.conflicted,
-            untracked: &self.untracked,
-            unstaged: &self.unstaged,
-            staged: &self.staged,
-        };
+        // let diffs = StageDiffs {
+        //     conflicted: &self.conflicted,
+        //     untracked: &self.untracked,
+        //     unstaged: &self.unstaged,
+        //     staged: &self.staged,
+        // };
 
-        let iter = diffs.choose_cursor_position(
+        let iter = self.choose_cursor_position(
             &buffer,
             diff_kind,
             &self.last_op,
