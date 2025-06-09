@@ -5,8 +5,9 @@
 use crate::status_view::context::StatusRenderContext;
 use async_channel::Sender;
 use gtk4::{
-    gio, Align, Box, Button, FileDialog, Label, MenuButton, Orientation, PopoverMenu, Spinner,
-    ToggleButton, Widget,
+    gio, Align, Box, Button, FileDialog, Label, MenuButton, Orientation, PopoverMenu,
+    ShortcutsGroup, ShortcutsSection, ShortcutsShortcut, ShortcutsWindow, Spinner, ToggleButton,
+    Widget,
 };
 use libadwaita::prelude::*;
 use libadwaita::{
@@ -206,8 +207,11 @@ pub fn burger_menu(
     zoom_model.insert_item(0, &zoom_item);
     menu_model.append_section(None, &zoom_model);
 
-    let menu_item = gio::MenuItem::new(Some("About Stage"), Some("menu.about"));
-    menu_model.append_item(&menu_item);
+    let shortcuts_item = gio::MenuItem::new(Some("Shortcuts"), Some("menu.shortcuts"));
+    menu_model.append_item(&shortcuts_item);
+
+    let about_item = gio::MenuItem::new(Some("About Stage"), Some("menu.about"));
+    menu_model.append_item(&about_item);
 
     let popover_menu = PopoverMenu::from_model(Some(&menu_model));
     popover_menu.add_css_class("burger_menu");
@@ -218,6 +222,15 @@ pub fn burger_menu(
     popover_menu.add_child(&zoom(sender.clone()), ZOOM_TOKEN);
 
     let ag = gio::SimpleActionGroup::new();
+
+    let shortcuts_action = gio::SimpleAction::new("shortcuts", None);
+    shortcuts_action.connect_activate({
+        let window = window.clone();
+        move |_, _| {
+            show_shortcuts_view(&window);
+        }
+    });
+    ag.add_action(&shortcuts_action);
 
     let about_action = gio::SimpleAction::new("about", None);
     about_action.connect_activate({
@@ -640,4 +653,107 @@ pub fn factory(
     hb.pack_end(&reset_btn);
     hb.pack_end(&refresh_btn);
     (hb, updater)
+}
+
+pub fn show_shortcuts_view(app_window: &ApplicationWindow) {
+    let shortcuts_window = ShortcutsWindow::builder().transient_for(app_window).build();
+
+    let status_section = ShortcutsSection::builder()
+        .title("Status window")
+        .section_name("Status window")
+        .build();
+    let stage_group = ShortcutsGroup::builder().title("Staging").build();
+    let stage_shortcut = ShortcutsShortcut::builder()
+        .title("Stage")
+        .accelerator("s Return")
+        .build();
+    stage_group.add_shortcut(&stage_shortcut);
+    let unstage_shortcut = ShortcutsShortcut::builder()
+        .title("Unstage")
+        .accelerator("u")
+        .build();
+    stage_group.add_shortcut(&unstage_shortcut);
+    let expand_shortcut = ShortcutsShortcut::builder()
+        .title("Expand/Collapse block")
+        .accelerator("Tab space")
+        .build();
+    stage_group.add_shortcut(&expand_shortcut);
+
+    let kill_shortcut = ShortcutsShortcut::builder()
+        .title("Kill")
+        .subtitle("Discard changes for file or hunk")
+        .accelerator("k")
+        .build();
+    stage_group.add_shortcut(&kill_shortcut);
+    let commit_shortcut = ShortcutsShortcut::builder()
+        .title("Commit")
+        .accelerator("c")
+        .build();
+    stage_group.add_shortcut(&commit_shortcut);
+    status_section.add_group(&stage_group);
+
+    let window_group = ShortcutsGroup::builder().title("Other windows").build();
+    let branches_shortcut = ShortcutsShortcut::builder()
+        .title("Branches")
+        .accelerator("b")
+        .build();
+    window_group.add_shortcut(&branches_shortcut);
+    let log_shortcut = ShortcutsShortcut::builder()
+        .title("Logs")
+        .accelerator("l")
+        .build();
+    window_group.add_shortcut(&log_shortcut);
+    let stashes_shortcut = ShortcutsShortcut::builder()
+        .title("Stashes")
+        .accelerator("z")
+        .build();
+    window_group.add_shortcut(&stashes_shortcut);
+    status_section.add_group(&window_group);
+
+    let other_group = ShortcutsGroup::builder().title("Other commands").build();
+    let push_shortcut = ShortcutsShortcut::builder()
+        .title("Push")
+        .accelerator("p")
+        .build();
+    other_group.add_shortcut(&push_shortcut);
+    let pull_shortcut = ShortcutsShortcut::builder()
+        .title("Pull")
+        .accelerator("f")
+        .build();
+    other_group.add_shortcut(&pull_shortcut);
+    let repo_shortcut = ShortcutsShortcut::builder()
+        .title("Previous repo chooser")
+        .accelerator("o")
+        .build();
+    other_group.add_shortcut(&repo_shortcut);
+    let file_shortcut = ShortcutsShortcut::builder()
+        .title("Open repository")
+        .accelerator("<ctrl>o")
+        .build();
+    other_group.add_shortcut(&file_shortcut);
+    
+    status_section.add_group(&other_group);
+    shortcuts_window.add_section(&status_section);
+
+    let branches_section = ShortcutsSection::builder()
+        .title("Branches window")
+        .section_name("Branches window")
+        .build();
+    let commands_group = ShortcutsGroup::builder().title("Branches commands").build();
+    let create_shortcut = ShortcutsShortcut::builder()
+        .title("Create branch")
+        .accelerator("c")
+        .build();
+    commands_group.add_shortcut(&create_shortcut);
+    let kill_shortcut = ShortcutsShortcut::builder()
+        .title("Delete branch")
+        .subtitle("ATTENTION - no confirmation")
+        .accelerator("k")
+        .build();
+    commands_group.add_shortcut(&kill_shortcut);
+
+    branches_section.add_group(&commands_group);
+    shortcuts_window.add_section(&branches_section);
+
+    shortcuts_window.present();
 }
