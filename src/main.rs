@@ -363,6 +363,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     status.get_status();
                 }
                 Event::Focus => {
+                    info!("focus");
                     txt.grab_focus();
                 }
                 Event::OpenFileDialog => {

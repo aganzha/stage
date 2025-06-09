@@ -711,7 +711,7 @@ pub fn show_shortcuts_view(app_window: &ApplicationWindow, sender: Sender<crate:
     window_group.add_shortcut(&stashes_shortcut);
     let close_shortcut = ShortcutsShortcut::builder()
         .title("Close window")
-        .accelerator("<ctrl>w")
+        .accelerator("<ctrl>w Escape")
         .build();
     window_group.add_shortcut(&close_shortcut);
 
@@ -738,7 +738,7 @@ pub fn show_shortcuts_view(app_window: &ApplicationWindow, sender: Sender<crate:
         .accelerator("<ctrl>o")
         .build();
     other_group.add_shortcut(&file_shortcut);
-    
+
     status_section.add_group(&other_group);
     shortcuts_window.add_section(&status_section);
 
@@ -796,13 +796,102 @@ pub fn show_shortcuts_view(app_window: &ApplicationWindow, sender: Sender<crate:
     branches_section.add_group(&commands_group);
     shortcuts_window.add_section(&branches_section);
 
+    let log_section = ShortcutsSection::builder()
+        .title("Log window")
+        .section_name("Log window")
+        .build();
+    let log_commands_group = ShortcutsGroup::builder().title("Log commands").build();
+    let log_search_shortcut = ShortcutsShortcut::builder()
+        .title("Search commits")
+        .accelerator("s")
+        .build();
+    log_commands_group.add_shortcut(&log_search_shortcut);
+    let reset_shortcut = ShortcutsShortcut::builder()
+        .title("Hard reset")
+        .accelerator("x")
+        .build();
+    log_commands_group.add_shortcut(&reset_shortcut);
+    let log_apply_shortcut = ShortcutsShortcut::builder()
+        .title("Cherry pick")
+        .accelerator("a")
+        .build();
+    log_commands_group.add_shortcut(&log_apply_shortcut);
+    let revert_shortcut = ShortcutsShortcut::builder()
+        .title("Revert")
+        .accelerator("r")
+        .build();
+    log_commands_group.add_shortcut(&revert_shortcut);
+
+    log_section.add_group(&log_commands_group);
+    shortcuts_window.add_section(&log_section);
+
+    let commit_section = ShortcutsSection::builder()
+        .title("Commit window")
+        .section_name("Commit window")
+        .build();
+    let commit_commands_group = ShortcutsGroup::builder()
+        .title("Commit window commands")
+        .build();
+    let commit_apply_shortcut = ShortcutsShortcut::builder()
+        .title("Cherry pick")
+        .accelerator("a")
+        .build();
+    commit_commands_group.add_shortcut(&commit_apply_shortcut);
+    let revert_shortcut = ShortcutsShortcut::builder()
+        .title("Revert")
+        .accelerator("r")
+        .build();
+    commit_commands_group.add_shortcut(&revert_shortcut);
+
+    commit_section.add_group(&commit_commands_group);
+    shortcuts_window.add_section(&commit_section);
+
+    let stash_section = ShortcutsSection::builder()
+        .title("Stashes panel")
+        .section_name("Stashes panel")
+        .build();
+    let stash_commands_group = ShortcutsGroup::builder()
+        .title("Stash panel commands")
+        .build();
+    let stash_create_shortcut = ShortcutsShortcut::builder()
+        .title("Create stash")
+        .accelerator("c n z")
+        .build();
+    stash_commands_group.add_shortcut(&stash_create_shortcut);
+
+    let stash_view_shortcut = ShortcutsShortcut::builder()
+        .title("View stash")
+        .accelerator("v Return")
+        .build();
+    stash_commands_group.add_shortcut(&stash_view_shortcut);
+
+    let stash_apply_shortcut = ShortcutsShortcut::builder()
+        .title("Apply stash")
+        .accelerator("a")
+        .build();
+    stash_commands_group.add_shortcut(&stash_apply_shortcut);
+    let stash_kill_shortcut = ShortcutsShortcut::builder()
+        .title("Delete stash")
+        .accelerator("k d")
+        .build();
+    stash_commands_group.add_shortcut(&stash_kill_shortcut);
+
+    let stash_close_shortcut = ShortcutsShortcut::builder()
+        .title("Close stash panel")
+        .accelerator("Escape")
+        .build();
+    stash_commands_group.add_shortcut(&stash_close_shortcut);
+
+    stash_section.add_group(&stash_commands_group);
+    shortcuts_window.add_section(&stash_section);
+
     shortcuts_window.connect_unrealize({
         let sender = sender.clone();
         move |_| {
             sender
                 .send_blocking(crate::Event::Focus)
                 .expect("cant send through channel");
-                }
+        }
     });
     shortcuts_window.present();
 }
