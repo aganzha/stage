@@ -739,6 +739,12 @@ pub fn show_shortcuts_view(app_window: &ApplicationWindow, sender: Sender<crate:
         .build();
     other_group.add_shortcut(&file_shortcut);
 
+    let blame_shortcut = ShortcutsShortcut::builder()
+        .title("Blame")
+        .accelerator("<ctrl>b")
+        .build();
+    other_group.add_shortcut(&blame_shortcut);
+
     status_section.add_group(&other_group);
     shortcuts_window.add_section(&status_section);
 

@@ -212,12 +212,6 @@ impl commit::CommitDiff {
                                         if found_line_no == line_no {
                                             line.view.make_current(true);
                                             found = true;
-                                            debug!(
-                                                "FOOOOOOOOOOOUND {:?} {:?} {:?}",
-                                                line.new_line_no,
-                                                line.old_line_no,
-                                                line.content(hunk)
-                                            );
                                             found_line_index.replace((f, h, l));
                                             break;
                                         }
