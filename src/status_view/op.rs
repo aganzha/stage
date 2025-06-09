@@ -352,7 +352,7 @@ impl Status {
                         ApplyOp::Stash(oid, num, ofile, ohunk) => (
                             oid,
                             "Applying stash".to_string(),
-                            format!("# {}", num),
+                            format!("# {}", num.as_usize()),
                             true,
                             ofile,
                             ohunk,

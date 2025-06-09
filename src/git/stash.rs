@@ -8,16 +8,36 @@ use git2;
 
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]
+pub struct StashNum(usize);
+
+impl StashNum {
+    pub fn new(num: usize) -> Self {
+        Self(num)
+    }
+
+    pub fn as_usize(&self) -> usize {
+        self.0
+    }
+    pub fn as_i32(&self) -> i32 {
+        self.0 as i32
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct StashData {
-    pub num: usize,
+    pub num: StashNum,
     pub title: String,
     pub oid: git2::Oid,
 }
 
 impl StashData {
     pub fn new(num: usize, oid: git2::Oid, title: String) -> Self {
-        Self { num, oid, title }
+        Self {
+            num: StashNum(num),
+            oid,
+            title,
+        }
     }
 }
 
@@ -26,7 +46,7 @@ impl Default for StashData {
         Self {
             oid: git2::Oid::zero(),
             title: String::from(""),
-            num: 0,
+            num: StashNum(0),
         }
     }
 }
@@ -76,7 +96,7 @@ pub fn stash(
 
 pub fn apply(
     path: PathBuf,
-    num: usize,
+    num: StashNum,
     file_path: Option<PathBuf>,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
@@ -93,12 +113,13 @@ pub fn apply(
         cb.path(file_path);
         stash_options.checkout_options(cb);
     };
-    repo.stash_apply(num, Some(&mut stash_options))?;
+    repo.stash_apply(num.as_usize(), Some(&mut stash_options))?;
     Ok(())
 }
 
 pub fn drop(path: PathBuf, stash_data: StashData, sender: Sender<crate::Event>) -> Stashes {
     let mut repo = git2::Repository::open(path.clone()).expect("can't open repo");
-    repo.stash_drop(stash_data.num).expect("cant drop stash");
+    repo.stash_drop(stash_data.num.as_usize())
+        .expect("cant drop stash");
     list(path, sender)
 }

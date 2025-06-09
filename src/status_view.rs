@@ -14,13 +14,7 @@ pub mod tags;
 
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{
-    abort_rebase,
-    branch::BranchData,
-    continue_rebase,
-    merge,
-    remote,
-    stash,
-    HunkLineNo, // track_changes,
+    abort_rebase, blame, branch::BranchData, continue_rebase, merge, remote, stash, HunkLineNo,
 };
 
 use git2::RepositoryState;
@@ -39,7 +33,7 @@ use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, Diff, DiffKind, Event, File as GitFile, Head, State,
+    get_current_repo_status, CurrentWindow, Diff, DiffKind, Event, File as GitFile, Head, State,
     StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
 };
 use async_channel::Sender;
@@ -865,6 +859,62 @@ impl Status {
         let iter = buffer.iter_at_offset(pos);
         for tag in iter.tags() {
             debug!("Tag: {}", tag.name().unwrap());
+        }
+    }
+
+    pub fn blame(&self, app_window: CurrentWindow) {
+        println!("BLAAAAAAAAAAAAAAME {:?}", self.cursor_position);
+        let mut line_no: Option<HunkLineNo> = None;
+        let mut ofile_path: Option<PathBuf> = None;
+        match self.cursor_position.get() {
+            CursorPosition::CursorLine(DiffKind::Unstaged, file_idx, hunk_idx, line_idx) => {
+                if let Some(unstaged) = &self.unstaged {
+                    let file = &unstaged.files[file_idx];
+                    ofile_path.replace(file.path.clone());
+                    let line = &file.hunks[hunk_idx].lines[line_idx];
+                    line_no = line.old_line_no;
+                }
+            }
+            CursorPosition::CursorLine(DiffKind::Staged, file_idx, hunk_idx, line_idx) => {
+                if let Some(staged) = &self.staged {
+                    let file = &staged.files[file_idx];
+                    ofile_path.replace(file.path.clone());
+                    let line = &file.hunks[hunk_idx].lines[line_idx];
+                    line_no = line.old_line_no;
+                }
+            }
+            _ => {}
+        }
+        if let Some(line_no) = line_no {
+            glib::spawn_future_local({
+                let path = self.path.clone().expect("no path");
+                let sender = self.sender.clone();
+                async move {
+                    let ooid =
+                        gio::spawn_blocking({ move || blame(path, ofile_path.unwrap(), line_no) })
+                            .await
+                            .unwrap();
+                    match ooid {
+                        Ok((oid, hunk_line_start)) => {
+                            sender
+                                .send_blocking(crate::Event::ShowOid(
+                                    oid,
+                                    None,
+                                    Some(hunk_line_start),
+                                ))
+                                .expect("Could not send through channel");
+                        }
+                        Err(e) => match app_window {
+                            CurrentWindow::Window(w) => {
+                                alert(e).present(Some(&w));
+                            }
+                            CurrentWindow::ApplicationWindow(w) => {
+                                alert(e).present(Some(&w));
+                            }
+                        },
+                    }
+                }
+            });
         }
     }
 }

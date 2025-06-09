@@ -857,8 +857,8 @@ impl ViewContainer for Line {
 
         let line_no = self
             .new_line_no
-            .map(|num| num.as_u32())
-            .unwrap_or(self.old_line_no.map(|num| num.as_u32()).unwrap_or(0));
+            .map(|num| num.as_i32())
+            .unwrap_or(self.old_line_no.map(|num| num.as_i32()).unwrap_or(0));
 
         let line_no_text = format!(
             "<span size=\"small\" line_height=\"0.5\">{}</span>",

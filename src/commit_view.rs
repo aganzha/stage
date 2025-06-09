@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::dialogs::alert;
-use crate::git::commit;
+use crate::git::{commit, stash::StashNum};
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
@@ -23,7 +23,11 @@ use log::{debug, info, trace};
 
 use std::path::PathBuf;
 
-pub fn headerbar_factory(sender: Sender<Event>, oid: Oid, stash_num: Option<usize>) -> HeaderBar {
+pub fn headerbar_factory(
+    sender: Sender<Event>,
+    oid: Oid,
+    stash_num: Option<StashNum>,
+) -> HeaderBar {
     let hb = HeaderBar::builder().build();
     let (btn_tooltip, title) = if stash_num.is_some() {
         ("Apply stash", "Stash")
@@ -215,7 +219,7 @@ impl commit::CommitDiff {
 pub fn show_commit_window(
     repo_path: PathBuf,
     oid: Oid,
-    stash_num: Option<usize>,
+    stash_num: Option<StashNum>,
     app_window: CurrentWindow,
     main_sender: Sender<Event>, // i need that to trigger revert and cherry-pick.
 ) -> Window {

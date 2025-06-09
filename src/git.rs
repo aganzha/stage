@@ -16,6 +16,8 @@ use crate::commit::CommitRepr;
 use crate::gio;
 use crate::status_view::view::View;
 use crate::syntax;
+
+use anyhow::{Context, Result};
 use async_channel::Sender;
 
 use chrono::{DateTime, FixedOffset};
@@ -52,11 +54,11 @@ impl HunkLineNo {
     pub fn new(num: u32) -> Self {
         Self(num)
     }
-    pub fn as_u32(&self) -> u32 {
-        self.0
-    }
     pub fn as_i32(&self) -> i32 {
         self.0 as i32
+    }
+    pub fn as_usize(&self) -> usize {
+        self.0 as usize
     }
 }
 impl FromStr for HunkLineNo {
@@ -1252,4 +1254,21 @@ pub fn rebase(
         }
     }
     Ok(true)
+}
+
+pub fn blame(
+    path: PathBuf,
+    file_path: PathBuf,
+    line_no: HunkLineNo,
+) -> Result<(git2::Oid, HunkLineNo)> {
+    let repo = git2::Repository::open(path.clone())?;
+    let mut opts = git2::BlameOptions::new();
+    let blame = repo.blame_file(&file_path, Some(&mut opts))?;
+    let blame_hunk = blame
+        .get_line(line_no.as_usize())
+        .context("Can`t get line to blame")?;
+    Ok((
+        blame_hunk.final_commit_id(),
+        HunkLineNo(blame_hunk.final_start_line() as u32),
+    ))
 }

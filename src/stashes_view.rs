@@ -41,7 +41,7 @@ mod oid_row {
     use gtk4::subclass::prelude::*;
     use libadwaita::subclass::prelude::*;
     use libadwaita::ActionRow;
-    use std::cell::RefCell;
+    use std::cell::{Cell, RefCell};
 
     #[derive(Properties, Default)]
     #[properties(wrapper_type = super::OidRow)]
@@ -52,7 +52,7 @@ mod oid_row {
         pub oid: RefCell<String>,
 
         #[property(get, set)]
-        pub num: RefCell<i32>,
+        pub num: Cell<i32>,
     }
 
     #[glib::object_subclass]
@@ -79,7 +79,7 @@ impl OidRow {
         let row = Self::new();
         row.set_property("title", &stash.title);
         row.set_oid(stash.oid.to_string());
-        row.set_num(stash.num as i32);
+        row.set_num(stash.num.as_i32());
 
         let commit_button = Button::builder()
             .label("View stash")
@@ -92,12 +92,12 @@ impl OidRow {
             let num = stash.num;
             move |_| {
                 sender
-                    .send_blocking(Event::ShowOid(oid, Some(num)))
+                    .send_blocking(Event::ShowOid(oid, Some(num), None))
                     .expect("cant send through channel");
             }
         });
         row.add_suffix(&commit_button);
-        row.set_subtitle(&format!("stash@{}", &stash.num));
+        row.set_subtitle(&format!("stash@{}", &stash.num.as_usize()));
         row.bind_property("num", &row, "subtitle")
             .transform_to(|_, num: i32| Some(format!("stash@{}", &num)))
             .build();
@@ -276,7 +276,7 @@ pub fn adopt_stashes(
         let oid_row = row.downcast_ref::<OidRow>().expect("cant get oid row");
         let oid = oid_row.imp().stash.borrow().oid;
         let new_stash = map.remove(&oid).unwrap();
-        oid_row.set_num(new_stash.num as i32);
+        oid_row.set_num(new_stash.num.as_i32());
         oid_row.imp().stash.replace(new_stash);
         ind += 1;
     }
@@ -404,7 +404,7 @@ pub fn factory(
                         let oid = oid_row.imp().stash.borrow().oid;
                         let num = oid_row.imp().stash.borrow().num;
                         sender
-                            .send_blocking(Event::ShowOid(oid, Some(num)))
+                            .send_blocking(Event::ShowOid(oid, Some(num), None))
                             .expect("cant send through channel");
                     }
                 }
