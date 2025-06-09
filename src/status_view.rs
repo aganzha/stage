@@ -24,7 +24,7 @@ use crate::git::{
 };
 
 use git2::RepositoryState;
-use op::{LastOp, StageDiffs};
+use op::LastOp;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 

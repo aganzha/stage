@@ -8,10 +8,9 @@ use crate::git::{commit, merge, stash};
 
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::fmt;
 use std::path::PathBuf;
 
-use crate::{stage_untracked, stage_via_apply, ApplyOp, Diff, DiffKind, Event, StageOp};
+use crate::{stage_untracked, stage_via_apply, ApplyOp, DiffKind, Event, StageOp};
 
 use gtk4::prelude::*;
 use gtk4::{gio, glib, ListBox, SelectionMode, TextBuffer, TextIter, Widget};
@@ -33,27 +32,6 @@ impl LastOp {
             cursor_position: self.cursor_position,
             desired_diff_kind: Some(diff_kind),
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct StageDiffs<'a> {
-    pub untracked: &'a Option<Diff>,
-    pub conflicted: &'a Option<Diff>,
-    pub unstaged: &'a Option<Diff>,
-    pub staged: &'a Option<Diff>,
-}
-
-impl fmt::Display for StageDiffs<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Untracked: {} Conflicted: {} Unstaged: {} Staged: {}",
-            self.untracked.is_some(),
-            self.conflicted.is_some(),
-            self.unstaged.is_some(),
-            self.staged.is_some()
-        )
     }
 }
 
@@ -505,14 +483,17 @@ impl Status {
             }
         });
     }
-        pub fn choose_cursor_position(
+    pub fn choose_cursor_position(
         &self,
         buffer: &TextBuffer,
         render_diff_kind: Option<DiffKind>,
         last_op: &Cell<Option<LastOp>>,
         current_cursor_position: CursorPosition,
     ) -> TextIter {
-        debug!("choose_cursor_position. render diff {:?} last_op {:?}", render_diff_kind, last_op);
+        debug!(
+            "choose_cursor_position. render diff {:?} last_op {:?}",
+            render_diff_kind, last_op
+        );
         let this_pos = buffer.cursor_position();
         let mut iter = buffer.iter_at_offset(this_pos);
         if let (Some(op), Some(render_diff_kind)) = (&last_op.get(), render_diff_kind) {
@@ -576,7 +557,9 @@ impl Status {
                 } if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
                 {
-                    for diff in [&self.unstaged, &self.staged, &self.untracked].iter().filter_map(|d| d.as_ref())
+                    for diff in [&self.unstaged, &self.staged, &self.untracked]
+                        .iter()
+                        .filter_map(|d| d.as_ref())
                     {
                         if diff.kind == render_diff_kind {
                             for i in (0..file_idx + 1).rev() {
@@ -606,7 +589,9 @@ impl Status {
                 } if *cursor_diff_kind == render_diff_kind
                     || *desired_diff_kind == Some(render_diff_kind) =>
                 {
-                    for diff in [&self.unstaged, &self.staged, &self.conflicted].iter().filter_map(|d| d.as_ref())
+                    for diff in [&self.unstaged, &self.staged, &self.conflicted]
+                        .iter()
+                        .filter_map(|d| d.as_ref())
                     {
                         if diff.kind == render_diff_kind {
                             'found: for i in (0..file_idx + 1).rev() {
