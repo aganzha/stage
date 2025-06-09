@@ -951,21 +951,10 @@ impl ViewContainer for Line {
                 );
 
                 match self.kind {
-                    LineKind::ConflictMarker(_) => {
-                        self.add_tag(buffer, tags::CONFLICT_MARKER, None)
-                    }
+                    LineKind::ConflictMarker(_) => self.add_tag(buffer, tags::REMOVED, None),
                     // no need to mark theirs/ours. use regular colors downwhere
                     LineKind::Ours(_) | LineKind::Theirs(_) => {
-                        match self.origin {
-                            DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
-                            DiffLineType::Deletion => {
-                                //  |  DiffLineType::Context
-                                // this is a hack. in Ours lines got Context origin
-                                // while Theirs got Addition
-                                self.add_tag(buffer, tags::REMOVED, None)
-                            }
-                            _ => {}
-                        }
+                        self.add_tag(buffer, tags::ADDED, None)
                     }
                     _ => self.add_tag(buffer, self.choose_tag().0, None),
                 }
@@ -1021,10 +1010,29 @@ impl ViewContainer for Line {
                         start_offset,
                     );
                 }
-                if is_active {
-                    self.add_tag(buffer, self.choose_tag().enhance().0, None);
-                } else {
-                    self.add_tag(buffer, self.choose_tag().0, None);
+                match self.kind {
+                    LineKind::ConflictMarker(_) => {
+                        if is_active {
+                            self.add_tag(buffer, tags::Tag(tags::REMOVED).enhance().0, None)
+                        } else {
+                            self.add_tag(buffer, tags::REMOVED, None)
+                        }
+                    }
+                    // no need to mark theirs/ours. use regular colors downwhere
+                    LineKind::Ours(_) | LineKind::Theirs(_) => {
+                        if is_active {
+                            self.add_tag(buffer, tags::Tag(tags::ADDED).enhance().0, None)
+                        } else {
+                            self.add_tag(buffer, tags::ADDED, None)
+                        }
+                    }
+                    _ => {
+                        if is_active {
+                            self.add_tag(buffer, self.choose_tag().enhance().0, None);
+                        } else {
+                            self.add_tag(buffer, self.choose_tag().0, None);
+                        }
+                    }
                 }
             }
         }
