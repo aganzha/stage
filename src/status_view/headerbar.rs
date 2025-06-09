@@ -226,8 +226,9 @@ pub fn burger_menu(
     let shortcuts_action = gio::SimpleAction::new("shortcuts", None);
     shortcuts_action.connect_activate({
         let window = window.clone();
+        let sender = sender.clone();
         move |_, _| {
-            show_shortcuts_view(&window);
+            show_shortcuts_view(&window, sender.clone());
         }
     });
     ag.add_action(&shortcuts_action);
@@ -655,7 +656,7 @@ pub fn factory(
     (hb, updater)
 }
 
-pub fn show_shortcuts_view(app_window: &ApplicationWindow) {
+pub fn show_shortcuts_view(app_window: &ApplicationWindow, sender: Sender<crate::Event>) {
     let shortcuts_window = ShortcutsWindow::builder().transient_for(app_window).build();
 
     let status_section = ShortcutsSection::builder()
@@ -795,5 +796,13 @@ pub fn show_shortcuts_view(app_window: &ApplicationWindow) {
     branches_section.add_group(&commands_group);
     shortcuts_window.add_section(&branches_section);
 
+    shortcuts_window.connect_unrealize({
+        let sender = sender.clone();
+        move |_| {
+            sender
+                .send_blocking(crate::Event::Focus)
+                .expect("cant send through channel");
+                }
+    });
     shortcuts_window.present();
 }
