@@ -708,6 +708,12 @@ pub fn show_shortcuts_view(app_window: &ApplicationWindow) {
         .accelerator("z")
         .build();
     window_group.add_shortcut(&stashes_shortcut);
+    let close_shortcut = ShortcutsShortcut::builder()
+        .title("Close window")
+        .accelerator("<ctrl>w")
+        .build();
+    window_group.add_shortcut(&close_shortcut);
+
     status_section.add_group(&window_group);
 
     let other_group = ShortcutsGroup::builder().title("Other commands").build();
@@ -742,7 +748,7 @@ pub fn show_shortcuts_view(app_window: &ApplicationWindow) {
     let commands_group = ShortcutsGroup::builder().title("Branches commands").build();
     let create_shortcut = ShortcutsShortcut::builder()
         .title("Create branch")
-        .accelerator("c")
+        .accelerator("c n")
         .build();
     commands_group.add_shortcut(&create_shortcut);
     let kill_shortcut = ShortcutsShortcut::builder()
@@ -751,6 +757,40 @@ pub fn show_shortcuts_view(app_window: &ApplicationWindow) {
         .accelerator("k")
         .build();
     commands_group.add_shortcut(&kill_shortcut);
+    let merge_shortcut = ShortcutsShortcut::builder()
+        .title("Merge branch")
+        .accelerator("m")
+        .build();
+    commands_group.add_shortcut(&merge_shortcut);
+    let rebase_shortcut = ShortcutsShortcut::builder()
+        .title("Rebase on branch")
+        .accelerator("r")
+        .build();
+    commands_group.add_shortcut(&rebase_shortcut);
+
+    let branch_log_shortcut = ShortcutsShortcut::builder()
+        .title("Log for branch")
+        .accelerator("l")
+        .build();
+    commands_group.add_shortcut(&branch_log_shortcut);
+
+    let apply_shortcut = ShortcutsShortcut::builder()
+        .title("Cherry pick")
+        .accelerator("a")
+        .build();
+    commands_group.add_shortcut(&apply_shortcut);
+
+    let update_shortcut = ShortcutsShortcut::builder()
+        .title("Update remotes")
+        .accelerator("u")
+        .build();
+    commands_group.add_shortcut(&update_shortcut);
+
+    let search_shortcut = ShortcutsShortcut::builder()
+        .title("Search branches")
+        .accelerator("s")
+        .build();
+    commands_group.add_shortcut(&search_shortcut);
 
     branches_section.add_group(&commands_group);
     shortcuts_window.add_section(&branches_section);
