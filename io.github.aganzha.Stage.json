@@ -27,7 +27,7 @@
          {
             "type": "git",
             "url": "https://github.com/aganzha/stage.git",
-            "tag": "0.1.20"
+            "tag": "0.1.21"
          },
          "io.github.aganzha.Stage.cargo-sources.json"
       ]

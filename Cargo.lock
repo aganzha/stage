@@ -1324,7 +1324,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "stage"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-channel",
