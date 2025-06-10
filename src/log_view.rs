@@ -798,7 +798,7 @@ pub fn show_log_window(
                 }
                 (gdk::Key::r, _) => {
                     main_sender
-                        .send_blocking(crate::Event::Apply(crate::ApplyOp::CherryPick(
+                        .send_blocking(crate::Event::Apply(crate::ApplyOp::Revert(
                             get_commit_list(&list_view).get_selected_oid(),
                             None,
                             None,
