@@ -23,7 +23,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::{debug, error, trace};
+use log::{error, trace};
 //pub const LINE_NO_SPACE: i32 = 6;
 
 #[derive(PartialEq, Debug)]
@@ -1194,7 +1194,7 @@ impl ViewContainer for State {
 
 impl Diff {
     pub fn auto_expand(&self) {
-        debug!("---------auto expand {:?}", self.kind);
+        trace!("---------auto expand {:?}", self.kind);
         if self.is_empty() {
             error!("EXPANDING EMPTY DIFF");
             return;

@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::dialogs::alert;
-use crate::git::{commit, stash::StashNum, HunkLineNo};
+use crate::git::{commit, stash::StashNum};
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
-use crate::{ApplyOp, CurrentWindow, Event, StageOp};
+use crate::{ApplyOp, BlameLine, CurrentWindow, Event, StageOp};
 use async_channel::Sender;
 use git2::Oid;
 
@@ -182,7 +182,7 @@ impl commit::CommitDiff {
         ctx: &mut StatusRenderContext<'a>,
         labels: &'a mut [TextViewLabel],
         body_label: &'a mut MultiLineLabel,
-        ofile_withlineno: Option<(PathBuf, HunkLineNo)>,
+        blame_line: Option<BlameLine>,
     ) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
@@ -200,16 +200,18 @@ impl commit::CommitDiff {
         body_label.render(&buffer, &mut iter, ctx);
         let mut found_line_index: Option<(usize, usize, usize)> = None;
         if !self.diff.files.is_empty() {
-            if let Some((path, line_no)) = ofile_withlineno {
+            if let Some(blame_line) = blame_line {
                 for (f, file) in self.diff.files.iter().enumerate() {
-                    if file.path == path {
+                    if file.path == blame_line.file_path {
                         file.view.expand(true);
                         for (h, hunk) in file.hunks.iter().enumerate() {
                             let mut found = false;
                             if found_line_index.is_none() {
                                 for (l, line) in hunk.lines.iter().enumerate() {
                                     if let Some(found_line_no) = line.new_line_no {
-                                        if found_line_no == line_no {
+                                        if found_line_no >= blame_line.hunk_start
+                                            && line.content(hunk) == blame_line.content
+                                        {
                                             line.view.make_current(true);
                                             found = true;
                                             found_line_index.replace((f, h, l));
@@ -238,6 +240,7 @@ impl commit::CommitDiff {
             let buffer = txt.buffer();
             iter = buffer.iter_at_line(line_no).unwrap();
             buffer.place_cursor(&iter);
+            txt.scroll_to_iter(&mut iter, 0.0, false, 0.0, 0.0);
         } else if !self.diff.files.is_empty() {
             let buffer = txt.buffer();
             iter = buffer
@@ -254,7 +257,7 @@ pub fn show_commit_window(
     repo_path: PathBuf,
     oid: Oid,
     stash_num: Option<StashNum>,
-    ofile_withlineno: Option<(PathBuf, HunkLineNo)>,
+    blame_line: Option<BlameLine>,
     app_window: CurrentWindow,
     main_sender: Sender<Event>, // i need that to trigger revert and cherry-pick.
 ) -> Window {
@@ -363,7 +366,7 @@ pub fn show_commit_window(
                             &mut ctx,
                             &mut labels,
                             body_label.as_mut().unwrap(),
-                            ofile_withlineno.clone(),
+                            blame_line.clone(),
                         );
                         cursor_position = CursorPosition::from_context(&ctx);
                         // it should be called after cursor in ViewContainer

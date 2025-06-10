@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::git::{get_head, make_diff, make_diff_options, DeferRefresh, Diff, DiffKind, Hunk, State};
+use crate::git::{get_head, make_diff, make_diff_options, DeferRefresh, Diff, DiffKind, Hunk};
 use anyhow::Result;
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
@@ -198,7 +198,7 @@ pub fn create(
         repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[])?;
     }
 
-    // update staged changes
+    // update staged changes.
     let ob = repo.revparse_single("HEAD^{tree}")?;
     let current_tree = repo.find_tree(ob.id())?;
     let git_diff =
@@ -313,7 +313,10 @@ pub fn partial_apply(
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
-    info!("partial apply {:?} {:?} {:?}", file_path, hunk_header, revert);
+    info!(
+        "partial apply {:?} {:?} {:?}",
+        file_path, hunk_header, revert
+    );
     let repo = git2::Repository::open(path.clone())?;
 
     sender
@@ -333,8 +336,7 @@ pub fn partial_apply(
     let mut diff_opts = make_diff_options();
     diff_opts.reverse(true);
 
-    let git_diff = repo
-        .diff_index_to_workdir(Some(&memory_index), Some(&mut diff_opts))?;
+    let git_diff = repo.diff_index_to_workdir(Some(&memory_index), Some(&mut diff_opts))?;
 
     let mut options = git2::ApplyOptions::new();
 

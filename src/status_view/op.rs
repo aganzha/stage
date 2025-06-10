@@ -491,7 +491,8 @@ impl Status {
     ) -> TextIter {
         trace!(
             "choose_cursor_position. render diff {:?} last_op {:?}",
-            render_diff_kind, self.last_op
+            render_diff_kind,
+            self.last_op
         );
         let this_pos = buffer.cursor_position();
         let mut iter = buffer.iter_at_offset(this_pos);

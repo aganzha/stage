@@ -33,8 +33,8 @@ use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, CurrentWindow, Diff, DiffKind, Event, File as GitFile, Head, State,
-    StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
+    get_current_repo_status, BlameLine, CurrentWindow, Diff, DiffKind, Event, File as GitFile,
+    Head, State, StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
 };
 use async_channel::Sender;
 
@@ -865,20 +865,25 @@ impl Status {
     pub fn blame(&self, app_window: CurrentWindow) {
         let mut line_no: Option<HunkLineNo> = None;
         let mut ofile_path: Option<PathBuf> = None;
+        let mut oline_content: Option<String> = None;
         match self.cursor_position.get() {
             CursorPosition::CursorLine(DiffKind::Unstaged, file_idx, hunk_idx, line_idx) => {
                 if let Some(unstaged) = &self.unstaged {
                     let file = &unstaged.files[file_idx];
+                    let hunk = &file.hunks[hunk_idx];
                     ofile_path.replace(file.path.clone());
-                    let line = &file.hunks[hunk_idx].lines[line_idx];
+                    let line = &hunk.lines[line_idx];
+                    oline_content.replace(line.content(hunk).to_string());
                     line_no = line.old_line_no;
                 }
             }
             CursorPosition::CursorLine(DiffKind::Staged, file_idx, hunk_idx, line_idx) => {
                 if let Some(staged) = &self.staged {
                     let file = &staged.files[file_idx];
+                    let hunk = &file.hunks[hunk_idx];
                     ofile_path.replace(file.path.clone());
-                    let line = &file.hunks[hunk_idx].lines[line_idx];
+                    let line = &hunk.lines[line_idx];
+                    oline_content.replace(line.content(hunk).to_string());
                     line_no = line.old_line_no;
                 }
             }
@@ -902,7 +907,11 @@ impl Status {
                                 .send_blocking(crate::Event::ShowOid(
                                     oid,
                                     None,
-                                    Some((file_path, hunk_line_start)),
+                                    Some(BlameLine {
+                                        file_path,
+                                        hunk_start: hunk_line_start,
+                                        content: oline_content.unwrap(),
+                                    }),
                                 ))
                                 .expect("Could not send through channel");
                         }

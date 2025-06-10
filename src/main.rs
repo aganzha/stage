@@ -105,6 +105,13 @@ pub enum ApplyOp {
     Stash(Oid, StashNum, Option<PathBuf>, Option<String>),
 }
 
+#[derive(Debug, Clone)]
+pub struct BlameLine {
+    pub file_path: PathBuf,
+    pub hunk_start: HunkLineNo,
+    pub content: String,
+}
+
 #[derive(Debug)]
 pub enum Event {
     Debug,
@@ -130,7 +137,7 @@ pub enum Event {
     ShowBranches,
     Branches(Vec<branch::BranchData>),
     Log(Option<Oid>, Option<String>),
-    ShowOid(Oid, Option<StashNum>, Option<(PathBuf, HunkLineNo)>),
+    ShowOid(Oid, Option<StashNum>, Option<BlameLine>),
     ShowTextOid(String),
     TextViewResize(i32),
     Toast(String),
@@ -702,7 +709,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         }
                     });
                 }
-                Event::ShowOid(oid, onum, ofile_withlineno) => {
+                Event::ShowOid(oid, onum, blame_line) => {
                     info!("main.show oid {:?}", oid);
                     let current_window = if let Some(stacked_window) = window_stack.borrow().last()
                     {
@@ -714,7 +721,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         status.path.clone().expect("no path"),
                         oid,
                         onum,
-                        ofile_withlineno,
+                        blame_line,
                         current_window,
                         sender.clone(),
                     );
