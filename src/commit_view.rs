@@ -497,7 +497,7 @@ pub fn show_commit_window(
                                                 ))
                                                 .expect("Could not send through channel");
                                         }
-                                        Err(e) => alert(e).present(Some(&window))
+                                        Err(e) => alert(e).present(Some(&window)),
                                     }
                                 }
                             });
