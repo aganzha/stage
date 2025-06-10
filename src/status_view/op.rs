@@ -489,7 +489,7 @@ impl Status {
         buffer: &TextBuffer,
         render_diff_kind: Option<DiffKind>,
     ) -> TextIter {
-        debug!(
+        trace!(
             "choose_cursor_position. render diff {:?} last_op {:?}",
             render_diff_kind, self.last_op
         );
