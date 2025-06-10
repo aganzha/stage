@@ -318,8 +318,6 @@ pub fn show_commit_window(
         let window = window.clone();
         let sender = sender.clone();
         let path = path.clone();
-        let app_window = app_window.clone();
-        let main_sender = main_sender.clone();
         async move {
             let diff = gio::spawn_blocking(move || commit::get_commit_diff(path.clone(), oid))
                 .await
@@ -344,6 +342,7 @@ pub fn show_commit_window(
     ];
 
     glib::spawn_future_local({
+        let window = window.clone();
         async move {
             while let Ok(event) = receiver.recv().await {
                 let mut ctx = crate::StatusRenderContext::new(&txt);
@@ -462,7 +461,8 @@ pub fn show_commit_window(
                                 ofile_path.replace(file.path.clone());
                                 let line = &hunk.lines[line_idx];
                                 oline_content.replace(line.content(hunk).to_string());
-                                line_no = line.old_line_no;
+                                // IMPORTANT - here we use new_line_no
+                                line_no = line.new_line_no;
                             }
                         }
                         if let Some(line_no) = line_no {
@@ -470,19 +470,24 @@ pub fn show_commit_window(
                                 let path = path.clone();
                                 let sender = main_sender.clone();
                                 let file_path = ofile_path.clone().unwrap();
-                                let app_window = app_window.clone();
+                                let window = window.clone();
                                 async move {
                                     let ooid = gio::spawn_blocking({
                                         let file_path = file_path.clone();
-                                        move || blame(path, file_path.clone(), line_no)
+                                        move || blame(path, file_path.clone(), line_no, Some(oid))
                                     })
                                     .await
                                     .unwrap();
                                     match ooid {
-                                        Ok((oid, hunk_line_start)) => {
+                                        Ok((blame_oid, hunk_line_start)) => {
+                                            if blame_oid == oid {
+                                                alert(format!("This is the same commit {:?}", oid))
+                                                    .present(Some(&window));
+                                                return;
+                                            }
                                             sender
                                                 .send_blocking(crate::Event::ShowOid(
-                                                    oid,
+                                                    blame_oid,
                                                     None,
                                                     Some(BlameLine {
                                                         file_path,
@@ -492,14 +497,7 @@ pub fn show_commit_window(
                                                 ))
                                                 .expect("Could not send through channel");
                                         }
-                                        Err(e) => match app_window {
-                                            CurrentWindow::Window(w) => {
-                                                alert(e).present(Some(&w));
-                                            }
-                                            CurrentWindow::ApplicationWindow(w) => {
-                                                alert(e).present(Some(&w));
-                                            }
-                                        },
+                                        Err(e) => alert(e).present(Some(&window))
                                     }
                                 }
                             });

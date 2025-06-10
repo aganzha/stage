@@ -874,6 +874,7 @@ impl Status {
                     ofile_path.replace(file.path.clone());
                     let line = &hunk.lines[line_idx];
                     oline_content.replace(line.content(hunk).to_string());
+                    // IMPORTANT - here we use old_line_no
                     line_no = line.old_line_no;
                 }
             }
@@ -884,6 +885,7 @@ impl Status {
                     ofile_path.replace(file.path.clone());
                     let line = &hunk.lines[line_idx];
                     oline_content.replace(line.content(hunk).to_string());
+                    // IMPORTANT - here we use old_line_no
                     line_no = line.old_line_no;
                 }
             }
@@ -897,7 +899,7 @@ impl Status {
                 async move {
                     let ooid = gio::spawn_blocking({
                         let file_path = file_path.clone();
-                        move || blame(path, file_path.clone(), line_no)
+                        move || blame(path, file_path.clone(), line_no, None)
                     })
                     .await
                     .unwrap();

@@ -1260,9 +1260,13 @@ pub fn blame(
     path: PathBuf,
     file_path: PathBuf,
     line_no: HunkLineNo,
+    start_oid: Option<Oid>,
 ) -> Result<(git2::Oid, HunkLineNo)> {
     let repo = git2::Repository::open(path.clone())?;
     let mut opts = git2::BlameOptions::new();
+    if let Some(oid) = start_oid {
+        opts.newest_commit(oid);
+    }
     let blame = repo.blame_file(&file_path, Some(&mut opts))?;
     let blame_hunk = blame
         .get_line(line_no.as_usize())
