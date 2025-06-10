@@ -36,8 +36,10 @@ use std::sync::{Arc, Condvar, Mutex};
 mod git;
 use git::{
     branch, commit, get_current_repo_status, get_directories, reset_hard, stage_untracked,
-    stage_via_apply, stash::Stashes, Diff, DiffKind, File, Head, Hunk, Line, LineKind, State,
-    MARKER_OURS, MARKER_THEIRS,
+    stage_via_apply,
+    stash::{StashNum, Stashes},
+    Diff, DiffKind, File, Head, Hunk, HunkLineNo, Line, LineKind, State, MARKER_OURS,
+    MARKER_THEIRS,
 };
 use git2::Oid;
 mod dialogs;
@@ -100,7 +102,14 @@ pub enum StageOp {
 pub enum ApplyOp {
     CherryPick(Oid, Option<PathBuf>, Option<String>),
     Revert(Oid, Option<PathBuf>, Option<String>),
-    Stash(Oid, usize, Option<PathBuf>, Option<String>),
+    Stash(Oid, StashNum, Option<PathBuf>, Option<String>),
+}
+
+#[derive(Debug, Clone)]
+pub struct BlameLine {
+    pub file_path: PathBuf,
+    pub hunk_start: HunkLineNo,
+    pub content: String,
 }
 
 #[derive(Debug)]
@@ -128,10 +137,9 @@ pub enum Event {
     ShowBranches,
     Branches(Vec<branch::BranchData>),
     Log(Option<Oid>, Option<String>),
-    ShowOid(Oid, Option<usize>),
+    ShowOid(Oid, Option<StashNum>, Option<BlameLine>),
     ShowTextOid(String),
     TextViewResize(i32),
-    TextCharVisibleWidth(i32),
     Toast(String),
     StashesPanel,
     Stashes(Stashes),
@@ -147,6 +155,7 @@ pub enum Event {
     Apply(ApplyOp),
     Focus,
     UserInputRequired(Arc<(Mutex<LoginPassword>, Condvar)>),
+    Blame,
 }
 
 fn main() -> glib::ExitCode {
@@ -363,6 +372,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     status.get_status();
                 }
                 Event::Focus => {
+                    info!("focus");
                     txt.grab_focus();
                 }
                 Event::OpenFileDialog => {
@@ -570,9 +580,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                 Event::TextViewResize(w) => {
                     info!("TextViewResize {}", w);
                 }
-                Event::TextCharVisibleWidth(w) => {
-                    info!("TextCharVisibleWidth {}", w);
-                }
                 Event::Toast(title) => {
                     info!("Toast {:?}", toast_lock);
                     if !toast_lock.get() {
@@ -634,6 +641,16 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         focus();
                     }
                 }
+                Event::Blame => {
+                    info!("blame");
+                    let current_window = if let Some(stacked_window) = window_stack.borrow().last()
+                    {
+                        CurrentWindow::Window(stacked_window.clone())
+                    } else {
+                        CurrentWindow::ApplicationWindow(application_window.clone())
+                    };
+                    status.blame(current_window);
+                }
                 Event::ShowTextOid(short_sha) => {
                     info!("main.show text oid {:?}", txt);
                     glib::spawn_future_local({
@@ -658,6 +675,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                                     let commit_window = show_commit_window(
                                         path,
                                         oid,
+                                        None,
                                         None,
                                         current_window,
                                         sender.clone(),
@@ -691,7 +709,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                         }
                     });
                 }
-                Event::ShowOid(oid, num) => {
+                Event::ShowOid(oid, onum, blame_line) => {
                     info!("main.show oid {:?}", oid);
                     let current_window = if let Some(stacked_window) = window_stack.borrow().last()
                     {
@@ -702,7 +720,8 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     let commit_window = show_commit_window(
                         status.path.clone().expect("no path"),
                         oid,
-                        num,
+                        onum,
+                        blame_line,
                         current_window,
                         sender.clone(),
                     );

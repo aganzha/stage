@@ -198,7 +198,7 @@ pub fn create(
         repo.commit(Some("HEAD"), &me, &me, &message, &tree, &[])?;
     }
 
-    // update staged changes
+    // update staged changes.
     let ob = repo.revparse_single("HEAD^{tree}")?;
     let current_tree = repo.find_tree(ob.id())?;
     let git_diff =
@@ -313,7 +313,10 @@ pub fn partial_apply(
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
-
+    info!(
+        "partial apply {:?} {:?} {:?}",
+        file_path, hunk_header, revert
+    );
     let repo = git2::Repository::open(path.clone())?;
 
     sender
@@ -321,31 +324,26 @@ pub fn partial_apply(
         .expect("Could not send through channel");
 
     let commit = repo.find_commit(oid)?;
-    let tree = commit.tree()?;
 
-    let ob = repo.revparse_single("HEAD^{tree}")?;
-    let head_tree = repo.find_tree(ob.id())?;
-
+    let head_ref = repo.head()?;
+    let ob = head_ref.peel(git2::ObjectType::Commit)?;
+    let our_commit = ob.peel_to_commit()?;
+    let memory_index = if revert {
+        repo.revert_commit(&commit, &our_commit, 0, None)?
+    } else {
+        repo.cherrypick_commit(&commit, &our_commit, 0, None)?
+    };
     let mut diff_opts = make_diff_options();
-    let git_diff = repo.diff_tree_to_tree(
-        Some(&head_tree),
-        Some(&tree),
-        Some(if revert {
-            diff_opts.reverse(true)
-        } else {
-            &mut diff_opts
-        }),
-    )?;
+    diff_opts.reverse(true);
+
+    let git_diff = repo.diff_index_to_workdir(Some(&memory_index), Some(&mut diff_opts))?;
+
     let mut options = git2::ApplyOptions::new();
 
     options.hunk_callback(|odh| -> bool {
         if let Some(hunk_header) = &hunk_header {
             if let Some(dh) = odh {
                 let mut header = Hunk::get_header_from(&dh);
-                println!(
-                    "-----------------------> MINE: {:?} REAL: {:?}",
-                    hunk_header, header
-                );
                 if revert {
                     header = Hunk::reverse_header(&header);
                 }

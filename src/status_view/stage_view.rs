@@ -520,6 +520,10 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     sndr.send_blocking(crate::Event::Stage(crate::StageOp::Kill))
                         .expect("Could not send through channel");
                 }
+                (gdk::Key::b, gdk::ModifierType::CONTROL_MASK) => {
+                    sndr.send_blocking(crate::Event::Blame)
+                        .expect("Could not send through channel");
+                }
                 (gdk::Key::c, gdk::ModifierType::CONTROL_MASK) => {
                     // for ctrl-c
                 }
@@ -680,7 +684,10 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                 MovementStep::DisplayLines => {
                     let char_offset = start_iter.line_offset();
                     start_iter.forward_lines(count);
-                    start_iter.set_line_offset(char_offset);
+                    start_iter.forward_to_line_end();
+                    if start_iter.line_offset() > char_offset {
+                        start_iter.set_line_offset(char_offset);
+                    }
                 }
                 MovementStep::DisplayLineEnds
                 | MovementStep::Paragraphs

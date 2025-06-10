@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::dialogs::alert;
-use crate::git::commit;
+use crate::git::{blame, commit, stash::StashNum};
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
-use crate::{ApplyOp, CurrentWindow, Event, StageOp};
+use crate::{ApplyOp, BlameLine, CurrentWindow, Event, HunkLineNo, StageOp};
 use async_channel::Sender;
 use git2::Oid;
 
@@ -23,7 +23,11 @@ use log::{debug, info, trace};
 
 use std::path::PathBuf;
 
-pub fn headerbar_factory(sender: Sender<Event>, oid: Oid, stash_num: Option<usize>) -> HeaderBar {
+pub fn headerbar_factory(
+    sender: Sender<Event>,
+    oid: Oid,
+    stash_num: Option<StashNum>,
+) -> HeaderBar {
     let hb = HeaderBar::builder().build();
     let (btn_tooltip, title) = if stash_num.is_some() {
         ("Apply stash", "Stash")
@@ -178,6 +182,7 @@ impl commit::CommitDiff {
         ctx: &mut StatusRenderContext<'a>,
         labels: &'a mut [TextViewLabel],
         body_label: &'a mut MultiLineLabel,
+        blame_line: Option<BlameLine>,
     ) {
         let buffer = txt.buffer();
         let mut iter = buffer.iter_at_offset(0);
@@ -193,14 +198,50 @@ impl commit::CommitDiff {
         // ??? why it was commented out?
         // body_label.update_content(&self.message, txt.calc_max_char_width());
         body_label.render(&buffer, &mut iter, ctx);
-
+        let mut found_line_index: Option<(usize, usize, usize)> = None;
         if !self.diff.files.is_empty() {
-            self.diff.files[0].view.make_current(true);
+            if let Some(blame_line) = blame_line {
+                for (f, file) in self.diff.files.iter().enumerate() {
+                    if file.path == blame_line.file_path {
+                        file.view.expand(true);
+                        for (h, hunk) in file.hunks.iter().enumerate() {
+                            let mut found = false;
+                            if found_line_index.is_none() {
+                                for (l, line) in hunk.lines.iter().enumerate() {
+                                    if let Some(found_line_no) = line.new_line_no {
+                                        if found_line_no >= blame_line.hunk_start
+                                            && line.content(hunk) == blame_line.content
+                                        {
+                                            line.view.make_current(true);
+                                            found = true;
+                                            found_line_index.replace((f, h, l));
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if !found {
+                                hunk.view.expand(false);
+                            }
+                        }
+                        if found_line_index.is_some() {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                self.diff.files[0].view.make_current(true);
+            }
         }
 
         self.diff.render(&buffer, &mut iter, ctx);
-
-        if !self.diff.files.is_empty() {
+        if let Some((f, h, l)) = found_line_index {
+            let line_no = self.diff.files[f].hunks[h].lines[l].view.line_no.get();
+            let buffer = txt.buffer();
+            iter = buffer.iter_at_line(line_no).unwrap();
+            buffer.place_cursor(&iter);
+            txt.scroll_to_iter(&mut iter, 0.0, false, 0.0, 0.0);
+        } else if !self.diff.files.is_empty() {
             let buffer = txt.buffer();
             iter = buffer
                 .iter_at_line(self.diff.files[0].view.line_no.get())
@@ -215,7 +256,8 @@ impl commit::CommitDiff {
 pub fn show_commit_window(
     repo_path: PathBuf,
     oid: Oid,
-    stash_num: Option<usize>,
+    stash_num: Option<StashNum>,
+    blame_line: Option<BlameLine>,
     app_window: CurrentWindow,
     main_sender: Sender<Event>, // i need that to trigger revert and cherry-pick.
 ) -> Window {
@@ -228,7 +270,7 @@ pub fn show_commit_window(
     let mut builder = Window::builder()
         .default_width(MAX_WIDTH)
         .default_height(960);
-    match app_window {
+    match app_window.clone() {
         CurrentWindow::Window(w) => {
             builder = builder.transient_for(&w);
         }
@@ -270,14 +312,14 @@ pub fn show_commit_window(
     let mut body_label: Option<MultiLineLabel> = None;
 
     let path = repo_path.clone();
-
     let mut cursor_position: CursorPosition = CursorPosition::None;
 
     glib::spawn_future_local({
         let window = window.clone();
         let sender = sender.clone();
+        let path = path.clone();
         async move {
-            let diff = gio::spawn_blocking(move || commit::get_commit_diff(path, oid))
+            let diff = gio::spawn_blocking(move || commit::get_commit_diff(path.clone(), oid))
                 .await
                 .unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(Some(&window));
@@ -300,6 +342,7 @@ pub fn show_commit_window(
     ];
 
     glib::spawn_future_local({
+        let window = window.clone();
         async move {
             while let Ok(event) = receiver.recv().await {
                 let mut ctx = crate::StatusRenderContext::new(&txt);
@@ -324,6 +367,7 @@ pub fn show_commit_window(
                             &mut ctx,
                             &mut labels,
                             body_label.as_mut().unwrap(),
+                            blame_line.clone(),
                         );
                         cursor_position = CursorPosition::from_context(&ctx);
                         // it should be called after cursor in ViewContainer
@@ -355,12 +399,6 @@ pub fn show_commit_window(
                     }
                     Event::TextViewResize(w) => {
                         info!("TextViewResize {} {:?}", w, ctx);
-                    }
-                    Event::TextCharVisibleWidth(w) => {
-                        info!("TextCharVisibleWidth {}", w);
-                        if let Some(d) = &mut diff {
-                            d.render(&txt, &mut ctx, &mut labels, body_label.as_mut().unwrap());
-                        }
                     }
                     Event::Debug => {
                         let buffer = txt.buffer();
@@ -408,6 +446,61 @@ pub fn show_commit_window(
                             main_sender
                                 .send_blocking(crate::Event::Apply(apply_op))
                                 .expect("cant send through channel");
+                        }
+                    }
+                    Event::Blame => {
+                        let mut line_no: Option<HunkLineNo> = None;
+                        let mut ofile_path: Option<PathBuf> = None;
+                        let mut oline_content: Option<String> = None;
+                        if let CursorPosition::CursorLine(_, file_idx, hunk_idx, line_idx) =
+                            cursor_position
+                        {
+                            if let Some(diff) = &diff {
+                                let file = &diff.diff.files[file_idx];
+                                let hunk = &file.hunks[hunk_idx];
+                                ofile_path.replace(file.path.clone());
+                                let line = &hunk.lines[line_idx];
+                                oline_content.replace(line.content(hunk).to_string());
+                                // IMPORTANT - here we use new_line_no
+                                line_no = line.new_line_no;
+                            }
+                        }
+                        if let Some(line_no) = line_no {
+                            glib::spawn_future_local({
+                                let path = path.clone();
+                                let sender = main_sender.clone();
+                                let file_path = ofile_path.clone().unwrap();
+                                let window = window.clone();
+                                async move {
+                                    let ooid = gio::spawn_blocking({
+                                        let file_path = file_path.clone();
+                                        move || blame(path, file_path.clone(), line_no, Some(oid))
+                                    })
+                                    .await
+                                    .unwrap();
+                                    match ooid {
+                                        Ok((blame_oid, hunk_line_start)) => {
+                                            if blame_oid == oid {
+                                                alert(format!("This is the same commit {:?}", oid))
+                                                    .present(Some(&window));
+                                                return;
+                                            }
+                                            sender
+                                                .send_blocking(crate::Event::ShowOid(
+                                                    blame_oid,
+                                                    None,
+                                                    Some(BlameLine {
+                                                        file_path,
+                                                        hunk_start: hunk_line_start,
+                                                        content: oline_content.unwrap(),
+                                                    }),
+                                                ))
+                                                .expect("Could not send through channel");
+                                        }
+                                        Err(e) => alert(e).present(Some(&window)),
+                                    }
+                                }
+                            });
                         }
                     }
                     _ => {

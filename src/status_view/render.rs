@@ -23,7 +23,7 @@ use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
 use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
-use log::trace;
+use log::{error, trace};
 //pub const LINE_NO_SPACE: i32 = 6;
 
 #[derive(PartialEq, Debug)]
@@ -857,8 +857,8 @@ impl ViewContainer for Line {
 
         let line_no = self
             .new_line_no
-            .map(|num| num.as_u32())
-            .unwrap_or(self.old_line_no.map(|num| num.as_u32()).unwrap_or(0));
+            .map(|num| num.as_i32())
+            .unwrap_or(self.old_line_no.map(|num| num.as_i32()).unwrap_or(0));
 
         let line_no_text = format!(
             "<span size=\"small\" line_height=\"0.5\">{}</span>",
@@ -951,21 +951,10 @@ impl ViewContainer for Line {
                 );
 
                 match self.kind {
-                    LineKind::ConflictMarker(_) => {
-                        self.add_tag(buffer, tags::CONFLICT_MARKER, None)
-                    }
+                    LineKind::ConflictMarker(_) => self.add_tag(buffer, tags::REMOVED, None),
                     // no need to mark theirs/ours. use regular colors downwhere
                     LineKind::Ours(_) | LineKind::Theirs(_) => {
-                        match self.origin {
-                            DiffLineType::Addition => self.add_tag(buffer, tags::ADDED, None),
-                            DiffLineType::Deletion => {
-                                //  |  DiffLineType::Context
-                                // this is a hack. in Ours lines got Context origin
-                                // while Theirs got Addition
-                                self.add_tag(buffer, tags::REMOVED, None)
-                            }
-                            _ => {}
-                        }
+                        self.add_tag(buffer, tags::ADDED, None)
                     }
                     _ => self.add_tag(buffer, self.choose_tag().0, None),
                 }
@@ -1021,10 +1010,29 @@ impl ViewContainer for Line {
                         start_offset,
                     );
                 }
-                if is_active {
-                    self.add_tag(buffer, self.choose_tag().enhance().0, None);
-                } else {
-                    self.add_tag(buffer, self.choose_tag().0, None);
+                match self.kind {
+                    LineKind::ConflictMarker(_) => {
+                        if is_active {
+                            self.add_tag(buffer, tags::Tag(tags::REMOVED).enhance().0, None)
+                        } else {
+                            self.add_tag(buffer, tags::REMOVED, None)
+                        }
+                    }
+                    // no need to mark theirs/ours. use regular colors downwhere
+                    LineKind::Ours(_) | LineKind::Theirs(_) => {
+                        if is_active {
+                            self.add_tag(buffer, tags::Tag(tags::ADDED).enhance().0, None)
+                        } else {
+                            self.add_tag(buffer, tags::ADDED, None)
+                        }
+                    }
+                    _ => {
+                        if is_active {
+                            self.add_tag(buffer, self.choose_tag().enhance().0, None);
+                        } else {
+                            self.add_tag(buffer, self.choose_tag().0, None);
+                        }
+                    }
                 }
             }
         }
@@ -1185,38 +1193,13 @@ impl ViewContainer for State {
 }
 
 impl Diff {
-    pub fn last_visible_line(&self) -> i32 {
-        let le = self.files.len() - 1;
-        let last_file = &self.files[le];
-        if !last_file.view.is_expanded() {
-            return last_file.view.line_no.get();
+    pub fn auto_expand(&self) {
+        trace!("---------auto expand {:?}", self.kind);
+        if self.is_empty() {
+            error!("EXPANDING EMPTY DIFF");
+            return;
         }
-        let le = last_file.hunks.len() - 1;
-        let last_hunk = &last_file.hunks[le];
-        if !last_hunk.view.is_expanded() {
-            return last_hunk.view.line_no.get();
-        }
-        let le = last_hunk.lines.len() - 1;
-        let last_line = &last_hunk.lines[le];
-        last_line.view.line_no.get()
-    }
-
-    pub fn dump(&self) -> String {
-        String::from("dump")
-    }
-
-    pub fn has_view_on(&self, line_no: i32) -> bool {
-        if !self.view.is_rendered() {
-            return false;
-        }
-        let my_line = self.view.line_no.get();
-        if my_line > line_no {
-            return false;
-        }
-        if my_line == line_no {
-            return true;
-        }
-        self.last_visible_line() >= line_no
+        self.files[0].view.expand(true);
     }
 }
 

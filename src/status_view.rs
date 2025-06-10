@@ -14,17 +14,11 @@ pub mod tags;
 
 use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{
-    abort_rebase,
-    branch::BranchData,
-    continue_rebase,
-    merge,
-    remote,
-    stash,
-    HunkLineNo, // track_changes,
+    abort_rebase, blame, branch::BranchData, continue_rebase, merge, remote, stash, HunkLineNo,
 };
 
 use git2::RepositoryState;
-use op::{LastOp, StageDiffs};
+use op::LastOp;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -39,8 +33,8 @@ use std::rc::Rc;
 
 use crate::status_view::view::View;
 use crate::{
-    get_current_repo_status, Diff, DiffKind, Event, File as GitFile, Head, State,
-    StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
+    get_current_repo_status, BlameLine, CurrentWindow, Diff, DiffKind, Event, File as GitFile,
+    Head, State, StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
 };
 use async_channel::Sender;
 
@@ -552,6 +546,10 @@ impl Status {
             } else {
                 rendered.erase(buffer, context);
             }
+        } else if let Some(conflicted) = &diff {
+            if self.staged.is_none() && self.unstaged.is_none() && self.last_op.get().is_none() {
+                conflicted.auto_expand();
+            }
         }
         // banner is separate thing. perhaps assign method below to banner?
         if let Some(state) = &self.state {
@@ -671,6 +669,11 @@ impl Status {
             } else {
                 rendered.erase(buffer, context);
             }
+        } else if let Some(staged) = &diff {
+            if self.unstaged.is_none() && self.conflicted.is_none() && self.last_op.get().is_none()
+            {
+                staged.auto_expand();
+            }
         }
         self.staged = diff;
         if self.staged.is_some() || render_required {
@@ -695,8 +698,11 @@ impl Status {
             } else {
                 rendered.erase(buffer, context);
             }
+        } else if let Some(unstaged) = &diff {
+            if self.staged.is_none() && self.conflicted.is_none() && self.last_op.get().is_none() {
+                unstaged.auto_expand();
+            }
         }
-
         self.unstaged = diff;
 
         if self.unstaged.is_some() || render_required {
@@ -823,19 +829,14 @@ impl Status {
         // first place is here
         cursor_to_line_offset(&txt.buffer(), initial_line_offset);
 
-        let diffs = StageDiffs {
-            conflicted: &self.conflicted,
-            untracked: &self.untracked,
-            unstaged: &self.unstaged,
-            staged: &self.staged,
-        };
+        // let diffs = StageDiffs {
+        //     conflicted: &self.conflicted,
+        //     untracked: &self.untracked,
+        //     unstaged: &self.unstaged,
+        //     staged: &self.staged,
+        // };
 
-        let iter = diffs.choose_cursor_position(
-            &buffer,
-            diff_kind,
-            &self.last_op,
-            self.cursor_position.get(),
-        );
+        let iter = self.choose_cursor_position(&buffer, diff_kind);
         buffer.place_cursor(&iter);
         //  WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
@@ -858,6 +859,75 @@ impl Status {
         let iter = buffer.iter_at_offset(pos);
         for tag in iter.tags() {
             debug!("Tag: {}", tag.name().unwrap());
+        }
+    }
+
+    pub fn blame(&self, app_window: CurrentWindow) {
+        let mut line_no: Option<HunkLineNo> = None;
+        let mut ofile_path: Option<PathBuf> = None;
+        let mut oline_content: Option<String> = None;
+        match self.cursor_position.get() {
+            CursorPosition::CursorLine(DiffKind::Unstaged, file_idx, hunk_idx, line_idx) => {
+                if let Some(unstaged) = &self.unstaged {
+                    let file = &unstaged.files[file_idx];
+                    let hunk = &file.hunks[hunk_idx];
+                    ofile_path.replace(file.path.clone());
+                    let line = &hunk.lines[line_idx];
+                    oline_content.replace(line.content(hunk).to_string());
+                    // IMPORTANT - here we use old_line_no
+                    line_no = line.old_line_no;
+                }
+            }
+            CursorPosition::CursorLine(DiffKind::Staged, file_idx, hunk_idx, line_idx) => {
+                if let Some(staged) = &self.staged {
+                    let file = &staged.files[file_idx];
+                    let hunk = &file.hunks[hunk_idx];
+                    ofile_path.replace(file.path.clone());
+                    let line = &hunk.lines[line_idx];
+                    oline_content.replace(line.content(hunk).to_string());
+                    // IMPORTANT - here we use old_line_no
+                    line_no = line.old_line_no;
+                }
+            }
+            _ => {}
+        }
+        if let Some(line_no) = line_no {
+            glib::spawn_future_local({
+                let path = self.path.clone().expect("no path");
+                let sender = self.sender.clone();
+                let file_path = ofile_path.unwrap();
+                async move {
+                    let ooid = gio::spawn_blocking({
+                        let file_path = file_path.clone();
+                        move || blame(path, file_path.clone(), line_no, None)
+                    })
+                    .await
+                    .unwrap();
+                    match ooid {
+                        Ok((oid, hunk_line_start)) => {
+                            sender
+                                .send_blocking(crate::Event::ShowOid(
+                                    oid,
+                                    None,
+                                    Some(BlameLine {
+                                        file_path,
+                                        hunk_start: hunk_line_start,
+                                        content: oline_content.unwrap(),
+                                    }),
+                                ))
+                                .expect("Could not send through channel");
+                        }
+                        Err(e) => match app_window {
+                            CurrentWindow::Window(w) => {
+                                alert(e).present(Some(&w));
+                            }
+                            CurrentWindow::ApplicationWindow(w) => {
+                                alert(e).present(Some(&w));
+                            }
+                        },
+                    }
+                }
+            });
         }
     }
 }

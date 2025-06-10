@@ -652,7 +652,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
                 let tag_item = tag_item.downcast_ref::<TagItem>().unwrap();
                 let oid = tag_item.imp().tag.borrow().commit.oid;
                 sender
-                    .send_blocking(crate::Event::ShowOid(oid, None))
+                    .send_blocking(crate::Event::ShowOid(oid, None, None))
                     .expect("cant send through sender");
             }
         });
@@ -1019,7 +1019,7 @@ pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
             let tag_item = list_item.downcast_ref::<TagItem>().unwrap();
             let oid = tag_item.imp().tag.borrow().commit.oid;
             sender
-                .send_blocking(crate::Event::ShowOid(oid, None))
+                .send_blocking(crate::Event::ShowOid(oid, None, None))
                 .expect("cant send through sender");
         }
     });

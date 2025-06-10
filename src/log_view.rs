@@ -405,7 +405,7 @@ pub fn item_factory(sender: Sender<crate::Event>) -> SignalListItemFactory {
                 let commit_item = commit_item.downcast_ref::<CommitItem>().unwrap();
                 let oid = commit_item.imp().commit.borrow().oid;
                 sender
-                    .send_blocking(crate::Event::ShowOid(oid, None))
+                    .send_blocking(crate::Event::ShowOid(oid, None, None))
                     .expect("cant send through sender");
             }
         });
@@ -547,7 +547,7 @@ pub fn listview_factory(sender: Sender<crate::Event>) -> ListView {
             let commit_item = list_item.downcast_ref::<CommitItem>().unwrap();
             let oid = commit_item.imp().commit.borrow().oid;
             sender
-                .send_blocking(crate::Event::ShowOid(oid, None))
+                .send_blocking(crate::Event::ShowOid(oid, None, None))
                 .expect("cant send through sender");
         }
     });
@@ -798,7 +798,7 @@ pub fn show_log_window(
                 }
                 (gdk::Key::r, _) => {
                     main_sender
-                        .send_blocking(crate::Event::Apply(crate::ApplyOp::CherryPick(
+                        .send_blocking(crate::Event::Apply(crate::ApplyOp::Revert(
                             get_commit_list(&list_view).get_selected_oid(),
                             None,
                             None,
