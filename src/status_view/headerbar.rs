@@ -849,6 +849,12 @@ pub fn show_shortcuts_view(app_window: &ApplicationWindow, sender: Sender<crate:
         .build();
     commit_commands_group.add_shortcut(&revert_shortcut);
 
+    let commit_blame_shortcut = ShortcutsShortcut::builder()
+        .title("Blame")
+        .accelerator("<ctrl>b")
+        .build();
+    commit_commands_group.add_shortcut(&commit_blame_shortcut);
+
     commit_section.add_group(&commit_commands_group);
     shortcuts_window.add_section(&commit_section);
 
