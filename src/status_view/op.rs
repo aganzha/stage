@@ -371,10 +371,11 @@ impl Status {
                     .title("")
                     .css_classes(vec!["input_field"])
                     .visible(false)
-                    .active(true)
+                    .active(false)
                     .build();
                 if let Some(path) = &ofile_path {
                     file_chooser.set_visible(true);
+                    file_chooser.set_active(true);
                     file_chooser.set_title(&format!(
                         "Only changes for file: {}",
                         path.to_string_lossy()
@@ -386,11 +387,12 @@ impl Status {
                     .title("")
                     .css_classes(vec!["input_field"])
                     .visible(false)
-                    .active(true)
+                    .active(false)
                     .build();
 
                 if let Some(header) = &ohunk_header {
                     hunk_chooser.set_visible(true);
+                    hunk_chooser.set_active(true);
                     hunk_chooser.set_title(&format!("Only changes for hunk: {}", header))
                 }
                 list_box.append(&hunk_chooser);
