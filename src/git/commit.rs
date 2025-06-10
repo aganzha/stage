@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::git::{get_head, make_diff, make_diff_options, DeferRefresh, Diff, DiffKind, Hunk};
+use crate::git::{get_head, make_diff, make_diff_options, DeferRefresh, Diff, DiffKind, Hunk, State};
 use anyhow::Result;
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset, LocalResult, TimeZone};
@@ -259,7 +259,7 @@ pub fn apply(
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("can send through channel");
-
+    println!("NO COMMIT ? {:?}", nocommit);
     if nocommit {
         let head_ref = repo.head()?;
         let ob = head_ref.peel(git2::ObjectType::Commit)?;
@@ -269,10 +269,19 @@ pub fn apply(
         } else {
             repo.cherrypick_commit(&commit, &our_commit, 0, None)?
         };
+        let git_diff = repo
+            .diff_index_to_workdir(Some(&memory_index), Some(&mut make_diff_options()))
+            .expect("cant' get diff index to workdir");
+        let diff = make_diff(&git_diff, DiffKind::Unstaged);
+        println!("{:?}", diff);
+        sender
+            .send_blocking(crate::Event::Conflicted(Some(diff), Some(State::new(repo.state(), "".to_string()))))
+            .expect("Could not send through channel");
         let mut cb = git2::build::CheckoutBuilder::new();
         if let Some(file_path) = file_path {
             cb.path(file_path);
         };
+        println!("REVERT? {:?}", revert);
         repo.checkout_index(Some(&mut memory_index), Some(&mut cb))?;
     } else {
         let mut cb: Option<git2::build::CheckoutBuilder> = None;
