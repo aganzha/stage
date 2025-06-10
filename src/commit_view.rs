@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::dialogs::alert;
-use crate::git::{commit, stash::StashNum};
+use crate::git::{blame, commit, stash::StashNum};
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
     Label as TextViewLabel,
 };
-use crate::{ApplyOp, BlameLine, CurrentWindow, Event, StageOp};
+use crate::{ApplyOp, BlameLine, CurrentWindow, Event, HunkLineNo, StageOp};
 use async_channel::Sender;
 use git2::Oid;
 
@@ -270,7 +270,7 @@ pub fn show_commit_window(
     let mut builder = Window::builder()
         .default_width(MAX_WIDTH)
         .default_height(960);
-    match app_window {
+    match app_window.clone() {
         CurrentWindow::Window(w) => {
             builder = builder.transient_for(&w);
         }
@@ -312,14 +312,16 @@ pub fn show_commit_window(
     let mut body_label: Option<MultiLineLabel> = None;
 
     let path = repo_path.clone();
-
     let mut cursor_position: CursorPosition = CursorPosition::None;
 
     glib::spawn_future_local({
         let window = window.clone();
         let sender = sender.clone();
+        let path = path.clone();
+        let app_window = app_window.clone();
+        let main_sender = main_sender.clone();
         async move {
-            let diff = gio::spawn_blocking(move || commit::get_commit_diff(path, oid))
+            let diff = gio::spawn_blocking(move || commit::get_commit_diff(path.clone(), oid))
                 .await
                 .unwrap_or_else(|e| {
                     alert(format!("{:?}", e)).present(Some(&window));
@@ -445,6 +447,62 @@ pub fn show_commit_window(
                             main_sender
                                 .send_blocking(crate::Event::Apply(apply_op))
                                 .expect("cant send through channel");
+                        }
+                    }
+                    Event::Blame => {
+                        let mut line_no: Option<HunkLineNo> = None;
+                        let mut ofile_path: Option<PathBuf> = None;
+                        let mut oline_content: Option<String> = None;
+                        if let CursorPosition::CursorLine(_, file_idx, hunk_idx, line_idx) =
+                            cursor_position
+                        {
+                            if let Some(diff) = &diff {
+                                let file = &diff.diff.files[file_idx];
+                                let hunk = &file.hunks[hunk_idx];
+                                ofile_path.replace(file.path.clone());
+                                let line = &hunk.lines[line_idx];
+                                oline_content.replace(line.content(hunk).to_string());
+                                line_no = line.old_line_no;
+                            }
+                        }
+                        if let Some(line_no) = line_no {
+                            glib::spawn_future_local({
+                                let path = path.clone();
+                                let sender = main_sender.clone();
+                                let file_path = ofile_path.clone().unwrap();
+                                let app_window = app_window.clone();
+                                async move {
+                                    let ooid = gio::spawn_blocking({
+                                        let file_path = file_path.clone();
+                                        move || blame(path, file_path.clone(), line_no)
+                                    })
+                                    .await
+                                    .unwrap();
+                                    match ooid {
+                                        Ok((oid, hunk_line_start)) => {
+                                            sender
+                                                .send_blocking(crate::Event::ShowOid(
+                                                    oid,
+                                                    None,
+                                                    Some(BlameLine {
+                                                        file_path,
+                                                        hunk_start: hunk_line_start,
+                                                        content: oline_content.unwrap(),
+                                                    }),
+                                                ))
+                                                .expect("Could not send through channel");
+                                        }
+                                        Err(e) => match app_window {
+                                            CurrentWindow::Window(w) => {
+                                                alert(e).present(Some(&w));
+                                            }
+                                            CurrentWindow::ApplicationWindow(w) => {
+                                                alert(e).present(Some(&w));
+                                            }
+                                        },
+                                    }
+                                }
+                            });
                         }
                     }
                     _ => {
