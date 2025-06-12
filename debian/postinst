@@ -1,0 +1,3 @@
+#!/bin/sh
+update-desktop-database &> /dev/null
+gtk-update-icon-cache --quiet /usr/share/icons/hicolor

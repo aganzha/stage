@@ -1,0 +1,8 @@
+extend-diff-ignore = "\.sh$"
+extend-diff-ignore = "stage.flatpakrepo"
+extend-diff-ignore = "meson.build"
+extend-diff-ignore = "stage.flatpakref"
+extend-diff-ignore = "gdb.commands.run"
+extend-diff-ignore = "Cargo.lock"
+extend-diff-ignore = "target/*"
+extend-diff-ignore = "debian/cargo_home/.global-cache"

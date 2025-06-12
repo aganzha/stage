@@ -1,0 +1,30 @@
+Source: stage-git-gui
+Section: unknown
+Priority: optional
+Maintainer: Aleksey Ganzha <aganzha@yandex.ru>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ desktop-file-utils,
+ xvfb,
+ librust-gtk4-dev,
+ librust-git2-dev,
+ librust-libadwaita-dev,
+ librust-regex-dev,
+ librust-env-logger-dev,
+ librust-async-channel-dev,
+ librust-chrono-dev,
+ librust-html-escape-dev,
+ librust-similar-dev,
+ librust-anyhow-dev,
+ librust-palette-dev
+Standards-Version: 4.7.2
+Homepage: https://github.com/aganzha/stage
+Vcs-Browser: https://github.com/aganzha/stage
+Vcs-Git: https://github.com/aganzha/stage.git
+
+Package: stage-git-gui
+Architecture: any
+Depends: libgtk-4-1,
+         libgit2-1.9
+Description: Git GUI client inspired by Magit
