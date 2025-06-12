@@ -444,7 +444,9 @@ impl File {
     }
 
     pub fn push_hunk(&mut self, mut hunk: Hunk, parser: Option<&mut syntax::LanguageWrapper>) {
-        hunk.parse_syntax(parser);
+        if let Some(parser) = parser {
+            parser.parse_hunk(&mut hunk);
+        }
         self.hunks.push(hunk);
     }
 }
