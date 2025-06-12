@@ -8,6 +8,9 @@ use std::path::Path;
 #[cfg(feature = "syntax")]
 use tree_sitter::Parser;
 
+#[cfg(not (feature = "syntax"))]
+use crate::Hunk;
+
 pub enum LanguageWrapper {
     None,
     #[cfg(feature = "syntax")]
