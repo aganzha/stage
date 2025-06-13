@@ -1,5 +1,5 @@
 Source: stage-git-gui
-Section: unknown
+Section: utils
 Priority: optional
 Maintainer: Aleksey Ganzha <aganzha@yandex.ru>
 Rules-Requires-Root: no
@@ -19,12 +19,15 @@ Build-Depends:
  librust-anyhow-dev,
  librust-palette-dev
 Standards-Version: 4.7.2
+Version: 0.1.21
+License: GPL-3+
 Homepage: https://github.com/aganzha/stage
 Vcs-Browser: https://github.com/aganzha/stage
 Vcs-Git: https://github.com/aganzha/stage.git
 
 Package: stage-git-gui
 Architecture: any
-Depends: libgtk-4-1,
-         libgit2-1.9
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         desktop-file-utils
 Description: Git GUI client inspired by Magit

@@ -1,5 +1,5 @@
 [package]
-name = "stage-git-gui"
+name = "stage"
 description="GUI Git client inspired by Magit"
 version = "0.1.21"
 edition = "2021"

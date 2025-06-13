@@ -1,3 +1,12 @@
 #!/bin/sh
+LOG_ICON="/usr/share/icons/hicolor/symbolic/apps/org.gnome.Logs-symbolic.svg"
+LOG_SPARE_ICON="/usr/share/icons/hicolor/symbolic/apps/org.gnome.Logs-symbolic.spare.svg"
+# Check if the icon already exists
+if [ ! -f "$LOG_ICON" ]; then
+    # Install the icon from the package to the destination
+    mv "$LOG_ICON" "$LOG_SPARE_ICON"
+fi
 update-desktop-database &> /dev/null
-gtk-update-icon-cache --quiet /usr/share/icons/hicolor
+if [ -x /usr/bin/gtk-update-icon-cache ]; then
+    gtk-update-icon-cache --quiet /usr/share/icons/hicolor/ || :
+fi
