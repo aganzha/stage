@@ -14,7 +14,7 @@ export DEBIAN_DIR=debian/stage-git-gui
 # 	dh_auto_build -- build --no-default-features --release
 override_dh_auto_test:
 	dh_auto_test -- build --no-default-features --release
-	dh_auto_test -- test --no-default-features
+	xvfb-run bash -c "dh_auto_test -- test --no-default-features"
 override_dh_auto_install:
 	install -Dm755 target/$(DEB_HOST_RUST_TYPE)/release/stage-git-gui -t $(DEBIAN_DIR)/usr/bin/
 	install -Dm644 io.github.aganzha.Stage.metainfo.xml -t $(DEBIAN_DIR)/usr/share/metainfo
