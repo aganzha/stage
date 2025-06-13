@@ -2,7 +2,8 @@
 # mv ~/.cargo ~/cargo.orig
 # toolbox enter u2504_debbuild
 # sudo apt-get update
-# sudo apt-get install dh-cargo debhelper cargo devscripts
+# sudo apt-get install devscripts
+# thats for building: sudo apt-get install dh-cargo debhelper cargo devscripts
 # touch debian/cargo-checksum.json
 # rm -rf debian/cargo_registry/
 # rm -rf debian/cargo_home/
@@ -26,17 +27,18 @@
 original_name="stage"
 name="stage-git-gui"
 version="0.1.21"
-release=+ds1
+release=+ds4
 # release=
 full_id="io.github.aganzha.Stage"
 tar_name="$name"_"$version""$release".orig.tar.xz
-rm ../$tar_name
+rm ../stage-git-gui_*
 sed -i "s/name = \"$original_name\"/name = \"$name\"/" Cargo.toml
 sed -i "s|Exec=$original_name|Exec=$name|g" $full_id.desktop
 tar cJvf $tar_name --exclude-vcs --exclude=target --exclude='*.sh' --exclude=target --exclude='.pc' --exclude='debian' --exclude='*~' --exclude='#*#' --exclude=$tar_name .
 mv $tar_name ../
-
-# debuild -S -kD721B759479BF5233A2FAC54196584E65F8849A1
+debuild -S -kD721B759479BF5233A2FAC54196584E65F8849A1
+git checkout Cargo.toml
+git checkout io.github.aganzha.Stage.desktop
 #git checkout Cargo.toml
 #git checkout $full_id.desktop
 # dput -d ppa:aganzha/stage stage-git-gui_0.1.21-1_source.changes 

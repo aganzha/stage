@@ -10,6 +10,7 @@ Build-Depends:
  xvfb,
  librust-gtk4-dev,
  librust-git2-dev,
+ librust-openssl-probe-dev,
  librust-libadwaita-dev,
  librust-regex-dev,
  librust-env-logger-dev,
