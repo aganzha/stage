@@ -73,6 +73,12 @@ Move cursor around with arrows or by mouse clicking in any area. Commands your i
 - `z` - opens stashes panel <picture><source srcset="./icons/sidebar-show-symbolic.svg"><img valign="middle" alt="Push button" src="./icons/sidebar-show-symbolic.svg" width="12"></picture>
 - `t` - opens tags window
 
+### Other Commands
+- `o` - opens quick repo selector
+- `Ctrl` + `o` - opens repo choosing dialog
+- `Ctrl` + `b` - blame line under cursor
+
+
 > [!NOTE]
 > Any window above Status window could be closed with `Esc` or `Ctrl-w`
 
@@ -127,3 +133,6 @@ Hitting `z` or <img class="inline" src="https://raw.githubusercontent.com/keenly
 
 ### Tags window
 Hitting `t` in Status window brings up Tags window. That window behave as a simple list where you can `c` - create, `k` - delete (as in **K**ill) and `p` - to push tags to remote.
+
+### Blame
+Git blame in Stage is a bit strange :smiley: Stage do not want to read your files directly. It only operates on diffs produced by libgit2. So, to view history of some line in code this line must somehow apear in Stage. This means you have to edit or delete this line :smiley:. Or line nearby (each change in git surrounded by 3 lines of context above and below). When you see your line in Stage you can put cursor on it and hit `Ctrl`+`b`. This will open up commit window pointing this line origin. Again, this works in Commit window to: hitting any line (except green one) in Commit window will bring another window with commit which contains this line adding.
