@@ -10,18 +10,21 @@ authors = ["Aleksey Ganzha <aganzha@yandex.ru>"]
 [dependencies]
 gtk4 = { version = "0.9.6", features = ["gnome_47", "v4_18"] }
 libadwaita = { version = "0.7.2", features = ["v1_6"] }
-git2 = "0.20.1"
+git2 = "0.20.0"
 regex = "1.10.2"
 log = "0.4.20"
-env_logger = "0.11.8"
+env_logger = "0.11.6"
 async-channel = "2.2.0"
 chrono = "0.4.35"
 html-escape = "0.2.13"
 similar = "2.7.0"
-anyhow = "1.0.97"
-gtk4-sys = "0.9.6"
-tree-sitter = "0.25.3"
-tree-sitter-python = "0.23.6"
-tree-sitter-rust = "0.23.2"
-tree-sitter-typescript = "0.23.2"
+anyhow = "1.0.95"
+tree-sitter = {version="0.25.3", optional=true}
+tree-sitter-python = {version="0.23.6", optional=true}
+tree-sitter-rust = {version="0.23.2", optional=true}
+tree-sitter-typescript = {version="0.23.2", optional=true}
 palette = "0.7.5"
+
+[features]
+default=["syntax"]
+syntax = ["dep:tree-sitter", "dep:tree-sitter-rust", "dep:tree-sitter-python", "dep:tree-sitter-typescript"]

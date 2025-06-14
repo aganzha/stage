@@ -1,0 +1,5 @@
+#!/bin/sh
+update-desktop-database &> /dev/null
+if [ -x /usr/bin/gtk-update-icon-cache ]; then
+    gtk-update-icon-cache --quiet /usr/share/icons/hicolor/ || :
+fi

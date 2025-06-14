@@ -1,0 +1,31 @@
+#!/usr/bin/make -f
+export DH_VERBOSE=1
+export CARGO_FEATURE_SYNTAX=0
+export OUT_DIR=.
+export RUSTFLAGS=-A deprecated -A warnings
+include /usr/share/rustc/architecture.mk
+export DEBIAN_DIR=debian/stage-git-gui
+
+%:
+	glib-compile-resources io.github.aganzha.Stage.gresource.xml --target src/gresources.compiled
+	dh $@ --buildsystem cargo
+
+# override_dh_auto_build:
+# 	dh_auto_build -- build --no-default-features --release
+override_dh_auto_test:
+	dh_auto_test -- build --no-default-features --release
+	xvfb-run bash -c "dh_auto_test -- test --no-default-features"
+override_dh_auto_install:
+	install -Dm755 target/$(DEB_HOST_RUST_TYPE)/release/stage-git-gui -t $(DEBIAN_DIR)/usr/bin/
+	install -Dm644 io.github.aganzha.Stage.metainfo.xml -t $(DEBIAN_DIR)/usr/share/metainfo
+	install -Dm644 io.github.aganzha.Stage.desktop -t $(DEBIAN_DIR)/usr/share/applications
+	install -Dm644 io.github.aganzha.Stage.gschema.xml -t $(DEBIAN_DIR)/usr/share/glib-2.0/schemas/
+	install -Dm644 icons/16x16/io.github.aganzha.Stage.png -t $(DEBIAN_DIR)/usr/share/icons/hicolor/16x16/apps
+	install -Dm644 icons/32x32/io.github.aganzha.Stage.png -t $(DEBIAN_DIR)/usr/share/icons/hicolor/32x32/apps
+	install -Dm644 icons/48x48/io.github.aganzha.Stage.png -t $(DEBIAN_DIR)/usr/share/icons/hicolor/48x48/apps
+	install -Dm644 icons/64x64/io.github.aganzha.Stage.png -t $(DEBIAN_DIR)/usr/share/icons/hicolor/64x64/apps
+	install -Dm644 icons/128x128/io.github.aganzha.Stage.png -t $(DEBIAN_DIR)/usr/share/icons/hicolor/128x128/apps
+	install -Dm644 icons/256x256/io.github.aganzha.Stage.png -t $(DEBIAN_DIR)/usr/share/icons/hicolor/256x256/apps
+	install -Dm644 icons/512x512/io.github.aganzha.Stage.png -t $(DEBIAN_DIR)/usr/share/icons/hicolor/512x512/apps
+	install -Dm644 icons/io.github.aganzha.Stage.svg -t $(DEBIAN_DIR)/usr/share/icons/hicolor/scalable/apps
+	install -Dm644 icons/io.github.aganzha.Stage-symbolic.svg -t $(DEBIAN_DIR)/usr/share/icons/hicolor/symbolic/apps

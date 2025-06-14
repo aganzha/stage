@@ -1,0 +1,5 @@
+stage-git-gui (0.1.21+ds5-1) plucky; urgency=medium
+
+  * Initial release
+
+ -- Aleksey Ganzha <aganzha@yandex.ru>  Thu, 14 Jun 2025 00:52:30 +0200
