@@ -6,7 +6,8 @@
 
 ![CI Build/Tests](https://github.com/aganzha/stage/actions/workflows/tests.yml/badge.svg)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Copr build status](https://copr.fedorainfracloud.org/coprs/aganzha/stage/package/stage-git-gui/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/aganzha/stage/package/stage-git-gui/)
+[![Copr build status](https://custom-icon-badges.demolab.com/badge/Fedora--5FBFFF.svg?logo=fedora-linux)](https://copr.fedorainfracloud.org/coprs/aganzha/stage/package/stage-git-gui/)
+[![PPA build status](https://custom-icon-badges.demolab.com/badge/Ubuntu--FF8926.svg?logo=ubuntu-new)](https://launchpad.net/~aganzha/+archive/ubuntu/stage)
 [![Docs](https://img.shields.io/badge/docs-orange)](https://aganzha.github.io/stage/)
 
 ## Installing
