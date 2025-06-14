@@ -14,37 +14,25 @@
 Add [Flathub](https://flathub.org/apps/io.github.aganzha.Stage) to your remotes
 ```sh
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-```
-Install app
-```sh
 flatpak install flathub io.github.aganzha.Stage
-```
-To update app to latest version run
-```
-flatpak update io.github.aganzha.Stage
-```
-
-Run app
-```sh
 flatpak run io.github.aganzha.Stage
 ```
+
 ### Fedora 42
-Add copr to remotes
 ```sh
 sudo dnf install copr
-```
-Enable repo
-```sh
 sudo dnf copr enable aganzha/stage
-```
-Install
-```sh
 sudo dnf install stage-git-gui
-```
-Run
-```sh
 stage-git-gui
 ```
+### Ubuntu 25.04
+```sh
+sudo add-apt-repository ppa:aganzha/stage
+sudo apt update
+sudo apt install stage-git-gui
+stage-git-gui
+```
+
 ## Using
 Open repository either by clicking placeholder button, or repository list button in the header bar. Stage, then, will live track all changes you do on files inside repository and display in Status window in form of text diff.
 
