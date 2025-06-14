@@ -1332,7 +1332,6 @@ dependencies = [
  "env_logger",
  "git2",
  "gtk4",
- "gtk4-sys",
  "html-escape",
  "libadwaita",
  "log",
