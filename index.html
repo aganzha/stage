@@ -205,45 +205,29 @@ header a + a {
     <h2>Installation</h2>
     <p><a target="_blank" href="https://flatpak.org/">Flatpak</a> - is the proper way to install Stage on your linux desktop. Further commands are for terminal.</p>
    <p>Add <a href="https://flathub.org/apps/io.github.aganzha.Stage" target="_blank">Flathub</a> to flatpak remotes <br/>
-    <code>
-      flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-    </code>
-    </p>
-    <p>Install Stage<br/>
-    <code>
-      flatpak install flathub io.github.aganzha.Stage
-    </code>
-    </p>
-    <p>Run<br/>
-    <code>
-      flatpak run flathub io.github.aganzha.Stage
-    </code>
-    </p>
+<pre><code>flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install flathub io.github.aganzha.Stage
+flatpak run flathub io.github.aganzha.Stage</code></pre>
+</p>
     <p>Update<br/>
     <code>
       flatpak update io.github.aganzha.Stage
       </code>
     </p>
 
-    <p><strong>RPM for Fedora 42</strong></p>
-    <p>Install copr
-      <code>sudo dnf install copr</code>
+    <p><strong>Fedora 42</strong></p>
+<pre><code>sudo dnf install copr
+sudo dnf copr enable aganzha/stage
+sudo dnf install stage-git-gui
+stage-git-gui</code></pre>
+    
     </p>
-    <p>Enable repo
-      <code>
-      sudo dnf copr enable aganzha/stage
-    </code>
-    </p>
-    <p>Install Stage
-    <code>
-      sudo dnf install stage-git-gui
-    </code>
-    </p>
-    <p>Run
-    <code>
-      stage-git-gui
-    </code>
-    </p>
+
+  <p><strong>Ubuntu 25.04</strong></p>
+<pre><code>sudo add-apt-repository ppa:aganzha/stage
+sudo apt update
+sudo apt install stage-git-gui
+stage-git-gui</code></pre>
 
     <h2>Usage</h2>
 
@@ -277,13 +261,19 @@ header a + a {
     <video controls autoplay muted loop width="960">
       <source src="https://storage.yandexcloud.net/www.aganzha.online/static/stage1.mp4" type="video/mp4">
     </video>
-    <h4>Commands does not related to cursor position</h4>
+    <h4>Commit/Push/Pull</h4>
     <ul>
       <li><code>c</code> - <b>C</b>ommit. Button in headerbar - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/object-select-symbolic.svg"/> </li>
       <li><code>p</code> - <b>P</b>ush. Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/send-to-symbolic.svg"/> </li>
       <li><code>f</code> - Pull (as in <b>F</b>etch). Button - <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/document-save-symbolic.svg"/> </li>
     </ul>
-
+<h4>Other commands</h4>
+    <ul>
+      <li><code>o</code> - opens quick repo selector</li>
+      <li><code>Ctrl</code> + <code>o</code> opens repo choosing dialog</li>
+      <li><code>Ctrl</code> + <code>b</code> blame line under cursor</li>
+    </ul>
+    
     <h4>Command for displaying additional windows</h4>
     <ul>
 
@@ -338,7 +328,10 @@ header a + a {
     <p>Hitting <code>z</code> or <img class="inline" src="https://raw.githubusercontent.com/keenlycode/gnomicon/refs/heads/main/src/icon/sidebar-show-symbolic.svg"/> icon will open stashes panel. Hitting <code>z</code> one more time will stash all changes.</p>
     <h3>Tags window</h3>
     <p>Hitting <code>t</code> in Status window brings up Tags window. That window behave as a simple list where you can <code>c</code>reate, <code>k</code> delete (as in <b>K</b>ill) and <code>p</code> push tags to remote.</p>
-    <p></p>
+    <h3>Blame</h3>
+    <p>Git blame in Stage is a bit strange :) Stage do not want to read your files directly. It only operates on diffs produced by libgit2. So, to view history of some line in code this line must somehow apear in Stage. This means you have to edit or delete this line :) Or line nearby (each change in git surrounded by 3 lines of context above and below). When you see your line in Stage you can put cursor on it and hit <code>Ctrl</code>+<code>b</code>. This will open up commit window pointing this line origin. Again, this works in Commit window to: hitting any line (except green one) in Commit window will bring another window with commit which contains this line adding.
+</p>
+<p></p>
     <footer style="font-size: 50%">
         <p>&copy; 2025 Alexey Ganzha.</p>
     </footer>
