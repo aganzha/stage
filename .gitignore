@@ -3,3 +3,6 @@
 cargo-sources.json
 flatpak_target/
 *~
+debian/
+.pc/
+src/gresources.compiled
