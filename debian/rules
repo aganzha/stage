@@ -18,11 +18,8 @@ override_dh_auto_test:
 override_dh_auto_install:
 	install -Dm755 target/$(DEB_HOST_RUST_TYPE)/release/stage-git-gui -t $(DEBIAN_DIR)/usr/bin/
 	install -Dm644 io.github.aganzha.Stage.metainfo.xml -t $(DEBIAN_DIR)/usr/share/metainfo
-	sed -i "s|Exec=stage|Exec=stage-git-gui|g" io.github.aganzha.Stage.desktop	
 	install -Dm644 io.github.aganzha.Stage.desktop -t $(DEBIAN_DIR)/usr/share/applications
-	git checkout io.github.aganzha.Stage.desktop
-	mkdir -p $(DEBIAN_DIR)/usr/share/glib-2.0/schemas
-	install -m 644 io.github.aganzha.Stage.gschema.xml -t $(DEBIAN_DIR)/usr/share/glib-2.0/schemas/
+	install -Dm644 io.github.aganzha.Stage.gschema.xml -t $(DEBIAN_DIR)/usr/share/glib-2.0/schemas/
 	install -Dm644 icons/16x16/io.github.aganzha.Stage.png -t $(DEBIAN_DIR)/usr/share/icons/hicolor/16x16/apps
 	install -Dm644 icons/32x32/io.github.aganzha.Stage.png -t $(DEBIAN_DIR)/usr/share/icons/hicolor/32x32/apps
 	install -Dm644 icons/48x48/io.github.aganzha.Stage.png -t $(DEBIAN_DIR)/usr/share/icons/hicolor/48x48/apps
