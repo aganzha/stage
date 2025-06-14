@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::commit::CommitRepr;
-use crate::git::{remote::set_remote_callbacks, DeferRefresh};
+use crate::git::{
+    remote::{make_authorized_remote, set_remote_callbacks, Authorizer},
+    DeferRefresh,
+};
 use async_channel::Sender;
 use chrono::{DateTime, FixedOffset};
 use git2;
@@ -257,11 +260,21 @@ pub fn kill_branch(
             let name = name.clone();
             move || {
                 let repo = git2::Repository::open(path.clone()).expect("can't open repo");
-                let mut remote = repo
-                    .find_remote(&branch_data.remote_name.expect("no remote name"))
-                    .expect("no remote");
+                let remote_name = branch_data.remote_name.expect("no remote name");
+                let (mut remote, authorizer) = make_authorized_remote(
+                    &repo,
+                    &remote_name,
+                    git2::Direction::Push,
+                    Authorizer::default(),
+                    sender.clone(),
+                )
+                .expect("cant get authed remote");
+                // let mut remote = repo
+                //     .find_remote(&branch_data.remote_name.expect("no remote name"))
+                //     .expect("no remote");
                 let mut opts = git2::PushOptions::new();
-                let mut callbacks = git2::RemoteCallbacks::new();
+                // let mut callbacks = git2::RemoteCallbacks::new();
+                let mut callbacks = authorizer.callbacks();
                 set_remote_callbacks(&mut callbacks);
                 opts.remote_callbacks(callbacks);
 
