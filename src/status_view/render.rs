@@ -887,8 +887,8 @@ impl ViewContainer for Line {
 
         let content = self.content(context.current_hunk.unwrap());
         if content.is_empty() {
-            if self.origin == DiffLineType::Deletion {
-                buffer.insert(iter, "-");
+            if self.origin == DiffLineType::Deletion || self.origin == DiffLineType::Addition {
+                buffer.insert(iter, "\\n");
             } else {
                 buffer.insert(iter, " ");
             }
