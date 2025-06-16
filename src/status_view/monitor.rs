@@ -65,15 +65,21 @@ impl Status {
                             match event {
                                 FileMonitorEvent::Changed | FileMonitorEvent::Created | FileMonitorEvent::Deleted => {
                                     // ChangesDoneHint is not fired for small changes :(
-                                    let fp =
-                                        file.path().expect("no file path");
-                                    let mut str_file_path = fp.to_str().expect("wrong path");
-                                    str_file_path = str_file_path.strip_prefix(
+                                    let Some(fp) = file.path() else {
+                                        return;
+                                    };
+                                    let Some(str_file_path) = fp.to_str() else {
+                                        return;
+                                    };
+                                    let Some(str_file_path) = str_file_path.strip_prefix(
                                         &path
                                             .to_str()
                                             .unwrap()
                                             .replace("./git/", "")
-                                    ).expect("wrong path in strip");
+                                    ) else {
+                                        return;
+                                    };
+
                                     trace!("file path in monitor! {:?}", str_file_path);
                                     for pat in patterns_to_exclude {
                                         if str_file_path.contains(pat) {
