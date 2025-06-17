@@ -861,10 +861,14 @@ impl ViewContainer for Line {
             .map(|num| num.as_i32())
             .unwrap_or(self.old_line_no.map(|num| num.as_i32()).unwrap_or(0));
 
-        let line_no_text = format!(
-            "<span size=\"small\" line_height=\"0.5\">{}</span>",
-            line_no
-        );
+        let line_no_text = match self.origin {
+            DiffLineType::Deletion => "<span size=\"small\" foreground=\"red\" line_height=\"0.5\">-</span>".to_string(),
+            _ => format!(
+                "<span size=\"small\" line_height=\"0.5\">{}</span>",
+                line_no
+            )
+        };
+
         if !anchor.widgets().is_empty() {
             let w = &anchor.widgets()[0];
             let l = w.downcast_ref::<GtkLabel>().unwrap();
