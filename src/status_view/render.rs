@@ -776,6 +776,7 @@ impl ViewContainer for Line {
     // it is useless. rendering_x is sliding variable during render
     // and there is nothing to render after line
     fn prepare_context<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, _line_no: Option<i32>) {
+        ctx.previous_line = ctx.current_line;
         ctx.current_line = Some(self);
     }
 
@@ -887,10 +888,15 @@ impl ViewContainer for Line {
 
         let content = self.content(context.current_hunk.unwrap());
         if content.is_empty() {
-            if self.origin == DiffLineType::Deletion || self.origin == DiffLineType::Addition {
-                buffer.insert(iter, "\\n");
-            } else {
-                buffer.insert(iter, " ");
+            // when add or delete single line, mark it somehow to be visible
+            match (self.origin, context.previous_line.map(|l| l.origin)) {
+                (DiffLineType::Deletion, Some(DiffLineType::Context))
+                | (DiffLineType::Addition, Some(DiffLineType::Context)) => {
+                    buffer.insert(iter, "\\n");
+                }
+                _ => {
+                    buffer.insert(iter, " ");
+                }
             }
         } else {
             buffer.insert(iter, content);

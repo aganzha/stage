@@ -32,6 +32,8 @@ pub struct StatusRenderContext<'a> {
     pub current_hunk: Option<&'a Hunk>,
     pub current_line: Option<&'a Line>,
 
+    pub previous_line: Option<&'a Line>,
+
     // used in fn cursor to check if view is changed during fn cursor
     pub was_current: bool,
 }
@@ -55,10 +57,9 @@ impl<'a> StatusRenderContext<'a> {
                 current_diff: None,
                 current_file: None,
                 current_hunk: None,
-                // it is useless. rendering_x is sliding variable during render
-                // and there is nothing to render after line
-                current_line: None,
 
+                current_line: None,
+                previous_line: None,
                 was_current: false,
             }
         }
