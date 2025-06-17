@@ -1269,6 +1269,18 @@ pub fn blame(
     if let Some(oid) = start_oid {
         opts.newest_commit(oid);
     }
+
+    opts.min_line(line_no.as_usize());
+    opts.max_line(line_no.as_usize());
+    // blame next commit is super slow and nothing helps: (
+    // opts.track_copies_same_file(false);
+    // opts.track_copies_same_commit_moves(false);
+    // opts.track_copies_same_commit_copies(false);
+    // opts.track_copies_any_commit_copies(false);
+    // opts.first_parent(true);
+    // opts.use_mailmap(false);
+    // opts.ignore_whitespace(false);
+    debug!("blam: oid {:?} start_line {:?}", start_oid, line_no);
     let blame = repo.blame_file(&file_path, Some(&mut opts))?;
     let blame_hunk = blame
         .get_line(line_no.as_usize())
