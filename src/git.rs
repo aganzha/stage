@@ -1280,7 +1280,10 @@ pub fn blame(
     // opts.first_parent(true);
     // opts.use_mailmap(false);
     // opts.ignore_whitespace(false);
-    debug!("blam: oid {:?} start_line {:?}", start_oid, line_no);
+    debug!(
+        "blame: {:?} oid {:?} start_line {:?}",
+        file_path, start_oid, line_no
+    );
     let blame = repo.blame_file(&file_path, Some(&mut opts))?;
     let blame_hunk = blame
         .get_line(line_no.as_usize())
