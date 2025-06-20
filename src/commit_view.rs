@@ -208,15 +208,18 @@ impl commit::CommitDiff {
                             let mut found = false;
                             if found_line_index.is_none() {
                                 for (l, line) in hunk.lines.iter().enumerate() {
-                                    if let Some(found_line_no) = line.new_line_no {
-                                        if found_line_no >= blame_line.hunk_start
-                                            && line.content(hunk) == blame_line.content
-                                        {
-                                            line.view.make_current(true);
-                                            found = true;
-                                            found_line_index.replace((f, h, l));
-                                            break;
-                                        }
+                                    let found_line_no = if let Some(line_no) = line.new_line_no {
+                                        line_no
+                                    } else {
+                                        line.old_line_no.unwrap()
+                                    };
+                                    if found_line_no >= blame_line.hunk_start
+                                        && line.content(hunk) == blame_line.content
+                                    {
+                                        line.view.make_current(true);
+                                        found = true;
+                                        found_line_index.replace((f, h, l));
+                                        break;
                                     }
                                 }
                             }
