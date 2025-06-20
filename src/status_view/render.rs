@@ -862,11 +862,29 @@ impl ViewContainer for Line {
             .unwrap_or(self.old_line_no.map(|num| num.as_i32()).unwrap_or(0));
 
         let line_no_text = match self.origin {
-            DiffLineType::Deletion => "<span size=\"small\" foreground=\"red\" line_height=\"0.5\">-</span>".to_string(),
+            DiffLineType::Deletion => {
+                format!(
+                    "<span size=\"small\" foreground=\"red\" weight=\"bold\" line_height=\"0.5\">{}</span>",
+                    match line_no {
+                        0..10 => {
+                            "-"
+                        },
+                        10..100 => {
+                            " -"
+                        },
+                        100..1000 => {
+                            "  -"
+                        },
+                        _ => {
+                            "   -"
+                        }
+                    }
+                )
+            }
             _ => format!(
                 "<span size=\"small\" line_height=\"0.5\">{}</span>",
                 line_no
-            )
+            ),
         };
 
         if !anchor.widgets().is_empty() {
