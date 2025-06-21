@@ -26,9 +26,9 @@
 # 
 original_name="stage"
 name="stage-git-gui"
-version="0.1.21"
-release=+ds5
-# release=
+version="0.1.22"
+# release=+ds5
+release=
 full_id="io.github.aganzha.Stage"
 tar_name="$name"_"$version""$release".orig.tar.xz
 rm ../stage-git-gui_*
