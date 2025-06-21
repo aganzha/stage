@@ -444,7 +444,9 @@ impl File {
     }
 
     pub fn push_hunk(&mut self, mut hunk: Hunk, parser: Option<&mut syntax::LanguageWrapper>) {
-        hunk.parse_syntax(parser);
+        if let Some(parser) = parser {
+            parser.parse_hunk(&mut hunk);
+        }
         self.hunks.push(hunk);
     }
 }
@@ -1267,6 +1269,21 @@ pub fn blame(
     if let Some(oid) = start_oid {
         opts.newest_commit(oid);
     }
+
+    opts.min_line(line_no.as_usize());
+    opts.max_line(line_no.as_usize());
+    // blame next commit is super slow and nothing helps: (
+    // opts.track_copies_same_file(false);
+    // opts.track_copies_same_commit_moves(false);
+    // opts.track_copies_same_commit_copies(false);
+    // opts.track_copies_any_commit_copies(false);
+    // opts.first_parent(true);
+    // opts.use_mailmap(false);
+    // opts.ignore_whitespace(false);
+    debug!(
+        "blame: {:?} oid {:?} start_line {:?}",
+        file_path, start_oid, line_no
+    );
     let blame = repo.blame_file(&file_path, Some(&mut opts))?;
     let blame_hunk = blame
         .get_line(line_no.as_usize())

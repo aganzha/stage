@@ -387,6 +387,9 @@ pub fn factory(
             sender
                 .send_blocking(crate::Event::Pull)
                 .expect("cant send through channel");
+            sender
+                .send_blocking(crate::Event::Focus)
+                .expect("cant send through channel");
         }
     });
     let commit_btn = Button::builder()

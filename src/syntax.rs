@@ -2,11 +2,36 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::{Hunk, Line};
-use log::trace;
+use crate::Line;
 use std::path::Path;
+
+#[cfg(feature = "syntax")]
 use tree_sitter::Parser;
 
+#[cfg(not(feature = "syntax"))]
+use crate::Hunk;
+
+pub enum LanguageWrapper {
+    None,
+    #[cfg(feature = "syntax")]
+    Rust(Parser),
+    #[cfg(feature = "syntax")]
+    Python(Parser),
+    #[cfg(feature = "syntax")]
+    TypeScript(Parser),
+}
+
+#[cfg(not(feature = "syntax"))]
+pub fn choose_parser(path: &Path) -> Option<LanguageWrapper> {
+    Some(LanguageWrapper::None)
+}
+
+#[cfg(not(feature = "syntax"))]
+impl LanguageWrapper {
+    pub fn parse_hunk(&self, _hunk: &mut Hunk) {}
+}
+
+#[cfg(feature = "syntax")]
 pub fn choose_parser(path: &Path) -> Option<LanguageWrapper> {
     let path_str = path.to_str().unwrap();
     let mut parser = Parser::new();
@@ -38,210 +63,228 @@ pub fn choose_parser(path: &Path) -> Option<LanguageWrapper> {
     None
 }
 
-pub enum LanguageWrapper {
-    Rust(Parser),
-    Python(Parser),
-    TypeScript(Parser),
-}
+#[cfg(feature = "syntax")]
+mod internal {
+    use super::LanguageWrapper;
+    use crate::Hunk;
+    use log::trace;
 
-impl LanguageWrapper {
-    pub fn keywords(&self) -> Vec<&'static str> {
-        match self {
-            LanguageWrapper::Rust(_) => vec![
-                "pub", "fn", "let", "mut", "if", "else", "loop", "while", "for", "match", "return",
-                "break", "continue", "struct", "enum", "impl", "trait", "use", "const", "static",
-                "self", "in",
-            ],
-            LanguageWrapper::Python(_) => vec![
-                "self",
-                "False",
-                "None",
-                "True",
-                "and",
-                "as",
-                "assert",
-                "async",
-                "await",
-                "break",
-                "class",
-                "continue",
-                "def",
-                "del",
-                "elif",
-                "else",
-                "except",
-                "finally",
-                "for",
-                "from",
-                "global",
-                "if",
-                "import",
-                "in",
-                "is",
-                "lambda",
-                "nonlocal",
-                "not",
-                "or",
-                "pass",
-                "raise",
-                "return",
-                "try",
-                "while",
-                "with",
-                "yield",
-                "int",
-                "float",
-                "complex",
-                "str",
-                "dict",
-                "set",
-                "frozenset",
-                "bool",
-                "bytes",
-                "bytearray",
-                "memoryview",
-            ],
-            LanguageWrapper::TypeScript(_) => vec![
-                "await",
-                "break",
-                "case",
-                "catch",
-                "class",
-                "const",
-                "continue",
-                "debugger",
-                "default",
-                "delete",
-                "do",
-                "else",
-                "enum",
-                "export",
-                "extends",
-                "false",
-                "finally",
-                "for",
-                "function",
-                "if",
-                "implements",
-                "import",
-                "in",
-                "instanceof",
-                "interface",
-                "let",
-                "new",
-                "null",
-                "return",
-                "super",
-                "switch",
-                "this",
-                "throw",
-                "try",
-                "true",
-                "type",
-                "typeof",
-                "var",
-                "void",
-                "while",
-                "with",
-                "yield",
-                "any",
-                "unknown",
-                "void",
-                "never",
-                "boolean",
-                "number",
-                //"string", got broken on cyrylic strings
-                "symbol",
-                "bigint",
-            ],
-        }
-    }
-}
-
-pub fn get_node_range<'a>(
-    node: &tree_sitter::Node<'a>,
-    cursor: &mut tree_sitter::TreeCursor<'a>,
-    acc: &mut Vec<(usize, usize)>,
-    acc_1: &mut Vec<(usize, usize)>,
-    parent_kind: &'static str,
-    language: &LanguageWrapper,
-) {
-    let keywords = language.keywords();
-
-    if keywords.contains(&node.kind()) {
-        trace!("keyword node {:?}", node.kind());
-        acc.push((node.start_byte(), node.end_byte()));
-    } else if node.kind() == "identifier" {
-        if let Some(field_name) = cursor.field_name() {
-            trace!(
-                "identifier node {:?} {:?} {:?}",
-                parent_kind,
-                field_name,
-                node
-            );
-            match (language, parent_kind, field_name) {
-                (
-                    LanguageWrapper::Rust(_),
-                    "parameter" | "tuple_struct_pattern" | "let_declaration",
-                    "pattern",
-                ) => {
-                    trace!("parent > field {:?} {:?}", parent_kind, field_name);
-                    acc_1.push((node.start_byte(), node.end_byte()))
-                }
-                (LanguageWrapper::Rust(_), "field_expression", "value") => {
-                    trace!("parent > field {:?} {:?}", parent_kind, field_name);
-                    acc_1.push((node.start_byte(), node.end_byte()))
-                }
-                (LanguageWrapper::Python(_), "assignment", "left") => {
-                    trace!("parent > field {:?} {:?}", parent_kind, field_name);
-                    acc_1.push((node.start_byte(), node.end_byte()))
-                }
-                (LanguageWrapper::TypeScript(_), "variable_declarator", "name") => {
-                    trace!("parent > field {:?} {:?}", parent_kind, field_name);
-                    acc_1.push((node.start_byte(), node.end_byte()))
-                }
-                (_, _, _) => {}
-            }
-        } else {
-            trace!("nooooooooo name {:?} {:?}", parent_kind, node);
-        }
-    }
-    if cursor.goto_first_child() {
-        loop {
-            get_node_range(&cursor.node(), cursor, acc, acc_1, node.kind(), language);
-            if !cursor.goto_next_sibling() {
-                break;
+    impl LanguageWrapper {
+        pub fn keywords(&self) -> Vec<&'static str> {
+            match self {
+                LanguageWrapper::Rust(_) => vec![
+                    "pub", "fn", "let", "mut", "if", "else", "loop", "while", "for", "match",
+                    "return", "break", "continue", "struct", "enum", "impl", "trait", "use",
+                    "const", "static", "self", "in",
+                ],
+                LanguageWrapper::Python(_) => vec![
+                    "self",
+                    "False",
+                    "None",
+                    "True",
+                    "and",
+                    "as",
+                    "assert",
+                    "async",
+                    "await",
+                    "break",
+                    "class",
+                    "continue",
+                    "def",
+                    "del",
+                    "elif",
+                    "else",
+                    "except",
+                    "finally",
+                    "for",
+                    "from",
+                    "global",
+                    "if",
+                    "import",
+                    "in",
+                    "is",
+                    "lambda",
+                    "nonlocal",
+                    "not",
+                    "or",
+                    "pass",
+                    "raise",
+                    "return",
+                    "try",
+                    "while",
+                    "with",
+                    "yield",
+                    "int",
+                    "float",
+                    "complex",
+                    "str",
+                    "dict",
+                    "set",
+                    "frozenset",
+                    "bool",
+                    "bytes",
+                    "bytearray",
+                    "memoryview",
+                ],
+                LanguageWrapper::TypeScript(_) => vec![
+                    "await",
+                    "break",
+                    "case",
+                    "catch",
+                    "class",
+                    "const",
+                    "continue",
+                    "debugger",
+                    "default",
+                    "delete",
+                    "do",
+                    "else",
+                    "enum",
+                    "export",
+                    "extends",
+                    "false",
+                    "finally",
+                    "for",
+                    "function",
+                    "if",
+                    "implements",
+                    "import",
+                    "in",
+                    "instanceof",
+                    "interface",
+                    "let",
+                    "new",
+                    "null",
+                    "return",
+                    "super",
+                    "switch",
+                    "this",
+                    "throw",
+                    "try",
+                    "true",
+                    "type",
+                    "typeof",
+                    "var",
+                    "void",
+                    "while",
+                    "with",
+                    "yield",
+                    "any",
+                    "unknown",
+                    "void",
+                    "never",
+                    "boolean",
+                    "number",
+                    //"string", got broken on cyrylic strings
+                    "symbol",
+                    "bigint",
+                ],
+                LanguageWrapper::None => unreachable!("no way"),
             }
         }
-        cursor.goto_parent();
     }
+
+    pub fn get_node_range<'a>(
+        node: &tree_sitter::Node<'a>,
+        cursor: &mut tree_sitter::TreeCursor<'a>,
+        acc: &mut Vec<(usize, usize)>,
+        acc_1: &mut Vec<(usize, usize)>,
+        parent_kind: &'static str,
+        language: &LanguageWrapper,
+    ) {
+        let keywords = language.keywords();
+
+        if keywords.contains(&node.kind()) {
+            trace!("keyword node {:?}", node.kind());
+            acc.push((node.start_byte(), node.end_byte()));
+        } else if node.kind() == "identifier" {
+            if let Some(field_name) = cursor.field_name() {
+                trace!(
+                    "identifier node {:?} {:?} {:?}",
+                    parent_kind,
+                    field_name,
+                    node
+                );
+                match (language, parent_kind, field_name) {
+                    (
+                        LanguageWrapper::Rust(_),
+                        "parameter" | "tuple_struct_pattern" | "let_declaration",
+                        "pattern",
+                    ) => {
+                        trace!("parent > field {:?} {:?}", parent_kind, field_name);
+                        acc_1.push((node.start_byte(), node.end_byte()))
+                    }
+                    (LanguageWrapper::Rust(_), "field_expression", "value") => {
+                        trace!("parent > field {:?} {:?}", parent_kind, field_name);
+                        acc_1.push((node.start_byte(), node.end_byte()))
+                    }
+                    (LanguageWrapper::Python(_), "assignment", "left") => {
+                        trace!("parent > field {:?} {:?}", parent_kind, field_name);
+                        acc_1.push((node.start_byte(), node.end_byte()))
+                    }
+                    (LanguageWrapper::TypeScript(_), "variable_declarator", "name") => {
+                        trace!("parent > field {:?} {:?}", parent_kind, field_name);
+                        acc_1.push((node.start_byte(), node.end_byte()))
+                    }
+                    (_, _, _) => {}
+                }
+            } else {
+                trace!("nooooooooo name {:?} {:?}", parent_kind, node);
+            }
+        }
+        if cursor.goto_first_child() {
+            loop {
+                get_node_range(&cursor.node(), cursor, acc, acc_1, node.kind(), language);
+                if !cursor.goto_next_sibling() {
+                    break;
+                }
+            }
+            cursor.goto_parent();
+        }
+    }
+
+    pub fn collect_ranges(
+        content: &str,
+        parser: &mut LanguageWrapper,
+    ) -> (Vec<(usize, usize)>, Vec<(usize, usize)>) {
+        let mut result = Vec::new();
+        let mut result_1 = Vec::new();
+        if let LanguageWrapper::None = parser {
+            return (result, result_1);
+        }
+        let tree = match parser {
+            LanguageWrapper::Rust(p) => p.parse(content, None).unwrap(),
+            LanguageWrapper::Python(p) => p.parse(content, None).unwrap(),
+            LanguageWrapper::TypeScript(p) => p.parse(content, None).unwrap(),
+            _ => unreachable!("no way"),
+        };
+
+        let root_node = tree.root_node();
+        let mut cursor = root_node.walk();
+        get_node_range(
+            &root_node,
+            &mut cursor,
+            &mut result,
+            &mut result_1,
+            "",
+            parser,
+        );
+        (result, result_1)
+    }
+
+    impl LanguageWrapper {
+        pub fn parse_hunk(&mut self, hunk: &mut Hunk) {
+            (hunk.keyword_ranges, hunk.identifier_ranges) = collect_ranges(&hunk.buf, self);
+        }
+    }
+    // impl Hunk {
+    //     pub fn parse_syntax(&mut self, parser: Option<&mut LanguageWrapper>) {
+    //         if let Some(parser) = parser {
+    //             (self.keyword_ranges, self.identifier_ranges) = collect_ranges(&self.buf, parser);
+    //         };
+    //     }
+    // }
 }
-
-pub fn collect_ranges(
-    content: &str,
-    parser: &mut LanguageWrapper,
-) -> (Vec<(usize, usize)>, Vec<(usize, usize)>) {
-    let tree = match parser {
-        LanguageWrapper::Rust(p) => p.parse(content, None).unwrap(),
-        LanguageWrapper::Python(p) => p.parse(content, None).unwrap(),
-        LanguageWrapper::TypeScript(p) => p.parse(content, None).unwrap(),
-    };
-
-    let root_node = tree.root_node();
-    let mut cursor = root_node.walk();
-    let mut result = Vec::new();
-    let mut result_1 = Vec::new();
-    get_node_range(
-        &root_node,
-        &mut cursor,
-        &mut result,
-        &mut result_1,
-        "",
-        parser,
-    );
-    (result, result_1)
-}
-
 impl Line {
     pub fn byte_indexes_to_char_indexes(&self, byte_indexes: &[(usize, usize)]) -> Vec<(i32, i32)> {
         byte_indexes
@@ -275,14 +318,6 @@ impl Line {
         {
             self.char_indices.insert(byte_index, i as i32);
         }
-    }
-}
-
-impl Hunk {
-    pub fn parse_syntax(&mut self, parser: Option<&mut LanguageWrapper>) {
-        if let Some(parser) = parser {
-            (self.keyword_ranges, self.identifier_ranges) = collect_ranges(&self.buf, parser);
-        };
     }
 }
 

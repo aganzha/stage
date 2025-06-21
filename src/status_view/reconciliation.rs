@@ -117,6 +117,12 @@ impl File {
         // got it twice during cutting, pasting and undo everywhere
         // thread 'main' panicked at src/status_view/reconciliation.rs:280:25:
         // UNKNOWN CASE IN RECONCILIATION @@ -687,7 +705,9 @@ class ServiceWorkPostprocess: @@ -687,7 +704,9 @@ class ServiceWorkPostprocess:
+
+        // case 5: equal number of hunks but
+        // 5.1 completelly deleted old hunk
+        // UNKNOWN CASE IN RECONCILIATION @@ -1,3 +1 @@ @@ -1,3 +0,0 @@
+        // 5.2 completelly deleted new hunk
+        // UNKNOWN CASE IN RECONCILIATION @@ -1,3 +0,0 @@ @@ -1,3 +1,2 @@
         let mut in_rendered = 0;
         let mut in_new = 0;
         let mut rendered_delta: i32 = 0;
@@ -245,6 +251,15 @@ impl File {
                         trace!("case 4");
                         rendered_delta += count_delta(rendered.new_lines, rendered.old_lines);
                         new.enrich_view(rendered, buffer, context);
+                        in_new += 1;
+                        in_rendered += 1;
+                    } else if new.new_lines == 0 && new.new_start.as_usize() == 0
+                        || rendered.new_lines == 0 && rendered.new_start.as_usize() == 0
+                    {
+                        // 5.1 and 5.2
+                        // the file was empty. or file become empty
+                        // delta and enrich are useless
+                        rendered.erase(buffer, context);
                         in_new += 1;
                         in_rendered += 1;
                     } else {
