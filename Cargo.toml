@@ -8,8 +8,8 @@ authors = ["Aleksey Ganzha <aganzha@yandex.ru>"]
 
 
 [dependencies]
-gtk4 = { version = "0.9.6", features = ["gnome_47", "v4_18"] }
-libadwaita = { version = "0.7.2", features = ["v1_6"] }
+gtk4 = { version = "0.10.2", features = ["gnome_49", "v4_20"] }
+libadwaita = { version = "0.8.0", features = ["v1_8"] }
 git2 = "0.20.0"
 regex = "1.10.2"
 log = "0.4.20"

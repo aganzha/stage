@@ -24,7 +24,7 @@ use std::rc::Rc;
 glib::wrapper! {
     pub struct StageView(ObjectSubclass<stage_view_internal::StageView>)
         @extends TextView, Widget,
-        @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Editable;
+        @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Editable, gtk4::Scrollable;
 }
 
 mod stage_view_internal {

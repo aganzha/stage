@@ -72,7 +72,7 @@ pub fn open_at_line_via_dbus(executable: PathBuf, path: PathBuf, line_no: i32, c
 }
 
 pub fn try_open_editor(path: PathBuf, line_no: i32, col_no: i32) {
-    let (content_type, _) = gio::functions::content_type_guess(Some(path.clone()), &[]);
+    let (content_type, _) = gio::functions::content_type_guess(Some(path.clone()), None);
     if line_no > 0 {
         // it is possible to open TextEditor on certain line with DBUS
         for app_info in gio::AppInfo::all_for_type(&content_type) {
