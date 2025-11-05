@@ -4,6 +4,7 @@
 
 use crate::status_view::StageView;
 use crate::{Diff, File, Hunk, Line};
+use gtk4::subclass::prelude::ObjectSubclassIsExt;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -48,7 +49,7 @@ impl<'a> StatusRenderContext<'a> {
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
 
-                linenos: HashMap::new(),
+                linenos: stage.imp().linenos.borrow().clone(),
 
                 selected_diff: None,
                 selected_file: None,

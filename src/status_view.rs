@@ -791,6 +791,7 @@ impl Status {
         diff_kind: Option<DiffKind>,
         context: &mut StatusRenderContext<'a>,
     ) {
+        context.linenos = HashMap::new();
         let buffer = txt.buffer();
         let initial_line_offset = buffer
             .iter_at_offset(buffer.cursor_position())

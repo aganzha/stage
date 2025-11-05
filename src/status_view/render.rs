@@ -852,9 +852,9 @@ impl ViewContainer for Line {
         buffer: &TextBuffer,
         context: &mut StatusRenderContext<'_>,
     ) {
-        let anchor = iter
-            .child_anchor()
-            .unwrap_or(buffer.create_child_anchor(iter));
+        // let anchor = iter
+        //     .child_anchor()
+        //     .unwrap_or(buffer.create_child_anchor(iter));
 
         let line_no = self
             .new_line_no
