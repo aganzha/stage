@@ -21,7 +21,7 @@ use crate::{
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
-use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
+use gtk4::{Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
 use log::{error, trace};
 //pub const LINE_NO_SPACE: i32 = 6;
@@ -862,51 +862,35 @@ impl ViewContainer for Line {
             .unwrap_or(self.old_line_no.map(|num| num.as_i32()).unwrap_or(0));
 
         let line_no_text = match self.origin {
-            DiffLineType::Deletion => {
-                format!(
-                    "<span size=\"small\" foreground=\"red\" weight=\"bold\" line_height=\"0.5\">{}</span>",
-                    match line_no {
-                        0..10 => {
-                            "-"
-                        },
-                        10..100 => {
-                            " -"
-                        },
-                        100..1000 => {
-                            "  -"
-                        },
-                        _ => {
-                            "   -"
-                        }
-                    }
-                )
-            }
-            _ => format!(
-                "<span size=\"small\" line_height=\"0.5\">{}</span>",
-                line_no
-            ),
+            DiffLineType::Deletion => match line_no {
+                0..10 => "-".to_string(),
+                10..100 => " -".to_string(),
+                100..1000 => "  -".to_string(),
+                _ => "   -".to_string(),
+            },
+            _ => format!("{}", line_no),
         };
-
-        if !anchor.widgets().is_empty() {
-            let w = &anchor.widgets()[0];
-            let l = w.downcast_ref::<GtkLabel>().unwrap();
-            l.set_label(&line_no_text);
-        } else {
-            let lbl: GtkLabel = GtkLabel::builder()
-                .use_markup(true)
-                .hexpand(false)
-                .vexpand(false)
-                .label(line_no_text)
-                .max_width_chars(3)
-                .width_chars(3)
-                .width_request(25)
-                .halign(Align::Start)
-                .xalign(0.0)
-                .opacity(0.3)
-                .css_classes(["line_no"])
-                .build();
-            context.stage.add_child_at_anchor(&lbl, &anchor);
-        }
+        context.linenos.insert(iter.line(), line_no_text);
+        // if !anchor.widgets().is_empty() {
+        //     let w = &anchor.widgets()[0];
+        //     let l = w.downcast_ref::<GtkLabel>().unwrap();
+        //     l.set_label(&line_no_text);
+        // } else {
+        //     let lbl: GtkLabel = GtkLabel::builder()
+        //         .use_markup(true)
+        //         .hexpand(false)
+        //         .vexpand(false)
+        //         .label(line_no_text)
+        //         .max_width_chars(3)
+        //         .width_chars(3)
+        //         .width_request(25)
+        //         .halign(Align::Start)
+        //         .xalign(0.0)
+        //         .opacity(0.3)
+        //         .css_classes(["line_no"])
+        //         .build();
+        //     context.stage.add_child_at_anchor(&lbl, &anchor);
+        // }
 
         let content = self.content(context.current_hunk.unwrap());
         if content.is_empty() {

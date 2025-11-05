@@ -30,10 +30,10 @@ glib::wrapper! {
 mod stage_view_internal {
 
     use gtk4::prelude::*;
-    use gtk4::{gdk, glib, graphene, Snapshot, TextView, TextViewLayer};
-    use std::cell::{Cell, RefCell};
-
     use gtk4::subclass::prelude::*;
+    use gtk4::{gdk, glib, graphene, gsk, pango, Snapshot, TextView, TextViewLayer};
+    use std::cell::{Cell, RefCell};
+    use std::collections::HashMap;
 
     // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
@@ -57,11 +57,14 @@ mod stage_view_internal {
     const LIGHT_HUNKS: gdk::RGBA = gdk::RGBA::new(0.871, 0.871, 0.855, 1.0);
     const DARK_HUNKS: gdk::RGBA = gdk::RGBA::new(0.22, 0.22, 0.22, 1.0);
 
+    const MAX_LINES_ON_SCREEN: i32 = 100;
+
     #[derive(Default)]
     pub struct StageView {
         pub show_cursor: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
+        pub linenos: RefCell<HashMap<i32, String>>,
 
         // TODO! put it here!
         pub is_dark: Cell<bool>,
@@ -77,7 +80,37 @@ mod stage_view_internal {
         type ParentType = TextView;
     }
 
-    impl StageView {}
+    impl StageView {
+        pub fn get_line_no_margin(&self) -> i32 {
+            // this related to lower
+            80
+        }
+        fn get_line_no_offset(&self, _line_height: i32) -> f32 {
+            // this related to upper
+            20.0
+        }
+
+        fn lineno_label_layout(
+            &self,
+            line_no: i32,
+            is_current: bool,
+            is_dark: bool,
+        ) -> Option<(pango::Layout, gdk::RGBA)> {
+            let linenos = self.linenos.borrow();
+            let label = linenos.get(&line_no);
+            label?;
+            let label = label.unwrap();
+            let layout = self.obj().create_pango_layout(Some(label));
+            let mut rgba = gdk::RGBA::BLACK;
+            if is_dark {
+                rgba = gdk::RGBA::WHITE;
+            }
+            if !is_current {
+                rgba.set_alpha(0.2);
+            }
+            Some((layout, rgba))
+        }
+    }
 
     impl TextViewImpl for StageView {
         fn snapshot_layer(&self, layer: TextViewLayer, snapshot: Snapshot) {
@@ -182,6 +215,57 @@ mod stage_view_internal {
                         y_to as f32,
                     ),
                 );
+            } else {
+                let rect = self.obj().visible_rect();
+                let rect_height = rect.height();
+                if rect_height == 0 {
+                    return;
+                }
+
+                let buffer = self.obj().buffer();
+                let iter = buffer.iter_at_offset(buffer.cursor_position());
+                let (_, line_height) = self.obj().line_yrange(&iter);
+                if line_height <= 0 {
+                    return;
+                }
+                let cursor_line = iter.line();
+
+                let mut line_no = rect.y() / line_height;
+
+                let mut transform = gsk::Transform::new();
+                transform = transform.translate(&graphene::Point::new(
+                    self.get_line_no_offset(line_height),
+                    (line_no * line_height) as f32,
+                ));
+                snapshot.transform(Some(&transform));
+
+                let is_dark = self.is_dark.get();
+                let is_current = line_no == cursor_line;
+                if let Some((label, color)) = self.lineno_label_layout(line_no, is_current, is_dark)
+                {
+                    snapshot.append_layout(&label, &color);
+                }
+
+                let mut delta_transform = gsk::Transform::new();
+                delta_transform =
+                    delta_transform.translate(&graphene::Point::new(0.0, line_height as f32));
+                let mut passed = line_height;
+                loop {
+                    line_no += 1;
+                    snapshot.transform(Some(&delta_transform));
+                    if let Some((label, color)) =
+                        self.lineno_label_layout(line_no, is_current, is_dark)
+                    {
+                        snapshot.append_layout(&label, &color);
+                    }
+                    passed += line_height;
+                    if passed > rect_height {
+                        break;
+                    }
+                    if passed > MAX_LINES_ON_SCREEN * line_height {
+                        break;
+                    }
+                }
             }
         }
     }
@@ -223,6 +307,7 @@ impl StageView {
         for h in &context.highlight_hunks {
             self.imp().hunks.borrow_mut().push(*h);
         }
+        self.imp().linenos.replace(context.linenos.clone());
     }
 
     pub fn calc_max_char_width(&self, window_width: i32) -> i32 {

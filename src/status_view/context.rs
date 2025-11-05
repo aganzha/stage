@@ -4,6 +4,7 @@
 
 use crate::status_view::StageView;
 use crate::{Diff, File, Hunk, Line};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
@@ -15,8 +16,7 @@ pub struct StatusRenderContext<'a> {
     pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>,
 
-    /// introduce
-    // pub cursor_position: CursorPosition<'a>,
+    pub linenos: HashMap<i32, String>,
 
     // rename to current as view: active-current etc!
     pub selected_diff: Option<&'a Diff>,
@@ -48,7 +48,8 @@ impl<'a> StatusRenderContext<'a> {
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
 
-                //cursor_position: CursorPosition::None,
+                linenos: HashMap::new(),
+
                 selected_diff: None,
                 selected_file: None,
                 selected_hunk: None,
