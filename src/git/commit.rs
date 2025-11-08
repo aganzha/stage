@@ -310,30 +310,32 @@ pub fn partial_apply(
     revert: bool,
     file_path: PathBuf,
     hunk_header: Option<String>,
+    stash: bool,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     info!(
-        "partial apply {:?} hunk {:?} revert? {:?}",
-        file_path, hunk_header, revert
+        "partial apply {:?} hunk {:?} revert? {:?} stash? {}",
+        file_path, hunk_header, revert, stash
     );
     let repo = git2::Repository::open(path.clone())?;
 
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
-
     let commit = repo.find_commit(oid)?;
 
     let head_ref = repo.head()?;
     let ob = head_ref.peel(git2::ObjectType::Commit)?;
     let our_commit = ob.peel_to_commit()?;
+    // stash require passing mainline, which is, in fact, index.
+    // passing 0 - means mainline is not specified.
+    let mainline = if stash { 1 } else { 0 };
     let memory_index = if revert {
-        repo.revert_commit(&commit, &our_commit, 0, None)?
+        repo.revert_commit(&commit, &our_commit, mainline, None)?
     } else {
-        repo.cherrypick_commit(&commit, &our_commit, 0, None)?
+        repo.cherrypick_commit(&commit, &our_commit, mainline, None)?
     };
-
     let mut diff_opts = make_diff_options();
     diff_opts.reverse(true);
 
@@ -343,7 +345,6 @@ pub fn partial_apply(
         return Err(git2::Error::from_str("There is nothing to apply."));
     }
     let mut options = git2::ApplyOptions::new();
-
     options.hunk_callback(|odh| -> bool {
         if let Some(selected_header) = &hunk_header {
             if let Some(dh) = odh {
