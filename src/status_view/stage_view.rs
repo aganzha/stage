@@ -87,7 +87,7 @@ mod stage_view_internal {
         }
         fn get_line_no_offset(&self, _line_height: i32) -> f32 {
             // this related to upper
-            20.0
+            5.0
         }
 
         fn lineno_label_layout(
@@ -97,9 +97,7 @@ mod stage_view_internal {
             is_dark: bool,
         ) -> Option<(pango::Layout, gdk::RGBA)> {
             let linenos = self.linenos.borrow();
-            let label = linenos.get(&line_no);
-            label?;
-            let label = label.unwrap();
+            let label = linenos.get(&line_no)?;
             let layout = self.obj().create_pango_layout(Some(label));
             let mut rgba = gdk::RGBA::BLACK;
             if is_dark {
@@ -223,48 +221,40 @@ mod stage_view_internal {
                 }
 
                 let buffer = self.obj().buffer();
-                let iter = buffer.iter_at_offset(buffer.cursor_position());
+                let mut iter = buffer.iter_at_offset(0);
                 let (_, line_height) = self.obj().line_yrange(&iter);
                 if line_height <= 0 {
                     return;
                 }
-                let cursor_line = iter.line();
-
-                let mut line_no = rect.y() / line_height;
-
-                let mut transform = gsk::Transform::new();
-                transform = transform.translate(&graphene::Point::new(
-                    self.get_line_no_offset(line_height),
-                    (line_no * line_height) as f32,
-                ));
-                snapshot.transform(Some(&transform));
-
+                let mut line_no = rect.y() / line_height - 5;
+                //let cursor_line = iter.line();
                 let is_dark = self.is_dark.get();
-                let is_current = line_no == cursor_line;
-                if let Some((label, color)) = self.lineno_label_layout(line_no, is_current, is_dark)
-                {
-                    snapshot.append_layout(&label, &color);
-                }
-
-                let mut delta_transform = gsk::Transform::new();
-                delta_transform =
-                    delta_transform.translate(&graphene::Point::new(0.0, line_height as f32));
                 let mut passed = line_height;
                 loop {
-                    line_no += 1;
-                    snapshot.transform(Some(&delta_transform));
+                    let is_current = false; //line_no == cursor_line;
                     if let Some((label, color)) =
                         self.lineno_label_layout(line_no, is_current, is_dark)
                     {
+                        let mut transform = gsk::Transform::new();
+                        iter.set_line(line_no);
+                        let (y_from, _) = self.obj().line_yrange(&iter);
+                        transform = transform.translate(&graphene::Point::new(
+                            self.get_line_no_offset(line_height),
+                            y_from as f32,
+                        ));
+                        snapshot.save();
+                        snapshot.transform(Some(&transform));
                         snapshot.append_layout(&label, &color);
+                        snapshot.restore();
                     }
                     passed += line_height;
-                    if passed > rect_height {
+                    if passed > rect_height + 128 {
                         break;
                     }
                     if passed > MAX_LINES_ON_SCREEN * line_height {
                         break;
                     }
+                    line_no += 1;
                 }
             }
         }
