@@ -5,7 +5,6 @@
 use crate::status_view::StageView;
 use crate::{git::LineKind, Diff, File, Hunk, Line};
 use git2::DiffLineType;
-use gtk4::subclass::prelude::ObjectSubclassIsExt;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
