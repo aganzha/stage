@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::status_view::StageView;
-use crate::{Diff, File, Hunk, Line};
+use crate::{git::LineKind, Diff, File, Hunk, Line};
+use git2::DiffLineType;
 use gtk4::subclass::prelude::ObjectSubclassIsExt;
 use std::collections::HashMap;
 
@@ -17,7 +18,7 @@ pub struct StatusRenderContext<'a> {
     pub highlight_lines: Option<(i32, i32)>,
     pub highlight_hunks: Vec<i32>,
 
-    pub linenos: HashMap<i32, String>,
+    pub linenos: HashMap<i32, (String, DiffLineType, LineKind)>,
 
     // rename to current as view: active-current etc!
     pub selected_diff: Option<&'a Diff>,

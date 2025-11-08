@@ -29,6 +29,8 @@ glib::wrapper! {
 
 mod stage_view_internal {
 
+    use crate::LineKind;
+    use git2::DiffLineType;
     use gtk4::prelude::*;
     use gtk4::subclass::prelude::*;
     use gtk4::{gdk, glib, graphene, gsk, pango, Snapshot, TextView, TextViewLayer};
@@ -64,7 +66,7 @@ mod stage_view_internal {
         pub show_cursor: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
-        pub linenos: RefCell<HashMap<i32, String>>,
+        pub linenos: RefCell<HashMap<i32, (String, DiffLineType, LineKind)>>,
 
         // TODO! put it here!
         pub is_dark: Cell<bool>,
@@ -97,14 +99,28 @@ mod stage_view_internal {
             is_dark: bool,
         ) -> Option<(pango::Layout, gdk::RGBA)> {
             let linenos = self.linenos.borrow();
-            let label = linenos.get(&line_no)?;
-            let layout = self.obj().create_pango_layout(Some(label));
+            let line_attrs = linenos.get(&line_no)?;
+            let layout = self.obj().create_pango_layout(Some(&line_attrs.0));
             let mut rgba = gdk::RGBA::BLACK;
             if is_dark {
                 rgba = gdk::RGBA::WHITE;
             }
+            match line_attrs.2 {
+                LineKind::None => match line_attrs.1 {
+                    DiffLineType::Addition => {
+                        rgba = gdk::RGBA::GREEN;
+                    }
+                    DiffLineType::Deletion => {
+                        rgba = gdk::RGBA::RED;
+                    }
+                    _ => {}
+                },
+                LineKind::Ours(_) => {}
+                LineKind::Theirs(_) => {}
+                _ => {}
+            }
             if !is_current {
-                rgba.set_alpha(0.2);
+                rgba.set_alpha(0.15);
             }
             Some((layout, rgba))
         }
@@ -227,11 +243,14 @@ mod stage_view_internal {
                     return;
                 }
                 let mut line_no = rect.y() / line_height - 5;
-                //let cursor_line = iter.line();
+
+                let cursor_iter = buffer.iter_at_offset(buffer.cursor_position());
+                let cursor_line = cursor_iter.line();
+
                 let is_dark = self.is_dark.get();
                 let mut passed = line_height;
                 loop {
-                    let is_current = false; //line_no == cursor_line;
+                    let is_current = line_no == cursor_line;
                     if let Some((label, color)) =
                         self.lineno_label_layout(line_no, is_current, is_dark)
                     {

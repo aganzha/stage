@@ -776,7 +776,10 @@ impl ViewContainer for Line {
                 },
                 _ => format!("{}", line_no),
             };
-            ctx.linenos.insert(self.view.line_no.get(), line_no_text);
+            ctx.linenos.insert(
+                self.view.line_no.get(),
+                (line_no_text, self.origin, self.kind.clone()),
+            );
         }
     }
 
@@ -882,6 +885,8 @@ impl ViewContainer for Line {
                 }
             }
         } else {
+            // MARGIN FOR LINENO
+            buffer.insert(iter, "    ");
             buffer.insert(iter, content);
         }
     }
@@ -1223,10 +1228,15 @@ impl Line {
         start_offset: i32,
     ) {
         for (start, end) in self.byte_indexes_to_char_indexes(ranges) {
+            // MARGIN FOR LINENO
+            let line_no_margin = 4;
             self.add_tag(
                 buffer,
                 tag,
-                Some((start_offset + start, start_offset + end + 1)),
+                Some((
+                    start_offset + start + line_no_margin,
+                    start_offset + end + 1 + line_no_margin,
+                )),
             );
         }
     }
