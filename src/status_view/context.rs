@@ -50,7 +50,7 @@ impl<'a> StatusRenderContext<'a> {
                 highlight_lines: None,
                 highlight_hunks: Vec::new(),
 
-                linenos: stage.imp().linenos.borrow().clone(),
+                linenos: HashMap::new(),
 
                 selected_diff: None,
                 selected_file: None,
