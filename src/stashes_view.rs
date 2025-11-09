@@ -14,13 +14,13 @@ use gtk4::{
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::dialogs::{alert, confirm_dialog_factory, PROCEED};
+use crate::dialogs::{alert, confirm_dialog_factory, CANCEL, PROCEED};
 use crate::git::stash;
 use crate::{Event, Status};
 use libadwaita::prelude::*;
 use libadwaita::{
-    ActionRow, ApplicationWindow, EntryRow, HeaderBar, PreferencesRow, SwitchRow, ToolbarStyle,
-    ToolbarView,
+    ActionRow, AlertDialog, ApplicationWindow, EntryRow, HeaderBar, PreferencesRow,
+    ResponseAppearance, SwitchRow, ToolbarStyle, ToolbarView,
 };
 use log::{debug, trace};
 use std::cell::Cell;
@@ -208,35 +208,40 @@ pub fn add_stash(
             lb.append(&input);
             lb.append(&staged);
 
-            let dialog = confirm_dialog_factory(Some(&lb), "Stash changes", "Stash changes");
-            dialog.connect_realize({
-                let input = input.clone();
-                move |_| {
-                    input.grab_focus();
+            let title = "Stash changes";
+            let dialog = AlertDialog::builder()
+                .heading(title)
+                .close_response(CANCEL)
+                .default_response(PROCEED)
+                .width_request(720)
+                .height_request(120)
+                .focus_widget(&input)
+                .build();
+
+            dialog.set_extra_child(Some(&lb));
+            dialog.add_responses(&[(CANCEL, "Cancel"), (PROCEED, title)]);
+
+            dialog.set_response_appearance(PROCEED, ResponseAppearance::Suggested);
+            dialog.set_response_enabled(PROCEED, false);
+            input.connect_changed({
+                let dialog = dialog.clone();
+                move |row| {
+                    dialog.set_response_enabled(PROCEED, !row.text().is_empty());
                 }
             });
 
-            let enter_pressed = Rc::new(Cell::new(false));
-            input.connect_apply({
-                let dialog = dialog.clone();
-                let enter_pressed = enter_pressed.clone();
-                move |_| {
-                    // someone pressed enter
-                    enter_pressed.replace(true);
-                    dialog.close();
-                }
-            });
             input.connect_entry_activated({
                 let dialog = dialog.clone();
-                let enter_pressed = enter_pressed.clone();
-                move |_| {
-                    // someone pressed enter
-                    enter_pressed.replace(true);
+                move |row| {
+                    if !row.text().is_empty() {
+                        dialog.emit_by_name::<()>("response", &[&PROCEED.to_string()]);
+                    }
                     dialog.close();
                 }
             });
+
             let response = dialog.choose_future(&window).await;
-            if !(response == PROCEED || enter_pressed.get()) {
+            if response != PROCEED {
                 return;
             }
             let stash_message = format!("{}", input.text());
