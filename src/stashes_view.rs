@@ -16,14 +16,14 @@ use std::path::PathBuf;
 
 use crate::dialogs::{alert, confirm_dialog_factory, CANCEL, PROCEED};
 use crate::git::stash;
-use crate::{Event, Status};
+use crate::{Event, Selected, Status};
 use libadwaita::prelude::*;
 use libadwaita::{
     ActionRow, AlertDialog, ApplicationWindow, EntryRow, HeaderBar, PreferencesRow,
     ResponseAppearance, SwitchRow, ToolbarStyle, ToolbarView,
 };
 use log::{debug, trace};
-use std::cell::Cell;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 glib::wrapper! {
@@ -183,6 +183,7 @@ pub fn add_stash(
     path: PathBuf,
     window: &ApplicationWindow,
     stashes_box: &ListBox,
+    selected: Selected,
     sender: Sender<Event>,
 ) {
     glib::spawn_future_local({
@@ -199,13 +200,13 @@ pub fn add_stash(
                 .css_classes(vec!["input_field"])
                 .show_apply_button(false)
                 .build();
+            lb.append(&input);
             let staged = SwitchRow::builder()
                 .title("Include staged changes")
                 .css_classes(vec!["input_field"])
                 .active(true)
                 .build();
 
-            lb.append(&input);
             lb.append(&staged);
 
             let title = "Stash changes";
@@ -217,6 +218,36 @@ pub fn add_stash(
                 .height_request(120)
                 .focus_widget(&input)
                 .build();
+
+            let file_path: Rc<RefCell<Option<PathBuf>>> = Rc::new(RefCell::new(None));
+            if let Some(selected) = &selected {
+                if let Some(path) = &selected.1 {
+                    let str_path = path.to_string_lossy().to_string();
+                    let file_chooser = SwitchRow::builder()
+                        .title(format!("Only changes in file {:}", &str_path))
+                        .subtitle("will reset everything to head and save only choosen path")
+                        .css_classes(vec!["input_field"])
+                        .active(false)
+                        .build();
+                    file_chooser.connect_active_notify({
+                        let file_path = file_path.clone();
+                        let path = path.clone();
+                        let dialog = dialog.clone();
+                        let input = input.clone();
+                        move |row| {
+                            if row.is_active() {
+                                input.set_visible(false);
+                                dialog.set_response_enabled(PROCEED, true);
+                                file_path.borrow_mut().replace(path.clone());
+                            } else {
+                                input.set_visible(false);
+                                file_path.borrow_mut().take();
+                            }
+                        }
+                    });
+                    lb.append(&file_chooser);
+                }
+            }
 
             dialog.set_extra_child(Some(&lb));
             dialog.add_responses(&[(CANCEL, "Cancel"), (PROCEED, title)]);
@@ -248,7 +279,8 @@ pub fn add_stash(
             let stash_staged = staged.is_active();
             let result = gio::spawn_blocking({
                 let sender = sender.clone();
-                move || stash::stash(path, stash_message, stash_staged, sender)
+                let file_path = file_path.borrow().clone();
+                move || stash::stash(path, stash_message, stash_staged, file_path.clone(), sender)
             })
             .await
             .unwrap_or_else(|e| {
@@ -337,8 +369,9 @@ pub fn factory(window: &ApplicationWindow, status: &Status) -> (ToolbarView, imp
         let window = window.clone();
         let path = status.path.clone().expect("no path");
         let lb = lb.clone();
+        let selected = status.selected().clone();
         move |_| {
-            add_stash(path.clone(), &window, &lb, sender.clone());
+            add_stash(path.clone(), &window, &lb, selected.clone(), sender.clone());
         }
     });
     apply.connect_clicked({
@@ -378,6 +411,7 @@ pub fn factory(window: &ApplicationWindow, status: &Status) -> (ToolbarView, imp
         let lb = lb.clone();
         let window = window.clone();
         let path = status.path.clone().expect("no path");
+        let selected = status.selected().clone();
         move |_, key, _, modifier| {
             match (key, modifier) {
                 (gdk::Key::Escape, _) => {
@@ -398,7 +432,13 @@ pub fn factory(window: &ApplicationWindow, status: &Status) -> (ToolbarView, imp
                     }
                 }
                 (gdk::Key::z | gdk::Key::c | gdk::Key::n, _) => {
-                    add_stash(path.clone(), &window, &lb.clone(), sender.clone());
+                    add_stash(
+                        path.clone(),
+                        &window,
+                        &lb.clone(),
+                        selected.clone(),
+                        sender.clone(),
+                    );
                 }
                 (gdk::Key::v | gdk::Key::Return, _) => {
                     if let Some(row) = lb.selected_row() {

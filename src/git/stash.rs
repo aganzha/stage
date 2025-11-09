@@ -80,6 +80,7 @@ pub fn stash(
     path: PathBuf,
     stash_message: String,
     stash_staged: bool,
+    file_path: Option<PathBuf>,
     sender: Sender<crate::Event>,
 ) -> Result<Option<Stashes>, git2::Error> {
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, false);
@@ -90,7 +91,15 @@ pub fn stash(
     } else {
         git2::StashFlags::KEEP_INDEX
     };
-    repo.stash_save(&me, &stash_message, Some(flags))?;
+
+    if let Some(path) = file_path {
+        let mut options = git2::StashSaveOptions::new(me);
+        options.flags(Some(flags));
+        options.pathspec(path);
+        repo.stash_save_ext(Some(&mut options))?;
+    } else {
+        repo.stash_save(&me, &stash_message, Some(flags))?;
+    }
     Ok(Some(list(path, sender)))
 }
 

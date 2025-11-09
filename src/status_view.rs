@@ -34,7 +34,7 @@ use std::rc::Rc;
 use crate::status_view::view::View;
 use crate::{
     get_current_repo_status, BlameLine, CurrentWindow, Diff, DiffKind, Event, File as GitFile,
-    Head, State, StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
+    Head, Selected, State, StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
 };
 use async_channel::Sender;
 
@@ -930,5 +930,47 @@ impl Status {
                 }
             });
         }
+    }
+    pub fn selected(&self) -> Selected {
+        match self.cursor_position.get() {
+            CursorPosition::CursorLine(kind, fileno, hunkno, _)
+            | CursorPosition::CursorHunk(kind, fileno, hunkno) => match kind {
+                DiffKind::Staged => {
+                    let diff = self.unstaged.as_ref().unwrap();
+                    let file = &diff.files[fileno];
+                    let hunk = &file.hunks[hunkno];
+                    return Some((kind, Some(file.path.clone()), Some(hunk.header.clone())));
+                }
+                DiffKind::Unstaged => {
+                    let diff = self.unstaged.as_ref().unwrap();
+                    let file = &diff.files[fileno];
+                    let hunk = &file.hunks[hunkno];
+                    return Some((kind, Some(file.path.clone()), Some(hunk.header.clone())));
+                }
+                DiffKind::Untracked | DiffKind::Conflicted | DiffKind::Commit => {
+                    return Some((kind, None, None));
+                }
+            },
+            CursorPosition::CursorFile(kind, fileno) => match kind {
+                DiffKind::Staged => {
+                    let diff = self.unstaged.as_ref().unwrap();
+                    let file = &diff.files[fileno];
+                    return Some((kind, Some(file.path.clone()), None));
+                }
+                DiffKind::Unstaged => {
+                    let diff = self.unstaged.as_ref().unwrap();
+                    let file = &diff.files[fileno];
+                    return Some((kind, Some(file.path.clone()), None));
+                }
+                DiffKind::Untracked | DiffKind::Conflicted | DiffKind::Commit => {
+                    return Some((kind, None, None));
+                }
+            },
+            CursorPosition::CursorDiff(kind) => {
+                return Some((kind, None, None));
+            }
+            _ => {}
+        }
+        None
     }
 }
