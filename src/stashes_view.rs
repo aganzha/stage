@@ -216,7 +216,7 @@ pub fn add_stash(
                 }
             });
 
-            let enter_pressed = Rc::new(Cell::new(true));
+            let enter_pressed = Rc::new(Cell::new(false));
             input.connect_apply({
                 let dialog = dialog.clone();
                 let enter_pressed = enter_pressed.clone();
