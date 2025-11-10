@@ -36,6 +36,7 @@ mod stage_view_internal {
     use gtk4::{gdk, glib, graphene, gsk, pango, Snapshot, TextView, TextViewLayer};
     use std::cell::{Cell, RefCell};
     use std::collections::HashMap;
+    use std::str::FromStr;
 
     // #cce0f8/23374f - 204/255 224/255 248/255  35 55 79
     const LIGHT_CURSOR: gdk::RGBA = gdk::RGBA::new(0.80, 0.878, 0.972, 1.0);
@@ -108,10 +109,18 @@ mod stage_view_internal {
             match line_attrs.2 {
                 LineKind::None => match line_attrs.1 {
                     DiffLineType::Addition => {
-                        rgba = gdk::RGBA::GREEN;
+                        if is_dark {
+                            rgba = gdk::RGBA::from_str("#4a8e09").unwrap();
+                        } else {
+                            rgba = gdk::RGBA::from_str("#10ac64").unwrap();
+                        }
                     }
                     DiffLineType::Deletion => {
-                        rgba = gdk::RGBA::RED;
+                        if is_dark {
+                            rgba = gdk::RGBA::from_str("#a51d2d").unwrap();
+                        } else {
+                            rgba = gdk::RGBA::from_str("#c01c28").unwrap();
+                        }
                     }
                     _ => {}
                 },
