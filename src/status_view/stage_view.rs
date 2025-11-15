@@ -110,14 +110,14 @@ mod stage_view_internal {
                 LineKind::None => match line_attrs.1 {
                     DiffLineType::Addition => {
                         if is_dark {
-                            rgba = gdk::RGBA::from_str("#4a8e09").unwrap();
+                            rgba = gdk::RGBA::GREEN;
                         } else {
                             rgba = gdk::RGBA::from_str("#10ac64").unwrap();
                         }
                     }
                     DiffLineType::Deletion => {
                         if is_dark {
-                            rgba = gdk::RGBA::from_str("#a51d2d").unwrap();
+                            rgba = gdk::RGBA::RED;
                         } else {
                             rgba = gdk::RGBA::from_str("#c01c28").unwrap();
                         }
@@ -129,7 +129,11 @@ mod stage_view_internal {
                 _ => {}
             }
             if !is_current {
-                rgba.set_alpha(0.15);
+                if is_dark {
+                    rgba.set_alpha(0.25);
+                } else {
+                    rgba.set_alpha(0.15);
+                }
             }
             Some((layout, rgba))
         }
