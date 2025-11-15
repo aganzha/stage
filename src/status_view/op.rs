@@ -329,7 +329,7 @@ impl Status {
                     .css_classes(vec![String::from("boxed-list")])
                     .build();
 
-                let (oid, title, body, no_commit, ofile_path, ohunk_header, revert) =
+                let (oid, title, body, no_commit, ofile_path, ohunk_header, revert, stash) =
                     match op.clone() {
                         ApplyOp::CherryPick(oid, ofile, ohunk) => (
                             oid,
@@ -338,6 +338,7 @@ impl Status {
                             ofile.is_some(),
                             ofile,
                             ohunk,
+                            false,
                             false,
                         ),
                         ApplyOp::Revert(oid, ofile, ohunk) => (
@@ -348,6 +349,7 @@ impl Status {
                             ofile,
                             ohunk,
                             true,
+                            false,
                         ),
                         ApplyOp::Stash(oid, num, ofile, ohunk) => (
                             oid,
@@ -357,6 +359,7 @@ impl Status {
                             ofile,
                             ohunk,
                             false,
+                            true,
                         ),
                     };
                 let no_commit = SwitchRow::builder()
@@ -428,23 +431,14 @@ impl Status {
                     let use_file = file_chooser.is_active();
                     let use_hunk = hunk_chooser.is_active();
                     move || {
-                        if use_hunk {
+                        if use_hunk || use_file {
                             return commit::partial_apply(
                                 path,
                                 oid,
                                 revert,
                                 ofile_path.clone().unwrap(),
-                                ohunk_header,
-                                sender,
-                            );
-                        }
-                        if use_file {
-                            return commit::partial_apply(
-                                path,
-                                oid,
-                                revert,
-                                ofile_path.clone().unwrap(),
-                                None,
+                                if use_hunk { ohunk_header } else { None },
+                                stash,
                                 sender,
                             );
                         }

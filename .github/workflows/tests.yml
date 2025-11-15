@@ -24,11 +24,11 @@ jobs:
     - name: Add flathub to remotes
       run: flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     - name: Install Gnome Platform
-      run: flatpak install -y org.gnome.Platform/x86_64/48
+      run: flatpak install -y org.gnome.Platform/x86_64/49
     - name: Install Gnome Sdk
-      run: flatpak install -y org.gnome.Sdk/x86_64/48
+      run: flatpak install -y org.gnome.Sdk/x86_64/49
     - name: Install Rust extension
-      run: flatpak install -y org.freedesktop.Sdk.Extension.rust-stable/x86_64/24.08
+      run: flatpak install -y org.freedesktop.Sdk.Extension.rust-stable/x86_64/25.08
     - name: Install x11
       run: sudo apt install xvfb -y
     - uses: actions/checkout@v4

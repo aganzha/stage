@@ -91,6 +91,8 @@ impl Default for LoginPassword {
     }
 }
 
+pub type Selected = Option<(DiffKind, Option<PathBuf>, Option<String>)>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StageOp {
     Stage,
@@ -630,7 +632,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     status.update_stashes(stashes)
                 }
                 Event::StashesPanel => {
-                    info!("stashes panel");
+                    info!("stashes panel {:?}", status.cursor_position);
                     if split.shows_sidebar() {
                         split.set_show_sidebar(false);
                         txt.grab_focus();

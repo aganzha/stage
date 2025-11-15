@@ -21,7 +21,7 @@ use crate::{
 };
 use git2::{DiffLineType, RepositoryState};
 use gtk4::prelude::*;
-use gtk4::{Align, Label as GtkLabel, TextBuffer, TextIter};
+use gtk4::{Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
 use log::{error, trace};
 //pub const LINE_NO_SPACE: i32 = 6;
@@ -761,6 +761,26 @@ impl ViewContainer for Line {
         if self.view.is_active() {
             ctx.collect_line_highlights(self.view.line_no.get());
         }
+        if self.view.is_rendered() {
+            let line_no = self
+                .new_line_no
+                .map(|num| num.as_i32())
+                .unwrap_or(self.old_line_no.map(|num| num.as_i32()).unwrap_or(0));
+
+            let line_no_text = match self.origin {
+                DiffLineType::Deletion => match line_no {
+                    0..10 => "-".to_string(),
+                    10..100 => " -".to_string(),
+                    100..1000 => "  -".to_string(),
+                    _ => "   -".to_string(),
+                },
+                _ => format!("{}", line_no),
+            };
+            ctx.linenos.insert(
+                self.view.line_no.get(),
+                (line_no_text, self.origin, self.kind.clone()),
+            );
+        }
     }
 
     // Line
@@ -852,62 +872,6 @@ impl ViewContainer for Line {
         buffer: &TextBuffer,
         context: &mut StatusRenderContext<'_>,
     ) {
-        let anchor = iter
-            .child_anchor()
-            .unwrap_or(buffer.create_child_anchor(iter));
-
-        let line_no = self
-            .new_line_no
-            .map(|num| num.as_i32())
-            .unwrap_or(self.old_line_no.map(|num| num.as_i32()).unwrap_or(0));
-
-        let line_no_text = match self.origin {
-            DiffLineType::Deletion => {
-                format!(
-                    "<span size=\"small\" foreground=\"red\" weight=\"bold\" line_height=\"0.5\">{}</span>",
-                    match line_no {
-                        0..10 => {
-                            "-"
-                        },
-                        10..100 => {
-                            " -"
-                        },
-                        100..1000 => {
-                            "  -"
-                        },
-                        _ => {
-                            "   -"
-                        }
-                    }
-                )
-            }
-            _ => format!(
-                "<span size=\"small\" line_height=\"0.5\">{}</span>",
-                line_no
-            ),
-        };
-
-        if !anchor.widgets().is_empty() {
-            let w = &anchor.widgets()[0];
-            let l = w.downcast_ref::<GtkLabel>().unwrap();
-            l.set_label(&line_no_text);
-        } else {
-            let lbl: GtkLabel = GtkLabel::builder()
-                .use_markup(true)
-                .hexpand(false)
-                .vexpand(false)
-                .label(line_no_text)
-                .max_width_chars(3)
-                .width_chars(3)
-                .width_request(25)
-                .halign(Align::Start)
-                .xalign(0.0)
-                .opacity(0.3)
-                .css_classes(["line_no"])
-                .build();
-            context.stage.add_child_at_anchor(&lbl, &anchor);
-        }
-
         let content = self.content(context.current_hunk.unwrap());
         if content.is_empty() {
             // when add or delete single line, mark it somehow to be visible
@@ -921,6 +885,8 @@ impl ViewContainer for Line {
                 }
             }
         } else {
+            // MARGIN FOR LINENO
+            buffer.insert(iter, "    ");
             buffer.insert(iter, content);
         }
     }
@@ -1262,10 +1228,15 @@ impl Line {
         start_offset: i32,
     ) {
         for (start, end) in self.byte_indexes_to_char_indexes(ranges) {
+            // MARGIN FOR LINENO
+            let line_no_margin = 4;
             self.add_tag(
                 buffer,
                 tag,
-                Some((start_offset + start, start_offset + end + 1)),
+                Some((
+                    start_offset + start + line_no_margin,
+                    start_offset + end + 1 + line_no_margin,
+                )),
             );
         }
     }

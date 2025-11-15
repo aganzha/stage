@@ -231,6 +231,14 @@ impl Hunk {
         // self.buf =
         //     String::with_capacity(1 + 3 + self.old_lines as usize + self.new_lines as usize + 3);
     }
+    fn strip_header_context(header: &str) -> Option<String> {
+        for part in header.split("@@") {
+            if !part.is_empty() {
+                return Some(format!("@@{}@@", part));
+            }
+        }
+        None
+    }
 
     pub fn shift_new_start_and_lines(header: &str, hunk_delta: i32, lines_delta: i32) -> String {
         let re = Regex::new(r"@@ [+-][0-9]+,[0-9]+ [+-]([0-9]+),([0-9]+) @@").unwrap();

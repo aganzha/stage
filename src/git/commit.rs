@@ -310,47 +310,56 @@ pub fn partial_apply(
     revert: bool,
     file_path: PathBuf,
     hunk_header: Option<String>,
+    stash: bool,
     sender: Sender<crate::Event>,
 ) -> Result<(), git2::Error> {
     let _defer = DeferRefresh::new(path.clone(), sender.clone(), true, true);
     info!(
-        "partial apply {:?} {:?} {:?}",
-        file_path, hunk_header, revert
+        "partial apply {:?} hunk {:?} revert? {:?} stash? {}",
+        file_path, hunk_header, revert, stash
     );
     let repo = git2::Repository::open(path.clone())?;
 
     sender
         .send_blocking(crate::Event::LockMonitors(true))
         .expect("Could not send through channel");
-
     let commit = repo.find_commit(oid)?;
 
     let head_ref = repo.head()?;
     let ob = head_ref.peel(git2::ObjectType::Commit)?;
     let our_commit = ob.peel_to_commit()?;
+    // stash require passing mainline, which is, in fact, index.
+    // passing 0 - means mainline is not specified.
+    let mainline = if stash { 1 } else { 0 };
     let memory_index = if revert {
-        repo.revert_commit(&commit, &our_commit, 0, None)?
+        repo.revert_commit(&commit, &our_commit, mainline, None)?
     } else {
-        repo.cherrypick_commit(&commit, &our_commit, 0, None)?
+        repo.cherrypick_commit(&commit, &our_commit, mainline, None)?
     };
     let mut diff_opts = make_diff_options();
     diff_opts.reverse(true);
 
     let git_diff = repo.diff_index_to_workdir(Some(&memory_index), Some(&mut diff_opts))?;
 
+    if git_diff.deltas().len() == 0 {
+        return Err(git2::Error::from_str("There is nothing to apply."));
+    }
     let mut options = git2::ApplyOptions::new();
-
     options.hunk_callback(|odh| -> bool {
-        if let Some(hunk_header) = &hunk_header {
+        if let Some(selected_header) = &hunk_header {
             if let Some(dh) = odh {
-                let mut header = Hunk::get_header_from(&dh);
-                if revert {
-                    header = Hunk::reverse_header(&header);
+                let header = Hunk::get_header_from(&dh);
+                if let Some(mut clean) = Hunk::strip_header_context(&header) {
+                    if revert {
+                        clean = Hunk::reverse_header(&clean);
+                    }
+                    if let Some(selected_clean) = Hunk::strip_header_context(selected_header) {
+                        return *selected_clean == clean;
+                    }
                 }
-                return *hunk_header == header;
             }
         }
-        true
+        false
     });
 
     options.delta_callback(|odd| -> bool {
@@ -358,7 +367,7 @@ pub fn partial_apply(
             let path: PathBuf = dd.new_file().path().unwrap().into();
             return file_path == path;
         }
-        true
+        false
     });
     repo.apply(&git_diff, git2::ApplyLocation::WorkDir, Some(&mut options))?;
     Ok(())
