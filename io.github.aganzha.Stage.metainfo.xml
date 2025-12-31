@@ -57,6 +57,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
   <url type="homepage">https://github.com/aganzha/stage</url>
   <url type="bugtracker">https://github.com/aganzha/stage/issues</url>
+  <url type="vcs-browser">https://github.com/aganzha/stage</url>
   <developer id="io.github.aganzha">
     <name>Alexey Ganzha</name>
   </developer>
