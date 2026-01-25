@@ -734,6 +734,8 @@ impl ViewContainer for Hunk {
     }
 }
 
+pub const LINENO_MARGIN: &str = "    ";
+
 impl ViewContainer for Line {
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         // lines could not be empty
@@ -886,7 +888,7 @@ impl ViewContainer for Line {
             }
         } else {
             // MARGIN FOR LINENO
-            buffer.insert(iter, "    ");
+            buffer.insert(iter, LINENO_MARGIN);
             buffer.insert(iter, content);
         }
     }
@@ -923,7 +925,8 @@ impl ViewContainer for Line {
                     };
                     // do not add tag twice
                     // magic 1 is for label
-                    start_iter.forward_chars(stripped_len as i32 + 1);
+                    println!("‼️ line_offset {:?} stripped_len {:?}", start_iter.line_offset(), stripped_len); 
+                    start_iter.forward_chars((stripped_len + LINENO_MARGIN.len()) as i32 );
                     self.add_tag(
                         buffer,
                         spaces_tag,
