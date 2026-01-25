@@ -936,7 +936,7 @@ impl Status {
             CursorPosition::CursorLine(kind, fileno, hunkno, _)
             | CursorPosition::CursorHunk(kind, fileno, hunkno) => match kind {
                 DiffKind::Staged => {
-                    let diff = self.unstaged.as_ref().unwrap();
+                    let diff = self.staged.as_ref().unwrap();
                     let file = &diff.files[fileno];
                     let hunk = &file.hunks[hunkno];
                     return Some((kind, Some(file.path.clone()), Some(hunk.header.clone())));
