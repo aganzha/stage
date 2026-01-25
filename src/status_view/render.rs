@@ -923,10 +923,7 @@ impl ViewContainer for Line {
                     } else {
                         tags::SPACES_REMOVED
                     };
-                    // do not add tag twice
-                    // magic 1 is for label
-                    println!("‼️ line_offset {:?} stripped_len {:?}", start_iter.line_offset(), stripped_len); 
-                    start_iter.forward_chars((stripped_len + LINENO_MARGIN.len()) as i32 );
+                    start_iter.forward_chars((stripped_len + LINENO_MARGIN.len()) as i32);
                     self.add_tag(
                         buffer,
                         spaces_tag,

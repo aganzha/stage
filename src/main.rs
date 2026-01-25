@@ -505,7 +505,13 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
                     let log_window = show_log_window(
                         status.path.clone().expect("no path"),
                         current_window,
-                        obranch_name.unwrap_or("unknown branch".to_string()),
+                        obranch_name
+                            .or(status
+                                .head
+                                .clone()
+                                .and_then(|h| h.branch)
+                                .map(|b| b.name.to_string()))
+                            .unwrap_or_else(|| "unknown branch".to_string()),
                         sender.clone(),
                         ooid,
                     );
