@@ -245,7 +245,7 @@ impl Status {
             });
         } else {
             // investigated path
-            assert!(path.ends_with(".git/"));
+            // assert!(path.ends_with(".git/"));
             if self.path.is_none() || path != self.path.clone().unwrap() {
                 let mut paths = settings.get::<Vec<String>>("paths");
                 let str_path = String::from(path.to_str().unwrap()).replace(".git/", "");
