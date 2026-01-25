@@ -1147,7 +1147,7 @@ impl ViewContainer for State {
         buffer: &TextBuffer,
         _context: &mut StatusRenderContext<'_>,
     ) {
-        buffer.insert(iter, "State:    ");
+        buffer.insert(iter, "State:     ");
         match self.state {
             RepositoryState::Clean => {
                 buffer.insert(iter, "Clean");
