@@ -231,12 +231,15 @@ fn main() -> glib::ExitCode {
                                 oid, repo_path, hunk_line,
                             );
                             // let window = opened_app.window();
+                            let relative_path = Path::new(&real_name)
+                                .strip_prefix(repo_path.parent().unwrap())
+                                .unwrap();
                             show_commit_window(
                                 repo_path,
                                 oid,
                                 None,
                                 Some(BlameLine {
-                                    file_path: Path::new(&real_name).to_path_buf(),
+                                    file_path: relative_path.to_path_buf(),
                                     hunk_start: hunk_line,
                                     content: String::new(),
                                 }),
