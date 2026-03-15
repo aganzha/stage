@@ -201,9 +201,7 @@ impl commit::CommitDiff {
         let mut found_line_index: Option<(usize, usize, usize)> = None;
         if !self.diff.files.is_empty() {
             if let Some(blame_line) = blame_line {
-                println!("🪛 {:?}", blame_line);
                 for (f, file) in self.diff.files.iter().enumerate() {
-                    println!("💨 fffffffffffffffffffffffffffile {:?}", file.path);
                     if file.path == blame_line.file_path {
                         file.view.expand(true);
                         for (h, hunk) in file.hunks.iter().enumerate() {
@@ -211,12 +209,6 @@ impl commit::CommitDiff {
                             if found_line_index.is_none() {
                                 for (l, line) in hunk.lines.iter().enumerate() {
                                     if let Some(line_no) = line.new_line_no {
-                                        println!(
-                                            ">>>>>>>>>> ⚽ term {:?} current {:?} >> {:?}",
-                                            blame_line.line_in_hunk,
-                                            line_no,
-                                            line.content(hunk)
-                                        );
                                         if line_no == blame_line.line_in_hunk {
                                             line.view.make_current(true);
                                             found = true;
