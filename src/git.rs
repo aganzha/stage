@@ -17,7 +17,7 @@ use crate::gio;
 use crate::status_view::view::View;
 use crate::syntax;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use async_channel::Sender;
 
 use chrono::{DateTime, FixedOffset};
@@ -1264,6 +1264,31 @@ pub fn rebase(
         }
     }
     Ok(true)
+}
+
+pub fn blame_any_file(
+    file_path: PathBuf,
+    line_no: usize,
+) -> Result<(git2::Oid, PathBuf, HunkLineNo)> {
+    let repo = Repository::discover(file_path.clone())?;
+    let mut opts = git2::BlameOptions::new();
+    let repo_path = repo.path();
+    opts.min_line(line_no);
+    opts.max_line(line_no);
+    debug!(
+        "💋 blame any file: {:?} start_line {:?} FOR REPO {:?}",
+        file_path, line_no, repo_path
+    );
+    let blame = repo.blame_file(
+        file_path.strip_prefix(repo_path.parent().ok_or(anyhow!("repo without parent"))?)?,
+        Some(&mut opts),
+    )?;
+    let blame_hunk = blame.get_line(line_no).context("Can`t get line to blame")?;
+    Ok((
+        blame_hunk.orig_commit_id(),
+        repo_path.to_path_buf(),
+        HunkLineNo(blame_hunk.orig_start_line() as u32),
+    ))
 }
 
 pub fn blame(

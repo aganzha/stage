@@ -5,6 +5,7 @@
 mod external;
 mod status_view;
 mod syntax;
+use async_channel::Sender;
 use status_view::{
     context::StatusRenderContext,
     headerbar::factory as headerbar_factory,
@@ -13,7 +14,7 @@ use status_view::{
     stage_view::factory as stage_factory,
     Status,
 };
-
+use std::path::Path;
 mod branches_view;
 use branches_view::show_branches_window;
 
@@ -179,15 +180,78 @@ fn main() -> glib::ExitCode {
 
     let initial_path: Rc<RefCell<Option<PathBuf>>> = Rc::new(RefCell::new(None));
 
+    // app.connect_command_line({
+    //     |app, cmdline| {
+    //         println!("🪛 connect_command_line {:?} {:?}", app, cmdline);
+    //         glib::ExitCode::SUCCESS
+    //     }
+    // });
+
+    // app.connect_handle_local_options({
+    //     |app, _vardict| {
+    //         println!("🪛 connect_HANDLE OPTIONS {:?}", app);//, vardict
+    //         std::ops::ControlFlow::Break(glib::ExitCode::SUCCESS)
+    //     }
+    // });
+    let sender: Rc<RefCell<Option<Sender<Event>>>> = Rc::new(RefCell::new(None));
     app.connect_open({
         let initial_path = initial_path.clone();
-        move |opened_app: &Application, files: &[gio::File], _: &str| {
-            if !files.is_empty() {
-                if let Some(path) = files[0].path() {
-                    initial_path.replace(Some(path));
-                }
+        let sender = sender.clone();
+        move |_opened_app: &Application, files: &[gio::File], other: &str| {
+            println!(
+                "🪛 connect_OOOOOOOOOOOpen initial_path {:?} files??? {:?} other? {:?}",
+                initial_path, files, other
+            );
+            for file in files {
+                let fname = file.parse_name();
+                let mut parts = fname.split("#L");
+                let real_name = parts.next().unwrap().to_string();
+                let line_no = parts.next().unwrap().to_string();
+                println!("🏁 uri and scheme =======> {:?} {:?}", real_name, line_no);
+                let line_no: usize = line_no.parse().expect("not a usize");
+                glib::spawn_future_local({
+                    //let opened_app = opened_app.clone();
+                    let sender = sender.clone();
+                    let real_name = real_name.clone();
+                    async move {
+                        if let Ok((oid, repo_path, hunk_line)) = gio::spawn_blocking({
+                            let real_name = real_name.clone();
+                            move || {
+                                crate::git::blame_any_file(
+                                    Path::new(&real_name.clone()).to_path_buf(),
+                                    line_no,
+                                )
+                            }
+                        })
+                        .await
+                        .unwrap()
+                        {
+                            println!(
+                                "💋 ------------------> OOID {:?} repo_path {:?} hl {:?}",
+                                oid, repo_path, hunk_line,
+                            );
+                            // let window = opened_app.window();
+                            show_commit_window(
+                                repo_path,
+                                oid,
+                                None,
+                                Some(BlameLine {
+                                    file_path: Path::new(&real_name).to_path_buf(),
+                                    hunk_start: hunk_line,
+                                    content: String::new(),
+                                }),
+                                CurrentWindow::Window(
+                                    Window::builder()
+                                        .default_width(1280)
+                                        .default_height(960)
+                                        .build(),
+                                ),
+                                sender.borrow().as_ref().unwrap().clone(),
+                            );
+                        };
+                    }
+                });
             }
-            opened_app.activate();
         }
     });
     app.connect_activate({
@@ -195,7 +259,9 @@ fn main() -> glib::ExitCode {
         move |running_app| {
             let windows = running_app.windows();
             if windows.is_empty() {
-                run_app(running_app, &initial_path.borrow());
+                let app_sender = run_app(running_app, &initial_path.borrow());
+                sender.borrow_mut().replace(app_sender);
+                println!("💨 REPLACED SENDER ........... {:?}", sender);
             } else {
                 windows[0].present();
             }
@@ -219,7 +285,7 @@ pub fn get_settings() -> gio::Settings {
     gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None)
 }
 
-fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
+fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
     env_logger::builder().format_timestamp(None).init();
 
     let (sender, receiver) = async_channel::unbounded();
@@ -353,442 +419,446 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) {
 
     let window_stack: Rc<RefCell<Vec<Window>>> = Rc::new(RefCell::new(Vec::new()));
 
-    glib::spawn_future_local(async move {
-        while let Ok(event) = receiver.recv().await {
-            let mut ctx = StatusRenderContext::new(&txt);
+    glib::spawn_future_local({
+        let sender = sender.clone();
+        async move {
+            while let Ok(event) = receiver.recv().await {
+                let mut ctx = StatusRenderContext::new(&txt);
 
-            match event {
-                Event::OpenRepo(path) => {
-                    info!("info.open repo {:?}", path);
-                    // here could come path selected by the user
-                    // this is 'dirty' one. The right path will
-                    // came from git with /.git/ suffix
-                    // but the 'dirty' path will be used first
-                    // for querying repo status and investigate real one
-                    // see CurrentRepo event
-                    if split.shows_sidebar() {
-                        split.set_show_sidebar(false);
-                    }
-                    status.update_path(path, monitors.clone(), true, &settings);
-                    txt.grab_focus();
-                    status.get_status();
-                }
-                Event::Focus => {
-                    info!("focus");
-                    txt.grab_focus();
-                }
-                Event::OpenFileDialog => {
-                    hb_updater(HbUpdateData::RepoOpen);
-                }
-                Event::RepoPopup => {
-                    hb_updater(HbUpdateData::RepoPopup);
-                }
-                Event::CurrentRepo(path) => {
-                    info!("info.CurrentRepo {:?}", path);
-                    if !stage_set {
-                        scroll.set_child(Some(&txt));
+                match event {
+                    Event::OpenRepo(path) => {
+                        info!("info.open repo {:?}", path);
+                        // here could come path selected by the user
+                        // this is 'dirty' one. The right path will
+                        // came from git with /.git/ suffix
+                        // but the 'dirty' path will be used first
+                        // for querying repo status and investigate real one
+                        // see CurrentRepo event
+                        if split.shows_sidebar() {
+                            split.set_show_sidebar(false);
+                        }
+                        status.update_path(path, monitors.clone(), true, &settings);
                         txt.grab_focus();
-                        stage_set = true;
+                        status.get_status();
                     }
-                    hb_updater(HbUpdateData::Path(path.clone()));
-                    status.update_path(path, monitors.clone(), false, &settings);
-                }
-                Event::State(state) => {
-                    info!("main. state");
-                    status.update_state(state, &txt, &mut ctx);
-                }
-                Event::OpenEditor => {
-                    let args = status.editor_args_at_cursor(&txt);
-                    info!("OpenEditor {:?}", args);
-                    if let Some((path, line_no, col_no)) = args {
-                        external::try_open_editor(path, line_no, col_no);
+                    Event::Focus => {
+                        info!("focus");
+                        txt.grab_focus();
                     }
-                }
-                Event::Dump => {
-                    info!("Dump");
-                }
-                Event::Debug => {
-                    info!("Debug");
-                    status.debug(&txt, &mut ctx);
-                }
-                Event::Commit => {
-                    info!("main.commit");
-                    if !status.has_staged() {
-                        alert(String::from("No changes were staged. Stage by hitting 's'"))
-                            .present(Some(&txt));
-                    } else {
-                        status.commit(&application_window);
+                    Event::OpenFileDialog => {
+                        hb_updater(HbUpdateData::RepoOpen);
                     }
-                }
-                Event::Untracked(untracked) => {
-                    info!("main. untracked");
-                    status.update_untracked(untracked, &txt, &settings, &mut ctx);
-                }
-                Event::Push => {
-                    info!("main.push");
-                    hb_updater(HbUpdateData::Push);
-                    status.push(&application_window);
-                }
-                Event::Pull => {
-                    info!("main.pull");
-                    hb_updater(HbUpdateData::Pull);
-                    status.pull(&application_window);
-                }
-                Event::Branches(branches) => {
-                    info!("main. branches");
-                    status.update_branches(branches);
-                }
-                Event::ShowBranches => {
-                    info!("main.braches");
-                    let path = status.path.clone().unwrap();
-                    let w = show_branches_window(
-                        path,
-                        status.branches.take(),
-                        &application_window,
-                        sender.clone(),
-                    );
-                    w.connect_close_request({
-                        let window_stack = window_stack.clone();
-                        move |_| {
-                            info!(
-                                "popping stack while close branches {:?}",
-                                window_stack.borrow_mut().pop()
-                            );
-                            glib::signal::Propagation::Proceed
+                    Event::RepoPopup => {
+                        hb_updater(HbUpdateData::RepoPopup);
+                    }
+                    Event::CurrentRepo(path) => {
+                        info!("info.CurrentRepo {:?}", path);
+                        if !stage_set {
+                            scroll.set_child(Some(&txt));
+                            txt.grab_focus();
+                            stage_set = true;
                         }
-                    });
-                    window_stack.borrow_mut().push(w);
-                }
-                // Event::TrackChanges(file_path) => {
-                //     info!("track file changes {:?}", &file_path);
-                //     status.track_changes(file_path, sender.clone());
-                // }
-                Event::Tags(ooid) => {
-                    let oid = ooid.unwrap_or(status.head_oid());
-                    let mut remote_name: Option<String> = None;
-                    if let Some((o_remote_name, _)) = status.choose_remote_branch_name() {
-                        remote_name = o_remote_name;
+                        hb_updater(HbUpdateData::Path(path.clone()));
+                        status.update_path(path, monitors.clone(), false, &settings);
                     }
-                    let current_window = if let Some(stacked_window) = window_stack.borrow().last()
-                    {
-                        CurrentWindow::Window(stacked_window.clone())
-                    } else {
-                        CurrentWindow::ApplicationWindow(application_window.clone())
-                    };
-                    let tags_window = show_tags_window(
-                        status.path.clone().expect("no path"),
-                        current_window,
-                        oid,
-                        remote_name,
-                        sender.clone(),
-                    );
-                    tags_window.connect_close_request({
-                        let window_stack = window_stack.clone();
-                        move |_| {
-                            info!(
-                                "popping stack while close log {:?}",
-                                window_stack.borrow_mut().pop()
-                            );
-                            glib::signal::Propagation::Proceed
-                        }
-                    });
-                    window_stack.borrow_mut().push(tags_window);
-                }
-                Event::Log(ooid, obranch_name) => {
-                    info!("main.log");
-                    let current_window = if let Some(stacked_window) = window_stack.borrow().last()
-                    {
-                        CurrentWindow::Window(stacked_window.clone())
-                    } else {
-                        CurrentWindow::ApplicationWindow(application_window.clone())
-                    };
-                    let log_window = show_log_window(
-                        status.path.clone().expect("no path"),
-                        current_window,
-                        obranch_name
-                            .or(status
-                                .head
-                                .clone()
-                                .and_then(|h| h.branch)
-                                .map(|b| b.name.to_string()))
-                            .unwrap_or_else(|| "unknown branch".to_string()),
-                        sender.clone(),
-                        ooid,
-                    );
-                    log_window.connect_close_request({
-                        let window_stack = window_stack.clone();
-                        move |_| {
-                            info!(
-                                "popping stack while close log {:?}",
-                                window_stack.borrow_mut().pop()
-                            );
-                            glib::signal::Propagation::Proceed
-                        }
-                    });
-                    window_stack.borrow_mut().push(log_window);
-                }
-                Event::Head(h) => {
-                    info!("main. head");
-                    if let Some(upstream) = &status.upstream {
-                        if let Some(head) = &h {
-                            hb_updater(HbUpdateData::Unsynced(head.oid != upstream.oid));
-                        }
-                    } else {
-                        hb_updater(HbUpdateData::Unsynced(true));
+                    Event::State(state) => {
+                        info!("main. state");
+                        status.update_state(state, &txt, &mut ctx);
                     }
-                    status.update_head(h, &txt, &mut ctx);
-                }
-                Event::UpstreamProgress => {
-                    info!("main. UpstreamProgress");
-                    hb_updater(HbUpdateData::Upstream);
-                }
-                Event::Upstream(h) => {
-                    info!("main. upstream");
-                    hb_updater(HbUpdateData::Upstream);
-                    if let (Some(head), Some(upstream)) = (&status.head, &h) {
-                        hb_updater(HbUpdateData::Unsynced(head.oid != upstream.oid));
+                    Event::OpenEditor => {
+                        let args = status.editor_args_at_cursor(&txt);
+                        info!("OpenEditor {:?}", args);
+                        if let Some((path, line_no, col_no)) = args {
+                            external::try_open_editor(path, line_no, col_no);
+                        }
                     }
-                    status.update_upstream(h, &txt, &mut ctx);
-                }
-                Event::Conflicted(odiff, ostate) => {
-                    info!("Conflicted");
-                    status.update_conflicted(
-                        odiff,
-                        ostate,
-                        &txt,
-                        &application_window,
-                        sender.clone(),
-                        &banner,
-                        &banner_button,
-                        banner_button_clicked.clone(),
-                        &mut ctx,
-                    );
-                }
-                Event::Staged(odiff) => {
-                    info!("Staged");
-                    hb_updater(HbUpdateData::Staged(odiff.is_some()));
-                    status.update_staged(odiff, &txt, &mut ctx);
-                }
-                Event::Unstaged(odiff) => {
-                    info!("Unstaged");
-                    status.update_unstaged(odiff, &txt, &mut ctx);
-                }
-                Event::Expand(offset, line_no) => {
-                    trace!("Expand");
-                    status.expand(&txt, line_no, offset, &mut ctx);
-                }
-                Event::Cursor(offset, line_no) => {
-                    trace!("Cursor");
-                    status.cursor(&txt, line_no, offset, &mut ctx);
-                }
-                Event::Stage(stage_op) => {
-                    info!("Stage {:?}", stage_op);
-                    status.stage_op(stage_op, &application_window, &settings);
-                }
-                Event::TextViewResize(w) => {
-                    info!("TextViewResize {}", w);
-                }
-                Event::Toast(title) => {
-                    info!("Toast {:?}", toast_lock);
-                    if !toast_lock.get() {
-                        toast_lock.replace(true);
-                        let toast = Toast::builder().title(title).timeout(2).build();
-                        toast.connect_dismissed({
-                            let toast_lock = toast_lock.clone();
-                            move |_t| {
-                                toast_lock.replace(false);
+                    Event::Dump => {
+                        info!("Dump");
+                    }
+                    Event::Debug => {
+                        info!("Debug");
+                        status.debug(&txt, &mut ctx);
+                    }
+                    Event::Commit => {
+                        info!("main.commit");
+                        if !status.has_staged() {
+                            alert(String::from("No changes were staged. Stage by hitting 's'"))
+                                .present(Some(&txt));
+                        } else {
+                            status.commit(&application_window);
+                        }
+                    }
+                    Event::Untracked(untracked) => {
+                        info!("main. untracked");
+                        status.update_untracked(untracked, &txt, &settings, &mut ctx);
+                    }
+                    Event::Push => {
+                        info!("main.push");
+                        hb_updater(HbUpdateData::Push);
+                        status.push(&application_window);
+                    }
+                    Event::Pull => {
+                        info!("main.pull");
+                        hb_updater(HbUpdateData::Pull);
+                        status.pull(&application_window);
+                    }
+                    Event::Branches(branches) => {
+                        info!("main. branches");
+                        status.update_branches(branches);
+                    }
+                    Event::ShowBranches => {
+                        info!("main.braches");
+                        let path = status.path.clone().unwrap();
+                        let w = show_branches_window(
+                            path,
+                            status.branches.take(),
+                            &application_window,
+                            sender.clone(),
+                        );
+                        w.connect_close_request({
+                            let window_stack = window_stack.clone();
+                            move |_| {
+                                info!(
+                                    "popping stack while close branches {:?}",
+                                    window_stack.borrow_mut().pop()
+                                );
+                                glib::signal::Propagation::Proceed
                             }
                         });
-                        toast_overlay.add_toast(toast);
+                        window_stack.borrow_mut().push(w);
                     }
-                }
-                Event::Zoom(dir) => {
-                    info!("Zoom");
-                    let settings = get_settings();
-                    let font_size = settings.get::<i32>("zoom") + if dir { 1 } else { -1 };
-                    let provider = CssProvider::new();
-                    provider.load_from_string(&format!(
-                        "#status_view, #commit_view {{font-size: {}px;}}",
-                        font_size
-                    ));
-                    let display = Display::default().expect("cant get dispay");
-                    style_context_add_provider_for_display(
-                        &display,
-                        &provider,
-                        STYLE_PROVIDER_PRIORITY_USER,
-                    );
-                    let old_provider = font_size_provider.replace(provider);
-                    style_context_remove_provider_for_display(&display, &old_provider);
-                    settings.set("zoom", font_size).expect("cant set settings");
-                    // when zoom, TextView become offset from scroll
-                    // on some step. this is a hack to force rerender
-                    // this pair to allow TextView accomodate whole
-                    // width of ScrollView
-                    // scroll.set_halign(Align::Start);
-                    // glib::source::timeout_add_local(Duration::from_millis(30), {
-                    //     let scroll = scroll.clone();
-                    //     move || {
-                    //         scroll.set_halign(Align::Fill);
-                    //         ControlFlow::Break
-                    //     }
-                    // });
-                }
-                Event::Stashes(stashes) => {
-                    info!("stashes data");
-                    status.update_stashes(stashes)
-                }
-                Event::StashesPanel => {
-                    info!("stashes panel {:?}", status.cursor_position);
-                    if split.shows_sidebar() {
-                        split.set_show_sidebar(false);
-                        txt.grab_focus();
-                    } else {
-                        let (view, focus) = stashes_view_factory(&application_window, &status);
-                        split.set_sidebar(Some(&view));
-                        split.set_show_sidebar(true);
-                        focus();
-                    }
-                }
-                Event::Blame => {
-                    info!("blame");
-                    let current_window = if let Some(stacked_window) = window_stack.borrow().last()
-                    {
-                        CurrentWindow::Window(stacked_window.clone())
-                    } else {
-                        CurrentWindow::ApplicationWindow(application_window.clone())
-                    };
-                    status.blame(current_window);
-                }
-                Event::ShowTextOid(short_sha) => {
-                    info!("main.show text oid {:?}", txt);
-                    glib::spawn_future_local({
-                        let path = status.path.clone().unwrap();
+                    // Event::TrackChanges(file_path) => {
+                    //     info!("track file changes {:?}", &file_path);
+                    //     status.track_changes(file_path, sender.clone());
+                    // }
+                    Event::Tags(ooid) => {
+                        let oid = ooid.unwrap_or(status.head_oid());
+                        let mut remote_name: Option<String> = None;
+                        if let Some((o_remote_name, _)) = status.choose_remote_branch_name() {
+                            remote_name = o_remote_name;
+                        }
                         let current_window =
                             if let Some(stacked_window) = window_stack.borrow().last() {
                                 CurrentWindow::Window(stacked_window.clone())
                             } else {
                                 CurrentWindow::ApplicationWindow(application_window.clone())
                             };
-                        let sender = sender.clone();
-                        let window_stack = window_stack.clone();
-                        async move {
-                            let o_commit_window = match gio::spawn_blocking({
-                                let path = path.clone();
-                                move || commit::from_short_sha(path, short_sha)
-                            })
-                            .await
-                            .unwrap()
-                            {
-                                Ok(oid) => {
-                                    let commit_window = show_commit_window(
-                                        path,
-                                        oid,
-                                        None,
-                                        None,
-                                        current_window,
-                                        sender.clone(),
-                                    );
-                                    Some(commit_window)
-                                }
-                                Err(e) => {
-                                    let dialog = alert(format!("{:?}", e));
-                                    match current_window {
-                                        CurrentWindow::Window(w) => dialog.present(Some(&w)),
-                                        CurrentWindow::ApplicationWindow(w) => {
-                                            dialog.present(Some(&w))
-                                        }
-                                    };
-                                    None
-                                }
-                            };
-                            if let Some(commit_window) = o_commit_window {
-                                commit_window.connect_close_request({
-                                    let window_stack = window_stack.clone();
-                                    move |_| {
-                                        info!(
-                                            "popping stack while close commit {:?}",
-                                            window_stack.borrow_mut().pop()
-                                        );
-                                        glib::signal::Propagation::Proceed
-                                    }
-                                });
-                                window_stack.borrow_mut().push(commit_window);
+                        let tags_window = show_tags_window(
+                            status.path.clone().expect("no path"),
+                            current_window,
+                            oid,
+                            remote_name,
+                            sender.clone(),
+                        );
+                        tags_window.connect_close_request({
+                            let window_stack = window_stack.clone();
+                            move |_| {
+                                info!(
+                                    "popping stack while close log {:?}",
+                                    window_stack.borrow_mut().pop()
+                                );
+                                glib::signal::Propagation::Proceed
                             }
+                        });
+                        window_stack.borrow_mut().push(tags_window);
+                    }
+                    Event::Log(ooid, obranch_name) => {
+                        info!("main.log");
+                        let current_window =
+                            if let Some(stacked_window) = window_stack.borrow().last() {
+                                CurrentWindow::Window(stacked_window.clone())
+                            } else {
+                                CurrentWindow::ApplicationWindow(application_window.clone())
+                            };
+                        let log_window = show_log_window(
+                            status.path.clone().expect("no path"),
+                            current_window,
+                            obranch_name
+                                .or(status
+                                    .head
+                                    .clone()
+                                    .and_then(|h| h.branch)
+                                    .map(|b| b.name.to_string()))
+                                .unwrap_or_else(|| "unknown branch".to_string()),
+                            sender.clone(),
+                            ooid,
+                        );
+                        log_window.connect_close_request({
+                            let window_stack = window_stack.clone();
+                            move |_| {
+                                info!(
+                                    "popping stack while close log {:?}",
+                                    window_stack.borrow_mut().pop()
+                                );
+                                glib::signal::Propagation::Proceed
+                            }
+                        });
+                        window_stack.borrow_mut().push(log_window);
+                    }
+                    Event::Head(h) => {
+                        info!("main. head");
+                        if let Some(upstream) = &status.upstream {
+                            if let Some(head) = &h {
+                                hb_updater(HbUpdateData::Unsynced(head.oid != upstream.oid));
+                            }
+                        } else {
+                            hb_updater(HbUpdateData::Unsynced(true));
                         }
-                    });
-                }
-                Event::ShowOid(oid, onum, blame_line) => {
-                    info!("main.show oid {:?}", oid);
-                    let current_window = if let Some(stacked_window) = window_stack.borrow().last()
-                    {
-                        CurrentWindow::Window(stacked_window.clone())
-                    } else {
-                        CurrentWindow::ApplicationWindow(application_window.clone())
-                    };
-                    let commit_window = show_commit_window(
-                        status.path.clone().expect("no path"),
-                        oid,
-                        onum,
-                        blame_line,
-                        current_window,
-                        sender.clone(),
-                    );
-                    commit_window.connect_close_request({
-                        let window_stack = window_stack.clone();
-                        move |_| {
-                            info!(
-                                "popping stack while close commit {:?}",
-                                window_stack.borrow_mut().pop()
-                            );
-                            glib::signal::Propagation::Proceed
+                        status.update_head(h, &txt, &mut ctx);
+                    }
+                    Event::UpstreamProgress => {
+                        info!("main. UpstreamProgress");
+                        hb_updater(HbUpdateData::Upstream);
+                    }
+                    Event::Upstream(h) => {
+                        info!("main. upstream");
+                        hb_updater(HbUpdateData::Upstream);
+                        if let (Some(head), Some(upstream)) = (&status.head, &h) {
+                            hb_updater(HbUpdateData::Unsynced(head.oid != upstream.oid));
                         }
-                    });
-                    window_stack.borrow_mut().push(commit_window);
-                }
-                Event::ResetHard(ooid) => {
-                    info!("main. reset hard");
-                    status.reset_hard(ooid, &application_window);
-                }
-                Event::Refresh => {
-                    info!("main. refresh");
-                    status.get_status();
-                }
-                Event::CommitDiff(_d) => {
-                    panic!("got oid diff in another receiver");
-                }
-                Event::RemotesDialog => {
-                    info!("main. remotes dialog");
-                    status.show_remotes_dialog(&application_window);
-                }
-                Event::LockMonitors(lock) => {
-                    info!("main. lock monitors {}", lock);
-                    status.lock_monitors(lock);
-                }
-                Event::StoreSettings(name, value) => {
-                    info!("StoreSettings {} {}", name, value);
-                    settings.set(&name, value).expect("cant set settings");
-                    if name == SCHEME_TOKEN {
-                        txt.set_background();
+                        status.update_upstream(h, &txt, &mut ctx);
                     }
-                }
-                Event::Apply(apply_op) => {
-                    info!("Apply op: {:?}", apply_op);
-                    if let Some(window) = window_stack.borrow().last() {
-                        status.apply_op(apply_op, window)
-                    } else {
-                        status.apply_op(apply_op, &application_window)
+                    Event::Conflicted(odiff, ostate) => {
+                        info!("Conflicted");
+                        status.update_conflicted(
+                            odiff,
+                            ostate,
+                            &txt,
+                            &application_window,
+                            sender.clone(),
+                            &banner,
+                            &banner_button,
+                            banner_button_clicked.clone(),
+                            &mut ctx,
+                        );
                     }
-                }
-                Event::UserInputRequired(auth_request) => {
-                    info!("main. UserInputRequired");
-                    if let Some(stack) = window_stack.borrow().last() {
-                        auth(auth_request, stack);
-                    } else {
-                        auth(auth_request, &application_window);
+                    Event::Staged(odiff) => {
+                        info!("Staged");
+                        hb_updater(HbUpdateData::Staged(odiff.is_some()));
+                        status.update_staged(odiff, &txt, &mut ctx);
                     }
-                }
-            };
-            hb_updater(HbUpdateData::Context(ctx));
+                    Event::Unstaged(odiff) => {
+                        info!("Unstaged");
+                        status.update_unstaged(odiff, &txt, &mut ctx);
+                    }
+                    Event::Expand(offset, line_no) => {
+                        trace!("Expand");
+                        status.expand(&txt, line_no, offset, &mut ctx);
+                    }
+                    Event::Cursor(offset, line_no) => {
+                        trace!("Cursor");
+                        status.cursor(&txt, line_no, offset, &mut ctx);
+                    }
+                    Event::Stage(stage_op) => {
+                        info!("Stage {:?}", stage_op);
+                        status.stage_op(stage_op, &application_window, &settings);
+                    }
+                    Event::TextViewResize(w) => {
+                        info!("TextViewResize {}", w);
+                    }
+                    Event::Toast(title) => {
+                        info!("Toast {:?}", toast_lock);
+                        if !toast_lock.get() {
+                            toast_lock.replace(true);
+                            let toast = Toast::builder().title(title).timeout(2).build();
+                            toast.connect_dismissed({
+                                let toast_lock = toast_lock.clone();
+                                move |_t| {
+                                    toast_lock.replace(false);
+                                }
+                            });
+                            toast_overlay.add_toast(toast);
+                        }
+                    }
+                    Event::Zoom(dir) => {
+                        info!("Zoom");
+                        let settings = get_settings();
+                        let font_size = settings.get::<i32>("zoom") + if dir { 1 } else { -1 };
+                        let provider = CssProvider::new();
+                        provider.load_from_string(&format!(
+                            "#status_view, #commit_view {{font-size: {}px;}}",
+                            font_size
+                        ));
+                        let display = Display::default().expect("cant get dispay");
+                        style_context_add_provider_for_display(
+                            &display,
+                            &provider,
+                            STYLE_PROVIDER_PRIORITY_USER,
+                        );
+                        let old_provider = font_size_provider.replace(provider);
+                        style_context_remove_provider_for_display(&display, &old_provider);
+                        settings.set("zoom", font_size).expect("cant set settings");
+                        // when zoom, TextView become offset from scroll
+                        // on some step. this is a hack to force rerender
+                        // this pair to allow TextView accomodate whole
+                        // width of ScrollView
+                        // scroll.set_halign(Align::Start);
+                        // glib::source::timeout_add_local(Duration::from_millis(30), {
+                        //     let scroll = scroll.clone();
+                        //     move || {
+                        //         scroll.set_halign(Align::Fill);
+                        //         ControlFlow::Break
+                        //     }
+                        // });
+                    }
+                    Event::Stashes(stashes) => {
+                        info!("stashes data");
+                        status.update_stashes(stashes)
+                    }
+                    Event::StashesPanel => {
+                        info!("stashes panel {:?}", status.cursor_position);
+                        if split.shows_sidebar() {
+                            split.set_show_sidebar(false);
+                            txt.grab_focus();
+                        } else {
+                            let (view, focus) = stashes_view_factory(&application_window, &status);
+                            split.set_sidebar(Some(&view));
+                            split.set_show_sidebar(true);
+                            focus();
+                        }
+                    }
+                    Event::Blame => {
+                        info!("blame");
+                        let current_window =
+                            if let Some(stacked_window) = window_stack.borrow().last() {
+                                CurrentWindow::Window(stacked_window.clone())
+                            } else {
+                                CurrentWindow::ApplicationWindow(application_window.clone())
+                            };
+                        status.blame(current_window);
+                    }
+                    Event::ShowTextOid(short_sha) => {
+                        info!("main.show text oid {:?}", txt);
+                        glib::spawn_future_local({
+                            let path = status.path.clone().unwrap();
+                            let current_window =
+                                if let Some(stacked_window) = window_stack.borrow().last() {
+                                    CurrentWindow::Window(stacked_window.clone())
+                                } else {
+                                    CurrentWindow::ApplicationWindow(application_window.clone())
+                                };
+                            let sender = sender.clone();
+                            let window_stack = window_stack.clone();
+                            async move {
+                                let o_commit_window = match gio::spawn_blocking({
+                                    let path = path.clone();
+                                    move || commit::from_short_sha(path, short_sha)
+                                })
+                                .await
+                                .unwrap()
+                                {
+                                    Ok(oid) => {
+                                        let commit_window = show_commit_window(
+                                            path,
+                                            oid,
+                                            None,
+                                            None,
+                                            current_window,
+                                            sender.clone(),
+                                        );
+                                        Some(commit_window)
+                                    }
+                                    Err(e) => {
+                                        let dialog = alert(format!("{:?}", e));
+                                        match current_window {
+                                            CurrentWindow::Window(w) => dialog.present(Some(&w)),
+                                            CurrentWindow::ApplicationWindow(w) => {
+                                                dialog.present(Some(&w))
+                                            }
+                                        };
+                                        None
+                                    }
+                                };
+                                if let Some(commit_window) = o_commit_window {
+                                    commit_window.connect_close_request({
+                                        let window_stack = window_stack.clone();
+                                        move |_| {
+                                            info!(
+                                                "popping stack while close commit {:?}",
+                                                window_stack.borrow_mut().pop()
+                                            );
+                                            glib::signal::Propagation::Proceed
+                                        }
+                                    });
+                                    window_stack.borrow_mut().push(commit_window);
+                                }
+                            }
+                        });
+                    }
+                    Event::ShowOid(oid, onum, blame_line) => {
+                        info!("main.show oid {:?}", oid);
+                        let current_window =
+                            if let Some(stacked_window) = window_stack.borrow().last() {
+                                CurrentWindow::Window(stacked_window.clone())
+                            } else {
+                                CurrentWindow::ApplicationWindow(application_window.clone())
+                            };
+                        let commit_window = show_commit_window(
+                            status.path.clone().expect("no path"),
+                            oid,
+                            onum,
+                            blame_line,
+                            current_window,
+                            sender.clone(),
+                        );
+                        commit_window.connect_close_request({
+                            let window_stack = window_stack.clone();
+                            move |_| {
+                                info!(
+                                    "popping stack while close commit {:?}",
+                                    window_stack.borrow_mut().pop()
+                                );
+                                glib::signal::Propagation::Proceed
+                            }
+                        });
+                        window_stack.borrow_mut().push(commit_window);
+                    }
+                    Event::ResetHard(ooid) => {
+                        info!("main. reset hard");
+                        status.reset_hard(ooid, &application_window);
+                    }
+                    Event::Refresh => {
+                        info!("main. refresh");
+                        status.get_status();
+                    }
+                    Event::CommitDiff(_d) => {
+                        panic!("got oid diff in another receiver");
+                    }
+                    Event::RemotesDialog => {
+                        info!("main. remotes dialog");
+                        status.show_remotes_dialog(&application_window);
+                    }
+                    Event::LockMonitors(lock) => {
+                        info!("main. lock monitors {}", lock);
+                        status.lock_monitors(lock);
+                    }
+                    Event::StoreSettings(name, value) => {
+                        info!("StoreSettings {} {}", name, value);
+                        settings.set(&name, value).expect("cant set settings");
+                        if name == SCHEME_TOKEN {
+                            txt.set_background();
+                        }
+                    }
+                    Event::Apply(apply_op) => {
+                        info!("Apply op: {:?}", apply_op);
+                        if let Some(window) = window_stack.borrow().last() {
+                            status.apply_op(apply_op, window)
+                        } else {
+                            status.apply_op(apply_op, &application_window)
+                        }
+                    }
+                    Event::UserInputRequired(auth_request) => {
+                        info!("main. UserInputRequired");
+                        if let Some(stack) = window_stack.borrow().last() {
+                            auth(auth_request, stack);
+                        } else {
+                            auth(auth_request, &application_window);
+                        }
+                    }
+                };
+                hb_updater(HbUpdateData::Context(ctx));
+            }
         }
     });
+    sender
 }
