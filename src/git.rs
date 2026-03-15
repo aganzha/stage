@@ -1271,19 +1271,35 @@ pub fn blame_any_file(
     line_no: usize,
 ) -> Result<(git2::Oid, PathBuf, HunkLineNo)> {
     let repo = Repository::discover(file_path.clone())?;
+    let ob = repo.revparse_single("HEAD^{commit}")?;
     let mut opts = git2::BlameOptions::new();
+    opts.newest_commit(ob.id());
+    println!("🛟 newest commit {:?}", ob.id());
     let repo_path = repo.path();
     opts.min_line(line_no);
     opts.max_line(line_no);
     debug!(
         "💋 blame any file: {:?} start_line {:?} FOR REPO {:?}",
-        file_path, line_no, repo_path
+        file_path, line_no, repo_path,
     );
     let blame = repo.blame_file(
         file_path.strip_prefix(repo_path.parent().ok_or(anyhow!("repo without parent"))?)?,
         Some(&mut opts),
     )?;
     let blame_hunk = blame.get_line(line_no).context("Can`t get line to blame")?;
+    // if current file is changed on disk it need to substruct from final_start_line
+    // all lines which are currently added BEFORE that line.
+    // e.g. flatpak run io.github.aganzha.Stage ~/kaa/target.py#L267
+    // show orig_start_line() - 51. but in that commit there are onlu 22 lines.
+    // but currently write now 29 lines are added (green). so, those must be substructed!
+    println!(
+        "🧄 looooooooooooooooooooooooooooord {:?} <<< >>>>{:?} ??????? {:?}. FINAL {:?}, ORIG {:?}",
+        blame_hunk.final_start_line(),
+        blame_hunk.orig_start_line(),
+        blame_hunk.lines_in_hunk(),
+        blame_hunk.final_commit_id(),
+        blame_hunk.orig_commit_id(),
+    );
     Ok((
         blame_hunk.orig_commit_id(),
         repo_path.to_path_buf(),

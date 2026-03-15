@@ -111,8 +111,7 @@ pub enum ApplyOp {
 #[derive(Debug, Clone)]
 pub struct BlameLine {
     pub file_path: PathBuf,
-    pub hunk_start: HunkLineNo,
-    pub content: String,
+    pub line_in_hunk: HunkLineNo,
 }
 
 #[derive(Debug)]
@@ -240,8 +239,7 @@ fn main() -> glib::ExitCode {
                                 None,
                                 Some(BlameLine {
                                     file_path: relative_path.to_path_buf(),
-                                    hunk_start: hunk_line,
-                                    content: String::new(),
+                                    line_in_hunk: hunk_line,
                                 }),
                                 CurrentWindow::Window(
                                     Window::builder()
