@@ -1289,6 +1289,9 @@ pub fn blame_any_file(
 
     let mut line_to_match = line_no;
 
+    let mut diff_opts = make_diff_options();
+    diff_opts.pathspec(path);
+
     for oid_result in revwalk {
         let mut line_diff: i32 = 0;
         let oid = oid_result?;
@@ -1319,9 +1322,6 @@ pub fn blame_any_file(
                 continue;
             }
         }
-
-        let mut diff_opts = make_diff_options();
-        diff_opts.pathspec(path);
 
         let mut found_oid: Option<Oid> = None;
         let mut hunk_cb = |_: DiffDelta<'_>, hunk: DiffHunk<'_>| {
