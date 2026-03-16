@@ -1267,12 +1267,12 @@ pub fn rebase(
 }
 
 // --------------------------------------------------------------------------------
-use git2::{Blob, DiffBinary};
+use git2::Blob;
 use std::path::Path;
 
-pub fn blame_any_file_new(
+pub fn blame_any_file(
     file_path: impl AsRef<Path>,
-    line_no: usize, // 1-based, line in HEAD version
+    line_no: i32, // 1-based, line in HEAD version
 ) -> Result<(git2::Oid, PathBuf, HunkLineNo)> {
     let repo = Repository::discover(&file_path)?;
     let mut revwalk = repo.revwalk()?;
@@ -1291,19 +1291,14 @@ pub fn blame_any_file_new(
     let head_entry = head_tree
         .get_path(path)
         .context("path not found in HEAD tree")?;
-    let head_blob = head_entry.to_object(&repo)?.peel_to_blob()?;
-    let head_lines = count_lines_blob(&head_blob);
-    if line_no == 0 || line_no > head_lines {
-        return Err(anyhow!(
-            "line number out of range: {} (file has {})",
-            line_no,
-            head_lines
-        ));
-    }
+    let _head_blob = head_entry.to_object(&repo)?.peel_to_blob()?;
 
     let path_str = path.to_str().ok_or_else(|| anyhow!("invalid utf-8 path"))?;
 
+    let mut line_to_match = line_no;
+
     for oid_result in revwalk {
+        let mut line_diff: i32 = 0;
         let oid = oid_result?;
         let commit = repo.find_commit(oid)?;
         let tree = commit.tree()?;
@@ -1330,92 +1325,52 @@ pub fn blame_any_file_new(
             }
         }
 
-        let mut diff_opts = DiffOptions::new();
-        diff_opts.context_lines(0);
+        let mut diff_opts = make_diff_options();
         diff_opts.pathspec(path);
 
-        // We'll use these flags to capture whether we've found a hunk covering the target line.
-        //let mut found_new_start: Option<usize> = None;
-
-        // state for mapping
-        let mut cur_child_idx: usize = 0; // absolute child line number being processed
-        let mut cur_parent_idx: usize = 0; // absolute parent line number being processed
-        let mut cur_hunk_new_start: usize = 0;
-        let mut cur_hunk_old_start: usize = 0;
-        let mut in_hunk = false;
-        let mut found_orig_line: Option<usize> = None;
-
+        let mut found_oid: Option<Oid> = None;
         let mut hunk_cb = |_: DiffDelta<'_>, hunk: DiffHunk<'_>| {
-            cur_hunk_new_start = hunk.new_start() as usize;
-            cur_hunk_old_start = hunk.old_start() as usize;
-            // initialize counters to the hunk starts; we'll update on each DiffLine
-            cur_child_idx = cur_hunk_new_start;
-            cur_parent_idx = cur_hunk_old_start;
-            in_hunk = true;
-            true
-        };
-
-        let mut line_cb = |_: DiffDelta<'_>, _hunk: Option<DiffHunk<'_>>, line: DiffLine<'_>| {
-            if !in_hunk {
-                return true;
+            if found_oid.is_some() {
+                return false;
             }
-            match line.origin() {
-                '+' => {
-                    // addition: advances child index only
-                    if cur_child_idx == line_no {
-                        // This child line is an insertion in this commit — it has no parent line.
-                        // For blame we treat the blamed orig line number as the child line position in this commit,
-                        // but you asked for the originating line number in the blamed commit: since it's added here,
-                        // map to the child index in this (blaming) commit (i.e., this commit's blob).
-                        found_orig_line = Some(cur_parent_idx); // convention: parent idx where insertion is anchored
-                                                                // better: return the corresponding orig_start_line in the blamed commit as cur_parent_idx
-                                                                // but often an insertion has no parent line; we can return cur_child_idx as fallback.
-                                                                // We'll set to cur_child_idx to match git-blame behavior of showing the new line in this commit.
-                        found_orig_line = Some(cur_child_idx);
-                        return true;
-                    }
-                    cur_child_idx += 1;
-                }
-                '-' => {
-                    // deletion: advances parent index only
-                    cur_parent_idx += 1;
-                }
-                ' ' | _ => {
-                    // context: advances both
-                    if cur_child_idx == line_no {
-                        found_orig_line = Some(cur_parent_idx);
-                        return true;
-                    }
-                    cur_child_idx += 1;
-                    cur_parent_idx += 1;
+            let new_start = hunk.new_start();
+            let new_lines = hunk.new_lines();
+            let old_start = hunk.old_start();
+            let old_lines = hunk.old_lines();
+            if new_start < line_to_match as u32 {
+                let header = str::from_utf8(hunk.header()).unwrap();
+                println!("🧨 comparing hunk oid {:?} header {:?} new start {:?} new lines {:?} old_start {:?} old_lines {:?} to match {:?}",
+                         oid,
+                         header,
+                         new_start,
+                         new_lines,
+                         old_start,
+                         old_lines,
+                         line_to_match,
+                );
+                if new_start + new_lines > line_to_match as u32 {
+                    found_oid.replace(oid);
+                    println!(
+                        "🏝️ YEAH {:?} {:?} vs {:?}",
+                        new_start, new_lines, line_to_match
+                    );
+                    return false;
+                } else {
+                    println!(
+                        "new_lines {:?} old_lines {:?} line_to_match {:?}",
+                        new_lines,
+                        hunk.old_lines(),
+                        line_to_match
+                    );
+                    line_diff = line_diff - new_lines as i32 + old_lines as i32;
+                    // i am near!
+                    // 🧨 comparing hunk oid aa0e5836fd1481870b537519975dc7f0d3062fd6 header "@@ -1589,8 +1476,7 @@ pub fn rebase(\n" new start 1476 new lines 7 old_start 1589 old_lines 8 to match 1592
                 }
             }
             true
         };
+        println!("🍎 {:?}", oid);
 
-
-        // // file_cb not needed; binary_cb not needed.
-        // let mut hunk_cb = |_: DiffDelta<'_>, hunk: DiffHunk<'_>| {
-        //     let new_start = hunk.new_start() as usize;
-        //     let new_lines = hunk.new_lines() as usize;
-        //     if new_lines > 0 {
-        //         let new_end = new_start + new_lines - 1;
-        //         if line_no >= new_start && line_no <= new_end {
-        //             found_new_start = Some(new_start);
-        //             println!("🐪 EEEEEEEEEEEEEEEEEEEEEEEEEEEE {:?}", found_new_start);
-        //             return false; // stop processing hunks
-        //         }
-        //     }
-        //     true
-        // };
-
-        // // We still pass a line_cb that will stop early if needed; but hunk_cb above should catch most cases.
-        // let mut line_cb = |_: DiffDelta<'_>, _hunk: Option<DiffHunk<'_>>, _line: DiffLine<'_>| {
-        //     // Not used for mapping here; keep iterating.
-        //     true
-        // };
-
-        // Call diff_blobs with callbacks. Note: new_as_path / old_as_path as &str
         let _ = repo.diff_blobs(
             parent_blob_opt.as_ref(),
             parent_blob_opt.as_ref().map(|_| path_str),
@@ -1425,15 +1380,17 @@ pub fn blame_any_file_new(
             None::<&mut _>,
             None::<&mut _>,
             Some(&mut hunk_cb),
-            Some(&mut line_cb),
+            None::<&mut _>,
         );
-        if let Some(ns) = found_orig_line {
+        if let Some(oid) = found_oid {
             return Ok((
-                commit.id(),
+                oid,
                 repo.path().to_path_buf(),
-                HunkLineNo::new(ns as u32),
+                HunkLineNo::new(line_to_match as u32),
             ));
         }
+        line_to_match += line_diff;
+        println!("🌋 change line_to_match {:?}", line_to_match);
     }
 
     Err(anyhow!("blame: commit not found for line"))
@@ -1446,14 +1403,14 @@ fn count_lines_blob(blob: &Blob) -> usize {
     }
     let count = bytecount::count(data, b'\n');
     if data[data.len() - 1] == b'\n' {
-        count as usize
+        count
     } else {
-        count as usize + 1
+        count + 1
     }
 }
 
 // ----------------------------------------------------------------------------------
-pub fn blame_any_file(
+pub fn blame_any_file_old(
     file_path: PathBuf,
     line_no: usize,
 ) -> Result<(git2::Oid, PathBuf, HunkLineNo)> {

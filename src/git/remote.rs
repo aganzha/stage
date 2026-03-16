@@ -61,7 +61,7 @@ impl Authorizer {
         }
     }
 
-    pub fn callbacks(&self) -> git2::RemoteCallbacks {
+    pub fn callbacks(&self) -> git2::RemoteCallbacks<'_> {
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.credentials({
             move |_url, username_from_url, allowed_types| {

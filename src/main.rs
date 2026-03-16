@@ -207,7 +207,7 @@ fn main() -> glib::ExitCode {
                 let real_name = parts.next().unwrap().to_string();
                 let line_no = parts.next().unwrap().to_string();
                 println!("🏁 uri and scheme =======> {:?} {:?}", real_name, line_no);
-                let line_no: usize = line_no.parse().expect("not a usize");
+                let line_no: i32 = line_no.parse().expect("not a i32");
                 glib::spawn_future_local({
                     //let opened_app = opened_app.clone();
                     let sender = sender.clone();
@@ -216,10 +216,7 @@ fn main() -> glib::ExitCode {
                         match gio::spawn_blocking({
                             let real_name = real_name.clone();
                             move || {
-                                crate::git::blame_any_file(
-                                    Path::new(&real_name.clone()).to_path_buf(),
-                                    line_no,
-                                )
+                                crate::git::blame_any_file(Path::new(&real_name.clone()), line_no)
                             }
                         })
                         .await
