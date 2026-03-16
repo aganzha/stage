@@ -1278,7 +1278,7 @@ pub fn blame_any_file(
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
     revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
-    revwalk.simplify_first_parent()?;
+    // revwalk.simplify_first_parent()?;
 
     let repo_path = repo.path();
     let path = file_path
@@ -1293,6 +1293,9 @@ pub fn blame_any_file(
         let mut line_diff: i32 = 0;
         let oid = oid_result?;
         let commit = repo.find_commit(oid)?;
+        if commit.parent_count() != 1 {
+            continue;
+        }
         let tree = commit.tree()?;
         let child_entry = match tree.get_path(path) {
             Ok(e) => e,
