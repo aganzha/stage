@@ -213,7 +213,7 @@ fn main() -> glib::ExitCode {
                     let sender = sender.clone();
                     let real_name = real_name.clone();
                     async move {
-                        if let Ok((oid, repo_path, hunk_line)) = gio::spawn_blocking({
+                        match gio::spawn_blocking({
                             let real_name = real_name.clone();
                             move || {
                                 crate::git::blame_any_file(
@@ -225,30 +225,35 @@ fn main() -> glib::ExitCode {
                         .await
                         .unwrap()
                         {
-                            println!(
-                                "💋 ------------------> OOID {:?} repo_path {:?} hl {:?}",
-                                oid, repo_path, hunk_line,
-                            );
-                            // let window = opened_app.window();
-                            let relative_path = Path::new(&real_name)
-                                .strip_prefix(repo_path.parent().unwrap())
-                                .unwrap();
-                            show_commit_window(
-                                repo_path,
-                                oid,
-                                None,
-                                Some(BlameLine {
-                                    file_path: relative_path.to_path_buf(),
-                                    line_in_hunk: hunk_line,
-                                }),
-                                CurrentWindow::Window(
-                                    Window::builder()
-                                        .default_width(1280)
-                                        .default_height(960)
-                                        .build(),
-                                ),
-                                sender.borrow().as_ref().unwrap().clone(),
-                            );
+                            Ok((oid, repo_path, hunk_line)) => {
+                                println!(
+                                    "💋 ------------------> OOID {:?} repo_path {:?} hl {:?}",
+                                    oid, repo_path, hunk_line,
+                                );
+                                // let window = opened_app.window();
+                                let relative_path = Path::new(&real_name)
+                                    .strip_prefix(repo_path.parent().unwrap())
+                                    .unwrap();
+                                show_commit_window(
+                                    repo_path,
+                                    oid,
+                                    None,
+                                    Some(BlameLine {
+                                        file_path: relative_path.to_path_buf(),
+                                        line_in_hunk: hunk_line,
+                                    }),
+                                    CurrentWindow::Window(
+                                        Window::builder()
+                                            .default_width(1280)
+                                            .default_height(960)
+                                            .build(),
+                                    ),
+                                    sender.borrow().as_ref().unwrap().clone(),
+                                );
+                            }
+                            Err(error) => {
+                                println!("⚠️ errrrrrrrrr {:?}", error);
+                            }
                         };
                     }
                 });

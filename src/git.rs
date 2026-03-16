@@ -1266,6 +1266,193 @@ pub fn rebase(
     Ok(true)
 }
 
+// --------------------------------------------------------------------------------
+use git2::{Blob, DiffBinary};
+use std::path::Path;
+
+pub fn blame_any_file_new(
+    file_path: impl AsRef<Path>,
+    line_no: usize, // 1-based, line in HEAD version
+) -> Result<(git2::Oid, PathBuf, HunkLineNo)> {
+    let repo = Repository::discover(&file_path)?;
+    let mut revwalk = repo.revwalk()?;
+    revwalk.push_head()?;
+    revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
+    revwalk.simplify_first_parent()?;
+
+    let head = repo.head()?.peel_to_commit()?;
+    let head_tree = head.tree()?;
+
+    let repo_path = repo.path();
+    let path = file_path
+        .as_ref()
+        .strip_prefix(repo_path.parent().ok_or(anyhow!("repo without parent"))?)?;
+
+    let head_entry = head_tree
+        .get_path(path)
+        .context("path not found in HEAD tree")?;
+    let head_blob = head_entry.to_object(&repo)?.peel_to_blob()?;
+    let head_lines = count_lines_blob(&head_blob);
+    if line_no == 0 || line_no > head_lines {
+        return Err(anyhow!(
+            "line number out of range: {} (file has {})",
+            line_no,
+            head_lines
+        ));
+    }
+
+    let path_str = path.to_str().ok_or_else(|| anyhow!("invalid utf-8 path"))?;
+
+    for oid_result in revwalk {
+        let oid = oid_result?;
+        let commit = repo.find_commit(oid)?;
+        let tree = commit.tree()?;
+        let child_entry = match tree.get_path(path) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        let child_blob = child_entry.to_object(&repo)?.peel_to_blob()?;
+
+        let parent_blob_opt: Option<Blob> = if commit.parent_count() == 0 {
+            None
+        } else {
+            let parent = commit.parent(0)?;
+            let parent_tree = parent.tree()?;
+            match parent_tree.get_path(path) {
+                Ok(pe) => Some(pe.to_object(&repo)?.peel_to_blob()?),
+                Err(_) => None,
+            }
+        };
+
+        if let Some(ref pblob) = parent_blob_opt {
+            if pblob.id() == child_blob.id() {
+                continue;
+            }
+        }
+
+        let mut diff_opts = DiffOptions::new();
+        diff_opts.context_lines(0);
+        diff_opts.pathspec(path);
+
+        // We'll use these flags to capture whether we've found a hunk covering the target line.
+        //let mut found_new_start: Option<usize> = None;
+
+        // state for mapping
+        let mut cur_child_idx: usize = 0; // absolute child line number being processed
+        let mut cur_parent_idx: usize = 0; // absolute parent line number being processed
+        let mut cur_hunk_new_start: usize = 0;
+        let mut cur_hunk_old_start: usize = 0;
+        let mut in_hunk = false;
+        let mut found_orig_line: Option<usize> = None;
+
+        let mut hunk_cb = |_: DiffDelta<'_>, hunk: DiffHunk<'_>| {
+            cur_hunk_new_start = hunk.new_start() as usize;
+            cur_hunk_old_start = hunk.old_start() as usize;
+            // initialize counters to the hunk starts; we'll update on each DiffLine
+            cur_child_idx = cur_hunk_new_start;
+            cur_parent_idx = cur_hunk_old_start;
+            in_hunk = true;
+            true
+        };
+
+        let mut line_cb = |_: DiffDelta<'_>, _hunk: Option<DiffHunk<'_>>, line: DiffLine<'_>| {
+            if !in_hunk {
+                return true;
+            }
+            match line.origin() {
+                '+' => {
+                    // addition: advances child index only
+                    if cur_child_idx == line_no {
+                        // This child line is an insertion in this commit — it has no parent line.
+                        // For blame we treat the blamed orig line number as the child line position in this commit,
+                        // but you asked for the originating line number in the blamed commit: since it's added here,
+                        // map to the child index in this (blaming) commit (i.e., this commit's blob).
+                        found_orig_line = Some(cur_parent_idx); // convention: parent idx where insertion is anchored
+                                                                // better: return the corresponding orig_start_line in the blamed commit as cur_parent_idx
+                                                                // but often an insertion has no parent line; we can return cur_child_idx as fallback.
+                                                                // We'll set to cur_child_idx to match git-blame behavior of showing the new line in this commit.
+                        found_orig_line = Some(cur_child_idx);
+                        return true;
+                    }
+                    cur_child_idx += 1;
+                }
+                '-' => {
+                    // deletion: advances parent index only
+                    cur_parent_idx += 1;
+                }
+                ' ' | _ => {
+                    // context: advances both
+                    if cur_child_idx == line_no {
+                        found_orig_line = Some(cur_parent_idx);
+                        return true;
+                    }
+                    cur_child_idx += 1;
+                    cur_parent_idx += 1;
+                }
+            }
+            true
+        };
+
+
+        // // file_cb not needed; binary_cb not needed.
+        // let mut hunk_cb = |_: DiffDelta<'_>, hunk: DiffHunk<'_>| {
+        //     let new_start = hunk.new_start() as usize;
+        //     let new_lines = hunk.new_lines() as usize;
+        //     if new_lines > 0 {
+        //         let new_end = new_start + new_lines - 1;
+        //         if line_no >= new_start && line_no <= new_end {
+        //             found_new_start = Some(new_start);
+        //             println!("🐪 EEEEEEEEEEEEEEEEEEEEEEEEEEEE {:?}", found_new_start);
+        //             return false; // stop processing hunks
+        //         }
+        //     }
+        //     true
+        // };
+
+        // // We still pass a line_cb that will stop early if needed; but hunk_cb above should catch most cases.
+        // let mut line_cb = |_: DiffDelta<'_>, _hunk: Option<DiffHunk<'_>>, _line: DiffLine<'_>| {
+        //     // Not used for mapping here; keep iterating.
+        //     true
+        // };
+
+        // Call diff_blobs with callbacks. Note: new_as_path / old_as_path as &str
+        let _ = repo.diff_blobs(
+            parent_blob_opt.as_ref(),
+            parent_blob_opt.as_ref().map(|_| path_str),
+            Some(&child_blob),
+            Some(path_str),
+            Some(&mut diff_opts),
+            None::<&mut _>,
+            None::<&mut _>,
+            Some(&mut hunk_cb),
+            Some(&mut line_cb),
+        );
+        if let Some(ns) = found_orig_line {
+            return Ok((
+                commit.id(),
+                repo.path().to_path_buf(),
+                HunkLineNo::new(ns as u32),
+            ));
+        }
+    }
+
+    Err(anyhow!("blame: commit not found for line"))
+}
+
+fn count_lines_blob(blob: &Blob) -> usize {
+    let data = blob.content();
+    if data.is_empty() {
+        return 0;
+    }
+    let count = bytecount::count(data, b'\n');
+    if data[data.len() - 1] == b'\n' {
+        count as usize
+    } else {
+        count as usize + 1
+    }
+}
+
+// ----------------------------------------------------------------------------------
 pub fn blame_any_file(
     file_path: PathBuf,
     line_no: usize,
