@@ -17,7 +17,7 @@ use crate::gio;
 use crate::status_view::view::View;
 use crate::syntax;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use async_channel::Sender;
 
 use chrono::{DateTime, FixedOffset};
@@ -1264,6 +1264,160 @@ pub fn rebase(
         }
     }
     Ok(true)
+}
+
+// --------------------------------------------------------------------------------
+use git2::Blob;
+use std::path::Path;
+
+pub fn blame_any_file(
+    file_path: impl AsRef<Path>,
+    line_no: i32, // 1-based, line in HEAD version
+) -> Result<(git2::Oid, PathBuf, HunkLineNo)> {
+    let repo = Repository::discover(&file_path)?;
+    let mut revwalk = repo.revwalk()?;
+    revwalk.push_head()?;
+    revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
+    revwalk.simplify_first_parent()?;
+
+    let repo_path = repo.path();
+    let path = file_path
+        .as_ref()
+        .strip_prefix(repo_path.parent().ok_or(anyhow!("repo without parent"))?)?;
+
+    let path_str = path.to_str().ok_or_else(|| anyhow!("invalid utf-8 path"))?;
+
+    let mut line_to_match = line_no;
+
+    for oid_result in revwalk {
+        let mut line_diff: i32 = 0;
+        let oid = oid_result?;
+        let commit = repo.find_commit(oid)?;
+        let tree = commit.tree()?;
+        let child_entry = match tree.get_path(path) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        let child_blob = child_entry.to_object(&repo)?.peel_to_blob()?;
+
+        let parent_blob_opt: Option<Blob> = if commit.parent_count() == 0 {
+            None
+        } else {
+            let parent = commit.parent(0)?;
+            let parent_tree = parent.tree()?;
+            match parent_tree.get_path(path) {
+                Ok(pe) => Some(pe.to_object(&repo)?.peel_to_blob()?),
+                Err(_) => None,
+            }
+        };
+
+        if let Some(ref pblob) = parent_blob_opt {
+            if pblob.id() == child_blob.id() {
+                continue;
+            }
+        }
+
+        let mut diff_opts = make_diff_options();
+        diff_opts.pathspec(path);
+
+        let mut found_oid: Option<Oid> = None;
+        let mut hunk_cb = |_: DiffDelta<'_>, hunk: DiffHunk<'_>| {
+            if found_oid.is_some() {
+                return false;
+            }
+            let new_start = hunk.new_start();
+            let new_lines = hunk.new_lines();
+            let old_lines = hunk.old_lines();
+            if new_start < line_to_match as u32 {
+                if new_start + new_lines > line_to_match as u32 {
+                    found_oid.replace(oid);
+                    return false;
+                } else {
+                    line_diff = line_diff - new_lines as i32 + old_lines as i32;
+                }
+            }
+            true
+        };
+        let _ = repo.diff_blobs(
+            parent_blob_opt.as_ref(),
+            parent_blob_opt.as_ref().map(|_| path_str),
+            Some(&child_blob),
+            Some(path_str),
+            Some(&mut diff_opts),
+            None::<&mut _>,
+            None::<&mut _>,
+            Some(&mut hunk_cb),
+            None::<&mut _>,
+        );
+        if let Some(oid) = found_oid {
+            return Ok((
+                oid,
+                repo.path().to_path_buf(),
+                HunkLineNo::new(line_to_match as u32),
+            ));
+        }
+        line_to_match += line_diff;
+    }
+    Err(anyhow!("blame: commit not found for line"))
+}
+
+fn count_lines_blob(blob: &Blob) -> usize {
+    let data = blob.content();
+    if data.is_empty() {
+        return 0;
+    }
+    let count = bytecount::count(data, b'\n');
+    if data[data.len() - 1] == b'\n' {
+        count
+    } else {
+        count + 1
+    }
+}
+
+// ----------------------------------------------------------------------------------
+pub fn blame_any_file_old(
+    file_path: impl AsRef<Path>,
+    line_no: i32,
+) -> Result<(git2::Oid, PathBuf, HunkLineNo)> {
+    let repo = Repository::discover(&file_path)?;
+    let ob = repo.revparse_single("HEAD^{commit}")?;
+    let mut opts = git2::BlameOptions::new();
+    opts.newest_commit(ob.id());
+    println!("🛟 newest commit {:?}", ob.id());
+    let repo_path = repo.path();
+    opts.min_line(line_no as usize);
+    opts.max_line(line_no as usize);
+    debug!(
+        "💋 blame any file: start_line {:?} FOR REPO {:?}",
+        line_no, repo_path,
+    );
+    let blame = repo.blame_file(
+        file_path
+            .as_ref()
+            .strip_prefix(repo_path.parent().ok_or(anyhow!("repo without parent"))?)?,
+        Some(&mut opts),
+    )?;
+    let blame_hunk = blame
+        .get_line(line_no as usize)
+        .context("Can`t get line to blame")?;
+    // if current file is changed on disk it need to substruct from final_start_line
+    // all lines which are currently added BEFORE that line.
+    // e.g. flatpak run io.github.aganzha.Stage ~/kaa/target.py#L267
+    // show orig_start_line() - 51. but in that commit there are onlu 22 lines.
+    // but currently write now 29 lines are added (green). so, those must be substructed!
+    println!(
+        "🧄 looooooooooooooooooooooooooooord {:?} <<< >>>>{:?} ??????? {:?}. FINAL {:?}, ORIG {:?}",
+        blame_hunk.final_start_line(),
+        blame_hunk.orig_start_line(),
+        blame_hunk.lines_in_hunk(),
+        blame_hunk.final_commit_id(),
+        blame_hunk.orig_commit_id(),
+    );
+    Ok((
+        blame_hunk.orig_commit_id(),
+        repo_path.to_path_buf(),
+        HunkLineNo(blame_hunk.orig_start_line() as u32),
+    ))
 }
 
 pub fn blame(

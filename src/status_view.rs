@@ -866,7 +866,6 @@ impl Status {
     pub fn blame(&self, app_window: CurrentWindow) {
         let mut line_no: Option<HunkLineNo> = None;
         let mut ofile_path: Option<PathBuf> = None;
-        let mut oline_content: Option<String> = None;
         match self.cursor_position.get() {
             CursorPosition::CursorLine(DiffKind::Unstaged, file_idx, hunk_idx, line_idx) => {
                 if let Some(unstaged) = &self.unstaged {
@@ -874,7 +873,7 @@ impl Status {
                     let hunk = &file.hunks[hunk_idx];
                     ofile_path.replace(file.path.clone());
                     let line = &hunk.lines[line_idx];
-                    oline_content.replace(line.content(hunk).to_string());
+                    //oline_content.replace(line.content(hunk).to_string());
                     // IMPORTANT - here we use old_line_no
                     line_no = line.old_line_no;
                 }
@@ -885,7 +884,7 @@ impl Status {
                     let hunk = &file.hunks[hunk_idx];
                     ofile_path.replace(file.path.clone());
                     let line = &hunk.lines[line_idx];
-                    oline_content.replace(line.content(hunk).to_string());
+                    //oline_content.replace(line.content(hunk).to_string());
                     // IMPORTANT - here we use old_line_no
                     line_no = line.old_line_no;
                 }
@@ -905,15 +904,14 @@ impl Status {
                     .await
                     .unwrap();
                     match ooid {
-                        Ok((oid, hunk_line_start)) => {
+                        Ok((oid, line_in_hunk)) => {
                             sender
                                 .send_blocking(crate::Event::ShowOid(
                                     oid,
                                     None,
                                     Some(BlameLine {
                                         file_path,
-                                        hunk_start: hunk_line_start,
-                                        content: oline_content.unwrap(),
+                                        line_in_hunk,
                                     }),
                                 ))
                                 .expect("Could not send through channel");

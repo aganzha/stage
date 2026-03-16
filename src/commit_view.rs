@@ -208,18 +208,13 @@ impl commit::CommitDiff {
                             let mut found = false;
                             if found_line_index.is_none() {
                                 for (l, line) in hunk.lines.iter().enumerate() {
-                                    let found_line_no = if let Some(line_no) = line.new_line_no {
-                                        line_no
-                                    } else {
-                                        line.old_line_no.unwrap()
-                                    };
-                                    if found_line_no >= blame_line.hunk_start
-                                        && line.content(hunk) == blame_line.content
-                                    {
-                                        line.view.make_current(true);
-                                        found = true;
-                                        found_line_index.replace((f, h, l));
-                                        break;
+                                    if let Some(line_no) = line.new_line_no {
+                                        if line_no == blame_line.line_in_hunk {
+                                            line.view.make_current(true);
+                                            found = true;
+                                            found_line_index.replace((f, h, l));
+                                            break;
+                                        }
                                     }
                                 }
                             }
@@ -482,7 +477,7 @@ pub fn show_commit_window(
                                     .await
                                     .unwrap();
                                     match ooid {
-                                        Ok((blame_oid, hunk_line_start)) => {
+                                        Ok((blame_oid, line_in_hunk)) => {
                                             if blame_oid == oid {
                                                 alert(format!("This is the same commit {:?}", oid))
                                                     .present(Some(&window));
@@ -494,8 +489,7 @@ pub fn show_commit_window(
                                                     None,
                                                     Some(BlameLine {
                                                         file_path,
-                                                        hunk_start: hunk_line_start,
-                                                        content: oline_content.unwrap(),
+                                                        line_in_hunk,
                                                     }),
                                                 ))
                                                 .expect("Could not send through channel");
