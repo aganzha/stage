@@ -734,7 +734,7 @@ impl ViewContainer for Hunk {
     }
 }
 
-pub const LINENO_MARGIN: &str = "    ";
+pub const LINENO_MARGIN: &str = "     ";
 
 impl ViewContainer for Line {
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {

@@ -132,7 +132,7 @@ mod stage_view_internal {
                 if is_dark {
                     rgba.set_alpha(0.25);
                 } else {
-                    rgba.set_alpha(0.15);
+                    rgba.set_alpha(0.35);
                 }
             }
             Some((layout, rgba))
