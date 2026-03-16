@@ -1280,18 +1280,10 @@ pub fn blame_any_file(
     revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
     revwalk.simplify_first_parent()?;
 
-    let head = repo.head()?.peel_to_commit()?;
-    let head_tree = head.tree()?;
-
     let repo_path = repo.path();
     let path = file_path
         .as_ref()
         .strip_prefix(repo_path.parent().ok_or(anyhow!("repo without parent"))?)?;
-
-    let head_entry = head_tree
-        .get_path(path)
-        .context("path not found in HEAD tree")?;
-    let _head_blob = head_entry.to_object(&repo)?.peel_to_blob()?;
 
     let path_str = path.to_str().ok_or_else(|| anyhow!("invalid utf-8 path"))?;
 
@@ -1335,42 +1327,17 @@ pub fn blame_any_file(
             }
             let new_start = hunk.new_start();
             let new_lines = hunk.new_lines();
-            let old_start = hunk.old_start();
             let old_lines = hunk.old_lines();
             if new_start < line_to_match as u32 {
-                let header = str::from_utf8(hunk.header()).unwrap();
-                println!("🧨 comparing hunk oid {:?} header {:?} new start {:?} new lines {:?} old_start {:?} old_lines {:?} to match {:?}",
-                         oid,
-                         header,
-                         new_start,
-                         new_lines,
-                         old_start,
-                         old_lines,
-                         line_to_match,
-                );
                 if new_start + new_lines > line_to_match as u32 {
                     found_oid.replace(oid);
-                    println!(
-                        "🏝️ YEAH {:?} {:?} vs {:?}",
-                        new_start, new_lines, line_to_match
-                    );
                     return false;
                 } else {
-                    println!(
-                        "new_lines {:?} old_lines {:?} line_to_match {:?}",
-                        new_lines,
-                        hunk.old_lines(),
-                        line_to_match
-                    );
                     line_diff = line_diff - new_lines as i32 + old_lines as i32;
-                    // i am near!
-                    // 🧨 comparing hunk oid aa0e5836fd1481870b537519975dc7f0d3062fd6 header "@@ -1589,8 +1476,7 @@ pub fn rebase(\n" new start 1476 new lines 7 old_start 1589 old_lines 8 to match 1592
                 }
             }
             true
         };
-        println!("🍎 {:?}", oid);
-
         let _ = repo.diff_blobs(
             parent_blob_opt.as_ref(),
             parent_blob_opt.as_ref().map(|_| path_str),
@@ -1390,9 +1357,7 @@ pub fn blame_any_file(
             ));
         }
         line_to_match += line_diff;
-        println!("🌋 change line_to_match {:?}", line_to_match);
     }
-
     Err(anyhow!("blame: commit not found for line"))
 }
 
@@ -1411,26 +1376,30 @@ fn count_lines_blob(blob: &Blob) -> usize {
 
 // ----------------------------------------------------------------------------------
 pub fn blame_any_file_old(
-    file_path: PathBuf,
-    line_no: usize,
+    file_path: impl AsRef<Path>,
+    line_no: i32,
 ) -> Result<(git2::Oid, PathBuf, HunkLineNo)> {
-    let repo = Repository::discover(file_path.clone())?;
+    let repo = Repository::discover(&file_path)?;
     let ob = repo.revparse_single("HEAD^{commit}")?;
     let mut opts = git2::BlameOptions::new();
     opts.newest_commit(ob.id());
     println!("🛟 newest commit {:?}", ob.id());
     let repo_path = repo.path();
-    opts.min_line(line_no);
-    opts.max_line(line_no);
+    opts.min_line(line_no as usize);
+    opts.max_line(line_no as usize);
     debug!(
-        "💋 blame any file: {:?} start_line {:?} FOR REPO {:?}",
-        file_path, line_no, repo_path,
+        "💋 blame any file: start_line {:?} FOR REPO {:?}",
+        line_no, repo_path,
     );
     let blame = repo.blame_file(
-        file_path.strip_prefix(repo_path.parent().ok_or(anyhow!("repo without parent"))?)?,
+        file_path
+            .as_ref()
+            .strip_prefix(repo_path.parent().ok_or(anyhow!("repo without parent"))?)?,
         Some(&mut opts),
     )?;
-    let blame_hunk = blame.get_line(line_no).context("Can`t get line to blame")?;
+    let blame_hunk = blame
+        .get_line(line_no as usize)
+        .context("Can`t get line to blame")?;
     // if current file is changed on disk it need to substruct from final_start_line
     // all lines which are currently added BEFORE that line.
     // e.g. flatpak run io.github.aganzha.Stage ~/kaa/target.py#L267
