@@ -1292,10 +1292,9 @@ pub fn blame_any_file(
 
     let mut diff_opts = make_diff_options();
     diff_opts.pathspec(path);
-    println!("🛎️ START loop {:?}", chrono::Local::now());
+
     let mut found_oid: Option<Oid> = None;
     for oid_result in revwalk {
-        println!("💨 loop rundiff for {:?}", chrono::Local::now());
         let mut line_diff: i32 = 0;
         let oid = oid_result?;
         let commit = repo.find_commit(oid)?;
@@ -1307,7 +1306,6 @@ pub fn blame_any_file(
             Ok(e) => e,
             Err(_) => continue,
         };
-        let child_blob = child_entry.to_object(&repo)?.peel_to_blob()?;
 
         let parent_blob_opt: Option<Blob> = if commit.parent_count() == 0 {
             None
@@ -1315,16 +1313,17 @@ pub fn blame_any_file(
             let parent = commit.parent(0)?;
             let parent_tree = parent.tree()?;
             match parent_tree.get_path(path) {
-                Ok(pe) => Some(pe.to_object(&repo)?.peel_to_blob()?),
+                Ok(pe) => {
+                    if pe.id() == child_entry.id() {
+                        continue
+                    }
+                    Some(pe.to_object(&repo)?.peel_to_blob()?)
+                },
                 Err(_) => None,
             }
         };
 
-        if let Some(ref pblob) = parent_blob_opt {
-            if pblob.id() == child_blob.id() {
-                continue;
-            }
-        }
+        let child_blob = child_entry.to_object(&repo)?.peel_to_blob()?;
 
         let mut hunk_cb = |_: DiffDelta<'_>, hunk: DiffHunk<'_>| {
             if found_oid.is_some() {
@@ -1343,7 +1342,6 @@ pub fn blame_any_file(
             }
             true
         };
-        println!("⚽ rundiff for {:?} {:?}", oid, chrono::Local::now());
         let _ = repo.diff_blobs(
             parent_blob_opt.as_ref(),
             parent_blob_opt.as_ref().map(|_| path_str),
@@ -1365,19 +1363,6 @@ pub fn blame_any_file(
         line_to_match += line_diff;
     }
     Err(anyhow!("blame: commit not found for line"))
-}
-
-fn count_lines_blob(blob: &Blob) -> usize {
-    let data = blob.content();
-    if data.is_empty() {
-        return 0;
-    }
-    let count = bytecount::count(data, b'\n');
-    if data[data.len() - 1] == b'\n' {
-        count
-    } else {
-        count + 1
-    }
 }
 
 // ----------------------------------------------------------------------------------
