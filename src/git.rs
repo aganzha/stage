@@ -1274,10 +1274,11 @@ pub fn blame_any_file(
     file_path: impl AsRef<Path>,
     line_no: i32, // 1-based, line in HEAD version
 ) -> Result<(git2::Oid, PathBuf, HunkLineNo)> {
+    println!("🪛 ENTER {:?}", chrono::Local::now());
     let repo = Repository::discover(&file_path)?;
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
-    revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
+    // revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
     // revwalk.simplify_first_parent()?;
 
     let repo_path = repo.path();
@@ -1291,8 +1292,10 @@ pub fn blame_any_file(
 
     let mut diff_opts = make_diff_options();
     diff_opts.pathspec(path);
-
+    println!("🛎️ START loop {:?}", chrono::Local::now());
+    let mut found_oid: Option<Oid> = None;
     for oid_result in revwalk {
+        println!("💨 loop rundiff for {:?}", chrono::Local::now());
         let mut line_diff: i32 = 0;
         let oid = oid_result?;
         let commit = repo.find_commit(oid)?;
@@ -1323,7 +1326,6 @@ pub fn blame_any_file(
             }
         }
 
-        let mut found_oid: Option<Oid> = None;
         let mut hunk_cb = |_: DiffDelta<'_>, hunk: DiffHunk<'_>| {
             if found_oid.is_some() {
                 return false;
@@ -1341,6 +1343,7 @@ pub fn blame_any_file(
             }
             true
         };
+        println!("⚽ rundiff for {:?} {:?}", oid, chrono::Local::now());
         let _ = repo.diff_blobs(
             parent_blob_opt.as_ref(),
             parent_blob_opt.as_ref().map(|_| path_str),
