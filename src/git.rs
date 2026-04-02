@@ -1278,8 +1278,8 @@ pub fn blame_any_file(
     let repo = Repository::discover(&file_path)?;
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
-    // revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
-    // revwalk.simplify_first_parent()?;
+    //revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
+    //revwalk.simplify_first_parent()?;
 
     let repo_path = repo.path();
     let path = file_path
@@ -1293,33 +1293,50 @@ pub fn blame_any_file(
     let mut diff_opts = make_diff_options();
     diff_opts.pathspec(path);
 
+    let missing = Oid::from_str("316f5cd1531f30519bb51e4b4f6f6168563f0044").unwrap();
     let mut found_oid: Option<Oid> = None;
     for oid_result in revwalk {
         let mut line_diff: i32 = 0;
         let oid = oid_result?;
+        if oid == missing {
+            println!("😀 YAAAAAAAAAAAAAAAAAAAAAAA");
+        }
         let commit = repo.find_commit(oid)?;
         if commit.parent_count() != 1 {
+            if oid == missing {
+                println!("🤢 SKIP 1 {:?}", oid, );
+            }
             continue;
         }
         let tree = commit.tree()?;
         let child_entry = match tree.get_path(path) {
             Ok(e) => e,
-            Err(_) => continue,
+            Err(_) => {
+                if oid == missing {
+                    println!("🤢 SKIP 2 {:?}", oid);
+                }
+                continue
+            },
         };
 
-        let parent_blob_opt: Option<Blob> = if commit.parent_count() == 0 {
-            None
-        } else {
-            let parent = commit.parent(0)?;
-            let parent_tree = parent.tree()?;
-            match parent_tree.get_path(path) {
-                Ok(pe) => {
-                    if pe.id() == child_entry.id() {
-                        continue;
+        if commit.parent_count() == 0 {
+            println!("🤢 SKIP 3 {:?}", oid);
+            continue;
+        }
+        let parent = commit.parent(0)?;
+        let parent_tree = parent.tree()?;
+        let parent_blob = {
+            if let Ok(pe) = parent_tree.get_path(path) {
+                if pe.id() == child_entry.id() {
+                    if oid == missing {
+                        println!("🤢 SKIP 4 {:?}", oid);
                     }
-                    Some(pe.to_object(&repo)?.peel_to_blob()?)
+                    continue;
                 }
-                Err(_) => None,
+                pe.to_object(&repo)?.peel_to_blob()?
+            } else {
+                println!("🤢 SKIP 5 {:?}", oid);
+                continue;
             }
         };
 
@@ -1330,7 +1347,8 @@ pub fn blame_any_file(
                 return false;
             }
             let new_start = hunk.new_start();
-            if (new_start + 3) <= line_to_match as u32 {//3 for context lines
+            if (new_start + 3) <= line_to_match as u32 {
+                //3 for context lines
                 let new_lines = hunk.new_lines();
                 let old_lines = hunk.old_lines();
                 println!(
@@ -1350,8 +1368,8 @@ pub fn blame_any_file(
             true
         };
         let _ = repo.diff_blobs(
-            parent_blob_opt.as_ref(),
-            parent_blob_opt.as_ref().map(|_| path_str),
+            Some(&parent_blob),
+            Some(path_str),
             Some(&child_blob),
             Some(path_str),
             Some(&mut diff_opts),
@@ -1368,6 +1386,7 @@ pub fn blame_any_file(
             ));
         }
         line_to_match += line_diff;
+        println!("end of loop {:?}", line_to_match);
     }
     Err(anyhow!("blame: commit not found for line"))
 }
