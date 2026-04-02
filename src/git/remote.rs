@@ -353,6 +353,7 @@ pub fn push(
 
     let response = set_remote_callbacks(&mut callbacks);
     opts.remote_callbacks(callbacks);
+    opts.packbuilder_parallelism(8);
 
     let result = remote.push(&[refspec], Some(&mut opts));
     let mut rr = response.borrow_mut();
