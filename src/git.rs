@@ -1315,10 +1315,10 @@ pub fn blame_any_file(
             match parent_tree.get_path(path) {
                 Ok(pe) => {
                     if pe.id() == child_entry.id() {
-                        continue
+                        continue;
                     }
                     Some(pe.to_object(&repo)?.peel_to_blob()?)
-                },
+                }
                 Err(_) => None,
             }
         };
@@ -1330,15 +1330,22 @@ pub fn blame_any_file(
                 return false;
             }
             let new_start = hunk.new_start();
-            let new_lines = hunk.new_lines();
-            let old_lines = hunk.old_lines();
-            if new_start < line_to_match as u32 {
-                if new_start + new_lines > line_to_match as u32 {
+            if (new_start + 3) <= line_to_match as u32 {//3 for context lines
+                let new_lines = hunk.new_lines();
+                let old_lines = hunk.old_lines();
+                println!(
+                    "🍎 new_start {:?} new_lines {:?} old_lines {:?} ====> line_to_match {:?}",
+                    new_start, new_lines, old_lines, line_to_match
+                );
+                if new_lines >= old_lines // only adding or changing (exlude pure removing)
+                    && (new_start + 3)  + (new_lines - old_lines) >= line_to_match as u32
+                // 6 - context lines
+                {
                     found_oid.replace(oid);
                     return false;
-                } else {
-                    line_diff = line_diff - new_lines as i32 + old_lines as i32;
                 }
+                line_diff = line_diff - new_lines as i32 + old_lines as i32;
+                println!("DIFF {:?} oid {:?}", line_diff, oid);
             }
             true
         };
