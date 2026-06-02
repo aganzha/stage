@@ -4,34 +4,12 @@
    <span>Git GUI client for linux desktops inspired by Magit</span>
 </p>
 
-![CI Build/Tests](https://github.com/aganzha/stage/actions/workflows/tests.yml/badge.svg)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Copr build status](https://custom-icon-badges.demolab.com/badge/Fedora--5FBFFF.svg?logo=fedora-linux)](https://copr.fedorainfracloud.org/coprs/aganzha/stage/package/stage-git-gui/)
-[![PPA build status](https://custom-icon-badges.demolab.com/badge/Ubuntu--FF8926.svg?logo=ubuntu-new)](https://launchpad.net/~aganzha/+archive/ubuntu/stage)
-[![Docs](https://img.shields.io/badge/docs-orange)](https://aganzha.github.io/stage/)
-
 ## Installing
-### Flatpak
 Add [Flathub](https://flathub.org/apps/io.github.aganzha.Stage) to your remotes
 ```sh
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install flathub io.github.aganzha.Stage
 flatpak run io.github.aganzha.Stage
-```
-
-### Fedora 42
-```sh
-sudo dnf install copr
-sudo dnf copr enable aganzha/stage
-sudo dnf install stage-git-gui
-stage-git-gui
-```
-### Ubuntu 25.04
-```sh
-sudo add-apt-repository ppa:aganzha/stage
-sudo apt update
-sudo apt install stage-git-gui
-stage-git-gui
 ```
 
 ## Using
