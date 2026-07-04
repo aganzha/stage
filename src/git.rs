@@ -185,6 +185,7 @@ pub struct Hunk {
     pub buf: String,
     pub keyword_ranges: Vec<(usize, usize)>,
     pub identifier_ranges: Vec<(usize, usize)>,
+    pub search_ranges: Vec<(usize, usize)>,
 }
 
 impl fmt::Display for Hunk {
@@ -210,6 +211,7 @@ impl Hunk {
             buf: String::new(),
             keyword_ranges: Vec::new(),
             identifier_ranges: Vec::new(),
+            search_ranges: Vec::new(),
         }
     }
 
@@ -459,7 +461,7 @@ impl File {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum DiffKind {
     Staged,
     Unstaged,

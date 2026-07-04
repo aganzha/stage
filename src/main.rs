@@ -5,6 +5,7 @@
 mod external;
 mod status_view;
 mod syntax;
+mod search;
 use async_channel::Sender;
 use status_view::{
     context::StatusRenderContext,
@@ -14,6 +15,7 @@ use status_view::{
     stage_view::factory as stage_factory,
     Status,
 };
+use regex::Regex;
 use std::path::Path;
 mod branches_view;
 use branches_view::show_branches_window;
@@ -158,6 +160,8 @@ pub enum Event {
     Focus,
     UserInputRequired(Arc<(Mutex<LoginPassword>, Condvar)>),
     Blame,
+    Search(Regex),
+    ResetSearch,
 }
 
 fn main() -> glib::ExitCode {
@@ -412,7 +416,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
         .top_bar_style(ToolbarStyle::Raised)
         .content(&split)
         .build();
+
     tb.add_top_bar(&hb);
+    tb.add_bottom_bar(&search::make_search(sender.clone()));
 
     application_window.set_content(Some(&tb));
 
@@ -857,6 +863,12 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                         } else {
                             auth(auth_request, &application_window);
                         }
+                    }
+                    Event::Search(term) => {
+                        status.search(term, &txt, &mut ctx);
+                    }
+                    Event::ResetSearch => {
+                        status.reset_search();
                     }
                 };
                 hb_updater(HbUpdateData::Context(ctx));

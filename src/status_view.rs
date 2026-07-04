@@ -19,6 +19,7 @@ use crate::git::{
 
 use git2::RepositoryState;
 use op::LastOp;
+use regex::{Match, Regex};
 use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -748,16 +749,6 @@ impl Status {
             .replace(CursorPosition::from_context(context));
     }
 
-    // pub fn toggle_empty_layout_manager(&self, txt: &StageView, on: bool) {
-    //     if on {
-    //         if txt.layout_manager().is_some() {
-    //             txt.set_layout_manager(None::<EmptyLayoutManager>);
-    //         }
-    //     } else {
-    //         txt.set_layout_manager(Some(EmptyLayoutManager::new()));
-    //     }
-    // }
-
     pub fn expand<'a>(
         &'a mut self,
         txt: &StageView,
@@ -971,4 +962,27 @@ impl Status {
         }
         None
     }
+    pub fn search<'a>(
+        &'a mut self,
+        term: Regex,
+        txt: &'a StageView,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        println!("🪛 search {:?}", term);
+        let mut found = false;
+        for diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted] {
+            if let Some(diff) = diff {
+                for file in diff.files.iter_mut() {
+                    for hunk in file.hunks.iter_mut() {
+                        found = hunk.perform_search(&term) || found;
+                        println!("🪛 FIUND {:?}", found);
+                    }
+                }
+            }
+        }
+        if found {
+            self.render(txt, None, context);
+        }
+    }
+    pub fn reset_search(&self) {}
 }
