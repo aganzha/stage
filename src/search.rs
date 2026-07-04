@@ -31,13 +31,13 @@ pub fn make_search(sender: Sender<Event>) -> SearchBar {
             }
         }
     });
-    let search_bar = SearchBar::builder()
+
+    SearchBar::builder()
         .child(&search_entry)
         .search_mode_enabled(true)
         .visible(true)
         .show_close_button(true)
-        .build();
-    search_bar
+        .build()
 }
 
 impl Hunk {
@@ -47,7 +47,13 @@ impl Hunk {
             .map(|m| (m.start(), m.end()))
             .collect();
         if !self.search_ranges.is_empty() {
-            self.view.expand(true);
+            self.view.expand(true); // ??? how to do that? expand works on certain lines...
+            self.view.dirty(true);
+            self.view.child_dirty(true);
+            // not all lines should be rendered. TODO! compare indices!
+            for line in &self.lines {
+                line.view.dirty(true);
+            }
             return true;
         }
         false

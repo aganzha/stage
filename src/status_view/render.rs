@@ -158,7 +158,7 @@ pub trait ViewContainer {
         let line_no = iter.line();
         let view = self.get_view();
         let state = view.get_state_for(line_no);
-        trace!("............ state in view {} {:?}", line_no, state,);
+        println!("💦............ state in view {} {:?}", line_no, state,);
         match state {
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
@@ -182,6 +182,8 @@ pub trait ViewContainer {
                 if !iter.forward_lines(1) {
                     assert!(iter.offset() == buffer.end_iter().offset());
                 }
+                println!("🦴 apply tags for dirty");
+                self.apply_tags(TagChanges::Render, buffer, context);
                 view.render(true);
             }
             ViewState::MarkedForDeletion => {
@@ -943,7 +945,13 @@ impl ViewContainer for Line {
                     buffer,
                     start_offset,
                 );
-
+                println!("🧣 filling tags {:?}", hunk.search_ranges.len());
+                self.fill_syntax_tags(
+                    tags::MATCH_HIGHLIGHT,
+                    &hunk.search_ranges,
+                    buffer,
+                    start_offset,
+                );
                 match self.kind {
                     LineKind::ConflictMarker(_) => self.add_tag(buffer, tags::REMOVED, None),
                     // no need to mark theirs/ours. use regular colors downwhere
@@ -1230,6 +1238,9 @@ impl Line {
         for (start, end) in self.byte_indexes_to_char_indexes(ranges) {
             // MARGIN FOR LINENO
             let line_no_margin = 4;
+            if tag == tags::MATCH_HIGHLIGHT {
+                println!("‼️ yeeeeeeeeeeeah {:?} {:?}", start, end);
+            }
             self.add_tag(
                 buffer,
                 tag,

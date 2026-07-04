@@ -19,7 +19,7 @@ use crate::git::{
 
 use git2::RepositoryState;
 use op::LastOp;
-use regex::{Match, Regex};
+use regex::Regex;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -970,17 +970,23 @@ impl Status {
     ) {
         println!("🪛 search {:?}", term);
         let mut found = false;
-        for diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted] {
-            if let Some(diff) = diff {
-                for file in diff.files.iter_mut() {
-                    for hunk in file.hunks.iter_mut() {
-                        found = hunk.perform_search(&term) || found;
-                        println!("🪛 FIUND {:?}", found);
-                    }
+        for diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted]
+            .into_iter()
+            .flatten()
+        {
+            for file in diff.files.iter_mut() {
+                for hunk in file.hunks.iter_mut() {
+                    found = hunk.perform_search(&term) || found;
+                    println!("🪛 FIUND {:?}", found);
                 }
             }
         }
         if found {
+            println!("♦️ render (cursor)!");
+            // let buffer = txt.buffer();
+            // let pos = buffer.cursor_position();
+            // let iter = buffer.iter_at_offset(pos);
+            // self.cursor(txt, iter.line(), iter.offset(), context);
             self.render(txt, None, context);
         }
     }

@@ -3,10 +3,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 mod external;
+mod search;
 mod status_view;
 mod syntax;
-mod search;
 use async_channel::Sender;
+use regex::Regex;
 use status_view::{
     context::StatusRenderContext,
     headerbar::factory as headerbar_factory,
@@ -15,7 +16,6 @@ use status_view::{
     stage_view::factory as stage_factory,
     Status,
 };
-use regex::Regex;
 use std::path::Path;
 mod branches_view;
 use branches_view::show_branches_window;

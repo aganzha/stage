@@ -628,16 +628,16 @@ impl Status {
                         }
                     }
                 }
-                Some(DiffKind::Staged) | Some(DiffKind::Untracked) => {
-                    if self.conflicted.is_none() && self.unstaged.is_none() {
-                        if let Some(staged) = &self.staged {
-                            if let Some(file) = staged.files.first() {
-                                iter.set_line(file.view.line_no.get());
-                            }
-                        } else if let Some(untracked) = &self.untracked {
-                            if let Some(file) = untracked.files.first() {
-                                iter.set_line(file.view.line_no.get());
-                            }
+                Some(DiffKind::Staged) | Some(DiffKind::Untracked)
+                    if self.conflicted.is_none() && self.unstaged.is_none() =>
+                {
+                    if let Some(staged) = &self.staged {
+                        if let Some(file) = staged.files.first() {
+                            iter.set_line(file.view.line_no.get());
+                        }
+                    } else if let Some(untracked) = &self.untracked {
+                        if let Some(file) = untracked.files.first() {
+                            iter.set_line(file.view.line_no.get());
                         }
                     }
                 }

@@ -1332,7 +1332,8 @@ pub fn blame_any_file(
                 return false;
             }
             let new_start = hunk.new_start();
-            if (new_start + 3) <= line_to_match as u32 {//3 for context lines
+            if (new_start + 3) <= line_to_match as u32 {
+                //3 for context lines
                 let new_lines = hunk.new_lines();
                 let old_lines = hunk.old_lines();
                 println!(

@@ -537,6 +537,15 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     tags::Tag(tags::OURS).create(&table);
     tags::Tag(tags::THEIRS).create(&table);
 
+    let match_color = tags::Color(("#523a01".to_string(), "#f8e45c".to_string()));
+    let match_highlight = tags::ColorTag((tags::MATCH_HIGHLIGHT, match_color));
+    let _match_highlight_tag = match_highlight.create(&table, is_dark);
+
+    let current_match_color = tags::Color(("#0000ff".to_string(), "#0000ff".to_string()));
+    let current_match_highlight =
+        tags::ColorTag((tags::CURRENT_MATCH_HIGHLIGHT, current_match_color));
+    let _current_match_highlight_tag = current_match_highlight.create(&table, is_dark);
+
     for tag_name in tags::TEXT_TAGS {
         if table.lookup(tag_name).is_none() {
             panic!("tag is not added to the table {:?}", tag_name);
