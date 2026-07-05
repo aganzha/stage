@@ -750,7 +750,7 @@ impl Status {
     }
 
     pub fn expand<'a>(
-        &'a mut self,
+        &'a self,
         txt: &StageView,
         line_no: i32,
         _offset: i32,
@@ -969,20 +969,40 @@ impl Status {
         context: &mut StatusRenderContext<'a>,
     ) {
         println!("🪛 search {:?}", term);
-        let mut found = false;
+        let mut need_render = false;
+        let mut lines_to_expand = Vec::new();
         for diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted]
             .into_iter()
             .flatten()
         {
             for file in diff.files.iter_mut() {
                 for hunk in file.hunks.iter_mut() {
-                    found = hunk.perform_search(&term) || found;
-                    println!("🪛 FIUND {:?}", found);
+                    if hunk.perform_search(&term) {
+                        println!("🧄 found in hunk {:?}", hunk.header);
+                        if file.view.is_expanded() {
+                            // just render alreay expanded file
+                            need_render = true;
+                        } else {
+                            lines_to_expand.push(file.view.line_no.get());
+                            if hunk.view.is_expanded() {
+                                // just render alreay expanded hunk
+                                need_render = true;
+                            } else {
+                                lines_to_expand.push(hunk.view.line_no.get());
+                            }
+                        }
+                    }
                 }
             }
         }
-        if found {
-            println!("♦️ render (cursor)!");
+        println!(
+            "♦️ need render? {:?} hunks to expand? {:?}",
+            need_render, lines_to_expand
+        );
+        for line_no in lines_to_expand {
+            self.expand(txt, line_no, 0, context);
+        }
+        if need_render {
             // let buffer = txt.buffer();
             // let pos = buffer.cursor_position();
             // let iter = buffer.iter_at_offset(pos);

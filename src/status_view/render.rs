@@ -158,7 +158,6 @@ pub trait ViewContainer {
         let line_no = iter.line();
         let view = self.get_view();
         let state = view.get_state_for(line_no);
-        println!("💦............ state in view {} {:?}", line_no, state,);
         match state {
             ViewState::RenderedInPlace => {
                 trace!("..render MATCH rendered_in_line {:?}", line_no);
@@ -945,7 +944,7 @@ impl ViewContainer for Line {
                     buffer,
                     start_offset,
                 );
-                println!("🧣 filling tags {:?}", hunk.search_ranges.len());
+
                 // cleanup previous search tags
                 self.remove_tag(buffer, tags::MATCH_HIGHLIGHT);
                 self.remove_tag(buffer, tags::CURRENT_MATCH_HIGHLIGHT);
@@ -1237,7 +1236,8 @@ impl Line {
         ranges: &[(usize, usize)],
         buffer: &TextBuffer,
         start_offset: i32,
-    ) {
+    ) -> bool {
+        let mut tag_added = false;
         for (start, end) in self.byte_indexes_to_char_indexes(ranges) {
             // MARGIN FOR LINENO
             let line_no_margin = 4;
@@ -1252,6 +1252,8 @@ impl Line {
                     start_offset + end + 1 + line_no_margin,
                 )),
             );
+            tag_added = true
         }
+        tag_added
     }
 }

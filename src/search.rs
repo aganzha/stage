@@ -40,13 +40,17 @@ pub fn make_search(sender: Sender<Event>) -> SearchBar {
         .build()
 }
 
+#[derive(Default)]
+pub struct SearchResult {
+    hunk_line_no: Vec<i32>,
+    line_line_no: Vec<i32>,
+}
+
 impl Hunk {
     fn mark_dirty_by_search(&self) {
         if !self.search_ranges.is_empty() {
-            self.view.expand(true); // ??? how to do that? expand works on certain lines...
             self.view.dirty(true);
             self.view.child_dirty(true);
-            // not all lines should be rendered. TODO! compare indices!
             for line in &self.lines {
                 line.view.dirty(true);
             }

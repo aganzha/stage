@@ -214,7 +214,6 @@ impl ColorTag {
     pub fn toggle(&self, text_tag: &TextTag, is_dark: bool) {
         let color = self.get_color(is_dark);
         let tag = self.get_tag();
-        println!("💋 color tag {:?} vs {:?}", tag, MATCH_HIGHLIGHT);
         match tag {
             MATCH_HIGHLIGHT | CURRENT_MATCH_HIGHLIGHT | SPACES_REMOVED | SPACES_ADDED => {
                 text_tag.set_background(Some(color));

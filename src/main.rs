@@ -268,7 +268,6 @@ fn main() -> glib::ExitCode {
             if windows.is_empty() {
                 let app_sender = run_app(running_app, &initial_path.borrow());
                 sender.borrow_mut().replace(app_sender);
-                println!("💨 REPLACED SENDER ........... {:?}", sender);
             } else {
                 windows[0].present();
             }
