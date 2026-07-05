@@ -946,6 +946,9 @@ impl ViewContainer for Line {
                     start_offset,
                 );
                 println!("🧣 filling tags {:?}", hunk.search_ranges.len());
+                // cleanup previous search tags
+                self.remove_tag(buffer, tags::MATCH_HIGHLIGHT);
+                self.remove_tag(buffer, tags::CURRENT_MATCH_HIGHLIGHT);
                 self.fill_syntax_tags(
                     tags::MATCH_HIGHLIGHT,
                     &hunk.search_ranges,

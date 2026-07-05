@@ -41,11 +41,7 @@ pub fn make_search(sender: Sender<Event>) -> SearchBar {
 }
 
 impl Hunk {
-    pub fn perform_search(&mut self, term: &Regex) -> bool {
-        self.search_ranges = term
-            .find_iter(&self.buf)
-            .map(|m| (m.start(), m.end()))
-            .collect();
+    fn mark_dirty_by_search(&self) {
         if !self.search_ranges.is_empty() {
             self.view.expand(true); // ??? how to do that? expand works on certain lines...
             self.view.dirty(true);
@@ -54,8 +50,18 @@ impl Hunk {
             for line in &self.lines {
                 line.view.dirty(true);
             }
-            return true;
         }
-        false
+    }
+    pub fn perform_search(&mut self, term: &Regex) -> bool {
+        // cleanup prev search
+        self.mark_dirty_by_search();
+        self.search_ranges = term
+            .find_iter(&self.buf)
+            .map(|m| (m.start(), m.end()))
+            .collect();
+        self.mark_dirty_by_search();
+        // so. in fact i need return something to indicate that render is required.
+        // also it need to cound found occurencies and navigate to them.
+        !self.search_ranges.is_empty()
     }
 }
