@@ -1,14 +1,23 @@
-// SPDX-FileCopyrightText: 2025 Aleksey Ganzha <aganzha@yandex.ru>
+// SPDX-FileCopyrightText: 2026 Aleksey Ganzha <aganzha@yandex.ru>
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::{Event, Hunk};
+use crate::{Event, Hunk, StatusRenderContext};
 use async_channel::Sender;
 use gtk4::prelude::*;
-use gtk4::{SearchBar, SearchEntry};
+use gtk4::{Box as GtkBox, Button, Label, Orientation, SearchBar, SearchEntry};
+// use glib::signal::SignalHandlerId;
+// use std::sync::{OnceLock, RwLock};
 use regex::Regex;
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 
-pub fn make_search(sender: Sender<Event>) -> SearchBar {
+// pub fn search_bar_handler() -> &'static RwLock<Vec<SignalHandlerId>> {
+//     static MAPPINGS: OnceLock<RwLock<Vec<SignalHandlerId>>> = OnceLock::new();
+//     MAPPINGS.get_or_init(|| RwLock::new(Vec::new()))
+// }
+
+pub fn make_search(sender: Sender<Event>) -> (SearchBar, impl Fn(i32, &mut StatusRenderContext)) {
     let search_entry = SearchEntry::builder()
         .search_delay(800)
         .hexpand(true)
@@ -31,13 +40,88 @@ pub fn make_search(sender: Sender<Event>) -> SearchBar {
             }
         }
     });
+    let search_box = GtkBox::builder()
+        .orientation(Orientation::Horizontal)
+        .build();
+    let lbl = Label::builder()
+        .width_chars(6)
+        .max_width_chars(6)
+        .xalign(0.5)
+        .build();
+    let backward = Button::builder()
+        .sensitive(true)
+        .icon_name("go-up-symbolic")
+        .build();
+    let forward = Button::builder()
+        .sensitive(true)
+        .icon_name("go-down-symbolic")
+        .build();
+    search_box.append(&search_entry);
+    search_box.append(&lbl);
+    search_box.append(&backward);
+    search_box.append(&forward);
 
-    SearchBar::builder()
-        .child(&search_entry)
+    let found_lines: Rc<RefCell<Vec<i32>>> = Rc::new(RefCell::new(Vec::new()));
+    let current_search_line: Rc<Cell<Option<i32>>> = Rc::new(Cell::new(None));
+    forward.connect_clicked({
+        let found_lines = found_lines.clone();
+        let current_search_line = current_search_line.clone();
+        let sender = sender.clone();
+        move |_btn| {
+            if let Some(scroll_to) = found_lines
+                .borrow()
+                .iter()
+                .min_by_key(|&&x| (x - current_search_line.get().unwrap_or(0)).abs())
+                .copied()
+            {
+                current_search_line.replace(Some(scroll_to));
+                sender.send_blocking(Event::GoToLine(scroll_to));
+            }
+        }
+    });
+    backward.connect_clicked({
+        let found_lines = found_lines.clone();
+        let current_search_line = current_search_line.clone();
+        let sender = sender.clone();
+        move |_btn| {
+            if let Some(scroll_to) = found_lines
+                .borrow()
+                .iter()
+                .min_by_key(|&&x| (x - current_search_line.get().unwrap_or(0)).abs())
+                .copied()
+            {
+                current_search_line.replace(Some(scroll_to));
+                sender
+                    .send_blocking(Event::GoToLine(scroll_to))
+                    .expect("cant send through channel");
+            }
+        }
+    });
+    let search_bar = SearchBar::builder()
+        .child(&search_box)
         .search_mode_enabled(true)
         .visible(true)
         .show_close_button(true)
-        .build()
+        .build();
+
+    let updater = {
+        let current_search_line = current_search_line.clone();
+        let found_lines = found_lines.clone();
+        move |current_line: i32, context: &mut StatusRenderContext| {
+            println!(
+                "🧶 update search ..... {} {:?}",
+                current_line, context.search_matched_lines
+            );
+            current_search_line.replace(Some(current_line));
+            found_lines.replace(context.search_matched_lines.clone());
+            // let found_lines = context.search_matched_lines.clone();
+            // let handlers = search_bar_handler().write().unwrap();
+            // for handler in handlers.iter() {
+            //     search_bar.disconnect(handler);
+            // }
+        }
+    };
+    (search_bar, updater)
 }
 
 impl Hunk {
@@ -55,11 +139,9 @@ impl Hunk {
         self.mark_dirty_by_search();
         self.search_ranges = term
             .find_iter(&self.buf)
-            .map(|m| (m.start(), m.end()))
+            .map(|m| (m.start() + 1, m.end()))
             .collect();
         self.mark_dirty_by_search();
-        // so. in fact i need return something to indicate that render is required.
-        // also it need to cound found occurencies and navigate to them.
         !self.search_ranges.is_empty()
     }
 }

@@ -967,6 +967,7 @@ impl Status {
         term: Regex,
         txt: &'a StageView,
         context: &mut StatusRenderContext<'a>,
+        search_updater: &impl Fn(i32, &mut StatusRenderContext),
     ) {
         let mut need_render = false;
         let mut lines_to_expand = Vec::new();
@@ -1016,12 +1017,18 @@ impl Status {
             .min_by_key(|&&x| (x - position).abs())
             .copied()
         {
-            if let Some(mut iter) = buffer.iter_at_line(scroll_to) {
-                buffer.place_cursor(&iter);
-                txt.scroll_to_iter(&mut iter, 0.0, true, 0.5, 0.5);
-                println!("scroll_to! {:?}", scroll_to);
-            }
+            self.goto_line(txt, scroll_to);
+            search_updater(scroll_to, context);
         }
     }
+
+    pub fn goto_line(&self, txt: &StageView, lineno: i32) {
+        let buffer = txt.buffer();
+        if let Some(mut iter) = buffer.iter_at_line(lineno) {
+            buffer.place_cursor(&iter);
+            txt.scroll_to_iter(&mut iter, 0.0, true, 0.5, 0.5);
+        }
+    }
+
     pub fn reset_search(&self) {}
 }

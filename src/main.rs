@@ -162,6 +162,7 @@ pub enum Event {
     Blame,
     Search(Regex),
     ResetSearch,
+    GoToLine(i32),
 }
 
 fn main() -> glib::ExitCode {
@@ -417,7 +418,8 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
         .build();
 
     tb.add_top_bar(&hb);
-    tb.add_bottom_bar(&search::make_search(sender.clone()));
+    let (search_bar, search_updater) = search::make_search(sender.clone());
+    tb.add_bottom_bar(&search_bar);
 
     application_window.set_content(Some(&tb));
 
@@ -864,10 +866,13 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                         }
                     }
                     Event::Search(term) => {
-                        status.search(term, &txt, &mut ctx);
+                        status.search(term, &txt, &mut ctx, &search_updater);
                     }
                     Event::ResetSearch => {
                         status.reset_search();
+                    }
+                    Event::GoToLine(lineno) => {
+                        status.goto_line(&txt, lineno);
                     }
                 };
                 hb_updater(HbUpdateData::Context(ctx));
