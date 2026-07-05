@@ -40,12 +40,6 @@ pub fn make_search(sender: Sender<Event>) -> SearchBar {
         .build()
 }
 
-#[derive(Default)]
-pub struct SearchResult {
-    hunk_line_no: Vec<i32>,
-    line_line_no: Vec<i32>,
-}
-
 impl Hunk {
     fn mark_dirty_by_search(&self) {
         if !self.search_ranges.is_empty() {

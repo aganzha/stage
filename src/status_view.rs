@@ -968,7 +968,6 @@ impl Status {
         txt: &'a StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
-        println!("🪛 search {:?}", term);
         let mut need_render = false;
         let mut lines_to_expand = Vec::new();
         for diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted]
@@ -1003,11 +1002,25 @@ impl Status {
             self.expand(txt, line_no, 0, context);
         }
         if need_render {
-            // let buffer = txt.buffer();
-            // let pos = buffer.cursor_position();
-            // let iter = buffer.iter_at_offset(pos);
-            // self.cursor(txt, iter.line(), iter.offset(), context);
             self.render(txt, None, context);
+        }
+        let buffer = txt.buffer();
+        let position = buffer.cursor_position();
+        println!(
+            "🪛 matched lines! {:?} {:?}",
+            context.search_matched_lines, position
+        );
+        if let Some(scroll_to) = context
+            .search_matched_lines
+            .iter()
+            .min_by_key(|&&x| (x - position).abs())
+            .copied()
+        {
+            if let Some(mut iter) = buffer.iter_at_line(scroll_to) {
+                buffer.place_cursor(&iter);
+                txt.scroll_to_iter(&mut iter, 0.0, true, 0.5, 0.5);
+                println!("scroll_to! {:?}", scroll_to);
+            }
         }
     }
     pub fn reset_search(&self) {}

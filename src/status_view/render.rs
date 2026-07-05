@@ -948,12 +948,14 @@ impl ViewContainer for Line {
                 // cleanup previous search tags
                 self.remove_tag(buffer, tags::MATCH_HIGHLIGHT);
                 self.remove_tag(buffer, tags::CURRENT_MATCH_HIGHLIGHT);
-                self.fill_syntax_tags(
+                if self.fill_syntax_tags(
                     tags::MATCH_HIGHLIGHT,
                     &hunk.search_ranges,
                     buffer,
                     start_offset,
-                );
+                ) {
+                    context.search_matched_lines.push(self.view.line_no.get());
+                }
                 match self.kind {
                     LineKind::ConflictMarker(_) => self.add_tag(buffer, tags::REMOVED, None),
                     // no need to mark theirs/ours. use regular colors downwhere
