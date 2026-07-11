@@ -68,14 +68,24 @@ pub fn make_search(sender: Sender<Event>) -> (SearchBar, impl Fn(i32, &mut Statu
         let current_search_line = current_search_line.clone();
         let sender = sender.clone();
         move |_btn| {
+            let current_line = current_search_line.get().unwrap_or(0);
+            println!(
+                "🏈 FORWARD curren search line {:?} found lines {:?}",
+                current_line, found_lines
+            );
+
             if let Some(scroll_to) = found_lines
                 .borrow()
                 .iter()
-                .min_by_key(|&&x| (x - current_search_line.get().unwrap_or(0)).abs())
+                .filter(|l| l > &&current_line)
+                .min()
                 .copied()
             {
+                println!("🏈 FORWARD SCROLL_TO {}", scroll_to);
                 current_search_line.replace(Some(scroll_to));
-                sender.send_blocking(Event::GoToLine(scroll_to));
+                sender
+                    .send_blocking(Event::GoToLine(scroll_to))
+                    .expect("cant send throu channel");
             }
         }
     });
@@ -84,12 +94,19 @@ pub fn make_search(sender: Sender<Event>) -> (SearchBar, impl Fn(i32, &mut Statu
         let current_search_line = current_search_line.clone();
         let sender = sender.clone();
         move |_btn| {
+            let current_line = current_search_line.get().unwrap_or(0);
+            println!(
+                "🦴 GO BACKWARD curren search line {:?} found lines {:?}",
+                current_line, found_lines
+            );
             if let Some(scroll_to) = found_lines
                 .borrow()
                 .iter()
-                .min_by_key(|&&x| (x - current_search_line.get().unwrap_or(0)).abs())
+                .filter(|l| l < &&current_line)
+                .max()
                 .copied()
             {
+                println!("🦴 backeard SCROLL_TO {}", scroll_to);
                 current_search_line.replace(Some(scroll_to));
                 sender
                     .send_blocking(Event::GoToLine(scroll_to))
