@@ -143,7 +143,7 @@ impl Hunk {
             if self.view.is_rendered() && self.view.is_expanded() {
                 self.view.dirty(true);
                 // ⚠️ ATTENTION this affect structure during expand/collapse
-                //self.view.child_dirty(true);
+                // self.view.child_dirty(true);
                 for line in &self.lines {
                     line.view.dirty(true);
                 }

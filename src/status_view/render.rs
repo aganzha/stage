@@ -4,7 +4,7 @@
 
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
-use crate::status_view::view::{View, ViewState};
+use crate::status_view::view::{RenderOp, View, ViewState};
 use crate::status_view::Label;
 use crate::{
     Diff,
@@ -147,6 +147,62 @@ pub trait ViewContainer {
     ) {
     }
 
+    fn snapshot<'a>(
+        &'a self,
+        buffer: &TextBuffer,
+        iter: &mut TextIter,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        self.prepare_context(context, None);
+        let line_no = iter.line();
+        let view = self.get_view();
+        match view.snapshot(line_no) {
+            RenderOp::Insert => {
+                self.write_content(iter, buffer, context);
+                buffer.insert(iter, "\n");
+                // TODO! line!
+                // view.line_no.replace(line_no);
+                view.render(true);
+                // before it was used only in cursor!
+                // todo! tags!
+                // self.apply_tags(TagChanges::Render, buffer, context);
+            }
+            RenderOp::Skip => {
+                iter.forward_lines(1);
+            }
+            RenderOp::Rewrite => {
+                let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
+                eol_iter.forward_to_line_end();
+                // if content is empty - eol iter will drop onto next line!
+                // no need to delete in this case!
+                if iter.line() == eol_iter.line() {
+                    // TODO! tags!
+                    // buffer.remove_all_tags(iter, &eol_iter);
+                    buffer.delete(iter, &mut eol_iter);
+                }
+                // TODO! tags!
+                //view.cleanup_tags();
+                self.write_content(iter, buffer, context);
+                // before it was used only in cursor!
+                // TODO! tags!
+                //self.apply_tags(TagChanges::Render, buffer, context);
+                self.force_forward(buffer, iter);
+            }
+            RenderOp::Delete => {
+                let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+                nel_iter.forward_lines(1);
+                buffer.delete(iter, &mut nel_iter);
+            }
+            RenderOp::None => {}
+        }
+        if view.needs_children_snapshot() {
+            for child in self.get_children() {
+                child.render(buffer, iter, context);
+            }
+        }
+        self.after_render(buffer, iter, context);
+    }
+
     // ViewContainer
     fn render<'a>(
         &'a self,
@@ -197,7 +253,7 @@ pub trait ViewContainer {
                 self.force_forward(buffer, iter);
             }
             ViewState::MarkedForDeletion => {
-                trace!("..render MATCH squashed {:?}", line_no);
+                trace!("..render MATCH squashed {:?}", line_no); // kij
                 let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
                 nel_iter.forward_lines(1);
                 buffer.delete(iter, &mut nel_iter);
@@ -332,6 +388,7 @@ pub trait ViewContainer {
                     view.render(false);
                 } else {
                     view.squash(true);
+                    //view.child_dirty(true);  // ADD THIS deepseek
                 }
             });
         } else if v.is_expanded() && v.is_rendered() {
@@ -357,7 +414,7 @@ pub trait ViewContainer {
     fn erase(&self, buffer: &TextBuffer, context: &mut StatusRenderContext) {
         // CAUTION. ATTENTION. IMPORTANT
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // after this operation all prev iters bevome INVALID!
+        // after this operation all prev iters become INVALID!
         // it need to reobtain them!
 
         // this ONLY rendering. the data remains
