@@ -498,7 +498,9 @@ impl ViewContainer for Diff {
         }
         for file in &self.files {
             if expand_all {
-                file.expand(file.view.line_no.get(), context);
+                if !file.get_view().is_expanded() {
+                    file.expand(file.view.line_no.get(), context);
+                }
             } else if let Some(line) = file.expand(line_no, context) {
                 result.replace(line);
             }
