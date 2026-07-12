@@ -9,7 +9,7 @@ use std::cell::Cell;
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Display {
     Settled(i32),
-    Pending(i32),
+    Pending,
     Trashed,
     Hidden,
     None,
@@ -208,7 +208,7 @@ impl View {
                 self.display.replace(Display::Settled(line_no));
                 RenderOp::Skip
             }
-            Display::Pending(_my_line_no) => {
+            Display::Pending => {
                 // here i can catch moving. but why?
                 self.display.replace(Display::Settled(line_no));
                 RenderOp::Rewrite
@@ -261,15 +261,15 @@ impl View {
     // pub fn expand(&self, value: bool) {
     //     self.flags.replace(self.flags.get().expand(value));
     // }
-    pub fn squash(&self, value: bool) {
-        self.flags.replace(self.flags.get().squash(value));
-    }
-    pub fn render(&self, value: bool) {
-        self.flags.replace(self.flags.get().render(value));
-    }
-    pub fn dirty(&self, value: bool) {
-        self.flags.replace(self.flags.get().dirty(value));
-    }
+    // pub fn squash(&self, value: bool) {
+    //     self.flags.replace(self.flags.get().squash(value));
+    // }
+    // pub fn render(&self, value: bool) {
+    //     self.flags.replace(self.flags.get().render(value));
+    // }
+    // pub fn dirty(&self, value: bool) {
+    //     self.flags.replace(self.flags.get().dirty(value));
+    // }
     pub fn child_dirty(&self, value: bool) {
         self.flags.replace(self.flags.get().child_dirty(value));
     }

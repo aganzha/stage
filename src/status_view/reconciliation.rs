@@ -4,7 +4,7 @@
 
 use crate::status_view::ViewContainer;
 use crate::{Diff, File, Head, Hunk, Line, State};
-
+use crate::status_view::view::{Display};
 use gtk4::TextBuffer;
 use log::trace;
 use std::collections::HashSet;
@@ -21,7 +21,8 @@ impl Hunk {
         // context.compared_hunk.replace(rendered);
         self.adopt_view(&rendered.view);
         if self.header != rendered.header {
-            self.view.dirty(true);
+            self.view.display.replace(Display::Pending);
+            //self.view.dirty(true);
         }
         if !self.view.is_expanded() {
             return;
@@ -36,7 +37,8 @@ impl Hunk {
                 if (lines.0.origin != lines.1.origin)
                     || (lines.0.content(self) != lines.1.content(rendered))
                 {
-                    lines.0.view.dirty(true);
+                    //lines.0.view.dirty(true);
+                    lines.0.view.display.replace(Display::Pending);
                 }
                 last_rendered += 1;
             });
@@ -326,7 +328,8 @@ impl State {
     ) {
         self.adopt_view(&rendered.view);
         // always dirty if updated!
-        self.view.dirty(true);
+        // self.view.dirty(true);
+        self.view.display.replace(Display::Pending);
     }
 }
 
@@ -340,6 +343,7 @@ impl Head {
     ) {
         self.adopt_view(&rendered.view);
         // always dirty if updated!
-        self.view.dirty(true);
+        //self.view.dirty(true);
+        self.view.display.replace(Display::Pending);
     }
 }

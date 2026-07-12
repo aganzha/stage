@@ -8,6 +8,7 @@ use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Button, Label, Orientation, SearchBar, SearchEntry};
 // use glib::signal::SignalHandlerId;
 // use std::sync::{OnceLock, RwLock};
+use crate::status_view::view::{Display};
 use regex::Regex;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -141,11 +142,15 @@ impl Hunk {
     fn mark_dirty_by_search(&self) -> bool {
         if !self.search_ranges.is_empty() {
             if self.view.is_rendered() && self.view.is_expanded() {
-                self.view.dirty(true);
+                // TODO! tags! should be done with cursor!
+                self.view.display.replace(Display::Pending);
+                // self.view.dirty(true);
                 // ⚠️ ATTENTION this affect structure during expand/collapse
                 // self.view.child_dirty(true);
                 for line in &self.lines {
-                    line.view.dirty(true);
+                    // TODO! tags! should be done with cursor!
+                    line.view.display.replace(Display::Pending);
+                    // line.view.dirty(true);
                 }
             }
             return true;

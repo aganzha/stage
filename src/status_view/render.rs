@@ -25,7 +25,7 @@ use gtk4::{Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
 use log::{error, trace};
 //pub const LINE_NO_SPACE: i32 = 6;
-
+//ss
 #[derive(PartialEq, Debug)]
 pub enum TagChanges {
     Render,
@@ -207,102 +207,102 @@ pub trait ViewContainer {
     }
 
     // ViewContainer
-    fn old_render<'a>(
-        &'a self,
-        buffer: &TextBuffer,
-        iter: &mut TextIter,
-        context: &mut StatusRenderContext<'a>,
-    ) {
-        self.prepare_context(context, None);
+    // fn old_render<'a>(
+    //     &'a self,
+    //     buffer: &TextBuffer,
+    //     iter: &mut TextIter,
+    //     context: &mut StatusRenderContext<'a>,
+    // ) {
+    //     self.prepare_context(context, None);
 
-        let line_no = iter.line();
-        let view = self.get_view();
-        let state = view.get_state_for(line_no);
-        match state {
-            ViewState::RenderedInPlace => {
-                trace!("..render MATCH rendered_in_line {:?}", line_no);
-                iter.forward_lines(1);
-            }
-            ViewState::Deleted => {
-                trace!("..render MATCH !rendered squashed {:?}", line_no);
-            }
-            ViewState::NotYetRendered => {
-                trace!("..render MATCH insert {:?}", line_no);
-                self.write_content(iter, buffer, context);
-                buffer.insert(iter, "\n");
+    //     let line_no = iter.line();
+    //     let view = self.get_view();
+    //     let state = view.get_state_for(line_no);
+    //     match state {
+    //         ViewState::RenderedInPlace => {
+    //             trace!("..render MATCH rendered_in_line {:?}", line_no);
+    //             iter.forward_lines(1);
+    //         }
+    //         ViewState::Deleted => {
+    //             trace!("..render MATCH !rendered squashed {:?}", line_no);
+    //         }
+    //         ViewState::NotYetRendered => {
+    //             trace!("..render MATCH insert {:?}", line_no);
+    //             self.write_content(iter, buffer, context);
+    //             buffer.insert(iter, "\n");
 
-                view.line_no.replace(line_no);
-                view.render(true);
-                // before it was used only in cursor!
-                self.apply_tags(TagChanges::Render, buffer, context);
-            }
-            ViewState::DirtyNotInPlace => {
-                // just updating tags in place or not
-                println!(
-                    "🦴 apply tags for dirty NOT in place view {:?} curremt {:?}",
-                    view.line_no.get(),
-                    line_no
-                );
-                println!("{}", self._get_content_for_debug(context));
-                self.apply_tags(TagChanges::Render, buffer, context);
-                view.render(true);
-                view.line_no.replace(line_no);
-                self.force_forward(buffer, iter);
-            }
-            ViewState::DirtyInPlace => {
-                println!("🦴 apply tags for dirty IN place");
-                self.apply_tags(TagChanges::Render, buffer, context);
-                view.render(true);
-                self.force_forward(buffer, iter);
-            }
-            ViewState::MarkedForDeletion => {
-                trace!("..render MATCH squashed {:?}", line_no); // kij
-                let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
-                nel_iter.forward_lines(1);
-                buffer.delete(iter, &mut nel_iter);
-                view.render(false);
-                view.activate(false);
-                view.cleanup_tags();
-            }
-            ViewState::UpdatedFromGit(l) => {
-                trace!(".. render MATCH UpdatedFromGit {:?}", l);
-                view.line_no.replace(line_no);
+    //             view.line_no.replace(line_no);
+    //             view.render(true);
+    //             // before it was used only in cursor!
+    //             self.apply_tags(TagChanges::Render, buffer, context);
+    //         }
+    //         ViewState::DirtyNotInPlace => {
+    //             // just updating tags in place or not
+    //             println!(
+    //                 "🦴 apply tags for dirty NOT in place view {:?} curremt {:?}",
+    //                 view.line_no.get(),
+    //                 line_no
+    //             );
+    //             println!("{}", self._get_content_for_debug(context));
+    //             self.apply_tags(TagChanges::Render, buffer, context);
+    //             view.render(true);
+    //             view.line_no.replace(line_no);
+    //             self.force_forward(buffer, iter);
+    //         }
+    //         ViewState::DirtyInPlace => {
+    //             println!("🦴 apply tags for dirty IN place");
+    //             self.apply_tags(TagChanges::Render, buffer, context);
+    //             view.render(true);
+    //             self.force_forward(buffer, iter);
+    //         }
+    //         ViewState::MarkedForDeletion => {
+    //             trace!("..render MATCH squashed {:?}", line_no); // kij
+    //             let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+    //             nel_iter.forward_lines(1);
+    //             buffer.delete(iter, &mut nel_iter);
+    //             view.render(false);
+    //             view.activate(false);
+    //             view.cleanup_tags();
+    //         }
+    //         ViewState::UpdatedFromGit(l) => {
+    //             trace!(".. render MATCH UpdatedFromGit {:?}", l);
+    //             view.line_no.replace(line_no);
 
-                let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
-                eol_iter.forward_to_line_end();
+    //             let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
+    //             eol_iter.forward_to_line_end();
 
-                // if content is empty - eol iter will drop onto next line!
-                // no need to delete in this case!
-                if iter.line() == eol_iter.line() {
-                    buffer.remove_all_tags(iter, &eol_iter);
-                    buffer.delete(iter, &mut eol_iter);
-                }
-                view.cleanup_tags();
-                self.write_content(iter, buffer, context);
-                // before it was used only in cursor!
-                self.apply_tags(TagChanges::Render, buffer, context);
-                self.force_forward(buffer, iter);
-            }
-            ViewState::RenderedNotInPlace(l) => {
-                // TODO: somehow it is related to transfered!
-                trace!(".. render match not in place {:?}", l);
-                view.line_no.replace(line_no);
-                self.force_forward(buffer, iter);
-            }
-        }
+    //             // if content is empty - eol iter will drop onto next line!
+    //             // no need to delete in this case!
+    //             if iter.line() == eol_iter.line() {
+    //                 buffer.remove_all_tags(iter, &eol_iter);
+    //                 buffer.delete(iter, &mut eol_iter);
+    //             }
+    //             view.cleanup_tags();
+    //             self.write_content(iter, buffer, context);
+    //             // before it was used only in cursor!
+    //             self.apply_tags(TagChanges::Render, buffer, context);
+    //             self.force_forward(buffer, iter);
+    //         }
+    //         ViewState::RenderedNotInPlace(l) => {
+    //             // TODO: somehow it is related to transfered!
+    //             trace!(".. render match not in place {:?}", l);
+    //             view.line_no.replace(line_no);
+    //             self.force_forward(buffer, iter);
+    //         }
+    //     }
 
-        view.dirty(false);
-        view.squash(false);
-        view.transfer(false);
+    //     view.dirty(false);
+    //     view.squash(false);
+    //     view.transfer(false);
 
-        if view.is_expanded() || view.is_child_dirty() {
-            for child in self.get_children() {
-                child.render(buffer, iter, context);
-            }
-        }
-        self.get_view().child_dirty(false);
-        self.after_render(buffer, iter, context);
-    }
+    //     if view.is_expanded() || view.is_child_dirty() {
+    //         for child in self.get_children() {
+    //             child.render(buffer, iter, context);
+    //         }
+    //     }
+    //     self.get_view().child_dirty(false);
+    //     self.after_render(buffer, iter, context);
+    // }
 
     /// called before cursor to fill context.selected...
     /// ONLY FROM DIFF. so, each Diff pass all childs
