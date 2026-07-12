@@ -14,7 +14,7 @@ use std::rc::Rc;
 
 pub fn make_search(
     current_search_line: Rc<Cell<Option<i32>>>,
-    found_lines: Rc<RefCell<Vec<i32>>>,
+    search_matched_lines: Rc<RefCell<Vec<i32>>>,
     sender: Sender<Event>,
 ) -> SearchBar {
     let search_entry = SearchEntry::builder()
@@ -60,10 +60,10 @@ pub fn make_search(
     search_box.append(&backward);
     search_box.append(&forward);
 
-    //let found_lines: Rc<RefCell<Vec<i32>>> = Rc::new(RefCell::new(Vec::new()));
+    //let search_matched_lines: Rc<RefCell<Vec<i32>>> = Rc::new(RefCell::new(Vec::new()));
     //let current_search_line: Rc<Cell<Option<i32>>> = Rc::new(Cell::new(None));
     forward.connect_clicked({
-        let found_lines = found_lines.clone();
+        let search_matched_lines = search_matched_lines.clone();
         let current_search_line = current_search_line.clone();
         let sender = sender.clone();
         move |_btn| {
@@ -71,18 +71,18 @@ pub fn make_search(
             println!(
                 "🏈 FORWARD curren search line {:?} found lines {:?} {:p}",
                 current_line,
-                found_lines,
-                Rc::as_ptr(&found_lines),
+                search_matched_lines,
+                Rc::as_ptr(&search_matched_lines),
             );
 
-            if let Some(scroll_to) = found_lines
+            if let Some(scroll_to) = search_matched_lines
                 .borrow()
                 .iter()
                 .filter(|l| l > &&current_line)
                 .min()
                 .copied()
             {
-                println!("🏈 FORWARD SCROLL_TO {}", scroll_to);
+                println!("🏈 FORWARD SCROLL TO {}", scroll_to);
                 current_search_line.replace(Some(scroll_to));
                 sender
                     .send_blocking(Event::GoToLine(scroll_to))
@@ -91,16 +91,16 @@ pub fn make_search(
         }
     });
     backward.connect_clicked({
-        let found_lines = found_lines.clone();
+        let search_matched_lines = search_matched_lines.clone();
         let current_search_line = current_search_line.clone();
         let sender = sender.clone();
         move |_btn| {
             let current_line = current_search_line.get().unwrap_or(0);
             println!(
                 "🦴 GO BACKWARD curren search line {:?} found lines {:?}",
-                current_line, found_lines
+                current_line, search_matched_lines
             );
-            if let Some(scroll_to) = found_lines
+            if let Some(scroll_to) = search_matched_lines
                 .borrow()
                 .iter()
                 .filter(|l| l < &&current_line)
@@ -124,14 +124,14 @@ pub fn make_search(
 
     // let updater = {
     //     let current_search_line = current_search_line.clone();
-    //     let found_lines = found_lines.clone();
+    //     let search_matched_lines = search_matched_lines.clone();
     //     move |current_line: i32, context: &mut StatusRenderContext| {
     //         println!(
     //             "🧶 update search ..... {} {:?}",
     //             current_line, context.search_matched_lines
     //         );
     //         current_search_line.replace(Some(current_line));
-    //         found_lines.replace(context.search_matched_lines.clone());
+    //         search_matched_lines.replace(context.search_matched_lines.clone());
     //     }
     // };
     search_bar
@@ -140,11 +140,13 @@ pub fn make_search(
 impl Hunk {
     fn mark_dirty_by_search(&self) -> bool {
         if !self.search_ranges.is_empty() {
-            self.view.dirty(true);
-            // ⚠️ ATTENTION this affect structure during expand/collapse
-            //self.view.child_dirty(true);
-            for line in &self.lines {
-                line.view.dirty(true);
+            if self.view.is_rendered() && self.view.is_expanded() {
+                self.view.dirty(true);
+                // ⚠️ ATTENTION this affect structure during expand/collapse
+                //self.view.child_dirty(true);
+                for line in &self.lines {
+                    line.view.dirty(true);
+                }
             }
             return true;
         }
@@ -162,9 +164,9 @@ impl Hunk {
             .find_iter(&self.buf)
             .map(|m| (m.start() + 1, m.end()))
             .collect();
-        if !self.search_ranges.is_empty() {
-            println!("🧶 FOUND!");
-        }
+        // if !self.search_ranges.is_empty() {
+        //     println!("🧶 FOUND!");
+        // }
         self.mark_dirty_by_search()
     }
 }

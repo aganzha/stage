@@ -11,7 +11,8 @@ pub enum ViewState {
     RenderedInPlace,
     Deleted,
     NotYetRendered,
-    JustDirtyItsNotUsed,
+    DirtyInPlace,
+    DirtyNotInPlace,
     MarkedForDeletion,
     UpdatedFromGit(i32),
     RenderedNotInPlace(i32),
@@ -244,7 +245,17 @@ impl View {
             return ViewState::NotYetRendered;
         }
         if self.is_dirty() && !self.is_transfered() {
-            return ViewState::JustDirtyItsNotUsed;
+            println!(
+                "🐦 dirty in view, lines: self {:?} current {:?}",
+                self.line_no.get(),
+                line_no
+            );
+            if self.line_no.get() == line_no {
+                println!("🐦 in place1");
+                return ViewState::DirtyInPlace;
+            } else {
+                return ViewState::DirtyNotInPlace;
+            }
         }
         if self.is_dirty() && self.is_transfered() {
             // why not in place? it is in place, just transfered!

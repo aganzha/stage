@@ -127,6 +127,7 @@ pub trait ViewContainer {
         // if start_iter.line() != end_iter.line() {
         //     panic!("STOP")
         // }
+        //println!("🌍 apply tag on line {:?}", buffer.text(&start_iter, &end_iter, true));
         buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
         view.tag_added(tag);
     }
@@ -176,14 +177,24 @@ pub trait ViewContainer {
                 // before it was used only in cursor!
                 self.apply_tags(TagChanges::Render, buffer, context);
             }
-            ViewState::JustDirtyItsNotUsed => {
-                // todo!("whats the case?");
-                if !iter.forward_lines(1) {
-                    assert!(iter.offset() == buffer.end_iter().offset());
-                }
-                println!("🦴 apply tags for dirty");
+            ViewState::DirtyNotInPlace => {
+                // just updating tags in place or not
+                println!(
+                    "🦴 apply tags for dirty NOT in place view {:?} curremt {:?}",
+                    view.line_no.get(),
+                    line_no
+                );
+                println!("{}", self._get_content_for_debug(context));
                 self.apply_tags(TagChanges::Render, buffer, context);
                 view.render(true);
+                view.line_no.replace(line_no);
+                self.force_forward(buffer, iter);
+            }
+            ViewState::DirtyInPlace => {
+                println!("🦴 apply tags for dirty IN place");
+                self.apply_tags(TagChanges::Render, buffer, context);
+                view.render(true);
+                self.force_forward(buffer, iter);
             }
             ViewState::MarkedForDeletion => {
                 trace!("..render MATCH squashed {:?}", line_no);
@@ -305,6 +316,7 @@ pub trait ViewContainer {
 
     // ViewContainer
     fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
+        // check
         let mut found_line: Option<i32> = None;
         let v = self.get_view();
         if v.is_rendered_in(line_no) {
@@ -511,7 +523,10 @@ impl ViewContainer for Diff {
                     println!("💨 all equal");
                     file.expand(file.view.line_no.get(), context);
                 } else {
-                    println!("‼️ expand collapsed vs collaps expanded {:?}", self.get_view().is_expanded());
+                    println!(
+                        "‼️ expand collapsed vs collaps expanded {:?}",
+                        self.get_view().is_expanded()
+                    );
                     if expand_all_files {
                         if !file.get_view().is_expanded() {
                             file.expand(file.view.line_no.get(), context);
@@ -971,6 +986,7 @@ impl ViewContainer for Line {
                 // cleanup previous search tags
                 self.remove_tag(buffer, tags::MATCH_HIGHLIGHT);
                 self.remove_tag(buffer, tags::CURRENT_MATCH_HIGHLIGHT);
+                //println!("🪛 LINE fill syntax tags {:?} found? {:?}", self.new_line_no, &hunk.search_ranges.len());
                 if self.fill_syntax_tags(
                     tags::MATCH_HIGHLIGHT,
                     &hunk.search_ranges,
@@ -1266,9 +1282,9 @@ impl Line {
         for (start, end) in self.byte_indexes_to_char_indexes(ranges) {
             // MARGIN FOR LINENO
             let line_no_margin = 4;
-            if tag == tags::MATCH_HIGHLIGHT {
-                println!("‼️ yeeeeeeeeeeeah {:?} {:?}", start, end);
-            }
+            // if tag == tags::MATCH_HIGHLIGHT {
+            //     println!("💰 LINE fill seatch tags {:?}", self.new_line_no);
+            // }
             self.add_tag(
                 buffer,
                 tag,

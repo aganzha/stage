@@ -146,7 +146,7 @@ pub struct Status {
     pub last_op: Cell<Option<LastOp>>,
     pub cursor_position: Cell<CursorPosition>,
     pub current_search_line: Rc<Cell<Option<i32>>>,
-    pub found_lines: Rc<RefCell<Vec<i32>>>,
+    pub search_matched_lines: Rc<RefCell<Vec<i32>>>,
 }
 
 impl Status {
@@ -171,7 +171,7 @@ impl Status {
             last_op: Cell::new(None),
             cursor_position: Cell::new(CursorPosition::None),
             current_search_line: Rc::new(Cell::new(None)),
-            found_lines: Rc::new(RefCell::new(Vec::new())),
+            search_matched_lines: Rc::new(RefCell::new(Vec::new())),
         }
     }
 
@@ -836,10 +836,9 @@ impl Status {
         buffer.place_cursor(&iter);
         //  WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
-        //println!("🐦 end of render found lines {:?}", context.search_matched_lines);
-        self.found_lines
+
+        self.search_matched_lines
             .replace(context.search_matched_lines.clone());
-        //println!("🐦 self found lines {:?}", Rc::as_ptr(&self.found_lines));
     }
 
     pub fn has_staged(&self) -> bool {
@@ -856,8 +855,8 @@ impl Status {
     pub fn debug<'a>(&'a mut self, _txt: &StageView, _context: &mut StatusRenderContext<'a>) {
         println!(
             "⚽ {:?} {:p}",
-            self.found_lines,
-            Rc::as_ptr(&self.found_lines)
+            self.search_matched_lines,
+            Rc::as_ptr(&self.search_matched_lines)
         );
         // let buffer = txt.buffer();
         // let pos = buffer.cursor_position();
@@ -985,10 +984,20 @@ impl Status {
             .into_iter()
             .flatten()
         {
+            let mut matched = false;
             for file in diff.files.iter_mut() {
                 for hunk in file.hunks.iter_mut() {
-                    hunk.perform_search(&term);
+                    let found_in_hunk = hunk.perform_search(&term);
+                    // if found_in_hunk {
+                    //     println!("💦 found in hunk {:?}", hunk.header);
+                    // }
+                    matched = matched || found_in_hunk;
                 }
+            }
+            // something still wrong wit expand
+            if matched {
+                println!("🧄 EXPAND DIFF");
+                diff.expand(diff.view.line_no.get(), context);
             }
         }
         println!("⚠️ before render {:?}", context.search_matched_lines);

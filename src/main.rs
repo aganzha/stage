@@ -420,7 +420,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
     tb.add_top_bar(&hb);
     let search_bar = search::make_search(
         status.current_search_line.clone(),
-        status.found_lines.clone(),
+        status.search_matched_lines.clone(),
         sender.clone(),
     );
     tb.add_bottom_bar(&search_bar);
