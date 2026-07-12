@@ -492,14 +492,35 @@ impl ViewContainer for Diff {
             return None;
         }
         let mut result: Option<i32> = None;
-        let expand_all = self.get_view().is_rendered_in(line_no);
-        if expand_all {
+        let expand_whole_diff = self.get_view().is_rendered_in(line_no);
+        if expand_whole_diff {
             result.replace(line_no);
         }
+        let all_expanded = self.files.iter().all(|f| f.get_view().is_expanded());
+        let all_collapsed = self.files.iter().all(|f| !f.get_view().is_expanded());
+        let mut expand_all_files = true;
+        if !all_expanded && !all_collapsed {
+            // if some files are expanded and some are collapsed
+            // lets look at first file. if it is expanded - expand all
+            // (this is for the case of automatic expansion of first hunk)
+            expand_all_files = self.files[0].get_view().is_expanded();
+        }
         for file in &self.files {
-            if expand_all {
-                if !file.get_view().is_expanded() {
+            if expand_whole_diff {
+                if all_expanded || all_collapsed {
+                    println!("💨 all equal");
                     file.expand(file.view.line_no.get(), context);
+                } else {
+                    println!("‼️ expand collapsed vs collaps expanded {:?}", self.get_view().is_expanded());
+                    if expand_all_files {
+                        if !file.get_view().is_expanded() {
+                            file.expand(file.view.line_no.get(), context);
+                        }
+                    } else {
+                        if file.get_view().is_expanded() {
+                            file.expand(file.view.line_no.get(), context);
+                        }
+                    }
                 }
             } else if let Some(line) = file.expand(line_no, context) {
                 result.replace(line);
