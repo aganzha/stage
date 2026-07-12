@@ -869,7 +869,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                         status.search(term, &txt, &mut ctx, &search_updater);
                     }
                     Event::ResetSearch => {
-                        status.reset_search();
+                        status.reset_search(&txt, &mut ctx);
                     }
                     Event::GoToLine(lineno) => {
                         status.goto_line(&txt, lineno);

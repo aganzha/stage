@@ -967,59 +967,19 @@ impl Status {
         term: Regex,
         txt: &'a StageView,
         context: &mut StatusRenderContext<'a>,
-        search_updater: &impl Fn(i32, &mut StatusRenderContext),
+        _search_updater: &impl Fn(i32, &mut StatusRenderContext),
     ) {
-        let mut need_render = false;
-        let mut lines_to_expand = Vec::new();
         for diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted]
             .into_iter()
             .flatten()
         {
             for file in diff.files.iter_mut() {
                 for hunk in file.hunks.iter_mut() {
-                    if hunk.perform_search(&term) {
-                        println!("🧄 found in hunk {:?}", hunk.header);
-                        if file.view.is_expanded() {
-                            // just render alreay expanded file
-                            need_render = true;
-                        } else {
-                            lines_to_expand.push(file.view.line_no.get());
-                            if hunk.view.is_expanded() {
-                                // just render alreay expanded hunk
-                                need_render = true;
-                            } else {
-                                lines_to_expand.push(hunk.view.line_no.get());
-                            }
-                        }
-                    }
+                    hunk.perform_search(&term);
                 }
             }
         }
-        println!(
-            "♦️ need render? {:?} hunks to expand? {:?}",
-            need_render, lines_to_expand
-        );
-        for line_no in lines_to_expand {
-            self.expand(txt, line_no, 0, context);
-        }
-        if need_render {
-            self.render(txt, None, context);
-        }
-        let buffer = txt.buffer();
-        let position = buffer.cursor_position();
-        println!(
-            "🪛 matched lines! {:?} {:?}",
-            context.search_matched_lines, position
-        );
-        if let Some(scroll_to) = context
-            .search_matched_lines
-            .iter()
-            .min_by_key(|&&x| (x - position).abs())
-            .copied()
-        {
-            self.goto_line(txt, scroll_to);
-            search_updater(scroll_to, context);
-        }
+        self.render(txt, None, context);
     }
 
     pub fn goto_line(&self, txt: &StageView, lineno: i32) {
@@ -1030,5 +990,22 @@ impl Status {
         }
     }
 
-    pub fn reset_search(&self) {}
+    pub fn reset_search<'a>(
+        &'a mut self,
+        txt: &'a StageView,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        let _need_render = false;
+        for diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted]
+            .into_iter()
+            .flatten()
+        {
+            for file in diff.files.iter_mut() {
+                for hunk in file.hunks.iter_mut() {
+                    hunk.reset_search();
+                }
+            }
+        }
+        self.render(txt, None, context);
+    }
 }

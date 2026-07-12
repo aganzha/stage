@@ -12,11 +12,6 @@ use regex::Regex;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-// pub fn search_bar_handler() -> &'static RwLock<Vec<SignalHandlerId>> {
-//     static MAPPINGS: OnceLock<RwLock<Vec<SignalHandlerId>>> = OnceLock::new();
-//     MAPPINGS.get_or_init(|| RwLock::new(Vec::new()))
-// }
-
 pub fn make_search(sender: Sender<Event>) -> (SearchBar, impl Fn(i32, &mut StatusRenderContext)) {
     let search_entry = SearchEntry::builder()
         .search_delay(800)
@@ -142,23 +137,33 @@ pub fn make_search(sender: Sender<Event>) -> (SearchBar, impl Fn(i32, &mut Statu
 }
 
 impl Hunk {
-    fn mark_dirty_by_search(&self) {
+    fn mark_dirty_by_search(&self) -> bool {
         if !self.search_ranges.is_empty() {
             self.view.dirty(true);
-            self.view.child_dirty(true);
+            // ⚠️ ATTENTION this affect structure during expand/collapse
+            //self.view.child_dirty(true);
             for line in &self.lines {
                 line.view.dirty(true);
             }
+            return true;
         }
+        false
+    }
+    pub fn reset_search(&mut self) -> bool {
+        let was_searched = self.mark_dirty_by_search();
+        self.search_ranges.clear();
+        was_searched
     }
     pub fn perform_search(&mut self, term: &Regex) -> bool {
         // cleanup prev search
-        self.mark_dirty_by_search();
+        self.reset_search();
         self.search_ranges = term
             .find_iter(&self.buf)
             .map(|m| (m.start() + 1, m.end()))
             .collect();
-        self.mark_dirty_by_search();
-        !self.search_ranges.is_empty()
+        if !self.search_ranges.is_empty() {
+            println!("🧶 FOUND!");
+        }
+        self.mark_dirty_by_search()
     }
 }
