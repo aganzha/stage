@@ -4,7 +4,7 @@
 
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
-use crate::status_view::view::{Display, RenderOp, Switch, View, ViewState};
+use crate::status_view::view::{Display, RenderOp, Switch, View, ViewState, CursorState};
 use crate::status_view::Label;
 use crate::{
     Diff,
@@ -349,9 +349,19 @@ pub trait ViewContainer {
         } else {
             self.get_is_active(context)
         };
-
-        view.activate(is_active);
-        view.make_current(is_current);
+        match (is_current, is_active) {
+            (true,_) => {
+                view.state.replace(CursorState::Current);
+            }
+            (_, true) => {
+                view.state.replace(CursorState::Active);
+            }
+            _ => {
+                view.state.replace(CursorState::None);
+            }
+        }
+        // view.activate(is_active);
+        // view.make_current(is_current);
 
         for child in self.get_children() {
             child.cursor(buffer, line_no, context);

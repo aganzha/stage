@@ -15,6 +15,12 @@ pub enum Display {
     None,
 }
 #[derive(Debug, Copy, Clone, PartialEq)]
+pub enum CursorState {
+    Active,
+    Current,
+    None,
+}
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Switch {
     Expanded,
     PendingExpansion,
@@ -182,6 +188,7 @@ pub struct View {
     pub tag_indexes: Cell<tags::TagIdx>,
     pub display: Cell<Display>,
     pub switch: Cell<Switch>,
+    pub state: Cell<CursorState>,
 }
 
 impl View {
@@ -192,6 +199,7 @@ impl View {
             tag_indexes: Cell::new(tags::TagIdx::new()),
             display: Cell::new(Display::None),
             switch: Cell::new(Switch::Collapsed),
+            state: Cell::new(CursorState::None),
         }
     }
 
@@ -270,12 +278,12 @@ impl View {
     // pub fn dirty(&self, value: bool) {
     //     self.flags.replace(self.flags.get().dirty(value));
     // }
-    pub fn child_dirty(&self, value: bool) {
-        self.flags.replace(self.flags.get().child_dirty(value));
-    }
-    pub fn activate(&self, value: bool) {
-        self.flags.replace(self.flags.get().activate(value));
-    }
+    // pub fn child_dirty(&self, value: bool) {
+    //     self.flags.replace(self.flags.get().child_dirty(value));
+    // }
+    // pub fn activate(&self, value: bool) {
+    //     self.flags.replace(self.flags.get().activate(value));
+    // }
 
     pub fn make_current(&self, value: bool) {
         self.flags.replace(self.flags.get().make_current(value));
@@ -299,11 +307,17 @@ impl View {
     pub fn is_child_dirty(&self) -> bool {
         self.flags.get().is_child_dirty()
     }
+    // pub fn is_active(&self) -> bool {
+    //     self.flags.get().is_active()
+    // }
+    // pub fn is_current(&self) -> bool {
+    //     self.flags.get().is_current()
+    // }
     pub fn is_active(&self) -> bool {
-        self.flags.get().is_active()
+        matches!(self.state.get(), CursorState::Active)
     }
     pub fn is_current(&self) -> bool {
-        self.flags.get().is_current()
+        matches!(self.state.get(), CursorState::Current)
     }
     pub fn is_transfered(&self) -> bool {
         self.flags.get().is_transfered()
