@@ -145,6 +145,8 @@ pub struct Status {
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
     pub last_op: Cell<Option<LastOp>>,
     pub cursor_position: Cell<CursorPosition>,
+    pub current_search_line: Rc<Cell<Option<i32>>>,
+    pub found_lines: Rc<RefCell<Vec<i32>>>,
 }
 
 impl Status {
@@ -168,6 +170,8 @@ impl Status {
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
             last_op: Cell::new(None),
             cursor_position: Cell::new(CursorPosition::None),
+            current_search_line: Rc::new(Cell::new(None)),
+            found_lines: Rc::new(RefCell::new(Vec::new())),
         }
     }
 
@@ -832,6 +836,10 @@ impl Status {
         buffer.place_cursor(&iter);
         //  WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
+        //println!("🐦 end of render found lines {:?}", context.search_matched_lines);
+        self.found_lines
+            .replace(context.search_matched_lines.clone());
+        //println!("🐦 self found lines {:?}", Rc::as_ptr(&self.found_lines));
     }
 
     pub fn has_staged(&self) -> bool {
@@ -845,13 +853,18 @@ impl Status {
         self.head.as_ref().unwrap().oid
     }
 
-    pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
-        let buffer = txt.buffer();
-        let pos = buffer.cursor_position();
-        let iter = buffer.iter_at_offset(pos);
-        for tag in iter.tags() {
-            debug!("Tag: {}", tag.name().unwrap());
-        }
+    pub fn debug<'a>(&'a mut self, _txt: &StageView, _context: &mut StatusRenderContext<'a>) {
+        println!(
+            "⚽ {:?} {:p}",
+            self.found_lines,
+            Rc::as_ptr(&self.found_lines)
+        );
+        // let buffer = txt.buffer();
+        // let pos = buffer.cursor_position();
+        // let iter = buffer.iter_at_offset(pos);
+        // for tag in iter.tags() {
+        //     debug!("Tag: {}", tag.name().unwrap());
+        // }
     }
 
     pub fn blame(&self, app_window: CurrentWindow) {
@@ -967,7 +980,6 @@ impl Status {
         term: Regex,
         txt: &'a StageView,
         context: &mut StatusRenderContext<'a>,
-        _search_updater: &impl Fn(i32, &mut StatusRenderContext),
     ) {
         for diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted]
             .into_iter()
@@ -979,7 +991,13 @@ impl Status {
                 }
             }
         }
+        println!("⚠️ before render {:?}", context.search_matched_lines);
         self.render(txt, None, context);
+        println!("⚠️ AFTER render {:?}", context.search_matched_lines);
+        if let Some(scroll_to) = context.search_matched_lines.iter().min() {
+            self.current_search_line.replace(Some(*scroll_to));
+            self.goto_line(txt, *scroll_to);
+        }
     }
 
     pub fn goto_line(&self, txt: &StageView, lineno: i32) {
@@ -1006,6 +1024,7 @@ impl Status {
                 }
             }
         }
+        // beck
         self.render(txt, None, context);
     }
 }

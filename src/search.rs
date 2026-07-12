@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::{Event, Hunk, StatusRenderContext};
+use crate::{Event, Hunk};
 use async_channel::Sender;
 use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Button, Label, Orientation, SearchBar, SearchEntry};
@@ -12,7 +12,11 @@ use regex::Regex;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-pub fn make_search(sender: Sender<Event>) -> (SearchBar, impl Fn(i32, &mut StatusRenderContext)) {
+pub fn make_search(
+    current_search_line: Rc<Cell<Option<i32>>>,
+    found_lines: Rc<RefCell<Vec<i32>>>,
+    sender: Sender<Event>,
+) -> SearchBar {
     let search_entry = SearchEntry::builder()
         .search_delay(800)
         .hexpand(true)
@@ -56,8 +60,8 @@ pub fn make_search(sender: Sender<Event>) -> (SearchBar, impl Fn(i32, &mut Statu
     search_box.append(&backward);
     search_box.append(&forward);
 
-    let found_lines: Rc<RefCell<Vec<i32>>> = Rc::new(RefCell::new(Vec::new()));
-    let current_search_line: Rc<Cell<Option<i32>>> = Rc::new(Cell::new(None));
+    //let found_lines: Rc<RefCell<Vec<i32>>> = Rc::new(RefCell::new(Vec::new()));
+    //let current_search_line: Rc<Cell<Option<i32>>> = Rc::new(Cell::new(None));
     forward.connect_clicked({
         let found_lines = found_lines.clone();
         let current_search_line = current_search_line.clone();
@@ -65,8 +69,10 @@ pub fn make_search(sender: Sender<Event>) -> (SearchBar, impl Fn(i32, &mut Statu
         move |_btn| {
             let current_line = current_search_line.get().unwrap_or(0);
             println!(
-                "🏈 FORWARD curren search line {:?} found lines {:?}",
-                current_line, found_lines
+                "🏈 FORWARD curren search line {:?} found lines {:?} {:p}",
+                current_line,
+                found_lines,
+                Rc::as_ptr(&found_lines),
             );
 
             if let Some(scroll_to) = found_lines
@@ -116,24 +122,19 @@ pub fn make_search(sender: Sender<Event>) -> (SearchBar, impl Fn(i32, &mut Statu
         .show_close_button(true)
         .build();
 
-    let updater = {
-        let current_search_line = current_search_line.clone();
-        let found_lines = found_lines.clone();
-        move |current_line: i32, context: &mut StatusRenderContext| {
-            println!(
-                "🧶 update search ..... {} {:?}",
-                current_line, context.search_matched_lines
-            );
-            current_search_line.replace(Some(current_line));
-            found_lines.replace(context.search_matched_lines.clone());
-            // let found_lines = context.search_matched_lines.clone();
-            // let handlers = search_bar_handler().write().unwrap();
-            // for handler in handlers.iter() {
-            //     search_bar.disconnect(handler);
-            // }
-        }
-    };
-    (search_bar, updater)
+    // let updater = {
+    //     let current_search_line = current_search_line.clone();
+    //     let found_lines = found_lines.clone();
+    //     move |current_line: i32, context: &mut StatusRenderContext| {
+    //         println!(
+    //             "🧶 update search ..... {} {:?}",
+    //             current_line, context.search_matched_lines
+    //         );
+    //         current_search_line.replace(Some(current_line));
+    //         found_lines.replace(context.search_matched_lines.clone());
+    //     }
+    // };
+    search_bar
 }
 
 impl Hunk {
