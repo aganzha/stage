@@ -6,7 +6,7 @@ use crate::dialogs::alert;
 use crate::git::{blame, commit, stash::StashNum};
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
-    render::ViewContainer, stage_view::StageView, view::View, CursorPosition, view::CursorState,
+    render::ViewContainer, stage_view::StageView, view::CursorState, view::View, CursorPosition,
     Label as TextViewLabel,
 };
 use crate::{ApplyOp, BlameLine, CurrentWindow, Event, HunkLineNo, StageOp};

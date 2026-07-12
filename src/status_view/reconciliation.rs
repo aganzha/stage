@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::status_view::view::Display;
 use crate::status_view::ViewContainer;
 use crate::{Diff, File, Head, Hunk, Line, State};
-use crate::status_view::view::{Display};
 use gtk4::TextBuffer;
 use log::trace;
 use std::collections::HashSet;

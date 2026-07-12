@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::status_view::tags;
-use core::fmt::{Binary, Formatter, Result};
 use std::cell::Cell;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -41,145 +40,145 @@ pub enum ChildRenderOp {
     Skip,
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum ViewState {
-    RenderedInPlace,
-    Deleted,
-    NotYetRendered,
-    DirtyInPlace,
-    DirtyNotInPlace,
-    MarkedForDeletion,
-    UpdatedFromGit(i32),
-    RenderedNotInPlace(i32),
-}
+// #[derive(Debug, Copy, Clone)]
+// pub enum ViewState {
+//     RenderedInPlace,
+//     Deleted,
+//     NotYetRendered,
+//     DirtyInPlace,
+//     DirtyNotInPlace,
+//     MarkedForDeletion,
+//     UpdatedFromGit(i32),
+//     RenderedNotInPlace(i32),
+// }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct RenderFlags(u8);
+// #[derive(Debug, Copy, Clone, PartialEq)]
+// pub struct RenderFlags(u8);
 
-impl Default for RenderFlags {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// impl Default for RenderFlags {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
 
-impl RenderFlags {
-    pub fn new() -> Self {
-        Self(0)
-    }
-    pub fn from(i: u8) -> Self {
-        Self(i)
-    }
-    pub const EXPANDED: u8 = 0b00000001;
+// impl RenderFlags {
+//     pub fn new() -> Self {
+//         Self(0)
+//     }
+//     pub fn from(i: u8) -> Self {
+//         Self(i)
+//     }
+//     pub const EXPANDED: u8 = 0b00000001;
 
-    pub fn is_expanded(&self) -> bool {
-        self.0 & Self::EXPANDED != 0
-    }
-    pub fn expand(&mut self, value: bool) -> Self {
-        if value {
-            Self(self.0 | Self::EXPANDED)
-        } else {
-            Self(self.0 & !Self::EXPANDED)
-        }
-    }
+//     pub fn is_expanded(&self) -> bool {
+//         self.0 & Self::EXPANDED != 0
+//     }
+//     pub fn expand(&mut self, value: bool) -> Self {
+//         if value {
+//             Self(self.0 | Self::EXPANDED)
+//         } else {
+//             Self(self.0 & !Self::EXPANDED)
+//         }
+//     }
 
-    pub const SQAUASHED: u8 = 0b00000010;
+//     pub const SQAUASHED: u8 = 0b00000010;
 
-    pub fn is_squashed(&self) -> bool {
-        self.0 & Self::SQAUASHED != 0
-    }
-    pub fn squash(&mut self, value: bool) -> Self {
-        if value {
-            Self(self.0 | Self::SQAUASHED)
-        } else {
-            Self(self.0 & !Self::SQAUASHED)
-        }
-    }
+//     pub fn is_squashed(&self) -> bool {
+//         self.0 & Self::SQAUASHED != 0
+//     }
+//     pub fn squash(&mut self, value: bool) -> Self {
+//         if value {
+//             Self(self.0 | Self::SQAUASHED)
+//         } else {
+//             Self(self.0 & !Self::SQAUASHED)
+//         }
+//     }
 
-    pub const RENDERED: u8 = 0b00000100;
+//     pub const RENDERED: u8 = 0b00000100;
 
-    pub fn is_rendered(&self) -> bool {
-        self.0 & Self::RENDERED != 0
-    }
-    pub fn render(&mut self, value: bool) -> Self {
-        if value {
-            Self(self.0 | Self::RENDERED)
-        } else {
-            Self(self.0 & !Self::RENDERED)
-        }
-    }
+//     pub fn is_rendered(&self) -> bool {
+//         self.0 & Self::RENDERED != 0
+//     }
+//     pub fn render(&mut self, value: bool) -> Self {
+//         if value {
+//             Self(self.0 | Self::RENDERED)
+//         } else {
+//             Self(self.0 & !Self::RENDERED)
+//         }
+//     }
 
-    pub const DIRTY: u8 = 0b00001000;
+//     pub const DIRTY: u8 = 0b00001000;
 
-    pub fn is_dirty(&self) -> bool {
-        self.0 & Self::DIRTY != 0
-    }
-    pub fn dirty(&mut self, value: bool) -> Self {
-        if value {
-            Self(self.0 | Self::DIRTY)
-        } else {
-            Self(self.0 & !Self::DIRTY)
-        }
-    }
+//     pub fn is_dirty(&self) -> bool {
+//         self.0 & Self::DIRTY != 0
+//     }
+//     pub fn dirty(&mut self, value: bool) -> Self {
+//         if value {
+//             Self(self.0 | Self::DIRTY)
+//         } else {
+//             Self(self.0 & !Self::DIRTY)
+//         }
+//     }
 
-    pub const CHILD_DIRTY: u8 = 0b00010000;
+//     pub const CHILD_DIRTY: u8 = 0b00010000;
 
-    pub fn is_child_dirty(&self) -> bool {
-        self.0 & Self::CHILD_DIRTY != 0
-    }
-    pub fn child_dirty(&mut self, value: bool) -> Self {
-        if value {
-            Self(self.0 | Self::CHILD_DIRTY)
-        } else {
-            Self(self.0 & !Self::CHILD_DIRTY)
-        }
-    }
+//     pub fn is_child_dirty(&self) -> bool {
+//         self.0 & Self::CHILD_DIRTY != 0
+//     }
+//     pub fn child_dirty(&mut self, value: bool) -> Self {
+//         if value {
+//             Self(self.0 | Self::CHILD_DIRTY)
+//         } else {
+//             Self(self.0 & !Self::CHILD_DIRTY)
+//         }
+//     }
 
-    pub const ACTIVE: u8 = 0b00100000;
+//     pub const ACTIVE: u8 = 0b00100000;
 
-    pub fn is_active(&self) -> bool {
-        self.0 & Self::ACTIVE != 0
-    }
-    pub fn activate(&mut self, value: bool) -> Self {
-        if value {
-            Self(self.0 | Self::ACTIVE)
-        } else {
-            Self(self.0 & !Self::ACTIVE)
-        }
-    }
+//     pub fn is_active(&self) -> bool {
+//         self.0 & Self::ACTIVE != 0
+//     }
+//     pub fn activate(&mut self, value: bool) -> Self {
+//         if value {
+//             Self(self.0 | Self::ACTIVE)
+//         } else {
+//             Self(self.0 & !Self::ACTIVE)
+//         }
+//     }
 
-    pub const CURRENT: u8 = 0b01000000;
+//     pub const CURRENT: u8 = 0b01000000;
 
-    pub fn is_current(&self) -> bool {
-        self.0 & Self::CURRENT != 0
-    }
-    pub fn make_current(&mut self, value: bool) -> Self {
-        if value {
-            Self(self.0 | Self::CURRENT)
-        } else {
-            Self(self.0 & !Self::CURRENT)
-        }
-    }
+//     pub fn is_current(&self) -> bool {
+//         self.0 & Self::CURRENT != 0
+//     }
+//     pub fn make_current(&mut self, value: bool) -> Self {
+//         if value {
+//             Self(self.0 | Self::CURRENT)
+//         } else {
+//             Self(self.0 & !Self::CURRENT)
+//         }
+//     }
 
-    pub const TRANSFERED: u8 = 0b10000000;
+//     pub const TRANSFERED: u8 = 0b10000000;
 
-    pub fn is_transfered(&self) -> bool {
-        self.0 & Self::TRANSFERED != 0
-    }
-    pub fn transfer(&mut self, value: bool) -> Self {
-        if value {
-            Self(self.0 | Self::TRANSFERED)
-        } else {
-            Self(self.0 & !Self::TRANSFERED)
-        }
-    }
-}
+//     pub fn is_transfered(&self) -> bool {
+//         self.0 & Self::TRANSFERED != 0
+//     }
+//     pub fn transfer(&mut self, value: bool) -> Self {
+//         if value {
+//             Self(self.0 | Self::TRANSFERED)
+//         } else {
+//             Self(self.0 & !Self::TRANSFERED)
+//         }
+//     }
+// }
 
-impl Binary for RenderFlags {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        let val = self.0;
-        Binary::fmt(&val, f) // delegate to i32's implementation
-    }
-}
+// impl Binary for RenderFlags {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+//         let val = self.0;
+//         Binary::fmt(&val, f) // delegate to i32's implementation
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct View {

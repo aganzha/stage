@@ -4,7 +4,7 @@
 
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
-use crate::status_view::view::{Display, RenderOp, Switch, View, ViewState, CursorState};
+use crate::status_view::view::{CursorState, Display, RenderOp, Switch, View};
 use crate::status_view::Label;
 use crate::{
     Diff,
@@ -63,7 +63,6 @@ pub trait ViewContainer {
         view.display.replace(other_rendered_view.display.get());
         view.switch.replace(other_rendered_view.switch.get());
         view.state.replace(other_rendered_view.state.get());
-
     }
 
     fn enrich_view(
@@ -354,7 +353,7 @@ pub trait ViewContainer {
             self.get_is_active(context)
         };
         match (is_current, is_active) {
-            (true,_) => {
+            (true, _) => {
                 view.state.replace(CursorState::Current);
             }
             (_, true) => {

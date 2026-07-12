@@ -8,7 +8,7 @@ use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Button, Label, Orientation, SearchBar, SearchEntry};
 // use glib::signal::SignalHandlerId;
 // use std::sync::{OnceLock, RwLock};
-use crate::status_view::view::{Display};
+use crate::status_view::view::Display;
 use regex::Regex;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
