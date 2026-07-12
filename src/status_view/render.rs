@@ -4,7 +4,7 @@
 
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
-use crate::status_view::view::{RenderOp, Switch, View, ViewState};
+use crate::status_view::view::{Display, RenderOp, Switch, View, ViewState};
 use crate::status_view::Label;
 use crate::{
     Diff,
@@ -122,12 +122,13 @@ pub trait ViewContainer {
         let (start_iter, end_iter) = if let Some((start, end)) = offset_range {
             (buffer.iter_at_offset(start), buffer.iter_at_offset(end))
         } else {
-            self.start_end_iters(buffer, view.line_no.get())
+            if let Display::Settled(line_no) = view.display.get() {
+                self.start_end_iters(buffer, line_no)
+            } else {
+                panic!("tag on not settled view!");
+            }
+            //self.start_end_iters(buffer, view.line_no.get())
         };
-        // if start_iter.line() != end_iter.line() {
-        //     panic!("STOP")
-        // }
-        //println!("🌍 apply tag on line {:?}", buffer.text(&start_iter, &end_iter, true));
         buffer.apply_tag_by_name(tag, &start_iter, &end_iter);
         view.tag_added(tag);
     }
@@ -156,7 +157,9 @@ pub trait ViewContainer {
         self.prepare_context(context, None);
         let line_no = iter.line();
         let view = self.get_view();
-        match view.snapshot(line_no) {
+        let snapshot = view.snapshot(line_no);
+        //println!("🧄 snapshot {:?}", snapshot);
+        match snapshot {
             RenderOp::Insert => {
                 self.write_content(iter, buffer, context);
                 buffer.insert(iter, "\n");
@@ -370,14 +373,41 @@ pub trait ViewContainer {
         false
     }
 
-    fn expand(&self, line_no: i32, _context: &mut StatusRenderContext) -> Option<i32> {
+    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
         let view = self.get_view();
         view.toggle(line_no);
         match view.switch.get() {
-            Switch::PendingExpansion | Switch::PendingCollapsion => Some(line_no),
+            Switch::PendingExpansion => {
+                println!("🌻 expanded!");
+                self.walk_down(&mut |vc: &dyn ViewContainer| {
+                    let view = vc.get_view();
+                    view.display.replace(Display::None);
+                });
+                Some(line_no)
+            }
+            Switch::PendingCollapsion => {
+                println!("🌻 collapsed!");
+                self.walk_down(&mut |vc: &dyn ViewContainer| {
+                    let view = vc.get_view();
+                    view.display.replace(Display::Trashed);
+                });
+                Some(line_no)
+            }
+            Switch::Expanded => {
+                let mut result: Option<i32> = None;
+                self.walk_down(&mut |vc: &dyn ViewContainer| {
+                    if let Some(vc_line_no) = vc.expand(line_no, context) {
+                        result.replace(vc_line_no);
+                    }
+                    // let view = vc.get_view();
+                    // view.display.replace(Display::Trashed);
+                });
+                result
+            }
             _ => None,
         }
     }
+    // jey
     // ViewContainer
     // fn old_expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
     //     // check
