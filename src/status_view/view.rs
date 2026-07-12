@@ -15,6 +15,12 @@ pub enum Display {
     None,
 }
 #[derive(Debug, Copy, Clone, PartialEq)]
+pub enum CursorState {
+    Active,
+    Current,
+    None,
+}
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Switch {
     Expanded,
     PendingExpansion,
@@ -178,20 +184,22 @@ impl Binary for RenderFlags {
 #[derive(Debug, Clone, PartialEq)]
 pub struct View {
     pub line_no: Cell<i32>,
-    pub flags: Cell<RenderFlags>,
+    //pub flags: Cell<RenderFlags>,
     pub tag_indexes: Cell<tags::TagIdx>,
     pub display: Cell<Display>,
     pub switch: Cell<Switch>,
+    pub state: Cell<CursorState>,
 }
 
 impl View {
     pub fn new() -> Self {
         View {
             line_no: Cell::new(0),
-            flags: Cell::new(RenderFlags(0)),
+            //flags: Cell::new(RenderFlags(0)),
             tag_indexes: Cell::new(tags::TagIdx::new()),
             display: Cell::new(Display::None),
             switch: Cell::new(Switch::Collapsed),
+            state: Cell::new(CursorState::None),
         }
     }
 
@@ -270,99 +278,113 @@ impl View {
     // pub fn dirty(&self, value: bool) {
     //     self.flags.replace(self.flags.get().dirty(value));
     // }
-    pub fn child_dirty(&self, value: bool) {
-        self.flags.replace(self.flags.get().child_dirty(value));
-    }
-    pub fn activate(&self, value: bool) {
-        self.flags.replace(self.flags.get().activate(value));
-    }
+    // pub fn child_dirty(&self, value: bool) {
+    //     self.flags.replace(self.flags.get().child_dirty(value));
+    // }
+    // pub fn activate(&self, value: bool) {
+    //     self.flags.replace(self.flags.get().activate(value));
+    // }
 
-    pub fn make_current(&self, value: bool) {
-        self.flags.replace(self.flags.get().make_current(value));
-    }
-    pub fn transfer(&self, value: bool) {
-        self.flags.replace(self.flags.get().transfer(value));
-    }
-
+    // pub fn make_current(&self, value: bool) {
+    //     self.flags.replace(self.flags.get().make_current(value));
+    // }
+    // pub fn transfer(&self, value: bool) {
+    //     self.flags.replace(self.flags.get().transfer(value));
+    // }
     pub fn is_expanded(&self) -> bool {
-        self.flags.get().is_expanded()
+        matches!(self.switch.get(), Switch::Expanded)
     }
-    pub fn is_squashed(&self) -> bool {
-        self.flags.get().is_squashed()
-    }
+
+    // pub fn is_expanded(&self) -> bool {
+    //     self.flags.get().is_expanded()
+    // }
+    // pub fn is_squashed(&self) -> bool {
+    //     self.flags.get().is_squashed()
+    // }
     pub fn is_rendered(&self) -> bool {
-        self.flags.get().is_rendered()
+        // self.flags.get().is_rendered()
+        matches!(self.display.get(), Display::Settled(_))
     }
-    pub fn is_dirty(&self) -> bool {
-        self.flags.get().is_dirty()
-    }
-    pub fn is_child_dirty(&self) -> bool {
-        self.flags.get().is_child_dirty()
-    }
+    // pub fn is_dirty(&self) -> bool {
+    //     self.flags.get().is_dirty()
+    // }
+    // pub fn is_child_dirty(&self) -> bool {
+    //     self.flags.get().is_child_dirty()
+    // }
+    // pub fn is_active(&self) -> bool {
+    //     self.flags.get().is_active()
+    // }
+    // pub fn is_current(&self) -> bool {
+    //     self.flags.get().is_current()
+    // }
     pub fn is_active(&self) -> bool {
-        self.flags.get().is_active()
+        matches!(self.state.get(), CursorState::Active)
     }
     pub fn is_current(&self) -> bool {
-        self.flags.get().is_current()
+        matches!(self.state.get(), CursorState::Current)
     }
-    pub fn is_transfered(&self) -> bool {
-        self.flags.get().is_transfered()
-    }
+    // pub fn is_transfered(&self) -> bool {
+    //     self.flags.get().is_transfered()
+    // }
 
-    pub fn repr(&self) -> String {
-        format!("line_no: {} rendred: {} squashed: {} active: {} current: {} expanded: {} dirty: {} child_dirty: {}, transfered: {}",
-                self.line_no.get(),
-                self.is_rendered(),
-                self.is_squashed(),
-                self.is_active(),
-                self.is_current(),
-                self.is_expanded(),
-                self.is_dirty(),
-                self.is_child_dirty(),
-                self.is_transfered()
-        )
-    }
+    // pub fn repr(&self) -> String {
+    //     format!("line_no: {} rendred: {} squashed: {} active: {} current: {} expanded: {} dirty: {} child_dirty: {}, transfered: {}",
+    //             self.line_no.get(),
+    //             self.is_rendered(),
+    //             self.is_squashed(),
+    //             self.is_active(),
+    //             self.is_current(),
+    //             self.is_expanded(),
+    //             self.is_dirty(),
+    //             self.is_child_dirty(),
+    //             self.is_transfered()
+    //     )
+    // }
 
     pub fn is_rendered_in(&self, line_no: i32) -> bool {
-        self.is_rendered()
-            && self.line_no.get() == line_no
-            && !self.is_dirty()
-            && !self.is_squashed()
+        if let Display::Settled(my_line_no) = self.display.get() {
+            return my_line_no == line_no;
+        }
+        false
+        // self.is_rendered()
+        //     && self.line_no.get() == line_no
+        //     && !self.is_dirty()
+        //     && !self.is_squashed()
     }
 
-    pub fn get_state_for(&self, line_no: i32) -> ViewState {
-        if self.is_rendered_in(line_no) {
-            return ViewState::RenderedInPlace;
-        }
-        if !self.is_rendered() && self.is_squashed() {
-            return ViewState::Deleted;
-        }
-        if !self.is_rendered() {
-            return ViewState::NotYetRendered;
-        }
-        if self.is_dirty() && !self.is_transfered() {
-            println!(
-                "🐦 dirty in view, lines: self {:?} current {:?}",
-                self.line_no.get(), // hey
-                line_no
-            );
-            if self.line_no.get() == line_no {
-                println!("🐦 in place1");
-                return ViewState::DirtyInPlace;
-            } else {
-                return ViewState::DirtyNotInPlace;
-            }
-        }
-        if self.is_dirty() && self.is_transfered() {
-            // why not in place? it is in place, just transfered!
-            // TODO rename this state. and think about it!
-            return ViewState::UpdatedFromGit(self.line_no.get());
-        }
-        if self.is_squashed() {
-            return ViewState::MarkedForDeletion;
-        }
-        ViewState::RenderedNotInPlace(self.line_no.get())
-    }
+    // pub fn get_state_for(&self, line_no: i32) -> ViewState {
+    //     if self.is_rendered_in(line_no) {
+    //         return ViewState::RenderedInPlace;
+    //     }
+    //     if !self.is_rendered() && self.is_squashed() {
+    //         return ViewState::Deleted;
+    //     }
+    //     if !self.is_rendered() {
+    //         return ViewState::NotYetRendered;
+    //     }
+    //     if self.is_dirty() && !self.is_transfered() {
+    //         println!(
+    //             "🐦 dirty in view, lines: self {:?} current {:?}",
+    //             self.line_no.get(), // hey
+    //             line_no
+    //         );
+    //         if self.line_no.get() == line_no {
+    //             println!("🐦 in place1");
+    //             return ViewState::DirtyInPlace;
+    //         } else {
+    //             return ViewState::DirtyNotInPlace;
+    //         }
+    //     }
+    //     if self.is_dirty() && self.is_transfered() {
+    //         // why not in place? it is in place, just transfered!
+    //         // TODO rename this state. and think about it!
+    //         return ViewState::UpdatedFromGit(self.line_no.get());
+    //     }
+    //     if self.is_squashed() {
+    //         return ViewState::MarkedForDeletion;
+    //     }
+    //     ViewState::RenderedNotInPlace(self.line_no.get())
+    // }
 }
 
 impl Default for View {
