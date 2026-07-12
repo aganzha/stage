@@ -146,7 +146,8 @@ impl MultiLineLabel {
         }
         // space for following diff
         self.labels.push(TextViewLabel::from_string(""));
-        self.view.expand(true)
+        self.view.set_switch(true);
+        //self.view.expand(true)
     }
 }
 
@@ -203,7 +204,8 @@ impl commit::CommitDiff {
             if let Some(blame_line) = blame_line {
                 for (f, file) in self.diff.files.iter().enumerate() {
                     if file.path == blame_line.file_path {
-                        file.view.expand(true);
+                        //file.view.expand(true);
+                        file.view.set_switch(true);
                         for (h, hunk) in file.hunks.iter().enumerate() {
                             let mut found = false;
                             if found_line_index.is_none() {
@@ -219,7 +221,8 @@ impl commit::CommitDiff {
                                 }
                             }
                             if !found {
-                                hunk.view.expand(false);
+                                hunk.view.set_switch(false);
+                                //hunk.view.expand(false);
                             }
                         }
                         if found_line_index.is_some() {

@@ -6,6 +6,35 @@ use crate::status_view::tags;
 use core::fmt::{Binary, Formatter, Result};
 use std::cell::Cell;
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Display {
+    Settled(i32),
+    Pending(i32),
+    Trashed,
+    Hidden,
+    None,
+}
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Switch {
+    Expanded,
+    PendingExpansion,
+    Collapsed,
+    PendingCollapsion,
+}
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum RenderOp {
+    Insert,
+    Delete,
+    Rewrite,
+    Skip,
+    None,
+}
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ChildRenderOp {
+    Proceed,
+    Skip,
+}
+
 #[derive(Debug, Copy, Clone)]
 pub enum ViewState {
     RenderedInPlace,
@@ -151,6 +180,8 @@ pub struct View {
     pub line_no: Cell<i32>,
     pub flags: Cell<RenderFlags>,
     pub tag_indexes: Cell<tags::TagIdx>,
+    pub display: Cell<Display>,
+    pub switch: Cell<Switch>,
 }
 
 impl View {
@@ -159,12 +190,77 @@ impl View {
             line_no: Cell::new(0),
             flags: Cell::new(RenderFlags(0)),
             tag_indexes: Cell::new(tags::TagIdx::new()),
+            display: Cell::new(Display::None),
+            switch: Cell::new(Switch::Collapsed),
         }
     }
 
-    pub fn expand(&self, value: bool) {
-        self.flags.replace(self.flags.get().expand(value));
+    pub fn snapshot(&self, line_no: i32) -> RenderOp {
+        // there are only insert/rewrite/delete and move!
+        // apply tahs was only added for search!
+        match self.display.get() {
+            Display::None => {
+                self.display.replace(Display::Settled(line_no));
+                RenderOp::Insert
+            }
+            Display::Settled(_my_line_no) => {
+                // here i can catch moving. but why?
+                self.display.replace(Display::Settled(line_no));
+                RenderOp::Skip
+            }
+            Display::Pending(_my_line_no) => {
+                // here i can catch moving. but why?
+                self.display.replace(Display::Settled(line_no));
+                RenderOp::Rewrite
+            }
+            Display::Trashed => {
+                self.display.replace(Display::Hidden);
+                RenderOp::Delete
+            }
+            Display::Hidden => RenderOp::None,
+        }
     }
+    pub fn needs_children_snapshot(&self) -> bool {
+        match self.switch.get() {
+            Switch::Expanded => true,
+            Switch::PendingExpansion => {
+                self.switch.replace(Switch::Expanded);
+                true
+            }
+            Switch::PendingCollapsion => {
+                self.switch.replace(Switch::Collapsed);
+                true
+            }
+            Switch::Collapsed => false,
+        }
+    }
+    pub fn set_switch(&self, value: bool) {
+        // this is only for setting switch from code!
+        // e.g. display first file expanded.
+        // make hunks expanded by default etc.
+        if value {
+            self.switch.replace(Switch::PendingExpansion);
+        } else {
+            self.switch.replace(Switch::PendingCollapsion);
+        }
+    }
+
+    pub fn toggle(&self, line_no: i32) {
+        // this is only for calling from code!
+        if let Display::Settled(my_line_no) = self.display.get() {
+            if line_no == my_line_no {
+                match self.switch.get() {
+                    Switch::Expanded => self.switch.replace(Switch::PendingCollapsion),
+                    Switch::Collapsed => self.switch.replace(Switch::PendingExpansion),
+                    _ => panic!("🏁 whats the case for toggle? {:?}", my_line_no),
+                };
+            }
+        };
+    }
+
+    // pub fn expand(&self, value: bool) {
+    //     self.flags.replace(self.flags.get().expand(value));
+    // }
     pub fn squash(&self, value: bool) {
         self.flags.replace(self.flags.get().squash(value));
     }
@@ -247,7 +343,7 @@ impl View {
         if self.is_dirty() && !self.is_transfered() {
             println!(
                 "🐦 dirty in view, lines: self {:?} current {:?}",
-                self.line_no.get(),
+                self.line_no.get(), // hey
                 line_no
             );
             if self.line_no.get() == line_no {

@@ -329,6 +329,7 @@ impl StageView {
         for h in &context.highlight_hunks {
             self.imp().hunks.borrow_mut().push(*h);
         }
+        // toke
         self.imp().linenos.replace(context.linenos.clone());
     }
 

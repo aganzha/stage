@@ -197,7 +197,8 @@ impl fmt::Display for Hunk {
 impl Hunk {
     pub fn new(kind: DiffKind) -> Self {
         let view = View::new();
-        view.expand(true);
+        view.set_switch(true);
+        //view.expand(true);
         Self {
             view,
             header: String::new(),
@@ -480,8 +481,9 @@ pub struct Diff {
 impl Diff {
     pub fn new(kind: DiffKind) -> Self {
         let view = View::new();
-        view.expand(true);
-        view.child_dirty(true);
+        view.set_switch(true);
+        // view.expand(true);
+        // view.child_dirty(true);
         Self {
             files: Vec::new(),
             view,

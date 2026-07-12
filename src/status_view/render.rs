@@ -4,7 +4,7 @@
 
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
-use crate::status_view::view::{View, ViewState};
+use crate::status_view::view::{RenderOp, Switch, View, ViewState};
 use crate::status_view::Label;
 use crate::{
     Diff,
@@ -147,8 +147,64 @@ pub trait ViewContainer {
     ) {
     }
 
-    // ViewContainer
     fn render<'a>(
+        &'a self,
+        buffer: &TextBuffer,
+        iter: &mut TextIter,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        self.prepare_context(context, None);
+        let line_no = iter.line();
+        let view = self.get_view();
+        match view.snapshot(line_no) {
+            RenderOp::Insert => {
+                self.write_content(iter, buffer, context);
+                buffer.insert(iter, "\n");
+                // TODO! line!
+                // view.line_no.replace(line_no);
+                // view.render(true);
+                // before it was used only in cursor!
+                // todo! tags!
+                self.apply_tags(TagChanges::Render, buffer, context);
+            }
+            RenderOp::Skip => {
+                iter.forward_lines(1);
+            }
+            RenderOp::Rewrite => {
+                let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
+                eol_iter.forward_to_line_end();
+                // if content is empty - eol iter will drop onto next line!
+                // no need to delete in this case!
+                if iter.line() == eol_iter.line() {
+                    // TODO! tags!
+                    // buffer.remove_all_tags(iter, &eol_iter);
+                    buffer.delete(iter, &mut eol_iter);
+                }
+                // TODO! tags!
+                //view.cleanup_tags();
+                self.write_content(iter, buffer, context);
+                // before it was used only in cursor!
+                // TODO! tags!
+                self.apply_tags(TagChanges::Render, buffer, context);
+                self.force_forward(buffer, iter);
+            }
+            RenderOp::Delete => {
+                let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
+                nel_iter.forward_lines(1);
+                buffer.delete(iter, &mut nel_iter);
+            }
+            RenderOp::None => {}
+        }
+        if view.needs_children_snapshot() {
+            for child in self.get_children() {
+                child.render(buffer, iter, context);
+            }
+        }
+        self.after_render(buffer, iter, context);
+    }
+
+    // ViewContainer
+    fn old_render<'a>(
         &'a self,
         buffer: &TextBuffer,
         iter: &mut TextIter,
@@ -197,7 +253,7 @@ pub trait ViewContainer {
                 self.force_forward(buffer, iter);
             }
             ViewState::MarkedForDeletion => {
-                trace!("..render MATCH squashed {:?}", line_no);
+                trace!("..render MATCH squashed {:?}", line_no); // kij
                 let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
                 nel_iter.forward_lines(1);
                 buffer.delete(iter, &mut nel_iter);
@@ -314,41 +370,50 @@ pub trait ViewContainer {
         false
     }
 
-    // ViewContainer
-    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
-        // check
-        let mut found_line: Option<i32> = None;
-        let v = self.get_view();
-        if v.is_rendered_in(line_no) {
-            let view = self.get_view();
-            found_line = Some(line_no);
-            view.expand(!view.is_expanded());
-            view.child_dirty(true);
-            let expanded = view.is_expanded();
-            self.walk_down(&mut |vc: &dyn ViewContainer| {
-                let view = vc.get_view();
-                if expanded {
-                    view.squash(false);
-                    view.render(false);
-                } else {
-                    view.squash(true);
-                }
-            });
-        } else if v.is_expanded() && v.is_rendered() {
-            // go deeper for self.children
-            for child in self.get_children() {
-                found_line = child.expand(line_no, context);
-                if found_line.is_some() {
-                    break;
-                }
-            }
-            if found_line.is_some() && self.is_expandable_by_child() {
-                let line_no = self.get_view().line_no.get();
-                return self.expand(line_no, context);
-            }
+    fn expand(&self, line_no: i32, _context: &mut StatusRenderContext) -> Option<i32> {
+        let view = self.get_view();
+        view.toggle(line_no);
+        match view.switch.get() {
+            Switch::PendingExpansion | Switch::PendingCollapsion => Some(line_no),
+            _ => None,
         }
-        found_line
     }
+    // ViewContainer
+    // fn old_expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
+    //     // check
+    //     let mut found_line: Option<i32> = None;
+    //     let v = self.get_view();
+    //     if v.is_rendered_in(line_no) {
+    //         let view = self.get_view();
+    //         found_line = Some(line_no);
+    //         view.expand(!view.is_expanded());
+    //         view.child_dirty(true);
+    //         let expanded = view.is_expanded();
+    //         self.walk_down(&mut |vc: &dyn ViewContainer| {
+    //             let view = vc.get_view();
+    //             if expanded {
+    //                 view.squash(false);
+    //                 view.render(false);
+    //             } else {
+    //                 view.squash(true);
+    //                 //view.child_dirty(true);  // ADD THIS deepseek
+    //             }
+    //         });
+    //     } else if v.is_expanded() && v.is_rendered() {
+    //         // go deeper for self.children
+    //         for child in self.get_children() {
+    //             found_line = child.expand(line_no, context);
+    //             if found_line.is_some() {
+    //                 break;
+    //             }
+    //         }
+    //         if found_line.is_some() && self.is_expandable_by_child() {
+    //             let line_no = self.get_view().line_no.get();
+    //             return self.expand(line_no, context);
+    //         }
+    //     }
+    //     found_line
+    // }
 
     fn is_expandable_by_child(&self) -> bool {
         false
@@ -357,7 +422,7 @@ pub trait ViewContainer {
     fn erase(&self, buffer: &TextBuffer, context: &mut StatusRenderContext) {
         // CAUTION. ATTENTION. IMPORTANT
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // after this operation all prev iters bevome INVALID!
+        // after this operation all prev iters become INVALID!
         // it need to reobtain them!
 
         // this ONLY rendering. the data remains
@@ -1239,12 +1304,12 @@ impl ViewContainer for State {
 
 impl Diff {
     pub fn auto_expand(&self) {
-        trace!("---------auto expand {:?}", self.kind);
         if self.is_empty() {
             error!("EXPANDING EMPTY DIFF");
             return;
         }
-        self.files[0].view.expand(true);
+        //self.files[0].view.expand(true);
+        self.files[0].view.set_switch(true);
     }
 }
 
