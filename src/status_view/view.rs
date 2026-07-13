@@ -182,8 +182,8 @@ pub enum ChildRenderOp {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct View {
-    pub line_no: Cell<i32>,
-    //pub flags: Cell<RenderFlags>,
+    // pub line_no: Cell<i32>,
+    // pub flags: Cell<RenderFlags>,
     pub tag_indexes: Cell<tags::TagIdx>,
     pub display: Cell<Display>,
     pub switch: Cell<Switch>,
@@ -193,7 +193,7 @@ pub struct View {
 impl View {
     pub fn new() -> Self {
         View {
-            line_no: Cell::new(0),
+            // line_no: Cell::new(0),
             //flags: Cell::new(RenderFlags(0)),
             tag_indexes: Cell::new(tags::TagIdx::new()),
             display: Cell::new(Display::None),

@@ -997,7 +997,9 @@ impl Status {
             // something still wrong wit expand
             if matched {
                 println!("🧄 EXPAND DIFF");
-                diff.expand(diff.view.line_no.get(), context);
+                if let Some(line_no) = diff.get_line_no() {
+                    diff.expand(line_no, context);
+                }
             }
         }
         println!("⚠️ before render {:?}", context.search_matched_lines);

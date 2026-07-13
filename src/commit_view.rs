@@ -239,17 +239,19 @@ impl commit::CommitDiff {
 
         self.diff.render(&buffer, &mut iter, ctx);
         if let Some((f, h, l)) = found_line_index {
-            let line_no = self.diff.files[f].hunks[h].lines[l].view.line_no.get();
-            let buffer = txt.buffer();
-            iter = buffer.iter_at_line(line_no).unwrap();
-            buffer.place_cursor(&iter);
-            txt.scroll_to_iter(&mut iter, 0.0, false, 0.0, 0.0);
+            let line = &self.diff.files[f].hunks[h].lines[l];
+            if let Some(line_no) = line.get_line_no() {
+                let buffer = txt.buffer();
+                iter = buffer.iter_at_line(line_no).unwrap();
+                buffer.place_cursor(&iter);
+                txt.scroll_to_iter(&mut iter, 0.0, false, 0.0, 0.0);
+            }
         } else if !self.diff.files.is_empty() {
             let buffer = txt.buffer();
-            iter = buffer
-                .iter_at_line(self.diff.files[0].view.line_no.get())
-                .unwrap();
-            buffer.place_cursor(&iter);
+            if let Some(line_no) = self.diff.files[0].get_line_no() {
+                iter = buffer.iter_at_line(line_no).unwrap();
+                buffer.place_cursor(&iter);
+            }
         }
         self.diff.cursor(&txt.buffer(), iter.line(), ctx);
         txt.bind_highlights(ctx);
@@ -381,13 +383,14 @@ pub fn show_commit_window(
                         if let Some(d) = &mut diff {
                             if d.diff.expand(line_no, &mut ctx).is_some() {
                                 let buffer = &txt.buffer();
-                                let mut iter =
-                                    buffer.iter_at_line(d.diff.view.line_no.get()).unwrap();
-                                d.diff.render(buffer, &mut iter, &mut ctx);
-                                let iter = buffer.iter_at_offset(buffer.cursor_position());
-                                d.diff.cursor(buffer, iter.line(), &mut ctx);
-                                txt.bind_highlights(&ctx);
-                                cursor_position = CursorPosition::from_context(&ctx);
+                                if let Some(line_no) = d.diff.get_line_no() {
+                                    let mut iter = buffer.iter_at_line(line_no).unwrap();
+                                    d.diff.render(buffer, &mut iter, &mut ctx);
+                                    let iter = buffer.iter_at_offset(buffer.cursor_position());
+                                    d.diff.cursor(buffer, iter.line(), &mut ctx);
+                                    txt.bind_highlights(&ctx);
+                                    cursor_position = CursorPosition::from_context(&ctx);
+                                }
                             }
                         }
                     }

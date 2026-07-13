@@ -116,12 +116,6 @@ pub fn make_search(
             }
         }
     });
-    let search_bar = SearchBar::builder()
-        .child(&search_box)
-        .search_mode_enabled(true)
-        .visible(true)
-        .show_close_button(true)
-        .build();
 
     // let updater = {
     //     let current_search_line = current_search_line.clone();
@@ -135,7 +129,12 @@ pub fn make_search(
     //         search_matched_lines.replace(context.search_matched_lines.clone());
     //     }
     // };
-    search_bar
+    SearchBar::builder()
+        .child(&search_box)
+        .search_mode_enabled(true)
+        .visible(true)
+        .show_close_button(true)
+        .build()
 }
 
 impl Hunk {

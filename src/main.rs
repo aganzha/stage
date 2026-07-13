@@ -13,6 +13,7 @@ use status_view::{
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
     remotes::auth,
+    render::ViewContainer,
     stage_view::factory as stage_factory,
     Status,
 };
