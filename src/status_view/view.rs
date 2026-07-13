@@ -325,7 +325,12 @@ impl View {
     // pub fn is_transfered(&self) -> bool {
     //     self.flags.get().is_transfered()
     // }
-
+    pub fn repr(&self) -> String {
+        format!(
+            "display: {:?} switch: {:?} state: {:?}",
+            self.display, self.switch, self.state
+        )
+    }
     // pub fn repr(&self) -> String {
     //     format!("line_no: {} rendred: {} squashed: {} active: {} current: {} expanded: {} dirty: {} child_dirty: {}, transfered: {}",
     //             self.line_no.get(),
