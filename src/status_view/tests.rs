@@ -5,11 +5,11 @@
 #[cfg(test)]
 use crate::status_view::op::LastOp;
 #[cfg(test)]
-use crate::status_view::view::{Display, Switch, CursorState};
-#[cfg(test)]
 use crate::status_view::stage_view::StageView;
 #[cfg(test)]
 use crate::status_view::tags;
+#[cfg(test)]
+use crate::status_view::view::{Display, State, Switch};
 
 use crate::status_view::view::View;
 #[cfg(test)]
@@ -121,7 +121,6 @@ pub fn test_file_active() {
 
     assert!((&diff.files[0]).view.is_current());
 
-
     // expand it
     diff.files[0].expand(line_no, &mut context).unwrap();
     let mut iter = buffer.iter_at_offset(0);
@@ -209,15 +208,12 @@ pub fn test_expand() {
         let line_no = file.get_line_no().unwrap();
         let view = file.get_view();
         if line_no == cursor_line {
-            assert!(matches!(view.state.get(), CursorState::Current));
-            assert!(matches!(
-                file.get_view().switch.get(),
-                Switch::Expanded
-            ));
+            assert!(matches!(view.state.get(), State::Current));
+            assert!(matches!(file.get_view().switch.get(), Switch::Expanded));
             file.walk_down(&mut |vc: &dyn ViewContainer| {
                 assert!(vc.get_line_no().is_some());
                 let view = vc.get_view();
-                assert!(matches!(view.state.get(), CursorState::Active));
+                assert!(matches!(view.state.get(), State::Active));
                 assert!(vc.get_line_no().is_some());
             });
         } else {
@@ -389,7 +385,7 @@ fn test_render_view() {
 
     assert!(!vc1.get_line_no().is_some());
     // its no longer squashed. is it ok?
-    assert!(matches!(vc1.view.display.get(), Display::Hidden)); 
+    assert!(matches!(vc1.view.display.get(), Display::Hidden));
     // iter was not moved (nothing to delete, view was not rendered)
     assert!(iter.line() == 1);
 
@@ -417,7 +413,7 @@ fn test_render_view() {
     iter = buffer.iter_at_line(3).unwrap();
     vc3.view.display.replace(Display::Pending);
     vc3.render(&buffer, &mut iter, &mut ctx);
-    assert!(matches!(vc3.view.display.get(), Display::Settled(3)));    
+    assert!(matches!(vc3.view.display.get(), Display::Settled(3)));
     assert!(iter.line() == 4);
 }
 

@@ -14,7 +14,7 @@ pub enum Display {
     None,
 }
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum CursorState {
+pub enum State {
     Active,
     Current,
     None,
@@ -45,7 +45,7 @@ pub struct View {
     pub tag_indexes: Cell<tags::TagIdx>,
     pub display: Cell<Display>,
     pub switch: Cell<Switch>,
-    pub state: Cell<CursorState>,
+    pub state: Cell<State>,
 }
 
 impl View {
@@ -54,7 +54,7 @@ impl View {
             tag_indexes: Cell::new(tags::TagIdx::new()),
             display: Cell::new(Display::None),
             switch: Cell::new(Switch::Collapsed),
-            state: Cell::new(CursorState::None),
+            state: Cell::new(State::None),
         }
     }
 
@@ -145,10 +145,10 @@ impl View {
     //     self.flags.get().is_current()
     // }
     pub fn is_active(&self) -> bool {
-        matches!(self.state.get(), CursorState::Active)
+        matches!(self.state.get(), State::Active)
     }
     pub fn is_current(&self) -> bool {
-        matches!(self.state.get(), CursorState::Current)
+        matches!(self.state.get(), State::Current)
     }
     pub fn is_transfered(&self) -> bool {
         !matches!(self.display.get(), Display::None)

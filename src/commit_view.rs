@@ -6,7 +6,7 @@ use crate::dialogs::alert;
 use crate::git::{blame, commit, stash::StashNum};
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
-    render::ViewContainer, stage_view::StageView, view::CursorState, view::View, CursorPosition,
+    render::ViewContainer, stage_view::StageView, view::State, view::View, CursorPosition,
     Label as TextViewLabel,
 };
 use crate::{ApplyOp, BlameLine, CurrentWindow, Event, HunkLineNo, StageOp};
@@ -212,7 +212,7 @@ impl commit::CommitDiff {
                                 for (l, line) in hunk.lines.iter().enumerate() {
                                     if let Some(line_no) = line.new_line_no {
                                         if line_no == blame_line.line_in_hunk {
-                                            line.view.state.replace(CursorState::Current);
+                                            line.view.state.replace(State::Current);
                                             //line.view.make_current(true);
                                             found = true;
                                             found_line_index.replace((f, h, l));
@@ -232,7 +232,7 @@ impl commit::CommitDiff {
                     }
                 }
             } else {
-                self.diff.files[0].view.state.replace(CursorState::Current);
+                self.diff.files[0].view.state.replace(State::Current);
                 //self.diff.files[0].view.make_current(true);
             }
         }

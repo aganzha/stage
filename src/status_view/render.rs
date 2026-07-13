@@ -4,7 +4,7 @@
 
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
-use crate::status_view::view::{CursorState, Display, RenderOp, Switch, View};
+use crate::status_view::view::{Display, RenderOp, State, Switch, View};
 use crate::status_view::Label;
 use crate::{
     Diff,
@@ -14,7 +14,7 @@ use crate::{
     Hunk,
     Line,
     LineKind,
-    State,
+    State as GitState,
     StatusRenderContext, //, Untracked, UntrackedFile,
     MARKER_OURS,
     MARKER_THEIRS,
@@ -369,13 +369,13 @@ pub trait ViewContainer {
         };
         match (is_current, is_active) {
             (true, _) => {
-                view.state.replace(CursorState::Current);
+                view.state.replace(State::Current);
             }
             (_, true) => {
-                view.state.replace(CursorState::Active);
+                view.state.replace(State::Active);
             }
             _ => {
-                view.state.replace(CursorState::None);
+                view.state.replace(State::None);
             }
         }
         // view.activate(is_active);
@@ -1281,7 +1281,7 @@ impl ViewContainer for Head {
     }
 }
 
-impl ViewContainer for State {
+impl ViewContainer for GitState {
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
