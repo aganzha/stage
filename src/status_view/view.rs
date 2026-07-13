@@ -34,11 +34,6 @@ pub enum RenderOp {
     Skip,
     None,
 }
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum ChildRenderOp {
-    Proceed,
-    Skip,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct View {
@@ -109,7 +104,8 @@ impl View {
     }
 
     pub fn toggle(&self, line_no: i32) {
-        // this is only for calling from code!
+        // this is only for calling from UI!
+        // when render line by line, current line is passed here as argument
         if let Display::Settled(my_line_no) = self.display.get() {
             if line_no == my_line_no {
                 match self.switch.get() {
@@ -125,25 +121,11 @@ impl View {
         matches!(self.switch.get(), Switch::Expanded)
     }
 
-    // pub fn is_squashed(&self) -> bool {
-    //     self.flags.get().is_squashed()
-    // }
     pub fn is_rendered(&self) -> bool {
         // self.flags.get().is_rendered()
         matches!(self.display.get(), Display::Settled(_))
     }
-    // pub fn is_dirty(&self) -> bool {
-    //     self.flags.get().is_dirty()
-    // }
-    // pub fn is_child_dirty(&self) -> bool {
-    //     self.flags.get().is_child_dirty()
-    // }
-    // pub fn is_active(&self) -> bool {
-    //     self.flags.get().is_active()
-    // }
-    // pub fn is_current(&self) -> bool {
-    //     self.flags.get().is_current()
-    // }
+
     pub fn is_active(&self) -> bool {
         matches!(self.state.get(), State::Active)
     }

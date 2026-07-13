@@ -159,6 +159,7 @@ pub trait ViewContainer {
     }
     fn put_line_onto(&self, iter: &mut TextIter) {
         let view = self.get_view();
+        println!("🎯 put line into {:?}", view,);
         if let Display::Settled(line_no) = view.display.get() {
             iter.set_line(line_no);
         } else {
@@ -216,7 +217,8 @@ pub trait ViewContainer {
             }
             RenderOp::None => {}
         }
-        if view.needs_children_snapshot() {
+        let child_required = view.needs_children_snapshot();
+        if child_required {
             for child in self.get_children() {
                 child.render(buffer, iter, context);
             }
@@ -406,7 +408,7 @@ pub trait ViewContainer {
         view.toggle(line_no);
         match view.switch.get() {
             Switch::PendingExpansion => {
-                println!("🌻 expanded!");
+                println!("🌻 Switch::PendingExpansion");
                 self.walk_down(&mut |vc: &dyn ViewContainer| {
                     let view = vc.get_view();
                     view.display.replace(Display::None);
@@ -414,7 +416,7 @@ pub trait ViewContainer {
                 Some(line_no)
             }
             Switch::PendingCollapsion => {
-                println!("🌻 collapsed!");
+                println!("🌻 Switch::PendingCollapsion");
                 self.walk_down(&mut |vc: &dyn ViewContainer| {
                     let view = vc.get_view();
                     view.display.replace(Display::Trashed);
@@ -422,13 +424,12 @@ pub trait ViewContainer {
                 Some(line_no)
             }
             Switch::Expanded => {
+                println!("🌻 Switch::Expanded");
                 let mut result: Option<i32> = None;
                 self.walk_down(&mut |vc: &dyn ViewContainer| {
                     if let Some(vc_line_no) = vc.expand(line_no, context) {
                         result.replace(vc_line_no);
                     }
-                    // let view = vc.get_view();
-                    // view.display.replace(Display::Trashed);
                 });
                 result
             }

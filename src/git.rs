@@ -482,8 +482,6 @@ impl Diff {
     pub fn new(kind: DiffKind) -> Self {
         let view = View::new();
         view.set_switch(true);
-        // view.expand(true);
-        // view.child_dirty(true);
         Self {
             files: Vec::new(),
             view,

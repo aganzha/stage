@@ -117,18 +117,6 @@ pub fn make_search(
         }
     });
 
-    // let updater = {
-    //     let current_search_line = current_search_line.clone();
-    //     let search_matched_lines = search_matched_lines.clone();
-    //     move |current_line: i32, context: &mut StatusRenderContext| {
-    //         println!(
-    //             "🧶 update search ..... {} {:?}",
-    //             current_line, context.search_matched_lines
-    //         );
-    //         current_search_line.replace(Some(current_line));
-    //         search_matched_lines.replace(context.search_matched_lines.clone());
-    //     }
-    // };
     SearchBar::builder()
         .child(&search_box)
         .search_mode_enabled(true)
@@ -143,13 +131,9 @@ impl Hunk {
             if self.view.is_rendered() && self.view.is_expanded() {
                 // TODO! tags! should be done with cursor!
                 self.view.display.replace(Display::Pending);
-                // self.view.dirty(true);
-                // ⚠️ ATTENTION this affect structure during expand/collapse
-                // self.view.child_dirty(true);
                 for line in &self.lines {
                     // TODO! tags! should be done with cursor!
                     line.view.display.replace(Display::Pending);
-                    // line.view.dirty(true);
                 }
             }
             return true;
@@ -168,9 +152,6 @@ impl Hunk {
             .find_iter(&self.buf)
             .map(|m| (m.start() + 1, m.end()))
             .collect();
-        // if !self.search_ranges.is_empty() {
-        //     println!("🧶 FOUND!");
-        // }
         self.mark_dirty_by_search()
     }
 }

@@ -984,21 +984,18 @@ impl Status {
             .into_iter()
             .flatten()
         {
-            let mut matched = false;
             for file in diff.files.iter_mut() {
+                let mut found_in_file = false;
                 for hunk in file.hunks.iter_mut() {
                     let found_in_hunk = hunk.perform_search(&term);
-                    // if found_in_hunk {
-                    //     println!("💦 found in hunk {:?}", hunk.header);
-                    // }
-                    matched = matched || found_in_hunk;
+                    if found_in_hunk {
+                        hunk.view.set_switch(true);
+                        println!("💦 found in hunk {:?}", hunk.header);
+                    }
+                    found_in_file = found_in_file || found_in_hunk;
                 }
-            }
-            // something still wrong wit expand
-            if matched {
-                println!("🧄 EXPAND DIFF");
-                if let Some(line_no) = diff.get_line_no() {
-                    diff.expand(line_no, context);
+                if found_in_file {
+                    file.view.set_switch(true);
                 }
             }
         }
