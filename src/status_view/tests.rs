@@ -5,11 +5,11 @@
 #[cfg(test)]
 use crate::status_view::op::LastOp;
 #[cfg(test)]
+use crate::status_view::view::{Display, Switch, CursorState};
+#[cfg(test)]
 use crate::status_view::stage_view::StageView;
 #[cfg(test)]
 use crate::status_view::tags;
-// #[cfg(test)]
-// use crate::status_view::view::RenderFlags;
 
 use crate::status_view::view::View;
 #[cfg(test)]
@@ -121,8 +121,6 @@ pub fn test_file_active() {
 
     assert!((&diff.files[0]).view.is_current());
 
-    // put cursor on file
-    // diff.files[0].cursor(&buffer, line_no, &mut context);
 
     // expand it
     diff.files[0].expand(line_no, &mut context).unwrap();
@@ -184,8 +182,6 @@ pub fn test_expand() {
 
             if line_no == cursor_line {
                 assert!(view.is_current());
-                // assert!(view.is_active());
-                // assert!(view.is_current());
             } else {
                 assert!(!view.is_active());
                 assert!(!view.is_current());
@@ -198,7 +194,6 @@ pub fn test_expand() {
     let mut cursor_line = 2;
     for file in &diff.files {
         if let Some(_expanded_line) = file.expand(cursor_line, &mut ctx) {
-            //assert!(file.get_view().is_child_dirty());
             assert!(matches!(
                 file.get_view().switch.get(),
                 Switch::PendingExpansion
@@ -215,18 +210,15 @@ pub fn test_expand() {
         let view = file.get_view();
         if line_no == cursor_line {
             assert!(matches!(view.state.get(), CursorState::Current));
-            // assert!(get_line_no().is_some());
-            // assert!(view.is_current());
-            // assert!(view.is_active());
-            // assert!(view.is_expanded());
+            assert!(matches!(
+                file.get_view().switch.get(),
+                Switch::Expanded
+            ));
             file.walk_down(&mut |vc: &dyn ViewContainer| {
                 assert!(vc.get_line_no().is_some());
                 let view = vc.get_view();
-                assert!(matches!(view.state.get(), CursorState::Active))
-                // assert!(get_line_no().is_some());
-                // assert!(view.is_active());
-                // assert!(!view.is_squashed());
-                // assert!(!view.is_current());
+                assert!(matches!(view.state.get(), CursorState::Active));
+                assert!(vc.get_line_no().is_some());
             });
         } else {
             assert!(!view.is_current());
@@ -392,62 +384,40 @@ fn test_render_view() {
     // ------------------ test deleted
     iter = buffer.iter_at_line(1).unwrap();
     vc1.view.display.replace(Display::Trashed);
-    // vc1.view.squash(true);
-    // vc1.view.render(false);
 
     vc1.render(&buffer, &mut iter, &mut ctx);
-    println!(
-        "🍇 AFTER RENDERING TRASHED VIEW {:?}",
-        vc1.get_view().repr()
-    );
+
     assert!(!vc1.get_line_no().is_some());
     // its no longer squashed. is it ok?
-    assert!(!matches!(vc1.view.display.get(), Display::Trashed)); // is_squashed()
-                                                                  // iter was not moved (nothing to delete, view was not rendered)
+    assert!(matches!(vc1.view.display.get(), Display::Hidden)); 
+    // iter was not moved (nothing to delete, view was not rendered)
     assert!(iter.line() == 1);
-    // rerender it
-    println!("🪩 BEFORE {:?} {:?}", iter.line(), vc1.get_view().display);
-    vc1.render(&buffer, &mut iter, &mut ctx);
-    println!("🪩 AFTER {:?} {:?}", iter.line(), vc1.get_view().display);
-    assert!(iter.line() == 1); // was 2!
 
     // -------------------- test dirty
-    // vc2.view.dirty(true);
-    vc2.view.display.replace(Display::Pending); //dirty(true);
+    vc2.view.display.replace(Display::Pending);
     vc2.render(&buffer, &mut iter, &mut ctx);
 
-    assert!(!matches!(vc2.view.display.get(), Display::Pending)); //is_dirty());
-    assert!(iter.line() == 2); // was 3
-                               // -------------------- test squashed
-    vc3.view.display.replace(Display::Trashed);
-    //vc3.view.squash(true);
-    vc3.render(&buffer, &mut iter, &mut ctx);
+    assert!(!matches!(vc2.view.display.get(), Display::Pending));
+    assert!(iter.line() == 2);
 
-    assert!(matches!(vc3.view.display.get(), Display::Hidden)); //.is_squashed());
-                                                                // iter remains on same kine, just squashing view in place
-    assert!(iter.line() == 2); // was 3!
+    // -------------------- test squashed
+    vc3.view.display.replace(Display::Trashed);
+    vc3.render(&buffer, &mut iter, &mut ctx);
+    assert!(matches!(vc3.view.display.get(), Display::Hidden));
+    // iter remains on same kine, just squashing view in place
+    assert!(iter.line() == 2);
 
     // -------------------- test transfered
-    vc3.view.display.replace(Display::None); // line_no.replace(0);
-                                             // vc3.view.dirty(true);
-                                             // vc3.view.transfer(true);
+    vc3.view.display.replace(Display::None);
     vc3.render(&buffer, &mut iter, &mut ctx);
-    println!("🍇 wtf? {:?}", vc3.view.repr());
-    assert!(matches!(vc3.view.display.get(), Display::Settled(2))); // get_line_no().unwrap() == 3);
-                                                                    //assert!(vc3.get_line_no().is_some());
-                                                                    //assert!(!vc3.view.is_dirty());
-                                                                    // TODO!
-                                                                    //assert!(!vc3.view.is_transfered());
-    assert!(iter.line() == 3); // was 4
+    assert!(matches!(vc3.view.display.get(), Display::Settled(2)));
+    assert!(iter.line() == 3);
 
     // --------------------- test not in place
     iter = buffer.iter_at_line(3).unwrap();
-    vc3.view.display.replace(Display::Pending); //line_no.replace(0);
+    vc3.view.display.replace(Display::Pending);
     vc3.render(&buffer, &mut iter, &mut ctx);
-    println!("🍇 wtf? {:?}", vc3.view.repr());
-    assert!(matches!(vc3.view.display.get(), Display::Settled(3))); //was 3!
-                                                                    // assert!(vc3.get_line_no().unwrap() == 3);
-                                                                    // assert!(vc3.get_line_no().is_some());
+    assert!(matches!(vc3.view.display.get(), Display::Settled(3)));    
     assert!(iter.line() == 4);
 }
 
@@ -569,11 +539,9 @@ fn test_reconciliation_new() {
 
     debug!("iter over new hunks");
     for h in &new_file.hunks {
-        // TODO!
-        //assert!(h.view.is_transfered());
+        assert!(h.view.is_transfered());
         for line in &h.lines {
-            //TODO!
-            //assert!(line.view.is_transfered());
+            assert!(line.view.is_transfered());
         }
     }
 
@@ -616,11 +584,9 @@ fn test_reconciliation_new() {
     debug!("iter over new hunks");
     for h in &new_file.hunks {
         debug!("all new hunks are transfered {}", h.view.repr());
-        // TODO!
-        //assert!(h.view.is_transfered());
+        assert!(h.view.is_transfered());
         for line in &h.lines {
-            // TODO!
-            //assert!(line.view.is_transfered());
+            assert!(line.view.is_transfered());
         }
     }
 
@@ -667,14 +633,11 @@ fn test_reconciliation_new() {
     }
     for (i, h) in new_file.hunks.iter().enumerate() {
         if i == 0 {
-            //TODO!
-            //assert!(!h.view.is_transfered())
+            assert!(!h.view.is_transfered())
         } else {
-            //TODO
-            //assert!(h.view.is_transfered());
+            assert!(h.view.is_transfered());
             for line in &h.lines {
-                // TODO!
-                //assert!(line.view.is_transfered());
+                assert!(line.view.is_transfered());
             }
         }
     }
@@ -720,14 +683,11 @@ fn test_reconciliation_new() {
     }
     for (i, h) in new_file.hunks.iter().enumerate() {
         if i == 0 {
-            //TODO just check display is not none!!!!!!
-            //assert!(!h.view.is_transfered())
+            assert!(!h.view.is_transfered())
         } else {
-            //TODO!
-            //assert!(h.view.is_transfered());
+            assert!(h.view.is_transfered());
             for line in &h.lines {
-                // TODO!
-                //assert!(line.view.is_transfered());
+                assert!(line.view.is_transfered());
             }
         }
     }
@@ -760,11 +720,9 @@ fn test_reconciliation_new() {
     iter.set_line(0);
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
     assert!(rendered_file.hunks[0].get_line_no().is_some());
-    //TODO!
-    //assert!(new_file.hunks[0].view.is_transfered());
+    assert!(new_file.hunks[0].view.is_transfered());
     for line in &new_file.hunks[0].lines {
-        //TODO!
-        //assert!(line.view.is_transfered());
+        assert!(line.view.is_transfered());
     }
 
     // -------------------- case 4 - cannot reproduced but
@@ -792,11 +750,9 @@ fn test_reconciliation_new() {
     iter.set_line(0);
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
     assert!(rendered_file.hunks[0].get_line_no().is_some());
-    //TODO!
-    //assert!(new_file.hunks[0].view.is_transfered());
+    assert!(new_file.hunks[0].view.is_transfered());
     for line in &new_file.hunks[0].lines {
-        // TODO!
-        //assert!(line.view.is_transfered));
+        assert!(line.view.is_transfered());
     }
 }
 
@@ -830,28 +786,6 @@ fn test_tags() {
     assert!(!view.tag_indexes.get().is_added(&tag1));
     assert!(!view.tag_indexes.get().is_added(&tag3));
 }
-
-// #[test]
-// pub fn test_flags() {
-//     let mut flags = RenderFlags::new();
-
-//     flags = flags.expand(true);
-//     flags = flags.squash(true);
-
-//     debug!(
-//         "------------- set {:b} {} {}",
-//         flags,
-//         flags.is_squashed(),
-//         flags.is_expanded()
-//     );
-//     flags = flags.expand(false);
-//     debug!(
-//         "------------- set {:b} {} {}",
-//         flags,
-//         flags.is_squashed(),
-//         flags.is_expanded()
-//     );
-// }
 
 #[gtk4::test]
 pub fn test_cursor_position() {
