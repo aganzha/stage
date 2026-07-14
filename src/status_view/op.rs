@@ -590,7 +590,7 @@ impl Status {
                         if diff.kind == render_diff_kind {
                             'found: for i in (0..file_idx + 1).rev() {
                                 if let Some(file) = diff.files.get(i) {
-                                    if file.view.is_expanded() {
+                                    if file.is_expanded() {
                                         for j in (0..hunk_ids + 1).rev() {
                                             if let Some(hunk) = file.hunks.get(j) {
                                                 hunk.put_line_onto(&mut iter);

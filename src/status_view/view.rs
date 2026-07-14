@@ -114,7 +114,6 @@ impl View {
     }
 
     pub fn is_rendered(&self) -> bool {
-        // self.flags.get().is_rendered()
         matches!(self.display.get(), Display::Settled(_))
     }
 

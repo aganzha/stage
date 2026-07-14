@@ -24,7 +24,7 @@ impl Hunk {
             self.view.display.replace(Display::Pending);
             //self.view.dirty(true);
         }
-        if !self.view.is_expanded() {
+        if !self.is_expanded() {
             return;
         }
         let mut last_rendered = 0;
@@ -62,7 +62,7 @@ impl File {
         context: &mut crate::StatusRenderContext,
     ) {
         self.adopt_view(&rendered.view);
-        if !self.view.is_expanded() {
+        if !self.is_expanded() {
             return;
         }
         for h in &rendered.hunks {

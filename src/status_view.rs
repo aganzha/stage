@@ -190,7 +190,7 @@ impl Status {
             let maybe_file = diff
                 .files
                 .iter()
-                .find(|f| f.view.is_current() || f.hunks.iter().any(|h| h.view.is_active()));
+                .find(|f| f.is_current() || f.hunks.iter().any(|h| h.is_active()));
             if maybe_file.is_some() {
                 return maybe_file;
             }
@@ -201,15 +201,15 @@ impl Status {
     // TODO! replace in the favour of context
     pub fn editor_args_at_cursor(&self, txt: &StageView) -> Option<(PathBuf, i32, i32)> {
         if let Some(file) = self.file_at_cursor() {
-            if file.view.is_current() {
+            if file.is_current() {
                 return Some((self.to_abs_path(&file.path), 0, 0));
             }
-            let hunk = file.hunks.iter().find(|h| h.view.is_active()).unwrap();
+            let hunk = file.hunks.iter().find(|h| h.is_active()).unwrap();
             // TODO move Line old_line_no and new_line_no
             let mut line_no = hunk.new_start;
             let mut col_no = 0;
-            if !hunk.view.is_current() {
-                let line = hunk.lines.iter().find(|l| l.view.is_current()).unwrap();
+            if !hunk.is_current() {
+                let line = hunk.lines.iter().find(|l| l.is_current()).unwrap();
                 line_no = line
                     .new_line_no
                     .or(line.old_line_no)
@@ -997,8 +997,8 @@ impl Status {
                     hunk.perform_search(&term);
                     let found_in_hunk = !hunk.search_ranges.is_empty();
                     if has_prev_search || found_in_hunk {
-                        hunk.view.set_switch(true);
-                        println!("💦 found in hunk {} {}", hunk, hunk.view);
+                        // hunk.view.set_switch(true);
+                        println!("💦 found in hunk: {} {}", hunk, hunk.view);
                     }
                     found_in_file = found_in_file || found_in_hunk;
                 }

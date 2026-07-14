@@ -35,6 +35,27 @@ pub enum TagChanges {
 }
 
 pub trait ViewContainer: fmt::Display {
+    fn is_expanded(&self) -> bool {
+        self.get_view().is_expanded()
+    }
+
+    fn is_rendered(&self) -> bool {
+        self.get_view().is_rendered()
+    }
+
+    fn is_active(&self) -> bool {
+        self.get_view().is_active()
+    }
+    fn is_current(&self) -> bool {
+        self.get_view().is_current()
+    }
+    fn is_transfered(&self) -> bool {
+        self.get_view().is_transfered()
+    }
+
+    fn is_rendered_in(&self, line_no: i32) -> bool {
+        self.get_view().is_rendered_in(line_no)
+    }
     fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool;
 
     fn get_children(&self) -> Vec<&dyn ViewContainer>;
@@ -336,7 +357,7 @@ pub trait ViewContainer: fmt::Display {
         parent_index: usize,
         context: &mut StatusRenderContext<'a>,
     ) -> bool {
-        if self.get_view().is_rendered_in(line_no) {
+        if self.is_rendered_in(line_no) {
             self.fill_selected(context, parent_index);
             return true;
         } else {
@@ -356,21 +377,21 @@ pub trait ViewContainer: fmt::Display {
         line_no: i32,
         context: &mut StatusRenderContext<'a>,
     ) {
-        let view = self.get_view();
-        if !view.is_rendered() {
+        if !self.is_rendered() {
             return;
         }
         self.prepare_context(context, Some(line_no));
 
-        let was_current = view.is_current();
-        let was_active = view.is_active();
+        let was_current = self.is_current();
+        let was_active = self.is_active();
 
-        let is_current = view.is_rendered_in(line_no);
+        let is_current = self.is_rendered_in(line_no);
         let is_active = if is_current {
             true
         } else {
             self.get_is_active(context)
         };
+        let view = self.get_view();
         match (is_current, is_active) {
             (true, _) => {
                 view.state.replace(State::Current);
@@ -382,8 +403,6 @@ pub trait ViewContainer: fmt::Display {
                 view.state.replace(State::None);
             }
         }
-        // view.activate(is_active);
-        // view.make_current(is_current);
 
         for child in self.get_children() {
             child.cursor(buffer, line_no, context);
@@ -439,7 +458,6 @@ pub trait ViewContainer: fmt::Display {
             _ => None,
         }
     }
-    // jey
     // ViewContainer
     // fn old_expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
     //     // check
@@ -493,8 +511,7 @@ pub trait ViewContainer: fmt::Display {
         // CAUTION. ATTENTION. IMPORTANT
 
         // ALL ERASE AND RENDER PROCESSES MUST STRICLTY GO FROM TOP TO BOTTOM!
-        let view = self.get_view();
-        if !view.is_rendered() {
+        if !self.is_rendered() {
             return;
         }
 
@@ -504,7 +521,6 @@ pub trait ViewContainer: fmt::Display {
         // it does not required here. erase will kill em all
         // let mut applied_tags = HashSet::new();
 
-        let view = self.get_view();
         // it does not required here. erase will kill em all
         // for tag in view.added_tags() {
         //     applied_tags.insert(tag.name().to_string());
@@ -519,14 +535,13 @@ pub trait ViewContainer: fmt::Display {
         context.erase_counter += 1;
         // buffer.delete(&mut iter, &mut nel_iter);
 
-        if view.is_expanded() {
+        if self.is_expanded() {
             self.walk_down(&mut |vc: &dyn ViewContainer| {
-                let view = vc.get_view();
                 // it does not required here. erase will kill em all
                 // for tag in view.added_tags() {
                 //     applied_tags.insert(tag.name().to_string());
                 // }
-                if !view.is_rendered() {
+                if !vc.is_rendered() {
                     return;
                 }
                 // what about expanded?
@@ -631,18 +646,18 @@ impl ViewContainer for Diff {
             return None;
         }
         let mut result: Option<i32> = None;
-        let expand_whole_diff = self.get_view().is_rendered_in(line_no);
+        let expand_whole_diff = self.is_rendered_in(line_no);
         if expand_whole_diff {
             result.replace(line_no);
         }
-        let all_expanded = self.files.iter().all(|f| f.get_view().is_expanded());
-        let all_collapsed = self.files.iter().all(|f| !f.get_view().is_expanded());
+        let all_expanded = self.files.iter().all(|f| f.is_expanded());
+        let all_collapsed = self.files.iter().all(|f| !f.is_expanded());
         let mut expand_all_files = true;
         if !all_expanded && !all_collapsed {
             // if some files are expanded and some are collapsed
             // lets look at first file. if it is expanded - expand all
             // (this is for the case of automatic expansion of first hunk)
-            expand_all_files = self.files[0].get_view().is_expanded();
+            expand_all_files = self.files[0].is_expanded();
         }
         for file in &self.files {
             if expand_whole_diff {
@@ -654,15 +669,15 @@ impl ViewContainer for Diff {
                 } else {
                     println!(
                         "‼️ expand collapsed vs collaps expanded {:?}",
-                        self.get_view().is_expanded()
+                        self.is_expanded()
                     );
                     if expand_all_files {
-                        if !file.get_view().is_expanded() {
+                        if !file.is_expanded() {
                             if let Some(line_no) = file.get_line_no() {
                                 file.expand(line_no);
                             }
                         }
-                    } else if file.get_view().is_expanded() {
+                    } else if file.is_expanded() {
                         if let Some(line_no) = file.get_line_no() {
                             file.expand(line_no);
                         }
@@ -908,7 +923,7 @@ impl ViewContainer for Line {
     // Line
     fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
         if let Some(line_no) = self.get_line_no() {
-            if self.view.is_active() {
+            if self.is_active() {
                 ctx.collect_line_highlights(line_no);
             }
             let source_line_no = self
@@ -1119,7 +1134,7 @@ impl ViewContainer for Line {
                             if !anchor.widgets().is_empty() {
                                 let w = &anchor.widgets()[0];
                                 let l = w.downcast_ref::<GtkLabel>().unwrap();
-                                if self.view.is_current() {
+                                if self.is_current() {
                                     l.set_opacity(1.0);
                                 } else {
                                     l.set_opacity(0.3);
