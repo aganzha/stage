@@ -107,6 +107,11 @@ pub struct Line {
     pub char_indices: HashMap<usize, i32>,
 }
 
+impl fmt::Display for Line {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Line {:?}", self.new_line_no)
+    }
+}
 impl Default for Line {
     fn default() -> Self {
         Line {
@@ -433,6 +438,12 @@ pub struct File {
     pub status: Delta,
 }
 
+impl fmt::Display for File {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "File {:?}", self.path)
+    }
+}
+
 impl File {
     pub fn new(kind: DiffKind) -> Self {
         Self {
@@ -478,6 +489,12 @@ pub struct Diff {
     pub kind: DiffKind,
 }
 
+impl fmt::Display for Diff {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Diff {:?}", self.kind)
+    }
+}
+
 impl Diff {
     pub fn new(kind: DiffKind) -> Self {
         let view = View::default();
@@ -517,6 +534,12 @@ pub struct State {
     pub state: RepositoryState,
     pub subject: String,
     pub view: View,
+}
+
+impl fmt::Display for State {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "State {:?}", self.state)
+    }
 }
 
 impl State {
@@ -571,6 +594,12 @@ pub struct Head {
     pub view: View,
     pub commit_dt: DateTime<FixedOffset>,
     pub branch: Option<BranchData>,
+}
+
+impl fmt::Display for Head {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Head {:?}", self.branch)
+    }
 }
 
 impl Head {

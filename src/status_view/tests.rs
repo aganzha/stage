@@ -10,6 +10,7 @@ use crate::status_view::stage_view::StageView;
 use crate::status_view::tags;
 #[cfg(test)]
 use crate::status_view::view::{Display, State, Switch};
+use std::fmt;
 
 use crate::status_view::view::View;
 #[cfg(test)]
@@ -316,7 +317,11 @@ impl TestViewContainer {
         }
     }
 }
-
+impl fmt::Display for TestViewContainer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "TestViewContainer")
+    }
+}
 impl ViewContainer for TestViewContainer {
     fn is_empty(&self, _context: &mut StatusRenderContext) -> bool {
         false
@@ -679,7 +684,7 @@ fn test_reconciliation_new() {
     }
     for (i, h) in new_file.hunks.iter().enumerate() {
         if i == 0 {
-            assert!(!h.view.is_transfered())
+            assert!(!h.view.is_transfered()) //jj
         } else {
             assert!(h.view.is_transfered());
             for line in &h.lines {

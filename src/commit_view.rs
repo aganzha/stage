@@ -12,6 +12,7 @@ use crate::status_view::{
 use crate::{ApplyOp, BlameLine, CurrentWindow, Event, HunkLineNo, StageOp};
 use async_channel::Sender;
 use git2::Oid;
+use std::fmt;
 
 use gtk4::prelude::*;
 use gtk4::{
@@ -87,6 +88,11 @@ pub fn headerbar_factory(
 pub struct MultiLineLabel {
     pub labels: Vec<TextViewLabel>,
     pub view: View,
+}
+impl fmt::Display for MultiLineLabel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "MultiLabel")
+    }
 }
 
 impl MultiLineLabel {

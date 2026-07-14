@@ -16,6 +16,7 @@ use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{
     abort_rebase, blame, branch::BranchData, continue_rebase, merge, remote, stash, HunkLineNo,
 };
+use std::fmt;
 
 use git2::RepositoryState;
 use op::LastOp;
@@ -79,6 +80,11 @@ impl State {
 pub struct Label {
     pub content: String,
     view: View,
+}
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Label")
+    }
 }
 impl Label {
     pub fn from_string(content: &str) -> Self {

@@ -24,6 +24,7 @@ use gtk4::prelude::*;
 use gtk4::{Label as GtkLabel, TextBuffer, TextIter};
 use libadwaita::StyleManager;
 use log::{error, trace};
+use std::fmt;
 //pub const LINE_NO_SPACE: i32 = 6;
 //ss
 #[derive(PartialEq, Debug)]
@@ -33,7 +34,7 @@ pub enum TagChanges {
     BecomeActive(bool),
 }
 
-pub trait ViewContainer {
+pub trait ViewContainer: fmt::Display {
     fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool;
 
     fn get_children(&self) -> Vec<&dyn ViewContainer>;
@@ -219,6 +220,7 @@ pub trait ViewContainer {
         }
         let child_required = view.needs_children_snapshot();
         if child_required {
+            println!("🧪 go expand childs {}", view);
             for child in self.get_children() {
                 child.render(buffer, iter, context);
             }
@@ -407,8 +409,9 @@ pub trait ViewContainer {
         let view = self.get_view();
         view.toggle(line_no);
         match view.switch.get() {
+            // hey
             Switch::PendingExpansion => {
-                println!("🌻 Switch::PendingExpansion");
+                println!("🌻 Switch::PendingExpansion {}", self);
                 self.walk_down(&mut |vc: &dyn ViewContainer| {
                     let view = vc.get_view();
                     view.display.replace(Display::None);
