@@ -89,6 +89,12 @@ impl View {
             Switch::Collapsed => false,
         }
     }
+
+    pub fn mark_for_tags(&self) {
+        if let Display::Settled(line_no, _) = self.display.get() {
+            self.display.replace(Display::Settled(line_no, false));
+        }
+    }
     pub fn set_switch(&self, value: bool) {
         // this is only for setting switch from code!
         // e.g. display first file expanded.

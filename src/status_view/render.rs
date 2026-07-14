@@ -58,6 +58,10 @@ pub trait ViewContainer: fmt::Display {
     }
     fn is_empty(&self, context: &mut StatusRenderContext<'_>) -> bool;
 
+    fn mark_for_tags(&self) {
+        self.get_view().mark_for_tags()
+    }
+
     fn get_children(&self) -> Vec<&dyn ViewContainer>;
 
     fn get_view(&self) -> &View;
@@ -428,7 +432,7 @@ pub trait ViewContainer: fmt::Display {
         false
     }
 
-    fn expand(&self, line_no: i32) -> Option<i32> {
+    fn expand(&self, line_no: i32, tags_changed: bool) -> Option<i32> {
         let view = self.get_view();
         view.toggle(line_no);
         match view.switch.get() {
@@ -452,8 +456,11 @@ pub trait ViewContainer: fmt::Display {
             Switch::Expanded => {
                 println!("🌻 Switch::Expanded");
                 let mut result: Option<i32> = None;
+                if tags_changed {
+                    self.mark_for_tags();
+                }
                 self.walk_down(&mut |vc: &dyn ViewContainer| {
-                    if let Some(vc_line_no) = vc.expand(line_no) {
+                    if let Some(vc_line_no) = vc.expand(line_no, tags_changed) {
                         result.replace(vc_line_no);
                     }
                 });
@@ -645,7 +652,7 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn expand(&self, line_no: i32) -> Option<i32> {
+    fn expand(&self, line_no: i32, tags_changed: bool) -> Option<i32> {
         if self.kind == DiffKind::Untracked {
             return None;
         }
@@ -668,7 +675,7 @@ impl ViewContainer for Diff {
                 if all_expanded || all_collapsed {
                     println!("💨 all equal");
                     if let Some(line_no) = file.get_line_no() {
-                        file.expand(line_no);
+                        file.expand(line_no, tags_changed);
                     }
                 } else {
                     println!(
@@ -678,16 +685,16 @@ impl ViewContainer for Diff {
                     if expand_all_files {
                         if !file.is_expanded() {
                             if let Some(line_no) = file.get_line_no() {
-                                file.expand(line_no);
+                                file.expand(line_no, tags_changed);
                             }
                         }
                     } else if file.is_expanded() {
                         if let Some(line_no) = file.get_line_no() {
-                            file.expand(line_no);
+                            file.expand(line_no, tags_changed);
                         }
                     }
                 }
-            } else if let Some(line) = file.expand(line_no) {
+            } else if let Some(line) = file.expand(line_no, tags_changed) {
                 result.replace(line);
             }
         }
@@ -950,7 +957,10 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn expand(&self, line_no: i32) -> Option<i32> {
+    fn expand(&self, line_no: i32, tags_changed: bool) -> Option<i32> {
+        if tags_changed {
+            self.mark_for_tags();
+        }
         if let Some(my_line_no) = self.get_line_no() {
             if my_line_no == line_no {
                 // looks like its just used to break loop

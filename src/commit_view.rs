@@ -387,7 +387,7 @@ pub fn show_commit_window(
                     Event::Expand(_offset, line_no) => {
                         info!("Expand {}", line_no);
                         if let Some(d) = &mut diff {
-                            if d.diff.expand(line_no).is_some() {
+                            if d.diff.expand(line_no, false).is_some() {
                                 let buffer = &txt.buffer();
                                 if let Some(line_no) = d.diff.get_line_no() {
                                     let mut iter = buffer.iter_at_line(line_no).unwrap();

@@ -767,20 +767,20 @@ impl Status {
         context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(conflicted) = &self.conflicted {
-            if conflicted.expand(line_no).is_some() {
+            if conflicted.expand(line_no, false).is_some() {
                 self.render(txt, Some(DiffKind::Conflicted), context);
                 return;
             }
         }
 
         if let Some(unstaged) = &self.unstaged {
-            if unstaged.expand(line_no).is_some() {
+            if unstaged.expand(line_no, false).is_some() {
                 self.render(txt, Some(DiffKind::Unstaged), context);
                 return;
             }
         }
         if let Some(staged) = &self.staged {
-            if staged.expand(line_no).is_some() {
+            if staged.expand(line_no, false).is_some() {
                 self.render(txt, Some(DiffKind::Staged), context);
             }
         }
