@@ -8,7 +8,7 @@ use std::fmt;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Display {
-    Settled(i32),
+    Settled(i32, bool),
     Pending,
     Trashed,
     Hidden,
@@ -32,6 +32,7 @@ pub enum RenderOp {
     Insert,
     Delete,
     Rewrite,
+    UpdateTags,
     Skip,
     None,
 }
@@ -50,17 +51,21 @@ impl View {
         // apply tahs was only added for search!
         match self.display.get() {
             Display::None => {
-                self.display.replace(Display::Settled(line_no));
+                self.display.replace(Display::Settled(line_no, true));
                 RenderOp::Insert
             }
-            Display::Settled(_my_line_no) => {
-                // here i can catch moving. but why?
-                self.display.replace(Display::Settled(line_no));
-                RenderOp::Skip
+            Display::Settled(_my_line_no, tags_are_ok) => {
+                // line is changed here!
+                self.display.replace(Display::Settled(line_no, true));
+                if tags_are_ok {
+                    RenderOp::Skip
+                } else {
+                    RenderOp::UpdateTags
+                }
             }
             Display::Pending => {
                 // here i can catch moving. but why?
-                self.display.replace(Display::Settled(line_no));
+                self.display.replace(Display::Settled(line_no, true));
                 RenderOp::Rewrite
             }
             Display::Trashed => {
@@ -98,7 +103,7 @@ impl View {
     pub fn toggle(&self, line_no: i32) {
         // this is only for calling from UI!
         // when render line by line, current line is passed here as argument
-        if let Display::Settled(my_line_no) = self.display.get() {
+        if let Display::Settled(my_line_no, _) = self.display.get() {
             if line_no == my_line_no {
                 match self.switch.get() {
                     Switch::Expanded => self.switch.replace(Switch::PendingCollapsion),
@@ -114,7 +119,7 @@ impl View {
     }
 
     pub fn is_rendered(&self) -> bool {
-        matches!(self.display.get(), Display::Settled(_))
+        matches!(self.display.get(), Display::Settled(_, _))
     }
 
     pub fn is_active(&self) -> bool {
@@ -128,7 +133,7 @@ impl View {
     }
 
     pub fn is_rendered_in(&self, line_no: i32) -> bool {
-        if let Display::Settled(my_line_no) = self.display.get() {
+        if let Display::Settled(my_line_no, _) = self.display.get() {
             return my_line_no == line_no;
         }
         false

@@ -285,7 +285,7 @@ pub fn test_expand() {
         if let Some(_expanded_line) = file.expand(cursor_line) {
             for child in file.get_children() {
                 let view = child.get_view();
-                if let Display::Settled(line_no) = view.display.get() {
+                if let Display::Settled(line_no, _) = view.display.get() {
                     if line_no == cursor_line {
                         // hunks were expanded by default.
                         // now they are collapsed!
@@ -411,14 +411,14 @@ fn test_render_view() {
     // -------------------- test transfered
     vc3.view.display.replace(Display::None);
     vc3.render(&buffer, &mut iter, &mut ctx);
-    assert!(matches!(vc3.view.display.get(), Display::Settled(2)));
+    assert!(matches!(vc3.view.display.get(), Display::Settled(2, _)));
     assert!(iter.line() == 3);
 
     // --------------------- test not in place
     iter = buffer.iter_at_line(3).unwrap();
     vc3.view.display.replace(Display::Pending);
     vc3.render(&buffer, &mut iter, &mut ctx);
-    assert!(matches!(vc3.view.display.get(), Display::Settled(3)));
+    assert!(matches!(vc3.view.display.get(), Display::Settled(3, _)));
     assert!(iter.line() == 4);
 }
 

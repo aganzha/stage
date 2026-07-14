@@ -996,6 +996,10 @@ impl Status {
                     let has_prev_search = !hunk.search_ranges.is_empty();
                     hunk.perform_search(&term);
                     let found_in_hunk = !hunk.search_ranges.is_empty();
+                    if hunk.is_expanded() && (has_prev_search || found_in_hunk) {
+                        // mark all as dirty
+                        for _line in &hunk.lines {}
+                    }
                     if has_prev_search || found_in_hunk {
                         // hunk.view.set_switch(true);
                         println!("💦 found in hunk: {} {}", hunk, hunk.view);

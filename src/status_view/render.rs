@@ -146,7 +146,7 @@ pub trait ViewContainer: fmt::Display {
         let view = self.get_view();
         let (start_iter, end_iter) = if let Some((start, end)) = offset_range {
             (buffer.iter_at_offset(start), buffer.iter_at_offset(end))
-        } else if let Display::Settled(line_no) = view.display.get() {
+        } else if let Display::Settled(line_no, _) = view.display.get() {
             self.start_end_iters(buffer, line_no)
         } else {
             panic!("tag on not settled view!");
@@ -174,7 +174,7 @@ pub trait ViewContainer: fmt::Display {
 
     fn get_line_no(&self) -> Option<i32> {
         let view = self.get_view();
-        if let Display::Settled(line_no) = view.display.get() {
+        if let Display::Settled(line_no, _) = view.display.get() {
             return Some(line_no);
         }
         None
@@ -182,7 +182,7 @@ pub trait ViewContainer: fmt::Display {
     fn put_line_onto(&self, iter: &mut TextIter) {
         let view = self.get_view();
         println!("🎯 put line into {:?}", view,);
-        if let Display::Settled(line_no) = view.display.get() {
+        if let Display::Settled(line_no, _) = view.display.get() {
             iter.set_line(line_no);
         } else {
             panic!("😲 put line on hidden view");
@@ -212,6 +212,10 @@ pub trait ViewContainer: fmt::Display {
                 self.apply_tags(TagChanges::Render, buffer, context);
             }
             RenderOp::Skip => {
+                iter.forward_lines(1);
+            }
+            RenderOp::UpdateTags => {
+                self.apply_tags(TagChanges::Render, buffer, context);
                 iter.forward_lines(1);
             }
             RenderOp::Rewrite => {
