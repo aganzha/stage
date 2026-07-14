@@ -178,7 +178,7 @@ pub trait ViewContainer: fmt::Display {
         let line_no = iter.line();
         let view = self.get_view();
         let snapshot = view.snapshot(line_no);
-        //println!("🧄 snapshot {:?}", snapshot);
+        println!("🧄 snapshot {:?}............{}", snapshot, self);
         match snapshot {
             RenderOp::Insert => {
                 self.write_content(iter, buffer, context);
@@ -220,7 +220,7 @@ pub trait ViewContainer: fmt::Display {
         }
         let child_required = view.needs_children_snapshot();
         if child_required {
-            println!("🧪 go expand childs {}", view);
+            println!("🧪 go expand childs {} {}", self, view);
             for child in self.get_children() {
                 child.render(buffer, iter, context);
             }
@@ -405,7 +405,7 @@ pub trait ViewContainer: fmt::Display {
         false
     }
 
-    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
+    fn expand(&self, line_no: i32) -> Option<i32> {
         let view = self.get_view();
         view.toggle(line_no);
         match view.switch.get() {
@@ -419,7 +419,7 @@ pub trait ViewContainer: fmt::Display {
                 Some(line_no)
             }
             Switch::PendingCollapsion => {
-                println!("🌻 Switch::PendingCollapsion");
+                println!("🌻 Switch::PendingCollapsion {}", self);
                 self.walk_down(&mut |vc: &dyn ViewContainer| {
                     let view = vc.get_view();
                     view.display.replace(Display::Trashed);
@@ -430,7 +430,7 @@ pub trait ViewContainer: fmt::Display {
                 println!("🌻 Switch::Expanded");
                 let mut result: Option<i32> = None;
                 self.walk_down(&mut |vc: &dyn ViewContainer| {
-                    if let Some(vc_line_no) = vc.expand(line_no, context) {
+                    if let Some(vc_line_no) = vc.expand(line_no) {
                         result.replace(vc_line_no);
                     }
                 });
@@ -626,7 +626,7 @@ impl ViewContainer for Diff {
     }
 
     // Diff
-    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
+    fn expand(&self, line_no: i32) -> Option<i32> {
         if self.kind == DiffKind::Untracked {
             return None;
         }
@@ -649,7 +649,7 @@ impl ViewContainer for Diff {
                 if all_expanded || all_collapsed {
                     println!("💨 all equal");
                     if let Some(line_no) = file.get_line_no() {
-                        file.expand(line_no, context);
+                        file.expand(line_no);
                     }
                 } else {
                     println!(
@@ -659,16 +659,16 @@ impl ViewContainer for Diff {
                     if expand_all_files {
                         if !file.get_view().is_expanded() {
                             if let Some(line_no) = file.get_line_no() {
-                                file.expand(line_no, context);
+                                file.expand(line_no);
                             }
                         }
                     } else if file.get_view().is_expanded() {
                         if let Some(line_no) = file.get_line_no() {
-                            file.expand(line_no, context);
+                            file.expand(line_no);
                         }
                     }
                 }
-            } else if let Some(line) = file.expand(line_no, context) {
+            } else if let Some(line) = file.expand(line_no) {
                 result.replace(line);
             }
         }
@@ -931,10 +931,10 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn expand(&self, line_no: i32, _context: &mut StatusRenderContext) -> Option<i32> {
-        // here we want to expand hunk
+    fn expand(&self, line_no: i32) -> Option<i32> {
         if let Some(my_line_no) = self.get_line_no() {
             if my_line_no == line_no {
+                // looks like its just used to break loop
                 return Some(line_no);
             }
         }

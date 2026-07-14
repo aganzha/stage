@@ -767,20 +767,20 @@ impl Status {
         context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(conflicted) = &self.conflicted {
-            if conflicted.expand(line_no, context).is_some() {
+            if conflicted.expand(line_no).is_some() {
                 self.render(txt, Some(DiffKind::Conflicted), context);
                 return;
             }
         }
 
         if let Some(unstaged) = &self.unstaged {
-            if unstaged.expand(line_no, context).is_some() {
+            if unstaged.expand(line_no).is_some() {
                 self.render(txt, Some(DiffKind::Unstaged), context);
                 return;
             }
         }
         if let Some(staged) = &self.staged {
-            if staged.expand(line_no, context).is_some() {
+            if staged.expand(line_no).is_some() {
                 self.render(txt, Some(DiffKind::Staged), context);
             }
         }
@@ -993,16 +993,18 @@ impl Status {
             for file in diff.files.iter_mut() {
                 let mut found_in_file = false;
                 for hunk in file.hunks.iter_mut() {
-                    let found_in_hunk = hunk.perform_search(&term);
-                    if found_in_hunk {
+                    let has_prev_search = !hunk.search_ranges.is_empty();
+                    hunk.perform_search(&term);
+                    let found_in_hunk = !hunk.search_ranges.is_empty();
+                    if has_prev_search || found_in_hunk {
                         hunk.view.set_switch(true);
-                        println!("💦 found in hunk {:?}", hunk.header);
+                        println!("💦 found in hunk {} {}", hunk, hunk.view);
                     }
                     found_in_file = found_in_file || found_in_hunk;
                 }
                 if found_in_file {
                     file.view.set_switch(true);
-                    println!("🎯 just set swict to file {:?}", file.view);
+                    println!("🎯 just set swict to file {} {}", file, file.view);
                 }
             }
         }
@@ -1033,8 +1035,8 @@ impl Status {
             .flatten()
         {
             for file in diff.files.iter_mut() {
-                for hunk in file.hunks.iter_mut() {
-                    hunk.reset_search();
+                for _hunk in file.hunks.iter_mut() {
+                    //hunk.reset_search();
                 }
             }
         }

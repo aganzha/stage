@@ -8,7 +8,6 @@ use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Button, Label, Orientation, SearchBar, SearchEntry};
 // use glib::signal::SignalHandlerId;
 // use std::sync::{OnceLock, RwLock};
-use crate::status_view::view::Display;
 use regex::Regex;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -126,32 +125,32 @@ pub fn make_search(
 }
 
 impl Hunk {
-    fn mark_dirty_by_search(&self) -> bool {
-        if !self.search_ranges.is_empty() {
-            if self.view.is_rendered() && self.view.is_expanded() {
-                // TODO! tags! should be done with cursor!
-                self.view.display.replace(Display::Pending);
-                for line in &self.lines {
-                    // TODO! tags! should be done with cursor!
-                    line.view.display.replace(Display::Pending);
-                }
-            }
-            return true;
-        }
-        false
-    }
-    pub fn reset_search(&mut self) -> bool {
-        let was_searched = self.mark_dirty_by_search();
-        self.search_ranges.clear();
-        was_searched
-    }
-    pub fn perform_search(&mut self, term: &Regex) -> bool {
+    // fn mark_dirty_by_search(&self) -> bool {
+    //     if !self.search_ranges.is_empty() {
+    //         if self.view.is_rendered() && self.view.is_expanded() {
+    //             // TODO! tags! should be done with cursor!
+    //             self.view.display.replace(Display::Pending);
+    //             for line in &self.lines {
+    //                 // TODO! tags! should be done with cursor!
+    //                 line.view.display.replace(Display::Pending);
+    //             }
+    //         }
+    //         return true;
+    //     }
+    //     false
+    // }
+    // pub fn reset_search(&mut self) -> bool {
+    //     let was_searched = self.mark_dirty_by_search();
+    //     self.search_ranges.clear();
+    //     was_searched
+    // }
+    pub fn perform_search(&mut self, term: &Regex) {
         // cleanup prev search
-        self.reset_search();
+        //self.reset_search();
         self.search_ranges = term
             .find_iter(&self.buf)
             .map(|m| (m.start() + 1, m.end()))
             .collect();
-        self.mark_dirty_by_search()
+        //self.mark_dirty_by_search()
     }
 }
