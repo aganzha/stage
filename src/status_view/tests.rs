@@ -64,7 +64,7 @@ impl Hunk {
 fn create_line(line_no: u32, from: usize, to: usize) -> Line {
     Line {
         origin: DiffLineType::Context,
-        view: View::new(),
+        view: View::default(),
         new_line_no: Some(HunkLineNo::new(line_no)),
         old_line_no: Some(HunkLineNo::new(line_no)),
         kind: LineKind::None,
@@ -109,7 +109,7 @@ fn create_diff() -> Diff {
 #[gtk4::test]
 pub fn test_file_active() {
     let buffer = initialize();
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
     let diff = create_diff();
     let mut context = StatusRenderContext::new(&stage);
@@ -166,7 +166,7 @@ pub fn test_file_active() {
 pub fn test_expand() {
     let buffer = initialize();
     let diff = create_diff();
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
     let mut ctx = StatusRenderContext::new(&stage);
     let mut iter = buffer.iter_at_line(0).unwrap();
@@ -345,15 +345,15 @@ fn test_render_view() {
     let mut iter = buffer.iter_at_line(0).unwrap();
     buffer.insert(&mut iter, "begin\n");
     // -------------------- test insert
-    let view1 = View::new();
-    let view2 = View::new();
-    let view3 = View::new();
+    let view1 = View::default();
+    let view2 = View::default();
+    let view3 = View::default();
 
     let vc1 = TestViewContainer::new(view1, "test1");
     let vc2 = TestViewContainer::new(view2, "test2");
     let vc3 = TestViewContainer::new(view3, "test3");
 
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
     let mut ctx = StatusRenderContext::new(&stage);
 
@@ -425,7 +425,7 @@ fn test_expand_line() {
 
     let diff = create_diff();
 
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
 
     let mut ctx = StatusRenderContext::new(&stage);
@@ -492,7 +492,7 @@ fn test_expand_line() {
 fn test_reconciliation_new() {
     let buffer = initialize();
 
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
 
     let mut context = StatusRenderContext::new(&stage);
@@ -579,7 +579,7 @@ fn test_reconciliation_new() {
 
     debug!("iter over new hunks");
     for h in &new_file.hunks {
-        debug!("all new hunks are transfered {}", h.view.repr());
+        debug!("all new hunks are transfered {}", h.view);
         assert!(h.view.is_transfered());
         for line in &h.lines {
             assert!(line.view.is_transfered());
@@ -624,7 +624,7 @@ fn test_reconciliation_new() {
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
     debug!("iter over rendered hunks");
     for h in &rendered_file.hunks {
-        debug!("all hunks are rendered {}", h.view.repr());
+        debug!("all hunks are rendered {}", h.view);
         assert!(h.get_line_no().is_some());
     }
     for (i, h) in new_file.hunks.iter().enumerate() {
@@ -674,7 +674,7 @@ fn test_reconciliation_new() {
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
     debug!("iter over rendered hunks");
     for h in &rendered_file.hunks {
-        debug!("all hunks are rendered {}", h.view.repr());
+        debug!("all hunks are rendered {}", h.view);
         assert!(h.get_line_no().is_some());
     }
     for (i, h) in new_file.hunks.iter().enumerate() {
@@ -757,7 +757,7 @@ fn test_tags() {
     let tag1 = tags::TEXT_TAGS[17];
     let tag3 = tags::TEXT_TAGS[3];
 
-    let view = View::new();
+    let view = View::default();
     view.tag_added(&tag1);
     debug!("added at 16 {:b}", view.tag_indexes.get());
     assert!(view.tag_indexes.get() == tags::TagIdx::from(0b100000000000000000));
@@ -788,7 +788,7 @@ pub fn test_cursor_position() {
     let buffer = initialize();
     let diff = create_diff();
 
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
 
     let mut ctx = StatusRenderContext::new(&stage);
@@ -839,7 +839,7 @@ pub fn test_choose_cursor_position() {
     let unstaged = create_diff();
     let diff = create_diff();
 
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
 
     let mut ctx = StatusRenderContext::new(&stage);

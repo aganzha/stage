@@ -4,6 +4,7 @@
 
 use crate::status_view::tags;
 use std::cell::Cell;
+use std::fmt;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Display {
@@ -44,15 +45,6 @@ pub struct View {
 }
 
 impl View {
-    pub fn new() -> Self {
-        View {
-            tag_indexes: Cell::new(tags::TagIdx::new()),
-            display: Cell::new(Display::None),
-            switch: Cell::new(Switch::Collapsed),
-            state: Cell::new(State::None),
-        }
-    }
-
     pub fn snapshot(&self, line_no: i32) -> RenderOp {
         // there are only insert/rewrite/delete and move!
         // apply tahs was only added for search!
@@ -136,13 +128,6 @@ impl View {
         !matches!(self.display.get(), Display::None)
     }
 
-    pub fn repr(&self) -> String {
-        format!(
-            "display: {:?} switch: {:?} state: {:?}",
-            self.display, self.switch, self.state
-        )
-    }
-
     pub fn is_rendered_in(&self, line_no: i32) -> bool {
         if let Display::Settled(my_line_no) = self.display.get() {
             return my_line_no == line_no;
@@ -151,8 +136,23 @@ impl View {
     }
 }
 
+impl fmt::Display for View {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(
+            f,
+            "display: {:?} switch: {:?} state: {:?}",
+            self.display, self.switch, self.state
+        )
+    }
+}
+
 impl Default for View {
     fn default() -> Self {
-        Self::new()
+        View {
+            tag_indexes: Cell::new(tags::TagIdx::new()),
+            display: Cell::new(Display::None),
+            switch: Cell::new(Switch::Collapsed),
+            state: Cell::new(State::None),
+        }
     }
 }

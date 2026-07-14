@@ -110,7 +110,7 @@ pub struct Line {
 impl Default for Line {
     fn default() -> Self {
         Line {
-            view: View::new(),
+            view: View::default(),
             origin: DiffLineType::Addition,
             new_line_no: None,
             old_line_no: None,
@@ -128,7 +128,7 @@ impl Line {
 
     pub fn from_diff_line(l: &DiffLine, content_from: usize, content_to: usize) -> Self {
         Self {
-            view: View::new(),
+            view: View::default(),
             origin: l.origin_value(),
             new_line_no: l.new_lineno().map(HunkLineNo),
             old_line_no: l.old_lineno().map(HunkLineNo),
@@ -196,7 +196,7 @@ impl fmt::Display for Hunk {
 
 impl Hunk {
     pub fn new(kind: DiffKind) -> Self {
-        let view = View::new();
+        let view = View::default();
         view.set_switch(true);
         //view.expand(true);
         Self {
@@ -436,7 +436,7 @@ pub struct File {
 impl File {
     pub fn new(kind: DiffKind) -> Self {
         Self {
-            view: View::new(),
+            view: View::default(),
             path: PathBuf::new(),
             hunks: Vec::new(),
             kind,
@@ -446,7 +446,7 @@ impl File {
     pub fn from_diff_file(f: &DiffFile, kind: DiffKind, status: Delta) -> Self {
         let path: PathBuf = f.path().unwrap().into();
         File {
-            view: View::new(),
+            view: View::default(),
             path,
             hunks: Vec::new(),
             kind,
@@ -480,7 +480,7 @@ pub struct Diff {
 
 impl Diff {
     pub fn new(kind: DiffKind) -> Self {
-        let view = View::new();
+        let view = View::default();
         view.set_switch(true);
         Self {
             files: Vec::new(),
@@ -524,7 +524,7 @@ impl State {
         Self {
             state,
             subject,
-            view: View::new(),
+            view: View::default(),
         }
     }
     pub fn need_final_commit(&self) -> bool {
@@ -581,7 +581,7 @@ impl Head {
             // branch_name: None,
             log_message: commit.log_message(),
             raw_message: commit.raw_message(),
-            view: View::new(),
+            view: View::default(),
             commit_dt: commit.dt(),
             branch: None,
         }

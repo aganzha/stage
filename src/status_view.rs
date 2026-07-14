@@ -84,7 +84,7 @@ impl Label {
     pub fn from_string(content: &str) -> Self {
         Label {
             content: String::from(content),
-            view: View::new(),
+            view: View::default(),
         }
     }
 }
@@ -996,12 +996,12 @@ impl Status {
                 }
                 if found_in_file {
                     file.view.set_switch(true);
+                    println!("🎯 just set swict to file {:?}", file.view);
                 }
             }
         }
         println!("⚠️ before render {:?}", context.search_matched_lines);
         self.render(txt, None, context);
-        println!("⚠️ AFTER render {:?}", context.search_matched_lines);
         if let Some(scroll_to) = context.search_matched_lines.iter().min() {
             self.current_search_line.replace(Some(*scroll_to));
             self.goto_line(txt, *scroll_to);

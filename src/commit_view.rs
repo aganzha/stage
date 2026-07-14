@@ -93,7 +93,7 @@ impl MultiLineLabel {
     pub fn new(content: &str, visible_chars: i32) -> Self {
         let mut mll = MultiLineLabel {
             labels: Vec::new(),
-            view: View::new(),
+            view: View::default(),
         };
         mll.make_labels(content, visible_chars);
         mll

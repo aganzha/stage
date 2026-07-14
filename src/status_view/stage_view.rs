@@ -393,7 +393,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
-    let txt = StageView::new();
+    let txt = StageView::default();
     // txt.set_accessible_role(gtk4::AccessibleRole::None);
 
     txt.set_margin_start(12);
