@@ -9,7 +9,7 @@ use crate::status_view::{
     render::ViewContainer, stage_view::StageView, view::State, view::View, CursorPosition,
     Label as TextViewLabel,
 };
-use crate::{ApplyOp, BlameLine, CurrentWindow, Event, HunkLineNo, StageOp};
+use crate::{make_search, ApplyOp, BlameLine, CurrentWindow, Event, HunkLineNo, StageOp};
 use async_channel::Sender;
 use git2::Oid;
 use std::fmt;
@@ -301,6 +301,9 @@ pub fn show_commit_window(
     let tb = ToolbarView::builder().content(&scroll).build();
     tb.add_top_bar(&hb);
 
+    let search = make_search(sender.clone());
+    tb.add_bottom_bar(&search.search_bar);
+
     window.set_content(Some(&tb));
 
     let event_controller = EventControllerKey::new();
@@ -513,6 +516,30 @@ pub fn show_commit_window(
                                 }
                             });
                         }
+                    }
+                    Event::Search(term) => {
+                        if let Some(commit_diff) = &mut diff {
+                            commit_diff.diff.perform_search(&term);
+                        }
+                        if let Some(commit_diff) = &diff {
+                            if let Some(line_no) = commit_diff.diff.get_line_no() {
+                                let buffer = &txt.buffer();
+                                let mut iter = buffer.iter_at_line(line_no).unwrap();
+                                commit_diff.diff.render(buffer, &mut iter, &mut ctx);
+                            }
+                            search.update();
+                        }
+                    }
+                    // Event::ResetSearch => {
+                    //     status.reset_search(&txt, &mut ctx);
+                    //     search.update();
+                    // }
+                    // Event::GoToLine(lineno) => {
+                    //     status.goto_line(&txt, lineno);
+                    // }
+                    Event::ToggleSearch(value) => {
+                        println!("😖 toggle {}", value);
+                        search.toggle(value);
                     }
                     _ => {
                         trace!("unhandled event in commit_view {:?}", event);

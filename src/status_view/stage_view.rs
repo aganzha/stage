@@ -653,6 +653,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::f, gdk::ModifierType::CONTROL_MASK) => {
+                    println!("🍇 toggle search");
                     sndr.send_blocking(crate::Event::ToggleSearch(true))
                         .expect("Could not send through channel");
                 }
