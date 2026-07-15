@@ -68,10 +68,43 @@ impl Search {
         self.search_bar.set_search_mode(value);
         if value {
             self.search_entry.grab_focus();
-        } //  else {
-          //     self.label.set_label("");
-          //     self.search_entry.set_text("");
-          // }
+        }
+    }
+
+    pub fn forward(&self) {
+        let current_line = self.current_lineno.get().unwrap_or(0);
+        if let Some(scroll_to) = self
+            .matched_lines
+            .borrow()
+            .iter()
+            .filter(|l| l > &&current_line)
+            .min()
+            .copied()
+        {
+            self.current_lineno.replace(Some(scroll_to));
+            self.sender
+                .send_blocking(Event::GoToLine(scroll_to))
+                .expect("cant send through channel");
+        }
+        self.update();
+    }
+
+    fn backward(&self) {
+        let current_line = self.current_lineno.get().unwrap_or(0);
+        if let Some(scroll_to) = self
+            .matched_lines
+            .borrow()
+            .iter()
+            .filter(|l| l < &&current_line)
+            .max()
+            .copied()
+        {
+            self.current_lineno.replace(Some(scroll_to));
+            self.sender
+                .send_blocking(Event::GoToLine(scroll_to))
+                .expect("cant send through channel");
+        }
+        self.update();
     }
 }
 
@@ -133,43 +166,13 @@ pub fn make_search(sender: Sender<Event>) -> Search {
     forward.connect_clicked({
         let search = search.clone();
         move |_btn| {
-            let current_line = search.current_lineno.get().unwrap_or(0);
-            if let Some(scroll_to) = search
-                .matched_lines
-                .borrow()
-                .iter()
-                .filter(|l| l > &&current_line)
-                .min()
-                .copied()
-            {
-                search.current_lineno.replace(Some(scroll_to));
-                search
-                    .sender
-                    .send_blocking(Event::GoToLine(scroll_to))
-                    .expect("cant send through channel");
-            }
-            search.update();
+            search.forward();
         }
     });
     backward.connect_clicked({
         let search = search.clone();
         move |_btn| {
-            let current_line = search.current_lineno.get().unwrap_or(0);
-            if let Some(scroll_to) = search
-                .matched_lines
-                .borrow()
-                .iter()
-                .filter(|l| l < &&current_line)
-                .max()
-                .copied()
-            {
-                search.current_lineno.replace(Some(scroll_to));
-                search
-                    .sender
-                    .send_blocking(Event::GoToLine(scroll_to))
-                    .expect("cant send through channel");
-            }
-            search.update();
+            search.backward();
         }
     });
 
