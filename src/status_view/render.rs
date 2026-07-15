@@ -189,6 +189,14 @@ pub trait ViewContainer: fmt::Display {
         }
     }
 
+    fn set_switch(&self, value: bool) {
+        self.get_view().set_switch(value)
+    }
+
+    fn update_tags(&self) {
+        self.get_view().update_tags()
+    }
+
     fn render<'a>(
         &'a self,
         buffer: &TextBuffer,
@@ -199,7 +207,7 @@ pub trait ViewContainer: fmt::Display {
         let line_no = iter.line();
         let view = self.get_view();
         let snapshot = view.snapshot(line_no);
-        println!("🧄 snapshot {:?}............{}", snapshot, self);
+        //println!("🧄 snapshot {:?}............{}", snapshot, self);
         match snapshot {
             RenderOp::Insert => {
                 self.write_content(iter, buffer, context);
@@ -245,7 +253,7 @@ pub trait ViewContainer: fmt::Display {
         }
         let child_required = view.needs_children_snapshot();
         if child_required {
-            println!("🧪 go expand childs {} {}", self, view);
+            //println!("🧪 go expand childs {} {}", self, view);
             for child in self.get_children() {
                 child.render(buffer, iter, context);
             }
