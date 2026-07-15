@@ -233,4 +233,17 @@ impl Diff {
             }
         }
     }
+
+    pub fn reset_search(&mut self) {
+        for file in self.files.iter_mut() {
+            for hunk in file.hunks.iter_mut() {
+                if hunk.reset_search() && hunk.is_expanded() {
+                    for line in &hunk.lines {
+                        // TODO mark only certain lines
+                        line.update_tags();
+                    }
+                }
+            }
+        }
+    }
 }

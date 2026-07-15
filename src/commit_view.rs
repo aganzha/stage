@@ -526,17 +526,34 @@ pub fn show_commit_window(
                                 let buffer = &txt.buffer();
                                 let mut iter = buffer.iter_at_line(line_no).unwrap();
                                 commit_diff.diff.render(buffer, &mut iter, &mut ctx);
+                                search
+                                    .matched_lines
+                                    .replace(ctx.search_matched_lines.clone());
                             }
                             search.update();
                         }
                     }
-                    // Event::ResetSearch => {
-                    //     status.reset_search(&txt, &mut ctx);
-                    //     search.update();
-                    // }
-                    // Event::GoToLine(lineno) => {
-                    //     status.goto_line(&txt, lineno);
-                    // }
+                    Event::ResetSearch => {
+                        if let Some(commit_diff) = &mut diff {
+                            commit_diff.diff.reset_search();
+                        }
+                        if let Some(commit_diff) = &diff {
+                            if let Some(line_no) = commit_diff.diff.get_line_no() {
+                                let buffer = &txt.buffer();
+                                let mut iter = buffer.iter_at_line(line_no).unwrap();
+                                commit_diff.diff.render(buffer, &mut iter, &mut ctx);
+                            }
+                            search.update();
+                        }
+                        search.update();
+                    }
+                    Event::GoToLine(lineno) => {
+                        let buffer = txt.buffer();
+                        if let Some(mut iter) = buffer.iter_at_line(lineno) {
+                            buffer.place_cursor(&iter);
+                            txt.scroll_to_iter(&mut iter, 0.0, true, 0.5, 0.5);
+                        }
+                    }
                     Event::ToggleSearch(value) => {
                         println!("😖 toggle {}", value);
                         search.toggle(value);

@@ -870,11 +870,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                     }
                     Event::Search(term) => {
                         status.search(term, &txt, &mut ctx);
-                        search.update();
                     }
                     Event::ResetSearch => {
                         status.reset_search(&txt, &mut ctx);
-                        search.update();
                     }
                     Event::GoToLine(lineno) => {
                         status.goto_line(&txt, lineno);

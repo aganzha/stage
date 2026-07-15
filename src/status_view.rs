@@ -840,10 +840,6 @@ impl Status {
         buffer.place_cursor(&iter);
         //  WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
-
-        self.search
-            .matched_lines
-            .replace(context.search_matched_lines.clone());
     }
 
     pub fn has_staged(&self) -> bool {
@@ -857,19 +853,7 @@ impl Status {
         self.head.as_ref().unwrap().oid
     }
 
-    pub fn debug<'a>(&'a mut self, _txt: &StageView, _context: &mut StatusRenderContext<'a>) {
-        println!(
-            "⚽ {:?} {:p}",
-            self.search.matched_lines,
-            Rc::as_ptr(&self.search.matched_lines)
-        );
-        // let buffer = txt.buffer();
-        // let pos = buffer.cursor_position();
-        // let iter = buffer.iter_at_offset(pos);
-        // for tag in iter.tags() {
-        //     debug!("Tag: {}", tag.name().unwrap());
-        // }
-    }
+    pub fn debug<'a>(&'a mut self, _txt: &StageView, _context: &mut StatusRenderContext<'a>) {}
 
     pub fn blame(&self, app_window: CurrentWindow) {
         let mut line_no: Option<HunkLineNo> = None;
@@ -991,8 +975,11 @@ impl Status {
         {
             diff.perform_search(&term);
         }
-        println!("⚠️ before render {:?}", context.search_matched_lines);
         self.render(txt, None, context);
+        self.search
+            .matched_lines
+            .replace(context.search_matched_lines.clone());
+        self.search.update();
         // TODO find nearest line!
         if let Some(scroll_to) = context.search_matched_lines.iter().min() {
             self.search.current_lineno.replace(Some(*scroll_to));
@@ -1018,17 +1005,9 @@ impl Status {
             .into_iter()
             .flatten()
         {
-            for file in diff.files.iter_mut() {
-                for hunk in file.hunks.iter_mut() {
-                    if hunk.reset_search() && hunk.is_expanded() {
-                        for line in &hunk.lines {
-                            // TODO mark only certain lines
-                            line.update_tags();
-                        }
-                    }
-                }
-            }
+            diff.reset_search();
         }
         self.render(txt, None, context);
+        self.search.update();
     }
 }
