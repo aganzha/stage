@@ -526,9 +526,22 @@ pub fn show_commit_window(
                                 let buffer = &txt.buffer();
                                 let mut iter = buffer.iter_at_line(line_no).unwrap();
                                 commit_diff.diff.render(buffer, &mut iter, &mut ctx);
+
+                                let iter = buffer.iter_at_offset(buffer.cursor_position());
+                                commit_diff.diff.cursor(buffer, iter.line(), &mut ctx);
+                                txt.bind_highlights(&ctx);
+
+                                cursor_position = CursorPosition::from_context(&ctx);
                                 search
                                     .matched_lines
                                     .replace(ctx.search_matched_lines.clone());
+                                if let Some(scroll_to) = ctx.search_matched_lines.iter().min() {
+                                    search.current_lineno.replace(Some(*scroll_to));
+                                    if let Some(mut iter) = buffer.iter_at_line(*scroll_to) {
+                                        buffer.place_cursor(&iter);
+                                        txt.scroll_to_iter(&mut iter, 0.0, true, 0.5, 0.5);
+                                    }
+                                }
                             }
                             search.update();
                         }
