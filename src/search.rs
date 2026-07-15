@@ -60,8 +60,6 @@ pub fn make_search(
     search_box.append(&backward);
     search_box.append(&forward);
 
-    //let search_matched_lines: Rc<RefCell<Vec<i32>>> = Rc::new(RefCell::new(Vec::new()));
-    //let current_search_line: Rc<Cell<Option<i32>>> = Rc::new(Cell::new(None));
     forward.connect_clicked({
         let search_matched_lines = search_matched_lines.clone();
         let current_search_line = current_search_line.clone();
@@ -125,32 +123,16 @@ pub fn make_search(
 }
 
 impl Hunk {
-    // fn mark_dirty_by_search(&self) -> bool {
-    //     if !self.search_ranges.is_empty() {
-    //         if self.view.is_rendered() && self.view.is_expanded() {
-    //             // TODO! tags! should be done with cursor!
-    //             self.view.display.replace(Display::Pending);
-    //             for line in &self.lines {
-    //                 // TODO! tags! should be done with cursor!
-    //                 line.view.display.replace(Display::Pending);
-    //             }
-    //         }
-    //         return true;
-    //     }
-    //     false
-    // }
-    // pub fn reset_search(&mut self) -> bool {
-    //     let was_searched = self.mark_dirty_by_search();
-    //     self.search_ranges.clear();
-    //     was_searched
-    // }
+    pub fn reset_search(&mut self) -> bool {
+        let had_ranges = !self.search_ranges.is_empty();
+        self.search_ranges.clear();
+        had_ranges
+    }
+
     pub fn perform_search(&mut self, term: &Regex) {
-        // cleanup prev search
-        //self.reset_search();
         self.search_ranges = term
             .find_iter(&self.buf)
             .map(|m| (m.start() + 1, m.end()))
             .collect();
-        //self.mark_dirty_by_search()
     }
 }

@@ -1054,12 +1054,16 @@ impl Status {
             .flatten()
         {
             for file in diff.files.iter_mut() {
-                for _hunk in file.hunks.iter_mut() {
-                    //hunk.reset_search();
+                for hunk in file.hunks.iter_mut() {
+                    if hunk.reset_search() && hunk.is_expanded() {
+                        for line in &hunk.lines {
+                            // TODO mark only certain lines
+                            line.update_tags();
+                        }
+                    }
                 }
             }
         }
-        // beck
         self.render(txt, None, context);
     }
 }
