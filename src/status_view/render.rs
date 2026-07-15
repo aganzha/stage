@@ -470,42 +470,6 @@ pub trait ViewContainer: fmt::Display {
             _ => None,
         }
     }
-    // ViewContainer
-    // fn old_expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
-    //     // check
-    //     let mut found_line: Option<i32> = None;
-    //     let v = self.get_view();
-    //     if v.is_rendered_in(line_no) {
-    //         let view = self.get_view();
-    //         found_line = Some(line_no);
-    //         view.expand(!view.is_expanded());
-    //         view.child_dirty(true);
-    //         let expanded = view.is_expanded();
-    //         self.walk_down(&mut |vc: &dyn ViewContainer| {
-    //             let view = vc.get_view();
-    //             if expanded {
-    //                 view.squash(false);
-    //                 view.render(false);
-    //             } else {
-    //                 view.squash(true);
-    //                 //view.child_dirty(true);  // ADD THIS deepseek
-    //             }
-    //         });
-    //     } else if v.is_expanded() && v.is_rendered() {
-    //         // go deeper for self.children
-    //         for child in self.get_children() {
-    //             found_line = child.expand(line_no, context);
-    //             if found_line.is_some() {
-    //                 break;
-    //             }
-    //         }
-    //         if found_line.is_some() && self.is_expandable_by_child() {
-    //             let line_no = self.get_view().line_no.get();
-    //             return self.expand(line_no, context);
-    //         }
-    //     }
-    //     found_line
-    // }
 
     fn is_expandable_by_child(&self) -> bool {
         false
@@ -530,48 +494,22 @@ pub trait ViewContainer: fmt::Display {
         let iter = buffer.iter_at_offset(buffer.cursor_position());
         let initial_line_offset = iter.line_offset();
 
-        // it does not required here. erase will kill em all
-        // let mut applied_tags = HashSet::new();
-
-        // it does not required here. erase will kill em all
-        // for tag in view.added_tags() {
-        //     applied_tags.insert(tag.name().to_string());
-        // }
-
-        // let mut line_no = view.line_no.get();
         let line_no = self.get_line_no().unwrap() - context.erase_counter;
         let mut iter = buffer.iter_at_line(line_no).unwrap();
         let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
 
         nel_iter.forward_lines(1);
         context.erase_counter += 1;
-        // buffer.delete(&mut iter, &mut nel_iter);
 
         if self.is_expanded() {
             self.walk_down(&mut |vc: &dyn ViewContainer| {
-                // it does not required here. erase will kill em all
-                // for tag in view.added_tags() {
-                //     applied_tags.insert(tag.name().to_string());
-                // }
                 if !vc.is_rendered() {
                     return;
                 }
-                // what about expanded?
-                // does not mater!
-                // if view is not expanded, its child will be not rendered!
-
-                // let line_no = view.line_no.get() - context.erase_counter;
-                // let mut iter = buffer.iter_at_line(line_no).unwrap();
-                // let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
                 nel_iter.forward_lines(1);
                 context.erase_counter += 1;
-                // buffer.delete(&mut iter, &mut nel_iter);
             });
         }
-        // it does not required here. erase will kill em all
-        // for tag in applied_tags {
-        //     buffer.remove_tag_by_name(&tag, &iter, &nel_iter);
-        // }
         buffer.delete(&mut iter, &mut nel_iter);
         cursor_to_line_offset(buffer, initial_line_offset);
     }
@@ -1049,6 +987,7 @@ impl ViewContainer for Line {
             match (self.origin, context.previous_line.map(|l| l.origin)) {
                 (DiffLineType::Deletion, Some(DiffLineType::Context))
                 | (DiffLineType::Addition, Some(DiffLineType::Context)) => {
+                    buffer.insert(iter, LINENO_MARGIN);
                     buffer.insert(iter, "\\n");
                 }
                 _ => {
