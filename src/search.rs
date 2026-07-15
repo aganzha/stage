@@ -28,6 +28,21 @@ impl Search {
         label: Label,
         sender: Sender<Event>,
     ) -> Self {
+        search_bar.connect_search_mode_enabled_notify({
+            let label = label.clone();
+            let search_entry = search_entry.clone();
+            let sender = sender.clone();
+            move |search_bar| {
+                if !search_bar.is_search_mode() {
+                    label.set_label("");
+                    search_entry.set_text("");
+                    sender
+                        .send_blocking(Event::Focus)
+                        .expect("cant send through channel")
+                }
+            }
+        });
+
         Search {
             current_lineno: Rc::new(Cell::new(None)),
             matched_lines: Rc::new(RefCell::new(Vec::new())),
@@ -53,10 +68,10 @@ impl Search {
         self.search_bar.set_search_mode(value);
         if value {
             self.search_entry.grab_focus();
-        } else {
-            self.label.set_label("");
-            self.search_entry.set_text("");
-        }
+        } //  else {
+          //     self.label.set_label("");
+          //     self.search_entry.set_text("");
+          // }
     }
 }
 
