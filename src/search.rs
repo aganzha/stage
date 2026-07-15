@@ -11,11 +11,56 @@ use regex::Regex;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-pub fn make_search(
-    current_search_line: Rc<Cell<Option<i32>>>,
-    search_matched_lines: Rc<RefCell<Vec<i32>>>,
+#[derive(Debug, Clone)]
+pub struct Search {
+    pub current_lineno: Rc<Cell<Option<i32>>>,
+    pub matched_lines: Rc<RefCell<Vec<i32>>>,
     sender: Sender<Event>,
-) -> (SearchBar, impl Fn()) {
+    label: Label,
+    search_entry: SearchEntry,
+    pub search_bar: SearchBar,
+}
+
+impl Search {
+    fn new(
+        search_bar: SearchBar,
+        search_entry: SearchEntry,
+        label: Label,
+        sender: Sender<Event>,
+    ) -> Self {
+        Search {
+            current_lineno: Rc::new(Cell::new(None)),
+            matched_lines: Rc::new(RefCell::new(Vec::new())),
+            sender,
+            label,
+            search_entry,
+            search_bar,
+        }
+    }
+    pub fn update(&self) {
+        if let Some(line) = self.current_lineno.get() {
+            let lines = self.matched_lines.borrow();
+            if let Some(idx) = lines.iter().position(|l| l == &line) {
+                self.label
+                    .set_label(&format!("{}({})", idx + 1, lines.len()));
+            }
+        } else {
+            self.label.set_label("");
+        }
+    }
+
+    pub fn toggle(&self, value: bool) {
+        self.search_bar.set_search_mode(value);
+        if value {
+            self.search_entry.grab_focus();
+        } else {
+            self.label.set_label("");
+            self.search_entry.set_text("");
+        }
+    }
+}
+
+pub fn make_search(sender: Sender<Event>) -> Search {
     let search_entry = SearchEntry::builder()
         .search_delay(800)
         .hexpand(true)
@@ -46,21 +91,7 @@ pub fn make_search(
         .max_width_chars(6)
         .xalign(0.5)
         .build();
-    let updater = {
-        let label = lbl.clone();
-        let current_search_line = current_search_line.clone();
-        let search_matched_lines = search_matched_lines.clone();
-        move || {
-            if let Some(line) = current_search_line.get() {
-                let lines = search_matched_lines.borrow();
-                if let Some(idx) = lines.iter().position(|l| l == &line) {
-                    label.set_label(&format!("{}({})", idx + 1, lines.len()));
-                }
-            } else {
-                label.set_label("");
-            }
-        }
-    };
+
     let backward = Button::builder()
         .sensitive(true)
         .icon_name("go-up-symbolic")
@@ -74,60 +105,60 @@ pub fn make_search(
     search_box.append(&backward);
     search_box.append(&forward);
 
+    let search_bar = SearchBar::builder()
+        .child(&search_box)
+        .search_mode_enabled(true)
+        .visible(true)
+        .show_close_button(true)
+        .build();
+    search_bar.set_search_mode(false);
+
+    let search = Search::new(search_bar, search_entry, lbl, sender.clone());
+
     forward.connect_clicked({
-        let search_matched_lines = search_matched_lines.clone();
-        let current_search_line = current_search_line.clone();
-        let sender = sender.clone();
-        let updater = updater.clone();
+        let search = search.clone();
         move |_btn| {
-            let current_line = current_search_line.get().unwrap_or(0);
-            if let Some(scroll_to) = search_matched_lines
+            let current_line = search.current_lineno.get().unwrap_or(0);
+            if let Some(scroll_to) = search
+                .matched_lines
                 .borrow()
                 .iter()
                 .filter(|l| l > &&current_line)
                 .min()
                 .copied()
             {
-                current_search_line.replace(Some(scroll_to));
-                sender
+                search.current_lineno.replace(Some(scroll_to));
+                search
+                    .sender
                     .send_blocking(Event::GoToLine(scroll_to))
-                    .expect("cant send throu channel");
+                    .expect("cant send through channel");
             }
-            updater();
+            search.update();
         }
     });
     backward.connect_clicked({
-        let search_matched_lines = search_matched_lines.clone();
-        let current_search_line = current_search_line.clone();
-        let sender = sender.clone();
-        let updater = updater.clone();
+        let search = search.clone();
         move |_btn| {
-            let current_line = current_search_line.get().unwrap_or(0);
-            if let Some(scroll_to) = search_matched_lines
+            let current_line = search.current_lineno.get().unwrap_or(0);
+            if let Some(scroll_to) = search
+                .matched_lines
                 .borrow()
                 .iter()
                 .filter(|l| l < &&current_line)
                 .max()
                 .copied()
             {
-                current_search_line.replace(Some(scroll_to));
-                sender
+                search.current_lineno.replace(Some(scroll_to));
+                search
+                    .sender
                     .send_blocking(Event::GoToLine(scroll_to))
                     .expect("cant send through channel");
             }
-            updater();
+            search.update();
         }
     });
 
-    (
-        SearchBar::builder()
-            .child(&search_box)
-            .search_mode_enabled(true)
-            .visible(true)
-            .show_close_button(true)
-            .build(),
-        updater,
-    )
+    search
 }
 
 impl Hunk {

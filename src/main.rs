@@ -8,6 +8,7 @@ mod status_view;
 mod syntax;
 use async_channel::Sender;
 use regex::Regex;
+use search::{make_search, Search};
 use status_view::{
     context::StatusRenderContext,
     headerbar::factory as headerbar_factory,
@@ -164,6 +165,7 @@ pub enum Event {
     Search(Regex),
     ResetSearch,
     GoToLine(i32),
+    ToggleSearch(bool),
 }
 
 fn main() -> glib::ExitCode {
@@ -315,7 +317,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
     if !scheme.is_empty() {
         StyleManager::default().set_color_scheme(Scheme::new(scheme).scheme_name());
     }
-
+    let search = make_search(sender.clone());
     let mut status = Status::new(
         initial_path.clone().or_else(|| {
             let last_path = settings.get::<String>("lastpath");
@@ -325,6 +327,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                 None
             }
         }),
+        search.clone(),
         sender.clone(),
     );
 
@@ -419,12 +422,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
         .build();
 
     tb.add_top_bar(&hb);
-    let (search_bar, search_updater) = search::make_search(
-        status.current_search_line.clone(),
-        status.search_matched_lines.clone(),
-        sender.clone(),
-    );
-    tb.add_bottom_bar(&search_bar);
+    tb.add_bottom_bar(&search.search_bar);
 
     application_window.set_content(Some(&tb));
 
@@ -872,14 +870,18 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                     }
                     Event::Search(term) => {
                         status.search(term, &txt, &mut ctx);
-                        search_updater();
+                        search.update();
                     }
                     Event::ResetSearch => {
                         status.reset_search(&txt, &mut ctx);
-                        search_updater();
+                        search.update();
                     }
                     Event::GoToLine(lineno) => {
                         status.goto_line(&txt, lineno);
+                    }
+                    Event::ToggleSearch(value) => {
+                        println!("😖 toggle {}", value);
+                        search.toggle(value);
                     }
                 };
                 hb_updater(HbUpdateData::Context(ctx));

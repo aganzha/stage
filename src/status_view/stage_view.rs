@@ -652,6 +652,14 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     sndr.send_blocking(crate::Event::Push)
                         .expect("Could not send through channel");
                 }
+                (gdk::Key::f, gdk::ModifierType::CONTROL_MASK) => {
+                    sndr.send_blocking(crate::Event::ToggleSearch(true))
+                        .expect("Could not send through channel");
+                }
+                (gdk::Key::Escape, _) => {
+                    sndr.send_blocking(crate::Event::ToggleSearch(false))
+                        .expect("Could not send through channel");
+                }
                 (gdk::Key::f, _) => {
                     sndr.send_blocking(crate::Event::Pull)
                         .expect("Could not send through channel");
@@ -711,7 +719,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                         .expect("Could not send through channel");
                 }
                 (key, modifier) => {
-                    trace!("key press in status view {:?} {:?}", key.name(), modifier);
+                    println!("key press in status view {:?} {:?}", key.name(), modifier);
                 }
             }
             glib::Propagation::Proceed

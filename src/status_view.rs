@@ -36,7 +36,7 @@ use std::rc::Rc;
 use crate::status_view::view::View;
 use crate::{
     get_current_repo_status, BlameLine, CurrentWindow, Diff, DiffKind, Event, File as GitFile,
-    Head, Selected, State, StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
+    Head, Search, Selected, State, StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
 };
 use async_channel::Sender;
 
@@ -151,12 +151,11 @@ pub struct Status {
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
     pub last_op: Cell<Option<LastOp>>,
     pub cursor_position: Cell<CursorPosition>,
-    pub current_search_line: Rc<Cell<Option<i32>>>,
-    pub search_matched_lines: Rc<RefCell<Vec<i32>>>,
+    search: Search,
 }
 
 impl Status {
-    pub fn new(path: Option<PathBuf>, sender: Sender<Event>) -> Self {
+    pub fn new(path: Option<PathBuf>, search: Search, sender: Sender<Event>) -> Self {
         Self {
             path,
             sender,
@@ -176,8 +175,7 @@ impl Status {
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
             last_op: Cell::new(None),
             cursor_position: Cell::new(CursorPosition::None),
-            current_search_line: Rc::new(Cell::new(None)),
-            search_matched_lines: Rc::new(RefCell::new(Vec::new())),
+            search,
         }
     }
 
@@ -843,7 +841,8 @@ impl Status {
         //  WHOLE RENDERING SEQUENCE IS expand->render->cursor. cursor is last thing called.
         self.cursor(txt, iter.line(), iter.offset(), context);
 
-        self.search_matched_lines
+        self.search
+            .matched_lines
             .replace(context.search_matched_lines.clone());
     }
 
@@ -861,8 +860,8 @@ impl Status {
     pub fn debug<'a>(&'a mut self, _txt: &StageView, _context: &mut StatusRenderContext<'a>) {
         println!(
             "⚽ {:?} {:p}",
-            self.search_matched_lines,
-            Rc::as_ptr(&self.search_matched_lines)
+            self.search.matched_lines,
+            Rc::as_ptr(&self.search.matched_lines)
         );
         // let buffer = txt.buffer();
         // let pos = buffer.cursor_position();
@@ -1030,7 +1029,7 @@ impl Status {
         println!("⚠️ before render {:?}", context.search_matched_lines);
         self.render(txt, None, context);
         if let Some(scroll_to) = context.search_matched_lines.iter().min() {
-            self.current_search_line.replace(Some(*scroll_to));
+            self.search.current_lineno.replace(Some(*scroll_to));
             self.goto_line(txt, *scroll_to);
         }
     }
