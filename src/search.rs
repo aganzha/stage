@@ -6,8 +6,7 @@ use crate::{Event, Hunk};
 use async_channel::Sender;
 use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Button, Label, Orientation, SearchBar, SearchEntry};
-// use glib::signal::SignalHandlerId;
-// use std::sync::{OnceLock, RwLock};
+
 use regex::Regex;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -16,7 +15,7 @@ pub fn make_search(
     current_search_line: Rc<Cell<Option<i32>>>,
     search_matched_lines: Rc<RefCell<Vec<i32>>>,
     sender: Sender<Event>,
-) -> SearchBar {
+) -> (SearchBar, impl Fn()) {
     let search_entry = SearchEntry::builder()
         .search_delay(800)
         .hexpand(true)
@@ -47,6 +46,21 @@ pub fn make_search(
         .max_width_chars(6)
         .xalign(0.5)
         .build();
+    let updater = {
+        let label = lbl.clone();
+        let current_search_line = current_search_line.clone();
+        let search_matched_lines = search_matched_lines.clone();
+        move || {
+            if let Some(line) = current_search_line.get() {
+                let lines = search_matched_lines.borrow();
+                if let Some(idx) = lines.iter().position(|l| l == &line) {
+                    label.set_label(&format!("{}({})", idx + 1, lines.len()));
+                }
+            } else {
+                label.set_label("");
+            }
+        }
+    };
     let backward = Button::builder()
         .sensitive(true)
         .icon_name("go-up-symbolic")
@@ -64,15 +78,9 @@ pub fn make_search(
         let search_matched_lines = search_matched_lines.clone();
         let current_search_line = current_search_line.clone();
         let sender = sender.clone();
+        let updater = updater.clone();
         move |_btn| {
             let current_line = current_search_line.get().unwrap_or(0);
-            println!(
-                "🏈 FORWARD curren search line {:?} found lines {:?} {:p}",
-                current_line,
-                search_matched_lines,
-                Rc::as_ptr(&search_matched_lines),
-            );
-
             if let Some(scroll_to) = search_matched_lines
                 .borrow()
                 .iter()
@@ -80,24 +88,21 @@ pub fn make_search(
                 .min()
                 .copied()
             {
-                println!("🏈 FORWARD SCROLL TO {}", scroll_to);
                 current_search_line.replace(Some(scroll_to));
                 sender
                     .send_blocking(Event::GoToLine(scroll_to))
                     .expect("cant send throu channel");
             }
+            updater();
         }
     });
     backward.connect_clicked({
         let search_matched_lines = search_matched_lines.clone();
         let current_search_line = current_search_line.clone();
         let sender = sender.clone();
+        let updater = updater.clone();
         move |_btn| {
             let current_line = current_search_line.get().unwrap_or(0);
-            println!(
-                "🦴 GO BACKWARD curren search line {:?} found lines {:?}",
-                current_line, search_matched_lines
-            );
             if let Some(scroll_to) = search_matched_lines
                 .borrow()
                 .iter()
@@ -105,21 +110,24 @@ pub fn make_search(
                 .max()
                 .copied()
             {
-                println!("🦴 backeard SCROLL_TO {}", scroll_to);
                 current_search_line.replace(Some(scroll_to));
                 sender
                     .send_blocking(Event::GoToLine(scroll_to))
                     .expect("cant send through channel");
             }
+            updater();
         }
     });
 
-    SearchBar::builder()
-        .child(&search_box)
-        .search_mode_enabled(true)
-        .visible(true)
-        .show_close_button(true)
-        .build()
+    (
+        SearchBar::builder()
+            .child(&search_box)
+            .search_mode_enabled(true)
+            .visible(true)
+            .show_close_button(true)
+            .build(),
+        updater,
+    )
 }
 
 impl Hunk {

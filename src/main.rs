@@ -419,7 +419,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
         .build();
 
     tb.add_top_bar(&hb);
-    let search_bar = search::make_search(
+    let (search_bar, search_updater) = search::make_search(
         status.current_search_line.clone(),
         status.search_matched_lines.clone(),
         sender.clone(),
@@ -872,9 +872,11 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                     }
                     Event::Search(term) => {
                         status.search(term, &txt, &mut ctx);
+                        search_updater();
                     }
                     Event::ResetSearch => {
                         status.reset_search(&txt, &mut ctx);
+                        search_updater();
                     }
                     Event::GoToLine(lineno) => {
                         status.goto_line(&txt, lineno);
