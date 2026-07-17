@@ -720,7 +720,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                         .expect("Could not send through channel");
                 }
                 (key, modifier) => {
-                    println!("key press in status view {:?} {:?}", key.name(), modifier);
+                    //println!("key press in status view {:?} {:?}", key.name(), modifier);
                 }
             }
             glib::Propagation::Proceed
