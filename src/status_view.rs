@@ -765,20 +765,20 @@ impl Status {
         context: &mut StatusRenderContext<'a>,
     ) {
         if let Some(conflicted) = &self.conflicted {
-            if conflicted.expand(line_no).is_some() {
+            if conflicted.expand(line_no, context).is_some() {
                 self.render(txt, Some(DiffKind::Conflicted), context);
                 return;
             }
         }
 
         if let Some(unstaged) = &self.unstaged {
-            if unstaged.expand(line_no).is_some() {
+            if unstaged.expand(line_no, context).is_some() {
                 self.render(txt, Some(DiffKind::Unstaged), context);
                 return;
             }
         }
         if let Some(staged) = &self.staged {
-            if staged.expand(line_no).is_some() {
+            if staged.expand(line_no, context).is_some() {
                 self.render(txt, Some(DiffKind::Staged), context);
             }
         }
@@ -965,15 +965,16 @@ impl Status {
     }
     pub fn search<'a>(
         &'a mut self,
-        term: Regex,
+        _term: Regex,
         txt: &'a StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
-        for diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted]
+        for _diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted]
             .into_iter()
             .flatten()
         {
-            diff.perform_search(&term);
+            //TODO!
+            //diff.perform_search(&term);
         }
         self.render(txt, None, context);
         self.search

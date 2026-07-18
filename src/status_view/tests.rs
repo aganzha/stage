@@ -22,14 +22,12 @@ use crate::tests::initialize;
 use crate::git::HunkLineNo;
 #[cfg(test)]
 use crate::status_view::CursorPosition;
-use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::Hunk;
 #[cfg(test)]
 use crate::{Diff, DiffKind, File, Line, LineKind, StageOp};
 #[cfg(test)]
 use git2::DiffLineType;
 use gtk4::prelude::*;
-use gtk4::{TextBuffer, TextIter};
 #[cfg(test)]
 use log::debug;
 use regex::Regex;
@@ -322,6 +320,7 @@ impl fmt::Display for TestViewContainer {
         write!(f, "TestViewContainer")
     }
 }
+#[cfg(test)]
 impl ViewContainer for TestViewContainer {
     fn is_empty(&self, _context: &mut StatusRenderContext) -> bool {
         false

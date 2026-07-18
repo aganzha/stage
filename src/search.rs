@@ -195,44 +195,45 @@ impl Hunk {
 }
 
 impl Diff {
-    pub fn perform_search(&mut self, term: &Regex) {
-        for file in self.files.iter_mut() {
-            let mut found_in_file = false;
-            let file_is_expanded = file.is_expanded();
-            for hunk in file.hunks.iter_mut() {
-                let has_prev_search = !hunk.search_ranges.is_empty();
-                hunk.perform_search(term);
-                let found_in_hunk = !hunk.search_ranges.is_empty();
-                if has_prev_search || found_in_hunk {
-                    if file_is_expanded {
-                        if hunk.is_expanded() {
-                            println!("📻 case 2 {}", &hunk);
-                            for line in &hunk.lines {
-                                // TODO mark only certain lines
-                                line.update_tags();
-                            }
-                        } else {
-                            println!("📻 case 1 {}", &hunk);
-                            if let Some(line_no) = hunk.get_line_no() {
-                                println!("📻 case 1 EXPAND {}", &hunk);
-                                hunk.expand(line_no);
-                            }
-                        }
-                    } else if !hunk.is_expanded() {
-                        println!("📻 case 3/4");
-                        hunk.set_switch(true);
-                    }
-                }
-                found_in_file = found_in_file || found_in_hunk;
-            }
-            if found_in_file && !file.is_expanded() {
-                if let Some(line_no) = file.get_line_no() {
-                    println!("📻 case 3/4 FILE");
-                    file.expand(line_no);
-                }
-            }
-        }
-    }
+    // TODO!
+    // pub fn perform_search(&mut self, term: &Regex) {
+    //     for file in self.files.iter_mut() {
+    //         let mut found_in_file = false;
+    //         let file_is_expanded = file.is_expanded();
+    //         for hunk in file.hunks.iter_mut() {
+    //             let has_prev_search = !hunk.search_ranges.is_empty();
+    //             hunk.perform_search(term);
+    //             let found_in_hunk = !hunk.search_ranges.is_empty();
+    //             if has_prev_search || found_in_hunk {
+    //                 if file_is_expanded {
+    //                     if hunk.is_expanded() {
+    //                         println!("📻 case 2 {}", &hunk);
+    //                         for line in &hunk.lines {
+    //                             // TODO mark only certain lines
+    //                             line.update_tags();
+    //                         }
+    //                     } else {
+    //                         println!("📻 case 1 {}", &hunk);
+    //                         if let Some(line_no) = hunk.get_line_no() {
+    //                             println!("📻 case 1 EXPAND {}", &hunk);
+    //                             hunk.expand(line_no, context);
+    //                         }
+    //                     }
+    //                 } else if !hunk.is_expanded() {
+    //                     println!("📻 case 3/4");
+    //                     hunk.set_switch(true);
+    //                 }
+    //             }
+    //             found_in_file = found_in_file || found_in_hunk;
+    //         }
+    //         if found_in_file && !file.is_expanded() {
+    //             if let Some(line_no) = file.get_line_no() {
+    //                 println!("📻 case 3/4 FILE");
+    //                 file.expand(line_no);
+    //             }
+    //         }
+    //     }
+    // }
 
     pub fn reset_search(&mut self) {
         for file in self.files.iter_mut() {

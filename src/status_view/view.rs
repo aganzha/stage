@@ -8,7 +8,7 @@ use std::fmt;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Display {
-    Settled(i32, bool),
+    Settled(i32, bool), //my_line_no, tags_are_ok
     Pending,
     Trashed,
     Hidden,
@@ -34,6 +34,19 @@ pub enum RenderOp {
     Rewrite,
     UpdateTags,
     Skip,
+    None,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ChildExpandOp {
+    ForceShow,
+    ForceHide,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ExpandOp {
+    Children(ChildExpandOp),
+    Parent(Switch),
     None,
 }
 
@@ -89,11 +102,43 @@ impl View {
             Switch::Collapsed => false,
         }
     }
+    pub fn apply_child_expand_op(&self, child_expand_op: ChildExpandOp) {
+        match child_expand_op {
+            ChildExpandOp::ForceShow => {
+                self.switch.replace(Switch::PendingExpansion);
+                match self.display.get() {
+                    Display::Settled(_, _) | Display::Pending | Display::None => {
+                        // on next render i will be visible anyways
+                        // do nothing
+                    }
+                    Display::Trashed | Display::Hidden => {
+                        // insert me into view
+                        self.display.replace(Display::None);
+                    }
+                }
+            }
+            ChildExpandOp::ForceHide => {
+                self.switch.replace(Switch::PendingCollapsion);
+                match self.display.get() {
+                    Display::Settled(_, _) | Display::Pending => {
+                        // on next render i should be erased!
+                        // do nothing
+                        self.display.replace(Display::Trashed);
+                    }
+                    Display::Trashed | Display::Hidden | Display::None => {
+                        // i am already invisible or will be erased
+                        // do nothing
+                    }
+                }
+            }
+        }
+    }
     pub fn update_tags(&self) {
         if let Display::Settled(line_no, _) = self.display.get() {
             self.display.replace(Display::Settled(line_no, false));
         }
     }
+
     pub fn set_switch(&self, value: bool) {
         // this is only for setting switch from code!
         // e.g. display first file expanded.
@@ -105,18 +150,27 @@ impl View {
         }
     }
 
-    pub fn toggle(&self, line_no: i32) {
+    pub fn toggle(&self) -> ChildExpandOp {
         // this is only for calling from UI!
         // when render line by line, current line is passed here as argument
-        if let Display::Settled(my_line_no, _) = self.display.get() {
-            if line_no == my_line_no {
-                match self.switch.get() {
-                    Switch::Expanded => self.switch.replace(Switch::PendingCollapsion),
-                    Switch::Collapsed => self.switch.replace(Switch::PendingExpansion),
-                    _ => panic!("🏁 whats the case for toggle? {:?}", my_line_no),
-                };
+        // if let Display::Settled(my_line_no, _) = self.display.get() {
+        //     if line_no == my_line_no {
+        match self.switch.get() {
+            Switch::Expanded => {
+                self.switch.replace(Switch::PendingCollapsion);
+                ChildExpandOp::ForceHide
             }
-        };
+            Switch::Collapsed => {
+                self.switch.replace(Switch::PendingExpansion);
+                ChildExpandOp::ForceShow
+            }
+            _ => panic!(
+                "🏁 whats the case for toggle? {:?} {:?}",
+                self.display, self.switch
+            ),
+        }
+        //     }
+        // };
     }
 
     pub fn is_expanded(&self) -> bool {

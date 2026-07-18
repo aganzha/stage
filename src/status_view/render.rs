@@ -4,7 +4,7 @@
 
 use crate::status_view::stage_view::cursor_to_line_offset;
 use crate::status_view::tags;
-use crate::status_view::view::{Display, RenderOp, State, Switch, View};
+use crate::status_view::view::{Display, RenderOp, State, View};
 use crate::status_view::Label;
 use crate::{
     Diff,
@@ -207,7 +207,7 @@ pub trait ViewContainer: fmt::Display {
         let line_no = iter.line();
         let view = self.get_view();
         let snapshot = view.snapshot(line_no);
-        //println!("🧄 snapshot {:?}............{}", snapshot, self);
+        println!("🧄 snapshot {:?}............{}", snapshot, self);
         match snapshot {
             RenderOp::Insert => {
                 self.write_content(iter, buffer, context);
@@ -436,39 +436,72 @@ pub trait ViewContainer: fmt::Display {
         false
     }
 
-    fn expand(&self, line_no: i32) -> Option<i32> {
-        let view = self.get_view();
-        view.toggle(line_no);
-        match view.switch.get() {
-            // hey
-            Switch::PendingExpansion => {
-                println!("🌻 Switch::PendingExpansion {}", self);
+    // valid only during expand/rendering/curspr cause get it from context
+    fn get_parent_view<'a>(&self, _context: &StatusRenderContext<'a>) -> Option<&'a View> {
+        None
+    }
+
+    //fn make_expand_op(&self) -> ExpandOp;
+
+    fn expand(&self, line_no: i32, context: &StatusRenderContext) -> Option<i32> {
+        // let view = self.get_view();
+        // view.toggle(line_no);
+        if let Some(my_line_no) = self.get_line_no() {
+            println!("‼️ expand? lineno {} my_line_no {}", line_no, my_line_no);
+            if my_line_no == line_no {
+                let view = self.get_view();
+                let child_expand_op = view.toggle();
+                println!(
+                    "💰 expanded! swicth {:?} expand op {:?}",
+                    view.switch, child_expand_op
+                );
                 self.walk_down(&mut |vc: &dyn ViewContainer| {
                     let view = vc.get_view();
-                    view.display.replace(Display::None);
+                    view.apply_child_expand_op(child_expand_op);
+                    println!("🐦 walk_down and AFTER apply! {:?}", view);
                 });
-                Some(line_no)
-            }
-            Switch::PendingCollapsion => {
-                println!("🌻 Switch::PendingCollapsion {}", self);
-                self.walk_down(&mut |vc: &dyn ViewContainer| {
-                    let view = vc.get_view();
-                    view.display.replace(Display::Trashed);
-                });
-                Some(line_no)
-            }
-            Switch::Expanded => {
-                println!("🌻 Switch::Expanded");
-                let mut result: Option<i32> = None;
-                self.walk_down(&mut |vc: &dyn ViewContainer| {
-                    if let Some(vc_line_no) = vc.expand(line_no) {
-                        result.replace(vc_line_no);
+                return Some(my_line_no);
+            } else {
+                for child in self.get_children() {
+                    println!("♦️ go expand child {:?}", child.get_view());
+                    if let Some(child_lineno) = child.expand(line_no, context) {
+                        println!("🛟 expanded child! {:?}", child.get_view());
+                        return Some(child_lineno);
                     }
-                });
-                result
+                }
             }
-            _ => None,
         }
+        None
+        // match view.switch.get() {
+        //     // hey
+        //     Switch::PendingExpansion => {
+        //         println!("🌻 Switch::PendingExpansion {}", self);
+        //         self.walk_down(&mut |vc: &dyn ViewContainer| {
+        //             let view = vc.get_view();
+        //             view.display.replace(Display::None);
+        //         });
+        //         Some(line_no)
+        //     }
+        //     Switch::PendingCollapsion => {
+        //         println!("🌻 Switch::PendingCollapsion {}", self);
+        //         self.walk_down(&mut |vc: &dyn ViewContainer| {
+        //             let view = vc.get_view();
+        //             view.display.replace(Display::Trashed);
+        //         });
+        //         Some(line_no)
+        //     }
+        //     Switch::Expanded => {
+        //         println!("🌻 Switch::Expanded");
+        //         let mut result: Option<i32> = None;
+        //         self.walk_down(&mut |vc: &dyn ViewContainer| {
+        //             if let Some(vc_line_no) = vc.expand(line_no) {
+        //                 result.replace(vc_line_no);
+        //             }
+        //         });
+        //         result
+        //     }
+        //     _ => None,
+        // }
     }
 
     fn is_expandable_by_child(&self) -> bool {
@@ -590,55 +623,77 @@ impl ViewContainer for Diff {
         self.add_tag(buffer, tags::DIFF, None);
     }
 
+    // // Diff
+    // fn make_expand_op(&self) -> ExpandOp {
+    //     // i just was toggled. it affects my files!
+    //     match self.view.switch.get() {
+    //         Switch::PendingExpansion => {
+    //             // will render my files
+    //             // problem! my files would be in different state!
+    //             // i need to give then some universal!!! to be VISIBLE
+    //             // not will insert. Pending will replace.
+    //             // needs AwaitingRender.
+    //             ExpandOp::Children(ChildExpandOp::ForceShow)
+    //         }
+    //         Switch::PendingCollapsion => {
+    //             // will collapse my hunks
+    //             // problem! my hunks would be in different state!
+    //             // i need to give then some universal!!! to be HIDDEEN!
+    //             // 💋 trashed for sure erase them!!!
+    //             ExpandOp::Children(ChildExpandOp::ForceHide)
+    //         },
+    //         _ => panic!("HUNK, whats the case?"),
+    //     }
+    // }
     // Diff
-    fn expand(&self, line_no: i32) -> Option<i32> {
-        if self.kind == DiffKind::Untracked {
-            return None;
-        }
-        let mut result: Option<i32> = None;
-        let expand_whole_diff = self.is_rendered_in(line_no);
-        if expand_whole_diff {
-            result.replace(line_no);
-        }
-        let all_expanded = self.files.iter().all(|f| f.is_expanded());
-        let all_collapsed = self.files.iter().all(|f| !f.is_expanded());
-        let mut expand_all_files = true;
-        if !all_expanded && !all_collapsed {
-            // if some files are expanded and some are collapsed
-            // lets look at first file. if it is expanded - expand all
-            // (this is for the case of automatic expansion of first hunk)
-            expand_all_files = self.files[0].is_expanded();
-        }
-        for file in &self.files {
-            if expand_whole_diff {
-                if all_expanded || all_collapsed {
-                    println!("💨 all equal");
-                    if let Some(line_no) = file.get_line_no() {
-                        file.expand(line_no);
-                    }
-                } else {
-                    println!(
-                        "‼️ expand collapsed vs collaps expanded {:?}",
-                        self.is_expanded()
-                    );
-                    if expand_all_files {
-                        if !file.is_expanded() {
-                            if let Some(line_no) = file.get_line_no() {
-                                file.expand(line_no);
-                            }
-                        }
-                    } else if file.is_expanded() {
-                        if let Some(line_no) = file.get_line_no() {
-                            file.expand(line_no);
-                        }
-                    }
-                }
-            } else if let Some(line) = file.expand(line_no) {
-                result.replace(line);
-            }
-        }
-        result
-    }
+    // fn expand(&self, line_no: i32) -> Option<i32> {
+    //     if self.kind == DiffKind::Untracked {
+    //         return None;
+    //     }
+    //     let mut result: Option<i32> = None;
+    //     let expand_whole_diff = self.is_rendered_in(line_no);
+    //     if expand_whole_diff {
+    //         result.replace(line_no);
+    //     }
+    //     let all_expanded = self.files.iter().all(|f| f.is_expanded());
+    //     let all_collapsed = self.files.iter().all(|f| !f.is_expanded());
+    //     let mut expand_all_files = true;
+    //     if !all_expanded && !all_collapsed {
+    //         // if some files are expanded and some are collapsed
+    //         // lets look at first file. if it is expanded - expand all
+    //         // (this is for the case of automatic expansion of first hunk)
+    //         expand_all_files = self.files[0].is_expanded();
+    //     }
+    //     for file in &self.files {
+    //         if expand_whole_diff {
+    //             if all_expanded || all_collapsed {
+    //                 println!("💨 all equal");
+    //                 if let Some(line_no) = file.get_line_no() {
+    //                     file.expand(line_no);
+    //                 }
+    //             } else {
+    //                 println!(
+    //                     "‼️ expand collapsed vs collaps expanded {:?}",
+    //                     self.is_expanded()
+    //                 );
+    //                 if expand_all_files {
+    //                     if !file.is_expanded() {
+    //                         if let Some(line_no) = file.get_line_no() {
+    //                             file.expand(line_no);
+    //                         }
+    //                     }
+    //                 } else if file.is_expanded() {
+    //                     if let Some(line_no) = file.get_line_no() {
+    //                         file.expand(line_no);
+    //                     }
+    //                 }
+    //             }
+    //         } else if let Some(line) = file.expand(line_no) {
+    //             result.replace(line);
+    //         }
+    //     }
+    //     result
+    // }
 
     // Diff
     fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>, _parent_index: usize) {
@@ -680,6 +735,32 @@ impl ViewContainer for Diff {
 }
 
 impl ViewContainer for File {
+    fn get_parent_view<'a>(&self, context: &StatusRenderContext<'a>) -> Option<&'a View> {
+        context.current_diff.map(|d| &d.view)
+    }
+    // File
+    // fn make_expand_op(&self) -> ExpandOp {
+    //     // i just was toggled. it affects my hunks!
+    //     match self.view.switch.get() {
+    //         Switch::PendingExpansion => {
+    //             // will render my hunks
+    //             // problem! my hunks would be in different state!
+    //             // i need to give then some universal!!! to be VISIBLE
+    //             // not will insert. Pending will replace.
+    //             // needs AwaitingRender.
+    //             ExpandOp::Children(ChildExpandOp::ForceShow)
+    //         }
+    //         Switch::PendingCollapsion => {
+    //             // will collapse my hunks
+    //             // problem! my hunks would be in different state!
+    //             // i need to give then some universal!!! to be HIDDEEN!
+    //             // 💋 trashed for sure erase them!!!
+    //             ExpandOp::Children(ChildExpandOp::ForceHide)
+    //         },
+    //         _ => panic!("HUNK, whats the case?"),
+    //     }
+    // }
+
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
@@ -756,6 +837,21 @@ impl ViewContainer for File {
 }
 
 impl ViewContainer for Hunk {
+    fn get_parent_view<'a>(&self, context: &StatusRenderContext<'a>) -> Option<&'a View> {
+        context.current_file.map(|d| &d.view)
+    }
+    // Hunk
+    // fn make_expand_op(&self) -> ExpandOp {
+    //     // i just was toggled. it affexts my lines
+    //     match self.view.switch.get() {
+    //         Switch::PendingExpansion => {
+    //             // will render my lines
+    //             ExpandOp::Children(ChildExpandOp::ForceShow)
+    //         }
+    //         Switch::PendingCollapsion => ExpandOp::Children(ChildExpandOp::ForceHide),
+    //         _ => panic!("HUNK, whats the case?"),
+    //     }
+    // }
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
@@ -849,6 +945,14 @@ impl ViewContainer for Hunk {
 pub const LINENO_MARGIN: &str = "     ";
 
 impl ViewContainer for Line {
+    fn get_parent_view<'a>(&self, context: &StatusRenderContext<'a>) -> Option<&'a View> {
+        context.current_hunk.map(|d| &d.view)
+    }
+    // // Line
+    // fn make_expand_op(&self) -> ExpandOp {
+    //     // hit tab on line collapses hunk
+    //     ExpandOp::Parent(Switch::PendingCollapsion)
+    // }
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         // lines could not be empty
         false
@@ -896,15 +1000,15 @@ impl ViewContainer for Line {
     }
 
     // Line
-    fn expand(&self, line_no: i32) -> Option<i32> {
-        if let Some(my_line_no) = self.get_line_no() {
-            if my_line_no == line_no {
-                // looks like its just used to break loop
-                return Some(line_no);
-            }
-        }
-        None
-    }
+    // fn expand(&self, line_no: i32) -> Option<i32> {
+    //     if let Some(my_line_no) = self.get_line_no() {
+    //         if my_line_no == line_no {
+    //             // looks like its just used to break loop
+    //             return Some(line_no);
+    //         }
+    //     }
+    //     None
+    // }
 
     // Line
     // it is useless. rendering_x is sliding variable during render
@@ -1160,6 +1264,9 @@ impl ViewContainer for Line {
 }
 
 impl ViewContainer for Label {
+    // fn make_expand_op(&self) -> ExpandOp {
+    //     ExpandOp::None
+    // }
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         self.content.is_empty()
     }
@@ -1184,6 +1291,9 @@ impl ViewContainer for Label {
 }
 
 impl ViewContainer for Head {
+    // fn make_expand_op(&self) -> ExpandOp {
+    //     ExpandOp::None
+    // }
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
@@ -1252,6 +1362,9 @@ impl ViewContainer for Head {
 }
 
 impl ViewContainer for GitState {
+    // fn make_expand_op(&self) -> ExpandOp {
+    //     ExpandOp::None
+    // }
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }

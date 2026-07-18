@@ -6,8 +6,10 @@ use crate::dialogs::alert;
 use crate::git::{blame, commit, stash::StashNum};
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
-    render::ViewContainer, stage_view::StageView, view::State, view::View, CursorPosition,
-    Label as TextViewLabel,
+    render::ViewContainer,
+    stage_view::StageView,
+    view::{State, View},
+    CursorPosition, Label as TextViewLabel,
 };
 use crate::{make_search, ApplyOp, BlameLine, CurrentWindow, Event, HunkLineNo, StageOp};
 use async_channel::Sender;
@@ -158,6 +160,9 @@ impl MultiLineLabel {
 }
 
 impl ViewContainer for MultiLineLabel {
+    // fn make_expand_op(&self) -> ExpandOp {
+    //     ExpandOp::None
+    // }
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         self.labels.is_empty()
     }
@@ -390,7 +395,7 @@ pub fn show_commit_window(
                     Event::Expand(_offset, line_no) => {
                         info!("Expand {}", line_no);
                         if let Some(d) = &mut diff {
-                            if d.diff.expand(line_no).is_some() {
+                            if d.diff.expand(line_no, &ctx).is_some() {
                                 let buffer = &txt.buffer();
                                 if let Some(line_no) = d.diff.get_line_no() {
                                     let mut iter = buffer.iter_at_line(line_no).unwrap();
@@ -517,9 +522,10 @@ pub fn show_commit_window(
                             });
                         }
                     }
-                    Event::Search(term) => {
-                        if let Some(commit_diff) = &mut diff {
-                            commit_diff.diff.perform_search(&term);
+                    Event::Search(_term) => {
+                        if let Some(_commit_diff) = &mut diff {
+                            // TODO!
+                            //commit_diff.diff.perform_search(&term);
                         }
                         if let Some(commit_diff) = &diff {
                             if let Some(line_no) = commit_diff.diff.get_line_no() {
