@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use super::{CursorPosition, Status};
-use crate::dialogs::{alert, ConfirmWithOptions, DangerDialog, YES};
+use crate::dialogs::{alert, ConfirmWithOptions, CustomResponseDangerDialog, YES};
 use crate::git::{commit, merge, stash};
 
 use std::collections::HashMap;
@@ -163,52 +163,67 @@ impl Status {
                 }
                 StageOp::Kill => {
                     self.last_op.replace(current_op);
-                    glib::spawn_future_local({
-                        let window = window.clone();
-                        let path = self.path.clone();
-                        let gio_settings = gio_settings.clone();
-                        let sender = self.sender.clone();
-                        let untracked = self.untracked.clone();
-                        let mut ignored = Vec::new();
-                        let mut message = "This will hide all untracked files!".to_string();
-                        if let Some(file_path) = &file_path {
-                            let str_path = file_path.to_str().expect("wrong path");
-                            ignored.push(str_path.to_string());
-                            message = file_path.to_str().expect("wrong path").to_string();
-                        } else if let Some(untracked) = &untracked {
-                            for file in &untracked.files {
-                                let str_path = file.path.to_str().expect("wrong path");
+                    if let Some(file_path) = file_path {
+                        glib::spawn_future_local({
+                            let window = window.clone();
+                            let path = self.path.clone();
+                            let gio_settings = gio_settings.clone();
+                            let sender = self.sender.clone();
+                            let mut untracked = if let Some(untracked) = &self.untracked {
+                                untracked.clone()
+                            } else {
+                                return;
+                            };
+                            let mut ignored = Vec::new();
+                            if let Some(str_path) = file_path.to_str() {
                                 ignored.push(str_path.to_string());
-                            }
-                        }
-
-                        let mut settings =
-                            gio_settings.get::<HashMap<String, Vec<String>>>("ignored");
-                        async move {
-                            let response =
-                                alert(DangerDialog("Hide Untracked files?".to_string(), message))
-                                    .choose_future(&window)
-                                    .await;
-                            if response != YES {
+                            } else {
                                 return;
                             }
-                            let repo_path = path.expect("no path");
-                            let repo_path = repo_path.to_str().expect("wrong path");
-                            if let Some(stored) = settings.get_mut(repo_path) {
-                                stored.append(&mut ignored);
-                                trace!("added ignore {:?}", settings);
-                            } else {
-                                settings.insert(repo_path.to_string(), ignored);
-                                trace!("first ignored file {:?}", settings);
+
+                            let mut settings =
+                                gio_settings.get::<HashMap<String, Vec<String>>>("ignored");
+                            async move {
+                                let response = alert(CustomResponseDangerDialog {
+                                    header: "Hide or delete Untracked files".to_string(),
+                                    message: ignored[0].clone(),
+                                    responses: vec![
+                                        "Cancel".to_string(),
+                                        "Hide".to_string(),
+                                        "Delete".to_string(),
+                                    ],
+                                })
+                                .choose_future(&window)
+                                .await;
+                                if response == "Cancel" {
+                                    return;
+                                }
+                                let repo_path = path.expect("no path");
+                                if response == "Hide" {
+                                    let repo_path = repo_path.to_str().expect("wrong path");
+                                    if let Some(stored) = settings.get_mut(repo_path) {
+                                        stored.append(&mut ignored);
+                                        trace!("added ignore {:?}", settings);
+                                    } else {
+                                        settings.insert(repo_path.to_string(), ignored);
+                                    }
+                                    gio_settings
+                                        .set("ignored", settings)
+                                        .expect("cant set settings");
+                                }
+                                if response == "Delete" {
+                                    let path_to_delete =
+                                        repo_path.parent().unwrap().join(file_path.clone());
+                                    if std::fs::remove_file(&path_to_delete).is_ok() {
+                                        untracked.files.retain(|f| f.path != file_path);
+                                    }
+                                }
+                                sender
+                                    .send_blocking(Event::Untracked(Some(untracked)))
+                                    .expect("Could not send through channel");
                             }
-                            gio_settings
-                                .set("ignored", settings)
-                                .expect("cant set settings");
-                            sender
-                                .send_blocking(Event::Untracked(untracked))
-                                .expect("Could not send through channel");
-                        }
-                    });
+                        });
+                    }
                 }
                 _ => {
                     debug!("unknow op for untracked");

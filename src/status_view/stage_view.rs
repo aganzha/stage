@@ -719,7 +719,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     sndr.send_blocking(crate::Event::Toast(String::from("CapsLock pressed")))
                         .expect("Could not send through channel");
                 }
-                (key, modifier) => {
+                (_key, _modifier) => {
                     //println!("key press in status view {:?} {:?}", key.name(), modifier);
                 }
             }
