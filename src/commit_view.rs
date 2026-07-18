@@ -524,7 +524,7 @@ pub fn show_commit_window(
                     }
                     Event::Search(_term) => {
                         if let Some(_commit_diff) = &mut diff {
-                            // TODO!
+                            // TODO! search
                             //commit_diff.diff.perform_search(&term);
                         }
                         if let Some(commit_diff) = &diff {

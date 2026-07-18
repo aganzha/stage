@@ -212,11 +212,6 @@ pub trait ViewContainer: fmt::Display {
             RenderOp::Insert => {
                 self.write_content(iter, buffer, context);
                 buffer.insert(iter, "\n");
-                // TODO! line!
-                // view.line_no.replace(line_no);
-                // view.render(true);
-                // before it was used only in cursor!
-                // todo! tags!
                 self.apply_tags(TagChanges::Render, buffer, context);
             }
             RenderOp::Skip => {
@@ -232,15 +227,10 @@ pub trait ViewContainer: fmt::Display {
                 // if content is empty - eol iter will drop onto next line!
                 // no need to delete in this case!
                 if iter.line() == eol_iter.line() {
-                    // TODO! tags!
-                    // buffer.remove_all_tags(iter, &eol_iter);
                     buffer.delete(iter, &mut eol_iter);
                 }
-                // TODO! tags!
-                //view.cleanup_tags();
                 self.write_content(iter, buffer, context);
                 // before it was used only in cursor!
-                // TODO! tags!
                 self.apply_tags(TagChanges::Render, buffer, context);
                 self.force_forward(buffer, iter);
             }

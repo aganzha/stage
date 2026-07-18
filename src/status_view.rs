@@ -973,7 +973,7 @@ impl Status {
             .into_iter()
             .flatten()
         {
-            //TODO!
+            //TODO! search
             //diff.perform_search(&term);
         }
         self.render(txt, None, context);

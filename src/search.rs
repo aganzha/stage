@@ -195,7 +195,7 @@ impl Hunk {
 }
 
 impl Diff {
-    // TODO!
+    // TODO! search
     // pub fn perform_search(&mut self, term: &Regex) {
     //     for file in self.files.iter_mut() {
     //         let mut found_in_file = false;

@@ -68,12 +68,8 @@ mod stage_view_internal {
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
         pub linenos: RefCell<HashMap<i32, (String, DiffLineType, LineKind)>>,
-
-        // TODO! put it here!
         pub is_dark: Cell<bool>,
         pub is_dark_set: Cell<bool>,
-        // #[property(get, set)]
-        // pub current_line: RefCell<i32>,
     }
 
     #[glib::object_subclass]

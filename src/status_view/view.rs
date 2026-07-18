@@ -120,12 +120,12 @@ impl View {
             ChildExpandOp::ForceHide => {
                 self.switch.replace(Switch::PendingCollapsion);
                 match self.display.get() {
-                    Display::Settled(_, _) | Display::Pending => {
+                    Display::Settled(_, _) | Display::Pending | Display::None => {
                         // on next render i should be erased!
                         // do nothing
                         self.display.replace(Display::Trashed);
                     }
-                    Display::Trashed | Display::Hidden | Display::None => {
+                    Display::Trashed | Display::Hidden => {
                         // i am already invisible or will be erased
                         // do nothing
                     }
