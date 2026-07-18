@@ -522,10 +522,10 @@ pub fn show_commit_window(
                             });
                         }
                     }
-                    Event::Search(_term) => {
-                        if let Some(_commit_diff) = &mut diff {
+                    Event::Search(term) => {
+                        if let Some(commit_diff) = &mut diff {
                             // TODO! search
-                            //commit_diff.diff.perform_search(&term);
+                            commit_diff.diff.perform_search(&term);
                         }
                         if let Some(commit_diff) = &diff {
                             if let Some(line_no) = commit_diff.diff.get_line_no() {
