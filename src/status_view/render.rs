@@ -888,7 +888,7 @@ impl ViewContainer for Line {
                     100..1000 => "  -".to_string(),
                     _ => "   -".to_string(),
                 },
-                _ => format!("{}", line_no),
+                _ => format!("{}", source_line_no),
             };
             ctx.linenos
                 .insert(line_no, (line_no_text, self.origin, self.kind.clone()));
