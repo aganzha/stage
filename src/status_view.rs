@@ -965,16 +965,16 @@ impl Status {
     }
     pub fn search<'a>(
         &'a mut self,
-        _term: Regex,
+        term: Regex,
         txt: &'a StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
-        for _diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted]
+        for diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted]
             .into_iter()
             .flatten()
         {
             //TODO! search
-            //diff.perform_search(&term);
+            diff.perform_search(&term);
         }
         self.render(txt, None, context);
         self.search

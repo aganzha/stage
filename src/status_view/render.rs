@@ -247,6 +247,8 @@ pub trait ViewContainer: fmt::Display {
             for child in self.get_children() {
                 child.render(buffer, iter, context);
             }
+        } else {
+            //println!("⚠️ no need childs {} {}", self, view);
         }
         self.after_render(buffer, iter, context);
     }
@@ -434,7 +436,7 @@ pub trait ViewContainer: fmt::Display {
     // ViewContainer
     fn expand<'a>(&'a self, line_no: i32, context: &mut StatusRenderContext<'a>) -> Option<i32> {
         if let Some(my_line_no) = self.get_line_no() {
-            println!("‼️ expand? lineno {} my_line_no {}", line_no, my_line_no);
+            // println!("‼️ expand? lineno {} my_line_no {}", line_no, my_line_no);
             // this is required to fill current hunk.
             // cause line during expansion will need it,
             // to obtain parent (which is hunk) and expand it.
@@ -450,12 +452,12 @@ pub trait ViewContainer: fmt::Display {
                 self.walk_down(&mut |vc: &dyn ViewContainer| {
                     let view = vc.get_view();
                     view.apply_child_expand_op(child_expand_op);
-                    println!("🐦 walk_down and AFTER apply! {:?}", view);
+                    //println!("🐦 walk_down and AFTER apply! {:?}", view);
                 });
                 return Some(my_line_no);
             } else {
                 for child in self.get_children() {
-                    println!("♦️ go expand child {:?}", child.get_view());
+                    //println!("♦️ go expand child {:?}", child.get_view());
                     if let Some(child_lineno) = child.expand(line_no, context) {
                         println!("🛟 expanded child! {:?}", child.get_view());
                         return Some(child_lineno);

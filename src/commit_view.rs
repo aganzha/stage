@@ -574,7 +574,7 @@ pub fn show_commit_window(
                         }
                     }
                     Event::ToggleSearch(value) => {
-                        println!("😖 toggle {}", value);
+                        trace!("toggle search {}", value);
                         search.toggle(value);
                     }
                     _ => {
