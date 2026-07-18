@@ -207,7 +207,7 @@ pub trait ViewContainer: fmt::Display {
         let line_no = iter.line();
         let view = self.get_view();
         let snapshot = view.snapshot(line_no);
-        println!("🧄 snapshot {:?}............{}", snapshot, self);
+        //println!("🧄 snapshot {:?}............{}", snapshot, self);
         match snapshot {
             RenderOp::Insert => {
                 self.write_content(iter, buffer, context);
@@ -441,13 +441,15 @@ pub trait ViewContainer: fmt::Display {
         None
     }
 
-    //fn make_expand_op(&self) -> ExpandOp;
-
-    fn expand(&self, line_no: i32, context: &StatusRenderContext) -> Option<i32> {
-        // let view = self.get_view();
-        // view.toggle(line_no);
+    // ViewContainer
+    fn expand<'a>(&'a self, line_no: i32, context: &mut StatusRenderContext<'a>) -> Option<i32> {
         if let Some(my_line_no) = self.get_line_no() {
             println!("‼️ expand? lineno {} my_line_no {}", line_no, my_line_no);
+            // this is required to fill current hunk.
+            // cause line during expansion will need it,
+            // to obtain parent (which is hunk) and expand it.
+            // why it receives Option<i32>???
+            self.prepare_context(context, Some(my_line_no));
             if my_line_no == line_no {
                 let view = self.get_view();
                 let child_expand_op = view.toggle();
@@ -472,36 +474,6 @@ pub trait ViewContainer: fmt::Display {
             }
         }
         None
-        // match view.switch.get() {
-        //     // hey
-        //     Switch::PendingExpansion => {
-        //         println!("🌻 Switch::PendingExpansion {}", self);
-        //         self.walk_down(&mut |vc: &dyn ViewContainer| {
-        //             let view = vc.get_view();
-        //             view.display.replace(Display::None);
-        //         });
-        //         Some(line_no)
-        //     }
-        //     Switch::PendingCollapsion => {
-        //         println!("🌻 Switch::PendingCollapsion {}", self);
-        //         self.walk_down(&mut |vc: &dyn ViewContainer| {
-        //             let view = vc.get_view();
-        //             view.display.replace(Display::Trashed);
-        //         });
-        //         Some(line_no)
-        //     }
-        //     Switch::Expanded => {
-        //         println!("🌻 Switch::Expanded");
-        //         let mut result: Option<i32> = None;
-        //         self.walk_down(&mut |vc: &dyn ViewContainer| {
-        //             if let Some(vc_line_no) = vc.expand(line_no) {
-        //                 result.replace(vc_line_no);
-        //             }
-        //         });
-        //         result
-        //     }
-        //     _ => None,
-        // }
     }
 
     fn is_expandable_by_child(&self) -> bool {
@@ -945,6 +917,22 @@ impl ViewContainer for Hunk {
 pub const LINENO_MARGIN: &str = "     ";
 
 impl ViewContainer for Line {
+    fn expand(&self, line_no: i32, context: &mut StatusRenderContext) -> Option<i32> {
+        if let Some(my_line_no) = self.get_line_no() {
+            if my_line_no == line_no {
+                if let Some(hunk) = context.current_hunk {
+                    if let Some(hunk_lineno) = hunk.get_line_no() {
+                        println!("🧣...................");
+                        return hunk.expand(hunk_lineno, context);
+                    }
+                }
+                //println!("🧣 expand line in hunk {:?}", context.current_hunk);
+                //return Some(line_no);
+            }
+        }
+        None
+    }
+
     fn get_parent_view<'a>(&self, context: &StatusRenderContext<'a>) -> Option<&'a View> {
         context.current_hunk.map(|d| &d.view)
     }
