@@ -77,13 +77,14 @@ pub trait ViewContainer: fmt::Display {
 
     fn adopt_view(&self, other_rendered_view: &View) {
         let view = self.get_view();
-        //view.line_no.replace(other_rendered_view.line_no.get());
-        //view.flags.replace(other_rendered_view.flags.get());
         view.tag_indexes
             .replace(other_rendered_view.tag_indexes.get());
         //view.transfer(true);
         view.display.replace(other_rendered_view.display.get());
         view.switch.replace(other_rendered_view.switch.get());
+        // state is just active/current
+        // are you sure you want adopt it?
+        // perhaps its better to choose cursor pos propery!
         view.state.replace(other_rendered_view.state.get());
     }
 
@@ -207,7 +208,12 @@ pub trait ViewContainer: fmt::Display {
         let line_no = iter.line();
         let view = self.get_view();
         let snapshot = view.snapshot(line_no);
-        //println!("🧄 snapshot {:?}............{}", snapshot, self);
+        // println!("🧄 snapshot {:?}............{}", snapshot, self);
+        // println!("____________line_no {:?} view {:?} ", line_no, view);
+        // let mut eol_iter = buffer.iter_at_offset(iter.offset());
+        // eol_iter.forward_to_line_end();
+        // println!("💋 real line {}", buffer.text(&iter, &eol_iter, true));
+        // println!("");
         match snapshot {
             RenderOp::Insert => {
                 self.write_content(iter, buffer, context);
@@ -507,7 +513,14 @@ pub trait ViewContainer: fmt::Display {
                 context.erase_counter += 1;
             });
         }
+        println!("‼️ DELETE {}", buffer.text(&iter, &nel_iter, true));
         buffer.delete(&mut iter, &mut nel_iter);
+        let mut eol_iter = buffer.iter_at_offset(nel_iter.offset());
+        eol_iter.forward_to_line_end();
+        println!(
+            "💨 LINE right after erase {}",
+            buffer.text(&nel_iter, &eol_iter, true)
+        );
         cursor_to_line_offset(buffer, initial_line_offset);
     }
 }
@@ -972,7 +985,7 @@ impl ViewContainer for Line {
                     100..1000 => "  -".to_string(),
                     _ => "   -".to_string(),
                 },
-                _ => format!("{}", source_line_no),
+                _ => format!("{}", line_no), //TODO! source_line_no
             };
             ctx.linenos
                 .insert(line_no, (line_no_text, self.origin, self.kind.clone()));
