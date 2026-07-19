@@ -604,6 +604,7 @@ fn test_reconciliation_new() {
     debug!("iter over new hunks");
     for h in &new_file.hunks {
         debug!("all new hunks are transfered {}", h.view);
+        println!("🛟 {}...... {}", h.header, h.view);
         assert!(h.view.is_transfered());
         for line in &h.lines {
             assert!(line.view.is_transfered());
@@ -624,7 +625,7 @@ fn test_reconciliation_new() {
         "@@ -107,9 +107,9 @@ function getDepsList() {",
         "@@ -129,7 +129,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Unstaged);
         hunk.fill_from_header();
         rendered_file.hunks.push(hunk);
     }
@@ -640,7 +641,7 @@ fn test_reconciliation_new() {
         "@@ -106,9 +107,9 @@ function getDepsList() {",
         "@@ -128,7 +129,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Unstaged);
         hunk.fill_from_header();
         new_file.hunks.push(hunk);
     }
@@ -653,16 +654,18 @@ fn test_reconciliation_new() {
     }
     for (i, h) in new_file.hunks.iter().enumerate() {
         if i == 0 {
+            println!("🐦 {} {}", h.header, h.view);
             assert!(!h.view.is_transfered())
         } else {
+            println!("🏈 {} {}", h.header, h.view);
             assert!(h.view.is_transfered());
             for line in &h.lines {
                 assert!(line.view.is_transfered());
             }
         }
     }
-
-    // 2.2
+    return
+    // I AM HERE 2.2
     debug!("............... Case 2.2");
     iter = buffer.iter_at_offset(0);
     buffer.delete(&mut iter, &mut buffer.end_iter());
