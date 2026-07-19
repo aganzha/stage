@@ -92,6 +92,20 @@ fn create_hunk(name: &str) -> Hunk {
 }
 
 #[cfg(test)]
+fn create_hunk_of_kind(header: &str, kind: DiffKind) -> Hunk {
+    let mut hunk = Hunk::new(kind);
+    hunk.set_switch(true);
+    hunk.header = header.to_string();
+    for i in 0..3 {
+        let content = format!("line {}", i);
+        hunk.lines
+            .push(create_line(i, hunk.buf.len(), content.len()));
+        hunk.buf.push_str(&content);
+    }
+    hunk
+}
+
+#[cfg(test)]
 fn create_file(name: &str) -> File {
     let mut file = File::new(DiffKind::Unstaged);
     file.path = name.to_string().into();
@@ -520,7 +534,7 @@ fn test_reconciliation_new() {
         "@@ -106,9 +107,9 @@ function getDepsList() {",
         "@@ -128,7 +129,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Staged); // NEW RCONCILIATION create_hunk(header);
         hunk.fill_from_header();
         rendered_file.hunks.push(hunk);
     }
@@ -535,14 +549,13 @@ fn test_reconciliation_new() {
         "@@ -106,9 +106,9 @@ function getDepsList() {",
         "@@ -128,7 +128,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Staged); // NEW RECONCILIATION create_hunk(header);
         hunk.fill_from_header();
         new_file.hunks.push(hunk);
     }
     iter.set_line(0);
 
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
-    debug!("iter over rendered hunks");
 
     debug!("iter over new hunks");
     for h in &new_file.hunks {
@@ -564,7 +577,7 @@ fn test_reconciliation_new() {
         "@@ -107,9 +107,9 @@ function getDepsList() {",
         "@@ -129,7 +129,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Unstaged);
         hunk.fill_from_header();
         new_file.hunks.push(hunk);
     }
@@ -577,7 +590,7 @@ fn test_reconciliation_new() {
         "@@ -106,9 +107,9 @@ function getDepsList() {",
         "@@ -128,7 +129,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Unstaged);
         hunk.fill_from_header();
         rendered_file.hunks.push(hunk);
     }
