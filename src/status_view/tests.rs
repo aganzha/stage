@@ -718,7 +718,7 @@ fn test_reconciliation_new() {
         }
     }
 
-    // I AM HERE -------------------- case 3 - different number of lines
+    // -------------------- case 3 - different number of lines
     debug!("case 3");
     iter = buffer.iter_at_offset(0);
     buffer.delete(&mut iter, &mut buffer.end_iter());
@@ -758,9 +758,8 @@ fn test_reconciliation_new() {
     for line in &new_file.hunks[0].lines {
         assert!(line.view.is_transfered());
     }
-    return
 
-    // -------------------- case 4 - cannot reproduced but
+    // I AM HERE -------------------- case 4 - cannot reproduced but
     // got it twice during cutting, pasting and undo everywherew
     debug!("case 4.1");
     iter = buffer.iter_at_offset(0);
@@ -769,7 +768,10 @@ fn test_reconciliation_new() {
     let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
 
-    let mut hunk = create_hunk("@@ -687,7 +705,9 @@ class ServiceWorkPostprocess:");
+    let mut hunk = create_hunk_of_kind(
+        "@@ -687,7 +705,9 @@ class ServiceWorkPostprocess:",
+        DiffKind::Staged,
+    );
     hunk.fill_from_header();
     rendered_file.hunks.push(hunk);
     rendered_file.view.set_switch(true);
@@ -779,11 +781,19 @@ fn test_reconciliation_new() {
     new_file.hunks = Vec::new();
 
     iter.set_line(0);
-    let mut hunk = create_hunk("@@ -687,7 +704,9 @@ class ServiceWorkPostprocess:");
+    let mut hunk = create_hunk_of_kind(
+        "@@ -687,7 +704,9 @@ class ServiceWorkPostprocess:",
+        DiffKind::Staged,
+    );
     hunk.fill_from_header();
     new_file.hunks.push(hunk);
     iter.set_line(0);
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
+    println!(
+        "🦆 {} {}",
+        rendered_file.hunks[0].header, rendered_file.hunks[0].view
+    );
+    println!("👿 {} {}", new_file.hunks[0].header, new_file.hunks[0].view);
     assert!(rendered_file.hunks[0].get_line_no().is_some());
     assert!(new_file.hunks[0].view.is_transfered());
     for line in &new_file.hunks[0].lines {
