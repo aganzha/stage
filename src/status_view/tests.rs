@@ -664,8 +664,8 @@ fn test_reconciliation_new() {
             }
         }
     }
-    return
-    // I AM HERE 2.2
+
+    // 2.2
     debug!("............... Case 2.2");
     iter = buffer.iter_at_offset(0);
     buffer.delete(&mut iter, &mut buffer.end_iter());
@@ -677,7 +677,7 @@ fn test_reconciliation_new() {
         "@@ -106,9 +106,9 @@ function getDepsList() {",
         "@@ -128,7 +128,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Staged);
         hunk.fill_from_header();
         rendered_file.hunks.push(hunk);
     }
@@ -693,7 +693,7 @@ fn test_reconciliation_new() {
         "@@ -106,9 +107,9 @@ function getDepsList() {",
         "@@ -128,7 +129,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Staged);
         hunk.fill_from_header();
         new_file.hunks.push(hunk);
     }
@@ -706,8 +706,11 @@ fn test_reconciliation_new() {
     }
     for (i, h) in new_file.hunks.iter().enumerate() {
         if i == 0 {
-            assert!(!h.view.is_transfered()) //jj
+            println!("🪛 {} {}", h.header, h.view);
+            assert!(!h.view.is_transfered())
         } else {
+            // TODO! why its expanded here?
+            println!("🌻 {} {}", h.header, h.view);
             assert!(h.view.is_transfered());
             for line in &h.lines {
                 assert!(line.view.is_transfered());
@@ -715,7 +718,7 @@ fn test_reconciliation_new() {
         }
     }
 
-    // -------------------- case 3 - different number of lines
+    // I AM HERE -------------------- case 3 - different number of lines
     debug!("case 3");
     iter = buffer.iter_at_offset(0);
     buffer.delete(&mut iter, &mut buffer.end_iter());
@@ -723,8 +726,9 @@ fn test_reconciliation_new() {
     let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
 
-    let mut hunk = create_hunk(
+    let mut hunk = create_hunk_of_kind(
         "@@ -1876,7 +1897,8 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):",
+        DiffKind::Staged,
     );
     hunk.fill_from_header();
     rendered_file.hunks.push(hunk);
@@ -735,18 +739,26 @@ fn test_reconciliation_new() {
     new_file.hunks = Vec::new();
 
     iter.set_line(0);
-    let mut hunk = create_hunk(
+    let mut hunk = create_hunk_of_kind(
         "@@ -1876,7 +1897,7 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):",
+        DiffKind::Staged,
     );
     hunk.fill_from_header();
     new_file.hunks.push(hunk);
     iter.set_line(0);
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
+    // why old settled and expanded?
+    println!(
+        "🐪 {} {}",
+        rendered_file.hunks[0].header, rendered_file.hunks[0].view
+    );
+    println!("💦 {} {}", new_file.hunks[0].header, new_file.hunks[0].view);
     assert!(rendered_file.hunks[0].get_line_no().is_some());
     assert!(new_file.hunks[0].view.is_transfered());
     for line in &new_file.hunks[0].lines {
         assert!(line.view.is_transfered());
     }
+    return
 
     // -------------------- case 4 - cannot reproduced but
     // got it twice during cutting, pasting and undo everywherew
