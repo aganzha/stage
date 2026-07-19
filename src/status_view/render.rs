@@ -259,104 +259,6 @@ pub trait ViewContainer: fmt::Display {
         self.after_render(buffer, iter, context);
     }
 
-    // ViewContainer
-    // fn old_render<'a>(
-    //     &'a self,
-    //     buffer: &TextBuffer,
-    //     iter: &mut TextIter,
-    //     context: &mut StatusRenderContext<'a>,
-    // ) {
-    //     self.prepare_context(context, None);
-
-    //     let line_no = iter.line();
-    //     let view = self.get_view();
-    //     let state = view.get_state_for(line_no);
-    //     match state {
-    //         ViewState::RenderedInPlace => {
-    //             trace!("..render MATCH rendered_in_line {:?}", line_no);
-    //             iter.forward_lines(1);
-    //         }
-    //         ViewState::Deleted => {
-    //             trace!("..render MATCH !rendered squashed {:?}", line_no);
-    //         }
-    //         ViewState::NotYetRendered => {
-    //             trace!("..render MATCH insert {:?}", line_no);
-    //             self.write_content(iter, buffer, context);
-    //             buffer.insert(iter, "\n");
-
-    //             view.line_no.replace(line_no);
-    //             view.render(true);
-    //             // before it was used only in cursor!
-    //             self.apply_tags(TagChanges::Render, buffer, context);
-    //         }
-    //         ViewState::DirtyNotInPlace => {
-    //             // just updating tags in place or not
-    //             println!(
-    //                 "🦴 apply tags for dirty NOT in place view {:?} curremt {:?}",
-    //                 view.line_no.get(),
-    //                 line_no
-    //             );
-    //             println!("{}", self._get_content_for_debug(context));
-    //             self.apply_tags(TagChanges::Render, buffer, context);
-    //             view.render(true);
-    //             view.line_no.replace(line_no);
-    //             self.force_forward(buffer, iter);
-    //         }
-    //         ViewState::DirtyInPlace => {
-    //             println!("🦴 apply tags for dirty IN place");
-    //             self.apply_tags(TagChanges::Render, buffer, context);
-    //             view.render(true);
-    //             self.force_forward(buffer, iter);
-    //         }
-    //         ViewState::MarkedForDeletion => {
-    //             trace!("..render MATCH squashed {:?}", line_no); // kij
-    //             let mut nel_iter = buffer.iter_at_line(iter.line()).unwrap();
-    //             nel_iter.forward_lines(1);
-    //             buffer.delete(iter, &mut nel_iter);
-    //             view.render(false);
-    //             view.activate(false);
-    //             view.cleanup_tags();
-    //         }
-    //         ViewState::UpdatedFromGit(l) => {
-    //             trace!(".. render MATCH UpdatedFromGit {:?}", l);
-    //             view.line_no.replace(line_no);
-
-    //             let mut eol_iter = buffer.iter_at_line(iter.line()).unwrap();
-    //             eol_iter.forward_to_line_end();
-
-    //             // if content is empty - eol iter will drop onto next line!
-    //             // no need to delete in this case!
-    //             if iter.line() == eol_iter.line() {
-    //                 buffer.remove_all_tags(iter, &eol_iter);
-    //                 buffer.delete(iter, &mut eol_iter);
-    //             }
-    //             view.cleanup_tags();
-    //             self.write_content(iter, buffer, context);
-    //             // before it was used only in cursor!
-    //             self.apply_tags(TagChanges::Render, buffer, context);
-    //             self.force_forward(buffer, iter);
-    //         }
-    //         ViewState::RenderedNotInPlace(l) => {
-    //             // TODO: somehow it is related to transfered!
-    //             trace!(".. render match not in place {:?}", l);
-    //             view.line_no.replace(line_no);
-    //             self.force_forward(buffer, iter);
-    //         }
-    //     }
-
-    //     view.dirty(false);
-    //     view.squash(false);
-    //     view.transfer(false);
-
-    //     if view.is_expanded() || view.is_child_dirty() {
-    //         for child in self.get_children() {
-    //             child.render(buffer, iter, context);
-    //         }
-    //     }
-    //     self.get_view().child_dirty(false);
-    //     self.after_render(buffer, iter, context);
-    // }
-
     /// called before cursor to fill context.selected...
     /// ONLY FROM DIFF. so, each Diff pass all childs
     /// recursivelly, before calculating all views "active"
@@ -472,10 +374,6 @@ pub trait ViewContainer: fmt::Display {
             }
         }
         None
-    }
-
-    fn is_expandable_by_child(&self) -> bool {
-        false
     }
 
     fn erase(&self, buffer: &TextBuffer, context: &mut StatusRenderContext) {
@@ -600,78 +498,6 @@ impl ViewContainer for Diff {
         self.add_tag(buffer, tags::DIFF, None);
     }
 
-    // // Diff
-    // fn make_expand_op(&self) -> ExpandOp {
-    //     // i just was toggled. it affects my files!
-    //     match self.view.switch.get() {
-    //         Switch::PendingExpansion => {
-    //             // will render my files
-    //             // problem! my files would be in different state!
-    //             // i need to give then some universal!!! to be VISIBLE
-    //             // not will insert. Pending will replace.
-    //             // needs AwaitingRender.
-    //             ExpandOp::Children(ChildExpandOp::ForceShow)
-    //         }
-    //         Switch::PendingCollapsion => {
-    //             // will collapse my hunks
-    //             // problem! my hunks would be in different state!
-    //             // i need to give then some universal!!! to be HIDDEEN!
-    //             // 💋 trashed for sure erase them!!!
-    //             ExpandOp::Children(ChildExpandOp::ForceHide)
-    //         },
-    //         _ => panic!("HUNK, whats the case?"),
-    //     }
-    // }
-    // Diff
-    // fn expand(&self, line_no: i32) -> Option<i32> {
-    //     if self.kind == DiffKind::Untracked {
-    //         return None;
-    //     }
-    //     let mut result: Option<i32> = None;
-    //     let expand_whole_diff = self.is_rendered_in(line_no);
-    //     if expand_whole_diff {
-    //         result.replace(line_no);
-    //     }
-    //     let all_expanded = self.files.iter().all(|f| f.is_expanded());
-    //     let all_collapsed = self.files.iter().all(|f| !f.is_expanded());
-    //     let mut expand_all_files = true;
-    //     if !all_expanded && !all_collapsed {
-    //         // if some files are expanded and some are collapsed
-    //         // lets look at first file. if it is expanded - expand all
-    //         // (this is for the case of automatic expansion of first hunk)
-    //         expand_all_files = self.files[0].is_expanded();
-    //     }
-    //     for file in &self.files {
-    //         if expand_whole_diff {
-    //             if all_expanded || all_collapsed {
-    //                 println!("💨 all equal");
-    //                 if let Some(line_no) = file.get_line_no() {
-    //                     file.expand(line_no);
-    //                 }
-    //             } else {
-    //                 println!(
-    //                     "‼️ expand collapsed vs collaps expanded {:?}",
-    //                     self.is_expanded()
-    //                 );
-    //                 if expand_all_files {
-    //                     if !file.is_expanded() {
-    //                         if let Some(line_no) = file.get_line_no() {
-    //                             file.expand(line_no);
-    //                         }
-    //                     }
-    //                 } else if file.is_expanded() {
-    //                     if let Some(line_no) = file.get_line_no() {
-    //                         file.expand(line_no);
-    //                     }
-    //                 }
-    //             }
-    //         } else if let Some(line) = file.expand(line_no) {
-    //             result.replace(line);
-    //         }
-    //     }
-    //     result
-    // }
-
     // Diff
     fn fill_selected<'a>(&'a self, context: &mut StatusRenderContext<'a>, _parent_index: usize) {
         context.selected_diff = Some(self);
@@ -715,28 +541,6 @@ impl ViewContainer for File {
     fn get_parent_view<'a>(&self, context: &StatusRenderContext<'a>) -> Option<&'a View> {
         context.current_diff.map(|d| &d.view)
     }
-    // File
-    // fn make_expand_op(&self) -> ExpandOp {
-    //     // i just was toggled. it affects my hunks!
-    //     match self.view.switch.get() {
-    //         Switch::PendingExpansion => {
-    //             // will render my hunks
-    //             // problem! my hunks would be in different state!
-    //             // i need to give then some universal!!! to be VISIBLE
-    //             // not will insert. Pending will replace.
-    //             // needs AwaitingRender.
-    //             ExpandOp::Children(ChildExpandOp::ForceShow)
-    //         }
-    //         Switch::PendingCollapsion => {
-    //             // will collapse my hunks
-    //             // problem! my hunks would be in different state!
-    //             // i need to give then some universal!!! to be HIDDEEN!
-    //             // 💋 trashed for sure erase them!!!
-    //             ExpandOp::Children(ChildExpandOp::ForceHide)
-    //         },
-    //         _ => panic!("HUNK, whats the case?"),
-    //     }
-    // }
 
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
@@ -817,18 +621,7 @@ impl ViewContainer for Hunk {
     fn get_parent_view<'a>(&self, context: &StatusRenderContext<'a>) -> Option<&'a View> {
         context.current_file.map(|d| &d.view)
     }
-    // Hunk
-    // fn make_expand_op(&self) -> ExpandOp {
-    //     // i just was toggled. it affexts my lines
-    //     match self.view.switch.get() {
-    //         Switch::PendingExpansion => {
-    //             // will render my lines
-    //             ExpandOp::Children(ChildExpandOp::ForceShow)
-    //         }
-    //         Switch::PendingCollapsion => ExpandOp::Children(ChildExpandOp::ForceHide),
-    //         _ => panic!("HUNK, whats the case?"),
-    //     }
-    // }
+
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
@@ -909,10 +702,6 @@ impl ViewContainer for Hunk {
         }
     }
 
-    fn is_expandable_by_child(&self) -> bool {
-        true
-    }
-
     // Hunk
     fn fill_selected<'a>(&'a self, ctx: &mut StatusRenderContext<'a>, parent_index: usize) {
         ctx.selected_hunk = Some((self, parent_index));
@@ -931,8 +720,6 @@ impl ViewContainer for Line {
                         return hunk.expand(hunk_lineno, context);
                     }
                 }
-                //println!("🧣 expand line in hunk {:?}", context.current_hunk);
-                //return Some(line_no);
             }
         }
         None
@@ -941,11 +728,7 @@ impl ViewContainer for Line {
     fn get_parent_view<'a>(&self, context: &StatusRenderContext<'a>) -> Option<&'a View> {
         context.current_hunk.map(|d| &d.view)
     }
-    // // Line
-    // fn make_expand_op(&self) -> ExpandOp {
-    //     // hit tab on line collapses hunk
-    //     ExpandOp::Parent(Switch::PendingCollapsion)
-    // }
+
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         // lines could not be empty
         false
@@ -991,17 +774,6 @@ impl ViewContainer for Line {
                 .insert(line_no, (line_no_text, self.origin, self.kind.clone()));
         }
     }
-
-    // Line
-    // fn expand(&self, line_no: i32) -> Option<i32> {
-    //     if let Some(my_line_no) = self.get_line_no() {
-    //         if my_line_no == line_no {
-    //             // looks like its just used to break loop
-    //             return Some(line_no);
-    //         }
-    //     }
-    //     None
-    // }
 
     // Line
     // it is useless. rendering_x is sliding variable during render
@@ -1153,7 +925,7 @@ impl ViewContainer for Line {
                     // cleanup previous search tags
                     self.remove_tag(buffer, tags::MATCH_HIGHLIGHT);
                     self.remove_tag(buffer, tags::CURRENT_MATCH_HIGHLIGHT);
-                    //println!("🪛 LINE fill syntax tags {:?} found? {:?}", self.new_line_no, &hunk.search_ranges.len());
+
                     if self.fill_syntax_tags(
                         tags::MATCH_HIGHLIGHT,
                         &hunk.search_ranges,
@@ -1257,9 +1029,7 @@ impl ViewContainer for Line {
 }
 
 impl ViewContainer for Label {
-    // fn make_expand_op(&self) -> ExpandOp {
-    //     ExpandOp::None
-    // }
+
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         self.content.is_empty()
     }
@@ -1284,9 +1054,7 @@ impl ViewContainer for Label {
 }
 
 impl ViewContainer for Head {
-    // fn make_expand_op(&self) -> ExpandOp {
-    //     ExpandOp::None
-    // }
+
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
@@ -1355,9 +1123,7 @@ impl ViewContainer for Head {
 }
 
 impl ViewContainer for GitState {
-    // fn make_expand_op(&self) -> ExpandOp {
-    //     ExpandOp::None
-    // }
+
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
