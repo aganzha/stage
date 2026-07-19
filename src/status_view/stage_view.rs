@@ -31,6 +31,7 @@ mod stage_view_internal {
 
     use crate::LineKind;
     use git2::DiffLineType;
+    use graphene::Size;
     use gtk4::prelude::*;
     use gtk4::subclass::prelude::*;
     use gtk4::{gdk, glib, graphene, gsk, pango, Snapshot, TextView, TextViewLayer};
@@ -66,7 +67,7 @@ mod stage_view_internal {
     pub struct StageView {
         pub show_cursor: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
-        pub hunks: RefCell<Vec<i32>>,
+        pub hunks: RefCell<Vec<(i32, bool)>>,
         pub linenos: RefCell<HashMap<i32, (String, DiffLineType, LineKind)>>,
         pub is_dark: Cell<bool>,
         pub is_dark_set: Cell<bool>,
@@ -195,23 +196,37 @@ mod stage_view_internal {
                     );
                 }
 
+                let r_corner = Size::new(15.0, 15.0);
+                let a_corner = Size::new(0.0, 0.0);
+
                 // highlight hunks -----------------------------------
-                for line in self.hunks.borrow().iter() {
-                    iter.set_line(*line);
+                for (lineno, expanded) in self.hunks.borrow().iter() {
+                    iter.set_line(*lineno);
                     let (y_from, y_to) = self.obj().line_yrange(&iter);
+                    let rect = graphene::Rect::new(
+                        rect.x() as f32,
+                        y_from as f32 + 2.0,
+                        rect.width() as f32,
+                        y_to as f32 - 2.0,
+                    );
+                    let rounded = gsk::RoundedRect::new(
+                        rect,
+                        a_corner,                                    // top-left
+                        r_corner,                                    // top-right
+                        if *expanded { a_corner } else { r_corner }, // bottom-right
+                        a_corner,                                    // bottom-left
+                    );
+                    snapshot.push_rounded_clip(&rounded);
                     snapshot.append_color(
                         if self.is_dark.get() {
                             &DARK_HUNKS
                         } else {
                             &LIGHT_HUNKS
                         },
-                        &graphene::Rect::new(
-                            rect.x() as f32,
-                            y_from as f32,
-                            rect.width() as f32,
-                            y_to as f32,
-                        ),
+                        &rect,
                     );
+                    snapshot.pop();
+                    //snapshot.append_rounded_rect(&corners, color, 1.0); // 1.0 = full opacity
                 }
 
                 // highlight cursor ---------------------------------
@@ -322,8 +337,8 @@ impl StageView {
             self.imp().active_lines.replace((0, 0));
         }
         self.imp().hunks.replace(Vec::new());
-        for h in &context.highlight_hunks {
-            self.imp().hunks.borrow_mut().push(*h);
+        for view in &context.highlight_hunks {
+            self.imp().hunks.borrow_mut().push(*view);
         }
         // toke
         self.imp().linenos.replace(context.linenos.clone());
@@ -347,43 +362,43 @@ impl StageView {
     }
 }
 
-glib::wrapper! {
-    pub struct EmptyLayoutManager(ObjectSubclass<empty_layout_manager_internal::EmptyLayoutManager>)
-        @extends gtk4::LayoutManager;
-}
+// glib::wrapper! {
+//     pub struct EmptyLayoutManager(ObjectSubclass<empty_layout_manager_internal::EmptyLayoutManager>)
+//         @extends gtk4::LayoutManager;
+// }
 
-mod empty_layout_manager_internal {
+// mod empty_layout_manager_internal {
 
-    use gtk4::subclass::prelude::*;
-    use gtk4::{glib, LayoutManager, Widget};
+//     use gtk4::subclass::prelude::*;
+//     use gtk4::{glib, LayoutManager, Widget};
 
-    #[derive(Default)]
-    pub struct EmptyLayoutManager {}
-    #[glib::object_subclass]
-    impl ObjectSubclass for EmptyLayoutManager {
-        const NAME: &'static str = "EmptyLayoutManager";
-        type Type = super::EmptyLayoutManager;
-        type ParentType = LayoutManager;
-    }
-    impl ObjectImpl for EmptyLayoutManager {}
-    impl LayoutManagerImpl for EmptyLayoutManager {
-        fn allocate(&self, _widget: &Widget, _width: i32, _height: i32, _baseline: i32) {
-            // just an empty method
-        }
-    }
-}
+//     #[derive(Default)]
+//     pub struct EmptyLayoutManager {}
+//     #[glib::object_subclass]
+//     impl ObjectSubclass for EmptyLayoutManager {
+//         const NAME: &'static str = "EmptyLayoutManager";
+//         type Type = super::EmptyLayoutManager;
+//         type ParentType = LayoutManager;
+//     }
+//     impl ObjectImpl for EmptyLayoutManager {}
+//     impl LayoutManagerImpl for EmptyLayoutManager {
+//         fn allocate(&self, _widget: &Widget, _width: i32, _height: i32, _baseline: i32) {
+//             // just an empty method
+//         }
+//     }
+// }
 
-impl Default for EmptyLayoutManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// impl Default for EmptyLayoutManager {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
 
-impl EmptyLayoutManager {
-    pub fn new() -> Self {
-        glib::Object::builder().build()
-    }
-}
+// impl EmptyLayoutManager {
+//     pub fn new() -> Self {
+//         glib::Object::builder().build()
+//     }
+// }
 
 pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let manager = StyleManager::default();
@@ -523,6 +538,9 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let unstaged = tags::Tag(tags::UNSTAGED).create(&table);
     let file = tags::Tag(tags::FILE).create(&table);
     let hunk = tags::Tag(tags::HUNK).create(&table);
+    hunk.set_pixels_above_lines(2);
+    //hunk.set_pixels_below_lines(5);
+
     let oid = tags::Tag(tags::OID).create(&table);
 
     let bold = tags::Tag(tags::BOLD).create(&table);

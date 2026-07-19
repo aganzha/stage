@@ -15,7 +15,7 @@ pub struct StatusRenderContext<'a> {
 
     /// same for hunks and line ranges
     pub highlight_lines: Option<(i32, i32)>,
-    pub highlight_hunks: Vec<i32>,
+    pub highlight_hunks: Vec<(i32, bool)>,
 
     pub linenos: HashMap<i32, (String, DiffLineType, LineKind)>,
 
@@ -69,9 +69,9 @@ impl<'a> StatusRenderContext<'a> {
         }
     }
 
-    pub fn collect_hunk_highlights(&mut self, line_no: i32) {
-        self.highlight_hunks.push(line_no);
-    }
+    // pub fn collect_hunk_highlights(&mut self, line_no: i32) {
+    //     self.highlight_hunks.push(line_no);
+    // }
 
     pub fn collect_line_highlights(&mut self, line_no: i32) {
         match self.highlight_lines {
