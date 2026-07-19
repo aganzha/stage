@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::status_view::context::StatusRenderContext;
+use crate::status_view::context::{SnapshotData, StatusRenderContext};
 use crate::status_view::tags;
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
@@ -67,7 +67,7 @@ mod stage_view_internal {
     pub struct StageView {
         pub show_cursor: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
-        pub hunks: RefCell<Vec<(i32, bool)>>,
+        pub hunks: RefCell<Vec<super::SnapshotData>>,
         pub linenos: RefCell<HashMap<i32, (String, DiffLineType, LineKind)>>,
         pub is_dark: Cell<bool>,
         pub is_dark_set: Cell<bool>,
@@ -200,8 +200,8 @@ mod stage_view_internal {
                 let a_corner = Size::new(0.0, 0.0);
 
                 // highlight hunks -----------------------------------
-                for (lineno, expanded) in self.hunks.borrow().iter() {
-                    iter.set_line(*lineno);
+                for snapshot_data in self.hunks.borrow().iter() {
+                    iter.set_line(snapshot_data.line_no);
                     let (y_from, y_to) = self.obj().line_yrange(&iter);
                     let rect = graphene::Rect::new(
                         rect.x() as f32,
@@ -211,10 +211,14 @@ mod stage_view_internal {
                     );
                     let rounded = gsk::RoundedRect::new(
                         rect,
-                        a_corner,                                    // top-left
-                        r_corner,                                    // top-right
-                        if *expanded { a_corner } else { r_corner }, // bottom-right
-                        a_corner,                                    // bottom-left
+                        a_corner, // top-left
+                        r_corner, // top-right
+                        if snapshot_data.is_expanded {
+                            a_corner
+                        } else {
+                            r_corner
+                        }, // bottom-right
+                        a_corner, // bottom-left
                     );
                     snapshot.push_rounded_clip(&rounded);
                     snapshot.append_color(
@@ -337,8 +341,8 @@ impl StageView {
             self.imp().active_lines.replace((0, 0));
         }
         self.imp().hunks.replace(Vec::new());
-        for view in &context.highlight_hunks {
-            self.imp().hunks.borrow_mut().push(*view);
+        for snapshot in &context.highlight_hunks {
+            self.imp().hunks.borrow_mut().push(snapshot.clone());
         }
         // toke
         self.imp().linenos.replace(context.linenos.clone());

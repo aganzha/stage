@@ -207,14 +207,14 @@ pub trait ViewContainer: fmt::Display {
         self.prepare_context(context, None);
         let line_no = iter.line();
         let view = self.get_view();
-        let snapshot = view.snapshot(line_no);
+        let render_op = view.render(line_no);
         // println!("🧄 snapshot {:?}............{}", snapshot, self);
         // println!("____________line_no {:?} view {:?} ", line_no, view);
         // let mut eol_iter = buffer.iter_at_offset(iter.offset());
         // eol_iter.forward_to_line_end();
         // println!("💋 real line {}", buffer.text(&iter, &eol_iter, true));
         // println!("");
-        match snapshot {
+        match render_op {
             RenderOp::Insert => {
                 self.write_content(iter, buffer, context);
                 buffer.insert(iter, "\n");
@@ -247,7 +247,7 @@ pub trait ViewContainer: fmt::Display {
             }
             RenderOp::None => {}
         }
-        let child_required = view.needs_children_snapshot();
+        let child_required = view.needs_child_render();
         if child_required {
             //println!("🧪 go expand childs {} {}", self, view);
             for child in self.get_children() {
@@ -669,10 +669,12 @@ impl ViewContainer for Hunk {
 
     // Hunk
     fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
-        if let Some(line_no) = self.get_line_no() {
-            ctx.highlight_hunks.push((line_no, self.is_expanded()));
-            //ctx.collect_hunk_highlights(line_no);
+        if let Some(snapshot) = self.snapshot() {
+            ctx.highlight_hunks.push(snapshot);
         }
+        // if let Some(line_no) = self.get_line_no() {
+        //     ctx.highlight_hunks.push((line_no, self.is_expanded()));
+        // }
     }
 
     /// Hunk is active when cursor is on Diff or File or self
