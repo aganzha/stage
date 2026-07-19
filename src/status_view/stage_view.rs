@@ -89,7 +89,25 @@ mod stage_view_internal {
             // this related to upper
             5.0
         }
-
+        // margin from right side of screen
+        fn get_summary_margin(&self) -> f32 {
+            100.0
+        }
+        fn hunk_summary_layout(
+            &self,
+            snapshot_data: &super::SnapshotData,
+            is_dark: bool,
+        ) -> (pango::Layout, gdk::RGBA) {
+            let layout = self.obj().create_pango_layout(Some(&format!(
+                "-{} +{}",
+                snapshot_data.removed, snapshot_data.added
+            )));
+            let mut rgba = gdk::RGBA::BLACK;
+            if is_dark {
+                rgba = gdk::RGBA::WHITE;
+            }
+            (layout, rgba)
+        }
         fn lineno_label_layout(
             &self,
             line_no: i32,
@@ -230,7 +248,17 @@ mod stage_view_internal {
                         &rect,
                     );
                     snapshot.pop();
-                    //snapshot.append_rounded_rect(&corners, color, 1.0); // 1.0 = full opacity
+                    let (label, color) =
+                        self.hunk_summary_layout(snapshot_data, self.is_dark.get());
+                    let mut transform = gsk::Transform::new();
+                    transform = transform.translate(&graphene::Point::new(
+                        rect.width() - self.get_summary_margin(),
+                        y_from as f32,
+                    ));
+                    snapshot.save();
+                    snapshot.transform(Some(&transform));
+                    snapshot.append_layout(&label, &color);
+                    snapshot.restore();
                 }
 
                 // highlight cursor ---------------------------------
@@ -270,7 +298,8 @@ mod stage_view_internal {
                 if line_height <= 0 {
                     return;
                 }
-                let mut line_no = rect.y() / line_height - 5;
+                let mut line_no =
+                    rect.y() / line_height - self.get_line_no_offset(line_height) as i32;
 
                 let cursor_iter = buffer.iter_at_offset(buffer.cursor_position());
                 let cursor_line = cursor_iter.line();
