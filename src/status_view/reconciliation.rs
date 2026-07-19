@@ -4,12 +4,31 @@
 
 use crate::status_view::view::Display;
 use crate::status_view::ViewContainer;
-use crate::{Diff, File, Head, Hunk, Line, State};
+use crate::{Diff, DiffKind, File, Head, Hunk, HunkLineNo, Line, State};
 use gtk4::TextBuffer;
 use log::trace;
 use std::collections::HashSet;
 
 impl Hunk {
+    pub fn new_workdir_line(&self) -> Option<HunkLineNo> {
+        match self.kind {
+            DiffKind::Unstaged | DiffKind::Conflicted => Some(self.new_start),
+            DiffKind::Staged => None,
+            DiffKind::Commit | DiffKind::Untracked => {
+                panic!("whats the case?")
+            }
+        }
+    }
+    pub fn old_tree_line(&self) -> Option<HunkLineNo> {
+        match self.kind {
+            DiffKind::Unstaged | DiffKind::Conflicted => None,
+            DiffKind::Staged => Some(self.old_start),
+            DiffKind::Commit | DiffKind::Untracked => {
+                panic!("whats the case?")
+            }
+        }
+    }
+
     // Hunk
     pub fn enrich_view(
         &self,
@@ -17,7 +36,7 @@ impl Hunk {
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) {
-        // so, they are the same except, may be header (new_start could be changed
+        // so, they are the same except, may be header (new_start/old_start could be changed
         // because of hunk moving) and line numbers.
         // header just made Pending. linenumbers will be rendered via Layout
         // right from data. we are good to go. lets leave rendered lines as is
@@ -28,29 +47,13 @@ impl Hunk {
         if !self.is_expanded() {
             return;
         }
-        //let mut last_rendered = 0;
         self.lines
             .iter()
             .zip(rendered.lines.iter())
             .for_each(|lines: (&Line, &Line)| {
                 trace!("zip on lines {:?} {:?}", context, lines);
                 lines.0.enrich_view(lines.1, buffer, context);
-                // if (lines.0.origin != lines.1.origin)
-                //     || (lines.0.content(self) != lines.1.content(rendered))
-                // {
-                //     //lines.0.view.dirty(true);
-                //     lines.0.view.display.replace(Display::Pending);
-                // }
-                //last_rendered += 1;
             });
-        // if rendered.lines.len() > last_rendered {
-        //     rendered.lines[last_rendered..rendered.lines.len()]
-        //         .iter()
-        //         .for_each(|line| {
-        //             trace!("erase line{:?}", line);
-        //             line.erase(buffer, context);
-        //         });
-        // }
     }
 }
 
@@ -68,11 +71,20 @@ impl File {
         }
         let mut to_remain = Vec::new();
         for hunk in self.hunks.iter() {
-            if let Some(rendered_index) = rendered
-                .hunks
-                .iter()
-                .position(|h| h.old_start == hunk.old_start)
-            {
+            // so, how to match hunk in unstaged, when index changed?
+            // newStart could be changed, cause file is edited in workdir!
+            // oldStart could be changed, cause Index is changed during staging!
+            // where is the truth?
+            if let Some(rendered_index) = rendered.hunks.iter().position(|rendered_hunk| {
+                rendered_hunk
+                    .old_tree_line()
+                    .zip(hunk.old_tree_line())
+                    .is_some_and(|(rl, nl)| rl == nl)
+                    || rendered_hunk
+                        .new_workdir_line()
+                        .zip(hunk.new_workdir_line())
+                        .is_some_and(|(rl, nl)| rl == nl)
+            }) {
                 // copy expansion/collapsing
                 let rendered_hunk = &rendered.hunks[rendered_index];
                 hunk.view.switch.replace(rendered_hunk.view.switch.get());
