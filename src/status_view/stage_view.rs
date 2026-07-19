@@ -98,10 +98,11 @@ mod stage_view_internal {
             snapshot_data: &super::SnapshotData,
             is_dark: bool,
         ) -> (pango::Layout, gdk::RGBA) {
-            let layout = self.obj().create_pango_layout(Some(&format!(
-                "-{} +{}",
+            let layout = self.obj().create_pango_layout(None);
+            layout.set_markup(&format!(
+                r#"<span font-size="small" fgalpha="70%" bgalpha="20%"><span bgcolor="red">-{} </span><span bgcolor="green">+{} </span></span>"#,
                 snapshot_data.removed, snapshot_data.added
-            )));
+            ));
             let mut rgba = gdk::RGBA::BLACK;
             if is_dark {
                 rgba = gdk::RGBA::WHITE;
@@ -220,12 +221,12 @@ mod stage_view_internal {
                 // highlight hunks -----------------------------------
                 for snapshot_data in self.hunks.borrow().iter() {
                     iter.set_line(snapshot_data.line_no);
-                    let (y_from, y_to) = self.obj().line_yrange(&iter);
+                    let (y_from, line_height) = self.obj().line_yrange(&iter);
                     let rect = graphene::Rect::new(
                         rect.x() as f32,
                         y_from as f32 + 2.0,
                         rect.width() as f32,
-                        y_to as f32 - 2.0,
+                        line_height as f32 - 2.0,
                     );
                     let rounded = gsk::RoundedRect::new(
                         rect,
@@ -253,7 +254,7 @@ mod stage_view_internal {
                     let mut transform = gsk::Transform::new();
                     transform = transform.translate(&graphene::Point::new(
                         rect.width() - self.get_summary_margin(),
-                        y_from as f32,
+                        (y_from + line_height / 6) as f32,
                     ));
                     snapshot.save();
                     snapshot.transform(Some(&transform));

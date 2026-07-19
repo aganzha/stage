@@ -638,8 +638,7 @@ impl ViewContainer for Hunk {
     ) {
         let parts: Vec<&str> = self.header.split("@@").collect();
         let scope = parts.last().unwrap();
-        buffer.insert(iter, "Line ");
-        buffer.insert(iter, &format!("{}", self.new_start));
+        buffer.insert_markup(iter, &format!("Line <b>{}</b>", self.new_start));
         if !scope.is_empty() {
             buffer.insert(iter, &format!(" in {}", scope));
         }
@@ -672,9 +671,6 @@ impl ViewContainer for Hunk {
         if let Some(snapshot) = self.snapshot() {
             ctx.highlight_hunks.push(snapshot);
         }
-        // if let Some(line_no) = self.get_line_no() {
-        //     ctx.highlight_hunks.push((line_no, self.is_expanded()));
-        // }
     }
 
     /// Hunk is active when cursor is on Diff or File or self
