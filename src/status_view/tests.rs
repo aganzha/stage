@@ -9,7 +9,11 @@ use crate::status_view::stage_view::StageView;
 #[cfg(test)]
 use crate::status_view::tags;
 #[cfg(test)]
-use crate::status_view::view::RenderFlags;
+use crate::status_view::view::{Display, State, Switch};
+#[cfg(test)]
+use crate::{make_search, StatusRenderContext, ViewContainer};
+use std::fmt;
+
 use crate::status_view::view::View;
 #[cfg(test)]
 use crate::status_view::Status;
@@ -20,13 +24,14 @@ use crate::tests::initialize;
 use crate::git::HunkLineNo;
 #[cfg(test)]
 use crate::status_view::CursorPosition;
-use crate::status_view::{StatusRenderContext, ViewContainer};
 use crate::Hunk;
 #[cfg(test)]
 use crate::{Diff, DiffKind, File, Line, LineKind, StageOp};
 #[cfg(test)]
 use git2::DiffLineType;
+#[cfg(test)]
 use gtk4::prelude::*;
+#[cfg(test)]
 use gtk4::{TextBuffer, TextIter};
 #[cfg(test)]
 use log::debug;
@@ -63,7 +68,7 @@ impl Hunk {
 fn create_line(line_no: u32, from: usize, to: usize) -> Line {
     Line {
         origin: DiffLineType::Context,
-        view: View::new(),
+        view: View::default(),
         new_line_no: Some(HunkLineNo::new(line_no)),
         old_line_no: Some(HunkLineNo::new(line_no)),
         kind: LineKind::None,
@@ -75,9 +80,24 @@ fn create_line(line_no: u32, from: usize, to: usize) -> Line {
 #[cfg(test)]
 fn create_hunk(name: &str) -> Hunk {
     let mut hunk = Hunk::new(DiffKind::Unstaged);
+    hunk.set_switch(true);
     hunk.header = name.to_string();
     for i in 0..3 {
         let content = format!("{} -> line {}", hunk.header, i);
+        hunk.lines
+            .push(create_line(i, hunk.buf.len(), content.len()));
+        hunk.buf.push_str(&content);
+    }
+    hunk
+}
+
+#[cfg(test)]
+fn create_hunk_of_kind(header: &str, kind: DiffKind) -> Hunk {
+    let mut hunk = Hunk::new(kind);
+    hunk.set_switch(true);
+    hunk.header = header.to_string();
+    for i in 0..3 {
+        let content = format!("line {}", i);
         hunk.lines
             .push(create_line(i, hunk.buf.len(), content.len()));
         hunk.buf.push_str(&content);
@@ -99,6 +119,7 @@ fn create_file(name: &str) -> File {
 #[cfg(test)]
 fn create_diff() -> Diff {
     let mut diff = Diff::new(DiffKind::Unstaged);
+    diff.view.set_switch(true);
     for i in 0..3 {
         diff.files.push(create_file(&format!("file{}.rs", i)));
     }
@@ -108,21 +129,17 @@ fn create_diff() -> Diff {
 #[gtk4::test]
 pub fn test_file_active() {
     let buffer = initialize();
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
     let diff = create_diff();
     let mut context = StatusRenderContext::new(&stage);
     let mut iter = buffer.iter_at_offset(0);
     diff.render(&buffer, &mut iter, &mut context);
 
-    let mut line_no = (&diff.files[0]).view.line_no.get();
+    let mut line_no = (&diff.files[0]).get_line_no().unwrap();
     diff.cursor(&buffer, line_no, &mut context);
 
     assert!((&diff.files[0]).view.is_current());
-    assert!((&diff.files[0]).view.is_active());
-
-    // put cursor on file
-    // diff.files[0].cursor(&buffer, line_no, &mut context);
 
     // expand it
     diff.files[0].expand(line_no, &mut context).unwrap();
@@ -134,7 +151,6 @@ pub fn test_file_active() {
 
     // cursor is on file and file is expanded
     assert!((&diff.files[0]).view.is_current());
-    assert!((&diff.files[0]).view.is_active());
     // file itself is active and everything inside file
     // is active
     for hunk in &diff.files[0].hunks {
@@ -144,7 +160,7 @@ pub fn test_file_active() {
         }
     }
     // goto next line
-    line_no = diff.files[1].view.line_no.get();
+    line_no = diff.files[1].get_line_no().unwrap();
     diff.cursor(&buffer, line_no, &mut context);
 
     assert!(!(&diff.files[0]).view.is_active());
@@ -157,11 +173,11 @@ pub fn test_file_active() {
     // any render always follow cursor
     diff.cursor(&buffer, line_no, &mut context);
 
-    assert!(diff.files[1].hunks[0].view.is_rendered());
+    assert!(diff.files[1].hunks[0].get_line_no().is_some());
     assert!(diff.files[1].hunks[0].view.is_active());
     assert!(diff.files[1].hunks[0].view.is_expanded());
     for line in &diff.files[1].hunks[0].lines {
-        assert!(line.view.is_rendered());
+        assert!(line.get_line_no().is_some());
         assert!(line.view.is_active());
     }
 }
@@ -170,7 +186,7 @@ pub fn test_file_active() {
 pub fn test_expand() {
     let buffer = initialize();
     let diff = create_diff();
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
     let mut ctx = StatusRenderContext::new(&stage);
     let mut iter = buffer.iter_at_line(0).unwrap();
@@ -180,10 +196,10 @@ pub fn test_expand() {
         diff.cursor(&buffer, cursor_line, &mut ctx);
 
         for file in &diff.files {
+            let line_no = file.get_line_no().unwrap();
             let view = file.get_view();
-            let line_no = view.line_no.get();
+
             if line_no == cursor_line {
-                assert!(view.is_active());
                 assert!(view.is_current());
             } else {
                 assert!(!view.is_active());
@@ -197,7 +213,10 @@ pub fn test_expand() {
     let mut cursor_line = 2;
     for file in &diff.files {
         if let Some(_expanded_line) = file.expand(cursor_line, &mut ctx) {
-            assert!(file.get_view().is_child_dirty());
+            assert!(matches!(
+                file.get_view().switch.get(),
+                Switch::PendingExpansion
+            ));
             break;
         }
     }
@@ -206,27 +225,23 @@ pub fn test_expand() {
     diff.cursor(&buffer, cursor_line, &mut ctx);
 
     for file in &diff.files {
+        let line_no = file.get_line_no().unwrap();
         let view = file.get_view();
-        let line_no = view.line_no.get();
         if line_no == cursor_line {
-            assert!(view.is_rendered());
-            assert!(view.is_current());
-            assert!(view.is_active());
-            assert!(view.is_expanded());
+            assert!(matches!(view.state.get(), State::Current));
+            assert!(matches!(file.get_view().switch.get(), Switch::Expanded));
             file.walk_down(&mut |vc: &dyn ViewContainer| {
+                assert!(vc.get_line_no().is_some());
                 let view = vc.get_view();
-                assert!(view.is_rendered());
-                assert!(view.is_active());
-                assert!(!view.is_squashed());
-                assert!(!view.is_current());
+                assert!(matches!(view.state.get(), State::Active));
+                assert!(vc.get_line_no().is_some());
             });
         } else {
             assert!(!view.is_current());
             assert!(!view.is_active());
             assert!(!view.is_expanded());
             file.walk_down(&mut |vc: &dyn ViewContainer| {
-                let view = vc.get_view();
-                assert!(!view.is_rendered());
+                assert!(!vc.get_line_no().is_some());
             });
         }
     }
@@ -245,38 +260,36 @@ pub fn test_expand() {
 
     for file in &diff.files {
         let view = file.get_view();
-        let line_no = view.line_no.get();
+        let line_no = file.get_line_no().unwrap();
         if line_no < cursor_line {
             // all are inactive
             assert!(!view.is_current());
             assert!(!view.is_active());
             assert!(!view.is_expanded());
             file.walk_down(&mut |vc: &dyn ViewContainer| {
-                let view = vc.get_view();
-                assert!(!view.is_rendered());
+                assert!(!vc.get_line_no().is_some());
             });
         } else if line_no == cursor_line {
             // all are active
-            assert!(view.is_rendered());
+            assert!(file.get_line_no().is_some());
             assert!(view.is_current());
-            assert!(view.is_active());
             assert!(view.is_expanded());
             file.walk_down(&mut |vc: &dyn ViewContainer| {
                 let view = vc.get_view();
-                assert!(view.is_rendered());
+                assert!(vc.get_line_no().is_some());
                 assert!(view.is_active());
                 assert!(!view.is_current());
             });
         } else if line_no > cursor_line {
             // all are expanded but inactive
-            assert!(view.is_rendered());
+            assert!(file.get_line_no().is_some());
             assert!(!view.is_current());
             assert!(!view.is_active());
             // file2 is not expanded!
             if view.is_expanded() {
                 file.walk_down(&mut |vc: &dyn ViewContainer| {
                     let view = vc.get_view();
-                    assert!(view.is_rendered());
+                    assert!(vc.get_line_no().is_some());
                     assert!(!view.is_active());
                     assert!(!view.is_current());
                 });
@@ -291,13 +304,16 @@ pub fn test_expand() {
         if let Some(_expanded_line) = file.expand(cursor_line, &mut ctx) {
             for child in file.get_children() {
                 let view = child.get_view();
-                if view.line_no.get() == cursor_line {
-                    // hunks were expanded by default.
-                    // now they are collapsed!
-                    assert!(!view.is_expanded());
-                    assert!(view.is_child_dirty());
-                    for line in child.get_children() {
-                        assert!(line.get_view().is_squashed());
+                if let Display::Settled(line_no, _) = view.display.get() {
+                    if line_no == cursor_line {
+                        // hunks were expanded by default.
+                        // now they are collapsed!
+                        assert!(matches!(view.switch.get(), Switch::PendingCollapsion));
+                        //assert!(!view.is_expanded());
+                        //assert!(view.is_child_dirty());
+                        for line in child.get_children() {
+                            assert!(matches!(line.get_view().display.get(), Display::Trashed));
+                        }
                     }
                 }
             }
@@ -320,7 +336,12 @@ impl TestViewContainer {
         }
     }
 }
-
+impl fmt::Display for TestViewContainer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "TestViewContainer")
+    }
+}
+#[cfg(test)]
 impl ViewContainer for TestViewContainer {
     fn is_empty(&self, _context: &mut StatusRenderContext) -> bool {
         false
@@ -349,15 +370,15 @@ fn test_render_view() {
     let mut iter = buffer.iter_at_line(0).unwrap();
     buffer.insert(&mut iter, "begin\n");
     // -------------------- test insert
-    let view1 = View::new();
-    let view2 = View::new();
-    let view3 = View::new();
+    let view1 = View::default();
+    let view2 = View::default();
+    let view3 = View::default();
 
     let vc1 = TestViewContainer::new(view1, "test1");
     let vc2 = TestViewContainer::new(view2, "test2");
     let vc3 = TestViewContainer::new(view3, "test3");
 
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
     let mut ctx = StatusRenderContext::new(&stage);
 
@@ -365,12 +386,12 @@ fn test_render_view() {
     vc2.render(&buffer, &mut iter, &mut ctx);
     vc3.render(&buffer, &mut iter, &mut ctx);
 
-    assert!(vc1.view.line_no.get() == 1);
-    assert!(vc2.view.line_no.get() == 2);
-    assert!(vc3.view.line_no.get() == 3);
-    assert!(vc1.view.is_rendered());
-    assert!(vc2.view.is_rendered());
-    assert!(vc3.view.is_rendered());
+    assert!(vc1.get_line_no().unwrap() == 1);
+    assert!(vc2.get_line_no().unwrap() == 2);
+    assert!(vc3.get_line_no().unwrap() == 3);
+    assert!(vc1.get_line_no().is_some());
+    assert!(vc2.get_line_no().is_some());
+    assert!(vc3.get_line_no().is_some());
     assert!(iter.line() == 4);
 
     // ------------------ test rendered in line
@@ -383,53 +404,41 @@ fn test_render_view() {
 
     // ------------------ test deleted
     iter = buffer.iter_at_line(1).unwrap();
-    vc1.view.squash(true);
-    vc1.view.render(false);
+    vc1.view.display.replace(Display::Trashed);
 
     vc1.render(&buffer, &mut iter, &mut ctx);
 
-    assert!(!vc1.view.is_rendered());
+    assert!(!vc1.get_line_no().is_some());
     // its no longer squashed. is it ok?
-    assert!(!vc1.view.is_squashed());
+    assert!(matches!(vc1.view.display.get(), Display::Hidden));
     // iter was not moved (nothing to delete, view was not rendered)
     assert!(iter.line() == 1);
-    // rerender it
-    vc1.render(&buffer, &mut iter, &mut ctx);
-
-    assert!(iter.line() == 2);
 
     // -------------------- test dirty
-    vc2.view.dirty(true);
+    vc2.view.display.replace(Display::Pending);
     vc2.render(&buffer, &mut iter, &mut ctx);
 
-    assert!(!vc2.view.is_dirty());
-    assert!(iter.line() == 3);
+    assert!(!matches!(vc2.view.display.get(), Display::Pending));
+    assert!(iter.line() == 2);
+
     // -------------------- test squashed
-    vc3.view.squash(true);
+    vc3.view.display.replace(Display::Trashed);
     vc3.render(&buffer, &mut iter, &mut ctx);
-
-    assert!(!vc3.view.is_squashed());
+    assert!(matches!(vc3.view.display.get(), Display::Hidden));
     // iter remains on same kine, just squashing view in place
-    assert!(iter.line() == 3);
-    // -------------------- test transfered
-    vc3.view.line_no.replace(0);
-    vc3.view.dirty(true);
-    vc3.view.transfer(true);
-    vc3.render(&buffer, &mut iter, &mut ctx);
+    assert!(iter.line() == 2);
 
-    assert!(vc3.view.line_no.get() == 3);
-    assert!(vc3.view.is_rendered());
-    assert!(!vc3.view.is_dirty());
-    assert!(!vc3.view.is_transfered());
-    assert!(iter.line() == 4);
+    // -------------------- test transfered
+    vc3.view.display.replace(Display::None);
+    vc3.render(&buffer, &mut iter, &mut ctx);
+    assert!(matches!(vc3.view.display.get(), Display::Settled(2, _)));
+    assert!(iter.line() == 3);
 
     // --------------------- test not in place
     iter = buffer.iter_at_line(3).unwrap();
-    vc3.view.line_no.replace(0);
+    vc3.view.display.replace(Display::Pending);
     vc3.render(&buffer, &mut iter, &mut ctx);
-
-    assert!(vc3.view.line_no.get() == 3);
-    assert!(vc3.view.is_rendered());
+    assert!(matches!(vc3.view.display.get(), Display::Settled(3, _)));
     assert!(iter.line() == 4);
 }
 
@@ -441,12 +450,12 @@ fn test_expand_line() {
 
     let diff = create_diff();
 
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
 
     let mut ctx = StatusRenderContext::new(&stage);
     diff.render(&buffer, &mut iter, &mut ctx);
-    let first_file_line = diff.files[0].view.line_no.get();
+    let first_file_line = diff.files[0].get_line_no().unwrap();
     diff.cursor(&buffer, 1, &mut ctx);
 
     // expand first file
@@ -464,17 +473,17 @@ fn test_expand_line() {
             continue;
         }
         for file in &diff.files {
-            if file.view.line_no.get() == i as i32 {
+            if file.get_line_no().unwrap() == i as i32 {
                 let file_path = file.path.to_str().unwrap();
                 assert!(cl.contains(file_path));
             }
             if file.view.is_expanded() {
                 for hunk in &file.hunks {
-                    if hunk.view.line_no.get() == i as i32 {
+                    if hunk.get_line_no().unwrap() == i as i32 {
                         assert!(cl.contains(&hunk.header));
                     }
                     for line in &hunk.lines {
-                        if line.view.line_no.get() == i as i32 {
+                        if line.get_line_no().unwrap() == i as i32 {
                             assert!(cl.contains(line.content(&hunk)));
                         }
                     }
@@ -485,19 +494,19 @@ fn test_expand_line() {
 
     // put cursor inside first hunk
     let first_hunk = &diff.files[0].hunks[0];
-    let first_hunk_line = first_hunk.view.line_no.get();
+    let first_hunk_line = first_hunk.get_line_no().unwrap();
     diff.cursor(&buffer, first_hunk_line, &mut ctx);
     // expand on line inside first hunk
     diff.expand(first_hunk_line, &mut ctx);
     diff.render(&buffer, &mut buffer.iter_at_line(1).unwrap(), &mut ctx);
     assert!(!first_hunk.view.is_expanded());
-    assert!(first_hunk.view.line_no.get() + 1 == diff.files[0].hunks[1].view.line_no.get());
+    assert!(first_hunk.get_line_no().unwrap() + 1 == diff.files[0].hunks[1].get_line_no().unwrap());
     let content = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
     let content_lines = content.split('\n');
 
     for (i, cl) in content_lines.enumerate() {
         for line in &first_hunk.lines {
-            assert!(!line.view.is_rendered());
+            assert!(!line.get_line_no().is_some());
             assert!(!cl.contains(line.content(first_hunk)));
         }
         debug!("................{:?} {:?}", i, cl);
@@ -508,7 +517,7 @@ fn test_expand_line() {
 fn test_reconciliation_new() {
     let buffer = initialize();
 
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
 
     let mut context = StatusRenderContext::new(&stage);
@@ -525,11 +534,11 @@ fn test_reconciliation_new() {
         "@@ -106,9 +107,9 @@ function getDepsList() {",
         "@@ -128,7 +129,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Staged); // NEW RCONCILIATION create_hunk(header);
         hunk.fill_from_header();
         rendered_file.hunks.push(hunk);
     }
-    rendered_file.view.expand(true);
+    rendered_file.view.set_switch(true);
     rendered_file.render(&buffer, &mut iter, &mut context);
 
     // 1.1
@@ -540,14 +549,13 @@ fn test_reconciliation_new() {
         "@@ -106,9 +106,9 @@ function getDepsList() {",
         "@@ -128,7 +128,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Staged); // NEW RECONCILIATION create_hunk(header);
         hunk.fill_from_header();
         new_file.hunks.push(hunk);
     }
     iter.set_line(0);
 
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
-    debug!("iter over rendered hunks");
 
     debug!("iter over new hunks");
     for h in &new_file.hunks {
@@ -569,7 +577,7 @@ fn test_reconciliation_new() {
         "@@ -107,9 +107,9 @@ function getDepsList() {",
         "@@ -129,7 +129,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Unstaged);
         hunk.fill_from_header();
         new_file.hunks.push(hunk);
     }
@@ -582,20 +590,21 @@ fn test_reconciliation_new() {
         "@@ -106,9 +107,9 @@ function getDepsList() {",
         "@@ -128,7 +129,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Unstaged);
         hunk.fill_from_header();
         rendered_file.hunks.push(hunk);
     }
     iter.set_line(0);
 
-    rendered_file.view.expand(true);
+    rendered_file.view.set_switch(true);
     rendered_file.render(&buffer, &mut iter, &mut context);
 
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
 
     debug!("iter over new hunks");
     for h in &new_file.hunks {
-        debug!("all new hunks are transfered {}", h.view.repr());
+        debug!("all new hunks are transfered {}", h.view);
+        println!("🛟 {}...... {}", h.header, h.view);
         assert!(h.view.is_transfered());
         for line in &h.lines {
             assert!(line.view.is_transfered());
@@ -616,11 +625,11 @@ fn test_reconciliation_new() {
         "@@ -107,9 +107,9 @@ function getDepsList() {",
         "@@ -129,7 +129,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Unstaged);
         hunk.fill_from_header();
         rendered_file.hunks.push(hunk);
     }
-    rendered_file.view.expand(true);
+    rendered_file.view.set_switch(true);
     rendered_file.render(&buffer, &mut iter, &mut context);
 
     let mut new_file = create_file("File");
@@ -632,7 +641,7 @@ fn test_reconciliation_new() {
         "@@ -106,9 +107,9 @@ function getDepsList() {",
         "@@ -128,7 +129,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Unstaged);
         hunk.fill_from_header();
         new_file.hunks.push(hunk);
     }
@@ -640,13 +649,15 @@ fn test_reconciliation_new() {
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
     debug!("iter over rendered hunks");
     for h in &rendered_file.hunks {
-        debug!("all hunks are rendered {}", h.view.repr());
-        assert!(h.view.is_rendered());
+        debug!("all hunks are rendered {}", h.view);
+        assert!(h.get_line_no().is_some());
     }
     for (i, h) in new_file.hunks.iter().enumerate() {
         if i == 0 {
+            println!("🐦 {} {}", h.header, h.view);
             assert!(!h.view.is_transfered())
         } else {
+            println!("🏈 {} {}", h.header, h.view);
             assert!(h.view.is_transfered());
             for line in &h.lines {
                 assert!(line.view.is_transfered());
@@ -666,11 +677,11 @@ fn test_reconciliation_new() {
         "@@ -106,9 +106,9 @@ function getDepsList() {",
         "@@ -128,7 +128,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Staged);
         hunk.fill_from_header();
         rendered_file.hunks.push(hunk);
     }
-    rendered_file.view.expand(true);
+    rendered_file.view.set_switch(true);
     rendered_file.render(&buffer, &mut iter, &mut context);
 
     let mut new_file = create_file("File");
@@ -682,7 +693,7 @@ fn test_reconciliation_new() {
         "@@ -106,9 +107,9 @@ function getDepsList() {",
         "@@ -128,7 +129,8 @@ function getDepsList() {",
     ] {
-        let mut hunk = create_hunk(header);
+        let mut hunk = create_hunk_of_kind(header, DiffKind::Staged);
         hunk.fill_from_header();
         new_file.hunks.push(hunk);
     }
@@ -690,13 +701,16 @@ fn test_reconciliation_new() {
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
     debug!("iter over rendered hunks");
     for h in &rendered_file.hunks {
-        debug!("all hunks are rendered {}", h.view.repr());
-        assert!(h.view.is_rendered());
+        debug!("all hunks are rendered {}", h.view);
+        assert!(h.get_line_no().is_some());
     }
     for (i, h) in new_file.hunks.iter().enumerate() {
         if i == 0 {
+            println!("🪛 {} {}", h.header, h.view);
             assert!(!h.view.is_transfered())
         } else {
+            // TODO! why its expanded here?
+            println!("🌻 {} {}", h.header, h.view);
             assert!(h.view.is_transfered());
             for line in &h.lines {
                 assert!(line.view.is_transfered());
@@ -712,32 +726,40 @@ fn test_reconciliation_new() {
     let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
 
-    let mut hunk = create_hunk(
+    let mut hunk = create_hunk_of_kind(
         "@@ -1876,7 +1897,8 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):",
+        DiffKind::Staged,
     );
     hunk.fill_from_header();
     rendered_file.hunks.push(hunk);
-    rendered_file.view.expand(true);
+    rendered_file.view.set_switch(true);
     rendered_file.render(&buffer, &mut iter, &mut context);
 
     let mut new_file = create_file("File");
     new_file.hunks = Vec::new();
 
     iter.set_line(0);
-    let mut hunk = create_hunk(
+    let mut hunk = create_hunk_of_kind(
         "@@ -1876,7 +1897,7 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):",
+        DiffKind::Staged,
     );
     hunk.fill_from_header();
     new_file.hunks.push(hunk);
     iter.set_line(0);
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
-    assert!(rendered_file.hunks[0].view.is_rendered());
+    // why old settled and expanded?
+    println!(
+        "🐪 {} {}",
+        rendered_file.hunks[0].header, rendered_file.hunks[0].view
+    );
+    println!("💦 {} {}", new_file.hunks[0].header, new_file.hunks[0].view);
+    assert!(rendered_file.hunks[0].get_line_no().is_some());
     assert!(new_file.hunks[0].view.is_transfered());
     for line in &new_file.hunks[0].lines {
         assert!(line.view.is_transfered());
     }
 
-    // -------------------- case 4 - cannot reproduced but
+    // I AM HERE -------------------- case 4 - cannot reproduced but
     // got it twice during cutting, pasting and undo everywherew
     debug!("case 4.1");
     iter = buffer.iter_at_offset(0);
@@ -746,22 +768,33 @@ fn test_reconciliation_new() {
     let mut rendered_file = create_file("File");
     rendered_file.hunks = Vec::new();
 
-    let mut hunk = create_hunk("@@ -687,7 +705,9 @@ class ServiceWorkPostprocess:");
+    let mut hunk = create_hunk_of_kind(
+        "@@ -687,7 +705,9 @@ class ServiceWorkPostprocess:",
+        DiffKind::Staged,
+    );
     hunk.fill_from_header();
     rendered_file.hunks.push(hunk);
-    rendered_file.view.expand(true);
+    rendered_file.view.set_switch(true);
     rendered_file.render(&buffer, &mut iter, &mut context);
 
     let mut new_file = create_file("File");
     new_file.hunks = Vec::new();
 
     iter.set_line(0);
-    let mut hunk = create_hunk("@@ -687,7 +704,9 @@ class ServiceWorkPostprocess:");
+    let mut hunk = create_hunk_of_kind(
+        "@@ -687,7 +704,9 @@ class ServiceWorkPostprocess:",
+        DiffKind::Staged,
+    );
     hunk.fill_from_header();
     new_file.hunks.push(hunk);
     iter.set_line(0);
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
-    assert!(rendered_file.hunks[0].view.is_rendered());
+    println!(
+        "🦆 {} {}",
+        rendered_file.hunks[0].header, rendered_file.hunks[0].view
+    );
+    println!("👿 {} {}", new_file.hunks[0].header, new_file.hunks[0].view);
+    assert!(rendered_file.hunks[0].get_line_no().is_some());
     assert!(new_file.hunks[0].view.is_transfered());
     for line in &new_file.hunks[0].lines {
         assert!(line.view.is_transfered());
@@ -773,7 +806,7 @@ fn test_tags() {
     let tag1 = tags::TEXT_TAGS[17];
     let tag3 = tags::TEXT_TAGS[3];
 
-    let view = View::new();
+    let view = View::default();
     view.tag_added(&tag1);
     debug!("added at 16 {:b}", view.tag_indexes.get());
     assert!(view.tag_indexes.get() == tags::TagIdx::from(0b100000000000000000));
@@ -799,34 +832,12 @@ fn test_tags() {
     assert!(!view.tag_indexes.get().is_added(&tag3));
 }
 
-#[test]
-pub fn test_flags() {
-    let mut flags = RenderFlags::new();
-
-    flags = flags.expand(true);
-    flags = flags.squash(true);
-
-    debug!(
-        "------------- set {:b} {} {}",
-        flags,
-        flags.is_squashed(),
-        flags.is_expanded()
-    );
-    flags = flags.expand(false);
-    debug!(
-        "------------- set {:b} {} {}",
-        flags,
-        flags.is_squashed(),
-        flags.is_expanded()
-    );
-}
-
 #[gtk4::test]
 pub fn test_cursor_position() {
     let buffer = initialize();
     let diff = create_diff();
 
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
 
     let mut ctx = StatusRenderContext::new(&stage);
@@ -834,26 +845,34 @@ pub fn test_cursor_position() {
     diff.render(&buffer, &mut iter, &mut ctx);
 
     // cursor on diff
-    let line_no = diff.view.line_no.get();
-    diff.expand(line_no, &mut ctx);
+    let line_no = diff.get_line_no().unwrap();
+    println!("💦-----------------------------------{:?}", diff.view);
+    // it was expand here before....
+    //diff.expand(line_no, &mut ctx);
     let mut iter = buffer.iter_at_offset(0);
     diff.render(&buffer, &mut iter, &mut ctx);
-    diff.cursor(&buffer, diff.view.line_no.get(), &mut ctx);
+    diff.cursor(&buffer, diff.get_line_no().unwrap(), &mut ctx);
 
     let position = CursorPosition::from_context(&ctx);
     assert!(position == CursorPosition::CursorDiff(diff.kind));
 
     // iterate on files
     for (fi, file) in diff.files.iter().enumerate() {
-        let file_line_no = file.view.line_no.get();
+        println!("................................ {:?}", file.view);
+        let file_line_no = file.get_line_no().unwrap();
         // put cursor on each file
         ctx = StatusRenderContext::new(&stage);
         diff.cursor(&buffer, file_line_no, &mut ctx);
         let position = CursorPosition::from_context(&ctx);
         assert!(position == CursorPosition::CursorFile(diff.kind, fi));
 
+        // expand each file before render
+        file.expand(file_line_no, &mut ctx);
+        let mut iter = buffer.iter_at_offset(0);
+        diff.render(&buffer, &mut iter, &mut ctx);
+
         for (hi, hunk) in file.hunks.iter().enumerate() {
-            let hunk_line_no = hunk.view.line_no.get();
+            let hunk_line_no = hunk.get_line_no().unwrap();
             // put cursor on each hunk
             ctx = StatusRenderContext::new(&stage);
             diff.cursor(&buffer, hunk_line_no, &mut ctx);
@@ -861,7 +880,7 @@ pub fn test_cursor_position() {
             assert!(position == CursorPosition::CursorHunk(diff.kind, fi, hi));
 
             for (li, line) in hunk.lines.iter().enumerate() {
-                let line_line_no = line.view.line_no.get();
+                let line_line_no = line.get_line_no().unwrap();
                 // put cursor on each line
                 diff.cursor(&buffer, line_line_no, &mut ctx);
                 let position = CursorPosition::from_context(&ctx);
@@ -877,13 +896,13 @@ pub fn test_choose_cursor_position() {
     let unstaged = create_diff();
     let diff = create_diff();
 
-    let stage = StageView::new();
+    let stage = StageView::default();
     stage.set_buffer(Some(&buffer));
 
     let mut ctx = StatusRenderContext::new(&stage);
     let mut iter = buffer.iter_at_offset(0);
     diff.render(&buffer, &mut iter, &mut ctx);
-    diff.expand(diff.files[0].view.line_no.get(), &mut ctx);
+    diff.expand(diff.files[0].get_line_no().unwrap(), &mut ctx);
     iter.set_line(0);
     diff.render(&buffer, &mut iter, &mut ctx);
 
@@ -897,7 +916,8 @@ pub fn test_choose_cursor_position() {
     //     staged: &None,
     // };
     let (sender, _) = async_channel::unbounded();
-    let mut diffs = Status::new(None, sender);
+    let search = make_search(sender.clone());
+    let mut diffs = Status::new(None, search, sender);
     diffs.unstaged = Some(diff);
 
     let stage_op = StageOp::Stage;
@@ -925,9 +945,8 @@ pub fn test_choose_cursor_position() {
     assert!(
         iter.line()
             == diffs.unstaged.as_ref().unwrap().files[FILE_IND]
-                .view
-                .line_no
-                .get()
+                .get_line_no()
+                .unwrap()
     );
     assert!(diffs.last_op.get().is_none());
     debug!("........1! {:?} {:?}", iter.line(), diffs.last_op);
@@ -942,9 +961,8 @@ pub fn test_choose_cursor_position() {
     assert!(
         iter.line()
             == diffs.unstaged.as_ref().unwrap().files[FILE_IND]
-                .view
-                .line_no
-                .get()
+                .get_line_no()
+                .unwrap()
     );
     assert!(diffs.last_op.get().is_none());
 
@@ -963,9 +981,8 @@ pub fn test_choose_cursor_position() {
                 .files
                 .last()
                 .unwrap()
-                .view
-                .line_no
-                .get()
+                .get_line_no()
+                .unwrap()
     );
     assert!(diffs.last_op.get().is_none());
 
@@ -979,9 +996,8 @@ pub fn test_choose_cursor_position() {
     assert!(
         iter.line()
             == diffs.unstaged.as_ref().unwrap().files[0].hunks[0]
-                .view
-                .line_no
-                .get()
+                .get_line_no()
+                .unwrap()
     );
     assert!(diffs.last_op.get().is_none());
 
@@ -998,9 +1014,8 @@ pub fn test_choose_cursor_position() {
                 .hunks
                 .last()
                 .unwrap()
-                .view
-                .line_no
-                .get()
+                .get_line_no()
+                .unwrap()
     );
     assert!(diffs.last_op.get().is_none());
 
@@ -1030,7 +1045,12 @@ pub fn test_choose_cursor_position() {
     let iter = diffs.choose_cursor_position(&buffer, Some(DiffKind::Staged));
 
     assert!(diffs.last_op.get().is_none());
-    assert!(iter.line() == diffs.unstaged.as_ref().unwrap().files[0].view.line_no.get());
+    assert!(
+        iter.line()
+            == diffs.unstaged.as_ref().unwrap().files[0]
+                .get_line_no()
+                .unwrap()
+    );
 
     // lets check desired_diff_kind also
     last_op.cursor_position = CursorPosition::CursorFile(DiffKind::Staged, 0);
@@ -1042,5 +1062,10 @@ pub fn test_choose_cursor_position() {
 
     diffs.choose_cursor_position(&buffer, Some(DiffKind::Unstaged));
     assert!(diffs.last_op.get().is_none());
-    assert!(iter.line() == diffs.unstaged.as_ref().unwrap().files[0].view.line_no.get());
+    assert!(
+        iter.line()
+            == diffs.unstaged.as_ref().unwrap().files[0]
+                .get_line_no()
+                .unwrap()
+    );
 }

@@ -37,6 +37,7 @@ pub struct StatusRenderContext<'a> {
 
     // used in fn cursor to check if view is changed during fn cursor
     pub was_current: bool,
+    pub search_matched_lines: Vec<i32>,
 }
 
 impl<'a> StatusRenderContext<'a> {
@@ -63,6 +64,7 @@ impl<'a> StatusRenderContext<'a> {
                 current_line: None,
                 previous_line: None,
                 was_current: false,
+                search_matched_lines: Vec::new(),
             }
         }
     }

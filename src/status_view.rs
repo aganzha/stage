@@ -16,9 +16,11 @@ use crate::dialogs::{alert, DangerDialog, YES};
 use crate::git::{
     abort_rebase, blame, branch::BranchData, continue_rebase, merge, remote, stash, HunkLineNo,
 };
+use std::fmt;
 
 use git2::RepositoryState;
 use op::LastOp;
+use regex::Regex;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -34,7 +36,7 @@ use std::rc::Rc;
 use crate::status_view::view::View;
 use crate::{
     get_current_repo_status, BlameLine, CurrentWindow, Diff, DiffKind, Event, File as GitFile,
-    Head, Selected, State, StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
+    Head, Search, Selected, State, StatusRenderContext, DARK_CLASS, LIGHT_CLASS,
 };
 use async_channel::Sender;
 
@@ -79,11 +81,16 @@ pub struct Label {
     pub content: String,
     view: View,
 }
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Label")
+    }
+}
 impl Label {
     pub fn from_string(content: &str) -> Self {
         Label {
             content: String::from(content),
-            view: View::new(),
+            view: View::default(),
         }
     }
 }
@@ -144,10 +151,11 @@ pub struct Status {
     pub monitor_lock: Rc<RefCell<HashSet<PathBuf>>>,
     pub last_op: Cell<Option<LastOp>>,
     pub cursor_position: Cell<CursorPosition>,
+    search: Search,
 }
 
 impl Status {
-    pub fn new(path: Option<PathBuf>, sender: Sender<Event>) -> Self {
+    pub fn new(path: Option<PathBuf>, search: Search, sender: Sender<Event>) -> Self {
         Self {
             path,
             sender,
@@ -167,6 +175,7 @@ impl Status {
             monitor_lock: Rc::new(RefCell::new(HashSet::new())),
             last_op: Cell::new(None),
             cursor_position: Cell::new(CursorPosition::None),
+            search,
         }
     }
 
@@ -179,7 +188,7 @@ impl Status {
             let maybe_file = diff
                 .files
                 .iter()
-                .find(|f| f.view.is_current() || f.hunks.iter().any(|h| h.view.is_active()));
+                .find(|f| f.is_current() || f.hunks.iter().any(|h| h.is_active()));
             if maybe_file.is_some() {
                 return maybe_file;
             }
@@ -190,15 +199,15 @@ impl Status {
     // TODO! replace in the favour of context
     pub fn editor_args_at_cursor(&self, txt: &StageView) -> Option<(PathBuf, i32, i32)> {
         if let Some(file) = self.file_at_cursor() {
-            if file.view.is_current() {
+            if file.is_current() {
                 return Some((self.to_abs_path(&file.path), 0, 0));
             }
-            let hunk = file.hunks.iter().find(|h| h.view.is_active()).unwrap();
+            let hunk = file.hunks.iter().find(|h| h.is_active()).unwrap();
             // TODO move Line old_line_no and new_line_no
             let mut line_no = hunk.new_start;
             let mut col_no = 0;
-            if !hunk.view.is_current() {
-                let line = hunk.lines.iter().find(|l| l.view.is_current()).unwrap();
+            if !hunk.is_current() {
+                let line = hunk.lines.iter().find(|l| l.is_current()).unwrap();
                 line_no = line
                     .new_line_no
                     .or(line.old_line_no)
@@ -748,18 +757,8 @@ impl Status {
             .replace(CursorPosition::from_context(context));
     }
 
-    // pub fn toggle_empty_layout_manager(&self, txt: &StageView, on: bool) {
-    //     if on {
-    //         if txt.layout_manager().is_some() {
-    //             txt.set_layout_manager(None::<EmptyLayoutManager>);
-    //         }
-    //     } else {
-    //         txt.set_layout_manager(Some(EmptyLayoutManager::new()));
-    //     }
-    // }
-
     pub fn expand<'a>(
-        &'a mut self,
+        &'a self,
         txt: &StageView,
         line_no: i32,
         _offset: i32,
@@ -854,14 +853,7 @@ impl Status {
         self.head.as_ref().unwrap().oid
     }
 
-    pub fn debug<'a>(&'a mut self, txt: &StageView, _context: &mut StatusRenderContext<'a>) {
-        let buffer = txt.buffer();
-        let pos = buffer.cursor_position();
-        let iter = buffer.iter_at_offset(pos);
-        for tag in iter.tags() {
-            debug!("Tag: {}", tag.name().unwrap());
-        }
-    }
+    pub fn debug<'a>(&'a mut self, _txt: &StageView, _context: &mut StatusRenderContext<'a>) {}
 
     pub fn blame(&self, app_window: CurrentWindow) {
         let mut line_no: Option<HunkLineNo> = None;
@@ -970,5 +962,53 @@ impl Status {
             _ => {}
         }
         None
+    }
+    pub fn search<'a>(
+        &'a mut self,
+        term: Regex,
+        txt: &'a StageView,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        for diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted]
+            .into_iter()
+            .flatten()
+        {
+            //TODO! search
+            diff.perform_search(&term);
+        }
+        self.render(txt, None, context);
+        self.search
+            .matched_lines
+            .replace(context.search_matched_lines.clone());
+        self.search.update();
+        // TODO find nearest line!
+        if let Some(scroll_to) = context.search_matched_lines.iter().min() {
+            self.search.current_lineno.replace(Some(*scroll_to));
+            self.goto_line(txt, *scroll_to);
+        }
+    }
+
+    pub fn goto_line(&self, txt: &StageView, lineno: i32) {
+        let buffer = txt.buffer();
+        if let Some(mut iter) = buffer.iter_at_line(lineno) {
+            buffer.place_cursor(&iter);
+            txt.scroll_to_iter(&mut iter, 0.0, true, 0.5, 0.5);
+        }
+    }
+
+    pub fn reset_search<'a>(
+        &'a mut self,
+        txt: &'a StageView,
+        context: &mut StatusRenderContext<'a>,
+    ) {
+        let _need_render = false;
+        for diff in [&mut self.staged, &mut self.unstaged, &mut self.conflicted]
+            .into_iter()
+            .flatten()
+        {
+            diff.reset_search();
+        }
+        self.render(txt, None, context);
+        self.search.update();
     }
 }

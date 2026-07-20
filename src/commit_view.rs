@@ -6,12 +6,15 @@ use crate::dialogs::alert;
 use crate::git::{blame, commit, stash::StashNum};
 use crate::status_view::context::StatusRenderContext;
 use crate::status_view::{
-    render::ViewContainer, stage_view::StageView, view::View, CursorPosition,
-    Label as TextViewLabel,
+    render::ViewContainer,
+    stage_view::StageView,
+    view::{State, View},
+    CursorPosition, Label as TextViewLabel,
 };
-use crate::{ApplyOp, BlameLine, CurrentWindow, Event, HunkLineNo, StageOp};
+use crate::{make_search, ApplyOp, BlameLine, CurrentWindow, Event, HunkLineNo, StageOp};
 use async_channel::Sender;
 use git2::Oid;
+use std::fmt;
 
 use gtk4::prelude::*;
 use gtk4::{
@@ -88,12 +91,17 @@ pub struct MultiLineLabel {
     pub labels: Vec<TextViewLabel>,
     pub view: View,
 }
+impl fmt::Display for MultiLineLabel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "MultiLabel")
+    }
+}
 
 impl MultiLineLabel {
     pub fn new(content: &str, visible_chars: i32) -> Self {
         let mut mll = MultiLineLabel {
             labels: Vec::new(),
-            view: View::new(),
+            view: View::default(),
         };
         mll.make_labels(content, visible_chars);
         mll
@@ -146,11 +154,15 @@ impl MultiLineLabel {
         }
         // space for following diff
         self.labels.push(TextViewLabel::from_string(""));
-        self.view.expand(true)
+        self.view.set_switch(true);
+        //self.view.expand(true)
     }
 }
 
 impl ViewContainer for MultiLineLabel {
+    // fn make_expand_op(&self) -> ExpandOp {
+    //     ExpandOp::None
+    // }
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         self.labels.is_empty()
     }
@@ -203,14 +215,16 @@ impl commit::CommitDiff {
             if let Some(blame_line) = blame_line {
                 for (f, file) in self.diff.files.iter().enumerate() {
                     if file.path == blame_line.file_path {
-                        file.view.expand(true);
+                        //file.view.expand(true);
+                        file.view.set_switch(true);
                         for (h, hunk) in file.hunks.iter().enumerate() {
                             let mut found = false;
                             if found_line_index.is_none() {
                                 for (l, line) in hunk.lines.iter().enumerate() {
                                     if let Some(line_no) = line.new_line_no {
                                         if line_no == blame_line.line_in_hunk {
-                                            line.view.make_current(true);
+                                            line.view.state.replace(State::Current);
+                                            //line.view.make_current(true);
                                             found = true;
                                             found_line_index.replace((f, h, l));
                                             break;
@@ -219,7 +233,8 @@ impl commit::CommitDiff {
                                 }
                             }
                             if !found {
-                                hunk.view.expand(false);
+                                hunk.view.set_switch(false);
+                                //hunk.view.expand(false);
                             }
                         }
                         if found_line_index.is_some() {
@@ -228,23 +243,26 @@ impl commit::CommitDiff {
                     }
                 }
             } else {
-                self.diff.files[0].view.make_current(true);
+                self.diff.files[0].view.state.replace(State::Current);
+                //self.diff.files[0].view.make_current(true);
             }
         }
 
         self.diff.render(&buffer, &mut iter, ctx);
         if let Some((f, h, l)) = found_line_index {
-            let line_no = self.diff.files[f].hunks[h].lines[l].view.line_no.get();
-            let buffer = txt.buffer();
-            iter = buffer.iter_at_line(line_no).unwrap();
-            buffer.place_cursor(&iter);
-            txt.scroll_to_iter(&mut iter, 0.0, false, 0.0, 0.0);
+            let line = &self.diff.files[f].hunks[h].lines[l];
+            if let Some(line_no) = line.get_line_no() {
+                let buffer = txt.buffer();
+                iter = buffer.iter_at_line(line_no).unwrap();
+                buffer.place_cursor(&iter);
+                txt.scroll_to_iter(&mut iter, 0.0, false, 0.0, 0.0);
+            }
         } else if !self.diff.files.is_empty() {
             let buffer = txt.buffer();
-            iter = buffer
-                .iter_at_line(self.diff.files[0].view.line_no.get())
-                .unwrap();
-            buffer.place_cursor(&iter);
+            if let Some(line_no) = self.diff.files[0].get_line_no() {
+                iter = buffer.iter_at_line(line_no).unwrap();
+                buffer.place_cursor(&iter);
+            }
         }
         self.diff.cursor(&txt.buffer(), iter.line(), ctx);
         txt.bind_highlights(ctx);
@@ -287,6 +305,9 @@ pub fn show_commit_window(
 
     let tb = ToolbarView::builder().content(&scroll).build();
     tb.add_top_bar(&hb);
+
+    let search = make_search(sender.clone());
+    tb.add_bottom_bar(&search.search_bar);
 
     window.set_content(Some(&tb));
 
@@ -376,13 +397,14 @@ pub fn show_commit_window(
                         if let Some(d) = &mut diff {
                             if d.diff.expand(line_no, &mut ctx).is_some() {
                                 let buffer = &txt.buffer();
-                                let mut iter =
-                                    buffer.iter_at_line(d.diff.view.line_no.get()).unwrap();
-                                d.diff.render(buffer, &mut iter, &mut ctx);
-                                let iter = buffer.iter_at_offset(buffer.cursor_position());
-                                d.diff.cursor(buffer, iter.line(), &mut ctx);
-                                txt.bind_highlights(&ctx);
-                                cursor_position = CursorPosition::from_context(&ctx);
+                                if let Some(line_no) = d.diff.get_line_no() {
+                                    let mut iter = buffer.iter_at_line(line_no).unwrap();
+                                    d.diff.render(buffer, &mut iter, &mut ctx);
+                                    let iter = buffer.iter_at_offset(buffer.cursor_position());
+                                    d.diff.cursor(buffer, iter.line(), &mut ctx);
+                                    txt.bind_highlights(&ctx);
+                                    cursor_position = CursorPosition::from_context(&ctx);
+                                }
                             }
                         }
                     }
@@ -499,6 +521,61 @@ pub fn show_commit_window(
                                 }
                             });
                         }
+                    }
+                    Event::Search(term) => {
+                        if let Some(commit_diff) = &mut diff {
+                            // TODO! search
+                            commit_diff.diff.perform_search(&term);
+                        }
+                        if let Some(commit_diff) = &diff {
+                            if let Some(line_no) = commit_diff.diff.get_line_no() {
+                                let buffer = &txt.buffer();
+                                let mut iter = buffer.iter_at_line(line_no).unwrap();
+                                commit_diff.diff.render(buffer, &mut iter, &mut ctx);
+
+                                let iter = buffer.iter_at_offset(buffer.cursor_position());
+                                commit_diff.diff.cursor(buffer, iter.line(), &mut ctx);
+                                txt.bind_highlights(&ctx);
+
+                                cursor_position = CursorPosition::from_context(&ctx);
+                                search
+                                    .matched_lines
+                                    .replace(ctx.search_matched_lines.clone());
+                                if let Some(scroll_to) = ctx.search_matched_lines.iter().min() {
+                                    search.current_lineno.replace(Some(*scroll_to));
+                                    if let Some(mut iter) = buffer.iter_at_line(*scroll_to) {
+                                        buffer.place_cursor(&iter);
+                                        txt.scroll_to_iter(&mut iter, 0.0, true, 0.5, 0.5);
+                                    }
+                                }
+                            }
+                            search.update();
+                        }
+                    }
+                    Event::ResetSearch => {
+                        if let Some(commit_diff) = &mut diff {
+                            commit_diff.diff.reset_search();
+                        }
+                        if let Some(commit_diff) = &diff {
+                            if let Some(line_no) = commit_diff.diff.get_line_no() {
+                                let buffer = &txt.buffer();
+                                let mut iter = buffer.iter_at_line(line_no).unwrap();
+                                commit_diff.diff.render(buffer, &mut iter, &mut ctx);
+                            }
+                            search.update();
+                        }
+                        search.update();
+                    }
+                    Event::GoToLine(lineno) => {
+                        let buffer = txt.buffer();
+                        if let Some(mut iter) = buffer.iter_at_line(lineno) {
+                            buffer.place_cursor(&iter);
+                            txt.scroll_to_iter(&mut iter, 0.0, true, 0.5, 0.5);
+                        }
+                    }
+                    Event::ToggleSearch(value) => {
+                        trace!("toggle search {}", value);
+                        search.toggle(value);
                     }
                     _ => {
                         trace!("unhandled event in commit_view {:?}", event);

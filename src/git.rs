@@ -107,10 +107,15 @@ pub struct Line {
     pub char_indices: HashMap<usize, i32>,
 }
 
+impl fmt::Display for Line {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Line {:?}", self.new_line_no)
+    }
+}
 impl Default for Line {
     fn default() -> Self {
         Line {
-            view: View::new(),
+            view: View::default(),
             origin: DiffLineType::Addition,
             new_line_no: None,
             old_line_no: None,
@@ -128,7 +133,7 @@ impl Line {
 
     pub fn from_diff_line(l: &DiffLine, content_from: usize, content_to: usize) -> Self {
         Self {
-            view: View::new(),
+            view: View::default(),
             origin: l.origin_value(),
             new_line_no: l.new_lineno().map(HunkLineNo),
             old_line_no: l.old_lineno().map(HunkLineNo),
@@ -185,6 +190,7 @@ pub struct Hunk {
     pub buf: String,
     pub keyword_ranges: Vec<(usize, usize)>,
     pub identifier_ranges: Vec<(usize, usize)>,
+    pub search_ranges: Vec<(usize, usize)>,
 }
 
 impl fmt::Display for Hunk {
@@ -195,8 +201,9 @@ impl fmt::Display for Hunk {
 
 impl Hunk {
     pub fn new(kind: DiffKind) -> Self {
-        let view = View::new();
-        view.expand(true);
+        let view = View::default();
+        view.set_switch(true);
+        //view.expand(true);
         Self {
             view,
             header: String::new(),
@@ -210,6 +217,7 @@ impl Hunk {
             buf: String::new(),
             keyword_ranges: Vec::new(),
             identifier_ranges: Vec::new(),
+            search_ranges: Vec::new(),
         }
     }
 
@@ -430,10 +438,16 @@ pub struct File {
     pub status: Delta,
 }
 
+impl fmt::Display for File {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "File {:?}", self.path)
+    }
+}
+
 impl File {
     pub fn new(kind: DiffKind) -> Self {
         Self {
-            view: View::new(),
+            view: View::default(),
             path: PathBuf::new(),
             hunks: Vec::new(),
             kind,
@@ -443,7 +457,7 @@ impl File {
     pub fn from_diff_file(f: &DiffFile, kind: DiffKind, status: Delta) -> Self {
         let path: PathBuf = f.path().unwrap().into();
         File {
-            view: View::new(),
+            view: View::default(),
             path,
             hunks: Vec::new(),
             kind,
@@ -459,7 +473,7 @@ impl File {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum DiffKind {
     Staged,
     Unstaged,
@@ -475,11 +489,16 @@ pub struct Diff {
     pub kind: DiffKind,
 }
 
+impl fmt::Display for Diff {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Diff {:?}", self.kind)
+    }
+}
+
 impl Diff {
     pub fn new(kind: DiffKind) -> Self {
-        let view = View::new();
-        view.expand(true);
-        view.child_dirty(true);
+        let view = View::default();
+        view.set_switch(true);
         Self {
             files: Vec::new(),
             view,
@@ -517,12 +536,18 @@ pub struct State {
     pub view: View,
 }
 
+impl fmt::Display for State {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "State {:?}", self.state)
+    }
+}
+
 impl State {
     pub fn new(state: RepositoryState, subject: String) -> Self {
         Self {
             state,
             subject,
-            view: View::new(),
+            view: View::default(),
         }
     }
     pub fn need_final_commit(&self) -> bool {
@@ -571,6 +596,12 @@ pub struct Head {
     pub branch: Option<BranchData>,
 }
 
+impl fmt::Display for Head {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Head {:?}", self.branch)
+    }
+}
+
 impl Head {
     pub fn new(commit: &Commit, is_upstream: bool) -> Self {
         Self {
@@ -579,7 +610,7 @@ impl Head {
             // branch_name: None,
             log_message: commit.log_message(),
             raw_message: commit.raw_message(),
-            view: View::new(),
+            view: View::default(),
             commit_dt: commit.dt(),
             branch: None,
         }

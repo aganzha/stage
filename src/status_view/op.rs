@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use super::{CursorPosition, Status};
-use crate::dialogs::{alert, ConfirmWithOptions, DangerDialog, YES};
+use crate::dialogs::{alert, ConfirmWithOptions, CustomResponseDangerDialog, YES};
 use crate::git::{commit, merge, stash};
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::{stage_untracked, stage_via_apply, ApplyOp, DiffKind, Event, StageOp};
+use crate::{stage_untracked, stage_via_apply, ApplyOp, DiffKind, Event, StageOp, ViewContainer};
 
 use gtk4::prelude::*;
 use gtk4::{gio, glib, ListBox, SelectionMode, TextBuffer, TextIter, Widget};
@@ -163,52 +163,67 @@ impl Status {
                 }
                 StageOp::Kill => {
                     self.last_op.replace(current_op);
-                    glib::spawn_future_local({
-                        let window = window.clone();
-                        let path = self.path.clone();
-                        let gio_settings = gio_settings.clone();
-                        let sender = self.sender.clone();
-                        let untracked = self.untracked.clone();
-                        let mut ignored = Vec::new();
-                        let mut message = "This will hide all untracked files!".to_string();
-                        if let Some(file_path) = &file_path {
-                            let str_path = file_path.to_str().expect("wrong path");
-                            ignored.push(str_path.to_string());
-                            message = file_path.to_str().expect("wrong path").to_string();
-                        } else if let Some(untracked) = &untracked {
-                            for file in &untracked.files {
-                                let str_path = file.path.to_str().expect("wrong path");
+                    if let Some(file_path) = file_path {
+                        glib::spawn_future_local({
+                            let window = window.clone();
+                            let path = self.path.clone();
+                            let gio_settings = gio_settings.clone();
+                            let sender = self.sender.clone();
+                            let mut untracked = if let Some(untracked) = &self.untracked {
+                                untracked.clone()
+                            } else {
+                                return;
+                            };
+                            let mut ignored = Vec::new();
+                            if let Some(str_path) = file_path.to_str() {
                                 ignored.push(str_path.to_string());
-                            }
-                        }
-
-                        let mut settings =
-                            gio_settings.get::<HashMap<String, Vec<String>>>("ignored");
-                        async move {
-                            let response =
-                                alert(DangerDialog("Hide Untracked files?".to_string(), message))
-                                    .choose_future(&window)
-                                    .await;
-                            if response != YES {
+                            } else {
                                 return;
                             }
-                            let repo_path = path.expect("no path");
-                            let repo_path = repo_path.to_str().expect("wrong path");
-                            if let Some(stored) = settings.get_mut(repo_path) {
-                                stored.append(&mut ignored);
-                                trace!("added ignore {:?}", settings);
-                            } else {
-                                settings.insert(repo_path.to_string(), ignored);
-                                trace!("first ignored file {:?}", settings);
+
+                            let mut settings =
+                                gio_settings.get::<HashMap<String, Vec<String>>>("ignored");
+                            async move {
+                                let response = alert(CustomResponseDangerDialog {
+                                    header: "Hide or delete Untracked files".to_string(),
+                                    message: ignored[0].clone(),
+                                    responses: vec![
+                                        "Cancel".to_string(),
+                                        "Hide".to_string(),
+                                        "Delete".to_string(),
+                                    ],
+                                })
+                                .choose_future(&window)
+                                .await;
+                                if response == "Cancel" {
+                                    return;
+                                }
+                                let repo_path = path.expect("no path");
+                                if response == "Hide" {
+                                    let repo_path = repo_path.to_str().expect("wrong path");
+                                    if let Some(stored) = settings.get_mut(repo_path) {
+                                        stored.append(&mut ignored);
+                                        trace!("added ignore {:?}", settings);
+                                    } else {
+                                        settings.insert(repo_path.to_string(), ignored);
+                                    }
+                                    gio_settings
+                                        .set("ignored", settings)
+                                        .expect("cant set settings");
+                                }
+                                if response == "Delete" {
+                                    let path_to_delete =
+                                        repo_path.parent().unwrap().join(file_path.clone());
+                                    if std::fs::remove_file(&path_to_delete).is_ok() {
+                                        untracked.files.retain(|f| f.path != file_path);
+                                    }
+                                }
+                                sender
+                                    .send_blocking(Event::Untracked(Some(untracked)))
+                                    .expect("Could not send through channel");
                             }
-                            gio_settings
-                                .set("ignored", settings)
-                                .expect("cant set settings");
-                            sender
-                                .send_blocking(Event::Untracked(untracked))
-                                .expect("Could not send through channel");
-                        }
-                    });
+                        });
+                    }
                 }
                 _ => {
                     debug!("unknow op for untracked");
@@ -506,7 +521,7 @@ impl Status {
                         debug!("wrong diff_kind 1 {:?}", diff_kind);
                     }
                     if let Some(diff) = &self.staged {
-                        iter.set_line(diff.view.line_no.get());
+                        diff.put_line_onto(&mut iter);
                         self.last_op.take();
                     }
                 }
@@ -519,7 +534,7 @@ impl Status {
                         debug!("wrong diff_kind 2 {:?}", diff_kind);
                     }
                     if let Some(diff) = &self.unstaged {
-                        iter.set_line(diff.view.line_no.get());
+                        diff.put_line_onto(&mut iter);
                         self.last_op.take();
                     }
                 }
@@ -532,10 +547,10 @@ impl Status {
                         debug!("wrong diff_kind 3 {:?}", diff_kind);
                     }
                     if let Some(diff) = &self.staged {
-                        iter.set_line(diff.view.line_no.get());
+                        diff.put_line_onto(&mut iter);
                         self.last_op.take();
                     } else if let Some(diff) = &self.untracked {
-                        iter.set_line(diff.view.line_no.get());
+                        diff.put_line_onto(&mut iter);
                         self.last_op.take();
                     }
                 }
@@ -558,7 +573,7 @@ impl Status {
                         if diff.kind == render_diff_kind {
                             for i in (0..file_idx + 1).rev() {
                                 if let Some(file) = diff.files.get(i) {
-                                    iter.set_line(file.view.line_no.get());
+                                    file.put_line_onto(&mut iter);
                                     self.last_op.take();
                                     break;
                                 }
@@ -590,16 +605,16 @@ impl Status {
                         if diff.kind == render_diff_kind {
                             'found: for i in (0..file_idx + 1).rev() {
                                 if let Some(file) = diff.files.get(i) {
-                                    if file.view.is_expanded() {
+                                    if file.is_expanded() {
                                         for j in (0..hunk_ids + 1).rev() {
                                             if let Some(hunk) = file.hunks.get(j) {
-                                                iter.set_line(hunk.view.line_no.get());
+                                                hunk.put_line_onto(&mut iter);
                                                 self.last_op.take();
                                                 break 'found;
                                             }
                                         }
                                     }
-                                    iter.set_line(file.view.line_no.get());
+                                    file.put_line_onto(&mut iter);
                                     self.last_op.take();
                                     break;
                                 }
@@ -620,24 +635,24 @@ impl Status {
                 Some(DiffKind::Unstaged) | Some(DiffKind::Conflicted) => {
                     if let Some(conflicted) = &self.conflicted {
                         if let Some(file) = conflicted.files.first() {
-                            iter.set_line(file.view.line_no.get());
+                            file.put_line_onto(&mut iter);
                         }
                     } else if let Some(unstaged) = &self.unstaged {
                         if let Some(file) = unstaged.files.first() {
-                            iter.set_line(file.view.line_no.get());
+                            file.put_line_onto(&mut iter);
                         }
                     }
                 }
-                Some(DiffKind::Staged) | Some(DiffKind::Untracked) => {
-                    if self.conflicted.is_none() && self.unstaged.is_none() {
-                        if let Some(staged) = &self.staged {
-                            if let Some(file) = staged.files.first() {
-                                iter.set_line(file.view.line_no.get());
-                            }
-                        } else if let Some(untracked) = &self.untracked {
-                            if let Some(file) = untracked.files.first() {
-                                iter.set_line(file.view.line_no.get());
-                            }
+                Some(DiffKind::Staged) | Some(DiffKind::Untracked)
+                    if self.conflicted.is_none() && self.unstaged.is_none() =>
+                {
+                    if let Some(staged) = &self.staged {
+                        if let Some(file) = staged.files.first() {
+                            file.put_line_onto(&mut iter);
+                        }
+                    } else if let Some(untracked) = &self.untracked {
+                        if let Some(file) = untracked.files.first() {
+                            file.put_line_onto(&mut iter);
                         }
                     }
                 }
@@ -653,7 +668,7 @@ impl Status {
             match render_diff_kind {
                 DiffKind::Unstaged | DiffKind::Untracked | DiffKind::Conflicted => {
                     if let Some(diff) = &self.staged {
-                        iter.set_line(diff.files[0].view.line_no.get());
+                        diff.files[0].put_line_onto(iter);
                         self.last_op.take();
                     } else {
                         self.last_op.replace(Some(op.desire(DiffKind::Staged)));
@@ -661,11 +676,10 @@ impl Status {
                 }
                 DiffKind::Staged => {
                     if let Some(diff) = &self.unstaged {
-                        let line_no = diff.files[0].view.line_no.get();
-                        iter.set_line(line_no);
+                        diff.files[0].put_line_onto(iter);
                         self.last_op.take();
                     } else if let Some(diff) = &self.untracked {
-                        iter.set_line(diff.files[0].view.line_no.get());
+                        diff.files[0].put_line_onto(iter);
                         self.last_op.take();
                     } else {
                         self.last_op.replace(Some(op.desire(DiffKind::Unstaged)));

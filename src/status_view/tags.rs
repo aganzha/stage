@@ -49,10 +49,12 @@ pub const SYNTAX: &str = "syntax";
 pub const SYNTAX_1: &str = "syntax1";
 pub const ENHANCED_SYNTAX: &str = "enhancedSyntax";
 pub const ENHANCED_SYNTAX_1: &str = "enhancedSyntax1";
+pub const MATCH_HIGHLIGHT: &str = "matchHighlight";
+pub const CURRENT_MATCH_HIGHLIGHT: &str = "currentMatchHighlight";
 
 // THE ORDER HERE IS IMPORTANT!
 // if swap context and syntax, then syntax tags will not be visible in context lines!
-pub const TEXT_TAGS: [&str; 32] = [
+pub const TEXT_TAGS: [&str; 34] = [
     BOLD,
     ADDED,
     ENHANCED_ADDED,
@@ -85,6 +87,8 @@ pub const TEXT_TAGS: [&str; 32] = [
     ENHANCED_SYNTAX_1_REMOVED,
     CONTEXT,
     ENHANCED_CONTEXT,
+    MATCH_HIGHLIGHT,
+    CURRENT_MATCH_HIGHLIGHT,
 ];
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -207,17 +211,26 @@ impl ColorTag {
         table.add(&tag);
         tag
     }
-    pub fn toggle(&self, tag: &TextTag, is_dark: bool) {
+    pub fn toggle(&self, text_tag: &TextTag, is_dark: bool) {
+        let color = self.get_color(is_dark);
+        let tag = self.get_tag();
+        match tag {
+            MATCH_HIGHLIGHT | CURRENT_MATCH_HIGHLIGHT | SPACES_REMOVED | SPACES_ADDED => {
+                text_tag.set_background(Some(color));
+            }
+            _ => {
+                text_tag.set_foreground(Some(color));
+            }
+        }
+    }
+    fn get_tag(&self) -> &str {
+        self.0 .0
+    }
+    fn get_color(&self, is_dark: bool) -> &str {
         if is_dark {
-            tag.set_foreground(Some(&self.0 .1 .0 .0));
-            if self.0 .0 == SPACES_ADDED || self.0 .0 == SPACES_REMOVED {
-                tag.set_background(Some(&self.0 .1 .0 .0));
-            }
+            &self.0 .1 .0 .0
         } else {
-            tag.set_foreground(Some(&self.0 .1 .0 .1));
-            if self.0 .0 == SPACES_ADDED || self.0 .0 == SPACES_REMOVED {
-                tag.set_background(Some(&self.0 .1 .0 .0));
-            }
+            &self.0 .1 .0 .1
         }
     }
 }

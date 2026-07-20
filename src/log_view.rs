@@ -674,7 +674,7 @@ pub fn headerbar_factory(
         let commit_list = commit_list.clone();
         move |_btn| {
             sender
-                .send_blocking(crate::Event::Apply(crate::ApplyOp::CherryPick(
+                .send_blocking(crate::Event::Apply(crate::ApplyOp::Revert(
                     commit_list.get_selected_oid(),
                     None,
                     None,

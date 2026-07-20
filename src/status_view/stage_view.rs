@@ -68,12 +68,8 @@ mod stage_view_internal {
         pub active_lines: Cell<(i32, i32)>,
         pub hunks: RefCell<Vec<i32>>,
         pub linenos: RefCell<HashMap<i32, (String, DiffLineType, LineKind)>>,
-
-        // TODO! put it here!
         pub is_dark: Cell<bool>,
         pub is_dark_set: Cell<bool>,
-        // #[property(get, set)]
-        // pub current_line: RefCell<i32>,
     }
 
     #[glib::object_subclass]
@@ -329,6 +325,7 @@ impl StageView {
         for h in &context.highlight_hunks {
             self.imp().hunks.borrow_mut().push(*h);
         }
+        // toke
         self.imp().linenos.replace(context.linenos.clone());
     }
 
@@ -392,7 +389,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let manager = StyleManager::default();
     let is_dark = manager.is_dark();
 
-    let txt = StageView::new();
+    let txt = StageView::default();
     // txt.set_accessible_role(gtk4::AccessibleRole::None);
 
     txt.set_margin_start(12);
@@ -537,6 +534,15 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     tags::Tag(tags::OURS).create(&table);
     tags::Tag(tags::THEIRS).create(&table);
 
+    let match_color = tags::Color(("#795708".to_string(), "#f8e45c".to_string()));
+    let match_highlight = tags::ColorTag((tags::MATCH_HIGHLIGHT, match_color));
+    let _match_highlight_tag = match_highlight.create(&table, is_dark);
+
+    let current_match_color = tags::Color(("#0000ff".to_string(), "#0000ff".to_string()));
+    let current_match_highlight =
+        tags::ColorTag((tags::CURRENT_MATCH_HIGHLIGHT, current_match_color));
+    let _current_match_highlight_tag = current_match_highlight.create(&table, is_dark);
+
     for tag_name in tags::TEXT_TAGS {
         if table.lookup(tag_name).is_none() {
             panic!("tag is not added to the table {:?}", tag_name);
@@ -642,6 +648,15 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     sndr.send_blocking(crate::Event::Push)
                         .expect("Could not send through channel");
                 }
+                (gdk::Key::f, gdk::ModifierType::CONTROL_MASK) => {
+                    println!("🍇 toggle search");
+                    sndr.send_blocking(crate::Event::ToggleSearch(true))
+                        .expect("Could not send through channel");
+                }
+                (gdk::Key::Escape, _) => {
+                    sndr.send_blocking(crate::Event::ToggleSearch(false))
+                        .expect("Could not send through channel");
+                }
                 (gdk::Key::f, _) => {
                     sndr.send_blocking(crate::Event::Pull)
                         .expect("Could not send through channel");
@@ -700,8 +715,8 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     sndr.send_blocking(crate::Event::Toast(String::from("CapsLock pressed")))
                         .expect("Could not send through channel");
                 }
-                (key, modifier) => {
-                    trace!("key press in status view {:?} {:?}", key.name(), modifier);
+                (_key, _modifier) => {
+                    //println!("key press in status view {:?} {:?}", key.name(), modifier);
                 }
             }
             glib::Propagation::Proceed

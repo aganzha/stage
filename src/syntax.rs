@@ -334,7 +334,7 @@ mod tests {
         for buf in vec!["abc🌄defhij", "abcdefhij"] {
             let mut line = Line {
                 origin: DiffLineType::Context,
-                view: View::new(),
+                view: View::default(),
                 new_line_no: Some(HunkLineNo::new(0)),
                 old_line_no: Some(HunkLineNo::new(0)),
                 kind: LineKind::None,

@@ -3,14 +3,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 mod external;
+mod search;
 mod status_view;
 mod syntax;
 use async_channel::Sender;
+use regex::Regex;
+use search::{make_search, Search};
 use status_view::{
     context::StatusRenderContext,
     headerbar::factory as headerbar_factory,
     headerbar::{HbUpdateData, Scheme, SCHEME_TOKEN},
     remotes::auth,
+    render::ViewContainer,
     stage_view::factory as stage_factory,
     Status,
 };
@@ -158,6 +162,10 @@ pub enum Event {
     Focus,
     UserInputRequired(Arc<(Mutex<LoginPassword>, Condvar)>),
     Blame,
+    Search(Regex),
+    ResetSearch,
+    GoToLine(i32),
+    ToggleSearch(bool),
 }
 
 fn main() -> glib::ExitCode {
@@ -264,7 +272,6 @@ fn main() -> glib::ExitCode {
             if windows.is_empty() {
                 let app_sender = run_app(running_app, &initial_path.borrow());
                 sender.borrow_mut().replace(app_sender);
-                println!("💨 REPLACED SENDER ........... {:?}", sender);
             } else {
                 windows[0].present();
             }
@@ -310,7 +317,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
     if !scheme.is_empty() {
         StyleManager::default().set_color_scheme(Scheme::new(scheme).scheme_name());
     }
-
+    let search = make_search(sender.clone());
     let mut status = Status::new(
         initial_path.clone().or_else(|| {
             let last_path = settings.get::<String>("lastpath");
@@ -320,6 +327,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                 None
             }
         }),
+        search.clone(),
         sender.clone(),
     );
 
@@ -412,7 +420,9 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
         .top_bar_style(ToolbarStyle::Raised)
         .content(&split)
         .build();
+
     tb.add_top_bar(&hb);
+    tb.add_bottom_bar(&search.search_bar);
 
     application_window.set_content(Some(&tb));
 
@@ -857,6 +867,19 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                         } else {
                             auth(auth_request, &application_window);
                         }
+                    }
+                    Event::Search(term) => {
+                        status.search(term, &txt, &mut ctx);
+                    }
+                    Event::ResetSearch => {
+                        status.reset_search(&txt, &mut ctx);
+                    }
+                    Event::GoToLine(lineno) => {
+                        status.goto_line(&txt, lineno);
+                    }
+                    Event::ToggleSearch(value) => {
+                        println!("😖 toggle {}", value);
+                        search.toggle(value);
                     }
                 };
                 hb_updater(HbUpdateData::Context(ctx));

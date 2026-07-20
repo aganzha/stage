@@ -2,14 +2,33 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::status_view::view::Display;
 use crate::status_view::ViewContainer;
-use crate::{Diff, File, Head, Hunk, Line, State};
-
+use crate::{Diff, DiffKind, File, Head, Hunk, HunkLineNo, Line, State};
 use gtk4::TextBuffer;
 use log::trace;
 use std::collections::HashSet;
 
 impl Hunk {
+    pub fn new_workdir_line(&self) -> Option<HunkLineNo> {
+        match self.kind {
+            DiffKind::Unstaged | DiffKind::Conflicted => Some(self.new_start),
+            DiffKind::Staged => None,
+            DiffKind::Commit | DiffKind::Untracked => {
+                panic!("whats the case?")
+            }
+        }
+    }
+    pub fn old_tree_line(&self) -> Option<HunkLineNo> {
+        match self.kind {
+            DiffKind::Unstaged | DiffKind::Conflicted => None,
+            DiffKind::Staged => Some(self.old_start),
+            DiffKind::Commit | DiffKind::Untracked => {
+                panic!("whats the case?")
+            }
+        }
+    }
+
     // Hunk
     pub fn enrich_view(
         &self,
@@ -17,37 +36,24 @@ impl Hunk {
         buffer: &TextBuffer,
         context: &mut crate::StatusRenderContext,
     ) {
-        // context.current_hunk.replace(rendered);
-        // context.compared_hunk.replace(rendered);
+        // so, they are the same except, may be header (new_start/old_start could be changed
+        // because of hunk moving) and line numbers.
+        // header just made Pending. linenumbers will be rendered via Layout
+        // right from data. we are good to go. lets leave rendered lines as is
         self.adopt_view(&rendered.view);
         if self.header != rendered.header {
-            self.view.dirty(true);
+            self.view.display.replace(Display::Pending);
         }
-        if !self.view.is_expanded() {
+        if !self.is_expanded() {
             return;
         }
-        let mut last_rendered = 0;
         self.lines
             .iter()
             .zip(rendered.lines.iter())
             .for_each(|lines: (&Line, &Line)| {
                 trace!("zip on lines {:?} {:?}", context, lines);
                 lines.0.enrich_view(lines.1, buffer, context);
-                if (lines.0.origin != lines.1.origin)
-                    || (lines.0.content(self) != lines.1.content(rendered))
-                {
-                    lines.0.view.dirty(true);
-                }
-                last_rendered += 1;
             });
-        if rendered.lines.len() > last_rendered {
-            rendered.lines[last_rendered..rendered.lines.len()]
-                .iter()
-                .for_each(|line| {
-                    trace!("erase line{:?}", line);
-                    line.erase(buffer, context);
-                });
-        }
     }
 }
 
@@ -60,215 +66,47 @@ impl File {
         context: &mut crate::StatusRenderContext,
     ) {
         self.adopt_view(&rendered.view);
-        if !self.view.is_expanded() {
+        if !self.is_expanded() {
             return;
         }
-        for h in &rendered.hunks {
-            trace!("RENDERED: {}", h.header);
-        }
-        for h in &self.hunks {
-            trace!("NEW: {}", h.header);
-        }
-
-        // @@@@@@@@@@@@@@@@@ there are FEWER NEW ones than old ones
-        // have 3 hunks in unstaged
-        // @@ -11,7 +11,8 @@ const path = require('path');
-        // @@ -106,9 +107,9 @@ function getDepsList() {
-        // @@ -128,7 +129,8 @@ function getDepsList() {
-
-        // 1.1 kill top one
-        // will have new
-        // @@ -106,9 +106,9 @@ function getDepsList() {
-        // @@ -128,7 +128,8 @@ function getDepsList() {
-
-        // 1.2 stage top one
-        // will get new in staged
-        // @@ -107,9 +107,9 @@ function getDepsList() {
-        // @@ -129,7 +129,8 @@ function getDepsList() {
-
-        // @@@@@@@@@@@@@@@@ there are MORE NEW ones than old ones
-        // have 2 hunks
-        // @@ -107,9 +107,9 @@ function getDepsList() {
-        // @@ -129,7 +129,8 @@ function getDepsList() {
-
-        // 2.1 unstage one for top and will have
-        // @@ -11,7 +11,8 @@ const path = require('path');
-        // @@ -106,9 +107,9 @@ function getDepsList() {
-        // @@ -128,7 +129,8 @@ function getDepsList() {
-
-        // have 2 hunks
-        // @@ -106,9 +106,9 @@ function getDepsList() {
-        // @@ -128,7 +128,8 @@ function getDepsList() {
-
-        // 2.2 intoduce (via editing) top one
-        // @@ -11,7 +11,8 @@ const path = require('path');
-        // @@ -106,9 +107,9 @@ function getDepsList() {
-        // @@ -128,7 +129,8 @@ function getDepsList() {
-
-        // so. the hunk which is not matched first, determine next cycle.
-        // if first is rendered - erase it and use rendered_delta. delta compared to new
-        // if first is new, use new_delta. delta compared to rendered.
-
-        // case 3 - different number of lines
-        // new header      @@ -1876,7 +1897,8 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):
-        // rendered header @@ -1876,7 +1897,7 @@ class DutyModel(WarehouseEdiDocument, LinkedNomEDIMixin):
-
-        // case 4 - cannot reproduced but
-        // got it twice during cutting, pasting and undo everywhere
-        // thread 'main' panicked at src/status_view/reconciliation.rs:280:25:
-        // UNKNOWN CASE IN RECONCILIATION @@ -687,7 +705,9 @@ class ServiceWorkPostprocess: @@ -687,7 +704,9 @@ class ServiceWorkPostprocess:
-
-        // case 5: equal number of hunks but
-        // 5.1 completelly deleted old hunk
-        // UNKNOWN CASE IN RECONCILIATION @@ -1,3 +1 @@ @@ -1,3 +0,0 @@
-        // 5.2 completelly deleted new hunk
-        // UNKNOWN CASE IN RECONCILIATION @@ -1,3 +0,0 @@ @@ -1,3 +1,2 @@
-        let mut in_rendered = 0;
-        let mut in_new = 0;
-        let mut rendered_delta: i32 = 0;
-        let mut new_delta: i32 = 0;
-        let mut guard = 0;
-
-        pub fn count_delta(line_from: u32, line_to: u32) -> i32 {
-            let new_lines = line_from as i32;
-            let old_lines = line_to as i32;
-            new_lines - old_lines
-        }
-
-        loop {
-            guard += 1;
-            if guard > 1000 {
-                panic!("infinite loop in reconciliation rendered {:?} in_rendered {:?} new {:?} in_new {:?}",
-                       rendered.hunks.len(),
-                       in_rendered,
-                       self.hunks.len(),
-                       in_new
-                );
-            }
-            if in_rendered == rendered.hunks.len() {
-                trace!("rendered hunks are over!");
-                break;
-            }
-            if in_new == self.hunks.len() {
-                trace!("new hunks are over!");
-                loop {
-                    let rndrd = &rendered.hunks[in_rendered];
-                    rndrd.erase(buffer, context);
-                    in_rendered += 1;
-                    if in_rendered == rendered.hunks.len() {
-                        break;
-                    }
-                }
-                break;
-            }
-            let rendered = &rendered.hunks[in_rendered];
-            let new = &self.hunks[in_new];
-            if rendered_delta != 0 {
-                trace!("A.....has rendered delta");
-                // rendered was erased
-                if rendered.header == Hunk::shift_new_start(&new.header, rendered_delta)  // 1.1
-                    ||
-                    rendered.header == Hunk::shift_old_start(&new.header, 0 - rendered_delta)
-                {
-                    // 1.2
-                    // matched!
-                    trace!("++++++enrich case 1.1 or 1.2");
-                    new.enrich_view(rendered, buffer, context);
-                    in_new += 1;
-                    in_rendered += 1;
+        let mut to_remain = Vec::new();
+        for hunk in self.hunks.iter() {
+            // so, how to match hunk in unstaged, when index changed?
+            // newStart could be changed, cause file is edited in workdir!
+            // oldStart could be changed, cause Index is changed during staging!
+            // where is the truth?
+            if let Some(rendered_index) = rendered.hunks.iter().position(|rendered_hunk| {
+                rendered_hunk
+                    .old_tree_line()
+                    .zip(hunk.old_tree_line())
+                    .is_some_and(|(rl, nl)| rl == nl)
+                    || rendered_hunk
+                        .new_workdir_line()
+                        .zip(hunk.new_workdir_line())
+                        .is_some_and(|(rl, nl)| rl == nl)
+            }) {
+                // copy expansion/collapsing
+                let rendered_hunk = &rendered.hunks[rendered_index];
+                hunk.view.switch.replace(rendered_hunk.view.switch.get());
+                if hunk.buf == rendered_hunk.buf {
+                    // so, they are the same except, may be header (new_start could be changed
+                    // because of hunk moving) and line numbers.
+                    // header just made Pending. linenumbers will be rendered via Layout
+                    // right from data. we are good to go. lets leave rendered lines as is
+                    hunk.enrich_view(rendered_hunk, buffer, context);
+                    to_remain.push(rendered_index);
                 } else {
-                    // proceed with erasing
-                    trace!("------erase case 1.1 or 1.2");
-                    in_rendered += 1;
-                    rendered.erase(buffer, context);
-
-                    rendered_delta += count_delta(rendered.new_lines, rendered.old_lines);
+                    // lines were changed. lets erase old hunk then and rerender all lines
+                    // for new hunk.
                 }
-            } else if new_delta != 0 {
-                // new was inserted
-                trace!("B..... has new delta");
-                if new.header == Hunk::shift_new_start(&rendered.header, new_delta)
-                    || new.header == Hunk::shift_old_start(&rendered.header, 0 - new_delta)
-                {
-                    trace!("++++++++ enrich cases 2.1 or 2.2 ");
-                    new.enrich_view(rendered, buffer, context);
-                    in_new += 1;
-                    in_rendered += 1;
-                } else {
-                    trace!("++++++++ skip cases 2.1 or 2.2 ");
-                    in_new += 1;
-
-                    new_delta += count_delta(new.new_lines, new.old_lines);
-                }
+            }
+        }
+        for (i, hunk) in rendered.hunks.iter().enumerate() {
+            if to_remain.contains(&i) {
+                println!("💰 remains {}", hunk.header);
             } else {
-                // first loop or loop on equal hunks
-                trace!("C.....first loop or loop on equal hunks");
-                if rendered.header == new.header {
-                    // same hunks
-                    trace!("just free first match");
-                    new.enrich_view(rendered, buffer, context);
-                    in_new += 1;
-                    in_rendered += 1;
-                } else if rendered.new_start == new.new_start && rendered.old_start == new.old_start
-                {
-                    trace!("hunks are same, but number of lines are changed");
-
-                    rendered_delta += count_delta(new.new_lines, rendered.new_lines);
-
-                    trace!("changed rendered delta {}", rendered_delta);
-
-                    new.enrich_view(rendered, buffer, context);
-                    in_new += 1;
-                    in_rendered += 1;
-                } else {
-                    trace!(
-                        "hunks are not equal r_start {} r_lines {} n_start {} n_lines {}",
-                        rendered.new_start,
-                        rendered.new_lines,
-                        new.new_start,
-                        new.new_lines
-                    );
-                    if new.new_start < rendered.new_start && new.old_start < rendered.old_start {
-                        // cases 2.1 and 2.1 - insert first new hunk
-                        trace!("first new hunk without rendered. SKIP");
-                        in_new += 1;
-
-                        new_delta += count_delta(new.new_lines, new.old_lines);
-                    } else if new.new_start > rendered.new_start
-                        && new.old_start > rendered.old_start
-                    {
-                        // cases 1.1 and 1.2 - delete first rendered hunk
-                        trace!("first rendered hunk without new. ERASE");
-                        in_rendered += 1;
-
-                        rendered_delta += count_delta(rendered.new_lines, rendered.old_lines);
-
-                        rendered.erase(buffer, context);
-                    } else if new.old_start == rendered.old_start
-                        && new.old_lines == rendered.old_lines
-                        && new.new_lines == rendered.new_lines
-                    {
-                        trace!("case 4");
-                        rendered_delta += count_delta(rendered.new_lines, rendered.old_lines);
-                        new.enrich_view(rendered, buffer, context);
-                        in_new += 1;
-                        in_rendered += 1;
-                    } else if new.new_lines == 0 && new.new_start.as_usize() == 0
-                        || rendered.new_lines == 0 && rendered.new_start.as_usize() == 0
-                    {
-                        // 5.1 and 5.2
-                        // the file was empty. or file become empty
-                        // delta and enrich are useless
-                        rendered.erase(buffer, context);
-                        in_new += 1;
-                        in_rendered += 1;
-                    } else {
-                        panic!(
-                            "UNKNOWN CASE IN RECONCILIATION {} {}",
-                            new.header, rendered.header
-                        );
-                    }
-                }
+                println!("🧶 erase {}", hunk.header);
+                hunk.erase(buffer, context);
             }
         }
     }
@@ -326,7 +164,8 @@ impl State {
     ) {
         self.adopt_view(&rendered.view);
         // always dirty if updated!
-        self.view.dirty(true);
+        // self.view.dirty(true);
+        self.view.display.replace(Display::Pending);
     }
 }
 
@@ -340,6 +179,7 @@ impl Head {
     ) {
         self.adopt_view(&rendered.view);
         // always dirty if updated!
-        self.view.dirty(true);
+        //self.view.dirty(true);
+        self.view.display.replace(Display::Pending);
     }
 }

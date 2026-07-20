@@ -148,6 +148,27 @@ impl AlertConversation for DangerDialog {
     }
 }
 
+pub struct CustomResponseDangerDialog {
+    pub header: String,
+    pub message: String,
+    pub responses: Vec<String>,
+}
+
+impl AlertConversation for CustomResponseDangerDialog {
+    fn heading_and_message(&self) -> (String, String) {
+        (
+            format!("<span color=\"#ff0000\">{}</span>", self.header),
+            self.message.clone(),
+        )
+    }
+    fn get_response(&self) -> Vec<(&str, &str, ResponseAppearance)> {
+        self.responses
+            .iter()
+            .map(|r| (r.as_str(), r.as_str(), ResponseAppearance::Default))
+            .collect()
+    }
+}
+
 #[derive(Default, Clone)]
 pub struct ConfirmDialog(pub String, pub String);
 
