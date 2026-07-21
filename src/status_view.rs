@@ -753,6 +753,7 @@ impl Status {
 
         // this is called once in status_view and 3 times in commit view!!!
         txt.bind_highlights(context);
+
         self.cursor_position
             .replace(CursorPosition::from_context(context));
     }

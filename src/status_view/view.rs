@@ -59,7 +59,7 @@ pub struct View {
 }
 
 impl View {
-    pub fn snapshot(&self, line_no: i32) -> RenderOp {
+    pub fn render(&self, line_no: i32) -> RenderOp {
         // there are only insert/rewrite/delete and move!
         // apply tahs was only added for search!
         match self.display.get() {
@@ -88,7 +88,7 @@ impl View {
             Display::Hidden => RenderOp::None,
         }
     }
-    pub fn needs_children_snapshot(&self) -> bool {
+    pub fn needs_child_render(&self) -> bool {
         match self.switch.get() {
             Switch::Expanded => true,
             Switch::PendingExpansion => {

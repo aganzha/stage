@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::status_view::context::StatusRenderContext;
+use crate::status_view::context::{SnapshotData, StatusRenderContext};
 use crate::status_view::tags;
 use crate::{DARK_CLASS, LIGHT_CLASS};
 use async_channel::Sender;
@@ -31,6 +31,7 @@ mod stage_view_internal {
 
     use crate::LineKind;
     use git2::DiffLineType;
+    use graphene::Size;
     use gtk4::prelude::*;
     use gtk4::subclass::prelude::*;
     use gtk4::{gdk, glib, graphene, gsk, pango, Snapshot, TextView, TextViewLayer};
@@ -66,7 +67,7 @@ mod stage_view_internal {
     pub struct StageView {
         pub show_cursor: Cell<bool>,
         pub active_lines: Cell<(i32, i32)>,
-        pub hunks: RefCell<Vec<i32>>,
+        pub hunks: RefCell<Vec<super::SnapshotData>>,
         pub linenos: RefCell<HashMap<i32, (String, DiffLineType, LineKind)>>,
         pub is_dark: Cell<bool>,
         pub is_dark_set: Cell<bool>,
@@ -88,7 +89,32 @@ mod stage_view_internal {
             // this related to upper
             5.0
         }
-
+        // margin from right side of screen
+        fn get_summary_margin(&self) -> f32 {
+            100.0
+        }
+        fn hunk_summary_layout(
+            &self,
+            snapshot_data: &super::SnapshotData,
+            is_dark: bool,
+        ) -> (pango::Layout, gdk::RGBA) {
+            let layout = self.obj().create_pango_layout(None);
+            let bgalpha = "20%";
+            let fgalpha = "70%";
+            let mut green = "#10ac64";
+            let mut red = "#c01c28";
+            let mut rgba = gdk::RGBA::BLACK;
+            if is_dark {
+                rgba = gdk::RGBA::WHITE;
+                green = "green";
+                red = "red";
+            }
+            layout.set_markup(&format!(
+                r#"<span font-size="small" fgalpha="{}" bgalpha="{}"><span bgcolor="{}">-{} </span><span bgcolor="{}">+{} </span></span>"#,
+                fgalpha, bgalpha, red, snapshot_data.removed, green, snapshot_data.added
+            ));
+            (layout, rgba)
+        }
         fn lineno_label_layout(
             &self,
             line_no: i32,
@@ -195,15 +221,88 @@ mod stage_view_internal {
                     );
                 }
 
+                let r_corner = Size::new(15.0, 15.0);
+                let a_corner = Size::new(0.0, 0.0);
+
+                let mut highlight_cursor = true;
+
+                let cursor_iter = buffer.iter_at_offset(buffer.cursor_position());
                 // highlight hunks -----------------------------------
-                for line in self.hunks.borrow().iter() {
-                    iter.set_line(*line);
-                    let (y_from, y_to) = self.obj().line_yrange(&iter);
-                    snapshot.append_color(
-                        if self.is_dark.get() {
-                            &DARK_HUNKS
+                for snapshot_data in self.hunks.borrow().iter() {
+                    iter.set_line(snapshot_data.line_no);
+                    let (y_from, line_height) = self.obj().line_yrange(&iter);
+                    let rect = graphene::Rect::new(
+                        rect.x() as f32,
+                        y_from as f32 + 2.0,
+                        rect.width() as f32,
+                        line_height as f32 - 2.0,
+                    );
+                    let rounded = gsk::RoundedRect::new(
+                        rect,
+                        a_corner, // top-left
+                        r_corner, // top-right
+                        if snapshot_data.is_expanded {
+                            a_corner
                         } else {
-                            &LIGHT_HUNKS
+                            r_corner
+                        }, // bottom-right
+                        a_corner, // bottom-left
+                    );
+                    snapshot.push_rounded_clip(&rounded);
+
+                    // cursor is right on hunk line
+                    if self.show_cursor.get() && iter.line() == cursor_iter.line() {
+                        // paint it as cursor
+                        snapshot.append_color(
+                            if self.is_dark.get() {
+                                &DARK_CURSOR
+                            } else {
+                                &LIGHT_CURSOR
+                            },
+                            &rect,
+                        );
+                        highlight_cursor = false;
+                    } else {
+                        snapshot.append_color(
+                            if self.is_dark.get() {
+                                &DARK_HUNKS
+                            } else {
+                                &LIGHT_HUNKS
+                            },
+                            &rect,
+                        );
+                    }
+                    snapshot.pop();
+                    let (label, color) =
+                        self.hunk_summary_layout(snapshot_data, self.is_dark.get());
+                    let mut transform = gsk::Transform::new();
+                    transform = transform.translate(&graphene::Point::new(
+                        rect.width() - self.get_summary_margin(),
+                        (y_from + line_height / 6) as f32,
+                    ));
+                    snapshot.save();
+                    snapshot.transform(Some(&transform));
+                    snapshot.append_layout(&label, &color);
+                    snapshot.restore();
+                }
+
+                // highlight cursor ---------------------------------
+                if highlight_cursor {
+                    iter.set_offset(buffer.cursor_position());
+
+                    let (mut y_from, mut y_to) = self.obj().line_yrange(&iter);
+                    y_from = y_from + y_to - known_line_height;
+                    y_to = known_line_height;
+
+                    snapshot.append_color(
+                        if self.show_cursor.get() {
+                            if self.is_dark.get() {
+                                &DARK_CURSOR
+                            } else {
+                                &LIGHT_CURSOR
+                            }
+                        } else {
+                            bg_fill
                         },
                         &graphene::Rect::new(
                             rect.x() as f32,
@@ -213,31 +312,6 @@ mod stage_view_internal {
                         ),
                     );
                 }
-
-                // highlight cursor ---------------------------------
-                iter.set_offset(buffer.cursor_position());
-
-                let (mut y_from, mut y_to) = self.obj().line_yrange(&iter);
-                y_from = y_from + y_to - known_line_height;
-                y_to = known_line_height;
-
-                snapshot.append_color(
-                    if self.show_cursor.get() {
-                        if self.is_dark.get() {
-                            &DARK_CURSOR
-                        } else {
-                            &LIGHT_CURSOR
-                        }
-                    } else {
-                        bg_fill
-                    },
-                    &graphene::Rect::new(
-                        rect.x() as f32,
-                        y_from as f32,
-                        rect.width() as f32,
-                        y_to as f32,
-                    ),
-                );
             } else {
                 let rect = self.obj().visible_rect();
                 let rect_height = rect.height();
@@ -251,7 +325,8 @@ mod stage_view_internal {
                 if line_height <= 0 {
                     return;
                 }
-                let mut line_no = rect.y() / line_height - 5;
+                let mut line_no =
+                    rect.y() / line_height - self.get_line_no_offset(line_height) as i32;
 
                 let cursor_iter = buffer.iter_at_offset(buffer.cursor_position());
                 let cursor_line = cursor_iter.line();
@@ -322,11 +397,19 @@ impl StageView {
             self.imp().active_lines.replace((0, 0));
         }
         self.imp().hunks.replace(Vec::new());
-        for h in &context.highlight_hunks {
-            self.imp().hunks.borrow_mut().push(*h);
+        for snapshot in &context.highlight_hunks {
+            self.imp().hunks.borrow_mut().push(snapshot.clone());
         }
         // toke
         self.imp().linenos.replace(context.linenos.clone());
+        glib::source::timeout_add_local(core::time::Duration::from_millis(30), {
+            let txt = self.clone();
+            move || {
+                // hack to render background txt layers
+                txt.queue_draw();
+                glib::ControlFlow::Break
+            }
+        });
     }
 
     pub fn calc_max_char_width(&self, window_width: i32) -> i32 {
@@ -347,43 +430,43 @@ impl StageView {
     }
 }
 
-glib::wrapper! {
-    pub struct EmptyLayoutManager(ObjectSubclass<empty_layout_manager_internal::EmptyLayoutManager>)
-        @extends gtk4::LayoutManager;
-}
+// glib::wrapper! {
+//     pub struct EmptyLayoutManager(ObjectSubclass<empty_layout_manager_internal::EmptyLayoutManager>)
+//         @extends gtk4::LayoutManager;
+// }
 
-mod empty_layout_manager_internal {
+// mod empty_layout_manager_internal {
 
-    use gtk4::subclass::prelude::*;
-    use gtk4::{glib, LayoutManager, Widget};
+//     use gtk4::subclass::prelude::*;
+//     use gtk4::{glib, LayoutManager, Widget};
 
-    #[derive(Default)]
-    pub struct EmptyLayoutManager {}
-    #[glib::object_subclass]
-    impl ObjectSubclass for EmptyLayoutManager {
-        const NAME: &'static str = "EmptyLayoutManager";
-        type Type = super::EmptyLayoutManager;
-        type ParentType = LayoutManager;
-    }
-    impl ObjectImpl for EmptyLayoutManager {}
-    impl LayoutManagerImpl for EmptyLayoutManager {
-        fn allocate(&self, _widget: &Widget, _width: i32, _height: i32, _baseline: i32) {
-            // just an empty method
-        }
-    }
-}
+//     #[derive(Default)]
+//     pub struct EmptyLayoutManager {}
+//     #[glib::object_subclass]
+//     impl ObjectSubclass for EmptyLayoutManager {
+//         const NAME: &'static str = "EmptyLayoutManager";
+//         type Type = super::EmptyLayoutManager;
+//         type ParentType = LayoutManager;
+//     }
+//     impl ObjectImpl for EmptyLayoutManager {}
+//     impl LayoutManagerImpl for EmptyLayoutManager {
+//         fn allocate(&self, _widget: &Widget, _width: i32, _height: i32, _baseline: i32) {
+//             // just an empty method
+//         }
+//     }
+// }
 
-impl Default for EmptyLayoutManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// impl Default for EmptyLayoutManager {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
 
-impl EmptyLayoutManager {
-    pub fn new() -> Self {
-        glib::Object::builder().build()
-    }
-}
+// impl EmptyLayoutManager {
+//     pub fn new() -> Self {
+//         glib::Object::builder().build()
+//     }
+// }
 
 pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let manager = StyleManager::default();
@@ -523,6 +606,9 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
     let unstaged = tags::Tag(tags::UNSTAGED).create(&table);
     let file = tags::Tag(tags::FILE).create(&table);
     let hunk = tags::Tag(tags::HUNK).create(&table);
+    hunk.set_pixels_above_lines(2);
+    //hunk.set_pixels_below_lines(5);
+
     let oid = tags::Tag(tags::OID).create(&table);
 
     let bold = tags::Tag(tags::BOLD).create(&table);

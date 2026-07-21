@@ -207,14 +207,14 @@ pub trait ViewContainer: fmt::Display {
         self.prepare_context(context, None);
         let line_no = iter.line();
         let view = self.get_view();
-        let snapshot = view.snapshot(line_no);
+        let render_op = view.render(line_no);
         // println!("🧄 snapshot {:?}............{}", snapshot, self);
         // println!("____________line_no {:?} view {:?} ", line_no, view);
         // let mut eol_iter = buffer.iter_at_offset(iter.offset());
         // eol_iter.forward_to_line_end();
         // println!("💋 real line {}", buffer.text(&iter, &eol_iter, true));
         // println!("");
-        match snapshot {
+        match render_op {
             RenderOp::Insert => {
                 self.write_content(iter, buffer, context);
                 buffer.insert(iter, "\n");
@@ -247,7 +247,7 @@ pub trait ViewContainer: fmt::Display {
             }
             RenderOp::None => {}
         }
-        let child_required = view.needs_children_snapshot();
+        let child_required = view.needs_child_render();
         if child_required {
             //println!("🧪 go expand childs {} {}", self, view);
             for child in self.get_children() {
@@ -353,10 +353,10 @@ pub trait ViewContainer: fmt::Display {
             if my_line_no == line_no {
                 let view = self.get_view();
                 let child_expand_op = view.toggle();
-                println!(
-                    "💰 expanded! swicth {:?} expand op {:?}",
-                    view.switch, child_expand_op
-                );
+                // println!(
+                //     "💰 expanded! swicth {:?} expand op {:?}",
+                //     view.switch, child_expand_op
+                // );
                 self.walk_down(&mut |vc: &dyn ViewContainer| {
                     let view = vc.get_view();
                     view.apply_child_expand_op(child_expand_op);
@@ -367,7 +367,7 @@ pub trait ViewContainer: fmt::Display {
                 for child in self.get_children() {
                     //println!("♦️ go expand child {:?}", child.get_view());
                     if let Some(child_lineno) = child.expand(line_no, context) {
-                        println!("🛟 expanded child! {:?}", child.get_view());
+                        //println!("🛟 expanded child! {:?}", child.get_view());
                         return Some(child_lineno);
                     }
                 }
@@ -411,14 +411,14 @@ pub trait ViewContainer: fmt::Display {
                 context.erase_counter += 1;
             });
         }
-        println!("‼️ DELETE {}", buffer.text(&iter, &nel_iter, true));
+        //println!("‼️ DELETE {}", buffer.text(&iter, &nel_iter, true));
         buffer.delete(&mut iter, &mut nel_iter);
         let mut eol_iter = buffer.iter_at_offset(nel_iter.offset());
         eol_iter.forward_to_line_end();
-        println!(
-            "💨 LINE right after erase {}",
-            buffer.text(&nel_iter, &eol_iter, true)
-        );
+        // println!(
+        //     "💨 LINE right after erase {}",
+        //     buffer.text(&nel_iter, &eol_iter, true)
+        // );
         cursor_to_line_offset(buffer, initial_line_offset);
     }
 }
@@ -638,8 +638,7 @@ impl ViewContainer for Hunk {
     ) {
         let parts: Vec<&str> = self.header.split("@@").collect();
         let scope = parts.last().unwrap();
-        buffer.insert(iter, "Line ");
-        buffer.insert(iter, &format!("{}", self.new_start));
+        buffer.insert_markup(iter, &format!("Line <b>{}</b>", self.new_start));
         if !scope.is_empty() {
             buffer.insert(iter, &format!(" in {}", scope));
         }
@@ -669,8 +668,9 @@ impl ViewContainer for Hunk {
 
     // Hunk
     fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
-        if let Some(line_no) = self.get_line_no() {
-            ctx.collect_hunk_highlights(line_no);
+        if let Some(snapshot) = self.snapshot() {
+            //println!("♟️ snapshot {:?}", snapshot.line_no);
+            ctx.highlight_hunks.push(snapshot);
         }
     }
 
@@ -768,7 +768,7 @@ impl ViewContainer for Line {
                     100..1000 => "  -".to_string(),
                     _ => "   -".to_string(),
                 },
-                _ => format!("{}", line_no), //TODO! source_line_no
+                _ => format!("{}", source_line_no), //TODO! source_line_no
             };
             ctx.linenos
                 .insert(line_no, (line_no_text, self.origin, self.kind.clone()));
@@ -1029,7 +1029,6 @@ impl ViewContainer for Line {
 }
 
 impl ViewContainer for Label {
-
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         self.content.is_empty()
     }
@@ -1054,7 +1053,6 @@ impl ViewContainer for Label {
 }
 
 impl ViewContainer for Head {
-
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }
@@ -1123,7 +1121,6 @@ impl ViewContainer for Head {
 }
 
 impl ViewContainer for GitState {
-
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         false
     }

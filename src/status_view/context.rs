@@ -2,10 +2,69 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::status_view::render::ViewContainer;
+use crate::status_view::view::State;
 use crate::status_view::StageView;
 use crate::{git::LineKind, Diff, File, Hunk, Line};
 use git2::DiffLineType;
 use std::collections::HashMap;
+
+#[derive(Debug, Clone)]
+pub struct SnapshotData {
+    pub line_no: i32,
+    pub is_expanded: bool,
+    pub added: usize,
+    pub removed: usize,
+    pub state: State,
+}
+
+impl Hunk {
+    pub fn snapshot(&self) -> Option<SnapshotData> {
+        if let Some(line_no) = self.get_line_no() {
+            return Some(SnapshotData {
+                line_no,
+                is_expanded: self.is_expanded(),
+                added: self
+                    .lines
+                    .iter()
+                    .filter(|l| matches!(l.origin, DiffLineType::Addition))
+                    .count(),
+                removed: self
+                    .lines
+                    .iter()
+                    .filter(|l| matches!(l.origin, DiffLineType::Deletion))
+                    .count(),
+                state: self.view.state.get(),
+            });
+        }
+        None
+    }
+}
+
+impl File {
+    pub fn snapshot(&self) -> Option<SnapshotData> {
+        if let Some(line_no) = self.get_line_no() {
+            return Some(SnapshotData {
+                line_no,
+                is_expanded: self.is_expanded(),
+                added: self
+                    .hunks
+                    .iter()
+                    .flat_map(|h| h.lines.iter())
+                    .filter(|l| matches!(l.origin, DiffLineType::Addition))
+                    .count(),
+                removed: self
+                    .hunks
+                    .iter()
+                    .flat_map(|h| h.lines.iter())
+                    .filter(|l| matches!(l.origin, DiffLineType::Deletion))
+                    .count(),
+                state: self.view.state.get(),
+            });
+        }
+        None
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct StatusRenderContext<'a> {
@@ -15,7 +74,7 @@ pub struct StatusRenderContext<'a> {
 
     /// same for hunks and line ranges
     pub highlight_lines: Option<(i32, i32)>,
-    pub highlight_hunks: Vec<i32>,
+    pub highlight_hunks: Vec<SnapshotData>,
 
     pub linenos: HashMap<i32, (String, DiffLineType, LineKind)>,
 
@@ -69,9 +128,9 @@ impl<'a> StatusRenderContext<'a> {
         }
     }
 
-    pub fn collect_hunk_highlights(&mut self, line_no: i32) {
-        self.highlight_hunks.push(line_no);
-    }
+    // pub fn collect_hunk_highlights(&mut self, line_no: i32) {
+    //     self.highlight_hunks.push(line_no);
+    // }
 
     pub fn collect_line_highlights(&mut self, line_no: i32) {
         match self.highlight_lines {
