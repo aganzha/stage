@@ -224,6 +224,9 @@ mod stage_view_internal {
                 let r_corner = Size::new(15.0, 15.0);
                 let a_corner = Size::new(0.0, 0.0);
 
+                let mut highlight_cursor = true;
+
+                let cursor_iter = buffer.iter_at_offset(buffer.cursor_position());
                 // highlight hunks -----------------------------------
                 for snapshot_data in self.hunks.borrow().iter() {
                     iter.set_line(snapshot_data.line_no);
@@ -246,14 +249,29 @@ mod stage_view_internal {
                         a_corner, // bottom-left
                     );
                     snapshot.push_rounded_clip(&rounded);
-                    snapshot.append_color(
-                        if self.is_dark.get() {
-                            &DARK_HUNKS
-                        } else {
-                            &LIGHT_HUNKS
-                        },
-                        &rect,
-                    );
+
+                    // cursor is right on hunk line
+                    if self.show_cursor.get() && iter.line() == cursor_iter.line() {
+                        // paint it as cursor
+                        snapshot.append_color(
+                            if self.is_dark.get() {
+                                &DARK_CURSOR
+                            } else {
+                                &LIGHT_CURSOR
+                            },
+                            &rect,
+                        );
+                        highlight_cursor = false;
+                    } else {
+                        snapshot.append_color(
+                            if self.is_dark.get() {
+                                &DARK_HUNKS
+                            } else {
+                                &LIGHT_HUNKS
+                            },
+                            &rect,
+                        );
+                    }
                     snapshot.pop();
                     let (label, color) =
                         self.hunk_summary_layout(snapshot_data, self.is_dark.get());
@@ -269,29 +287,31 @@ mod stage_view_internal {
                 }
 
                 // highlight cursor ---------------------------------
-                iter.set_offset(buffer.cursor_position());
+                if highlight_cursor {
+                    iter.set_offset(buffer.cursor_position());
 
-                let (mut y_from, mut y_to) = self.obj().line_yrange(&iter);
-                y_from = y_from + y_to - known_line_height;
-                y_to = known_line_height;
+                    let (mut y_from, mut y_to) = self.obj().line_yrange(&iter);
+                    y_from = y_from + y_to - known_line_height;
+                    y_to = known_line_height;
 
-                snapshot.append_color(
-                    if self.show_cursor.get() {
-                        if self.is_dark.get() {
-                            &DARK_CURSOR
+                    snapshot.append_color(
+                        if self.show_cursor.get() {
+                            if self.is_dark.get() {
+                                &DARK_CURSOR
+                            } else {
+                                &LIGHT_CURSOR
+                            }
                         } else {
-                            &LIGHT_CURSOR
-                        }
-                    } else {
-                        bg_fill
-                    },
-                    &graphene::Rect::new(
-                        rect.x() as f32,
-                        y_from as f32,
-                        rect.width() as f32,
-                        y_to as f32,
-                    ),
-                );
+                            bg_fill
+                        },
+                        &graphene::Rect::new(
+                            rect.x() as f32,
+                            y_from as f32,
+                            rect.width() as f32,
+                            y_to as f32,
+                        ),
+                    );
+                }
             } else {
                 let rect = self.obj().visible_rect();
                 let rect_height = rect.height();
@@ -382,6 +402,14 @@ impl StageView {
         }
         // toke
         self.imp().linenos.replace(context.linenos.clone());
+        glib::source::timeout_add_local(core::time::Duration::from_millis(30), {
+            let txt = self.clone();
+            move || {
+                // hack to render background txt layers
+                txt.queue_draw();
+                glib::ControlFlow::Break
+            }
+        });
     }
 
     pub fn calc_max_char_width(&self, window_width: i32) -> i32 {
