@@ -152,17 +152,12 @@ impl MultiLineLabel {
                 acc = String::from("");
             }
         }
-        // space for following diff
         self.labels.push(TextViewLabel::from_string(""));
         self.view.set_switch(true);
-        //self.view.expand(true)
     }
 }
 
 impl ViewContainer for MultiLineLabel {
-    // fn make_expand_op(&self) -> ExpandOp {
-    //     ExpandOp::None
-    // }
     fn is_empty(&self, _context: &mut StatusRenderContext<'_>) -> bool {
         self.labels.is_empty()
     }
@@ -207,15 +202,12 @@ impl commit::CommitDiff {
             l.erase(&buffer, ctx);
         }
         iter = buffer.iter_at_offset(offset_before_erase);
-        // ??? why it was commented out?
-        // body_label.update_content(&self.message, txt.calc_max_char_width());
         body_label.render(&buffer, &mut iter, ctx);
         let mut found_line_index: Option<(usize, usize, usize)> = None;
         if !self.diff.files.is_empty() {
             if let Some(blame_line) = blame_line {
                 for (f, file) in self.diff.files.iter().enumerate() {
                     if file.path == blame_line.file_path {
-                        //file.view.expand(true);
                         file.view.set_switch(true);
                         for (h, hunk) in file.hunks.iter().enumerate() {
                             let mut found = false;
@@ -224,7 +216,6 @@ impl commit::CommitDiff {
                                     if let Some(line_no) = line.new_line_no {
                                         if line_no == blame_line.line_in_hunk {
                                             line.view.state.replace(State::Current);
-                                            //line.view.make_current(true);
                                             found = true;
                                             found_line_index.replace((f, h, l));
                                             break;
@@ -234,7 +225,6 @@ impl commit::CommitDiff {
                             }
                             if !found {
                                 hunk.view.set_switch(false);
-                                //hunk.view.expand(false);
                             }
                         }
                         if found_line_index.is_some() {
@@ -244,7 +234,6 @@ impl commit::CommitDiff {
                 }
             } else {
                 self.diff.files[0].view.state.replace(State::Current);
-                //self.diff.files[0].view.make_current(true);
             }
         }
 

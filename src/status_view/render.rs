@@ -411,14 +411,14 @@ pub trait ViewContainer: fmt::Display {
                 context.erase_counter += 1;
             });
         }
-        println!("‼️ DELETE {}", buffer.text(&iter, &nel_iter, true));
+        //println!("‼️ DELETE {}", buffer.text(&iter, &nel_iter, true));
         buffer.delete(&mut iter, &mut nel_iter);
         let mut eol_iter = buffer.iter_at_offset(nel_iter.offset());
         eol_iter.forward_to_line_end();
-        println!(
-            "💨 LINE right after erase {}",
-            buffer.text(&nel_iter, &eol_iter, true)
-        );
+        // println!(
+        //     "💨 LINE right after erase {}",
+        //     buffer.text(&nel_iter, &eol_iter, true)
+        // );
         cursor_to_line_offset(buffer, initial_line_offset);
     }
 }
@@ -669,6 +669,7 @@ impl ViewContainer for Hunk {
     // Hunk
     fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
         if let Some(snapshot) = self.snapshot() {
+            //println!("♟️ snapshot {:?}", snapshot.line_no);
             ctx.highlight_hunks.push(snapshot);
         }
     }
@@ -767,7 +768,7 @@ impl ViewContainer for Line {
                     100..1000 => "  -".to_string(),
                     _ => "   -".to_string(),
                 },
-                _ => format!("{}", line_no), //TODO! source_line_no
+                _ => format!("{}", source_line_no), //TODO! source_line_no
             };
             ctx.linenos
                 .insert(line_no, (line_no_text, self.origin, self.kind.clone()));

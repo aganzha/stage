@@ -753,6 +753,15 @@ impl Status {
 
         // this is called once in status_view and 3 times in commit view!!!
         txt.bind_highlights(context);
+        glib::source::timeout_add_local(core::time::Duration::from_millis(30), {
+            let txt = txt.clone();
+            move || {
+                // hack to render background txt layers
+                txt.queue_draw();
+                glib::ControlFlow::Break
+            }
+        });
+
         self.cursor_position
             .replace(CursorPosition::from_context(context));
     }

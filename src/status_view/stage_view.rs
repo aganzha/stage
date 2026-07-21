@@ -99,14 +99,20 @@ mod stage_view_internal {
             is_dark: bool,
         ) -> (pango::Layout, gdk::RGBA) {
             let layout = self.obj().create_pango_layout(None);
-            layout.set_markup(&format!(
-                r#"<span font-size="small" fgalpha="70%" bgalpha="20%"><span bgcolor="red">-{} </span><span bgcolor="green">+{} </span></span>"#,
-                snapshot_data.removed, snapshot_data.added
-            ));
+            let bgalpha = "20%";
+            let fgalpha = "70%";
+            let mut green = "#10ac64";
+            let mut red = "#c01c28";
             let mut rgba = gdk::RGBA::BLACK;
             if is_dark {
                 rgba = gdk::RGBA::WHITE;
+                green = "green";
+                red = "red";
             }
+            layout.set_markup(&format!(
+                r#"<span font-size="small" fgalpha="{}" bgalpha="{}"><span bgcolor="{}">-{} </span><span bgcolor="{}">+{} </span></span>"#,
+                fgalpha, bgalpha, red, snapshot_data.removed, green, snapshot_data.added
+            ));
             (layout, rgba)
         }
         fn lineno_label_layout(
