@@ -20,7 +20,6 @@ use std::fmt;
 
 use git2::RepositoryState;
 use op::LastOp;
-use regex::Regex;
 use render::ViewContainer; // MayBeViewContainer o
 use stage_view::{cursor_to_line_offset, StageView};
 
@@ -966,7 +965,7 @@ impl Status {
     }
     pub fn search<'a>(
         &'a mut self,
-        term: Regex,
+        term: &str,
         txt: &'a StageView,
         context: &mut StatusRenderContext<'a>,
     ) {
@@ -975,7 +974,7 @@ impl Status {
             .flatten()
         {
             //TODO! search
-            diff.perform_search(&term);
+            diff.perform_search(term);
         }
         self.render(txt, None, context);
         self.search

@@ -1298,7 +1298,6 @@ pub fn rebase(
 }
 
 // --------------------------------------------------------------------------------
-use git2::Blob;
 use std::path::Path;
 
 pub fn blame_any_file(
@@ -1335,7 +1334,7 @@ pub fn blame_any_file(
         let commit = repo.find_commit(oid)?;
         if commit.parent_count() != 1 {
             if oid == missing {
-                println!("🤢 SKIP 1 {:?}", oid, );
+                println!("🤢 SKIP 1 {:?}", oid,);
             }
             continue;
         }
@@ -1346,8 +1345,8 @@ pub fn blame_any_file(
                 if oid == missing {
                     println!("🤢 SKIP 2 {:?}", oid);
                 }
-                continue
-            },
+                continue;
+            }
         };
 
         if commit.parent_count() == 0 {

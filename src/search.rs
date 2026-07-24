@@ -8,7 +8,6 @@ use async_channel::Sender;
 use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Button, Label, Orientation, SearchBar, SearchEntry};
 
-use regex::Regex;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -125,11 +124,9 @@ pub fn make_search(sender: Sender<Event>) -> Search {
                     .expect("cant send throug channel");
                 return;
             }
-            if let Ok(regex) = Regex::new(&term) {
-                sender
-                    .send_blocking(Event::Search(regex))
-                    .expect("cant send throug channel");
-            }
+            sender
+                .send_blocking(Event::Search(term))
+                .expect("cant send throug channel");
         }
     });
     let search_box = GtkBox::builder()
@@ -187,17 +184,18 @@ impl Hunk {
         had_ranges
     }
 
-    pub fn perform_search(&mut self, term: &Regex) {
-        self.search_ranges = term
-            .find_iter(&self.buf)
-            .map(|m| (m.start() + 1, m.end()))
+    pub fn perform_search(&mut self, term: &str) {
+        self.search_ranges = self
+            .buf
+            .match_indices(term)
+            .map(|(start, _)| (start + 1, start + term.len()))
             .collect();
     }
 }
 
 impl Diff {
     // TODO! search
-    pub fn perform_search(&mut self, term: &Regex) {
+    pub fn perform_search(&mut self, term: &str) {
         let mut found_in_self = false;
         for file in self.files.iter_mut() {
             let mut found_in_file = false;

@@ -99,12 +99,14 @@ mod stage_view_internal {
             is_dark: bool,
         ) -> (pango::Layout, gdk::RGBA) {
             let layout = self.obj().create_pango_layout(None);
-            let bgalpha = "20%";
-            let fgalpha = "70%";
+            let mut bgalpha = "30%";
+            let mut fgalpha = "80%";
             let mut green = "#10ac64";
             let mut red = "#c01c28";
             let mut rgba = gdk::RGBA::BLACK;
             if is_dark {
+                bgalpha = "20%";
+                fgalpha = "70%";
                 rgba = gdk::RGBA::WHITE;
                 green = "green";
                 red = "red";

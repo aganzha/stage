@@ -7,7 +7,6 @@ mod search;
 mod status_view;
 mod syntax;
 use async_channel::Sender;
-use regex::Regex;
 use search::{make_search, Search};
 use status_view::{
     context::StatusRenderContext,
@@ -162,7 +161,7 @@ pub enum Event {
     Focus,
     UserInputRequired(Arc<(Mutex<LoginPassword>, Condvar)>),
     Blame,
-    Search(Regex),
+    Search(String),
     ResetSearch,
     GoToLine(i32),
     ToggleSearch(bool),
@@ -869,7 +868,7 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                         }
                     }
                     Event::Search(term) => {
-                        status.search(term, &txt, &mut ctx);
+                        status.search(&term, &txt, &mut ctx);
                     }
                     Event::ResetSearch => {
                         status.reset_search(&txt, &mut ctx);
