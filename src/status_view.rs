@@ -973,7 +973,6 @@ impl Status {
             .into_iter()
             .flatten()
         {
-            //TODO! search
             diff.perform_search(term);
         }
         self.render(txt, None, context);
@@ -981,11 +980,19 @@ impl Status {
             .matched_lines
             .replace(context.search_matched_lines.clone());
         self.search.update();
-        // TODO find nearest line!
-        if let Some(scroll_to) = context.search_matched_lines.iter().min() {
-            self.search.current_lineno.replace(Some(*scroll_to));
-            self.goto_line(txt, *scroll_to);
+        let pos = txt.buffer().cursor_position();
+        let iter = txt.buffer().iter_at_offset(pos);
+        let current_line = iter.line();
+        if let Some(neareast_lineno) = context
+            .search_matched_lines
+            .iter()
+            .min_by_key(|&ln| (ln - current_line).abs())
+            .copied()
+        {
+            self.search.current_lineno.replace(Some(neareast_lineno));
+            self.goto_line(txt, neareast_lineno);
         }
+        self.search.update();
     }
 
     pub fn goto_line(&self, txt: &StageView, lineno: i32) {

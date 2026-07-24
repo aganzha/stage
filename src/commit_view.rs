@@ -530,13 +530,22 @@ pub fn show_commit_window(
                                 search
                                     .matched_lines
                                     .replace(ctx.search_matched_lines.clone());
-                                if let Some(scroll_to) = ctx.search_matched_lines.iter().min() {
-                                    search.current_lineno.replace(Some(*scroll_to));
-                                    if let Some(mut iter) = buffer.iter_at_line(*scroll_to) {
+                                let pos = txt.buffer().cursor_position();
+                                let iter = txt.buffer().iter_at_offset(pos);
+                                let current_line = iter.line();
+                                if let Some(neareast_lineno) = ctx
+                                    .search_matched_lines
+                                    .iter()
+                                    .min_by_key(|&ln| (ln - current_line).abs())
+                                    .copied()
+                                {
+                                    search.current_lineno.replace(Some(neareast_lineno));
+                                    if let Some(mut iter) = buffer.iter_at_line(neareast_lineno) {
                                         buffer.place_cursor(&iter);
                                         txt.scroll_to_iter(&mut iter, 0.0, true, 0.5, 0.5);
                                     }
                                 }
+                                search.update();
                             }
                             search.update();
                         }

@@ -194,7 +194,6 @@ impl Hunk {
 }
 
 impl Diff {
-    // TODO! search
     pub fn perform_search(&mut self, term: &str) {
         let mut found_in_self = false;
         for file in self.files.iter_mut() {
@@ -222,12 +221,10 @@ impl Diff {
                 }
             }
             if found_in_file {
-                println!("🏁 switch FILE {:?}", file.path);
                 file.set_switch(true);
             }
         }
         if found_in_self {
-            println!("🏁 switch DIFF {:?}", self.kind);
             self.set_switch(true);
         }
     }
