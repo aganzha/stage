@@ -30,3 +30,4 @@ install -Dm644 "$PROJECT_ROOT"/icons/512x512/io.github.aganzha.Stage.png -t /app
 install -Dm644 "$PROJECT_ROOT"/icons/io.github.aganzha.Stage.svg -t /app/share/icons/hicolor/scalable/apps
 install -Dm644 "$PROJECT_ROOT"/icons/io.github.aganzha.Stage-symbolic.svg -t /app/share/icons/hicolor/symbolic/apps
 install -Dm644 "$PROJECT_ROOT"/icons/org.gnome.Logs-symbolic.svg -t /app/share/icons/hicolor/symbolic/apps
+install -Dm644 "$PROJECT_ROOT"/icons/org.gtk.gtk4.NodeEditor-symbolic.svg -t /app/share/icons/hicolor/symbolic/apps

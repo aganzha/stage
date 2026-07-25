@@ -56,6 +56,7 @@ sed -i "/^%cargo_install/a install -m 644 icons/32x32/$full_id.png %{buildroot}%
 sed -i "/^%cargo_install/a install -m 644 icons/16x16/$full_id.png %{buildroot}%{_datadir}/icons/hicolor/16x16/apps/$full_id.png" $spec_name
 sed -i "/^%cargo_install/a install -m 644 icons/$full_id.svg %{buildroot}%{_datadir}/icons/hicolor/symbolic/apps/$full_id-symbolic.svg" $spec_name
 sed -i "/^%cargo_install/a install -m 644 icons/org.gnome.Logs-symbolic.svg %{buildroot}%{_datadir}/icons/hicolor/symbolic/apps/org.gnome.Logs-symbolic.svg" $spec_name
+sed -i "/^%cargo_install/a install -m 644 icons/org.gtk.gtk4.NodeEditor-symbolic.svg %{buildroot}%{_datadir}/icons/hicolor/symbolic/apps/org.gtk.gtk4.NodeEditor-symbolic.svg" $spec_name
 
 # meta
 sed -i "/^%cargo_install/a install -m 644 $full_id.desktop %{buildroot}%{_datadir}/applications/$full_id.desktop" $spec_name
@@ -89,6 +90,7 @@ sed -i "/^%changelog/i %{_datadir}/icons/hicolor/32x32/apps/$full_id.png" $spec_
 sed -i "/^%changelog/i %{_datadir}/icons/hicolor/16x16/apps/$full_id.png" $spec_name
 sed -i "/^%changelog/i %{_datadir}/icons/hicolor/symbolic/apps/$full_id-symbolic.svg" $spec_name
 sed -i "/^%changelog/i %{_datadir}/icons/hicolor/symbolic/apps/org.gnome.Logs-symbolic.svg" $spec_name
+sed -i "/^%changelog/i %{_datadir}/icons/hicolor/symbolic/apps/org.gtk.gtk4.NodeEditor-symbolic.svg" $spec_name
 
 # meta
 sed -i "/^%changelog/i %{_datadir}/applications/$full_id.desktop" $spec_name
