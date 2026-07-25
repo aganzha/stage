@@ -737,7 +737,6 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                         .expect("Could not send through channel");
                 }
                 (gdk::Key::f, gdk::ModifierType::CONTROL_MASK) => {
-                    println!("🍇 toggle search");
                     sndr.send_blocking(crate::Event::ToggleSearch(true))
                         .expect("Could not send through channel");
                 }
@@ -803,9 +802,7 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                     sndr.send_blocking(crate::Event::Toast(String::from("CapsLock pressed")))
                         .expect("Could not send through channel");
                 }
-                (_key, _modifier) => {
-                    //println!("key press in status view {:?} {:?}", key.name(), modifier);
-                }
+                (_key, _modifier) => {}
             }
             glib::Propagation::Proceed
         }

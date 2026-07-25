@@ -103,9 +103,7 @@ impl File {
         }
         for (i, hunk) in rendered.hunks.iter().enumerate() {
             if to_remain.contains(&i) {
-                println!("💰 remains {}", hunk.header);
             } else {
-                println!("🧶 erase {}", hunk.header);
                 hunk.erase(buffer, context);
             }
         }

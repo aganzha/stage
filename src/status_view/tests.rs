@@ -604,7 +604,6 @@ fn test_reconciliation_new() {
     debug!("iter over new hunks");
     for h in &new_file.hunks {
         debug!("all new hunks are transfered {}", h.view);
-        println!("🛟 {}...... {}", h.header, h.view);
         assert!(h.view.is_transfered());
         for line in &h.lines {
             assert!(line.view.is_transfered());
@@ -654,10 +653,8 @@ fn test_reconciliation_new() {
     }
     for (i, h) in new_file.hunks.iter().enumerate() {
         if i == 0 {
-            println!("🐦 {} {}", h.header, h.view);
             assert!(!h.view.is_transfered())
         } else {
-            println!("🏈 {} {}", h.header, h.view);
             assert!(h.view.is_transfered());
             for line in &h.lines {
                 assert!(line.view.is_transfered());
@@ -706,11 +703,9 @@ fn test_reconciliation_new() {
     }
     for (i, h) in new_file.hunks.iter().enumerate() {
         if i == 0 {
-            println!("🪛 {} {}", h.header, h.view);
             assert!(!h.view.is_transfered())
         } else {
             // TODO! why its expanded here?
-            println!("🌻 {} {}", h.header, h.view);
             assert!(h.view.is_transfered());
             for line in &h.lines {
                 assert!(line.view.is_transfered());
@@ -748,11 +743,6 @@ fn test_reconciliation_new() {
     iter.set_line(0);
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
     // why old settled and expanded?
-    println!(
-        "🐪 {} {}",
-        rendered_file.hunks[0].header, rendered_file.hunks[0].view
-    );
-    println!("💦 {} {}", new_file.hunks[0].header, new_file.hunks[0].view);
     assert!(rendered_file.hunks[0].get_line_no().is_some());
     assert!(new_file.hunks[0].view.is_transfered());
     for line in &new_file.hunks[0].lines {
@@ -789,11 +779,6 @@ fn test_reconciliation_new() {
     new_file.hunks.push(hunk);
     iter.set_line(0);
     new_file.enrich_view(&rendered_file, &buffer, &mut context);
-    println!(
-        "🦆 {} {}",
-        rendered_file.hunks[0].header, rendered_file.hunks[0].view
-    );
-    println!("👿 {} {}", new_file.hunks[0].header, new_file.hunks[0].view);
     assert!(rendered_file.hunks[0].get_line_no().is_some());
     assert!(new_file.hunks[0].view.is_transfered());
     for line in &new_file.hunks[0].lines {
@@ -845,8 +830,6 @@ pub fn test_cursor_position() {
     diff.render(&buffer, &mut iter, &mut ctx);
 
     // cursor on diff
-    let line_no = diff.get_line_no().unwrap();
-    println!("💦-----------------------------------{:?}", diff.view);
     // it was expand here before....
     //diff.expand(line_no, &mut ctx);
     let mut iter = buffer.iter_at_offset(0);
@@ -858,7 +841,6 @@ pub fn test_cursor_position() {
 
     // iterate on files
     for (fi, file) in diff.files.iter().enumerate() {
-        println!("................................ {:?}", file.view);
         let file_line_no = file.get_line_no().unwrap();
         // put cursor on each file
         ctx = StatusRenderContext::new(&stage);

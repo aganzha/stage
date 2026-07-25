@@ -186,34 +186,16 @@ fn main() -> glib::ExitCode {
 
     let initial_path: Rc<RefCell<Option<PathBuf>>> = Rc::new(RefCell::new(None));
 
-    // app.connect_command_line({
-    //     |app, cmdline| {
-    //         println!("🪛 connect_command_line {:?} {:?}", app, cmdline);
-    //         glib::ExitCode::SUCCESS
-    //     }
-    // });
-
-    // app.connect_handle_local_options({
-    //     |app, _vardict| {
-    //         println!("🪛 connect_HANDLE OPTIONS {:?}", app);//, vardict
-    //         std::ops::ControlFlow::Break(glib::ExitCode::SUCCESS)
-    //     }
-    // });
     let sender: Rc<RefCell<Option<Sender<Event>>>> = Rc::new(RefCell::new(None));
     app.connect_open({
-        let initial_path = initial_path.clone();
+        let _initial_path = initial_path.clone();
         let sender = sender.clone();
-        move |_opened_app: &Application, files: &[gio::File], other: &str| {
-            println!(
-                "🪛 connect_OOOOOOOOOOOpen initial_path {:?} files??? {:?} other? {:?}",
-                initial_path, files, other
-            );
+        move |_opened_app: &Application, files: &[gio::File], _other: &str| {
             for file in files {
                 let fname = file.parse_name();
                 let mut parts = fname.split("#L");
                 let real_name = parts.next().unwrap().to_string();
                 let line_no = parts.next().unwrap().to_string();
-                println!("🏁 uri and scheme =======> {:?} {:?}", real_name, line_no);
                 let line_no: i32 = line_no.parse().expect("not a i32");
                 glib::spawn_future_local({
                     //let opened_app = opened_app.clone();
@@ -230,10 +212,6 @@ fn main() -> glib::ExitCode {
                         .unwrap()
                         {
                             Ok((oid, repo_path, hunk_line)) => {
-                                println!(
-                                    "💋 ------------------> OOID {:?} repo_path {:?} hl {:?}",
-                                    oid, repo_path, hunk_line,
-                                );
                                 // let window = opened_app.window();
                                 let relative_path = Path::new(&real_name)
                                     .strip_prefix(repo_path.parent().unwrap())
@@ -256,7 +234,7 @@ fn main() -> glib::ExitCode {
                                 );
                             }
                             Err(error) => {
-                                println!("⚠️ errrrrrrrrr {:?}", error);
+                                info!("⚠️ errrrrrrrrr {:?}", error);
                             }
                         };
                     }
@@ -877,7 +855,6 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                         status.goto_line(&txt, lineno);
                     }
                     Event::ToggleSearch(value) => {
-                        println!("😖 toggle {}", value);
                         search.toggle(value);
                     }
                 };

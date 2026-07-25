@@ -182,7 +182,6 @@ pub trait ViewContainer: fmt::Display {
     }
     fn put_line_onto(&self, iter: &mut TextIter) {
         let view = self.get_view();
-        println!("🎯 put line into {:?}", view,);
         if let Display::Settled(line_no, _) = view.display.get() {
             iter.set_line(line_no);
         } else {
@@ -208,12 +207,6 @@ pub trait ViewContainer: fmt::Display {
         let line_no = iter.line();
         let view = self.get_view();
         let render_op = view.render(line_no);
-        // println!("🧄 snapshot {:?}............{}", snapshot, self);
-        // println!("____________line_no {:?} view {:?} ", line_no, view);
-        // let mut eol_iter = buffer.iter_at_offset(iter.offset());
-        // eol_iter.forward_to_line_end();
-        // println!("💋 real line {}", buffer.text(&iter, &eol_iter, true));
-        // println!("");
         match render_op {
             RenderOp::Insert => {
                 self.write_content(iter, buffer, context);
@@ -249,12 +242,9 @@ pub trait ViewContainer: fmt::Display {
         }
         let child_required = view.needs_child_render();
         if child_required {
-            //println!("🧪 go expand childs {} {}", self, view);
             for child in self.get_children() {
                 child.render(buffer, iter, context);
             }
-        } else {
-            //println!("⚠️ no need childs {} {}", self, view);
         }
         self.after_render(buffer, iter, context);
     }
@@ -344,7 +334,6 @@ pub trait ViewContainer: fmt::Display {
     // ViewContainer
     fn expand<'a>(&'a self, line_no: i32, context: &mut StatusRenderContext<'a>) -> Option<i32> {
         if let Some(my_line_no) = self.get_line_no() {
-            // println!("‼️ expand? lineno {} my_line_no {}", line_no, my_line_no);
             // this is required to fill current hunk.
             // cause line during expansion will need it,
             // to obtain parent (which is hunk) and expand it.
@@ -353,21 +342,14 @@ pub trait ViewContainer: fmt::Display {
             if my_line_no == line_no {
                 let view = self.get_view();
                 let child_expand_op = view.toggle();
-                // println!(
-                //     "💰 expanded! swicth {:?} expand op {:?}",
-                //     view.switch, child_expand_op
-                // );
                 self.walk_down(&mut |vc: &dyn ViewContainer| {
                     let view = vc.get_view();
                     view.apply_child_expand_op(child_expand_op);
-                    //println!("🐦 walk_down and AFTER apply! {:?}", view);
                 });
                 return Some(my_line_no);
             } else {
                 for child in self.get_children() {
-                    //println!("♦️ go expand child {:?}", child.get_view());
                     if let Some(child_lineno) = child.expand(line_no, context) {
-                        //println!("🛟 expanded child! {:?}", child.get_view());
                         return Some(child_lineno);
                     }
                 }
@@ -411,14 +393,9 @@ pub trait ViewContainer: fmt::Display {
                 context.erase_counter += 1;
             });
         }
-        //println!("‼️ DELETE {}", buffer.text(&iter, &nel_iter, true));
         buffer.delete(&mut iter, &mut nel_iter);
         let mut eol_iter = buffer.iter_at_offset(nel_iter.offset());
         eol_iter.forward_to_line_end();
-        // println!(
-        //     "💨 LINE right after erase {}",
-        //     buffer.text(&nel_iter, &eol_iter, true)
-        // );
         cursor_to_line_offset(buffer, initial_line_offset);
     }
 }
@@ -669,7 +646,6 @@ impl ViewContainer for Hunk {
     // Hunk
     fn after_cursor<'a>(&'a self, _buffer: &TextBuffer, ctx: &mut StatusRenderContext<'a>) {
         if let Some(snapshot) = self.snapshot() {
-            //println!("♟️ snapshot {:?}", snapshot.line_no);
             ctx.highlight_hunks.push(snapshot);
         }
     }
@@ -716,7 +692,6 @@ impl ViewContainer for Line {
             if my_line_no == line_no {
                 if let Some(hunk) = context.current_hunk {
                     if let Some(hunk_lineno) = hunk.get_line_no() {
-                        println!("🧣...................");
                         return hunk.expand(hunk_lineno, context);
                     }
                 }
@@ -1227,9 +1202,6 @@ impl Line {
         for (start, end) in self.byte_indexes_to_char_indexes(ranges) {
             // MARGIN FOR LINENO
             let line_no_margin = 4;
-            // if tag == tags::MATCH_HIGHLIGHT {
-            //     println!("💰 LINE fill seatch tags {:?}", self.new_line_no);
-            // }
             self.add_tag(
                 buffer,
                 tag,

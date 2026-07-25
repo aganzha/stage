@@ -1304,7 +1304,6 @@ pub fn blame_any_file(
     file_path: impl AsRef<Path>,
     line_no: i32, // 1-based, line in HEAD version
 ) -> Result<(git2::Oid, PathBuf, HunkLineNo)> {
-    println!("🪛 ENTER {:?}", chrono::Local::now());
     let repo = Repository::discover(&file_path)?;
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
@@ -1323,34 +1322,24 @@ pub fn blame_any_file(
     let mut diff_opts = make_diff_options();
     diff_opts.pathspec(path);
 
-    let missing = Oid::from_str("316f5cd1531f30519bb51e4b4f6f6168563f0044").unwrap();
+    let _missing = Oid::from_str("316f5cd1531f30519bb51e4b4f6f6168563f0044").unwrap();
     let mut found_oid: Option<Oid> = None;
     for oid_result in revwalk {
         let mut line_diff: i32 = 0;
         let oid = oid_result?;
-        if oid == missing {
-            println!("😀 YAAAAAAAAAAAAAAAAAAAAAAA");
-        }
         let commit = repo.find_commit(oid)?;
         if commit.parent_count() != 1 {
-            if oid == missing {
-                println!("🤢 SKIP 1 {:?}", oid,);
-            }
             continue;
         }
         let tree = commit.tree()?;
         let child_entry = match tree.get_path(path) {
             Ok(e) => e,
             Err(_) => {
-                if oid == missing {
-                    println!("🤢 SKIP 2 {:?}", oid);
-                }
                 continue;
             }
         };
 
         if commit.parent_count() == 0 {
-            println!("🤢 SKIP 3 {:?}", oid);
             continue;
         }
         let parent = commit.parent(0)?;
@@ -1358,14 +1347,10 @@ pub fn blame_any_file(
         let parent_blob = {
             if let Ok(pe) = parent_tree.get_path(path) {
                 if pe.id() == child_entry.id() {
-                    if oid == missing {
-                        println!("🤢 SKIP 4 {:?}", oid);
-                    }
                     continue;
                 }
                 pe.to_object(&repo)?.peel_to_blob()?
             } else {
-                println!("🤢 SKIP 5 {:?}", oid);
                 continue;
             }
         };
@@ -1381,10 +1366,6 @@ pub fn blame_any_file(
                 //3 for context lines
                 let new_lines = hunk.new_lines();
                 let old_lines = hunk.old_lines();
-                println!(
-                    "🍎 new_start {:?} new_lines {:?} old_lines {:?} ====> line_to_match {:?}",
-                    new_start, new_lines, old_lines, line_to_match
-                );
                 if new_lines >= old_lines // only adding or changing (exlude pure removing)
                     && (new_start + 3)  + (new_lines - old_lines) >= line_to_match as u32
                 // 6 - context lines
@@ -1393,7 +1374,6 @@ pub fn blame_any_file(
                     return false;
                 }
                 line_diff = line_diff - new_lines as i32 + old_lines as i32;
-                println!("DIFF {:?} oid {:?}", line_diff, oid);
             }
             true
         };
@@ -1416,7 +1396,6 @@ pub fn blame_any_file(
             ));
         }
         line_to_match += line_diff;
-        println!("end of loop {:?}", line_to_match);
     }
     Err(anyhow!("blame: commit not found for line"))
 }
@@ -1430,14 +1409,9 @@ pub fn blame_any_file_old(
     let ob = repo.revparse_single("HEAD^{commit}")?;
     let mut opts = git2::BlameOptions::new();
     opts.newest_commit(ob.id());
-    println!("🛟 newest commit {:?}", ob.id());
     let repo_path = repo.path();
     opts.min_line(line_no as usize);
     opts.max_line(line_no as usize);
-    debug!(
-        "💋 blame any file: start_line {:?} FOR REPO {:?}",
-        line_no, repo_path,
-    );
     let blame = repo.blame_file(
         file_path
             .as_ref()
@@ -1452,14 +1426,6 @@ pub fn blame_any_file_old(
     // e.g. flatpak run io.github.aganzha.Stage ~/kaa/target.py#L267
     // show orig_start_line() - 51. but in that commit there are onlu 22 lines.
     // but currently write now 29 lines are added (green). so, those must be substructed!
-    println!(
-        "🧄 looooooooooooooooooooooooooooord {:?} <<< >>>>{:?} ??????? {:?}. FINAL {:?}, ORIG {:?}",
-        blame_hunk.final_start_line(),
-        blame_hunk.orig_start_line(),
-        blame_hunk.lines_in_hunk(),
-        blame_hunk.final_commit_id(),
-        blame_hunk.orig_commit_id(),
-    );
     Ok((
         blame_hunk.orig_commit_id(),
         repo_path.to_path_buf(),
