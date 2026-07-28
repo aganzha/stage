@@ -637,8 +637,8 @@ impl Status {
                         if let Some(file) = conflicted.files.first() {
                             file.put_line_onto(&mut iter);
                         }
-                    } else if let Some(unstaged) = &self.unstaged {
-                        if let Some(file) = unstaged.files.first() {
+                    } else if let Some(true) = self.unstaged.as_ref().map(|d| d.is_expanded()) {
+                        if let Some(file) = self.unstaged.as_ref().and_then(|d| d.files.first()) {
                             file.put_line_onto(&mut iter);
                         }
                     }
@@ -646,8 +646,8 @@ impl Status {
                 Some(DiffKind::Staged) | Some(DiffKind::Untracked)
                     if self.conflicted.is_none() && self.unstaged.is_none() =>
                 {
-                    if let Some(staged) = &self.staged {
-                        if let Some(file) = staged.files.first() {
+                    if let Some(true) = self.staged.as_ref().map(|d| d.is_expanded()) {
+                        if let Some(file) = self.staged.as_ref().and_then(|d| d.files.first()) {
                             file.put_line_onto(&mut iter);
                         }
                     } else if let Some(untracked) = &self.untracked {
@@ -667,17 +667,21 @@ impl Status {
         if let Some(op) = self.last_op.get() {
             match render_diff_kind {
                 DiffKind::Unstaged | DiffKind::Untracked | DiffKind::Conflicted => {
-                    if let Some(diff) = &self.staged {
-                        diff.files[0].put_line_onto(iter);
-                        self.last_op.take();
+                    if let Some(true) = self.staged.as_ref().map(|d| d.is_expanded()) {
+                        if let Some(file) = self.staged.as_ref().and_then(|d| d.files.first()) {
+                            file.put_line_onto(iter);
+                            self.last_op.take();
+                        }
                     } else {
                         self.last_op.replace(Some(op.desire(DiffKind::Staged)));
                     }
                 }
                 DiffKind::Staged => {
-                    if let Some(diff) = &self.unstaged {
-                        diff.files[0].put_line_onto(iter);
-                        self.last_op.take();
+                    if let Some(true) = self.unstaged.as_ref().map(|d| d.is_expanded()) {
+                        if let Some(file) = self.unstaged.as_ref().and_then(|d| d.files.first()) {
+                            file.put_line_onto(iter);
+                            self.last_op.take();
+                        }
                     } else if let Some(diff) = &self.untracked {
                         diff.files[0].put_line_onto(iter);
                         self.last_op.take();

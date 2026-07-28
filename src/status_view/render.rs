@@ -184,8 +184,6 @@ pub trait ViewContainer: fmt::Display {
         let view = self.get_view();
         if let Display::Settled(line_no, _) = view.display.get() {
             iter.set_line(line_no);
-        } else {
-            panic!("😲 put line on hidden view");
         }
     }
 
