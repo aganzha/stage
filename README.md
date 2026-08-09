@@ -56,6 +56,7 @@ Move cursor around with arrows or by mouse clicking in any area. Commands your i
 - `o` - opens quick repo selector
 - `Ctrl` + `o` - opens repo choosing dialog
 - `Ctrl` + `b` - blame line under cursor
+- `Ctrl` + `f` - search among staged/unstaged changes
 
 
 > [!NOTE]
