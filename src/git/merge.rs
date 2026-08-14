@@ -345,7 +345,8 @@ pub fn try_finalize_conflict(
     let mut to_unstage = Vec::new();
     let mut index = repo.index()?;
     let similar_diff = conflict::get_diff(&repo, &mut to_stage, &mut to_unstage)?;
-    let conflicted = similar_diff.map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted));
+    let conflicted =
+        similar_diff.map(|git_diff| make_diff(&git_diff, DiffKind::Conflicted, Vec::new()));
 
     sender
         .send_blocking(crate::Event::Conflicted(

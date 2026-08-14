@@ -214,7 +214,11 @@ impl Status {
                                 if response == "Delete" {
                                     let path_to_delete =
                                         repo_path.parent().unwrap().join(file_path.clone());
-                                    if std::fs::remove_file(&path_to_delete).is_ok() {
+                                    if path_to_delete.is_dir() {
+                                        if std::fs::remove_dir_all(&path_to_delete).is_ok() {
+                                            untracked.files.retain(|f| f.path != file_path);
+                                        }
+                                    } else if std::fs::remove_file(&path_to_delete).is_ok() {
                                         untracked.files.retain(|f| f.path != file_path);
                                     }
                                 }

@@ -54,7 +54,7 @@ pub fn test_resolution() {
         debug!("{}", line);
     }
     let git_diff = git2::Diff::from_buffer(&bytes).unwrap();
-    let diff = make_diff(&git_diff, DiffKind::Conflicted);
+    let diff = make_diff(&git_diff, DiffKind::Conflicted, Vec::new());
     let conflict_hunk = diff.files[0].hunks[0].clone();
     let mut ours = Vec::new();
     let mut theirs = Vec::new();
@@ -82,7 +82,7 @@ pub fn test_resolution() {
         debug!("{}", line);
     }
     let git_diff = git2::Diff::from_buffer(&bytes).unwrap();
-    let diff = make_diff(&git_diff, DiffKind::Conflicted);
+    let diff = make_diff(&git_diff, DiffKind::Conflicted, Vec::new());
     let hunk = diff.files[0].hunks[0].clone();
     for line in &hunk.lines {
         let content = line.content(&hunk);
@@ -111,7 +111,7 @@ pub fn test_resolution() {
         debug!("{}", line);
     }
     let git_diff = git2::Diff::from_buffer(&bytes).unwrap();
-    let diff = make_diff(&git_diff, DiffKind::Conflicted);
+    let diff = make_diff(&git_diff, DiffKind::Conflicted, Vec::new());
     let hunk = diff.files[0].hunks[0].clone();
     for line in &hunk.lines {
         let content = line.content(&hunk);

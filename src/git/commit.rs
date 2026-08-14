@@ -161,7 +161,7 @@ pub fn get_commit_diff(path: PathBuf, oid: git2::Oid) -> Result<CommitDiff, git2
     )?;
     Ok(CommitDiff::new(
         commit,
-        make_diff(&git_diff, DiffKind::Commit), // was Staged
+        make_diff(&git_diff, DiffKind::Commit, Vec::new()), // was Staged
     ))
 }
 
@@ -204,7 +204,7 @@ pub fn create(
     let git_diff =
         repo.diff_tree_to_index(Some(&current_tree), None, Some(&mut make_diff_options()))?;
 
-    let diff = make_diff(&git_diff, DiffKind::Staged);
+    let diff = make_diff(&git_diff, DiffKind::Staged, Vec::new());
     sender
         .send_blocking(crate::Event::Staged(if diff.is_empty() {
             None
@@ -222,7 +222,7 @@ pub fn create(
             let git_diff = repo
                 .diff_index_to_workdir(None, Some(&mut make_diff_options()))
                 .expect("cant' get diff index to workdir");
-            let diff = make_diff(&git_diff, DiffKind::Unstaged);
+            let diff = make_diff(&git_diff, DiffKind::Unstaged, Vec::new());
             sender
                 .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
                     None

@@ -804,7 +804,7 @@ fn get_staged(path: PathBuf, sender: Sender<crate::Event>) {
                 .expect("can't get diff tree to index")
         }
     };
-    let diff = make_diff(&git_diff, DiffKind::Staged);
+    let diff = make_diff(&git_diff, DiffKind::Staged, Vec::new());
     sender
         .send_blocking(crate::Event::Staged(if diff.is_empty() {
             None
@@ -814,11 +814,31 @@ fn get_staged(path: PathBuf, sender: Sender<crate::Event>) {
         .expect("Could not send through channel");
 }
 
+const INDEX_ENTRY_EXTENDED: u16 = 0x4000;
+const SKIP_WORKTREE_BIT: u16 = 0x4000;
+
+fn is_skip_worktree(entry: &git2::IndexEntry) -> bool {
+    (entry.flags & INDEX_ENTRY_EXTENDED != 0) && (entry.flags_extended & SKIP_WORKTREE_BIT != 0)
+}
+
 fn get_unstaged(repo: &git2::Repository, sender: Sender<crate::Event>) {
+    let index = repo.index().unwrap();
     let git_diff = repo
         .diff_index_to_workdir(None, Some(&mut make_diff_options()))
         .unwrap();
-    let diff = make_diff(&git_diff, DiffKind::Unstaged);
+    let ignored_paths = git_diff
+        .deltas()
+        .filter_map(|d| d.old_file().path())
+        .map(|p| (p, index.get_path(p, 0)))
+        .filter(|(_p, e)| {
+            if let Some(index_entry) = e {
+                return is_skip_worktree(index_entry);
+            }
+            false
+        })
+        .map(|(p, _e)| p.to_path_buf())
+        .collect::<Vec<PathBuf>>();
+    let diff = make_diff(&git_diff, DiffKind::Unstaged, ignored_paths);
     sender
         .send_blocking(crate::Event::Unstaged(if diff.is_empty() {
             None
@@ -872,7 +892,7 @@ pub fn get_untracked(path: PathBuf, sender: Sender<crate::Event>) {
     }
 }
 
-pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
+pub fn make_diff(git_diff: &GitDiff, kind: DiffKind, excluded_paths: Vec<PathBuf>) -> Diff {
     let mut diff = Diff::new(kind);
     let mut current_file = File::new(kind);
     let mut current_hunk = Hunk::new(kind);
@@ -883,6 +903,11 @@ pub fn make_diff(git_diff: &GitDiff, kind: DiffKind) -> Diff {
         let status = diff_delta.status();
         if status == Delta::Conflicted && (kind == DiffKind::Staged || kind == DiffKind::Unstaged) {
             return true;
+        }
+        if let Some(p) = diff_delta.old_file().path() {
+            if excluded_paths.iter().any(|e| e.as_path() == p) {
+                return false;
+            }
         }
         let file: DiffFile = match status {
             Delta::Modified | Delta::Conflicted => diff_delta.new_file(),
