@@ -413,7 +413,13 @@ pub fn factory(
 
     let repo_menu = gio::Menu::new();
     for path in settings.get::<Vec<String>>("paths").iter() {
-        repo_menu.append(Some(path), Some(&format!("win.open::{}", path)));
+        let mut parts: Vec<&str> = path.split("/").collect();
+        let mut last = parts.pop();
+        if last.map_or(false, |s| s.is_empty()) {
+            last = parts.pop();
+        }
+        let name = format!("{}/_{}", parts.join("/"), last.unwrap_or(""));
+        repo_menu.append(Some(&name), Some(&format!("win.open::{}", path)));
     }
     let repo_popover = PopoverMenu::from_model(Some(&repo_menu));
 
