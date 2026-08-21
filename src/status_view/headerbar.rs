@@ -418,7 +418,11 @@ pub fn factory(
         if last.map_or(false, |s| s.is_empty()) {
             last = parts.pop();
         }
-        let name = format!("{}/_{}", parts.join("/"), last.unwrap_or(""));
+        let name = format!(
+            "{}/_{}",
+            parts.join("/").replace("_", "__"),
+            last.unwrap_or("").replace("_", "__")
+        );
         repo_menu.append(Some(&name), Some(&format!("win.open::{}", path)));
     }
     let repo_popover = PopoverMenu::from_model(Some(&repo_menu));
