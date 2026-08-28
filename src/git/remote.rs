@@ -331,7 +331,7 @@ pub fn push(
                     .expect("cant set upstream");
             }
             sender
-                .send_blocking(crate::Event::Toast(String::from(updated_ref)))
+                .send_blocking(crate::Event::Toast((String::from(updated_ref), true)))
                 .expect("cant send through channel");
             match get_upstream(path.clone()) {
                 Ok(head) => {
@@ -423,7 +423,7 @@ pub fn pull(path: PathBuf, sender: Sender<crate::Event>) -> Result<(), RemoteRes
                 oid2
             );
             sender
-                .send_blocking(crate::Event::Toast(String::from(updated_ref)))
+                .send_blocking(crate::Event::Toast((String::from(updated_ref), true)))
                 .expect("cant send through channel");
             match get_upstream(path.clone()) {
                 Ok(head) => {

@@ -145,7 +145,7 @@ pub enum Event {
     ShowOid(Oid, Option<StashNum>, Option<BlameLine>),
     ShowTextOid(String),
     TextViewResize(i32),
-    Toast(String),
+    Toast((String, bool)),
     StashesPanel,
     Stashes(Stashes),
     Refresh,
@@ -411,10 +411,10 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
 
     glib::spawn_future_local({
         let sender = sender.clone();
+        let app = app.clone();
         async move {
             while let Ok(event) = receiver.recv().await {
                 let mut ctx = StatusRenderContext::new(&txt);
-
                 match event {
                     Event::OpenRepo(path) => {
                         info!("info.open repo {:?}", path);
@@ -646,11 +646,11 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                     Event::TextViewResize(w) => {
                         info!("TextViewResize {}", w);
                     }
-                    Event::Toast(title) => {
+                    Event::Toast((title, system_wide)) => {
                         info!("Toast {:?}", toast_lock);
                         if !toast_lock.get() {
                             toast_lock.replace(true);
-                            let toast = Toast::builder().title(title).timeout(2).build();
+                            let toast = Toast::builder().title(&title).timeout(2).build();
                             toast.connect_dismissed({
                                 let toast_lock = toast_lock.clone();
                                 move |_t| {
@@ -658,6 +658,11 @@ fn run_app(app: &Application, initial_path: &Option<PathBuf>) -> Sender<Event> {
                                 }
                             });
                             toast_overlay.add_toast(toast);
+                            if system_wide {
+                                let notification = gio::Notification::new("Stage");
+                                notification.set_body(Some(&title));
+                                app.send_notification(Some(&title), &notification);
+                            }
                         }
                     }
                     Event::Zoom(dir) => {

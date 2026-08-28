@@ -781,7 +781,7 @@ pub fn get_current_repo_status(
             if let Err(error) = merge::try_finalize_conflict(path, sender.clone(), None) {
                 error!("error in try_finalize_conflict {}", error);
                 sender
-                    .send_blocking(crate::Event::Toast(error.to_string()))
+                    .send_blocking(crate::Event::Toast((error.to_string(), false)))
                     .expect("cant send through channel");
             }
         }

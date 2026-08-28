@@ -799,8 +799,11 @@ pub fn factory(sndr: Sender<crate::Event>, name: &str) -> StageView {
                         .expect("Could not send through channel");
                 }
                 (_, gdk::ModifierType::LOCK_MASK) => {
-                    sndr.send_blocking(crate::Event::Toast(String::from("CapsLock pressed")))
-                        .expect("Could not send through channel");
+                    sndr.send_blocking(crate::Event::Toast((
+                        String::from("CapsLock pressed"),
+                        false,
+                    )))
+                    .expect("Could not send through channel");
                 }
                 (_key, _modifier) => {}
             }

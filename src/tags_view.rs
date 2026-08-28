@@ -365,7 +365,10 @@ impl TagList {
                 push_btn.set_icon_name("send-to-symbolic");
                 push_btn.set_sensitive(true);
                 sender
-                    .send_blocking(crate::Event::Toast(format!("Pushed tag {:?}", tag_name)))
+                    .send_blocking(crate::Event::Toast((
+                        format!("Pushed tag {:?}", tag_name),
+                        true,
+                    )))
                     .expect("cant send through sender");
             }
         });
